@@ -15,4 +15,10 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
         to,
         "Reset your password",
         $"Reset your password here (expires in 1 hour): {storefrontBaseUrl}/reset-password?token={token}");
+
+    public EmailMessage OrderConfirmed(string to, Guid orderId, long amountMinor, string currency) => new(
+        to,
+        "Your order is confirmed",
+        $"Thanks for your purchase. Order {orderId} for {amountMinor / 100m:0.00} {currency} is confirmed. "
+            + $"Track it at {storefrontBaseUrl}/orders/{orderId}.");
 }

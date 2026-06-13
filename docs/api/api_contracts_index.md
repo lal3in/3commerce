@@ -10,6 +10,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 |---------|----------|----------------|-------------|
 | Identity | [identity.openapi.json](./identity.openapi.json) | `/api/identity` | 5101 |
 | Catalog | [catalog.openapi.json](./catalog.openapi.json) | `/api/catalog` | 5102 |
+| Ordering | [ordering.openapi.json](./ordering.openapi.json) | `/api/ordering` | 5103 |
+| Payments | [payments.openapi.json](./payments.openapi.json) | `/api/payments` | 5104 |
 
 ## Identity (`/api/identity`)
 
@@ -43,6 +45,24 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 - Auth transport: opaque `3c_session` cookie → gateway mints `X-Internal-Claims` ES256 JWT → services verify (ADR-0012).
 - Pagination: `page`/`pageSize` (max 100) + `X-Total-Count`.
 
+## Ordering (`/api/ordering`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET/POST/PUT/DELETE | `/cart[/items[/{productId}]]` | anon (cookie-keyed) | Cart; merges into the user cart on login |
+| POST | `/checkout` | anon (guest) | Returns 201 + clientSecret + totals once the intent exists (never blocks on the saga) |
+| GET | `/orders` · `/orders/{id}` | session | Order history / detail |
+| GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
+
+## Payments (`/api/payments`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/ledger/accounts` · `/admin/ledger/entries` | admin | Inspect the double-entry ledger |
+| POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
+
+> `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
+
 ## Pending services (later phases)
 
-Ordering, Payments, Fulfillment, Support contracts are added as those services gain endpoints (Phases 3–4).
+Fulfillment and Support contracts are added as those services gain endpoints (Phase 4).

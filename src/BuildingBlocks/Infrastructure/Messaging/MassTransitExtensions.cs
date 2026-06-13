@@ -14,7 +14,8 @@ public static class MassTransitExtensions
     public static IServiceCollection AddServiceBus<TDbContext>(
         this IServiceCollection services,
         IConfiguration configuration,
-        Action<IBusRegistrationConfigurator>? configure = null)
+        Action<IBusRegistrationConfigurator>? configure = null,
+        Action<IBusRegistrationContext, IRabbitMqBusFactoryConfigurator>? configureTransport = null)
         where TDbContext : DbContext
     {
         services.AddMassTransit(bus =>
@@ -38,6 +39,7 @@ public static class MassTransitExtensions
             bus.UsingRabbitMq((context, cfg) =>
             {
                 cfg.Host(new Uri(GetRabbitMqConnectionString(configuration)));
+                configureTransport?.Invoke(context, cfg);
                 cfg.ConfigureEndpoints(context);
             });
         });

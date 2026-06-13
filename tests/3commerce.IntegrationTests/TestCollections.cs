@@ -13,3 +13,9 @@ public sealed class SpineCollection : ICollectionFixture<SpineFixture>
 {
     public const string Name = "spine";
 }
+
+[CollectionDefinition(Name)]
+public sealed class Phase3Collection : ICollectionFixture<Phase3Fixture>
+{
+    public const string Name = "phase3";
+}

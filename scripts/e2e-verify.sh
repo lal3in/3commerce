@@ -24,6 +24,10 @@
 #       /me requires claims, wrong password rejected, reset revokes sessions
 #   A6  Integration · Catalog: import ≥10k SKUs, exact search, typo fallback,
 #       filters, search p95 < 500ms, hostile-input safety
+#   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
+#       append-only (UPDATE/DELETE blocked)
+#   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
+#       duplicate webhook = one entry, refund reverses + ledger stays balanced
 #   A7  Storefront typecheck (tsc) + production build (next build)
 #   A8  No vulnerable NuGet packages
 #
@@ -43,6 +47,11 @@
 #   L12 Search latency p95 < 500ms
 #   L13 Logout → 204; password reset → login with new password
 #   L14 Storefront SSR: home/search/product render catalog data; /account redirects
+#   L15 Cart: add product → cart reflects it
+#   L16 Checkout: returns order + clientSecret + correct tax/gross (returns at intent)
+#   L17 Simulate payment → saga confirms the order
+#   L18 Ledger: balanced sale posted, trial balance zero
+#   L19 Admin refund → ledger reversal, trial balance stays zero
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -186,6 +195,45 @@ run_live() {
   check "L14b search renders" "items" bash -c "curl -fsS '$STOREFRONT/search?q=speaker'"
   check "L14c product detail renders" "<h1" bash -c "curl -fsS '$STOREFRONT/products/$slug'"
   check "L14d account redirects unauth" "307" bash -c "curl -s -o /dev/null -w '%{http_code}' $STOREFRONT/account"
+
+  stage "L15-L19  Money flow: cart → checkout saga → ledger → refund"
+  pay_scalar() { docker exec 3commerce-postgres psql -U payments_svc -d payments_db -tAc "$1" 2>/dev/null | tr -d '[:space:]'; }
+  local trialbal='SELECT COALESCE(sum("DebitMinor"),0)-COALESCE(sum("CreditMinor"),0) FROM "JournalLines"'
+  # Pick a product known to the Ordering projection (populated from the import via events).
+  local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM "ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
+  local cartjar=/tmp/3c-e2e-cart.txt; rm -f "$cartjar"
+  if [[ -n "$prod" ]]; then
+    local addcode; addcode="$(curl -s -o /dev/null -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2}")"
+    [[ "$addcode" == "200" ]] && pass "L15 add to cart" || fail "L15 add to cart ($addcode)"
+
+    local co; co="$(curl -s -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d '{"email":"e2e@example.com","shippingAddress":{"name":"E","line1":"1 St","city":"Berlin","postcode":"10115","country":"DE"}}')"
+    local oid gross secret
+    oid="$(grep -oE '"orderId":"[^"]+"' <<<"$co" | cut -d'"' -f4)"
+    gross="$(grep -oE '"grossMinor":[0-9]+' <<<"$co" | grep -oE '[0-9]+')"
+    secret="$(grep -oE '"clientSecret":"pi_fake_[^"]+"' <<<"$co")"
+    { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross, intent returned)"; } || fail "L16 checkout"
+
+    # Wait for the saga to start, then simulate the payment.
+    sleep 3
+    local intent="pi_fake_$(tr -d - <<<"$oid")"
+    curl -s -o /dev/null -X POST "localhost:5104/dev/simulate-payment/$intent"
+    local confirmed=0
+    for _ in $(seq 1 15); do
+      [[ "$(curl -s $GATEWAY/api/ordering/orders/$oid/status | grep -oE '"status":"[^"]+"' | cut -d'"' -f4)" == "Confirmed" ]] && { confirmed=1; break; }; sleep 2
+    done
+    [[ $confirmed == 1 ]] && pass "L17 saga confirms order" || fail "L17 saga confirm"
+
+    local saleTb; saleTb="$(pay_scalar "$trialbal")"
+    { [[ "$saleTb" == "0" ]] && pass "L18 ledger balanced after sale"; } || fail "L18 trial balance=$saleTb"
+
+    curl -s -o /dev/null -b "$admin" -X POST $GATEWAY/api/payments/admin/refunds -H 'content-type: application/json' -H 'Idempotency-Key: e2e-refund' -d "{\"orderId\":\"$oid\",\"amountMinor\":$gross,\"reason\":\"e2e\"}"
+    sleep 4
+    local refTb; refTb="$(pay_scalar "$trialbal")"
+    local refunded; refunded="$(pay_scalar "SELECT count(*) FROM \"Refunds\" WHERE \"OrderId\"='$oid'")"
+    { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
+  else
+    fail "L15-L19 no product in Ordering projection (import may not have propagated)"
+  fi
 
   stage "Tearing down"
   "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1

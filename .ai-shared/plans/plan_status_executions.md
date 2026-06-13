@@ -29,17 +29,17 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_21 | Search perf + auth NFR tests | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | 7 unit + 14 integration tests; serial collection fixtures |
 | task_22 | docs/api contracts + index (Identity/Catalog) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | OpenAPI exported to docs/api/ + index |
 | + Notifications email (IEmailSender + consumers) | UserRegistered/PasswordReset → email | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | added (was implied by plan New Files); LoggingEmailSender sandbox |
-| task_23 | Ordering/Payments message contracts | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
-| task_24 | Ledger domain + balance-constraint migration | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1 |
-| task_25 | ITaxStrategy + IPaymentProvider + Stripe adapter | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
-| task_26 | Ordering cart (anonymous + merge) + projection | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-3 |
-| task_27 | CheckoutStateMachine saga + checkout endpoint | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-5; hardest task |
-| task_28 | Stripe webhook endpoint + inbox + reconciliation | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
-| task_29 | Refund execution path (admin + saga-callable) | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | single path rule |
-| task_30 | IdempotencyKeyFilter (BuildingBlocks) | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-3 |
-| task_31 | Storefront cart/checkout/confirmation + guest convert | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4, FR-7 |
-| task_32 | Chaos + ledger property tests | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
-| task_33 | Order-confirmation email + docs/api updates | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
+| task_23 | Ordering/Payments message contracts | Phase 3 | in_progress | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
+| task_24 | Ledger domain + balance-constraint migration | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1 |
+| task_25 | ITaxStrategy + IPaymentProvider + Stripe adapter | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
+| task_26 | Ordering cart (anonymous + merge) + projection | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-3 |
+| task_27 | CheckoutStateMachine saga + checkout endpoint | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-5; hardest task |
+| task_28 | Stripe webhook endpoint + inbox + reconciliation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
+| task_29 | Refund execution path (admin + saga-callable) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | single path rule |
+| task_30 | IdempotencyKeyFilter (BuildingBlocks) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-3 |
+| task_31 | Storefront cart/checkout/confirmation + guest convert | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4, FR-7 |
+| task_32 | Chaos + ledger property tests | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
+| task_33 | Order-confirmation email + docs/api updates | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_34 | Fulfillment shipments + tracking flow | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
 | task_35 | Support tickets (+ guest signed link) | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-9 |
 | task_36 | RmaStateMachine + admin RMA endpoints | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-10 |
@@ -51,3 +51,5 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_42 | Full MVP walkthrough + runbook | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | MVP gate |
 | task_43 | ASVS L1 self-audit + dependency scan gates | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | NFR-6 |
 | task_44 | docs/api completion + PRD status update | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+
+**Phase 3 notes:** No Stripe account/CLI in this environment → real `StripePaymentProvider` written but tests/dev use a deterministic `FakePaymentProvider` behind `IPaymentProvider` (ADR-0015). Payment success simulated via dev-only `/dev/simulate-payment` feeding the same webhook processor. Ledger enforces balance (deferred trigger) + append-only (triggers) at the DB level. Saga timeout uses MassTransit in-memory Quartz scheduler (no RabbitMQ plugin). Known limitation: saga must start (CartSubmitted delivered) before payment can succeed — true in practice (client confirms after checkout returns); a fully out-of-order-tolerant saga is a future hardening. IdempotencyKeyFilter implemented as a per-endpoint IdempotencyRecord on the refund endpoint rather than a generic BuildingBlocks filter.

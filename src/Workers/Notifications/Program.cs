@@ -17,6 +17,7 @@ builder.Services.AddServiceBus(builder.Configuration, bus =>
     bus.AddConsumer<PongRespondedConsumer>();
     bus.AddConsumer<UserRegisteredConsumer>();
     bus.AddConsumer<PasswordResetRequestedConsumer>();
+    bus.AddConsumer<OrderConfirmedConsumer>();
 });
 
 var host = builder.Build();
