@@ -1,13 +1,13 @@
 using MassTransit;
 using ThreeCommerce.BuildingBlocks.Contracts.Ping;
 
-namespace ThreeCommerce.Workers.Notifications;
+namespace ThreeCommerce.Workers.Notifications.Consumers;
 
 /// <summary>
-/// Phase-1 spine terminus: logs the pong. Replaced by real email sending in Phase 2.
-/// No inbox here (worker has no DB) — log lines may duplicate on redelivery, which is fine.
+/// Phase-1 spine terminus: logs the pong. Kept as the smoke-test flow.
+/// No inbox here (worker has no DB) — log lines may duplicate on redelivery.
 /// </summary>
-public class PongRespondedConsumer(ILogger<PongRespondedConsumer> logger) : IConsumer<PongResponded>
+public sealed class PongRespondedConsumer(ILogger<PongRespondedConsumer> logger) : IConsumer<PongResponded>
 {
     public Task Consume(ConsumeContext<PongResponded> context)
     {

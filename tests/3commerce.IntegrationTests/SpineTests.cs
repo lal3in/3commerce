@@ -5,7 +5,8 @@ using ThreeCommerce.BuildingBlocks.Contracts.Ping;
 namespace ThreeCommerce.IntegrationTests;
 
 [Trait("Category", "Integration")]
-public class SpineTests(SpineFixture fixture) : IClassFixture<SpineFixture>
+[Collection(SpineCollection.Name)]
+public class SpineTests(SpineFixture fixture)
 {
     private static readonly TimeSpan PongTimeout = TimeSpan.FromSeconds(30);
 

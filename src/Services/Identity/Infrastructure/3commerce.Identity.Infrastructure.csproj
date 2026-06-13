@@ -4,4 +4,7 @@
     <ProjectReference Include="../../../BuildingBlocks/Contracts/3commerce.BuildingBlocks.Contracts.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/Infrastructure/3commerce.BuildingBlocks.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+  </ItemGroup>
 </Project>

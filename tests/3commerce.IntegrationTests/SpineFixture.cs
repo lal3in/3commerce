@@ -29,6 +29,8 @@ public sealed class SpineFixture : IAsyncLifetime
 
         await _postgres.ExecScriptAsync("CREATE DATABASE catalog_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE ordering_db;");
+        // Catalog's SearchSchema migration needs pg_trgm (init script does this in real infra).
+        await ExecInDbAsync("catalog_db", "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;");
 
         RabbitMqUri = _rabbitMq.GetConnectionString();
 
@@ -98,5 +100,14 @@ public sealed class SpineFixture : IAsyncLifetime
         }
 
         throw new TimeoutException($"No PongResponded for {pingId} within {timeout}.");
+    }
+
+    private async Task ExecInDbAsync(string database, string sql)
+    {
+        var result = await _postgres.ExecAsync(["psql", "-U", "postgres", "-d", database, "-c", sql]);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Setup SQL failed on {database}: {result.Stderr}");
+        }
     }
 }

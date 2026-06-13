@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using ThreeCommerce.Gateway.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,20 +20,36 @@ builder.Services.AddOpenTelemetry()
         }
     });
 
-// Permissive global limit for Phase 1; per-route/per-session limits arrive in Phase 2 with auth.
+// Tighter per-IP limits on auth endpoints (credential stuffing), permissive elsewhere.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var path = context.Request.Path.Value ?? string.Empty;
+        var isAuthPath = path.StartsWith("/api/identity/login", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/identity/register", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/api/identity/password-reset", StringComparison.OrdinalIgnoreCase);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            (isAuthPath ? "auth:" : "any:") + ip,
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 1000,
+                PermitLimit = isAuthPath ? 30 : 1000,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
-            }));
+            });
+    });
 });
+
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("identity", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Identity:BaseUrl"] ?? "http://localhost:5101");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddSingleton<InternalClaimsMinter>();
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
@@ -53,10 +70,8 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// PHASE2: session validation middleware goes here (cookie -> Identity introspection
-// -> X-Internal-Claims minting). Until then the gateway only routes.
-
 app.UseRateLimiter();
+app.UseMiddleware<SessionAuthMiddleware>();
 app.MapReverseProxy();
 
 app.Run();

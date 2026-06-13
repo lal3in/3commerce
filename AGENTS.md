@@ -6,7 +6,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 **3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as six C# microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
 
-> **Status:** Phase 1 (skeleton & spine) complete. Solution, six services, gateway, worker, infra compose, messaging spine (outbox/inbox proven by integration tests), Dockerfiles, and CI all exist. Phase 2 (Identity & Catalog) is next — see `.ai-shared/plans/plan_status_executions.md`.
+> **Status:** Phase 1 + Phase 2 complete. Phase 1: skeleton, gateway, messaging spine. Phase 2: custom auth end-to-end (opaque cookie → gateway introspection → ES256 internal claims), Catalog with neutral schema + sample importer (10k+ SKUs) + Postgres FTS/pg_trgm search, Notifications email worker, and a Next.js SSR storefront (home/search/product/auth). All validated: 8 unit + 14 integration tests, storefront builds + SSR verified live. Phase 3 (Money: cart/checkout saga/ledger/Stripe) is next — see `.ai-shared/plans/plan_status_executions.md`.
 
 ---
 

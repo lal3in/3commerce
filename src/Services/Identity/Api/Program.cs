@@ -1,22 +1,45 @@
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
+using ThreeCommerce.Identity.Api;
+using ThreeCommerce.Identity.Api.Endpoints;
+using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Infrastructure;
+using ThreeCommerce.Identity.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceTelemetry("identity");
 builder.Services.AddApiProblemDetails();
+builder.Services.AddOpenApi();
+builder.Services.AddValidation();
 builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
 builder.Services.AddServiceBus<IdentityDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<IdentityDbContext>();
+builder.Services.AddInternalClaimsAuth(builder.Configuration);
+
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
 app.UseApiProblemDetails();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapServiceHealth();
+app.MapAuth();
+app.MapProfile();
+app.MapIntrospection();
+
+await DevAdminSeeder.SeedAsync(app);
 
 app.Run();
 

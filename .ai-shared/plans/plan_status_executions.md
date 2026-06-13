@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-13 (Phase 1 executed and validated; Phase 2 next)
+Last Modified Date-Time: 2026-06-13 (Phase 1 + Phase 2 executed and validated; Phase 3 next)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -18,16 +18,17 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_10 | Dockerfiles ×8 | Phase 1 | done | .ai-shared/plans/phase-1-skeleton-and-spine.md | gateway image build verified locally |
 | task_11 | CI workflow (build/format/test/docker/vuln) | Phase 1 | done | .ai-shared/plans/phase-1-skeleton-and-spine.md | not yet pushed — validate on first push |
 | task_12 | AGENTS.md updates post-scaffold | Phase 1 | done | .ai-shared/plans/phase-1-skeleton-and-spine.md | status/structure/notes updated (ports, namespace map, colima) |
-| task_13 | Identity domain + AuthService (Argon2id) | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_14 | Identity endpoints + internal introspection | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_15 | Gateway session validation + claims minting | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | NFR-8 |
-| task_16 | BuildingBlocks internal-claims auth for services | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_17 | Catalog schema + FTS/pg_trgm migration | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_18 | ISupplierImporter + SampleDataImporter (10k SKUs) | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | FR-1 |
-| task_19 | ISearchProvider + Postgres search + endpoints | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | FR-2, NFR-5 |
-| task_20 | Storefront v0 (Next.js SSR + auth UI) | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_21 | Search perf + auth NFR tests | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
-| task_22 | docs/api contracts + index (Identity/Catalog) | Phase 2 | pending | .ai-shared/plans/phase-2-identity-and-catalog.md | |
+| task_13 | Identity domain + AuthService (Argon2id) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | Argon2id m=19456,t=2,p=1; sessions/tokens stored hashed |
+| task_14 | Identity endpoints + internal introspection | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | introspection single-listener+no-route (not separate port) |
+| task_15 | Gateway session validation + claims minting | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | NFR-8; removed Phase-1 RequestHeaderRemove transform (stripped legit header) |
+| task_16 | BuildingBlocks internal-claims auth for services | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | ES256 JWT, services hold public key only |
+| task_17 | Catalog schema + FTS/pg_trgm migration | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | dynamic JSON for jsonb POCO props; SearchSchema raw-SQL migration |
+| task_18 | ISupplierImporter + SampleDataImporter (10k SKUs) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | FR-1: 10500 read/10417 accepted/83 rejected; per-row RNG for idempotency |
+| task_19 | ISearchProvider + Postgres search + endpoints | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | FR-2 typo fallback; NFR-5 p95 ~8.5ms |
+| task_20 | Storefront v0 (Next.js SSR + auth UI) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | Next 15.5.19; SSR verified live against gateway |
+| task_21 | Search perf + auth NFR tests | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | 7 unit + 14 integration tests; serial collection fixtures |
+| task_22 | docs/api contracts + index (Identity/Catalog) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | OpenAPI exported to docs/api/ + index |
+| + Notifications email (IEmailSender + consumers) | UserRegistered/PasswordReset → email | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | added (was implied by plan New Files); LoggingEmailSender sandbox |
 | task_23 | Ordering/Payments message contracts | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_24 | Ledger domain + balance-constraint migration | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1 |
 | task_25 | ITaxStrategy + IPaymentProvider + Stripe adapter | Phase 3 | pending | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
