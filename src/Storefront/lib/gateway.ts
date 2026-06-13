@@ -41,11 +41,13 @@ export type SearchResult = { hits: ProductHit[]; total: number };
 /** Server-side fetch through the gateway, forwarding the session cookie (components.md §2). */
 async function gatewayFetch(path: string, init?: RequestInit): Promise<Response> {
   const cookieStore = await cookies();
-  const session = cookieStore.get("3c_session");
   const headers = new Headers(init?.headers);
-  if (session) {
-    headers.set("cookie", `3c_session=${session.value}`);
-  }
+  const parts: string[] = [];
+  const session = cookieStore.get("3c_session");
+  const cart = cookieStore.get("3c_cart");
+  if (session) parts.push(`3c_session=${session.value}`);
+  if (cart) parts.push(`3c_cart=${cart.value}`);
+  if (parts.length) headers.set("cookie", parts.join("; "));
   return fetch(`${GATEWAY_URL}${path}`, { ...init, headers });
 }
 
@@ -93,3 +95,38 @@ export async function getProfile(): Promise<{ email: string; emailVerified: bool
 }
 
 export { GATEWAY_URL };
+
+export type CartItemDto = {
+  productId: string;
+  slug: string;
+  title: string;
+  imageUrl: string | null;
+  unitPriceMinor: number;
+  currency: string;
+  quantity: number;
+};
+export type CartDto = { cartId: string; items: CartItemDto[]; subtotalMinor: number; currency: string };
+
+export async function getCart(): Promise<CartDto> {
+  const response = await gatewayFetch(`/api/ordering/cart/`, { cache: "no-store" });
+  if (!response.ok) {
+    return { cartId: "", items: [], subtotalMinor: 0, currency: "EUR" };
+  }
+  await forwardSetCookies(response);
+  return (await response.json()) as CartDto;
+}
+
+export async function getOrderStatus(orderId: string): Promise<string | null> {
+  const response = await gatewayFetch(`/api/ordering/orders/${orderId}/status`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as { status: string }).status : null;
+}
+
+// Cart cookies set by the gateway must be relayed back to the browser.
+async function forwardSetCookies(response: Response): Promise<void> {
+  const setCookie = response.headers.get("set-cookie");
+  const match = setCookie?.match(/3c_cart=([^;]+)/);
+  if (match) {
+    const store = await cookies();
+    store.set("3c_cart", match[1], { httpOnly: true, sameSite: "lax", path: "/" });
+  }
+}

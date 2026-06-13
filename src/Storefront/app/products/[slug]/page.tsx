@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
 // ISR product page (gateway uses revalidate: 300) for SEO at catalog scale (components.md §1).
 export async function generateMetadata({
@@ -76,14 +77,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </dl>
         )}
 
-        {/* Add-to-cart arrives in Phase 3 (Ordering service). */}
-        <button
-          type="button"
-          disabled
-          className="mt-8 w-full rounded-md bg-neutral-900 text-white py-3 text-sm font-medium disabled:opacity-40"
-        >
-          Add to cart (Phase 3)
-        </button>
+        <AddToCartButton productId={product.id} />
       </div>
     </div>
   );

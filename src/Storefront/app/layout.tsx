@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/search" className="hover:underline">
                 Shop
               </Link>
+              <Link href="/cart" className="hover:underline">
+                Cart
+              </Link>
               <Link href="/account" className="hover:underline">
                 Account
               </Link>
