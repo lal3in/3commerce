@@ -1,0 +1,23 @@
+# Environment
+.env
+.envrc.local
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# Logs
+*.log
+.run/
+
+# Claude Code local permissions (machine-specific)
+.claude/settings.local.json

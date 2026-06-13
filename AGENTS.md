@@ -1,0 +1,259 @@
+# AGENTS.md
+
+This file provides guidance to AI Agents when working with code in this repository.
+
+## Project Overview
+
+**3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as six C# microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
+
+> **Status:** Phase 1 (skeleton & spine) complete. Solution, six services, gateway, worker, infra compose, messaging spine (outbox/inbox proven by integration tests), Dockerfiles, and CI all exist. Phase 2 (Identity & Catalog) is next — see `.ai-shared/plans/plan_status_executions.md`.
+
+---
+
+## Collaboration protocol (always follow)
+- Ask clarifying questions when requirements are ambiguous.
+- Prefer small, incremental changes over large rewrites.
+- Always provide verification steps (tests run, commands, expected output).
+- If a task references product scope/UX/requirements: consult PRD (see below) and produce a Working Brief before coding.
+
+---
+
+## Sources of truth (do NOT auto-load PRD)
+- Product requirements: ./docs/prd/PRD.md (load only if task depends on requirements)
+- Architecture decisions: ./docs/adr/
+- API contracts: ./docs/api/
+
+### PRD Loading Rule
+Only read PRD sections when the task involves:
+- new feature implementation,
+- changes to user flows,
+- acceptance criteria / scope questions,
+- rollout
+- telemetry/metrics requirements.
+
+When PRD is needed:
+1) Read only the relevant PRD sections.
+2) Write a short "Working Brief" in the chat:
+   - Goal
+   - Non-goals
+   - Requirements (FR-#, NFR-#)
+   - Acceptance criteria
+   - Test/verification plan
+3) Implement to the brief and verify via commands below.
+
+---
+
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| .NET 10 (LTS) / C# | All backend services, gateway, admin |
+| ASP.NET Core minimal APIs | One small HTTP surface per service |
+| EF Core 10 + Npgsql | Persistence + migrations, one DbContext per service |
+| PostgreSQL 17 | One container, **one database per service**; FTS + pg_trgm + JSONB for catalog search |
+| MassTransit v8 + RabbitMQ | Async events, saga state machines (checkout, refund), EF transactional outbox |
+| YARP | Gateway: single public origin, session validation, internal claims, rate limiting |
+| Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX) |
+| Blazor Server | Admin app (all-C# internal tooling) |
+| Stripe.net (test mode) | v1 payment rail behind `IPaymentProvider`; Payment Element client-side (SAQ-A) |
+| Xero API (OAuth2) | Nightly summary journals + per-refund postings |
+| Argon2id (vetted library) | Password hashing — custom auth flows, never custom crypto |
+| OpenTelemetry | Distributed traces across gateway → services → consumers |
+| xUnit + Testcontainers | Tests against real Postgres/RabbitMQ; MassTransit test harness |
+
+---
+
+## Commands
+
+```bash
+# Development (infra first, then any services you need)
+docker compose -f docker-compose.infra.yml up -d   # Postgres 17 + RabbitMQ
+dotnet run --project src/Services/<Name>/Api        # per service; same for Gateway, Workers
+cd src/Storefront && npm run dev                    # Next.js storefront
+
+# Build
+dotnet build 3commerce.sln
+cd src/Storefront && npm run build
+
+# Lint
+dotnet format --verify-no-changes
+cd src/Storefront && npm run lint
+
+# Typecheck
+# (C#: covered by build)
+cd src/Storefront && npx tsc --noEmit
+
+# Unit Tests
+dotnet test 3commerce.sln
+
+# E2E Integration (Testcontainers spins up Postgres/RabbitMQ; Docker must be running)
+dotnet test tests/ --filter Category=Integration
+```
+
+---
+
+## Project Structure
+
+```
+3commerce/
+├── AGENTS.md                      # this file
+├── docs/
+│   ├── prd/                       # PRD index + section files (do not auto-load)
+│   ├── adr/                       # architecture decision records + adr_index.md
+│   ├── api/                       # API contract files + api_contracts_index.md
+│   └── reference/                 # working guidelines: components.md, api.md
+├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
+├── infra/postgres/                # init-databases.sql (6 DBs + roles + extensions)
+├── scripts/run-all.sh             # start/stop gateway + services + worker locally
+├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
+├── 3commerce.sln                  # all 27 projects; Directory.Build.props / Directory.Packages.props (CPM)
+├── src/
+│   ├── BuildingBlocks/
+│   │   ├── Contracts/             # message contracts ONLY (versioned additively)
+│   │   └── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
+│   ├── Gateway/                   # YARP (port 8080); Dockerfile per runnable project
+│   ├── Services/
+│   │   ├── Identity/  ├── Catalog/  ├── Ordering/
+│   │   ├── Payments/  ├── Fulfillment/  └── Support/
+│   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5106
+│   ├── Workers/Notifications/     # email worker (event consumer, not a service)
+│   ├── Storefront/                # Next.js (Phase 2)
+│   └── Admin/                     # Blazor Server (Phase 4)
+└── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
+```
+
+---
+
+## Architecture
+
+Event-driven microservices cut along business-capability seams. State changes propagate as MassTransit events over RabbitMQ; synchronous REST between services is allowed only for read-time queries, never inside a saga step. Checkout (Ordering) and refund (Support → Payments) are MassTransit saga state machines with timeouts and compensation. Every "write DB + publish event" goes through the EF Core transactional outbox; every consumer is idempotent (dedup by message ID; Stripe webhooks by event ID).
+
+Data: hard isolation — no cross-database joins, no shared domain types. When a service needs another's data for display (e.g. product names on orders), it keeps a local copy updated via events. The Payments ledger is append-only double-entry and is the source of truth for all money facts; Stripe is a rail, Xero is a downstream report.
+
+Auth: opaque session token in a Secure/HttpOnly cookie, validated at the gateway against Identity (cached ≤ 60 s), converted to a short-lived signed internal-claims JWT that services verify by signature only. Public traffic reaches services exclusively through the gateway.
+
+---
+
+## Rules
+
+The following repository rules must always be followed:
+
+- Maintain project structure updated: everytime a folder/file of significance for the Project is add/updated/removed, maintain Projec Structure section updated.
+
+- Architecture Decision Records: for each architectural decision made create and add a new adr file into `.docs/adr/<adr_decision_description>.md`, and add its pertinent entry into the ADR Index file `.docs/adr/adr_index.md`, if adr index file does not exist then create it.
+
+- API Contracts: add every single API contract files into `.docs/api/`, and add its pertinent entry into the API Contracts Index file `.docs/api/api_contracts_index.md`, if api contracts index file does not existe then create it.
+
+- Frontend components: when working on front-end components (Storefront or Admin UI), read `docs/reference/components.md` first and follow it.
+
+- API endpoints: when adding or changing API endpoints in any service, read `docs/reference/api.md` first and follow it.
+
+---
+
+## Code Patterns
+
+### Naming Conventions
+- C#: standard .NET conventions (PascalCase types/methods, camelCase locals); projects named `3commerce.<Area>.<Layer>` (e.g. `3commerce.Ordering.Api`).
+- Message contracts: past-tense events (`OrderConfirmed`, `ProductUpserted`), imperative commands (`AuthorizePayment`); records in `BuildingBlocks.Contracts`.
+- TypeScript (Storefront): Next.js App Router conventions; components PascalCase, route folders kebab-case.
+
+### File Organization
+- Each service = `Api/` (endpoints, DI), `Domain/` (entities, invariants — no infrastructure references), `Infrastructure/` (EF, consumers, adapters), plus a test project.
+- Shared code is plumbing and contracts only — **never shared domain logic**; duplication between services is preferred over coupling.
+- Abstraction seams (one v1 implementation each): `ISupplierImporter`, `IPaymentProvider`, `ITaxStrategy`, `ISearchProvider`, `IAuthService`, `IEmailSender`. Do not add new speculative interfaces.
+
+### Error Handling
+- HTTP: RFC 7807 `application/problem+json` for all error responses.
+- Messaging: MassTransit retry policy + error queues; consumers must be safe to redeliver (idempotent), never swallow poison messages silently.
+- Money endpoints accept an `Idempotency-Key` header; ledger corrections are reversing entries, never updates.
+
+### Domain invariants (non-negotiable)
+- Money = integer minor units + ISO 4217 code; never floating point.
+- Every ledger transaction balances (Σ debits = Σ credits) — DB-constraint enforced.
+- Order line items always carry a `FulfillmentSource` (`Unassigned` allowed).
+- IDs are UUIDv7.
+
+---
+
+## Definition of Done
+
+- Tests pass: `dotnet test 3commerce.sln` (incl. integration where touched)
+- Lint/typecheck pass: `dotnet format --verify-no-changes`; storefront `npm run lint && npx tsc --noEmit`
+- Docs updated: ADR for any architectural decision; API contract files for any endpoint change; Project Structure section if layout changed; PRD only on scope change (with explicit user approval)
+
+---
+
+## Testing
+
+- **Run tests**: `dotnet test 3commerce.sln` (unit) · `dotnet test tests/ --filter Category=Integration` (Testcontainers; Docker required)
+- **Test location**: per-service `tests/` projects; cross-service integration in root `tests/`
+- **Pattern**: unit tests on Domain (no infra); integration tests against real Postgres + RabbitMQ via Testcontainers; saga tests via MassTransit test harness; property tests for the ledger balance invariant; chaos test (kill service mid-saga → terminal state on restart)
+
+---
+
+## Validation
+
+```bash
+dotnet build 3commerce.sln && dotnet format --verify-no-changes && dotnet test 3commerce.sln
+# if storefront touched:
+cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
+```
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `docs/prd/PRD.md` | PRD index — load sections on demand only (see PRD Loading Rule) |
+| `docs/prd/3commerce/04-mvp-scope.md` | Authoritative in/out-of-scope checklist |
+| `docs/prd/3commerce/06-architecture.md` | Service boundaries, messaging rules, repo layout target |
+| `docs/prd/3commerce/15-appendix.md` | Decision log (what was rejected and why) + launch blockers |
+| `docker-compose.infra.yml` | Local Postgres + RabbitMQ (planned) |
+| `src/BuildingBlocks/Contracts/` | Message contracts — version additively, never break consumers (planned) |
+| `.envrc` | direnv env vars (secrets stay in `.envrc.local`/user-secrets, git-ignored) |
+
+---
+
+## On-Demand Context
+
+| Topic | File |
+|-------|------|
+| Building front-end components | `docs/reference/components.md` |
+| Building API endpoints | `docs/reference/api.md` |
+| Feature scope questions | `docs/prd/3commerce/04-mvp-scope.md` |
+| FR-/NFR- requirement IDs | `docs/prd/3commerce/11-success-criteria.md` |
+| Build order / current phase | `docs/prd/3commerce/12-implementation-phases.md` |
+| Auth/security constraints | `docs/prd/3commerce/09-security-configuration.md` |
+| Endpoint conventions | `docs/prd/3commerce/10-api-specification.md` |
+| Deferred features ("not now" list) | `docs/prd/3commerce/13-future-considerations.md` |
+
+---
+
+## Boundaries (Do NOT)
+
+- Don’t change CI/infra without explicit instruction
+- Don’t refactor unrelated modules during feature work
+- Don’t introduce new dependencies without justification
+- No secrets in logs or commits
+- Don’t query another service's database — cross-service data arrives via events only
+- Don’t put domain logic in `BuildingBlocks` — contracts and plumbing only
+- Don’t hand-roll cryptography or session-token generation — vetted libraries only (Argon2id, CSPRNG)
+- Don’t let card data touch any server — Stripe Payment Element only (SAQ-A)
+- Don’t call Stripe/issue refunds outside the saga/ledger path — the ledger must never silently diverge
+- Don’t build out-of-scope features (MFA, Polar adapter, k8s, search engines, discounts) — they're deferred in PRD §13, not forgotten
+- Don’t auto-load the full PRD — follow the PRD Loading Rule
+
+---
+
+## Notes
+
+- **Canonical ports:** Gateway 8080 · Identity 5101 · Catalog 5102 · Ordering 5103 · Payments 5104 · Fulfillment 5105 · Support 5106 · Storefront 3000 · Admin 5200 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
+- **Namespaces:** projects are `3commerce.*` but namespaces are `ThreeCommerce.*` (C# forbids digit-leading namespaces; mapped in `Directory.Build.props`).
+- **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
+- **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly.
+- Service health endpoints (`/health/live|ready`) are internal-only; the gateway returns 404 for any `/api/*/health*` path.
+- Stripe runs **test mode only** and Xero against a demo org until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
+- Currency is config (`STORE_CURRENCY`), tax is `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.
+- Microservices were chosen knowingly for learning value (PRD decision #5); keep each service internally simple — complexity budget is spent on the seams.
+- `docs/adr/` exists with ADRs 0001–0020 (backfilled from the PRD decision log) + `adr_index.md`; new ADRs continue the numbering. `docs/api/` doesn't exist yet — create it (with its index file) on first use per the Rules section.
