@@ -88,6 +88,10 @@ dotnet test 3commerce.sln
 
 # E2E Integration (Testcontainers spins up Postgres/RabbitMQ; Docker must be running)
 dotnet test tests/ --filter Category=Integration
+
+# Full regression check (run after building new features)
+scripts/e2e-verify.sh          # automated suites (build, format, unit, integration, storefront, vuln)
+scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey smoke flows
 ```
 
 ---
@@ -147,6 +151,8 @@ The following repository rules must always be followed:
 - Frontend components: when working on front-end components (Storefront or Admin UI), read `docs/reference/components.md` first and follow it.
 
 - API endpoints: when adding or changing API endpoints in any service, read `docs/reference/api.md` first and follow it.
+
+- Regression test list: whenever a test is added, removed, or renamed — a unit/integration test (`*Tests.cs`), or a live end-to-end user-journey — update `scripts/e2e-verify.sh` so it stays the complete regression command: add/adjust the matching check **and** its line in the COVERAGE CHECKLIST header comment. Automated tests belong in the `A*` group, live full-stack flows in the `L*` group. The script must continue to pass (`scripts/e2e-verify.sh` and `--live`) after the change.
 
 ---
 
@@ -211,6 +217,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 | `docs/prd/3commerce/15-appendix.md` | Decision log (what was rejected and why) + launch blockers |
 | `docker-compose.infra.yml` | Local Postgres + RabbitMQ (planned) |
 | `src/BuildingBlocks/Contracts/` | Message contracts — version additively, never break consumers (planned) |
+| `scripts/e2e-verify.sh` | Full regression command (automated + `--live` user journeys); keep current per the test-list rule |
 | `.envrc` | direnv env vars (secrets stay in `.envrc.local`/user-secrets, git-ignored) |
 
 ---
