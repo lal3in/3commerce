@@ -1,0 +1,8 @@
+**/bin
+**/obj
+**/.run
+.git
+docs
+.ai-shared
+.claude
+node_modules

@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore 3commerce.sln
+      - name: Build
+        run: dotnet build 3commerce.sln --no-restore
+      - name: Format check
+        run: dotnet format 3commerce.sln --verify-no-changes --no-restore
+      - name: Unit tests
+        run: dotnet test 3commerce.sln --no-build --filter Category!=Integration
+      - name: Vulnerable package scan
+        run: |
+          dotnet list 3commerce.sln package --vulnerable --include-transitive > vulns.txt 2>&1 || true
+          cat vulns.txt
+          ! grep -q 'has the following vulnerable packages' vulns.txt
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Integration tests (Testcontainers)
+        run: dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
+
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - src/Gateway/Dockerfile
+          - src/Workers/Notifications/Dockerfile
+          - src/Services/Identity/Api/Dockerfile
+          - src/Services/Catalog/Api/Dockerfile
+          - src/Services/Ordering/Api/Dockerfile
+          - src/Services/Payments/Api/Dockerfile
+          - src/Services/Fulfillment/Api/Dockerfile
+          - src/Services/Support/Api/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker build
+        run: docker build -f ${{ matrix.dockerfile }} .

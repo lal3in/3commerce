@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Message contracts ONLY (AGENTS.md boundary): records, versioned additively. No logic, no dependencies. -->
+</Project>

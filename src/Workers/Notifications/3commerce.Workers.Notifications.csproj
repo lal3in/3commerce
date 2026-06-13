@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <ProjectReference Include="../../BuildingBlocks/Contracts/3commerce.BuildingBlocks.Contracts.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/Infrastructure/3commerce.BuildingBlocks.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

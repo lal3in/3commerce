@@ -21,3 +21,7 @@ dist/
 
 # Claude Code local permissions (machine-specific)
 .claude/settings.local.json
+
+# .NET
+bin/
+obj/
