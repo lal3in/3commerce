@@ -83,6 +83,9 @@ cd src/Storefront && npm run lint
 # (C#: covered by build)
 cd src/Storefront && npx tsc --noEmit
 
+# Storefront E2E (Playwright/Chromium; requires the stack running + storefront on :3000)
+cd src/Storefront && npm run test:e2e
+
 # Unit Tests
 dotnet test 3commerce.sln
 

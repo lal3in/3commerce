@@ -55,6 +55,8 @@
 #   L17 Simulate payment → saga confirms the order
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
+#   L20 Storefront E2E in a real browser (Playwright): browsing, cart + full guest
+#       checkout (test payment), and account flows (register/login/redirect/errors)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -236,6 +238,17 @@ run_live() {
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
   else
     fail "L15-L19 no product in Ordering projection (import may not have propagated)"
+  fi
+
+  stage "L20  Storefront E2E (Playwright, real browser)"
+  if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
+    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
+      pass "L20 storefront E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
+    else
+      fail "L20 storefront E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -6
+    fi
+  else
+    echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
   fi
 
   stage "Tearing down"
