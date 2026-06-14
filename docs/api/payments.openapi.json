@@ -101,6 +101,67 @@
           }
         }
       }
+    },
+    "/admin/xero/sync-runs": {
+      "get": {
+        "tags": [
+          "Xero"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SyncRunDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/xero/sync/{date}": {
+      "post": {
+        "tags": [
+          "Xero"
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -227,12 +288,49 @@
             "format": "uuid"
           }
         }
+      },
+      "SyncRunDto": {
+        "required": [
+          "reference",
+          "status",
+          "xeroJournalId",
+          "error",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "xeroJournalId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   },
   "tags": [
     {
       "name": "Admin"
+    },
+    {
+      "name": "Xero"
     }
   ]
 }

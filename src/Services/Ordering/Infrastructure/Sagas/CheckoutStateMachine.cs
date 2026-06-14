@@ -51,10 +51,10 @@ public sealed class CheckoutStateMachine : MassTransitStateMachine<CheckoutState
         During(AwaitingPayment,
             When(PaymentSucceeded)
                 .Unschedule(ExpiryTimeout)
-                // Publish the constructed record directly — records have no default ctor,
-                // so MassTransit's Init<T> message initialization cannot be used.
-                .Publish(c => new OrderConfirmed(
-                    c.Saga.CorrelationId, c.Saga.Email!, c.Saga.AmountMinor, c.Saga.Currency!))
+                // Signal payment settled; the Order aggregate owner publishes the rich
+                // OrderConfirmed (with lines). Records have no default ctor → publish the
+                // constructed instance directly, never Init<T>.
+                .Publish(c => new CheckoutCompleted(c.Saga.CorrelationId))
                 .TransitionTo(Confirmed)
                 .Finalize(),
             When(PaymentFailed)

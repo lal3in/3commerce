@@ -21,4 +21,19 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
         "Your order is confirmed",
         $"Thanks for your purchase. Order {orderId} for {amountMinor / 100m:0.00} {currency} is confirmed. "
             + $"Track it at {storefrontBaseUrl}/orders/{orderId}.");
+
+    public EmailMessage TrackingAssigned(string to, Guid orderId, string carrier, string trackingNumber) => new(
+        to,
+        "Your order has shipped",
+        $"Order {orderId} is on its way via {carrier}. Tracking number: {trackingNumber}.");
+
+    public EmailMessage TicketOpened(string to, Guid ticketId, Guid orderId) => new(
+        to,
+        "We received your support request",
+        $"Your ticket {ticketId} for order {orderId} is open. We'll be in touch shortly.");
+
+    public EmailMessage RmaStateChanged(string to, Guid rmaId, string state) => new(
+        to,
+        $"Your return/refund request is now {state}",
+        $"Update on your request {rmaId}: status is now {state}.");
 }

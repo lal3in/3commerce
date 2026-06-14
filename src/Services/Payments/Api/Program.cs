@@ -7,10 +7,12 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Payments.Api;
 using ThreeCommerce.Payments.Api.Endpoints;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Xero;
 using ThreeCommerce.Payments.Infrastructure;
 using ThreeCommerce.Payments.Infrastructure.Consumers;
 using ThreeCommerce.Payments.Infrastructure.Payments;
 using ThreeCommerce.Payments.Infrastructure.Stripe;
+using ThreeCommerce.Payments.Infrastructure.Xero;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<AuthorizePaymentConsumer>();
     bus.AddConsumer<ExecuteRefundConsumer>();
+    bus.AddConsumer<RefundPostingConsumer>();
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration);
@@ -31,6 +34,8 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITaxStrategy, FlatRateTaxStrategy>();
 builder.Services.AddScoped<PaymentEventProcessor>();
+builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
+builder.Services.AddScoped<DailyJournalJob>();
 
 // Payment provider: real Stripe when keys are set, deterministic fake otherwise (ADR-0015).
 if (!string.IsNullOrEmpty(builder.Configuration["Stripe:SecretKey"]))
@@ -55,6 +60,7 @@ app.UseAuthorization();
 app.MapServiceHealth();
 app.MapWebhooks();
 app.MapAdmin();
+app.MapAdminXero();
 
 await ChartOfAccountsSeeder.SeedAsync(app);
 

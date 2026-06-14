@@ -6,7 +6,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 **3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as six C# microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
 
-> **Status:** Phase 1 + Phase 2 complete. Phase 1: skeleton, gateway, messaging spine. Phase 2: custom auth end-to-end (opaque cookie → gateway introspection → ES256 internal claims), Catalog with neutral schema + sample importer (10k+ SKUs) + Postgres FTS/pg_trgm search, Notifications email worker, and a Next.js SSR storefront (home/search/product/auth). All validated: 8 unit + 14 integration tests, storefront builds + SSR verified live. Phase 3 complete: cart + checkout saga (MassTransit state machine, RequestClient for the intent), append-only double-entry ledger with DB-enforced balance, IPaymentProvider (Stripe adapter + deterministic fake for keyless dev), refund path, and storefront checkout. 8 unit + 20 integration tests green. Phase 4 (Fulfillment, Support/RMA, Blazor admin, Xero) is next — see `.ai-shared/plans/plan_status_executions.md`.
+> **Status:** MVP complete on dev/test rails (Phases 1–4). All six services, gateway, storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (reuses the single refund path), and Xero summary journals (logging client; real OAuth a future swap). 11 unit + 25 integration tests green; `scripts/e2e-verify.sh --live` covers L1–L19. Open items are non-code launch gates (company registration → live Stripe/Xero, supplier contract, external pen test) — see `docs/prd/3commerce/15-appendix.md` and `docs/security/asvs-l1-audit.md`.
 
 ---
 
@@ -105,7 +105,9 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 │   ├── prd/                       # PRD index + section files (do not auto-load)
 │   ├── adr/                       # architecture decision records + adr_index.md
 │   ├── api/                       # API contract files + api_contracts_index.md
-│   └── reference/                 # working guidelines: components.md, api.md
+│   ├── reference/                 # working guidelines: components.md, api.md
+│   ├── security/                  # asvs-l1-audit.md
+│   └── runbooks/                  # mvp-walkthrough.md
 ├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
 ├── infra/postgres/                # init-databases.sql (6 DBs + roles + extensions)
 ├── scripts/run-all.sh             # start/stop gateway + services + worker locally
@@ -122,7 +124,7 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 │   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5106
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
 │   ├── Storefront/                # Next.js (Phase 2)
-│   └── Admin/                     # Blazor Server (Phase 4)
+│   └── Admin/                     # Blazor Server operator console (:5200)
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
 ```
 

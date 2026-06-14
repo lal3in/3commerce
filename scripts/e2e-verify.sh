@@ -28,6 +28,9 @@
 #       append-only (UPDATE/DELETE blocked)
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
 #       duplicate webhook = one entry, refund reverses + ledger stays balanced
+#   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
+#       deny path; Fulfillment: shipments grouped by source, idempotent
+#   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A7  Storefront typecheck (tsc) + production build (next build)
 #   A8  No vulnerable NuGet packages
 #

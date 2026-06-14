@@ -12,6 +12,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | Catalog | [catalog.openapi.json](./catalog.openapi.json) | `/api/catalog` | 5102 |
 | Ordering | [ordering.openapi.json](./ordering.openapi.json) | `/api/ordering` | 5103 |
 | Payments | [payments.openapi.json](./payments.openapi.json) | `/api/payments` | 5104 |
+| Fulfillment | [fulfillment.openapi.json](./fulfillment.openapi.json) | `/api/fulfillment` | 5105 |
+| Support | [support.openapi.json](./support.openapi.json) | `/api/support` | 5106 |
 
 ## Identity (`/api/identity`)
 
@@ -60,9 +62,26 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 |--------|------|------|---------|
 | GET | `/admin/ledger/accounts` · `/admin/ledger/entries` | admin | Inspect the double-entry ledger |
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
+| GET | `/admin/xero/sync-runs` | admin | Xero sync status |
+| POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 
-## Pending services (later phases)
+## Fulfillment (`/api/fulfillment`)
 
-Fulfillment and Support contracts are added as those services gain endpoints (Phase 4).
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/shipments?orderId=` | admin | Shipments grouped by fulfillment source |
+| POST | `/admin/shipments/{id}/tracking` | admin | Assign tracking → TrackingAssigned event/email |
+
+## Support (`/api/support`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST/GET | `/tickets[/{id}[/messages]]` | session | Order-linked tickets + thread |
+| POST | `/rma` | session | Request a refund/return — starts the RMA saga |
+| GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
+| POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |
+
+All six services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
+through the gateway; it adds no new public endpoints.

@@ -19,3 +19,9 @@ public sealed class Phase3Collection : ICollectionFixture<Phase3Fixture>
 {
     public const string Name = "phase3";
 }
+
+[CollectionDefinition(Name)]
+public sealed class Phase4Collection : ICollectionFixture<Phase4Fixture>
+{
+    public const string Name = "phase4";
+}

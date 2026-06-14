@@ -11,6 +11,7 @@ builder.AddServiceTelemetry("notifications");
 var storefrontBaseUrl = builder.Configuration["Storefront:BaseUrl"] ?? "http://localhost:3000";
 builder.Services.AddSingleton(new EmailTemplates(storefrontBaseUrl));
 builder.Services.AddSingleton<IEmailSender, LoggingEmailSender>();
+builder.Services.AddSingleton<IOrderEmailLookup, InMemoryOrderEmailLookup>();
 
 builder.Services.AddServiceBus(builder.Configuration, bus =>
 {
@@ -18,6 +19,9 @@ builder.Services.AddServiceBus(builder.Configuration, bus =>
     bus.AddConsumer<UserRegisteredConsumer>();
     bus.AddConsumer<PasswordResetRequestedConsumer>();
     bus.AddConsumer<OrderConfirmedConsumer>();
+    bus.AddConsumer<TrackingAssignedConsumer>();
+    bus.AddConsumer<TicketOpenedConsumer>();
+    bus.AddConsumer<RmaStateChangedConsumer>();
 });
 
 var host = builder.Build();

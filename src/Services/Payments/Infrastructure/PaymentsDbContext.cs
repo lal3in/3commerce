@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
+using ThreeCommerce.Payments.Domain.Xero;
 
 namespace ThreeCommerce.Payments.Infrastructure;
 
@@ -14,6 +15,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<WebhookInboxEntry> WebhookInbox => Set<WebhookInboxEntry>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<SyncRun> SyncRuns => Set<SyncRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +50,11 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
 
         modelBuilder.Entity<WebhookInboxEntry>().HasKey(x => x.EventId);
         modelBuilder.Entity<IdempotencyRecord>().HasKey(x => x.Key);
+        modelBuilder.Entity<SyncRun>(s =>
+        {
+            s.HasKey(x => x.Id);
+            s.HasIndex(x => x.Reference).IsUnique();
+        });
 
         // MassTransit transactional outbox + inbox tables (ADR-0007).
         modelBuilder.AddInboxStateEntity();

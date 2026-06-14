@@ -40,16 +40,18 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_31 | Storefront cart/checkout/confirmation + guest convert | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4, FR-7 |
 | task_32 | Chaos + ledger property tests | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
 | task_33 | Order-confirmation email + docs/api updates | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
-| task_34 | Fulfillment shipments + tracking flow | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
-| task_35 | Support tickets (+ guest signed link) | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-9 |
-| task_36 | RmaStateMachine + admin RMA endpoints | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-10 |
-| task_37 | Xero OAuth + nightly journal job + refund postings | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-11 |
-| task_38 | Blazor Server admin app (all screens) | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-12 |
-| task_39 | Storefront support/RMA UI | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
-| task_40 | Admin network posture (subdomain + IP allowlist) | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
-| task_41 | Remaining notification templates | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-13 |
-| task_42 | Full MVP walkthrough + runbook | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | MVP gate |
-| task_43 | ASVS L1 self-audit + dependency scan gates | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | NFR-6 |
-| task_44 | docs/api completion + PRD status update | Phase 4 | pending | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+| task_34 | Fulfillment shipments + tracking flow | Phase 4 | in_progress | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+| task_35 | Support tickets (+ guest signed link) | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-9 |
+| task_36 | RmaStateMachine + admin RMA endpoints | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-10 |
+| task_37 | Xero OAuth + nightly journal job + refund postings | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-11 |
+| task_38 | Blazor Server admin app (all screens) | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-12 |
+| task_39 | Storefront support/RMA UI | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+| task_40 | Admin network posture (subdomain + IP allowlist) | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+| task_41 | Remaining notification templates | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-13 |
+| task_42 | Full MVP walkthrough + runbook | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | MVP gate |
+| task_43 | ASVS L1 self-audit + dependency scan gates | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | NFR-6 |
+| task_44 | docs/api completion + PRD status update | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
 
 **Phase 3 notes:** No Stripe account/CLI in this environment → real `StripePaymentProvider` written but tests/dev use a deterministic `FakePaymentProvider` behind `IPaymentProvider` (ADR-0015). Payment success simulated via dev-only `/dev/simulate-payment` feeding the same webhook processor. Ledger enforces balance (deferred trigger) + append-only (triggers) at the DB level. Saga timeout uses MassTransit in-memory Quartz scheduler (no RabbitMQ plugin). Known limitation: saga must start (CartSubmitted delivered) before payment can succeed — true in practice (client confirms after checkout returns); a fully out-of-order-tolerant saga is a future hardening. IdempotencyKeyFilter implemented as a per-endpoint IdempotencyRecord on the refund endpoint rather than a generic BuildingBlocks filter.
+
+**Phase 4 notes:** Fulfillment (shipments grouped by FulfillmentSource, unique (OrderId,Source) index for idempotency) + Support/RMA saga (Requested→Approved/Denied→AwaitingReturn→ReturnReceived→RefundIssued; reuses the single Phase-3 RefundRequested path; terminal states retained as the admin read model). Xero: no org/creds here → journal builder (pure, unit-tested) + DailyJournalJob + RefundPostingConsumer + LoggingXeroClient (real OAuth2 client a future swap, like Stripe). Blazor admin (src/Admin, :5200): cookie auth, admin-role probe (introspection is internal-only), IP-allowlist middleware, GatewayClient (no service/DB refs); pages Dashboard/Orders/RMA queue/Ledger/Xero/Imports — build-validated (browser flows untested here). Storefront support/RMA UI build-validated. OrderConfirmed enriched with line items (published by the Order aggregate owner, not the saga) so Fulfillment needs no cross-service reads. 25 integration + 11 unit tests green. ASVS L1 self-audit + MVP runbook written. Remaining launch gates (registration → live Stripe/Xero, supplier, external pen test) are non-code, per PRD Appendix B.
