@@ -108,25 +108,16 @@ export type CartItemDto = {
 export type CartDto = { cartId: string; items: CartItemDto[]; subtotalMinor: number; currency: string };
 
 export async function getCart(): Promise<CartDto> {
+  // Read-only: never sets cookies (forbidden in a Server Component render). The cart cookie
+  // is established by the add-to-cart Server Action; an unkeyed read just returns empty.
   const response = await gatewayFetch(`/api/ordering/cart/`, { cache: "no-store" });
   if (!response.ok) {
     return { cartId: "", items: [], subtotalMinor: 0, currency: "EUR" };
   }
-  await forwardSetCookies(response);
   return (await response.json()) as CartDto;
 }
 
 export async function getOrderStatus(orderId: string): Promise<string | null> {
   const response = await gatewayFetch(`/api/ordering/orders/${orderId}/status`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as { status: string }).status : null;
-}
-
-// Cart cookies set by the gateway must be relayed back to the browser.
-async function forwardSetCookies(response: Response): Promise<void> {
-  const setCookie = response.headers.get("set-cookie");
-  const match = setCookie?.match(/3c_cart=([^;]+)/);
-  if (match) {
-    const store = await cookies();
-    store.set("3c_cart", match[1], { httpOnly: true, sameSite: "lax", path: "/" });
-  }
 }
