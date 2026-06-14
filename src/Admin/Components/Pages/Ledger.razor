@@ -1,0 +1,25 @@
+@page "/ledger"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+
+<h1>Ledger</h1>
+@if (_entries is null) { <p>Loading…</p> }
+else
+{
+    <table style="border-collapse:collapse;width:100%;">
+        <thead><tr><th style="text-align:left;">Description</th><th>Reference</th><th>Lines</th></tr></thead>
+        <tbody>
+        @foreach (var e in _entries)
+        {
+            <tr style="border-top:1px solid #e5e7eb;"><td>@e.Description</td><td>@e.Reference</td>
+                <td>@string.Join(", ", e.Lines.Select(l => $"{l.AccountCode} {(l.DebitMinor>0?"D":"C")}{(l.DebitMinor>0?l.DebitMinor:l.CreditMinor)/100m:0.00}"))</td></tr>
+        }
+        </tbody>
+    </table>
+}
+@code {
+    private List<EntryDto>? _entries;
+    protected override async Task OnInitializedAsync() => _entries = await Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+    public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
+    public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
+}

@@ -1,0 +1,17 @@
+@page "/login"
+@layout EmptyLayout
+@inject NavigationManager Nav
+
+<div style="max-width:320px;margin:6rem auto;font-family:system-ui;">
+    <h1 style="font-size:1.3rem;">Admin sign in</h1>
+    @if (Nav.Uri.Contains("error"))
+    {
+        <p style="color:#b91c1c;">Invalid credentials or not an admin account.</p>
+    }
+    <form action="/auth/login" method="post">
+        <AntiforgeryToken />
+        <label>Email<input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0;" /></label>
+        <label>Password<input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0;" /></label>
+        <button type="submit" style="width:100%;padding:.6rem;background:#111827;color:#fff;border:0;border-radius:4px;margin-top:.5rem;">Sign in</button>
+    </form>
+</div>

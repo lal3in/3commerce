@@ -1,0 +1,34 @@
+@page "/imports"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Catalog imports</h1>
+<button disabled="@_busy" @onclick="RunImport">Run sample importer</button>
+@if (_runs is null) { <p>Loading…</p> }
+else
+{
+    <table style="border-collapse:collapse;width:100%;margin-top:1rem;">
+        <thead><tr><th style="text-align:left;">Importer</th><th>Read</th><th>Accepted</th><th>Rejected</th></tr></thead>
+        <tbody>
+        @foreach (var r in _runs)
+        {
+            <tr style="border-top:1px solid #e5e7eb;"><td>@r.Importer</td><td>@r.RowsRead</td><td>@r.Accepted</td><td>@r.Rejected</td></tr>
+        }
+        </tbody>
+    </table>
+}
+@code {
+    private List<ImportRunDto>? _runs;
+    private bool _busy;
+    protected override Task OnInitializedAsync() => Refresh();
+    private async Task Refresh() => _runs = await Gateway.GetListAsync<ImportRunDto>("/api/catalog/admin/import-runs");
+    private async Task RunImport()
+    {
+        _busy = true;
+        await Gateway.PostAsync("/api/catalog/admin/import-runs");
+        await Refresh();
+        _busy = false;
+    }
+    public record ImportRunDto(Guid Id, string Importer, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, int RowsRead, int Accepted, int Rejected, List<string> SampleRejections);
+}

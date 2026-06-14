@@ -1,0 +1,8 @@
+@page "/orders"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+
+<h1>Orders</h1>
+<p style="color:#6b7280;">Order management reads through the gateway; per-order detail (payment state, per-line
+fulfillment, tickets) is added as those read endpoints land.</p>
+<p>Use the <a href="/ledger">Ledger</a> and <a href="/rmas">RMA queue</a> for money operations.</p>

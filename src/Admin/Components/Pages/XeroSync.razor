@@ -1,0 +1,35 @@
+@page "/xero"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Xero sync</h1>
+<button disabled="@_busy" @onclick="RunYesterday">Post yesterday's summary</button>
+@if (_runs is null) { <p>Loading…</p> }
+else
+{
+    <table style="border-collapse:collapse;width:100%;margin-top:1rem;">
+        <thead><tr><th style="text-align:left;">Reference</th><th>Status</th><th>Xero journal</th></tr></thead>
+        <tbody>
+        @foreach (var r in _runs)
+        {
+            <tr style="border-top:1px solid #e5e7eb;"><td>@r.Reference</td><td>@r.Status</td><td>@r.XeroJournalId</td></tr>
+        }
+        </tbody>
+    </table>
+}
+@code {
+    private List<SyncRunDto>? _runs;
+    private bool _busy;
+    protected override Task OnInitializedAsync() => Refresh();
+    private async Task Refresh() => _runs = await Gateway.GetListAsync<SyncRunDto>("/api/payments/admin/xero/sync-runs");
+    private async Task RunYesterday()
+    {
+        _busy = true;
+        var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)).ToString("yyyy-MM-dd");
+        await Gateway.PostAsync($"/api/payments/admin/xero/sync/{date}");
+        await Refresh();
+        _busy = false;
+    }
+    public record SyncRunDto(string Reference, string Status, string? XeroJournalId, string? Error, DateTimeOffset CreatedAt);
+}

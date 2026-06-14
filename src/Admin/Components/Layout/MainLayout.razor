@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+<div style="display:flex; min-height:100vh;">
+    <nav style="width:200px; background:#111827; color:#fff; padding:1rem;">
+        <h2 style="font-size:1.1rem;">3commerce admin</h2>
+        <ul style="list-style:none; padding:0; line-height:2;">
+            <li><NavLink href="/" Match="NavLinkMatch.All" style="color:#cbd5e1;">Dashboard</NavLink></li>
+            <li><NavLink href="/orders" style="color:#cbd5e1;">Orders</NavLink></li>
+            <li><NavLink href="/rmas" style="color:#cbd5e1;">RMA queue</NavLink></li>
+            <li><NavLink href="/ledger" style="color:#cbd5e1;">Ledger</NavLink></li>
+            <li><NavLink href="/xero" style="color:#cbd5e1;">Xero sync</NavLink></li>
+            <li><NavLink href="/imports" style="color:#cbd5e1;">Imports</NavLink></li>
+        </ul>
+        <form action="/auth/logout" method="post" style="margin-top:2rem;">
+            <AntiforgeryToken />
+            <button type="submit" style="background:#374151;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">Log out</button>
+        </form>
+    </nav>
+    <main style="flex:1; padding:2rem; background:#f9fafb;">@Body</main>
+</div>

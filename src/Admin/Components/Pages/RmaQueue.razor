@@ -1,0 +1,56 @@
+@page "/rmas"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>RMA queue</h1>
+@if (_rmas is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <table style="border-collapse:collapse;width:100%;">
+        <thead><tr><th style="text-align:left;">Order</th><th>Amount</th><th>State</th><th>Reason</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in _rmas)
+        {
+            <tr style="border-top:1px solid #e5e7eb;">
+                <td>@r.OrderId</td>
+                <td>@($"{r.AmountMinor / 100m:0.00}")</td>
+                <td>@r.State</td>
+                <td>@r.Reason</td>
+                <td>
+                    @if (r.State == "Requested")
+                    {
+                        <button disabled="@_busy" @onclick="() => Act(r.Id, ApproveAction)">Approve &amp; refund</button>
+                        <button disabled="@_busy" @onclick="() => Act(r.Id, DenyAction)">Deny</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private const string ApproveAction = "approve";
+    private const string DenyAction = "deny";
+    private List<RmaDto>? _rmas;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => Refresh();
+
+    private async Task Refresh() => _rmas = await Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
+
+    private async Task Act(Guid id, string action)
+    {
+        _busy = true; // disable buttons during the saga-triggering call (components.md §6)
+        var body = action == "approve" ? (object)new { requireReturn = false } : null;
+        await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
+        await Refresh();
+        _busy = false;
+    }
+
+    public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+}
