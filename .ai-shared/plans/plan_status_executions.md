@@ -29,7 +29,7 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_21 | Search perf + auth NFR tests | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | 7 unit + 14 integration tests; serial collection fixtures |
 | task_22 | docs/api contracts + index (Identity/Catalog) | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | OpenAPI exported to docs/api/ + index |
 | + Notifications email (IEmailSender + consumers) | UserRegistered/PasswordReset → email | Phase 2 | done | .ai-shared/plans/phase-2-identity-and-catalog.md | added (was implied by plan New Files); LoggingEmailSender sandbox |
-| task_23 | Ordering/Payments message contracts | Phase 3 | in_progress | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
+| task_23 | Ordering/Payments message contracts | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_24 | Ledger domain + balance-constraint migration | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1 |
 | task_25 | ITaxStrategy + IPaymentProvider + Stripe adapter | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_26 | Ordering cart (anonymous + merge) + projection | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-3 |
@@ -37,10 +37,10 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_28 | Stripe webhook endpoint + inbox + reconciliation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_29 | Refund execution path (admin + saga-callable) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | single path rule |
 | task_30 | IdempotencyKeyFilter (BuildingBlocks) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-3 |
-| task_31 | Storefront cart/checkout/confirmation + guest convert | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4, FR-7 |
+| task_31 | Storefront cart/checkout/confirmation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4 done; **FR-7 guest→account conversion NOT implemented** — moved to backlog (BL-1) |
 | task_32 | Chaos + ledger property tests | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
 | task_33 | Order-confirmation email + docs/api updates | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
-| task_34 | Fulfillment shipments + tracking flow | Phase 4 | in_progress | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
+| task_34 | Fulfillment shipments + tracking flow | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
 | task_35 | Support tickets (+ guest signed link) | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-9 |
 | task_36 | RmaStateMachine + admin RMA endpoints | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-10 |
 | task_37 | Xero OAuth + nightly journal job + refund postings | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | FR-11 |
@@ -55,3 +55,37 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 **Phase 3 notes:** No Stripe account/CLI in this environment → real `StripePaymentProvider` written but tests/dev use a deterministic `FakePaymentProvider` behind `IPaymentProvider` (ADR-0015). Payment success simulated via dev-only `/dev/simulate-payment` feeding the same webhook processor. Ledger enforces balance (deferred trigger) + append-only (triggers) at the DB level. Saga timeout uses MassTransit in-memory Quartz scheduler (no RabbitMQ plugin). Known limitation: saga must start (CartSubmitted delivered) before payment can succeed — true in practice (client confirms after checkout returns); a fully out-of-order-tolerant saga is a future hardening. IdempotencyKeyFilter implemented as a per-endpoint IdempotencyRecord on the refund endpoint rather than a generic BuildingBlocks filter.
 
 **Phase 4 notes:** Fulfillment (shipments grouped by FulfillmentSource, unique (OrderId,Source) index for idempotency) + Support/RMA saga (Requested→Approved/Denied→AwaitingReturn→ReturnReceived→RefundIssued; reuses the single Phase-3 RefundRequested path; terminal states retained as the admin read model). Xero: no org/creds here → journal builder (pure, unit-tested) + DailyJournalJob + RefundPostingConsumer + LoggingXeroClient (real OAuth2 client a future swap, like Stripe). Blazor admin (src/Admin, :5200): cookie auth, admin-role probe (introspection is internal-only), IP-allowlist middleware, GatewayClient (no service/DB refs); pages Dashboard/Orders/RMA queue/Ledger/Xero/Imports — build-validated (browser flows untested here). Storefront support/RMA UI build-validated. OrderConfirmed enriched with line items (published by the Order aggregate owner, not the saga) so Fulfillment needs no cross-service reads. 25 integration + 11 unit tests green. ASVS L1 self-audit + MVP runbook written. Remaining launch gates (registration → live Stripe/Xero, supplier, external pen test) are non-code, per PRD Appendix B.
+
+---
+
+## Conformance review (2026-06-15)
+
+Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−**, 15 Met / 4 Partial / 1 Missing of 21 FR/NFR. Core money + auth engine is production-grade; gaps are in the frontend/back-office and in test coverage, not the ledger. Analysis: `docs/help/project-analysis.html`. Frontend wiki: `docs/help/`.
+
+## Post-MVP backlog (from the conformance review — next work items)
+
+| ID | Item | Source | Notes |
+|----|------|--------|-------|
+| BL-1 | FR-7 guest -> account conversion | review (Missing) | IAuthService method + /convert-guest endpoint + storefront UI; attach guest orders by verified email |
+| BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
+| BL-3 | Admin Orders screen - real list/detail | wiki | Orders.razor is a placeholder |
+| BL-4 | Account page - order history + addresses | wiki | account/page.tsx shows only email + verified flag |
+| BL-5 | Storefront nav to /orders/[id]/support | wiki | page works but nothing links to it (account/confirmation) |
+| BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | current chaos test is on the ping-pong spine only |
+| BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | wired but unasserted (search p95 IS measured) |
+| BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | server guards over-refund, but the form takes raw amountMinor |
+| BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | ADR-0015 references it; not in code |
+| BL-10 | App-tier Dockerfiles (storefront + admin) | wiki | only the 6 services + gateway + worker are containerized |
+| BL-11 | Rotate dev secrets per environment (ES256 key, admin pw) | review | committed DEV-ONLY; launch gate |
+
+**Launch gates (non-code, PRD Appendix B):** company registration -> live Stripe/Xero + real ITaxStrategy; supplier contract -> real catalog feed + dropship/warehouse decision; external pen test; Kubernetes deployment track.
+
+## Frontend E2E + CI (added after Phase 4)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Storefront Playwright E2E (src/Storefront/e2e) | done | browse/search/cart/guest-checkout/account - 10 tests |
+| Admin Playwright E2E (src/Storefront/e2e-admin) | done | login/pages/RMA approve->refund->RefundIssued - 3 tests |
+| e2e-verify.sh L1-L20 (incl. real-browser E2E) | done | full live regression, 28 checks |
+| CI browser-e2e job (boots stack, runs Playwright) | done | green on main; Importer:TargetRows=400 in CI |
+| Frontend wiki + conformance review + analysis page | done | docs/help/, docs/reviews/ |

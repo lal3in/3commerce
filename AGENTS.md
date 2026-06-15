@@ -6,7 +6,9 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 **3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as six C# microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
 
-> **Status:** MVP complete on dev/test rails (Phases 1–4). All six services, gateway, storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (reuses the single refund path), and Xero summary journals (logging client; real OAuth a future swap). 11 unit + 25 integration tests green; `scripts/e2e-verify.sh --live` covers L1–L19. Open items are non-code launch gates (company registration → live Stripe/Xero, supplier contract, external pen test) — see `docs/prd/3commerce/15-appendix.md` and `docs/security/asvs-l1-audit.md`.
+> **Status:** MVP on dev/test rails (Phases 1–4), **conformance grade A−** (15 Met / 4 Partial / 1 Missing of 21 FR/NFR — see `docs/reviews/prd-vs-implementation.md`). All six services, gateway, Next.js storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (single refund path), and Xero summary journals (logging client; real OAuth a future swap). Tests: **11 unit + 25 integration + 13 Playwright browser E2E** (storefront + admin), green in CI; `scripts/e2e-verify.sh --live` covers **L1–L20**.
+>
+> **Known gaps (backlog in `.ai-shared/plans/plan_status_executions.md`):** FR-7 guest→account conversion is **not implemented**; admin catalog CRUD (FR-12) and the admin Orders / storefront account screens are placeholders; NFR-2/5/7 are wired but not asserted by tests; UI is partly build-validated. Non-code launch gates (registration → live Stripe/Xero, supplier, external pen test, k8s) are in `docs/prd/3commerce/15-appendix.md`. Frontend wiki: `docs/help/`; analysis: `docs/help/project-analysis.html`.
 
 ---
 
@@ -126,7 +128,7 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 │   │   ├── Payments/  ├── Fulfillment/  └── Support/
 │   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5106
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
-│   ├── Storefront/                # Next.js (Phase 2)
+│   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ Playwright suites)
 │   └── Admin/                     # Blazor Server operator console (:5200)
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
 ```

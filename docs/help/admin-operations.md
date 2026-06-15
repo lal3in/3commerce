@@ -1,0 +1,174 @@
+# Admin operations
+
+The internal operator console — a **Blazor Server** app at
+**`http://localhost:5200`** (ADR-0019). It holds no service references and no
+database access: every screen calls the YARP gateway through `GatewayClient`,
+forwarding the operator's `3c_session` cookie. The **`admin` role is required** on
+all pages.
+
+## Network posture & auth pipeline
+
+`Program.cs` wires the request pipeline as: **IP allowlist → static files →
+antiforgery → authentication → authorization**.
+
+- **IP allowlist** (`Services/IpAllowlistMiddleware.cs`): runs before auth. Reads
+  `Admin:AllowedIPs` (comma-separated IPs/CIDRs). **Empty = allow all** (local dev
+  default). Non-matching IPs get `403 Forbidden`.
+- **Cookie auth**: the admin app keeps its **own** auth cookie; the gateway session
+  token is stored inside it as a `3c_session` claim and forwarded to the gateway on
+  every call.
+
+---
+
+## 1. Login — `/login`
+
+File: `Components/Pages/Login.razor`; handler `Services/LoginEndpoints.cs`.
+Uses the `EmptyLayout` (no nav). Login is a plain HTML form POST with an
+antiforgery token.
+
+Steps:
+
+1. Go to `http://localhost:5200`. Unauthenticated requests redirect to `/login`.
+2. Enter the seeded dev admin credentials:
+   - **Email:** `admin@3commerce.local`
+   - **Password:** `dev-admin-password-1`
+3. Click **Sign in** → posts to `/auth/login`.
+
+What `/auth/login` does:
+
+1. Reads `email`/`password` from the form and `POST`s `/api/identity/login`
+   through the gateway.
+2. Extracts the `3c_session` token from the gateway's `Set-Cookie`. If login
+   failed or no token → redirect `/login?error=1`.
+3. **Verifies the admin role** by probing an admin-only endpoint
+   (`GET /api/payments/admin/xero/sync-runs`) with that session cookie. If the
+   probe is not successful → redirect `/login?error=2` (not an admin).
+4. On success it signs the operator into the **local** cookie with claims
+   `Name=<email>`, `Role=admin`, and the `3c_session` token, then redirects to `/`.
+
+On error the login page shows: "Invalid credentials or not an admin account."
+**Log out** (the button in the main nav) posts to `/auth/logout`, signs out of the
+local cookie, and returns to `/login`.
+
+---
+
+## 2. Dashboard — `/`
+
+File: `Components/Pages/Home.razor`. `[Authorize(Roles = "admin")]`. A landing page:
+"Welcome to the 3commerce operator console. Use the navigation to manage orders,
+RMAs, the ledger, and Xero sync." The left nav (`MainLayout.razor`) links to
+Dashboard, Orders, RMA queue, Ledger, Xero sync, Imports, plus **Log out**.
+
+---
+
+## 3. Orders — `/orders`
+
+File: `Components/Pages/Orders.razor`. **Placeholder/accurate state:** this screen
+is currently informational only — it explains that per-order detail (payment state,
+per-line fulfillment, tickets) is added "as those read endpoints land," and points
+operators to the Ledger and RMA queue for money operations. **No order list or
+order detail is rendered yet.**
+
+---
+
+## 4. RMA queue — `/rmas` (operator approve → refund)
+
+File: `Components/Pages/RmaQueue.razor`. `InteractiveServer` render mode. This is
+the key operator money flow.
+
+On load it calls `GatewayClient.GetListAsync(...)` →
+`GET /api/support/admin/rmas` and renders a table: **Order**, **Amount**
+(`AmountMinor / 100`), **State**, **Reason**, and actions.
+
+### Approve → refund
+
+1. Open `/rmas`. Find the row for the customer's order — state **Requested**.
+2. Click **Approve & refund**. (All buttons are disabled while the call runs.)
+3. The page `POST`s
+   `/api/support/admin/rmas/<id>/approve` with body `{ requireReturn: false }` and
+   an `Idempotency-Key: approve-<id>` header.
+4. This triggers the refund saga on the backend:
+   **RefundRequested → refund executes → RefundIssued**. The refund reverses the
+   original sale in the **double-entry ledger**, keeping the trial balance at zero
+   (the same single refund path used everywhere — ADR-0018).
+5. After the call the table refreshes; the row's state becomes **RefundIssued** and
+   the Approve/Deny buttons disappear (only `Requested` rows offer actions).
+
+### Deny
+
+Click **Deny** on a `Requested` row → `POST /api/support/admin/rmas/<id>/deny`
+(no body, `Idempotency-Key: deny-<id>`), then refresh.
+
+> The refund completion is visible in the **Ledger** screen as a balanced "Refund"
+> reversal entry. The E2E test (`e2e-admin/admin.spec.ts`) drives exactly this
+> flow and asserts `RefundIssued` plus the ledger reversal.
+
+---
+
+## 5. Ledger — `/ledger`
+
+File: `Components/Pages/Ledger.razor`. Calls
+`GET /api/payments/admin/ledger/entries`. Read-only view of the append-only
+double-entry ledger (the source of truth for all money facts).
+
+Each row shows the entry **Description**, **Reference**, and its **Lines**,
+formatted as `"<AccountCode> D<amount>"` for debits and `"<AccountCode> C<amount>"`
+for credits (amounts shown in major units, i.e. `minor / 100`). A confirmed sale
+posts a balanced entry; an approved refund posts a balanced reversal. Trial balance
+should always net to zero.
+
+---
+
+## 6. Xero sync — `/xero`
+
+File: `Components/Pages/XeroSync.razor`. `InteractiveServer`. Calls
+`GET /api/payments/admin/xero/sync-runs` to list prior runs (**Reference**,
+**Status**, **Xero journal** id).
+
+Steps:
+
+1. Click **Post yesterday's summary**.
+2. The page computes yesterday's date (`UTC - 1 day`, `yyyy-MM-dd`) and `POST`s
+   `/api/payments/admin/xero/sync/<date>`, then refreshes the table.
+3. A successful run appears with **Status = Posted** and a journal id.
+
+> In dev there is **no live Xero**. The backend uses a `LoggingXeroClient`, so the
+> "ManualJournal" is logged rather than posted to a real Xero org (ADR-0017). The
+> journal is balanced and nets to zero (asserted by the Xero journal-builder unit
+> test).
+
+---
+
+## 7. Imports — `/imports`
+
+File: `Components/Pages/Imports.razor`. `InteractiveServer`. Calls
+`GET /api/catalog/admin/import-runs` to list runs (**Importer**, **Read**,
+**Accepted**, **Rejected**).
+
+Steps:
+
+1. Click **Run sample importer**.
+2. The page `POST`s `/api/catalog/admin/import-runs`, then refreshes the table.
+3. A run appears with rows read / accepted / rejected. The default sample importer
+   targets **~10,500 rows** (~10,417 accepted / ~83 rejected); this is the seed step
+   that populates the catalog so the storefront has products to browse.
+
+> The row count is configurable via **`Importer:TargetRows`** (read by
+> `SampleDataImporter`, default `10_500`); CI lowers it (e.g. `400`) to keep the
+> projection load light. See [Deployment](./deployment.md).
+
+---
+
+## Admin screen → gateway endpoint reference
+
+| Screen | Read | Action |
+|--------|------|--------|
+| RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:false}`) · `.../deny` |
+| Ledger | `GET /api/payments/admin/ledger/entries` | — |
+| Xero sync | `GET /api/payments/admin/xero/sync-runs` | `POST /api/payments/admin/xero/sync/<date>` |
+| Imports | `GET /api/catalog/admin/import-runs` | `POST /api/catalog/admin/import-runs` |
+| Orders | — (placeholder) | — |
+| Login | — | `POST /auth/login` → gateway `POST /api/identity/login` + admin-probe |
+
+Money-affecting POSTs send an `Idempotency-Key` header (RMA approve/deny) so
+redeliveries are safe.
