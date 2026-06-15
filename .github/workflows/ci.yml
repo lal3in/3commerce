@@ -40,6 +40,11 @@ jobs:
   browser-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Keep the catalog import small on the 2-vCPU runner (the 10k-event projection
+      # storm starves the other processes). The full-scale import is asserted by the
+      # CatalogSearchTests integration test, not here.
+      Importer__TargetRows: "400"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
