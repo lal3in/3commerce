@@ -156,7 +156,8 @@ run_live() {
 
   stage "Booting storefront + admin"
   ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
-  ( dotnet run --project "$ROOT/src/Admin" --no-build >/tmp/3c-admin.log 2>&1 & )
+  ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development \
+      dotnet run --project "$ROOT/src/Admin" --no-build --no-launch-profile >/tmp/3c-admin.log 2>&1 & )
 
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
@@ -259,6 +260,8 @@ run_live() {
       pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
     else
       fail "L20 E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8
+      echo "--- admin log ---"; tail -25 /tmp/3c-admin.log 2>/dev/null
+      echo "--- storefront log ---"; tail -10 /tmp/3c-storefront.log 2>/dev/null
     fi
   else
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
