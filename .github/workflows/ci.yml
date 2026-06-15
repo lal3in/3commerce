@@ -89,6 +89,8 @@ jobs:
           - src/Services/Payments/Api/Dockerfile
           - src/Services/Fulfillment/Api/Dockerfile
           - src/Services/Support/Api/Dockerfile
+          - src/Admin/Dockerfile
+          - src/Storefront/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Docker build
