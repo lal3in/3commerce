@@ -121,8 +121,8 @@ run_automated() {
 }
 
 # ── Live full-stack smoke ────────────────────────────────────────────────────
-wait_health() { # port
-  for _ in $(seq 1 30); do curl -fsS "localhost:$1/health/ready" >/dev/null 2>&1 && return 0; sleep 1; done
+wait_health() { # port — up to ~120s (cold .NET start of 8 processes on a slow CI runner)
+  for _ in $(seq 1 60); do curl -fsS "localhost:$1/health/ready" >/dev/null 2>&1 && return 0; sleep 2; done
   return 1
 }
 
@@ -145,15 +145,18 @@ run_live() {
       && printf '  migrated %s\n' "$svc" || printf '  (migrate %s skipped/failed)\n' "$svc"
   done
 
-  stage "Booting services + storefront + admin"
+  stage "Booting services"
+  mkdir -p "$ROOT/.run"
   dotnet build "$ROOT/3commerce.sln" >/dev/null 2>&1
   : > "$ROOT/.run/notifications.log" 2>/dev/null || true
   "$ROOT/scripts/run-all.sh" start >/dev/null
-  # Production storefront server needs a build first.
+  # Wait for service health BEFORE the CPU-heavy storefront build (avoids startup contention).
+  local ok=1; for p in 5101 5102 5103 5104 5105 5106; do wait_health "$p" || ok=0; done
+  [[ $ok == 1 ]] && pass "L2 six services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
+
+  stage "Booting storefront + admin"
   ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
   ( dotnet run --project "$ROOT/src/Admin" --no-build >/tmp/3c-admin.log 2>&1 & )
-  local ok=1; for p in 5101 5102 5103 5104 5105 5106; do wait_health "$p" || ok=0; done
-  [[ $ok == 1 ]] && pass "L2 six services /health/ready" || fail "L2 service health"
 
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
@@ -251,7 +254,7 @@ run_live() {
 
   stage "L20  Storefront + Admin E2E (Playwright, real browser)"
   if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
-    if curl -fsS -o /dev/null "http://localhost:5200/login"; then :; else sleep 5; fi  # admin warmup
+    wait_http "http://localhost:5200/login" || true  # ensure admin is up
     if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
       pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
     else
