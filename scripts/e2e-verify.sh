@@ -156,8 +156,9 @@ run_live() {
 
   stage "Booting storefront + admin"
   ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
+  # Run the managed DLL directly (no apphost — the solution build doesn't always emit one in CI).
   ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development \
-      dotnet run --project "$ROOT/src/Admin" --no-build --no-launch-profile >/tmp/3c-admin.log 2>&1 & )
+      dotnet "$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll" >/tmp/3c-admin.log 2>&1 & )
 
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
