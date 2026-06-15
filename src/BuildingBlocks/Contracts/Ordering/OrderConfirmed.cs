@@ -11,4 +11,4 @@ public record OrderConfirmed(
     string Currency,
     IReadOnlyList<OrderLineInfo> Lines);
 
-public record OrderLineInfo(Guid ProductId, string Title, int Quantity, string FulfillmentSource);
+public record OrderLineInfo(Guid ProductId, string Title, int Quantity, string FulfillmentSource, long UnitPriceMinor);

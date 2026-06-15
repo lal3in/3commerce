@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-13 (Phase 1 + Phase 2 executed and validated; Phase 3 next)
+Last Modified Date-Time: 2026-06-15 (post-MVP backlog: BL-1/3/4/5/8/9 DONE; BL-2 catalog editor next, then BL-6/7/10/11 + CI paths-filter)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -73,7 +73,7 @@ Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−*
 | BL-5 | Storefront nav to /orders/[id]/support | wiki | **DONE 2026-06-15**: confirmation page now links to "Contact support or request a refund" |
 | BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | current chaos test is on the ping-pong spine only |
 | BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | wired but unasserted (search p95 IS measured) |
-| BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | server guards over-refund, but the form takes raw amountMinor |
+| BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | **DONE 2026-06-15**: per-line RMA, server-derived amount. Support `OrderSnapshot` read-copy (fed by `OrderConfirmed` via `OrderSnapshotConsumer`); `GET /tickets/orders/{id}/lines`; `/rma` takes `{orderId, reason, lines[]}` (no client amount) → amount summed from snapshot, capped at purchased qty. Storefront line-selection UI. 4 RMA integration tests pass (inc. new per-line server-price assertion). |
 | BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | **DONE 2026-06-15**: Store:Currency config (default EUR) in importer + cart fallback + storefront env; data model already per-entity currency (multi-currency display = future FX) |
 | BL-10 | App-tier Dockerfiles (storefront + admin) | wiki | only the 6 services + gateway + worker are containerized |
 | BL-11 | Rotate dev secrets per environment (ES256 key, admin pw) | review | committed DEV-ONLY; launch gate |

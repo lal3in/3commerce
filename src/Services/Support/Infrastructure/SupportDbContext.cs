@@ -10,6 +10,8 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
     public DbSet<RmaState> Rmas => Set<RmaState>();
+    public DbSet<OrderSnapshot> OrderSnapshots => Set<OrderSnapshot>();
+    public DbSet<OrderSnapshotLine> OrderSnapshotLines => Set<OrderSnapshotLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +29,12 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
             s.Property(x => x.CurrentState).HasMaxLength(64);
             s.HasIndex(x => x.OrderId);
             s.HasIndex(x => x.RefundId);
+        });
+
+        modelBuilder.Entity<OrderSnapshot>(o =>
+        {
+            o.HasKey(x => x.OrderId);
+            o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
 
         modelBuilder.AddInboxStateEntity();

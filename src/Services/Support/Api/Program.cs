@@ -18,6 +18,7 @@ builder.Services.AddDbContext<SupportDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
 builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
 {
+    bus.AddConsumer<ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer>();
     bus.AddSagaStateMachine<RmaStateMachine, RmaState>()
         .EntityFrameworkRepository(r =>
         {

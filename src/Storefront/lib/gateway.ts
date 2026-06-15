@@ -128,3 +128,11 @@ export async function getMyOrders(): Promise<OrderSummaryDto[]> {
   const response = await gatewayFetch(`/api/ordering/orders`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as OrderSummaryDto[]) : [];
 }
+
+export type RefundableLine = { productId: string; title: string; unitPriceMinor: number; quantity: number };
+export type RefundableOrder = { orderId: string; grossMinor: number; currency: string; lines: RefundableLine[] };
+
+export async function getRefundableOrder(orderId: string): Promise<RefundableOrder | null> {
+  const response = await gatewayFetch(`/api/support/orders/${orderId}/lines`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as RefundableOrder) : null;
+}
