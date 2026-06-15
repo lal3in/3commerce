@@ -14,9 +14,12 @@ namespace ThreeCommerce.Catalog.Infrastructure.Importers;
 public sealed class SampleDataImporter(
     CatalogDbContext db,
     IPublishEndpoint publisher,
+    Microsoft.Extensions.Configuration.IConfiguration configuration,
     ILogger<SampleDataImporter> logger) : ISupplierImporter
 {
-    public const int TargetRows = 10_500;
+    // Default 10,500 (FR-1). Lower it via Importer:TargetRows to keep CI/dev loads light.
+    private readonly int _targetRows =
+        Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue<int>(configuration, "Importer:TargetRows", 10_500);
     private const int BatchSize = 500;
     private const int Seed = 42;
 
@@ -52,7 +55,7 @@ public sealed class SampleDataImporter(
         int read = 0, accepted = 0, rejected = 0, pendingInBatch = 0;
         var rejections = new List<string>();
 
-        for (var i = 0; i < TargetRows; i++)
+        for (var i = 0; i < _targetRows; i++)
         {
             ct.ThrowIfCancellationRequested();
             read++;
