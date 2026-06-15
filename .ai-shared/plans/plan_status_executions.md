@@ -37,7 +37,7 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_28 | Stripe webhook endpoint + inbox + reconciliation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_29 | Refund execution path (admin + saga-callable) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | single path rule |
 | task_30 | IdempotencyKeyFilter (BuildingBlocks) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-3 |
-| task_31 | Storefront cart/checkout/confirmation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4 done; **FR-7 guest→account conversion NOT implemented** — moved to backlog (BL-1) |
+| task_31 | Storefront cart/checkout/confirmation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4 done; FR-7 done via BL-1 (2026-06-15) |
 | task_32 | Chaos + ledger property tests | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
 | task_33 | Order-confirmation email + docs/api updates | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_34 | Fulfillment shipments + tracking flow | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
@@ -60,13 +60,13 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
 ## Conformance review (2026-06-15)
 
-Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−**, 15 Met / 4 Partial / 1 Missing of 21 FR/NFR. Core money + auth engine is production-grade; gaps are in the frontend/back-office and in test coverage, not the ledger. Analysis: `docs/help/project-analysis.html`. Frontend wiki: `docs/help/`.
+Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−** (→ A after BL-1), 16 Met / 4 Partial / 0 Missing of 21 FR/NFR. Core money + auth engine is production-grade; gaps are in the frontend/back-office and in test coverage, not the ledger. Analysis: `docs/help/project-analysis.html`. Frontend wiki: `docs/help/`.
 
 ## Post-MVP backlog (from the conformance review — next work items)
 
 | ID | Item | Source | Notes |
 |----|------|--------|-------|
-| BL-1 | FR-7 guest -> account conversion | review (Missing) | IAuthService method + /convert-guest endpoint + storefront UI; attach guest orders by verified email |
+| BL-1 | FR-7 guest -> account conversion | review (Missing) | **DONE 2026-06-15**: `EmailVerified` event → Ordering `GuestOrderAttachConsumer` (attach by verified email); `/convert-guest` endpoint; storefront convert form. 2 integration tests + live + E2E verified. |
 | BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
 | BL-3 | Admin Orders screen - real list/detail | wiki | Orders.razor is a placeholder |
 | BL-4 | Account page - order history + addresses | wiki | account/page.tsx shows only email + verified flag |

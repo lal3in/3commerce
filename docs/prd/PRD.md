@@ -1,7 +1,7 @@
 # PRD: 3commerce — Distributed E-Commerce Platform
 
 - **PRD:** 3commerce — microservices e-commerce platform (storefront, custom auth, ledger-backed payments, RMA support, Xero sync)
-- **Status:** MVP on dev/test rails — conformance A− (15/21 FR/NFR met; see `docs/reviews/prd-vs-implementation.md`). Known gaps tracked as backlog (FR-7, admin catalog CRUD, NFR-2/5/7 tests). Pending external review & launch gates.
+- **Status:** MVP on dev/test rails — conformance A−→A (16/21 FR/NFR met after FR-7; see `docs/reviews/prd-vs-implementation.md`). Known gaps tracked as backlog (admin catalog CRUD, NFR-2/5/7 tests). Pending external review & launch gates.
 - **Owner:** lehn
 - **Last updated:** 2026-06-15
 

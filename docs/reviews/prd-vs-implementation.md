@@ -1,5 +1,6 @@
 # PRD vs. Implementation — Conformance Review
 
+> **Update 2026-06-15 — FR-7 closed (BL-1).** Post-purchase guest→account conversion is now implemented: Identity publishes `EmailVerified` on verification; Ordering's `GuestOrderAttachConsumer` attaches prior guest orders by verified email; a `/convert-guest` endpoint and a storefront convert form complete the UX. Verified by 2 integration tests, a live cross-service run, and a storefront E2E assertion. Revised tally: **16 Met / 4 Partial / 0 Missing** (grade A− → A). The remaining Partials (FR-12 admin catalog CRUD, NFR-2/5/7 measurement) are backlog BL-2/6/7.
 **Reviewer:** Conformance Reviewer (evidence-based, code-verified)
 **Date:** 2026-06-15
 **Branch:** `main` (committed)

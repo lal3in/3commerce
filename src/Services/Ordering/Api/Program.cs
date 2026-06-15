@@ -27,6 +27,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<PingRequestedConsumer>();
         bus.AddConsumer<ProductCopyConsumer>();
         bus.AddConsumer<OrderStatusConsumer>();
+        bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()
             .EntityFrameworkRepository(r =>
             {
