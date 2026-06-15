@@ -46,6 +46,19 @@ public sealed class Phase3Fixture : IAsyncLifetime
     /// <summary>Publishes straight to the broker (no outbox), standing in for another service.</summary>
     public Task PublishAsync<T>(T message) where T : class => _publishBus!.Publish(message);
 
+    /// <summary>
+    /// Chaos hook (NFR-2): tears down and re-creates the Ordering host — the saga's owner —
+    /// to simulate an outage. Its durable queues survive on the broker, so messages published
+    /// while it is down are delivered on restart. Safe because the collection runs serially.
+    /// </summary>
+    public async Task RestartOrderingAsync()
+    {
+        await Ordering.DisposeAsync();
+        Ordering = CreateFactory<ThreeCommerce.Ordering.Api.IApiMarker, OrderingDbContext>("ordering_db");
+        // Force the host to build so its bus/consumers reconnect before we poll it.
+        _ = Ordering.Services;
+    }
+
     /// <summary>Seeds a guest order (no user) with a given email; returns its id.</summary>
     public async Task<Guid> SeedGuestOrderAsync(string email)
     {
