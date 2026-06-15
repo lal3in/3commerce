@@ -55,8 +55,9 @@
 #   L17 Simulate payment → saga confirms the order
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
-#   L20 Storefront E2E in a real browser (Playwright): browsing, cart + full guest
-#       checkout (test payment), and account flows (register/login/redirect/errors)
+#   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
+#       cart + full guest checkout (test payment), account flows; admin login, page
+#       rendering, and operator RMA approve → refund → RefundIssued + ledger reversal
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -125,6 +126,11 @@ wait_health() { # port
   return 1
 }
 
+wait_http() { # url (waits up to ~120s — covers the storefront production build)
+  for _ in $(seq 1 60); do curl -fsS -o /dev/null "$1" 2>/dev/null && return 0; sleep 2; done
+  return 1
+}
+
 run_live() {
   stage "L1  Infra (Postgres + RabbitMQ)"
   docker compose -f "$ROOT/docker-compose.infra.yml" up -d >/dev/null 2>&1
@@ -139,14 +145,15 @@ run_live() {
       && printf '  migrated %s\n' "$svc" || printf '  (migrate %s skipped/failed)\n' "$svc"
   done
 
-  stage "Booting services + storefront"
+  stage "Booting services + storefront + admin"
   dotnet build "$ROOT/3commerce.sln" >/dev/null 2>&1
   : > "$ROOT/.run/notifications.log" 2>/dev/null || true
   "$ROOT/scripts/run-all.sh" start >/dev/null
-  ( cd "$ROOT/src/Storefront" && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
+  # Production storefront server needs a build first.
+  ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
+  ( dotnet run --project "$ROOT/src/Admin" --no-build >/tmp/3c-admin.log 2>&1 & )
   local ok=1; for p in 5101 5102 5103 5104 5105 5106; do wait_health "$p" || ok=0; done
   [[ $ok == 1 ]] && pass "L2 six services /health/ready" || fail "L2 service health"
-  sleep 6  # storefront warmup
 
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
@@ -196,6 +203,7 @@ run_live() {
     "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/login -H 'content-type: application/json' -d '{\"email\":\"$email\",\"password\":\"brand-new-password-9\"}'"
 
   stage "L14  Storefront SSR"
+  wait_http "$STOREFRONT/" || fail "L14 storefront did not come up"
   check "L14a home renders products" "</h3>" bash -c "curl -fsS $STOREFRONT/"
   check "L14b search renders" "items" bash -c "curl -fsS '$STOREFRONT/search?q=speaker'"
   check "L14c product detail renders" "<h1" bash -c "curl -fsS '$STOREFRONT/products/$slug'"
@@ -231,7 +239,8 @@ run_live() {
     local saleTb; saleTb="$(pay_scalar "$trialbal")"
     { [[ "$saleTb" == "0" ]] && pass "L18 ledger balanced after sale"; } || fail "L18 trial balance=$saleTb"
 
-    curl -s -o /dev/null -b "$admin" -X POST $GATEWAY/api/payments/admin/refunds -H 'content-type: application/json' -H 'Idempotency-Key: e2e-refund' -d "{\"orderId\":\"$oid\",\"amountMinor\":$gross,\"reason\":\"e2e\"}"
+    # Unique key per order — a fixed key would (correctly) dedupe across re-runs on a persistent DB.
+    curl -s -o /dev/null -b "$admin" -X POST $GATEWAY/api/payments/admin/refunds -H 'content-type: application/json' -H "Idempotency-Key: e2e-refund-$oid" -d "{\"orderId\":\"$oid\",\"amountMinor\":$gross,\"reason\":\"e2e\"}"
     sleep 4
     local refTb; refTb="$(pay_scalar "$trialbal")"
     local refunded; refunded="$(pay_scalar "SELECT count(*) FROM \"Refunds\" WHERE \"OrderId\"='$oid'")"
@@ -240,12 +249,13 @@ run_live() {
     fail "L15-L19 no product in Ordering projection (import may not have propagated)"
   fi
 
-  stage "L20  Storefront E2E (Playwright, real browser)"
+  stage "L20  Storefront + Admin E2E (Playwright, real browser)"
   if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
-    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
-      pass "L20 storefront E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
+    if curl -fsS -o /dev/null "http://localhost:5200/login"; then :; else sleep 5; fi  # admin warmup
+    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
+      pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
     else
-      fail "L20 storefront E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -6
+      fail "L20 E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8
     fi
   else
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
@@ -253,7 +263,7 @@ run_live() {
 
   stage "Tearing down"
   "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1
-  pkill -f 'next-server|npm run start' 2>/dev/null || true
+  pkill -f 'next-server|npm run start|3commerce.Admin' 2>/dev/null || true
   echo "  services stopped (infra containers left running)"
 }
 

@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 jobs:
@@ -36,6 +36,40 @@ jobs:
           dotnet-version: 10.0.x
       - name: Integration tests (Testcontainers)
         run: dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Storefront/package-lock.json
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+      - name: Install storefront deps + Playwright (Chromium)
+        working-directory: src/Storefront
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Build solution
+        run: dotnet build 3commerce.sln
+      - name: Full-stack browser E2E (boots the stack, runs L1–L20)
+        run: scripts/e2e-verify.sh --live-only
+      - name: Upload Playwright trace on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: src/Storefront/test-results
+          if-no-files-found: ignore
 
   docker:
     runs-on: ubuntu-latest
