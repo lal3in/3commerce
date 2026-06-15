@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import { getProfile } from "@/lib/gateway";
+import Link from "next/link";
+import { getProfile, getMyOrders } from "@/lib/gateway";
+import { formatMoney } from "@/lib/money";
 import { logout } from "@/lib/auth-actions";
 
 export const metadata = { title: "Account" };
@@ -10,6 +12,7 @@ export default async function AccountPage() {
   if (!profile) {
     redirect("/login");
   }
+  const orders = await getMyOrders();
 
   return (
     <div className="max-w-md">
@@ -25,9 +28,23 @@ export default async function AccountPage() {
         </div>
       </dl>
 
-      <p className="mt-6 text-sm text-neutral-500">
-        Order history and addresses appear here as later phases land.
-      </p>
+      <h2 className="mt-8 text-lg font-semibold">Order history</h2>
+      {orders.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">No orders yet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-neutral-100 text-sm">
+          {orders.map((o) => (
+            <li key={o.id} className="flex items-center justify-between py-2">
+              <span className="font-mono text-xs text-neutral-500">{o.id.slice(0, 8)}…</span>
+              <span>{o.status}</span>
+              <span>{formatMoney(o.grossMinor, o.currency)}</span>
+              <Link href={`/orders/${o.id}/support`} className="underline text-neutral-500">
+                Support
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <form action={logout} className="mt-6">
         <button type="submit" className="rounded-md border border-neutral-300 px-4 py-2 text-sm">

@@ -11,6 +11,9 @@ public static class CartEndpoints
 {
     public const string CartCookie = "3c_cart";
 
+    /// <summary>Store currency for empty-cart responses (real carts carry the product currency).</summary>
+    public static string StoreCurrency { get; set; } = "EUR";
+
     public static IEndpointRouteBuilder MapCart(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/cart").WithTags("Cart");
@@ -135,7 +138,7 @@ public static class CartEndpoints
             .Select(i => new CartItemResponse(i.ProductId, i.Slug, i.Title, i.ImageUrl, i.UnitPriceMinor, i.Currency, i.Quantity))
             .ToList();
         var subtotal = items.Sum(i => i.UnitPriceMinor * i.Quantity);
-        var currency = items.FirstOrDefault()?.Currency ?? "EUR";
+        var currency = items.FirstOrDefault()?.Currency ?? StoreCurrency;
         return new CartResponse(cart.Id, items, subtotal, currency);
     }
 }

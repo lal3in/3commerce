@@ -17,6 +17,12 @@ public static class OrdersEndpoints
         // Order status is also readable anonymously by id — the confirmation page polls it.
         // (A signed link would scope this in production; acceptable for v1 status polling.)
         app.MapGet("/orders/{id:guid}/status", GetStatus).WithTags("Orders");
+
+        // Admin order list/detail (operator console).
+        var admin = app.MapGroup("/admin/orders").WithTags("Admin")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
+        admin.MapGet("/", ListAllOrders);
+        admin.MapGet("/{id:guid}", GetAnyOrder);
         return app;
     }
 
@@ -48,6 +54,28 @@ public static class OrdersEndpoints
         return order is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+    }
+
+    private static async Task<Ok<List<OrderSummary>>> ListAllOrders(
+        OrderingDbContext db, string? status, CancellationToken ct)
+    {
+        var query = db.Orders.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<ThreeCommerce.Ordering.Domain.OrderStatus>(status, out var s))
+        {
+            query = query.Where(o => o.Status == s);
+        }
+
+        var orders = await query.OrderByDescending(o => o.CreatedAt).Take(200)
+            .Select(o => new OrderSummary(o.Id, o.Status.ToString(), o.GrossMinor, o.Currency, o.CreatedAt))
+            .ToListAsync(ct);
+        return TypedResults.Ok(orders);
+    }
+
+    private static async Task<Results<Ok<OrderDetail>, NotFound>> GetAnyOrder(
+        Guid id, OrderingDbContext db, CancellationToken ct)
+    {
+        var order = await db.Orders.AsNoTracking().Include(o => o.Lines).SingleOrDefaultAsync(o => o.Id == id, ct);
+        return order is null ? TypedResults.NotFound() : TypedResults.Ok(ToDetail(order));
     }
 
     private static OrderDetail ToDetail(ThreeCommerce.Ordering.Domain.Order o) => new(

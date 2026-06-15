@@ -1,8 +1,38 @@
 @page "/orders"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
+@rendermode InteractiveServer
 
 <h1>Orders</h1>
-<p style="color:#6b7280;">Order management reads through the gateway; per-order detail (payment state, per-line
-fulfillment, tickets) is added as those read endpoints land.</p>
-<p>Use the <a href="/ledger">Ledger</a> and <a href="/rmas">RMA queue</a> for money operations.</p>
+@if (_orders is null)
+{
+    <p>Loading…</p>
+}
+else if (_orders.Count == 0)
+{
+    <p>No orders yet.</p>
+}
+else
+{
+    <table style="border-collapse:collapse;width:100%;">
+        <thead><tr><th style="text-align:left;">Order</th><th>Status</th><th>Total</th><th>Placed</th></tr></thead>
+        <tbody>
+        @foreach (var o in _orders)
+        {
+            <tr style="border-top:1px solid #e5e7eb;">
+                <td style="font-family:monospace;">@o.Id</td>
+                <td>@o.Status</td>
+                <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
+                <td>@o.CreatedAt.LocalDateTime.ToString("g")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<OrderDto>? _orders;
+    protected override async Task OnInitializedAsync() =>
+        _orders = await Gateway.GetListAsync<OrderDto>("/api/ordering/admin/orders");
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+}

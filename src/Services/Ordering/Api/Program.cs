@@ -44,6 +44,8 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CartService>();
 
+ThreeCommerce.Ordering.Api.Endpoints.CartEndpoints.StoreCurrency = builder.Configuration["Store:Currency"] ?? "EUR";
+
 var app = builder.Build();
 
 app.UseApiProblemDetails();

@@ -68,13 +68,13 @@ Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−*
 |----|------|--------|-------|
 | BL-1 | FR-7 guest -> account conversion | review (Missing) | **DONE 2026-06-15**: `EmailVerified` event → Ordering `GuestOrderAttachConsumer` (attach by verified email); `/convert-guest` endpoint; storefront convert form. 2 integration tests + live + E2E verified. |
 | BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
-| BL-3 | Admin Orders screen - real list/detail | wiki | Orders.razor is a placeholder |
-| BL-4 | Account page - order history + addresses | wiki | account/page.tsx shows only email + verified flag |
+| BL-3 | Admin Orders screen - real list/detail | wiki | **DONE 2026-06-15**: GET /admin/orders endpoint + Blazor Orders page (list) |
+| BL-4 | Account page - order history + addresses | wiki | **DONE 2026-06-15**: account page renders order history (getMyOrders) |
 | BL-5 | Storefront nav to /orders/[id]/support | wiki | **DONE 2026-06-15**: confirmation page now links to "Contact support or request a refund" |
 | BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | current chaos test is on the ping-pong spine only |
 | BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | wired but unasserted (search p95 IS measured) |
 | BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | server guards over-refund, but the form takes raw amountMinor |
-| BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | ADR-0015 references it; not in code |
+| BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | **DONE 2026-06-15**: Store:Currency config (default EUR) in importer + cart fallback + storefront env; data model already per-entity currency (multi-currency display = future FX) |
 | BL-10 | App-tier Dockerfiles (storefront + admin) | wiki | only the 6 services + gateway + worker are containerized |
 | BL-11 | Rotate dev secrets per environment (ES256 key, admin pw) | review | committed DEV-ONLY; launch gate |
 
