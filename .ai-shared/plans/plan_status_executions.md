@@ -67,7 +67,7 @@ Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−*
 | ID | Item | Source | Notes |
 |----|------|--------|-------|
 | BL-1 | FR-7 guest -> account conversion | review (Missing) | **DONE 2026-06-15**: `EmailVerified` event → Ordering `GuestOrderAttachConsumer` (attach by verified email); `/convert-guest` endpoint; storefront convert form. 2 integration tests + live + E2E verified. |
-| BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
+| BL-2 | FR-12 admin catalog CRUD | review (Partial) | **DONE 2026-06-15**: full catalog editor. Catalog `GET/POST/PUT /admin/products` (+ existing DELETE): create/edit over variants, stock, images, attributes; variant reconcile (match/add/remove); slug-unique + category-required guards (a product without a real category is invisible to FTS); publishes `ProductUpserted`. Blazor `/catalog` editor page (list/search + form). 4 integration tests pass. |
 | BL-3 | Admin Orders screen - real list/detail | wiki | **DONE 2026-06-15**: GET /admin/orders endpoint + Blazor Orders page (list) |
 | BL-4 | Account page - order history + addresses | wiki | **DONE 2026-06-15**: account page renders order history (getMyOrders) |
 | BL-5 | Storefront nav to /orders/[id]/support | wiki | **DONE 2026-06-15**: confirmation page now links to "Contact support or request a refund" |
