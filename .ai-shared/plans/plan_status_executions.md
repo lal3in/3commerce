@@ -70,7 +70,7 @@ Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−*
 | BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
 | BL-3 | Admin Orders screen - real list/detail | wiki | Orders.razor is a placeholder |
 | BL-4 | Account page - order history + addresses | wiki | account/page.tsx shows only email + verified flag |
-| BL-5 | Storefront nav to /orders/[id]/support | wiki | page works but nothing links to it (account/confirmation) |
+| BL-5 | Storefront nav to /orders/[id]/support | wiki | **DONE 2026-06-15**: confirmation page now links to "Contact support or request a refund" |
 | BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | current chaos test is on the ping-pong spine only |
 | BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | wired but unasserted (search p95 IS measured) |
 | BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | server guards over-refund, but the form takes raw amountMinor |

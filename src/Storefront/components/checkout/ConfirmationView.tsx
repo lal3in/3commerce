@@ -73,6 +73,14 @@ export function ConfirmationView({
             </form>
           )}
         </div>
+        {/* BL-5: make the order support / refund flow discoverable. */}
+        <p className="text-sm text-neutral-500">
+          Problem with this order?{" "}
+          <Link href={`/orders/${orderId}/support`} className="underline">
+            Contact support or request a refund
+          </Link>
+          .
+        </p>
       </div>
     );
   }
