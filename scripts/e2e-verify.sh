@@ -140,11 +140,15 @@ wait_http() { # url (waits up to ~120s — covers the storefront production buil
 run_live() {
   stage "L1  Infra (Postgres + RabbitMQ)"
   docker compose -f "$ROOT/docker-compose.infra.yml" up -d >/dev/null 2>&1
-  # Wait up to ~120s for the init script to create all 6 databases (slow/loaded CI runners).
-  for _ in $(seq 1 60); do
-    [[ "$(docker exec 3commerce-postgres psql -U postgres -tc '\l' 2>/dev/null | grep -c '_db')" == "6" ]] && break; sleep 2
+  # Wait up to ~180s for the init script to create all 6 databases (slow/loaded CI
+  # runners create them sequentially; use the loop's own count so a late-landing 6th
+  # database isn't missed by a single-shot re-count).
+  dbcount=0
+  for _ in $(seq 1 90); do
+    dbcount="$(docker exec 3commerce-postgres psql -U postgres -tc '\l' 2>/dev/null | grep -c '_db')"
+    [[ "$dbcount" == "6" ]] && break; sleep 2
   done
-  check "L1 six service databases" "6" bash -c "docker exec 3commerce-postgres psql -U postgres -tc '\l' | grep -c '_db'"
+  [[ "$dbcount" == "6" ]] && pass "L1 six service databases" || fail "L1 six service databases (saw '$dbcount')"
 
   stage "Applying migrations"
   for svc in Identity Catalog Ordering Payments Fulfillment Support; do
