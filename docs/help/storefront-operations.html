@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storefront operations — 3commerce Operations Wiki</title>
+<meta name="description" content="The customer-facing Next.js storefront: pages, server actions, and the gateway endpoints they call.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/wiki.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">3c</span>
+      <span class="brand-name">3commerce<small>Operations Wiki</small></span>
+    </a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html" class="active"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">
+      Thin frontends over a YARP gateway.<br>Money in minor units. Dev has no live Stripe/Xero.
+    </div>
+  </aside>
+
+  <div class="shell">
+    <header class="topbar">
+      <button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Guide</b><span class="sep">/</span>Storefront operations</div>
+      <span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button>
+      <button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button>
+    </header>
+
+    <main id="main" class="content">
+      <div class="content-inner">
+        <p class="eyebrow">Guide · 02</p>
+        <h1>Storefront operations</h1>
+        <p class="lede">The customer-facing Next.js app at <strong><code>http://localhost:3000</code></strong>. Every page is a Server Component rendered on the server (SSR/ISR); all state-changing actions are <strong>Server Actions</strong> in <code>src/Storefront/lib/*-actions.ts</code>, which call the YARP gateway and (where needed) relay cookies. The browser never sees the gateway URL or session token directly.</p>
+
+        <h2 id="global-chrome">Global chrome (every page)</h2>
+        <p>The root layout (<code>app/layout.tsx</code>) renders a header on every page:</p>
+        <ul>
+          <li><strong>3commerce</strong> logo → <code>/</code> (home)</li>
+          <li>A <strong>search box</strong> (<code>name="q"</code>) that submits <code>GET /search</code></li>
+          <li>Nav links: <strong>Shop</strong> → <code>/search</code>, <strong>Cart</strong> → <code>/cart</code>, <strong>Account</strong> → <code>/account</code></li>
+          <li>A footer ("3commerce — demo storefront")</li>
+        </ul>
+        <p>Money everywhere is formatted by <code>lib/money.ts</code> (<code>formatMoney(minorUnits, currency)</code>), i.e. integer cents rendered via <code>Intl.NumberFormat</code>.</p>
+
+        <h2 id="home">1. Home — <code>/</code></h2>
+        <p>File: <code>app/page.tsx</code>. Server-rendered. On load it fetches, in parallel:</p>
+        <ul>
+          <li>featured products — <code>searchProducts({ pageSize: 8 })</code> → <code>GET /api/catalog/products?...</code></li>
+          <li>categories — <code>listCategories()</code> → <code>GET /api/catalog/categories</code></li>
+        </ul>
+        <p>Sections shown:</p>
+        <ol>
+          <li>A hero banner ("Everything, sourced for you.") with a <strong>Start shopping</strong> button → <code>/search</code>.</li>
+          <li><strong>Categories</strong> — chips, each linking to <code>/search?category=&lt;slug&gt;</code> (hidden if none).</li>
+          <li><strong>Featured</strong> — a product grid of up to 8 items.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>If the catalog has not been imported yet, the grid and categories are empty — run the sample importer from the admin first (see <a class="inline" href="admin-operations.html">Admin operations</a>).</p>
+        </div>
+
+        <h2 id="search">2. Search — <code>/search</code></h2>
+        <p>File: <code>app/search/page.tsx</code>. The URL <strong>is</strong> the state (shareable + crawlable). Query params: <code>q</code>, <code>category</code>, <code>attrs</code>, <code>page</code>. Page size is 24.</p>
+        <p>Steps:</p>
+        <ol>
+          <li>Type in the header search box and press Enter → navigates to <code>/search?q=&lt;term&gt;</code>. (Or click a category chip → <code>/search?category=&lt;slug&gt;</code>.)</li>
+          <li>The page calls <code>searchProducts(...)</code> → <code>GET /api/catalog/products?q=...&amp;category=...&amp;attrs=...&amp;page=...&amp;pageSize=24</code>.</li>
+          <li>Results render as a product grid with a heading (<code>Results for "&lt;q&gt;"</code>, or <code>Category: &lt;slug&gt;</code>, or <code>All products</code>) and an item count read from the <code>X-Total-Count</code> response header.</li>
+          <li><strong>Pagination</strong> appears when there is more than one page: <strong>Previous</strong> / <strong>Next</strong> links that preserve <code>q</code>/<code>category</code>/<code>attrs</code> and bump <code>page</code>.</li>
+        </ol>
+
+        <h3 id="typo-tolerance">Typo tolerance</h3>
+        <p>Search is typo-tolerant on the backend (Postgres FTS + <code>pg_trgm</code> trigram fallback, ADR-0020). The storefront does nothing special — it just forwards <code>q</code>. Example: searching <code>hedphones</code> still surfaces "Headphones". This is exercised by the <code>browse.spec.ts</code> E2E test and the catalog integration tests.</p>
+
+        <h2 id="product-detail">3. Product detail — <code>/products/[slug]</code></h2>
+        <p>File: <code>app/products/[slug]/page.tsx</code>. <strong>ISR</strong> — <code>getProduct(slug)</code> fetches <code>GET /api/catalog/products/&lt;slug&gt;</code> with <code>next: { revalidate: 300 }</code> (5-minute cache). Unknown slugs render <code>notFound()</code> (404).</p>
+        <p>What you see:</p>
+        <ul>
+          <li>Product image (Next <code>&lt;Image&gt;</code>; dev images come from <code>picsum.photos</code>).</li>
+          <li>Brand, title, a "from" price (the minimum variant price), and description.</li>
+          <li><strong>Options</strong> — a list of variants: SKU, price, and <strong>In stock / Out of stock</strong>.</li>
+          <li><strong>Attributes</strong> — a key/value grid (only if the product has attributes).</li>
+          <li><strong>Add to cart</strong> button.</li>
+        </ul>
+
+        <h3 id="add-to-cart">Add to cart</h3>
+        <p>The <strong>Add to cart</strong> button (<code>components/cart/AddToCartButton.tsx</code>) is a client leaf:</p>
+        <ol>
+          <li>Click → runs the <code>addToCart(productId)</code> Server Action (<code>lib/cart-actions.ts</code>).</li>
+          <li>The action <code>POST</code>s to <code>/api/ordering/cart/items</code> with <code>{ productId, quantity: 1 }</code>, forwarding the <code>3c_cart</code> and <code>3c_session</code> cookies.</li>
+          <li>It <strong>relays the cart cookie</strong>: if the gateway returns a <code>Set-Cookie: 3c_cart=...</code>, the action writes it back as an HttpOnly cookie (the cart is cookie-keyed).</li>
+          <li><code>revalidatePath("/cart")</code> runs, then the button navigates you to <code>/cart</code>.</li>
+        </ol>
+
+        <h2 id="cart">4. Cart — <code>/cart</code></h2>
+        <p>File: <code>app/cart/page.tsx</code>. Dynamic, never cached. Reads the cart via <code>getCart()</code> → <code>GET /api/ordering/cart/</code>.</p>
+        <ul>
+          <li><strong>Empty cart:</strong> shows "Your cart is empty" with a <strong>Browse products</strong> link → <code>/search</code>.</li>
+          <li><strong>With items:</strong> lists each line (<code>CartItemRow</code>) with image, title, unit price, and quantity; a <strong>Subtotal</strong>; the note "Shipping and tax are calculated at checkout"; and a <strong>Checkout</strong> button → <code>/checkout</code>.</li>
+        </ul>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>A read-only cart render never sets cookies. An un-keyed visitor (no <code>3c_cart</code> cookie yet) just sees an empty cart — the cookie is established by the add-to-cart action.</p>
+        </div>
+        <p>Removing an item uses the <code>removeFromCart(productId)</code> Server Action → <code>DELETE /api/ordering/cart/items/&lt;productId&gt;</code>, then revalidates <code>/cart</code>.</p>
+
+        <h2 id="checkout-guest">5. Checkout (guest) — <code>/checkout</code></h2>
+        <p>File: <code>app/checkout/page.tsx</code> + <code>components/checkout/CheckoutForm.tsx</code>. Guest checkout — email + shipping only, no account required (ADR-0013). If the cart is empty the page redirects to <code>/cart</code>.</p>
+        <p>Steps:</p>
+        <ol>
+          <li>The page shows an order summary (subtotal + item count, "+ shipping and tax, shown after you place the order").</li>
+          <li>Fill the form: <strong>Email</strong>, <strong>Full name</strong>, <strong>Address</strong>, <strong>City</strong>, <strong>Postcode</strong>, <strong>Country (2-letter)</strong> — all required.</li>
+          <li>Click <strong>Place order</strong> (button shows "Placing order…" while pending).</li>
+          <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email and shipping address (cart cookie forwarded).</li>
+          <li>On success it redirects to <code>/checkout/confirmation?order=&lt;orderId&gt;</code>. On failure the form shows: "Checkout failed. Please review your cart and details."</li>
+        </ol>
+        <p>The backend creates the order, starts the checkout saga, and (in dev) issues a <strong>fake</strong> payment intent. The page does <strong>not</strong> collect card details — payment is completed on the confirmation page.</p>
+
+        <h2 id="confirmation">6. Confirmation — <code>/checkout/confirmation</code></h2>
+        <p>File: <code>app/checkout/confirmation/page.tsx</code> + <code>components/checkout/ConfirmationView.tsx</code>. Requires an <code>?order=&lt;id&gt;</code> param (otherwise: "No order specified.").</p>
+        <p>Behaviour ("pending-first", then poll):</p>
+        <ol>
+          <li>The server reads the initial status via <code>getOrderStatus(order)</code> → <code>GET /api/ordering/orders/&lt;id&gt;/status</code> (defaults to <code>AwaitingPayment</code>).</li>
+          <li>The client view <strong>polls every 2 seconds</strong> at <code>/api/order-status/&lt;orderId&gt;</code> (a thin Next route proxy, <code>app/api/order-status/[orderId]/route.ts</code>) until the status is <code>Confirmed</code> or <code>Cancelled</code>.</li>
+          <li><strong>While pending</strong> it shows "Completing your payment…" and, in dev, a <strong>Complete test payment (dev)</strong> button.
+            <ul>
+              <li>Clicking it <code>POST</code>s to <code>/api/dev-pay/&lt;orderId&gt;</code> (<code>app/api/dev-pay/[orderId]/route.ts</code>), which builds the fake intent id <code>pi_fake_&lt;orderId-without-dashes&gt;</code> and calls <code>POST /api/payments/dev/simulate-payment/&lt;intentId&gt;</code> through the gateway. The Payments service only honours this in its Development environment.</li>
+            </ul>
+          </li>
+          <li><strong>Confirmed</strong> → "Thank you!" with a "Track your order / Set a password" card linking to <code>/register</code>.</li>
+          <li><strong>Cancelled</strong> → "Payment not completed" with a <strong>Return to cart</strong> link.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>In production (real Stripe key set), the dev button would not apply — the Payment Element / webhook path would drive the status instead. There is no live Stripe in this build.</p>
+        </div>
+
+        <h2 id="register">7. Register — <code>/register</code></h2>
+        <p>Files: <code>app/register/page.tsx</code> + <code>app/register/RegisterForm.tsx</code>.</p>
+        <ol>
+          <li>Enter <strong>Email</strong> and <strong>Password (min 10 characters)</strong> (<code>minLength={10}</code> enforced client-side).</li>
+          <li>Click <strong>Create account</strong>.</li>
+          <li>The <code>register</code> Server Action (<code>lib/auth-actions.ts</code>) <code>POST</code>s to <code>/api/identity/register</code> with <code>{ email, password }</code>.</li>
+          <li>On success it redirects to <code>/login?registered=1</code>, which shows a green banner: "Account created. Check your email to verify, then log in." On failure: "Could not register. Try a different email or a longer password."</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>Registration does <strong>not</strong> auto-login; the response is intentionally identical on repeat (no user enumeration). The verification email is delivered by the Notifications worker.</p>
+        </div>
+
+        <h2 id="login-logout">8. Login / Logout — <code>/login</code>, <code>/account</code></h2>
+        <p><strong>Login</strong> (<code>app/login/page.tsx</code> + <code>LoginForm.tsx</code>):</p>
+        <ol>
+          <li>Enter <strong>Email</strong> + <strong>Password</strong>, click <strong>Log in</strong>.</li>
+          <li>The <code>login</code> Server Action <code>POST</code>s to <code>/api/identity/login</code>.</li>
+          <li>On success it <strong>forwards the gateway's <code>Set-Cookie: 3c_session=...</code></strong> to the browser as an HttpOnly cookie, then redirects to <code>/account</code>. On failure: "Invalid email or password."</li>
+          <li>A <strong>Register</strong> link sits below the form.</li>
+        </ol>
+        <p><strong>Logout</strong> is a Server Action triggered by the <strong>Log out</strong> button on <code>/account</code>: it <code>POST</code>s to <code>/api/identity/logout</code> with the session cookie, deletes the <code>3c_session</code> cookie, and redirects to <code>/</code>.</p>
+
+        <h2 id="account">9. Account — <code>/account</code></h2>
+        <p>File: <code>app/account/page.tsx</code>. Dynamic, cookie-dependent, never cached.</p>
+        <ol>
+          <li>The page calls <code>getProfile()</code> → <code>GET /api/identity/me</code>. If there is no valid session it <strong>redirects to <code>/login</code></strong> (the unauth case returns HTTP 307).</li>
+          <li>Otherwise it shows <strong>Email</strong> and <strong>Email verified (Yes / Pending)</strong>, plus a <strong>Log out</strong> button.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Accurate state:</strong> the account page does <strong>not</strong> yet show order history or saved addresses — it literally says "Order history and addresses appear here as later phases land." (The Identity service does support saved addresses via <code>POST /api/identity/me/addresses</code>, but no storefront page surfaces them.)</p>
+        </div>
+
+        <h2 id="order-support">10. Order support — <code>/orders/[id]/support</code></h2>
+        <p>Files: <code>app/orders/[id]/support/page.tsx</code> + <code>components/support/SupportForms.tsx</code>. The page renders two forms for a given order id (and shows a green "Your request was submitted…" banner when arriving with <code>?submitted=1</code>).</p>
+
+        <h3 id="report-a-problem">Report a problem (support ticket)</h3>
+        <ol>
+          <li>Fill <strong>Your email</strong>, pick a <strong>reason</strong>, and write a message. Reasons (typed, ADR-0018): <code>1</code> Where is my order?, <code>2</code> Arrived damaged, <code>3</code> Refund request, <code>4</code> Other.</li>
+          <li>Click <strong>Open ticket</strong>.</li>
+          <li>The <code>openTicket</code> Server Action (<code>lib/support-actions.ts</code>) <code>POST</code>s to <code>/api/support/tickets</code> with <code>{ orderId, email, reason, message }</code> (session cookie forwarded).</li>
+          <li>On success the form shows "Ticket opened." On failure: "Could not open the ticket."</li>
+        </ol>
+
+        <h3 id="request-a-refund">Request a refund (RMA)</h3>
+        <ol>
+          <li>Fill <strong>Your email</strong>, <strong>Amount in cents</strong> (<code>amountMinor</code>), and a free-text <strong>Reason</strong>.</li>
+          <li>Click <strong>Request refund</strong>.</li>
+          <li>The <code>requestRefund</code> Server Action <code>POST</code>s to <code>/api/support/rma</code> with <code>{ orderId, email, amountMinor, reason }</code>.</li>
+          <li>On success it redirects to <code>/orders/&lt;id&gt;/support?submitted=1</code> (green banner). On failure: "Could not submit the refund request."</li>
+        </ol>
+        <p>This opens an RMA in the <strong>Requested</strong> state. An operator then approves and refunds it from the admin <strong>RMA queue</strong> (see <a class="inline" href="admin-operations.html">Admin operations</a>) — the same refund path used everywhere, balancing the double-entry ledger.</p>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Note:</strong> there is no link from the order/account pages to this support page; you reach it by navigating directly to <code>/orders/&lt;order-id&gt;/support</code> (the confirmation page's "Track your order" card links to register, not to support).</p>
+        </div>
+
+        <h2 id="server-action-reference">Server Action → gateway endpoint reference</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Action (file)</th><th>Calls</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>addToCart</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/cart/items</code></td><td>Relays <code>3c_cart</code> cookie; revalidates <code>/cart</code>.</td></tr>
+              <tr><td><code>removeFromCart</code> (<code>cart-actions.ts</code>)</td><td><code>DELETE /api/ordering/cart/items/&lt;id&gt;</code></td><td>Revalidates <code>/cart</code>.</td></tr>
+              <tr><td><code>submitCheckout</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/checkout</code></td><td>Redirects to confirmation.</td></tr>
+              <tr><td><code>login</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/login</code></td><td>Forwards <code>3c_session</code> cookie; redirects to <code>/account</code>.</td></tr>
+              <tr><td><code>register</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/register</code></td><td>Redirects to <code>/login?registered=1</code>.</td></tr>
+              <tr><td><code>logout</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/logout</code></td><td>Deletes cookie; redirects to <code>/</code>.</td></tr>
+              <tr><td><code>openTicket</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/tickets</code></td><td>Returns <code>{ ok }</code> / <code>{ error }</code>.</td></tr>
+              <tr><td><code>requestRefund</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/rma</code></td><td>Redirects with <code>?submitted=1</code>.</td></tr>
+              <tr><td>(read) <code>getCart</code>, <code>searchProducts</code>, <code>getProduct</code>, <code>listCategories</code>, <code>getProfile</code>, <code>getOrderStatus</code> (<code>gateway.ts</code>)</td><td><code>GET /api/...</code></td><td>Server-side reads, session/cart cookies forwarded.</td></tr>
+              <tr><td>dev-pay route</td><td><code>POST /api/payments/dev/simulate-payment/&lt;intent&gt;</code></td><td>Dev-only fake payment.</td></tr>
+              <tr><td>order-status route</td><td><code>GET /api/ordering/orders/&lt;id&gt;/status</code></td><td>Polling proxy.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <footer class="page-nav">
+          <a class="prev" href="getting-started.html">
+            <div class="dir">← Previous</div>
+            <div class="ttl">Getting started</div>
+          </a>
+          <a class="next" href="admin-operations.html">
+            <div class="dir">Next →</div>
+            <div class="ttl">Admin operations</div>
+          </a>
+        </footer>
+      </div>
+    </main>
+
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <nav></nav>
+    </aside>
+  </div>
+</div>
+<script src="assets/wiki.js"></script>
+</body>
+</html>
