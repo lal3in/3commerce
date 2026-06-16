@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started — 3commerce Operations Wiki</title>
+<meta name="description" content="Bring the entire 3commerce stack up locally: infra, migrations, services, storefront, admin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/wiki.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">3c</span>
+      <span class="brand-name">3commerce<small>Operations Wiki</small></span>
+    </a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html" class="active"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">
+      Thin frontends over a YARP gateway.<br>Money in minor units. Dev has no live Stripe/Xero.
+    </div>
+  </aside>
+
+  <div class="shell">
+    <header class="topbar">
+      <button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Guide</b><span class="sep">/</span>Getting started</div>
+      <span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button>
+      <button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button>
+    </header>
+
+    <main id="main" class="content">
+      <div class="content-inner">
+        <p class="eyebrow">Guide · 01</p>
+        <h1>Getting started</h1>
+        <p class="lede">Bring up the entire 3commerce stack on one machine: infrastructure → database migrations → backend services + gateway + worker → storefront → admin. There is <strong>no live Stripe or Xero</strong> in dev — payments use a fake provider and Xero a logging client.</p>
+
+        <h2 id="prerequisites">Prerequisites</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Requirement</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Container runtime</strong></td><td>Docker or <strong>colima</strong> (<code>colima start</code>). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests.</td></tr>
+              <tr><td><strong>.NET 10 SDK</strong></td><td>Installed user-locally at <code>~/.dotnet</code> (no sudo). Set <code>DOTNET_ROOT=$HOME/.dotnet</code>; ensure <code>~/.dotnet</code> and <code>~/.dotnet/tools</code> are on <code>PATH</code>. <code>.envrc</code> (direnv) sets this for you — run <code>direnv allow</code> after editing it.</td></tr>
+              <tr><td><strong>Node.js</strong></td><td>For the Next.js storefront and Playwright. CI uses Node 22.</td></tr>
+              <tr><td><strong>dotnet-ef tool</strong></td><td>For applying migrations: <code>dotnet tool install --global dotnet-ef</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="ports">Ports used</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Component</th><th>Port</th></tr></thead>
+            <tbody>
+              <tr><td>Gateway (YARP, public origin)</td><td><code>8080</code></td></tr>
+              <tr><td>Identity / Catalog / Ordering / Payments / Fulfillment / Support</td><td><code>5101</code> / <code>5102</code> / <code>5103</code> / <code>5104</code> / <code>5105</code> / <code>5106</code></td></tr>
+              <tr><td>Storefront (Next.js)</td><td><code>3000</code></td></tr>
+              <tr><td>Admin (Blazor Server)</td><td><code>5200</code></td></tr>
+              <tr><td>Postgres</td><td><code>5432</code></td></tr>
+              <tr><td>RabbitMQ AMQP / management UI</td><td><code>5672</code> / <code>15672</code> (guest/guest)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>The dev "complete test payment" path and <code>e2e-verify.sh</code> address Payments directly on <code>:5104</code> (<code>/dev/simulate-payment/…</code>); everything else goes through the gateway.</p>
+        </div>
+
+        <h2 id="step-by-step">Step-by-step</h2>
+
+        <h3 id="step-1">1 · Start infrastructure (Postgres + RabbitMQ)</h3>
+        <pre><code><span class="cmt">colima start                                       # if using colima</span>
+docker compose -f docker-compose.infra.yml up -d</code></pre>
+        <p>This starts Postgres 17 and RabbitMQ 4. On first run, <code>infra/postgres/init-databases.sql</code> creates the <strong>6 service databases</strong>, roles, and extensions (FTS + <code>pg_trgm</code>).</p>
+
+        <h3 id="step-2">2 · Apply database migrations</h3>
+        <p>Once, and again after any schema change:</p>
+        <pre><code>for s in Identity Catalog Ordering Payments Fulfillment Support; do
+  dotnet ef database update -p src/Services/$s/Infrastructure -s src/Services/$s/Api
+done</code></pre>
+
+        <h3 id="step-3">3 · Build and start the gateway + services + worker</h3>
+        <pre><code>dotnet build 3commerce.sln
+scripts/run-all.sh start          <span class="cmt"># gateway, 6 services, notifications worker</span></code></pre>
+        <p><code>scripts/run-all.sh</code> runs each app via bare <code>dotnet run --no-build</code> in the background (ADR-0009). Logs land in <code>.run/&lt;name&gt;.log</code>, PIDs in <code>.run/&lt;name&gt;.pid</code>. Stop everything with:</p>
+        <pre><code>scripts/run-all.sh stop</code></pre>
+        <p>Check readiness (each service exposes <code>/health/ready</code>, <strong>internal only</strong> — not via the gateway):</p>
+        <pre><code>for p in 5101 5102 5103 5104 5105 5106; do curl -fsS localhost:$p/health/ready; done</code></pre>
+
+        <h3 id="step-4">4 · Start the storefront (<code>:3000</code>)</h3>
+        <p>Dev mode (hot reload):</p>
+        <pre><code>cd src/Storefront
+npm install                       <span class="cmt"># first time only</span>
+npm run dev                       <span class="cmt"># next dev -p 3000</span></code></pre>
+        <p>Or production mode (what the live smoke tests use):</p>
+        <pre><code>cd src/Storefront
+npm run build
+GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
+        <p>The storefront reads <code>GATEWAY_URL</code> (default <code>http://localhost:8080</code>) — see <code>src/Storefront/.env.example</code>. It talks <strong>only</strong> to the gateway.</p>
+
+        <h3 id="step-5">5 · Start the admin console (<code>:5200</code>)</h3>
+        <pre><code>ASPNETCORE_URLS="http://localhost:5200" dotnet run --project src/Admin</code></pre>
+        <p>(The live verification script runs the built DLL directly with <code>ASPNETCORE_ENVIRONMENT=Development</code> to bind <code>:5200</code>.) The admin reads <code>Gateway:BaseUrl</code> (default <code>http://localhost:8080</code>).</p>
+
+        <h3 id="step-6">6 · Log in and seed the catalog</h3>
+        <p>The dev admin account is seeded:</p>
+        <ul>
+          <li><strong>Email:</strong> <code>admin@3commerce.local</code></li>
+          <li><strong>Password:</strong> <code>dev-admin-password-1</code></li>
+        </ul>
+        <p>The catalog starts empty. Log into the admin at <code>http://localhost:5200</code>, open <strong>Imports</strong>, and click <strong>Run sample importer</strong> to load ~10,500 sample SKUs (see <a class="inline" href="admin-operations.html">Admin operations</a>). After import, the storefront's home/search pages will show products.</p>
+
+        <h2 id="one-command">One-command equivalent</h2>
+        <p><code>scripts/e2e-verify.sh --live</code> automates steps 1–5 (infra, migrations, services, storefront, admin) and then runs the live smoke flows. Use it to confirm the whole stack boots and the core journeys work — see <a class="inline" href="testing.html">Testing</a>.</p>
+
+        <h2 id="teardown">Teardown</h2>
+        <pre><code>scripts/run-all.sh stop                                   <span class="cmt"># services + worker</span>
+pkill -f 'next-server|npm run start|3commerce.Admin'      <span class="cmt"># storefront + admin</span>
+docker compose -f docker-compose.infra.yml down           <span class="cmt"># infra (omit to keep data)</span></code></pre>
+
+        <footer class="page-nav">
+          <a class="prev" href="index.html">
+            <div class="dir">← Previous</div>
+            <div class="ttl">Overview</div>
+          </a>
+          <a class="next" href="storefront-operations.html">
+            <div class="dir">Next →</div>
+            <div class="ttl">Storefront operations</div>
+          </a>
+        </footer>
+      </div>
+    </main>
+
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <nav></nav>
+    </aside>
+  </div>
+</div>
+<script src="assets/wiki.js"></script>
+</body>
+</html>
