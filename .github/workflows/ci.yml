@@ -13,7 +13,10 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      # true when the push/PR touches anything other than docs/markdown/agent notes
+      # true when the push/PR touches the build/test surface (not docs/markdown/notes).
+      # Positive patterns only: dorny/paths-filter matches a file if it matches ANY
+      # pattern, so a bare '**' + '!docs' negations would always be true — list the
+      # code surface explicitly instead. A docs-only change matches none of these.
       code: ${{ steps.filter.outputs.code }}
     steps:
       - uses: actions/checkout@v4
@@ -22,11 +25,17 @@ jobs:
         with:
           filters: |
             code:
-              - '**'
-              - '!**/*.md'
-              - '!docs/**'
-              - '!.ai-shared/**'
-              - '!.claude/**'
+              - 'src/**'
+              - 'tests/**'
+              - 'scripts/**'
+              - 'infra/**'
+              - '.github/workflows/**'
+              - '**/*.sln'
+              - '**/*.csproj'
+              - '**/*.props'
+              - '**/*.targets'
+              - 'global.json'
+              - 'docker-compose*.yml'
 
   build-test:
     runs-on: ubuntu-latest
