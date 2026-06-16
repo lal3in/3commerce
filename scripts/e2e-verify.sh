@@ -18,18 +18,24 @@
 # Automated (encoded in test suites / build):
 #   A1  Solution builds with 0 warnings (warnings-as-errors)
 #   A2  Formatting clean (dotnet format --verify-no-changes)
-#   A3  Backend unit + contract tests (Identity hasher/tokens, contract equality)
+#   A3  Backend unit + contract tests (Identity hasher/tokens, contract equality,
+#       DevSecretGuard refuses the committed dev key outside Development — BL-11)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions
 #   A6  Integration · Catalog: import ≥10k SKUs, exact search, typo fallback,
-#       filters, search p95 < 500ms, hostile-input safety
+#       filters, search + product-detail p95 < 500ms (NFR-5), hostile-input safety;
+#       admin catalog editor CRUD — create/edit variants+stock+images+attrs, slug
+#       uniqueness, category-required, admin-only (FR-12/BL-2)
 #   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
 #       append-only (UPDATE/DELETE blocked)
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
-#       duplicate webhook = one entry, refund reverses + ledger stays balanced
+#       duplicate webhook = one entry, refund reverses + ledger stays balanced;
+#       saga survives an Ordering-host outage mid-payment (NFR-2 chaos/BL-6);
+#       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
-#       deny path; Fulfillment: shipments grouped by source, idempotent
+#       deny path; per-line RMA derives the refund server-side from the order snapshot
+#       (BL-8); Fulfillment: shipments grouped by source, idempotent
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A7  Storefront typecheck (tsc) + production build (next build)
 #   A8  No vulnerable NuGet packages

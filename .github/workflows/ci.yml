@@ -6,6 +6,24 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      # true when the push/PR touches anything other than docs/markdown/agent notes
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!docs/**'
+              - '!.ai-shared/**'
+              - '!.claude/**'
+
   build-test:
     runs-on: ubuntu-latest
     steps:
@@ -38,6 +56,8 @@ jobs:
         run: dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
   browser-e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

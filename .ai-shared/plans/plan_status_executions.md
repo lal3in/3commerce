@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-15 (post-MVP backlog: BL-1/3/4/5/8/9 DONE; BL-2 catalog editor next, then BL-6/7/10/11 + CI paths-filter)
+Last Modified Date-Time: 2026-06-15 (post-MVP backlog COMPLETE: BL-1..BL-11 all DONE; CI paths-filter added — docs-only pushes skip the browser-e2e job via a `changes` job + dorny/paths-filter)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
