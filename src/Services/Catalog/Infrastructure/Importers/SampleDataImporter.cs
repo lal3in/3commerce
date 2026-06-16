@@ -20,6 +20,9 @@ public sealed class SampleDataImporter(
     // Default 10,500 (FR-1). Lower it via Importer:TargetRows to keep CI/dev loads light.
     private readonly int _targetRows =
         Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue<int>(configuration, "Importer:TargetRows", 10_500);
+    // The store's single currency (ADR-0015). Data model is per-entity currency, so this is
+    // just the origin; multi-currency *display* (FX) remains a future storefront concern.
+    private readonly string _currency = configuration["Store:Currency"] ?? "EUR";
     private const int BatchSize = 500;
     private const int Seed = 42;
 
@@ -147,7 +150,7 @@ public sealed class SampleDataImporter(
                         ProductId = product.Id,
                         Sku = $"SKU-{i:d5}-{v}",
                         PriceMinor = basePrice + v * 500,
-                        Currency = "EUR",
+                        Currency = _currency,
                         StockQuantity = rng.Next(0, 200),
                     });
                 }
@@ -183,7 +186,7 @@ public sealed class SampleDataImporter(
             product.Slug,
             product.Title,
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
-            product.Variants.FirstOrDefault()?.Currency ?? "EUR",
+            product.Variants.FirstOrDefault()?.Currency ?? _currency,
             product.ImageUrls.FirstOrDefault()), ct);
 
     private async Task<List<Category>> EnsureCategoriesAsync(CancellationToken ct)

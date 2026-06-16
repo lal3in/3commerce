@@ -23,7 +23,9 @@ public static class TicketEndpoints
         group.MapGet("/{id:guid}", GetTicket);
         group.MapPost("/{id:guid}/messages", AddMessage);
 
-        // Request a refund/return for an order — starts the RMA saga.
+        // Refundable lines for an order (by id, like order-status polling) — drives the RMA UI.
+        app.MapGet("/orders/{orderId:guid}/lines", GetRefundableLines).WithTags("Support");
+        // Request a refund/return — customer selects lines; the amount is computed server-side (BL-8).
         app.MapPost("/rma", RequestRma).WithTags("Support").RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
     }
@@ -81,13 +83,60 @@ public static class TicketEndpoints
         return TypedResults.Ok(ToDto(ticket));
     }
 
-    private static async Task<Accepted<RmaCreatedDto>> RequestRma(
+    private static async Task<Results<Accepted<RmaCreatedDto>, NotFound, BadRequest<string>>> RequestRma(
         RmaRequest request, SupportDbContext db, IPublishEndpoint publisher, CancellationToken ct)
     {
+        var snapshot = await db.OrderSnapshots.Include(o => o.Lines)
+            .SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
+        if (snapshot is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Server-derived amount: empty selection => whole order; else sum the chosen lines,
+        // each capped at the purchased quantity. The client never supplies a trusted amount.
+        long amount;
+        if (request.Lines is null || request.Lines.Count == 0)
+        {
+            amount = snapshot.GrossMinor;
+        }
+        else
+        {
+            amount = 0;
+            foreach (var sel in request.Lines)
+            {
+                var line = snapshot.Lines.FirstOrDefault(l => l.ProductId == sel.ProductId);
+                if (line is null)
+                {
+                    return TypedResults.BadRequest("Unknown line in selection.");
+                }
+
+                var qty = Math.Clamp(sel.Quantity, 0, line.Quantity);
+                amount += line.UnitPriceMinor * qty;
+            }
+
+            if (amount <= 0)
+            {
+                return TypedResults.BadRequest("Selection has no refundable amount.");
+            }
+        }
+
         var rmaId = Guid.CreateVersion7();
-        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, request.Email, request.AmountMinor, request.Reason), ct);
-        await db.SaveChangesAsync(ct); // flush the bus outbox
+        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, amount, request.Reason), ct);
+        await db.SaveChangesAsync(ct);
         return TypedResults.Accepted((string?)null, new RmaCreatedDto(rmaId));
+    }
+
+    private static async Task<Results<Ok<RefundableOrderDto>, NotFound>> GetRefundableLines(
+        Guid orderId, SupportDbContext db, CancellationToken ct)
+    {
+        var snap = await db.OrderSnapshots.AsNoTracking().Include(o => o.Lines)
+            .SingleOrDefaultAsync(o => o.OrderId == orderId, ct);
+        return snap is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(new RefundableOrderDto(
+                snap.OrderId, snap.GrossMinor, snap.Currency,
+                snap.Lines.Select(l => new RefundableLineDto(l.ProductId, l.Title, l.UnitPriceMinor, l.Quantity)).ToList()));
     }
 
     private static TicketDto ToDto(Ticket t) => new(
@@ -97,7 +146,10 @@ public static class TicketEndpoints
 
 public record OpenTicketRequest([property: Required] Guid OrderId, [property: Required, EmailAddress] string Email, [property: Required] TicketReason Reason, [property: Required] string Message);
 public record MessageRequest([property: Required] string Body);
-public record RmaRequest([property: Required] Guid OrderId, [property: Required, EmailAddress] string Email, [property: Range(1, long.MaxValue)] long AmountMinor, [property: Required] string Reason);
+public record RmaLineSelection([property: Required] Guid ProductId, [property: Range(1, 999)] int Quantity);
+public record RmaRequest([property: Required] Guid OrderId, [property: Required] string Reason, List<RmaLineSelection>? Lines);
+public record RefundableLineDto(Guid ProductId, string Title, long UnitPriceMinor, int Quantity);
+public record RefundableOrderDto(Guid OrderId, long GrossMinor, string Currency, List<RefundableLineDto> Lines);
 public record MessageDto(string Author, string Body, DateTimeOffset CreatedAt);
 public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages);
 public record RmaCreatedDto(Guid RmaId);

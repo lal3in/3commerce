@@ -20,7 +20,7 @@ builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus 
     bus.AddConsumer<OrderConfirmedConsumer>();
 });
 builder.Services.AddServiceHealth<FulfillmentDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();

@@ -18,6 +18,7 @@ builder.Services.AddDbContext<SupportDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
 builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
 {
+    bus.AddConsumer<ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer>();
     bus.AddSagaStateMachine<RmaStateMachine, RmaState>()
         .EntityFrameworkRepository(r =>
         {
@@ -26,7 +27,7 @@ builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
         });
 });
 builder.Services.AddServiceHealth<SupportDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();

@@ -1,0 +1,260 @@
+@page "/catalog"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Catalog</h1>
+
+@if (_editing is null)
+{
+    <div style="margin-bottom:1rem; display:flex; gap:.5rem;">
+        <input @bind="_search" @bind:event="oninput" placeholder="Search title or slug…" style="flex:1; padding:.4rem;" />
+        <button @onclick="LoadList" style="padding:.4rem .8rem;">Search</button>
+        <button @onclick="NewProduct" style="padding:.4rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">New product</button>
+    </div>
+
+    @if (_status is not null)
+    {
+        <p style="color:#047857;">@_status</p>
+    }
+
+    @if (_list is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_list.Count == 0)
+    {
+        <p>No products.</p>
+    }
+    else
+    {
+        <table style="border-collapse:collapse;width:100%;">
+            <thead><tr><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var p in _list)
+            {
+                <tr style="border-top:1px solid #e5e7eb;">
+                    <td>@p.Title<br /><span style="color:#6b7280; font-size:.8rem;">@p.Slug</span></td>
+                    <td>@p.Brand</td>
+                    <td style="text-align:center;">@p.VariantCount</td>
+                    <td style="text-align:right;">@($"{p.MinPriceMinor / 100m:0.00}")</td>
+                    <td style="text-align:center;">@p.TotalStock</td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <button @onclick="() => EditProduct(p.Id)" style="padding:.2rem .6rem;">Edit</button>
+                        <button @onclick="() => DeleteProduct(p.Id)" style="padding:.2rem .6rem; color:#b91c1c;">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+else
+{
+    <h2>@(_isNew ? "New product" : "Edit product")</h2>
+    @if (_error is not null)
+    {
+        <p style="color:#b91c1c;">@_error</p>
+    }
+
+    <div style="max-width:720px; display:flex; flex-direction:column; gap:.6rem;">
+        <label>Title <input @bind="_editing.Title" style="width:100%; padding:.4rem;" /></label>
+        <label>Slug <input @bind="_editing.Slug" style="width:100%; padding:.4rem;" /></label>
+        <label>Brand <input @bind="_editing.Brand" style="width:100%; padding:.4rem;" /></label>
+        <label>Description <textarea @bind="_editing.Description" rows="3" style="width:100%; padding:.4rem;"></textarea></label>
+        <label>Category <span style="color:#6b7280; font-size:.8rem;">(required — products without one are not searchable)</span>
+            <select @bind="_editing.CategoryId" style="width:100%; padding:.4rem;">
+                @foreach (var c in _categories)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </label>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
+            <legend>Variants</legend>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left;">SKU</th><th>Price (minor)</th><th>Currency</th><th>Stock</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var v in _editing.Variants)
+                {
+                    <tr>
+                        <td><input @bind="v.Sku" style="width:100%;" /></td>
+                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" /></td>
+                        <td><input @bind="v.Currency" style="width:4rem;" /></td>
+                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" /></td>
+                        <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            <button @onclick="AddVariant" style="margin-top:.4rem;">+ Add variant</button>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
+            <legend>Image URLs</legend>
+            @for (var i = 0; i < _editing.ImageUrls.Count; i++)
+            {
+                var idx = i;
+                <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
+                    <input @bind="_editing.ImageUrls[idx]" style="flex:1;" />
+                    <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" style="color:#b91c1c;">✕</button>
+                </div>
+            }
+            <button @onclick="() => _editing.ImageUrls.Add(string.Empty)">+ Add image</button>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
+            <legend>Attributes</legend>
+            @foreach (var a in _attributes)
+            {
+                <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
+                    <input @bind="a.Key" placeholder="key" style="width:10rem;" />
+                    <input @bind="a.Value" placeholder="value" style="flex:1;" />
+                    <button @onclick="() => _attributes.Remove(a)" style="color:#b91c1c;">✕</button>
+                </div>
+            }
+            <button @onclick="() => _attributes.Add(new())">+ Add attribute</button>
+        </fieldset>
+
+        <div style="display:flex; gap:.5rem;">
+            <button @onclick="Save" disabled="@_saving" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:4px;">@(_saving ? "Saving…" : "Save")</button>
+            <button @onclick="Cancel" style="padding:.4rem 1rem;">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private const string Base = "/api/catalog/admin/products";
+    private List<ProductListItem>? _list;
+    private List<CategoryDto> _categories = [];
+    private string _search = string.Empty;
+    private string? _status;
+    private string? _error;
+    private bool _saving;
+
+    private ProductEditor? _editing;
+    private bool _isNew;
+    private readonly List<KeyValueRow> _attributes = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await Gateway.GetListAsync<CategoryDto>("/api/catalog/categories");
+        await LoadList();
+    }
+
+    private async Task LoadList()
+    {
+        var q = string.IsNullOrWhiteSpace(_search) ? string.Empty : $"?q={Uri.EscapeDataString(_search)}";
+        _list = await Gateway.GetListAsync<ProductListItem>($"{Base}{q}");
+    }
+
+    private void NewProduct()
+    {
+        _error = null;
+        _isNew = true;
+        _editing = new ProductEditor
+        {
+            CategoryId = _categories.FirstOrDefault()?.Id ?? Guid.Empty,
+            Variants = { new VariantEditor { Currency = "EUR" } },
+        };
+        _attributes.Clear();
+    }
+
+    private async Task EditProduct(Guid id)
+    {
+        _error = null;
+        var dto = await Gateway.GetAsync<ProductEditor>($"{Base}/{id}");
+        if (dto is null)
+        {
+            _status = "Product not found.";
+            return;
+        }
+
+        _isNew = false;
+        _editing = dto;
+        _attributes.Clear();
+        foreach (var kv in dto.Attributes)
+        {
+            _attributes.Add(new KeyValueRow { Key = kv.Key, Value = kv.Value });
+        }
+    }
+
+    private async Task DeleteProduct(Guid id)
+    {
+        var resp = await Gateway.DeleteAsync($"{Base}/{id}");
+        _status = resp.IsSuccessStatusCode ? "Product deleted." : $"Delete failed ({(int)resp.StatusCode}).";
+        await LoadList();
+    }
+
+    private void AddVariant() => _editing!.Variants.Add(new VariantEditor { Currency = "EUR" });
+
+    private async Task Save()
+    {
+        if (_editing is null) return;
+        _saving = true;
+        _error = null;
+        _editing.Attributes = _attributes
+            .Where(a => !string.IsNullOrWhiteSpace(a.Key))
+            .ToDictionary(a => a.Key.Trim(), a => a.Value ?? string.Empty);
+
+        HttpResponseMessage resp;
+        if (_isNew)
+        {
+            resp = await Gateway.PostAsync(Base, _editing);
+        }
+        else
+        {
+            resp = await Gateway.PutAsync($"{Base}/{_editing.Id}", _editing);
+        }
+
+        _saving = false;
+        if (resp.IsSuccessStatusCode)
+        {
+            _status = _isNew ? "Product created." : "Product updated.";
+            _editing = null;
+            await LoadList();
+        }
+        else
+        {
+            _error = $"Save failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+        }
+    }
+
+    private void Cancel()
+    {
+        _editing = null;
+        _error = null;
+    }
+
+    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock);
+    public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
+
+    public sealed class ProductEditor
+    {
+        public Guid Id { get; set; }
+        public string Slug { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Brand { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public Guid CategoryId { get; set; }
+        public Dictionary<string, string> Attributes { get; set; } = [];
+        public List<string> ImageUrls { get; set; } = [];
+        public List<VariantEditor> Variants { get; set; } = [];
+    }
+
+    public sealed class VariantEditor
+    {
+        public Guid? Id { get; set; }
+        public string Sku { get; set; } = string.Empty;
+        public long PriceMinor { get; set; }
+        public string Currency { get; set; } = "EUR";
+        public int StockQuantity { get; set; }
+    }
+
+    private sealed class KeyValueRow
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+}

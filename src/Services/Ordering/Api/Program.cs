@@ -27,6 +27,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<PingRequestedConsumer>();
         bus.AddConsumer<ProductCopyConsumer>();
         bus.AddConsumer<OrderStatusConsumer>();
+        bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()
             .EntityFrameworkRepository(r =>
             {
@@ -39,9 +40,11 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
     configureTransport: (_, cfg) => cfg.UseInMemoryScheduler());
 
 builder.Services.AddServiceHealth<OrderingDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CartService>();
+
+ThreeCommerce.Ordering.Api.Endpoints.CartEndpoints.StoreCurrency = builder.Configuration["Store:Currency"] ?? "EUR";
 
 var app = builder.Build();
 

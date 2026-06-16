@@ -34,6 +34,8 @@ test.describe("Cart & checkout", () => {
     await page.getByRole("button", { name: /complete test payment/i }).click();
     await expect(page.getByRole("heading", { name: /thank you/i })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/your order is confirmed/i)).toBeVisible();
+    // FR-7: confirmation offers guest→account conversion, email pre-filled.
+    await expect(page.getByRole("button", { name: /create account/i })).toBeVisible();
   });
 
   test("empty cart shows the empty state", async ({ page, context }) => {

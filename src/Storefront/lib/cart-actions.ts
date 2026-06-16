@@ -65,5 +65,27 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     return { error: "Checkout failed. Please review your cart and details." };
   }
   const result = (await response.json()) as { orderId: string };
+  // Remember the guest email so the confirmation page can offer account creation (FR-7).
+  (await cookies()).set("3c_guest_email", body.email, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
   redirect(`/checkout/confirmation?order=${result.orderId}`);
+}
+
+export type ConvertState = { error?: string; ok?: boolean };
+
+// FR-7: post-purchase guest -> account. Registers with the checkout email; once the
+// email is verified, the guest order attaches to the new account's order history.
+export async function convertGuest(_prev: ConvertState, formData: FormData): Promise<ConvertState> {
+  const response = await fetch(`${GATEWAY_URL}/api/identity/convert-guest`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    }),
+  });
+  if (!response.ok) {
+    return { error: "Could not create the account. Try a longer password." };
+  }
+  (await cookies()).delete("3c_guest_email");
+  return { ok: true };
 }

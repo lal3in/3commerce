@@ -112,7 +112,7 @@ export async function getCart(): Promise<CartDto> {
   // is established by the add-to-cart Server Action; an unkeyed read just returns empty.
   const response = await gatewayFetch(`/api/ordering/cart/`, { cache: "no-store" });
   if (!response.ok) {
-    return { cartId: "", items: [], subtotalMinor: 0, currency: "EUR" };
+    return { cartId: "", items: [], subtotalMinor: 0, currency: process.env.STORE_CURRENCY ?? "EUR" };
   }
   return (await response.json()) as CartDto;
 }
@@ -120,4 +120,19 @@ export async function getCart(): Promise<CartDto> {
 export async function getOrderStatus(orderId: string): Promise<string | null> {
   const response = await gatewayFetch(`/api/ordering/orders/${orderId}/status`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as { status: string }).status : null;
+}
+
+export type OrderSummaryDto = { id: string; status: string; grossMinor: number; currency: string; createdAt: string };
+
+export async function getMyOrders(): Promise<OrderSummaryDto[]> {
+  const response = await gatewayFetch(`/api/ordering/orders`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as OrderSummaryDto[]) : [];
+}
+
+export type RefundableLine = { productId: string; title: string; unitPriceMinor: number; quantity: number };
+export type RefundableOrder = { orderId: string; grossMinor: number; currency: string; lines: RefundableLine[] };
+
+export async function getRefundableOrder(orderId: string): Promise<RefundableOrder | null> {
+  const response = await gatewayFetch(`/api/support/orders/${orderId}/lines`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as RefundableOrder) : null;
 }

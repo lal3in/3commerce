@@ -125,6 +125,8 @@ public sealed class AuthService(
         token.UsedAt = time.GetUtcNow();
         var user = await db.Users.SingleAsync(u => u.Id == token.UserId, ct);
         user.EmailVerified = true;
+        // Attach any prior guest orders placed with this (now-verified) email (FR-7).
+        await publisher.Publish(new EmailVerified(user.Id, user.Email), ct);
         await db.SaveChangesAsync(ct);
         return true;
     }

@@ -13,6 +13,7 @@ public static class AuthEndpoints
         var group = app.MapGroup("/").WithTags("Auth");
 
         group.MapPost("/register", Register);
+        group.MapPost("/convert-guest", ConvertGuest);
         group.MapPost("/login", Login);
         group.MapPost("/logout", Logout);
         group.MapPost("/verify-email", VerifyEmail);
@@ -29,6 +30,18 @@ public static class AuthEndpoints
         await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
         return TypedResults.Accepted((string?)null,
             new MessageResponse("Check your inbox to verify your email address."));
+    }
+
+    /// <summary>
+    /// Post-purchase guest -> account (FR-7). Same flow as register (202, no enumeration,
+    /// verification email); on verification, prior guest orders with this email attach.
+    /// </summary>
+    private static async Task<Accepted<MessageResponse>> ConvertGuest(
+        RegisterRequest request, IAuthService auth, CancellationToken cancellationToken)
+    {
+        await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
+        return TypedResults.Accepted((string?)null,
+            new MessageResponse("Account created. Verify your email and your order will appear in your history."));
     }
 
     private static async Task<Results<Ok<MessageResponse>, UnauthorizedHttpResult>> Login(

@@ -31,6 +31,30 @@ public sealed class GatewayClient(IHttpClientFactory factory, AuthenticationStat
         return await client.GetFromJsonAsync<List<T>>(path) ?? [];
     }
 
+    public async Task<T?> GetAsync<T>(string path)
+    {
+        var client = await ClientAsync();
+        var response = await client.GetAsync(path);
+        if (!response.IsSuccessStatusCode)
+        {
+            return default;
+        }
+
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    public async Task<HttpResponseMessage> PutAsync(string path, object body)
+    {
+        var client = await ClientAsync();
+        return await client.PutAsJsonAsync(path, body);
+    }
+
+    public async Task<HttpResponseMessage> DeleteAsync(string path)
+    {
+        var client = await ClientAsync();
+        return await client.DeleteAsync(path);
+    }
+
     public async Task<HttpResponseMessage> PostAsync(string path, object? body = null, string? idempotencyKey = null)
     {
         var client = await ClientAsync();

@@ -28,7 +28,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const fromPrice = product.variants.length
     ? Math.min(...product.variants.map((v) => v.priceMinor))
     : 0;
-  const currency = product.variants[0]?.currency ?? "EUR";
+  const currency = product.variants[0]?.currency ?? process.env.STORE_CURRENCY ?? "EUR";
 
   return (
     <div className="grid md:grid-cols-2 gap-8">

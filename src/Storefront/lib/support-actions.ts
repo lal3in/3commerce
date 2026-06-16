@@ -29,16 +29,20 @@ export async function openTicket(_prev: SupportState, formData: FormData): Promi
 }
 
 export async function requestRefund(_prev: SupportState, formData: FormData): Promise<SupportState> {
+  const orderId = String(formData.get("orderId"));
+  // Collect selected lines: form fields "line:<productId>" = quantity (server derives the amount).
+  const lines: { productId: string; quantity: number }[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("line:")) {
+      const qty = Number(value);
+      if (qty > 0) lines.push({ productId: key.slice(5), quantity: qty });
+    }
+  }
   const res = await fetch(`${GATEWAY_URL}/api/support/rma`, {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify({
-      orderId: String(formData.get("orderId")),
-      email: String(formData.get("email")),
-      amountMinor: Number(formData.get("amountMinor")),
-      reason: String(formData.get("reason")),
-    }),
+    body: JSON.stringify({ orderId, reason: String(formData.get("reason")), lines }),
   });
   if (!res.ok) return { error: "Could not submit the refund request." };
-  redirect(`/orders/${formData.get("orderId")}/support?submitted=1`);
+  redirect(`/orders/${orderId}/support?submitted=1`);
 }

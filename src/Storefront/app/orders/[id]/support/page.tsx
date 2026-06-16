@@ -1,3 +1,4 @@
+import { getRefundableOrder } from "@/lib/gateway";
 import { SupportForms } from "@/components/support/SupportForms";
 
 export const metadata = { title: "Order support" };
@@ -11,6 +12,7 @@ export default async function OrderSupportPage({
 }) {
   const { id } = await params;
   const { submitted } = await searchParams;
+  const refundable = await getRefundableOrder(id);
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <h1 className="text-xl font-semibold">Order support</h1>
@@ -19,7 +21,7 @@ export default async function OrderSupportPage({
           Your request was submitted. We'll email you with updates.
         </p>
       )}
-      <SupportForms orderId={id} />
+      <SupportForms orderId={id} refundable={refundable} />
     </div>
   );
 }

@@ -31,14 +31,14 @@ public class RmaSagaTests(Phase4Fixture fixture)
         return c;
     }
 
+    // Full-order refund: no line selection => the server uses the snapshot gross (BL-8).
     private async Task<Guid> RequestRmaAsync(Guid orderId, long amount)
     {
+        await fixture.SeedOrderSnapshotAsync(orderId, amount);
         using var customer = Customer();
         var response = await customer.PostAsJsonAsync("/rma", new
         {
             orderId,
-            email = "buyer@example.com",
-            amountMinor = amount,
             reason = "damaged",
         });
         response.EnsureSuccessStatusCode();
@@ -60,6 +60,49 @@ public class RmaSagaTests(Phase4Fixture fixture)
 
         await WaitForStateAsync(rmaId, "RefundIssued");
         Assert.Equal(0, await fixture.PaymentsTrialBalanceAsync()); // refund reversal balanced
+    }
+
+    [Fact]
+    public async Task Per_line_selection_refunds_only_the_chosen_lines_at_server_prices()
+    {
+        var orderId = Guid.CreateVersion7();
+        var keyboard = Guid.CreateVersion7();
+        var lamp = Guid.CreateVersion7();
+        // Two lines: keyboard 2 × 5000, lamp 1 × 1900 => gross 11900.
+        await fixture.SeedSucceededPaymentAsync(orderId, grossMinor: 11900, taxMinor: 0);
+        await fixture.SeedOrderSnapshotAsync(orderId, 11900, "buyer@example.com",
+            (keyboard, "Keyboard", 5000, 2),
+            (lamp, "Lamp", 1900, 1));
+
+        using var customer = Customer();
+        // Refund one keyboard only. The client sends quantities, never an amount.
+        var response = await customer.PostAsJsonAsync("/rma", new
+        {
+            orderId,
+            reason = "one item damaged",
+            lines = new[] { new { productId = keyboard, quantity = 1 } },
+        });
+        response.EnsureSuccessStatusCode();
+        var rmaId = (await response.Content.ReadFromJsonAsync<RmaCreated>())!.RmaId;
+        await WaitForStateAsync(rmaId, "Requested");
+
+        // Server derived 1 × 5000 from the snapshot — not the order total.
+        Assert.Equal(5000, await SagaAmountAsync(rmaId));
+
+        using var admin = Admin();
+        var approve = await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/approve", new { requireReturn = false });
+        Assert.Equal(HttpStatusCode.Accepted, approve.StatusCode);
+        await WaitForStateAsync(rmaId, "RefundIssued");
+        Assert.Equal(0, await fixture.PaymentsTrialBalanceAsync());
+    }
+
+    private async Task<long> SagaAmountAsync(Guid rmaId)
+    {
+        using var scope = fixture.Support.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
+        var saga = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+            .FirstAsync(db.Rmas.Where(r => r.CorrelationId == rmaId));
+        return saga.AmountMinor;
     }
 
     [Fact]

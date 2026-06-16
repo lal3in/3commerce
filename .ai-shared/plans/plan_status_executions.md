@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-13 (Phase 1 + Phase 2 executed and validated; Phase 3 next)
+Last Modified Date-Time: 2026-06-15 (post-MVP backlog COMPLETE: BL-1..BL-11 all DONE; CI paths-filter added — docs-only pushes skip the browser-e2e job via a `changes` job + dorny/paths-filter)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -37,7 +37,7 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 | task_28 | Stripe webhook endpoint + inbox + reconciliation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_29 | Refund execution path (admin + saga-callable) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | single path rule |
 | task_30 | IdempotencyKeyFilter (BuildingBlocks) | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-3 |
-| task_31 | Storefront cart/checkout/confirmation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4 done; **FR-7 guest→account conversion NOT implemented** — moved to backlog (BL-1) |
+| task_31 | Storefront cart/checkout/confirmation | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | FR-4 done; FR-7 done via BL-1 (2026-06-15) |
 | task_32 | Chaos + ledger property tests | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | NFR-1/2 |
 | task_33 | Order-confirmation email + docs/api updates | Phase 3 | done | .ai-shared/plans/phase-3-money-checkout-ledger.md | |
 | task_34 | Fulfillment shipments + tracking flow | Phase 4 | done | .ai-shared/plans/phase-4-operations-support-admin-xero.md | |
@@ -60,23 +60,23 @@ Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
 ## Conformance review (2026-06-15)
 
-Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−**, 15 Met / 4 Partial / 1 Missing of 21 FR/NFR. Core money + auth engine is production-grade; gaps are in the frontend/back-office and in test coverage, not the ledger. Analysis: `docs/help/project-analysis.html`. Frontend wiki: `docs/help/`.
+Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−** (→ A after BL-1), 16 Met / 4 Partial / 0 Missing of 21 FR/NFR. Core money + auth engine is production-grade; gaps are in the frontend/back-office and in test coverage, not the ledger. Analysis: `docs/help/project-analysis.html`. Frontend wiki: `docs/help/`.
 
 ## Post-MVP backlog (from the conformance review — next work items)
 
 | ID | Item | Source | Notes |
 |----|------|--------|-------|
-| BL-1 | FR-7 guest -> account conversion | review (Missing) | IAuthService method + /convert-guest endpoint + storefront UI; attach guest orders by verified email |
-| BL-2 | FR-12 admin catalog CRUD | review (Partial) | Blazor catalog page + create/update endpoints (only DELETE /admin/products/{id} exists today) |
-| BL-3 | Admin Orders screen - real list/detail | wiki | Orders.razor is a placeholder |
-| BL-4 | Account page - order history + addresses | wiki | account/page.tsx shows only email + verified flag |
-| BL-5 | Storefront nav to /orders/[id]/support | wiki | page works but nothing links to it (account/confirmation) |
-| BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | current chaos test is on the ping-pong spine only |
-| BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | wired but unasserted (search p95 IS measured) |
-| BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | server guards over-refund, but the form takes raw amountMinor |
-| BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | ADR-0015 references it; not in code |
-| BL-10 | App-tier Dockerfiles (storefront + admin) | wiki | only the 6 services + gateway + worker are containerized |
-| BL-11 | Rotate dev secrets per environment (ES256 key, admin pw) | review | committed DEV-ONLY; launch gate |
+| BL-1 | FR-7 guest -> account conversion | review (Missing) | **DONE 2026-06-15**: `EmailVerified` event → Ordering `GuestOrderAttachConsumer` (attach by verified email); `/convert-guest` endpoint; storefront convert form. 2 integration tests + live + E2E verified. |
+| BL-2 | FR-12 admin catalog CRUD | review (Partial) | **DONE 2026-06-15**: full catalog editor. Catalog `GET/POST/PUT /admin/products` (+ existing DELETE): create/edit over variants, stock, images, attributes; variant reconcile (match/add/remove); slug-unique + category-required guards (a product without a real category is invisible to FTS); publishes `ProductUpserted`. Blazor `/catalog` editor page (list/search + form). 4 integration tests pass. |
+| BL-3 | Admin Orders screen - real list/detail | wiki | **DONE 2026-06-15**: GET /admin/orders endpoint + Blazor Orders page (list) |
+| BL-4 | Account page - order history + addresses | wiki | **DONE 2026-06-15**: account page renders order history (getMyOrders) |
+| BL-5 | Storefront nav to /orders/[id]/support | wiki | **DONE 2026-06-15**: confirmation page now links to "Contact support or request a refund" |
+| BL-6 | NFR-2 chaos test on the checkout saga | review (Partial) | **DONE 2026-06-15**: `MoneyFlowTests.Checkout_saga_survives_an_ordering_outage_during_payment` — Ordering (saga host) restarted mid-flight via new `Phase3Fixture.RestartOrderingAsync`; PaymentSucceeded queues durably and the saga still reaches Confirmed + balanced ledger. |
+| BL-7 | NFR-5/7 measure product-SSR p95 + end-to-end checkout trace | review (Partial) | **DONE 2026-06-15**: NFR-5 `Product_detail_meets_p95_latency_budget` (GET /products/{slug} p95 < 500ms, the SSR-dominant fetch); NFR-7 `Checkout_emits_one_distributed_trace...` — ActivityListener proves one TraceId spans the AspNetCore entry span and MassTransit message hops. |
+| BL-8 | RMA refund amount - derive from order, not free-form client input | wiki | **DONE 2026-06-15**: per-line RMA, server-derived amount. Support `OrderSnapshot` read-copy (fed by `OrderConfirmed` via `OrderSnapshotConsumer`); `GET /tickets/orders/{id}/lines`; `/rma` takes `{orderId, reason, lines[]}` (no client amount) → amount summed from snapshot, capped at purchased qty. Storefront line-selection UI. 4 RMA integration tests pass (inc. new per-line server-price assertion). |
+| BL-9 | Wire STORE_CURRENCY (remove hard-coded "EUR") | review/wiki | **DONE 2026-06-15**: Store:Currency config (default EUR) in importer + cart fallback + storefront env; data model already per-entity currency (multi-currency display = future FX) |
+| BL-10 | App-tier Dockerfiles (storefront + admin) | wiki | **DONE 2026-06-15**: `src/Storefront/Dockerfile` (Next.js `output: "standalone"`, non-root node runner) + `src/Admin/Dockerfile` (SDK→aspnet, mirrors services). Both added to the CI docker matrix; both verified building locally. |
+| BL-11 | Rotate dev secrets per environment (ES256 key, admin pw) | review | **DONE 2026-06-15**: fail-fast launch gate — `DevSecretGuard` (services, via `AddInternalClaimsAuth`) + inline check in Gateway `InternalClaimsMinter` refuse to boot outside Development with the committed dev ES256 key (matched by SHA-256 fingerprint, not key material). `scripts/rotate-secrets.sh` emits a fresh keypair + admin password as env vars; `docs/ops/secrets.md` documents the secrets + rotation. 4 `DevSecretGuardTests` pass. |
 
 **Launch gates (non-code, PRD Appendix B):** company registration -> live Stripe/Xero + real ITaxStrategy; supplier contract -> real catalog feed + dropship/warehouse decision; external pen test; Kubernetes deployment track.
 

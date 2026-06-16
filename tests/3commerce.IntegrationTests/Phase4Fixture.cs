@@ -9,6 +9,8 @@ using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
+using ThreeCommerce.Support.Domain;
+using ThreeCommerce.Support.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
 
@@ -90,6 +92,45 @@ public sealed class Phase4Fixture : IAsyncLifetime
             Currency = "EUR",
             Status = PaymentStatus.Succeeded,
             CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Seeds the Support order read-copy (BL-8) directly, the way OrderSnapshotConsumer would
+    /// from OrderConfirmed. The RMA endpoint derives the refund amount from this snapshot.
+    /// With no explicit lines, a single line priced at the gross is added.
+    /// </summary>
+    public async Task SeedOrderSnapshotAsync(
+        Guid orderId, long grossMinor, string email = "buyer@example.com",
+        params (Guid ProductId, string Title, long UnitPriceMinor, int Quantity)[] lines)
+    {
+        using var scope = Support.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
+        if (await db.OrderSnapshots.AnyAsync(o => o.OrderId == orderId))
+        {
+            return;
+        }
+
+        var effective = lines.Length > 0
+            ? lines
+            : [(Guid.CreateVersion7(), "Item", grossMinor, 1)];
+
+        db.OrderSnapshots.Add(new OrderSnapshot
+        {
+            OrderId = orderId,
+            Email = email,
+            GrossMinor = grossMinor,
+            Currency = "EUR",
+            Lines = effective.Select(l => new OrderSnapshotLine
+            {
+                Id = Guid.CreateVersion7(),
+                OrderId = orderId,
+                ProductId = l.ProductId,
+                Title = l.Title,
+                UnitPriceMinor = l.UnitPriceMinor,
+                Quantity = l.Quantity,
+            }).ToList(),
         });
         await db.SaveChangesAsync();
     }

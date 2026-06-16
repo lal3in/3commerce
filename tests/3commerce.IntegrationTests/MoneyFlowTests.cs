@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +92,68 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         await WaitForRefundAsync(order.OrderId);
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Checkout_saga_survives_an_ordering_outage_during_payment()
+    {
+        // NFR-2 chaos: the saga host dies after checkout but before the payment lands.
+        var productId = await fixture.SeedProductAsync(7_000);
+        using (var shopper = fixture.Ordering.CreateClient())
+        {
+            await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+            var pending = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+            await WaitForSagaAsync(pending.OrderId); // saga durably awaiting payment
+
+            // Outage: Ordering (the saga owner) goes down.
+            await fixture.RestartOrderingAsync();
+
+            // Payment succeeds while Ordering is restarting — PaymentSucceeded queues durably.
+            using var payments = fixture.Payments.CreateClient();
+            var intentId = $"pi_fake_{pending.OrderId:N}";
+            (await payments.PostAsync($"/dev/simulate-payment/{intentId}?amountMinor={pending.GrossMinor}", null)).EnsureSuccessStatusCode();
+
+            // The restarted host drains the queue and the saga still reaches Confirmed.
+            using var recovered = fixture.Ordering.CreateClient();
+            await WaitForStatusAsync(recovered, pending.OrderId, "Confirmed");
+            Assert.Equal(0, await fixture.TrialBalanceAsync());
+        }
+    }
+
+    [Fact]
+    public async Task Checkout_emits_one_distributed_trace_across_the_http_and_message_hops()
+    {
+        // NFR-7: the HTTP-initiated checkout trace must carry through the async message
+        // hops (MassTransit propagates context through the outbox), so the same TraceId
+        // spans the AspNetCore entry span and the saga/consume spans.
+        var activities = new ConcurrentBag<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = _ => true,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var productId = await fixture.SeedProductAsync(6_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        await Task.Delay(500); // let the last consume spans flush
+
+        // A single trace must contain both an HTTP server span and a MassTransit span.
+        var byTrace = activities
+            .Where(a => a.TraceId != default)
+            .GroupBy(a => a.TraceId);
+        var correlated = byTrace.FirstOrDefault(g =>
+            g.Any(a => a.Source.Name.StartsWith("Microsoft.AspNetCore")) &&
+            g.Any(a => a.Source.Name == "MassTransit"));
+
+        Assert.True(correlated is not null,
+            $"no trace spanned both HTTP and MassTransit; saw sources: " +
+            string.Join(", ", activities.Select(a => a.Source.Name).Distinct().OrderBy(s => s)));
     }
 
     private async Task SimulatePaymentAsync(Guid orderId, long gross)

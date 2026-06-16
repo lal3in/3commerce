@@ -16,9 +16,9 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
         var orderId = Guid.CreateVersion7();
         var lines = new List<OrderLineInfo>
         {
-            new(Guid.CreateVersion7(), "Item A", 1, "Unassigned"),
-            new(Guid.CreateVersion7(), "Item B", 2, "Unassigned"),
-            new(Guid.CreateVersion7(), "Item C", 1, "OwnWarehouse"),
+            new(Guid.CreateVersion7(), "Item A", 1, "Unassigned", 1000),
+            new(Guid.CreateVersion7(), "Item B", 2, "Unassigned", 1500),
+            new(Guid.CreateVersion7(), "Item C", 1, "OwnWarehouse", 2000),
         };
 
         await fixture.PublishAsync(new OrderConfirmed(orderId, "buyer@example.com", 9999, "EUR", lines));
@@ -34,7 +34,7 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
     public async Task Duplicate_OrderConfirmed_does_not_duplicate_shipments()
     {
         var orderId = Guid.CreateVersion7();
-        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), "X", 1, "Unassigned") };
+        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), "X", 1, "Unassigned", 100) };
 
         await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));
         await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));

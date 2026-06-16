@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { getOrderStatus } from "@/lib/gateway";
 import { ConfirmationView } from "@/components/checkout/ConfirmationView";
 
@@ -14,5 +15,6 @@ export default async function ConfirmationPage({
   }
 
   const initialStatus = (await getOrderStatus(order)) ?? "AwaitingPayment";
-  return <ConfirmationView orderId={order} initialStatus={initialStatus} />;
+  const guestEmail = (await cookies()).get("3c_guest_email")?.value ?? "";
+  return <ConfirmationView orderId={order} initialStatus={initialStatus} guestEmail={guestEmail} />;
 }

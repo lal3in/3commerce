@@ -127,6 +127,31 @@ public class CatalogSearchTests(Phase2Fixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Product_detail_meets_p95_latency_budget()
+    {
+        // NFR-5: the product page SSR is dominated by this detail fetch; hold it to the
+        // same p95 budget as search so the storefront stays snappy.
+        var hits = await _client.GetFromJsonAsync<List<HitDto>>("/products?q=Headphones&pageSize=20");
+        var slugs = hits!.Select(h => h.Slug).ToArray();
+        Assert.NotEmpty(slugs);
+
+        var timings = new List<double>();
+        await _client.GetAsync($"/products/{slugs[0]}"); // warm up
+        for (var i = 0; i < 50; i++)
+        {
+            var sw = Stopwatch.StartNew();
+            var r = await _client.GetAsync($"/products/{slugs[i % slugs.Length]}");
+            sw.Stop();
+            r.EnsureSuccessStatusCode();
+            timings.Add(sw.Elapsed.TotalMilliseconds);
+        }
+
+        timings.Sort();
+        var p95 = timings[(int)(timings.Count * 0.95)];
+        Assert.True(p95 < 500, $"product-detail p95 was {p95:F0}ms (budget 500ms)");
+    }
+
+    [Fact]
     public async Task Search_handles_hostile_input()
     {
         foreach (var q in new[] { "'; drop table products; --", "🎧🔊", new string('x', 300) })

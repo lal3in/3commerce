@@ -24,7 +24,7 @@ builder.Services.AddDbContext<CatalogDbContext>((sp, options) =>
     options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()));
 builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<CatalogDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 
 builder.Services.AddScoped<ISupplierImporter, SampleDataImporter>();
 builder.Services.AddScoped<ISearchProvider, PostgresSearchProvider>();
