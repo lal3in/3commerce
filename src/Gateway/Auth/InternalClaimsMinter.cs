@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -17,10 +19,21 @@ public sealed class InternalClaimsMinter
     private readonly SigningCredentials _credentials;
     private readonly JsonWebTokenHandler _handler = new();
 
-    public InternalClaimsMinter(IConfiguration configuration)
+    public InternalClaimsMinter(IConfiguration configuration, IHostEnvironment environment)
     {
         var pem = configuration["InternalAuth:PrivateKey"]
             ?? throw new InvalidOperationException("InternalAuth:PrivateKey is not configured.");
+
+        // Launch gate (BL-11): never sign with the committed dev key outside Development. The
+        // Gateway is deliberately reference-free, so the small fingerprint check lives inline.
+        if (!environment.IsDevelopment() && KnownDevKeyFingerprint == Fingerprint(pem))
+        {
+            throw new InvalidOperationException(
+                "Refusing to start with the committed development InternalAuth private key outside " +
+                "Development. Rotate per-environment secrets (docs/ops/secrets.md) and supply them " +
+                "via the InternalAuth__PrivateKey environment variable.");
+        }
+
         var ecdsa = ECDsa.Create();
         ecdsa.ImportFromPem(pem);
         _credentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
@@ -43,5 +56,23 @@ public sealed class InternalClaimsMinter
                 ["sid"] = sessionId.ToString(),
             },
         });
+    }
+
+    // SHA-256 of the committed dev private key's base64 body (not secret).
+    private const string KnownDevKeyFingerprint = "ffe1e85a9de62f89169bb1ff40f687b1c7bc844d36006699ab60b4360d4ad35b";
+
+    private static string Fingerprint(string pem)
+    {
+        var body = new StringBuilder();
+        foreach (var line in pem.Split('\n', '\r'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length > 0 && !trimmed.StartsWith("-----"))
+            {
+                body.Append(trimmed);
+            }
+        }
+
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(body.ToString())));
     }
 }

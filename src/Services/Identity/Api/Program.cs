@@ -19,7 +19,7 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
 builder.Services.AddServiceBus<IdentityDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<IdentityDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();

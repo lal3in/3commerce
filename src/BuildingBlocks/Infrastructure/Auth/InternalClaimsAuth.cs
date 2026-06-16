@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
@@ -20,10 +21,14 @@ public static class InternalClaimsAuth
     public const string CustomerPolicy = "Customer";
     public const string AdminPolicy = "Admin";
 
-    public static IServiceCollection AddInternalClaimsAuth(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInternalClaimsAuth(
+        this IServiceCollection services, IConfiguration configuration, IHostEnvironment? environment = null)
     {
         var publicKeyPem = configuration["InternalAuth:PublicKey"]
             ?? throw new InvalidOperationException("InternalAuth:PublicKey is not configured.");
+
+        // Launch gate (BL-11): never run the committed dev key outside Development.
+        DevSecretGuard.EnsureProductionKey(publicKeyPem, IsDevelopment(environment));
 
         var ecdsa = ECDsa.Create();
         ecdsa.ImportFromPem(publicKeyPem);
@@ -63,4 +68,13 @@ public static class InternalClaimsAuth
 
         return services;
     }
+
+    private static bool IsDevelopment(IHostEnvironment? environment) =>
+        environment?.IsDevelopment()
+        ?? string.Equals(
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+                ?? "Production",
+            "Development",
+            StringComparison.OrdinalIgnoreCase);
 }

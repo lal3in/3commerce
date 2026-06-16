@@ -29,7 +29,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<RefundPostingConsumer>();
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITaxStrategy, FlatRateTaxStrategy>();

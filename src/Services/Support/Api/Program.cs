@@ -27,7 +27,7 @@ builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
         });
 });
 builder.Services.AddServiceHealth<SupportDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();

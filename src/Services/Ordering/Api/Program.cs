@@ -40,7 +40,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
     configureTransport: (_, cfg) => cfg.UseInMemoryScheduler());
 
 builder.Services.AddServiceHealth<OrderingDbContext>();
-builder.Services.AddInternalClaimsAuth(builder.Configuration);
+builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CartService>();
 
