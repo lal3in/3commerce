@@ -130,6 +130,12 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         <h2 id="one-command">One-command equivalent</h2>
         <p><code>scripts/e2e-verify.sh --live</code> automates steps 1–5 (infra, migrations, services, storefront, admin) and then runs the live smoke flows. Use it to confirm the whole stack boots and the core journeys work — see <a class="inline" href="testing.html">Testing</a>.</p>
 
+        <h2 id="containerized-launch">Or: containerized launch</h2>
+        <p>The steps above are the <strong>bare-run</strong> dev loop (ADR-0009). To run the whole stack in containers instead — as a repeatable, deployable launch — use:</p>
+        <pre><code>scripts/launch.sh --fresh --env dev     <span class="cmt"># brand-new deployment (build + up)</span>
+scripts/launch.sh --reuse --env dev     <span class="cmt"># relaunch, keep data</span></code></pre>
+        <p>This brings up all 10 app images + Postgres + RabbitMQ via <code>docker-compose.yml</code>, applies migrations with an EF-bundle migrator, and exposes the same ports (gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>). The catalog comes up empty — seed it via the admin Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in <a class="inline" href="deployment.html">Deployment</a>.</p>
+
         <h2 id="teardown">Teardown</h2>
         <pre><code>scripts/run-all.sh stop                                   <span class="cmt"># services + worker</span>
 pkill -f 'next-server|npm run start|3commerce.Admin'      <span class="cmt"># storefront + admin</span>

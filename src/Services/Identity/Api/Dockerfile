@@ -6,6 +6,8 @@ COPY . .
 RUN dotnet publish src/Services/Identity/Api/3commerce.Identity.Api.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+ENV ASPNETCORE_URLS=http://+:8080
 WORKDIR /app
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "3commerce.Identity.Api.dll"]

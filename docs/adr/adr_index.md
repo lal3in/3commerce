@@ -24,3 +24,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0018](./0018-support-tickets-rma-state-machine.md) | Support = order-linked tickets + RMA state machine; no chat/KB | Accepted | Support |
 | [0019](./0019-blazor-server-admin.md) | Blazor Server admin app behind the gateway | Accepted | Admin |
 | [0020](./0020-postgres-fts-search.md) | Search via Postgres FTS + pg_trgm behind ISearchProvider | Accepted | Catalog / search |
+| [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted | Deployment / infra |

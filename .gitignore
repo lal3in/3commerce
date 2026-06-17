@@ -25,3 +25,4 @@ dist/
 # .NET
 bin/
 obj/
+deploy/.env.prod

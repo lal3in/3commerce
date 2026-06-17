@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
@@ -11,6 +12,7 @@ using ThreeCommerce.Catalog.Infrastructure.Importers;
 using ThreeCommerce.Catalog.Infrastructure.Search;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("catalog");
 builder.Services.AddApiProblemDetails();
