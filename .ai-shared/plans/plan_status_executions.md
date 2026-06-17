@@ -99,10 +99,10 @@ Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLAN
 
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 |---------|-----------|-------|--------|-----------|----------|
-| cl_1 | ContainerConfig.cs (flag-loaded appsettings.Container.json) | P1 config | pending | .ai-shared/plans/containerized-launch-and-deploy.md | USE_CONTAINER_CONFIG=true, decoupled from env name |
-| cl_2 | AddContainerConfig in 8 app Program.cs | P1 config | pending | .ai-shared/plans/containerized-launch-and-deploy.md | after CreateBuilder |
-| cl_3 | 8x appsettings.Container.json host overrides | P1 config | pending | .ai-shared/plans/containerized-launch-and-deploy.md | postgres/rabbitmq/service names == compose==k8s |
-| cl_4 | Add curl + ASPNETCORE_URLS :8080 to 8 runtime images | P1 config | pending | .ai-shared/plans/containerized-launch-and-deploy.md | healthcheck needs curl |
+| cl_1 | ContainerConfig.cs (flag-loaded appsettings.Container.json) | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | USE_CONTAINER_CONFIG=true, decoupled from env name |
+| cl_2 | AddContainerConfig in 8 app Program.cs | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | after CreateBuilder |
+| cl_3 | 8x appsettings.Container.json host overrides | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | postgres/rabbitmq/service names == compose==k8s |
+| cl_4 | Add curl + ASPNETCORE_URLS :8080 to 8 runtime images | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthcheck needs curl |
 | cl_5 | deploy/migrator (6 EF bundles, self-contained linux-x64) + entrypoint | P2 migrations | pending | .ai-shared/plans/containerized-launch-and-deploy.md | worker excluded (no DB) |
 | cl_6 | docker-compose.yml hardened full stack | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
 | cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |

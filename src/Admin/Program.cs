@@ -3,6 +3,9 @@ using ThreeCommerce.Admin.Components;
 using ThreeCommerce.Admin.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+// Containerized launch: load host wiring without coupling to ASPNETCORE_ENVIRONMENT (see ContainerConfig).
+if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
+    builder.Configuration.AddJsonFile("appsettings.Container.json", optional: true, reloadOnChange: false);
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
@@ -28,6 +31,19 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
+
+// Container liveness probe — terminal + before the IP allowlist so internal healthchecks pass.
+app.Use(async (context, next) =>
+{
+    if (string.Equals(context.Request.Path.Value, "/health", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        await context.Response.WriteAsync("ok");
+        return;
+    }
+
+    await next();
+});
 
 app.UseMiddleware<IpAllowlistMiddleware>(); // network posture, before auth
 app.UseStaticFiles();

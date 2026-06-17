@@ -1,10 +1,12 @@
 using MassTransit;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.Workers.Notifications.Consumers;
 using ThreeCommerce.Workers.Notifications.Email;
 
 var builder = Host.CreateApplicationBuilder(args);
+builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("notifications");
 
