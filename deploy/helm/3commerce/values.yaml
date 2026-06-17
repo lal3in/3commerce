@@ -1,0 +1,39 @@
+# Defaults = dev. Override with -f values-dev.yaml or -f values-prod.yaml.
+environment: Development            # ASPNETCORE_ENVIRONMENT (Development = committed dev keys, admin seeded)
+
+image:
+  repoPrefix: 3commerce             # image = {repoPrefix}/{name}:{tag}; for kind, build+`kind load` these
+  tag: local
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    memory: 512Mi
+
+# The 6 DB-owning services. Image name == k8s Service name == container hostname in
+# appsettings.Container.json, so no per-service config is needed here.
+services:
+  - identity
+  - catalog
+  - ordering
+  - payments
+  - fulfillment
+  - support
+
+# Prod only: name of an externally-created Secret holding InternalAuth__PrivateKey and
+# InternalAuth__PublicKey (see deploy/helm/make-secret.sh). Empty in dev — images already
+# carry the committed dev keys, accepted because ASPNETCORE_ENVIRONMENT=Development.
+secret:
+  name: ""
+
+ingress:
+  enabled: false
+  className: ""
+  host: 3commerce.local
+
+postgres:
+  image: postgres:17
+  password: postgres_dev            # local/kind only
+
+rabbitmq:
+  image: rabbitmq:4-management

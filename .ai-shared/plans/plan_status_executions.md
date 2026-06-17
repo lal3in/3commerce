@@ -107,8 +107,8 @@ Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLAN
 | cl_6 | docker-compose.yml hardened full stack | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
 | cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |
 | cl_8 | scripts/launch.sh [--fresh|--reuse] [--env dev|prod] | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | fresh=down -v; prod=rotate-secrets |
-| cl_9 | deploy/helm/3commerce umbrella chart + migrate hook Job | P4 k8s | pending | .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets |
-| cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | pending | .ai-shared/plans/containerized-launch-and-deploy.md | from rotate-secrets.sh |
+| cl_9 | deploy/helm/3commerce umbrella chart + migrate hook Job | P4 k8s | done9 .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets |
+| cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | done10 .ai-shared/plans/containerized-launch-and-deploy.md | from rotate-secrets.sh |
 | cl_11 | CI: paths-filter + compose-smoke + kind-deploy jobs | P5 CI | pending | .ai-shared/plans/containerized-launch-and-deploy.md | kind helm install --wait |
 | cl_12 | ADR-0021 dual launch model (amends ADR-0009) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | |
 | cl_13 | Full re-audit -> regenerate project-analysis.html (Atelier) | P6 docs | pending | .ai-shared/plans/containerized-launch-and-deploy.md | expect ~20 Met/1 Partial/0 Missing ~A |

@@ -1,0 +1,71 @@
+{{- range $svc := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+    {{- include "3commerce.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $svc }}
+  template:
+    metadata:
+      labels:
+        app: {{ $svc }}
+    spec:
+      # Apply this service's schema before the app starts. The migrator image carries all
+      # bundles; we run only this DB's. EF takes a migration lock and is idempotent; the
+      # initContainer retries (pod restart) until Postgres is reachable.
+      initContainers:
+        - name: migrate
+          image: {{ include "3commerce.image" (dict "root" $ "name" "migrator") }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - /bundles/efbundle-{{ $svc }}
+            - --connection
+            - {{ include "3commerce.conn" $svc | quote }}
+      containers:
+        - name: {{ $svc }}
+          image: {{ include "3commerce.image" (dict "root" $ "name" $svc) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: USE_CONTAINER_CONFIG
+              value: "true"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ $.Values.environment | quote }}
+            {{- if and (ne $.Values.environment "Development") $.Values.secret.name }}
+            - name: InternalAuth__PublicKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secret.name }}
+                  key: InternalAuth__PublicKey
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}
+  labels:
+    app: {{ $svc }}
+spec:
+  selector:
+    app: {{ $svc }}
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+{{- end }}
