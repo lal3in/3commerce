@@ -104,8 +104,8 @@ Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLAN
 | cl_3 | 8x appsettings.Container.json host overrides | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | postgres/rabbitmq/service names == compose==k8s |
 | cl_4 | Add curl + ASPNETCORE_URLS :8080 to 8 runtime images | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthcheck needs curl |
 | cl_5 | deploy/migrator (6 EF bundles, self-contained linux-x64) + entrypoint | P2 migrations | done | .ai-shared/plans/containerized-launch-and-deploy.md | worker excluded (no DB) |
-| cl_6 | docker-compose.yml hardened full stack | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
-| cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |
+| cl_6 | docker-compose.yml hardened full stack | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
+| cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |
 | cl_8 | scripts/launch.sh [--fresh|--reuse] [--env dev|prod] | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | fresh=down -v; prod=rotate-secrets |
 | cl_9 | deploy/helm/3commerce umbrella chart + migrate hook Job | P4 k8s | pending | .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets |
 | cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | pending | .ai-shared/plans/containerized-launch-and-deploy.md | from rotate-secrets.sh |
