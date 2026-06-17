@@ -47,10 +47,20 @@ if [ "$ENV" = prod ]; then
   COMPOSE+=(-f docker-compose.prod.yml)
 fi
 
+DB=(-f docker-compose.db.yml)
+
 if [ "$MODE" = fresh ]; then
-  echo ">> FRESH: dropping the Postgres volume (init SQL + migrations will re-run)"
-  docker compose "${COMPOSE[@]}" down -v --remove-orphans || true
+  echo ">> FRESH: resetting the external Postgres (init SQL + migrations will re-run)"
+  docker compose "${DB[@]}" down -v --remove-orphans || true
+  docker compose "${COMPOSE[@]}" down --remove-orphans || true
 fi
+
+echo ">> starting the external Postgres instance"
+docker compose "${DB[@]}" up -d
+for _ in $(seq 1 60); do
+  [ "$(docker inspect -f '{{.State.Health.Status}}' 3commerce-postgres 2>/dev/null)" = "healthy" ] && break
+  sleep 2
+done
 
 echo ">> launching ($MODE, env=$ENV) — building images as needed"
 docker compose "${COMPOSE[@]}" up -d --build
@@ -64,5 +74,6 @@ cat <<EOF
 $([ "$ENV" = prod ] && printf '   admin password: %s\n' "$INTERNAL_AUTH_ADMIN_PASSWORD")
 >> catalog is empty on a fresh launch — seed via the admin Imports screen, or:
    curl -X POST http://localhost:8080/api/catalog/admin/import-runs   (admin session required)
->> tear down:  docker compose ${COMPOSE[*]} down$([ "$MODE" = fresh ] && echo ' -v')
+>> external Postgres persists across launches; reset it with: docker compose ${DB[*]} down -v
+>> tear down app:  docker compose ${COMPOSE[*]} down
 EOF

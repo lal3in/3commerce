@@ -19,9 +19,10 @@ x-svc-health: &svc-health
     retries: 12
     start_period: 25s
 
+# Postgres is external (docker-compose.db.yml) — services gate on rabbitmq + the migrator,
+# which itself depends on the external Postgres being reachable (ensured by scripts/launch.sh).
 x-svc-deps: &svc-deps
   depends_on:
-    postgres: { condition: service_healthy }
     rabbitmq: { condition: service_healthy }
     migrate: { condition: service_completed_successfully }
 
@@ -32,21 +33,6 @@ x-limits: &limits
         memory: 512M
 
 services:
-  postgres:
-    image: postgres:17
-    container_name: 3commerce-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_dev
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-init-databases.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-
   rabbitmq:
     image: rabbitmq:4-management
     container_name: 3commerce-rabbitmq
@@ -56,13 +42,12 @@ services:
       timeout: 3s
       retries: 12
 
-  # One-shot: applies all 6 schemas via EF bundles, then exits. Gates the app services.
+  # One-shot: applies all 6 schemas via EF bundles to the EXTERNAL Postgres, then exits.
+  # Gates the app services. scripts/launch.sh ensures Postgres is healthy before this runs.
   migrate:
     build:
       context: .
       dockerfile: deploy/migrator/Dockerfile
-    depends_on:
-      postgres: { condition: service_healthy }
     environment:
       CONN_IDENTITY: Host=postgres;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev
       CONN_CATALOG: Host=postgres;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev
@@ -152,5 +137,9 @@ services:
         limits:
           memory: 512M
 
-volumes:
-  pgdata:
+# The app's default network IS the external Postgres network (docker-compose.db.yml), so
+# every app container plus the external `postgres` resolve each other by name.
+networks:
+  default:
+    name: 3commerce-data
+    external: true

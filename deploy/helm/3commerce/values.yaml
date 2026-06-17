@@ -32,6 +32,8 @@ ingress:
   host: 3commerce.local
 
 postgres:
+  deploy: true          # in-cluster Postgres (kind/dev). false + externalHost = use an external instance
+  externalHost: ""
   image: postgres:17
   password: postgres_dev            # local/kind only
 

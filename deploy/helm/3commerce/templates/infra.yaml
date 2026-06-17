@@ -1,3 +1,4 @@
+{{- if .Values.postgres.deploy }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -65,6 +66,19 @@ spec:
   ports:
     - port: 5432
       targetPort: 5432
+{{- else if .Values.postgres.externalHost }}
+# External Postgres: an ExternalName Service named `postgres` so the committed connection
+# strings (Host=postgres) resolve to the real instance with no config changes.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  type: ExternalName
+  externalName: {{ .Values.postgres.externalHost | quote }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -28,8 +28,8 @@ Endpoints once up: gateway `:8080`, storefront `:3000`, admin `:5200`. The catal
 
 How it fits together:
 
-- **`docker-compose.yml`** runs the 10 app images + `postgres` + `rabbitmq` on one internal
-  network, with healthchecks, `depends_on` conditions (services wait for Postgres/RabbitMQ
+- **`docker-compose.yml`** runs the 10 app images + `rabbitmq`; Postgres is a separate external instance
+  (`docker-compose.db.yml`, its own volume) that `launch.sh` starts first and the app connects to, with healthchecks, `depends_on` conditions (services wait for Postgres/RabbitMQ
   healthy **and** the migrator completed), and memory limits.
 - **Config** is injected as a hybrid: committed `appsettings.Container.json` per app for host
   wiring (`Host=postgres`, `amqp@rabbitmq`, YARP destinations → service names on `:8080`,

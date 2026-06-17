@@ -1,0 +1,36 @@
+# The single EXTERNAL Postgres instance (its own lifecycle, separate from the app stack).
+# Each service still gets its own database + login (ADR-0008) via init-databases.sql.
+# Brought up once and persists across app launches:
+#   docker compose -f docker-compose.db.yml up -d
+# A fresh launch (scripts/launch.sh --fresh) resets it with `down -v`.
+name: 3commerce-db
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: 3commerce-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - data
+
+# Shared with the app stack (docker-compose.yml joins this as an external network),
+# so the app's services resolve `postgres` by name on the same network.
+networks:
+  data:
+    name: 3commerce-data
+
+volumes:
+  dbdata:
+    name: 3commerce-dbdata
