@@ -120,6 +120,22 @@ home/search pages will show products.
 storefront, admin) and then runs the live smoke flows. Use it to confirm the whole
 stack boots and the core journeys work — see [Testing](./testing.md).
 
+## Or: containerized launch
+
+The steps above are the **bare-run** dev loop (ADR-0009). To run the whole stack in
+containers instead — as a repeatable, deployable launch — use:
+
+```bash
+scripts/launch.sh --fresh --env dev     # brand-new deployment (build + up)
+scripts/launch.sh --reuse --env dev     # relaunch, keep data
+```
+
+This brings up all 10 app images + Postgres + RabbitMQ via `docker-compose.yml`, applies
+migrations with an EF-bundle migrator, and exposes the same ports (gateway `:8080`,
+storefront `:3000`, admin `:5200`). The catalog comes up empty — seed it via the admin
+Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in
+[Deployment](./deployment.md).
+
 ## Teardown
 
 ```bash

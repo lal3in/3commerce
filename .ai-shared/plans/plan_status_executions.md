@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-16 (post-MVP backlog COMPLETE: BL-1..BL-11 all DONE; wiki rebuilt (Atelier) + CI paths-filter fixed; NEW PLAN registered: Containerized launch + deploy — see table at end of file)
+Last Modified Date-Time: 2026-06-17 (Containerized launch plan cl_1..cl_15 COMPLETE: compose+launch.sh fresh-dev verified booting all 12 containers; Helm chart + kind CI; project-analysis re-audited to A; docs refreshed)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -106,11 +106,11 @@ Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLAN
 | cl_5 | deploy/migrator (6 EF bundles, self-contained linux-x64) + entrypoint | P2 migrations | done | .ai-shared/plans/containerized-launch-and-deploy.md | worker excluded (no DB) |
 | cl_6 | docker-compose.yml hardened full stack | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
 | cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |
-| cl_8 | scripts/launch.sh [--fresh|--reuse] [--env dev|prod] | P3 compose | pending | .ai-shared/plans/containerized-launch-and-deploy.md | fresh=down -v; prod=rotate-secrets |
-| cl_9 | deploy/helm/3commerce umbrella chart + migrate hook Job | P4 k8s | done9 .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets |
-| cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | done10 .ai-shared/plans/containerized-launch-and-deploy.md | from rotate-secrets.sh |
+| cl_8 | scripts/launch.sh [--fresh / --reuse] [--env dev / prod] | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | fresh=down -v; prod mints+injects keys; verified end-to-end |
+| cl_9 | deploy/helm/3commerce umbrella chart (per-service migrate initContainer) | P4 k8s | done | .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets; CI-validated in cl_11 |
+| cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | done | .ai-shared/plans/containerized-launch-and-deploy.md | base64 PEMs preserve newlines |
 | cl_11 | CI: paths-filter + compose-smoke + kind-deploy jobs | P5 CI | done | .ai-shared/plans/containerized-launch-and-deploy.md | kind helm install --wait |
 | cl_12 | ADR-0021 dual launch model (amends ADR-0009) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | |
-| cl_13 | Full re-audit -> regenerate project-analysis.html (Atelier) | P6 docs | pending | .ai-shared/plans/containerized-launch-and-deploy.md | expect ~20 Met/1 Partial/0 Missing ~A |
-| cl_14 | Refresh deployment.md/html + getting-started + AGENTS.md | P6 docs | pending | .ai-shared/plans/containerized-launch-and-deploy.md | keep bare-run section |
-| cl_15 | Update status + e2e-verify test-list | P7 validate | pending | .ai-shared/plans/containerized-launch-and-deploy.md | |
+| cl_13 | Full re-audit -> regenerate project-analysis.html (Atelier) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | expect ~20 Met/1 Partial/0 Missing ~A |
+| cl_14 | Refresh deployment.md/html + getting-started + AGENTS.md | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | keep bare-run section |
+| cl_15 | Update status + e2e-verify test-list | P7 validate | done | .ai-shared/plans/containerized-launch-and-deploy.md | |
