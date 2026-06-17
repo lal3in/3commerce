@@ -4,6 +4,9 @@ using OpenTelemetry.Trace;
 using ThreeCommerce.Gateway.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
+// Containerized launch: load host wiring without coupling to ASPNETCORE_ENVIRONMENT (see ContainerConfig).
+if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
+    builder.Configuration.AddJsonFile("appsettings.Container.json", optional: true, reloadOnChange: false);
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("gateway"))
@@ -56,10 +59,19 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
-// Service health endpoints are internal-only: never proxy /api/{service}/health/*.
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? string.Empty;
+
+    // Gateway's own liveness probe (container healthcheck) — early + terminal, before auth.
+    if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        await context.Response.WriteAsync("ok");
+        return;
+    }
+
+    // Service health endpoints are internal-only: never proxy /api/{service}/health/*.
     if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
         && path.Contains("/health", StringComparison.OrdinalIgnoreCase))
     {

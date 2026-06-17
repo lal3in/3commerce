@@ -1,0 +1,145 @@
+# Full containerized launch (ADR-0021): all 10 app images + infra on one internal network.
+# Drive it with scripts/launch.sh [--fresh|--reuse] [--env dev|prod] — do not invoke this
+# file directly unless you know the env wiring. Bare-run dev stays in docker-compose.infra.yml
+# + scripts/run-all.sh (ADR-0009).
+name: 3commerce
+
+x-app: &app
+  environment:
+    USE_CONTAINER_CONFIG: "true"
+  env_file:
+    - deploy/.env.${ENV:-dev}
+  restart: unless-stopped
+
+x-svc-health: &svc-health
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/ready || exit 1"]
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 25s
+
+# Postgres is external (docker-compose.db.yml) — services gate on rabbitmq + the migrator,
+# which itself depends on the external Postgres being reachable (ensured by scripts/launch.sh).
+x-svc-deps: &svc-deps
+  depends_on:
+    rabbitmq: { condition: service_healthy }
+    migrate: { condition: service_completed_successfully }
+
+x-limits: &limits
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: 3commerce-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # One-shot: applies all 6 schemas via EF bundles to the EXTERNAL Postgres, then exits.
+  # Gates the app services. scripts/launch.sh ensures Postgres is healthy before this runs.
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/migrator/Dockerfile
+    environment:
+      CONN_IDENTITY: Host=postgres;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev
+      CONN_CATALOG: Host=postgres;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev
+      CONN_ORDERING: Host=postgres;Port=5432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev
+      CONN_PAYMENTS: Host=postgres;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev
+      CONN_FULFILLMENT: Host=postgres;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
+      CONN_SUPPORT: Host=postgres;Port=5432;Database=support_db;Username=support_svc;Password=support_dev
+    restart: "no"
+
+  identity:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Identity/Api/Dockerfile }
+  catalog:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Catalog/Api/Dockerfile }
+  ordering:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Ordering/Api/Dockerfile }
+  payments:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Payments/Api/Dockerfile }
+  fulfillment:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Fulfillment/Api/Dockerfile }
+  support:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Support/Api/Dockerfile }
+
+  notifications:
+    <<: [*app, *limits]
+    build: { context: ., dockerfile: src/Workers/Notifications/Dockerfile }
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+
+  gateway:
+    <<: [*app, *limits]
+    build: { context: ., dockerfile: src/Gateway/Dockerfile }
+    ports:
+      - "8080:8080"
+    depends_on:
+      identity: { condition: service_healthy }
+      catalog: { condition: service_healthy }
+      ordering: { condition: service_healthy }
+      payments: { condition: service_healthy }
+      fulfillment: { condition: service_healthy }
+      support: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  admin:
+    <<: [*app, *limits]
+    build: { context: ., dockerfile: src/Admin/Dockerfile }
+    ports:
+      - "5200:8080"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  storefront:
+    build: { context: ., dockerfile: src/Storefront/Dockerfile }
+    environment:
+      NODE_ENV: production
+      GATEWAY_URL: http://gateway:8080
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+# The app's default network IS the external Postgres network (docker-compose.db.yml), so
+# every app container plus the external `postgres` resolve each other by name.
+networks:
+  default:
+    name: 3commerce-data
+    external: true

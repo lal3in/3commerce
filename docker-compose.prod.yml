@@ -1,0 +1,29 @@
+# Prod-mode overlay (ADR-0021): injects the rotated ES256 keypair so the BL-11 DevSecretGuard
+# is satisfied (it refuses the committed dev key outside Development). Applied by
+# scripts/launch.sh --env prod, which exports INTERNAL_AUTH_* with REAL newlines (env_file
+# can't hold multiline PEMs, so they ride compose interpolation here instead).
+name: 3commerce
+
+services:
+  gateway:
+    environment:
+      InternalAuth__PrivateKey: ${INTERNAL_AUTH_PRIVATE_KEY:?run scripts/launch.sh --env prod}
+  identity:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+      Identity__SeedAdmin__Password: ${INTERNAL_AUTH_ADMIN_PASSWORD:-}
+  catalog:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  ordering:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  payments:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  fulfillment:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  support:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}

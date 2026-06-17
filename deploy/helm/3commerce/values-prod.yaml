@@ -1,0 +1,6 @@
+# Prod overlay: BL-11 gate enforced. Create the Secret first:
+#   deploy/helm/make-secret.sh | kubectl apply -f -
+# then: helm install 3commerce deploy/helm/3commerce -f values-prod.yaml
+environment: Production
+secret:
+  name: 3commerce-secrets
