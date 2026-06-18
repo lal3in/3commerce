@@ -22,21 +22,43 @@ public static class DevAdminSeeder
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<IdentityBootstrapper>();
 
         if (!await db.Database.CanConnectAsync() || await db.Users.AnyAsync(u => u.Role == Roles.Admin))
         {
             return;
         }
 
+        var now = DateTimeOffset.UtcNow;
+        var tenant = await bootstrapper.EnsureDefaultTenantAsync(default);
+        await bootstrapper.SeedPermissionRegistryAsync(tenant.Id, default);
+        var principal = new ThreeCommerce.Identity.Domain.Tenancy.Principal
+        {
+            Id = Guid.CreateVersion7(),
+            Type = ThreeCommerce.Identity.Domain.Tenancy.PrincipalType.Human,
+            DisplayName = email.ToLowerInvariant(),
+            IsPlatformAdmin = true,
+            CreatedAt = now,
+        };
+        db.Principals.Add(principal);
         db.Users.Add(new User
         {
             Id = Guid.CreateVersion7(),
+            TenantId = tenant.Id,
+            PrincipalId = principal.Id,
             Email = email.ToLowerInvariant(),
             PasswordHash = hasher.Hash(password),
             EmailVerified = true,
             Role = Roles.Admin,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = now,
         });
+        var membership = await bootstrapper.EnsureMembershipAsync(
+            tenant.Id,
+            principal,
+            ThreeCommerce.Identity.Domain.Tenancy.MembershipKind.Staff,
+            isTenantOwner: true,
+            default);
+        await bootstrapper.AssignRoleAsync(membership, Roles.Admin, default);
         await db.SaveChangesAsync();
         app.Logger.LogWarning("DEV: seeded admin user {Email}", email);
     }

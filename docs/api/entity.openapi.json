@@ -1,0 +1,91 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "3commerce.Entity.Api | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5107/"
+    }
+  ],
+  "paths": {
+    "/entities": {
+      "get": {
+        "tags": ["Entities"],
+        "summary": "List tenant-scoped entity records.",
+        "parameters": [
+          { "name": "tenantId", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/EntitySummaryResponse" } } } } }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
+      },
+      "post": {
+        "tags": ["Entities"],
+        "summary": "Create a minimal tenant-scoped entity record.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateEntityRequest" } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EntitySummaryResponse" } } } }, "400": { "description": "Bad Request" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" }, "422": { "description": "Validation Problem" } }
+      }
+    },
+    "/entities/{id}/duplicate-warnings/scan": {
+      "post": {
+        "tags": ["Entities"],
+        "summary": "Scan an entity record for duplicate warnings.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
+      }
+    },
+    "/entities/duplicate-warnings/{warningId}/override": {
+      "post": {
+        "tags": ["Entities"],
+        "summary": "Override a duplicate warning with a reason.",
+        "parameters": [
+          { "name": "warningId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "204": { "description": "No Content" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" }, "422": { "description": "Validation Problem" } }
+      }
+    },
+    "/entities/{id}": {
+      "delete": {
+        "tags": ["Entities"],
+        "summary": "Archive an entity record.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "204": { "description": "No Content" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" }, "404": { "description": "Not Found" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateEntityRequest": {
+        "type": "object",
+        "required": ["tenantId", "legalName"],
+        "properties": {
+          "tenantId": { "type": "string", "format": "uuid" },
+          "type": { "$ref": "#/components/schemas/EntityType" },
+          "legalName": { "type": "string", "minLength": 2, "maxLength": 200 },
+          "tradingName": { "type": ["string", "null"], "minLength": 2, "maxLength": 200 },
+          "roles": { "type": ["array", "null"], "items": { "$ref": "#/components/schemas/EntityRoleKind" } }
+        }
+      },
+      "EntitySummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "tenantId": { "type": "string", "format": "uuid" },
+          "type": { "$ref": "#/components/schemas/EntityType" },
+          "legalName": { "type": "string" },
+          "tradingName": { "type": ["string", "null"] },
+          "displayName": { "type": "string" },
+          "status": { "type": "string", "enum": ["Active", "Archived"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "EntityType": { "type": "string", "enum": ["NaturalPerson", "Company", "Trust", "Partnership", "SoleTrader", "GovernmentBody", "NonProfitAssociation", "Other"] },
+      "EntityRoleKind": { "type": "string", "enum": ["Customer", "Supplier", "Courier", "Warehouse", "Forwarder", "TenantOwner", "PaymentRecipient"] }
+    }
+  }
+}

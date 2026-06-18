@@ -1,6 +1,6 @@
 # One-shot schema migrator: builds a framework-dependent EF migration bundle per
 # DB-owning service and applies them once. Runs AFTER Postgres init SQL (which creates
-# the 6 databases/roles/extensions) and BEFORE the app services start.
+# the service databases/roles/extensions) and BEFORE the app services start.
 #
 # Framework-dependent (no -r/--self-contained) on a multi-arch dotnet/runtime base, so the
 # same Dockerfile works on arm64 (local colima) and amd64 (CI) — the SDK and runtime images
@@ -13,7 +13,7 @@ COPY . .
 RUN dotnet restore 3commerce.sln
 RUN dotnet tool install -g dotnet-ef --version 10.0.9
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN mkdir -p /bundles && for s in Identity Catalog Ordering Payments Fulfillment Support; do \
+RUN mkdir -p /bundles && for s in Identity Catalog Entity Ordering Payments Fulfillment Support; do \
       l=$(echo "$s" | tr '[:upper:]' '[:lower:]'); \
       echo "== bundling $s =="; \
       dotnet ef migrations bundle \

@@ -9,6 +9,9 @@ public class Session
     public Guid Id { get; init; }
     public Guid UserId { get; init; }
     public required string TokenHash { get; init; }
+    /// <summary>Principal ClaimsVersion at issuance; mismatch means role/permission changes invalidated it.</summary>
+    public int ClaimsVersion { get; init; } = 1;
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }

@@ -16,6 +16,7 @@ migrate() {
 
 migrate identity    "${CONN_IDENTITY:-}"
 migrate catalog     "${CONN_CATALOG:-}"
+migrate entity      "${CONN_ENTITY:-}"
 migrate ordering    "${CONN_ORDERING:-}"
 migrate payments    "${CONN_PAYMENTS:-}"
 migrate fulfillment "${CONN_FULFILLMENT:-}"

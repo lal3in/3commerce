@@ -1,0 +1,56 @@
+@page "/"
+@attribute [Authorize]
+@inject SupplierGatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Supplier overview</h1>
+<p>View your supplier readiness and operational scope. Product content, pricing, dispatch, tracking, and bank-account changes require platform approval.</p>
+
+<div style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+    <label>
+        Supplier entity ID
+        <input @bind="entityId" style="width:28rem;margin-left:.5rem;" />
+    </label>
+    <button @onclick="LoadReadinessAsync" style="margin-left:.5rem;">Check readiness</button>
+</div>
+
+@if (readiness is not null)
+{
+    <section style="padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+        <h2>Readiness</h2>
+        @if (readiness.IsReady)
+        {
+            <p style="color:#047857;">Supplier profile is ready.</p>
+        }
+        else
+        {
+            <p style="color:#b45309;">Missing requirements:</p>
+            <ul>
+                @foreach (var item in readiness.MissingRequirements)
+                {
+                    <li>@item</li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private string entityId = string.Empty;
+    private SupplierReadinessResponse? readiness;
+
+    private async Task LoadReadinessAsync()
+    {
+        readiness = null;
+        if (!Guid.TryParse(entityId, out _))
+        {
+            readiness = new SupplierReadinessResponse(false, ["Supplier entity ID must be a GUID."]);
+            return;
+        }
+
+        readiness = await Gateway.GetAsync<SupplierReadinessResponse>($"/api/entity/entities/{entityId}/suppliers/readiness")
+            ?? new SupplierReadinessResponse(false, ["Unable to load readiness. Confirm your supplier access."]);
+    }
+
+    private sealed record SupplierReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
+}

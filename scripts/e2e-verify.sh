@@ -18,8 +18,9 @@
 # Automated (encoded in test suites / build):
 #   A1  Solution builds with 0 warnings (warnings-as-errors)
 #   A2  Formatting clean (dotnet format --verify-no-changes)
-#   A3  Backend unit + contract tests (Identity hasher/tokens, contract equality,
-#       DevSecretGuard refuses the committed dev key outside Development — BL-11)
+#   A3  Backend unit + contract tests (Identity hasher/tokens, tenant/RBAC/Authz
+#       policy engine + PDP resolver, contract equality, DevSecretGuard refuses the
+#       committed dev key outside Development — BL-11; Entity domain skeleton invariants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions
@@ -140,18 +141,18 @@ wait_http() { # url (waits up to ~120s — covers the storefront production buil
 run_live() {
   stage "L1  Infra (Postgres + RabbitMQ)"
   docker compose -f "$ROOT/docker-compose.infra.yml" up -d >/dev/null 2>&1
-  # Wait up to ~180s for the init script to create all 6 databases (slow/loaded CI
-  # runners create them sequentially; use the loop's own count so a late-landing 6th
+  # Wait up to ~180s for the init script to create all service databases (slow/loaded CI
+  # runners create them sequentially; use the loop's own count so a late-landing
   # database isn't missed by a single-shot re-count).
   dbcount=0
   for _ in $(seq 1 90); do
     dbcount="$(docker exec 3commerce-postgres psql -U postgres -tc '\l' 2>/dev/null | grep -c '_db')"
-    [[ "$dbcount" == "6" ]] && break; sleep 2
+    [[ "$dbcount" == "7" ]] && break; sleep 2
   done
-  [[ "$dbcount" == "6" ]] && pass "L1 six service databases" || fail "L1 six service databases (saw '$dbcount')"
+  [[ "$dbcount" == "7" ]] && pass "L1 seven service databases" || fail "L1 seven service databases (saw '$dbcount')"
 
   stage "Applying migrations"
-  for svc in Identity Catalog Ordering Payments Fulfillment Support; do
+  for svc in Identity Catalog Entity Ordering Payments Fulfillment Support; do
     dotnet ef database update -p "$ROOT/src/Services/$svc/Infrastructure" -s "$ROOT/src/Services/$svc/Api" >/dev/null 2>&1 \
       && printf '  migrated %s\n' "$svc" || printf '  (migrate %s skipped/failed)\n' "$svc"
   done
@@ -162,8 +163,8 @@ run_live() {
   : > "$ROOT/.run/notifications.log" 2>/dev/null || true
   "$ROOT/scripts/run-all.sh" start >/dev/null
   # Wait for service health BEFORE the CPU-heavy storefront build (avoids startup contention).
-  local ok=1; for p in 5101 5102 5103 5104 5105 5106; do wait_health "$p" || ok=0; done
-  [[ $ok == 1 ]] && pass "L2 six services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
+  local ok=1; for p in 5101 5102 5103 5104 5105 5106 5107; do wait_health "$p" || ok=0; done
+  [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
   stage "Booting storefront + admin"
   ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )

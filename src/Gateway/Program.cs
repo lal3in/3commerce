@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using ThreeCommerce.Gateway.Auth;
+using ThreeCommerce.Gateway.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
 // Containerized launch: load host wiring without coupling to ASPNETCORE_ENVIRONMENT (see ContainerConfig).
@@ -31,12 +32,18 @@ builder.Services.AddRateLimiter(options =>
     {
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var path = context.Request.Path.Value ?? string.Empty;
+        var tenant = context.Request.Headers.TryGetValue(DomainResolutionMiddleware.TenantHeader, out var tenantHeader)
+            ? tenantHeader.ToString()
+            : "no-tenant";
+        var storefront = context.Request.Headers.TryGetValue(DomainResolutionMiddleware.StorefrontHeader, out var storefrontHeader)
+            ? storefrontHeader.ToString()
+            : "no-storefront";
         var isAuthPath = path.StartsWith("/api/identity/login", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/api/identity/register", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/api/identity/password-reset", StringComparison.OrdinalIgnoreCase);
 
         return RateLimitPartition.GetFixedWindowLimiter(
-            (isAuthPath ? "auth:" : "any:") + ip,
+            (isAuthPath ? "auth:" : "any:") + tenant + ":" + storefront + ":" + ip,
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = isAuthPath ? 30 : 1000,
@@ -46,6 +53,7 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
+builder.Services.Configure<StorefrontDomainOptions>(builder.Configuration.GetSection("Tenancy"));
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient("identity", client =>
 {
@@ -82,6 +90,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseMiddleware<DomainResolutionMiddleware>();
 app.UseRateLimiter();
 app.UseMiddleware<SessionAuthMiddleware>();
 app.MapReverseProxy();

@@ -29,3 +29,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0024](./0024-tenant-isolation-postgres-rls.md) | Tenant isolation via PostgreSQL RLS with transaction-scoped `SET LOCAL` | Accepted | Multi-tenancy / data |
 | [0025](./0025-pdp-pep-dynamic-rbac.md) | Central PDP + service-side PEP, field/action policy, dynamic admin-defined RBAC | Accepted | Security / authz |
 | [0026](./0026-service-accounts-and-cli.md) | Service accounts + installable .NET global-tool CLI | Accepted | Security / tooling |
+| [0027](./0027-entity-service-master-data-boundary.md) | Entity service master-data boundary | Accepted | Entity / service boundary |

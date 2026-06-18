@@ -1,0 +1,97 @@
+@page "/rbac"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Roles & permissions</h1>
+<p>Platform-branded RBAC console. Role changes are enforced by the Identity/Authz PDP and re-evaluate active sessions.</p>
+
+<label>
+    Tenant ID
+    <input @bind="tenantId" style="width:28rem;" />
+</label>
+<button @onclick="LoadAsync">Load</button>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:#b91c1c;">@error</p>
+}
+
+<section style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:1rem;">
+    <div>
+        <h2>Roles</h2>
+        @if (roles.Count == 0)
+        {
+            <p>No roles loaded.</p>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Name</th><th>Key</th><th>Permissions</th></tr></thead>
+                <tbody>
+                @foreach (var role in roles)
+                {
+                    <tr>
+                        <td>@role.Name</td>
+                        <td><code>@role.Key</code></td>
+                        <td>@role.PermissionKeys.Count</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+    <div>
+        <h2>Permission registry</h2>
+        @if (permissions.Count == 0)
+        {
+            <p>No permissions loaded.</p>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Key</th><th>Risk</th></tr></thead>
+                <tbody>
+                @foreach (var permission in permissions)
+                {
+                    <tr>
+                        <td><code>@permission.Key</code></td>
+                        <td>@permission.RiskLevel</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</section>
+
+@code {
+    private string tenantId = "00000000-0000-0000-0000-000000000001";
+    private string? error;
+    private List<RoleResponse> roles = [];
+    private List<PermissionResponse> permissions = [];
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        if (!Guid.TryParse(tenantId, out _))
+        {
+            error = "Tenant ID must be a GUID.";
+            return;
+        }
+
+        permissions = await Gateway.GetListAsync<PermissionResponse>("/api/identity/admin/rbac/permissions");
+        roles = await Gateway.GetListAsync<RoleResponse>($"/api/identity/admin/rbac/roles?tenantId={tenantId}");
+    }
+
+    private sealed record PermissionResponse(string Key, string Description, int RiskLevel);
+    private sealed record RoleResponse(
+        Guid Id,
+        Guid? TenantId,
+        string Key,
+        string Name,
+        string? Description,
+        bool IsBuiltIn,
+        bool IsSystem,
+        IReadOnlyList<string> PermissionKeys);
+}

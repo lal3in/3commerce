@@ -23,6 +23,12 @@ public class Principal
     /// </summary>
     public bool IsPlatformAdmin { get; set; }
 
+    /// <summary>
+    /// Incremented whenever role/membership changes require sessions/internal claims to be
+    /// re-evaluated. Sessions snapshot this value; introspection rejects stale snapshots.
+    /// </summary>
+    public int ClaimsVersion { get; set; } = 1;
+
     public PrincipalStatus Status { get; set; } = PrincipalStatus.Active;
 
     public DateTimeOffset CreatedAt { get; init; }

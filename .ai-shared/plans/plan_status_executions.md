@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-18 (Generated phase-level multi-tenant expansion plans and regrouped status tasks mt1_1..mt6_12 as PLANNED; then registered storefront/admin design-grill addendum tasks mt1_7..mt1_8, mt3_10..mt3_16, mt4_10..mt4_11, mt6_13..mt6_14 as PLANNED; implementation not started)
+Last Modified Date-Time: 2026-06-18 (mt2_6 completed: generic Blazor SupplierPortal with gateway-only auth/client, readiness view, stock feed and change-request surfaces; build/format green)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -129,13 +129,13 @@ Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 |---------|-----------|-------|--------|-----------|----------|
 | mt1_1 | Architecture ADRs and scope baseline | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | ADRs 0023 (strict multi-tenancy), 0024 (RLS via SET LOCAL), 0025 (PDP/PEP + dynamic RBAC), 0026 (service accounts + CLI) + adr_index updated |
-| mt1_2 | Identity tenant/principal/service-account/domain authorization foundation | Phase 1 foundation | in_progress | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | 2a domain model + registry + invariants + 14 tests DONE; 2b DbContext + additive EF migration (8 tables, no drift, solution green) DONE; 2c link User↔Principal, per-tenant email, auth rewrite, default-role seeding PENDING |
-| mt1_3 | PDP/PEP policy engine and field-level metadata | Phase 1 foundation | in_progress | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | 3a PDP engine (PolicyEngine: action+field decisions, MasterGlobal reason vs staff approval, sensitive masked/reveal) + 12 tests DONE; 3b Identity PDP API (resolve principal→perms); 3c BuildingBlocks PEP client+filter PENDING |
-| mt1_4 | Tenant context propagation and PostgreSQL RLS helpers | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | SET LOCAL transaction-scoped tenant context |
-| mt1_5 | Gateway domain resolution and contextual rate limits | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Trusted tenant/storefront context only from Gateway |
-| mt1_6 | .NET global tool CLI skeleton | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Human MasterGlobal broad mirror; service accounts narrow |
-| mt1_7 | Dynamic admin-defined roles + permission registry | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Grill addendum: roles are data over code-defined permissions; claim invalidation on change |
-| mt1_8 | Admin/CLI role + permission management surface | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Grill addendum: create/edit roles, assign perms, preview effective permissions |
+| mt1_2 | Identity tenant/principal/service-account/domain authorization foundation | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | User↔Principal link, per-tenant email index, default tenant + role/permission seeding, auth registration/login/reset lookups complete; identity tests green |
+| mt1_3 | PDP/PEP policy engine and field-level metadata | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | PDP engine, Identity /internal/authz/decide API, PolicyDecisionService effective-permission resolver, BuildingBlocks PolicyDecisionClient PEP helper, and tests complete |
+| mt1_4 | Tenant context propagation and PostgreSQL RLS helpers | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | TenantContext + accessor + RunInTenantScopeAsync, RLS Testcontainers proofs green, ServiceAccounts FORCE RLS policy migration added; Users/Sessions/Addresses require follow-up tenant-aware auth rewrite before FORCE RLS |
+| mt1_5 | Gateway domain resolution and contextual rate limits | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Config-backed host→tenant/storefront resolver added; spoofed context headers stripped; rate limiter partitions include tenant/storefront/IP |
+| mt1_6 | .NET global tool CLI skeleton | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Added src/Cli/3commerce.Cli global-tool skeleton, Gateway-only safety/help/context commands, and solution registration |
+| mt1_7 | Dynamic admin-defined roles + permission registry | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Roles remain data over code-defined permissions; role/membership changes increment Principal.ClaimsVersion and stale sessions are rejected at introspection |
+| mt1_8 | Admin/CLI role + permission management surface | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Added /admin/rbac APIs for permissions/roles/assignments/effective permissions, Admin RBAC page, and CLI rbac command placeholders |
 
 ### Phase 2: Entity / Supplier
 
@@ -143,12 +143,12 @@ Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supp
 
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 |---------|-----------|-------|--------|-----------|----------|
-| mt2_1 | Entity service | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | New Api/Domain/Infrastructure/tests projects |
-| mt2_2 | Central tenant-scoped Entity model | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | NaturalPerson, Company, Trust, etc. |
-| mt2_3 | Addresses, identifiers, contacts, relationships | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Immutable/versioned addresses; ABN/ACN verification status |
-| mt2_4 | Duplicate detection warnings and overrides | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | No entity merge in v1 |
-| mt2_5 | Supplier onboarding lifecycle | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Draft→Active readiness workflow |
-| mt2_6 | Supplier Portal | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Generic platform-branded; stock update allowed |
+| mt2_1 | Entity service | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Added src/Services/Entity Api/Domain/Infrastructure/tests, entity_db wiring, named schema, EF outbox/inbox, RLS policy, gateway route, Dockerfile, ADR/API docs, and 3 unit tests |
+| mt2_2 | Central tenant-scoped Entity model | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Added NaturalPerson/Company/Trust/Partnership/SoleTrader/GovernmentBody/NonProfitAssociation/Other, legal/trading names, and role profiles without high-risk identifiers |
+| mt2_3 | Addresses, identifiers, contacts, relationships | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Added immutable/versioned addresses, ABN/ACN/GST identifiers with verification status, typed contact methods, and tenant-scoped relationships |
+| mt2_4 | Duplicate detection warnings and overrides | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Warns on duplicate legal/trading names, identifiers, and contacts; supports reasoned override; no merge path added |
+| mt2_5 | Supplier onboarding lifecycle | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Added Draft→PendingVerification→PendingApproval→Active plus Suspended/Archived, readiness checks for verified ABN/ACN + contact + address, and supplier API endpoints |
+| mt2_6 | Supplier Portal | Phase 2 entity/supplier | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Added src/SupplierPortal Blazor app with gateway-only session forwarding, supplier readiness view, stock feed request surface, and user/contact/bank change-request surface |
 | mt2_7 | Admin/CLI entity and supplier management | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Entity CRUD, customer link/de-link, supplier requests |
 
 ### Phase 3: Storefront / Catalog / Pricing / Payments

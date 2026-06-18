@@ -351,6 +351,9 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("ClaimsVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -382,6 +385,9 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("ClaimsVersion")
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -541,13 +547,22 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PrincipalId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("PrincipalId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Email")
                         .IsUnique();
 
                     b.ToTable("Users", "identity");
@@ -626,6 +641,17 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.User", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Principal", null)
+                        .WithMany()
+                        .HasForeignKey("PrincipalId");
+
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.Role", b =>

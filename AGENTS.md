@@ -4,7 +4,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ## Project Overview
 
-**3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as six C# microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
+**3commerce** is a from-scratch e-commerce platform for physical goods sourced from large third-party catalogs, built as C# microservices (Identity, Catalog, Entity, Ordering, Payments, Fulfillment, Support) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with Stripe (test mode) as the v1 rail and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
 
 > **Status:** MVP on dev/test rails (Phases 1–4), **conformance grade A−→A** (16 Met / 4 Partial / 0 Missing of 21 FR/NFR — see `docs/reviews/prd-vs-implementation.md`). All six services, gateway, Next.js storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (single refund path), and Xero summary journals (logging client; real OAuth a future swap). Tests: **11 unit + 27 integration + 13 Playwright browser E2E** (storefront + admin), green in CI; `scripts/e2e-verify.sh --live` covers **L1–L20**.
 >
@@ -129,12 +129,14 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 │   │   └── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
 │   ├── Gateway/                   # YARP (port 8080); Dockerfile per runnable project
 │   ├── Services/
-│   │   ├── Identity/  ├── Catalog/  ├── Ordering/
+│   │   ├── Identity/  ├── Catalog/  ├── Entity/  ├── Ordering/
 │   │   ├── Payments/  ├── Fulfillment/  └── Support/
-│   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5106
+│   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5107
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
 │   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ Playwright suites)
-│   └── Admin/                     # Blazor Server operator console (:5200)
+│   ├── Admin/                     # Blazor Server operator console (:5200)
+│   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
+│   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
 ```
 
@@ -269,7 +271,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 
 ## Notes
 
-- **Canonical ports:** Gateway 8080 · Identity 5101 · Catalog 5102 · Ordering 5103 · Payments 5104 · Fulfillment 5105 · Support 5106 · Storefront 3000 · Admin 5200 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
+- **Canonical ports:** Gateway 8080 · Identity 5101 · Catalog 5102 · Ordering 5103 · Payments 5104 · Fulfillment 5105 · Support 5106 · Entity 5107 · Storefront 3000 · Admin 5200 · SupplierPortal 5300 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
 - **Namespaces:** projects are `3commerce.*` but namespaces are `ThreeCommerce.*` (C# forbids digit-leading namespaces; mapped in `Directory.Build.props`).
 - **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
 - **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly.

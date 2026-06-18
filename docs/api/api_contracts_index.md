@@ -10,6 +10,7 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 |---------|----------|----------------|-------------|
 | Identity | [identity.openapi.json](./identity.openapi.json) | `/api/identity` | 5101 |
 | Catalog | [catalog.openapi.json](./catalog.openapi.json) | `/api/catalog` | 5102 |
+| Entity | [entity.openapi.json](./entity.openapi.json) | `/api/entity` | 5107 |
 | Ordering | [ordering.openapi.json](./ordering.openapi.json) | `/api/ordering` | 5103 |
 | Payments | [payments.openapi.json](./payments.openapi.json) | `/api/payments` | 5104 |
 | Fulfillment | [fulfillment.openapi.json](./fulfillment.openapi.json) | `/api/fulfillment` | 5105 |
@@ -47,6 +48,23 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 - Auth transport: opaque `3c_session` cookie → gateway mints `X-Internal-Claims` ES256 JWT → services verify (ADR-0012).
 - Pagination: `page`/`pageSize` (max 100) + `X-Total-Count`.
 
+## Entity (`/api/entity`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/entities?tenantId=` | admin/internal claims | List tenant-scoped entity records |
+| POST | `/entities` | admin/internal claims | Create tenant-scoped entity record with type, legal/trading names, and role profiles |
+| DELETE | `/entities/{id}` | admin/internal claims | Archive an entity record |
+| POST | `/entities/{id}/duplicate-warnings/scan` | admin/internal claims | Warn on duplicate legal/trading names, ABN/ACN/GST identifiers, and contacts |
+| POST | `/entities/duplicate-warnings/{warningId}/override` | admin/internal claims | Permissioned duplicate-warning override with reason |
+| POST | `/entities/{id}/suppliers` | admin/internal claims | Start supplier onboarding in Draft |
+| GET | `/entities/{id}/suppliers/readiness` | admin/internal claims | Check verified identifier/contact/address readiness |
+| POST | `/entities/{id}/suppliers/submit-verification` | admin/internal claims | Draft → PendingVerification |
+| POST | `/entities/{id}/suppliers/verification-complete` | admin/internal claims | PendingVerification → PendingApproval |
+| POST | `/entities/{id}/suppliers/activate` | admin/internal claims | PendingApproval → Active |
+| POST | `/entities/{id}/suppliers/suspend` | admin/internal claims | Active → Suspended with reason |
+| POST | `/entities/{id}/suppliers/archive` | admin/internal claims | Any non-archived state → Archived |
+
 ## Ordering (`/api/ordering`)
 
 | Method | Path | Auth | Purpose |
@@ -83,5 +101,5 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
 | POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |
 
-All six services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
+All current services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
 through the gateway; it adds no new public endpoints.

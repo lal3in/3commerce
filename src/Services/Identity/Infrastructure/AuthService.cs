@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Identity;
 using ThreeCommerce.Identity.Domain;
+using ThreeCommerce.Identity.Domain.Tenancy;
 using ThreeCommerce.Identity.Infrastructure.Security;
 
 namespace ThreeCommerce.Identity.Infrastructure;
@@ -16,6 +17,7 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     IPublishEndpoint publisher,
     TimeProvider time,
+    IdentityBootstrapper bootstrapper,
     ILogger<AuthService> logger) : IAuthService
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
@@ -27,7 +29,10 @@ public sealed class AuthService(
     public async Task<RegisterResult> RegisterAsync(string email, string password, CancellationToken ct)
     {
         var normalized = email.Trim().ToLowerInvariant();
-        var existing = await db.Users.SingleOrDefaultAsync(u => u.Email == normalized, ct);
+        var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        await bootstrapper.SeedPermissionRegistryAsync(tenant.Id, ct);
+
+        var existing = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
         if (existing is not null)
         {
             // No enumeration: same outcome shape; no email sent (silent no-op).
@@ -36,14 +41,28 @@ public sealed class AuthService(
         }
 
         var now = time.GetUtcNow();
+        var principal = new Principal
+        {
+            Id = Guid.CreateVersion7(),
+            Type = PrincipalType.Human,
+            DisplayName = normalized,
+            CreatedAt = now,
+        };
+        db.Principals.Add(principal);
+
         var user = new User
         {
             Id = Guid.CreateVersion7(),
+            TenantId = tenant.Id,
+            PrincipalId = principal.Id,
             Email = normalized,
             PasswordHash = passwordHasher.Hash(password),
             CreatedAt = now,
         };
         db.Users.Add(user);
+
+        var membership = await bootstrapper.EnsureMembershipAsync(tenant.Id, principal, MembershipKind.Customer, isTenantOwner: false, ct);
+        await bootstrapper.AssignRoleAsync(membership, Roles.Customer, ct);
 
         var rawToken = CreateEmailToken(user.Id, EmailTokenPurpose.VerifyEmail, VerifyTokenLifetime, now);
         await publisher.Publish(new UserRegistered(user.Id, user.Email, rawToken), ct);
@@ -56,7 +75,9 @@ public sealed class AuthService(
     {
         var normalized = email.Trim().ToLowerInvariant();
         var now = time.GetUtcNow();
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == normalized, ct);
+        var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        await bootstrapper.SeedPermissionRegistryAsync(tenant.Id, ct);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
 
         if (user is null)
         {
@@ -88,11 +109,21 @@ public sealed class AuthService(
         user.FailedLoginCount = 0;
         user.LockoutUntil = null;
 
+        var principal = await bootstrapper.EnsureHumanPrincipalForUserAsync(user, ct);
+        var membership = await bootstrapper.EnsureMembershipAsync(
+            tenant.Id,
+            principal,
+            user.Role == Roles.Admin ? MembershipKind.Staff : MembershipKind.Customer,
+            isTenantOwner: user.Role == Roles.Admin,
+            ct);
+        await bootstrapper.AssignRoleAsync(membership, user.Role, ct);
+
         var rawToken = OpaqueToken.Generate();
         var session = new Session
         {
             Id = Guid.CreateVersion7(),
             UserId = user.Id,
+            ClaimsVersion = principal.ClaimsVersion,
             TokenHash = OpaqueToken.HashOf(rawToken),
             CreatedAt = now,
             ExpiresAt = now + SessionLifetime,
@@ -134,7 +165,8 @@ public sealed class AuthService(
     public async Task RequestPasswordResetAsync(string email, CancellationToken ct)
     {
         var normalized = email.Trim().ToLowerInvariant();
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == normalized, ct);
+        var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
         if (user is null)
         {
             return; // no enumeration
@@ -181,8 +213,10 @@ public sealed class AuthService(
 
         var result = await db.Sessions
             .Where(s => s.TokenHash == hash && s.RevokedAt == null && s.ExpiresAt > now)
-            .Join(db.Users, s => s.UserId, u => u.Id,
-                (s, u) => new SessionInfo(s.Id, u.Id, u.Role, s.ExpiresAt))
+            .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { Session = s, User = u })
+            .Join(db.Principals, x => x.User.PrincipalId, p => p.Id, (x, p) => new { x.Session, x.User, Principal = p })
+            .Where(x => x.Session.ClaimsVersion == x.Principal.ClaimsVersion && x.Principal.Status == PrincipalStatus.Active)
+            .Select(x => new SessionInfo(x.Session.Id, x.User.Id, x.User.Role, x.Session.ExpiresAt))
             .SingleOrDefaultAsync(ct);
 
         return result;

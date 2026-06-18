@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the gateway, all six services, and the Notifications worker (ADR-0009: bare dotnet run).
+# Starts the gateway, platform services, and the Notifications worker (ADR-0009: bare dotnet run).
 # Usage: scripts/run-all.sh [start|stop]
 # Logs:  .run/<name>.log   PIDs: .run/<name>.pid
 set -euo pipefail
@@ -15,6 +15,7 @@ declare -a APPS=(
   "gateway:src/Gateway"
   "identity:src/Services/Identity/Api"
   "catalog:src/Services/Catalog/Api"
+  "entity:src/Services/Entity/Api"
   "ordering:src/Services/Ordering/Api"
   "payments:src/Services/Payments/Api"
   "fulfillment:src/Services/Fulfillment/Api"

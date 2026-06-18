@@ -13,9 +13,13 @@ closed even when application code is wrong.
 
 ## Decision
 
-- Enable **PostgreSQL Row-Level Security** on every tenant-owned table. Policies use a session
-  GUC: `USING (tenant_id = current_setting('app.tenant_id')::uuid)` with a matching
-  `WITH CHECK` on writes. No tenant context set → no rows (fail closed).
+- Enable **PostgreSQL Row-Level Security** on every tenant-owned table, **with `FORCE ROW LEVEL
+  SECURITY`** — the service connects as the database/table *owner* (e.g. `identity_svc` owns
+  `identity_db`), and an owner bypasses RLS unless it is forced. Policies use a session GUC:
+  `USING ("TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid)` with a matching
+  `WITH CHECK` on writes. No tenant context set → `current_setting(..., true)` is null → no rows
+  (fail closed). Service roles must be **non-superuser and non-`BYPASSRLS`** (superusers and
+  `BYPASSRLS` roles ignore RLS entirely).
 - The tenant context is set **per transaction** with `SET LOCAL app.tenant_id = …` (plus
   `app.principal_id` and `app.is_platform_admin`), executed at the start of the unit of work.
   `SET LOCAL` is rolled back at transaction end, so a **pooled connection cannot leak** one

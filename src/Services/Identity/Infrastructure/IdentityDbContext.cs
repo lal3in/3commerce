@@ -33,8 +33,11 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
         {
             // citext: case-insensitive uniqueness at the database level.
             user.Property(u => u.Email).HasColumnType("citext");
-            user.HasIndex(u => u.Email).IsUnique();
+            user.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
+            user.HasIndex(u => u.PrincipalId).IsUnique();
             user.HasMany(u => u.Addresses).WithOne().HasForeignKey(a => a.UserId);
+            user.HasOne<Principal>().WithMany().HasForeignKey(u => u.PrincipalId);
+            user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId);
         });
 
         modelBuilder.Entity<Session>(session =>

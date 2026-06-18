@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+<div style="display:flex; min-height:100vh;">
+    <nav style="width:220px; background:#0f172a; color:#fff; padding:1rem;">
+        <h2 style="font-size:1.1rem;">3commerce supplier</h2>
+        <p style="color:#94a3b8; font-size:.85rem;">Platform portal</p>
+        <ul style="list-style:none; padding:0; line-height:2;">
+            <li><NavLink href="/" Match="NavLinkMatch.All" style="color:#cbd5e1;">Overview</NavLink></li>
+            <li><NavLink href="/stock" style="color:#cbd5e1;">Stock feeds</NavLink></li>
+            <li><NavLink href="/requests" style="color:#cbd5e1;">Change requests</NavLink></li>
+        </ul>
+        <form action="/auth/logout" method="post" style="margin-top:2rem;">
+            <AntiforgeryToken />
+            <button type="submit" style="background:#334155;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">Log out</button>
+        </form>
+    </nav>
+    <main style="flex:1; padding:2rem; background:#f8fafc;">@Body</main>
+</div>
