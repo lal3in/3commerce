@@ -17,6 +17,8 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema("support");
+
         modelBuilder.Entity<Ticket>(t =>
         {
             t.HasIndex(x => x.OrderId);

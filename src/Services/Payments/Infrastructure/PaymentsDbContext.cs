@@ -21,6 +21,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema("payments");
+
         modelBuilder.Entity<LedgerAccount>().HasKey(a => a.Code);
 
         modelBuilder.Entity<JournalEntry>(e =>

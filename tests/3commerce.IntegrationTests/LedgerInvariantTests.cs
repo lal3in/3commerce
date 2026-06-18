@@ -84,11 +84,11 @@ public class LedgerInvariantTests : IAsyncLifetime
         await using var conn = new NpgsqlConnection(_postgres.GetConnectionString());
         await conn.OpenAsync();
 
-        await using var update = new NpgsqlCommand("UPDATE \"JournalLines\" SET \"DebitMinor\" = 1 WHERE TRUE", conn);
+        await using var update = new NpgsqlCommand("UPDATE payments.\"JournalLines\" SET \"DebitMinor\" = 1 WHERE TRUE", conn);
         var updateEx = await Assert.ThrowsAsync<PostgresException>(() => update.ExecuteNonQueryAsync());
         Assert.Contains("append-only", updateEx.MessageText);
 
-        await using var delete = new NpgsqlCommand("DELETE FROM \"JournalEntries\" WHERE TRUE", conn);
+        await using var delete = new NpgsqlCommand("DELETE FROM payments.\"JournalEntries\" WHERE TRUE", conn);
         var deleteEx = await Assert.ThrowsAsync<PostgresException>(() => delete.ExecuteNonQueryAsync());
         Assert.Contains("append-only", deleteEx.MessageText);
     }

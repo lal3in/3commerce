@@ -16,6 +16,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema("catalog");
+
         modelBuilder.Entity<Product>(product =>
         {
             product.HasIndex(p => p.Slug).IsUnique();

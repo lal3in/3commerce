@@ -4,16 +4,40 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations;
+namespace ThreeCommerce.Identity.Infrastructure.Migrations;
 
 /// <inheritdoc />
-public partial class InitialOutbox : Migration
+public partial class InitialCreate : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.EnsureSchema(
+            name: "identity");
+
+        migrationBuilder.AlterDatabase()
+            .Annotation("Npgsql:PostgresExtension:citext", ",,");
+
+        migrationBuilder.CreateTable(
+            name: "EmailTokens",
+            schema: "identity",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                TokenHash = table.Column<string>(type: "text", nullable: false),
+                Purpose = table.Column<int>(type: "integer", nullable: false),
+                ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                UsedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_EmailTokens", x => x.Id);
+            });
+
         migrationBuilder.CreateTable(
             name: "InboxState",
+            schema: "identity",
             columns: table => new
             {
                 Id = table.Column<long>(type: "bigint", nullable: false)
@@ -37,6 +61,7 @@ public partial class InitialOutbox : Migration
 
         migrationBuilder.CreateTable(
             name: "OutboxState",
+            schema: "identity",
             columns: table => new
             {
                 OutboxId = table.Column<Guid>(type: "uuid", nullable: false),
@@ -52,7 +77,44 @@ public partial class InitialOutbox : Migration
             });
 
         migrationBuilder.CreateTable(
+            name: "Sessions",
+            schema: "identity",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                TokenHash = table.Column<string>(type: "text", nullable: false),
+                CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Sessions", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
+            name: "Users",
+            schema: "identity",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                Email = table.Column<string>(type: "citext", nullable: false),
+                PasswordHash = table.Column<string>(type: "text", nullable: false),
+                EmailVerified = table.Column<bool>(type: "boolean", nullable: false),
+                Role = table.Column<string>(type: "text", nullable: false),
+                FailedLoginCount = table.Column<int>(type: "integer", nullable: false),
+                LockoutUntil = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Users", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
             name: "OutboxMessage",
+            schema: "identity",
             columns: table => new
             {
                 SequenceNumber = table.Column<long>(type: "bigint", nullable: false)
@@ -84,58 +146,144 @@ public partial class InitialOutbox : Migration
                 table.ForeignKey(
                     name: "FK_OutboxMessage_InboxState_InboxMessageId_InboxConsumerId",
                     columns: x => new { x.InboxMessageId, x.InboxConsumerId },
+                    principalSchema: "identity",
                     principalTable: "InboxState",
                     principalColumns: new[] { "MessageId", "ConsumerId" });
                 table.ForeignKey(
                     name: "FK_OutboxMessage_OutboxState_OutboxId",
                     column: x => x.OutboxId,
+                    principalSchema: "identity",
                     principalTable: "OutboxState",
                     principalColumn: "OutboxId");
             });
 
+        migrationBuilder.CreateTable(
+            name: "Addresses",
+            schema: "identity",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                Name = table.Column<string>(type: "text", nullable: false),
+                Line1 = table.Column<string>(type: "text", nullable: false),
+                Line2 = table.Column<string>(type: "text", nullable: true),
+                City = table.Column<string>(type: "text", nullable: false),
+                Postcode = table.Column<string>(type: "text", nullable: false),
+                Country = table.Column<string>(type: "text", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Addresses", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_Addresses_Users_UserId",
+                    column: x => x.UserId,
+                    principalSchema: "identity",
+                    principalTable: "Users",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Addresses_UserId",
+            schema: "identity",
+            table: "Addresses",
+            column: "UserId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_EmailTokens_TokenHash",
+            schema: "identity",
+            table: "EmailTokens",
+            column: "TokenHash",
+            unique: true);
+
         migrationBuilder.CreateIndex(
             name: "IX_InboxState_Delivered",
+            schema: "identity",
             table: "InboxState",
             column: "Delivered");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_EnqueueTime",
+            schema: "identity",
             table: "OutboxMessage",
             column: "EnqueueTime");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_ExpirationTime",
+            schema: "identity",
             table: "OutboxMessage",
             column: "ExpirationTime");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_InboxMessageId_InboxConsumerId_SequenceNumber",
+            schema: "identity",
             table: "OutboxMessage",
             columns: new[] { "InboxMessageId", "InboxConsumerId", "SequenceNumber" },
             unique: true);
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_OutboxId_SequenceNumber",
+            schema: "identity",
             table: "OutboxMessage",
             columns: new[] { "OutboxId", "SequenceNumber" },
             unique: true);
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxState_Created",
+            schema: "identity",
             table: "OutboxState",
             column: "Created");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Sessions_TokenHash",
+            schema: "identity",
+            table: "Sessions",
+            column: "TokenHash",
+            unique: true);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Sessions_UserId",
+            schema: "identity",
+            table: "Sessions",
+            column: "UserId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Users_Email",
+            schema: "identity",
+            table: "Users",
+            column: "Email",
+            unique: true);
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.DropTable(
-            name: "OutboxMessage");
+            name: "Addresses",
+            schema: "identity");
 
         migrationBuilder.DropTable(
-            name: "InboxState");
+            name: "EmailTokens",
+            schema: "identity");
 
         migrationBuilder.DropTable(
-            name: "OutboxState");
+            name: "OutboxMessage",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "Sessions",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "Users",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "InboxState",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "OutboxState",
+            schema: "identity");
     }
 }

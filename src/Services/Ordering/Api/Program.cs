@@ -21,7 +21,7 @@ builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddDbContext<OrderingDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 
 builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
     bus =>
@@ -35,6 +35,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
             {
                 r.ExistingDbContext<OrderingDbContext>();
                 r.UsePostgres();
+                r.LockStatementProvider = new MassTransit.EntityFrameworkCoreIntegration.PostgresLockStatementProvider(enableSchemaCaching: false);
             });
         bus.AddRequestClient<AuthorizePayment>();
     },

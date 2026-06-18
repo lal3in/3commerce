@@ -23,3 +23,7 @@ A single PostgreSQL 17 container hosts **six logical databases, one per service*
 
 - NFR-4: no service may hold another service's connection string.
 - Event-fed read copies are the standard pattern for cross-service display data (e.g. product names on orders).
+- **Update ([ADR-0022](0022-named-schema-per-service.md)):** each service's tables additionally
+  live in a **named schema within its own database** (`<service>.*`, not `public`) as
+  defence-in-depth. This is database-per-service **plus** a schema namespace — *not* the
+  "schema-per-service in one shared database" option rejected above.

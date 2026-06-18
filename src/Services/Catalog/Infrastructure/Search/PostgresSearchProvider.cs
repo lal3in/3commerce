@@ -73,9 +73,12 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
     private async Task<SearchResult> RunAsync(
         string whereSql, string orderSql, NpgsqlParameter[] parameters, int page, int pageSize, CancellationToken ct)
     {
-        const string fromSql = """
-            FROM "Products" p
-            JOIN "Categories" c ON c."Id" = p."CategoryId"
+        // Schema-qualify table names: the model uses a named schema (HasDefaultSchema), so this
+        // raw SQL must qualify too (pg_trgm/FTS functions stay in public, found via search_path).
+        var s = db.Model.GetDefaultSchema() ?? "public";
+        var fromSql = $"""
+            FROM {s}."Products" p
+            JOIN {s}."Categories" c ON c."Id" = p."CategoryId"
             """;
 
         var countSql = $"""SELECT count(*)::int AS "Value" {fromSql} WHERE {whereSql}""";
@@ -90,8 +93,8 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
 
         var hitsSql = $"""
             SELECT p."Id", p."Slug", p."Title", p."Brand",
-                   (SELECT min(v."PriceMinor") FROM "Variants" v WHERE v."ProductId" = p."Id") AS "MinPriceMinor",
-                   (SELECT min(v."Currency")  FROM "Variants" v WHERE v."ProductId" = p."Id") AS "Currency",
+                   (SELECT min(v."PriceMinor") FROM {s}."Variants" v WHERE v."ProductId" = p."Id") AS "MinPriceMinor",
+                   (SELECT min(v."Currency")  FROM {s}."Variants" v WHERE v."ProductId" = p."Id") AS "Currency",
                    (p."ImageUrls" ->> 0) AS "ImageUrl"
             {fromSql}
             WHERE {whereSql}

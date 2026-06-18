@@ -15,6 +15,8 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema("identity");
+
         modelBuilder.Entity<User>(user =>
         {
             // citext: case-insensitive uniqueness at the database level.

@@ -17,6 +17,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("support")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -66,7 +67,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "support");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -157,7 +158,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "support");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -187,7 +188,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "support");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Support.Domain.OrderSnapshot", b =>
@@ -209,7 +210,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasKey("OrderId");
 
-                    b.ToTable("OrderSnapshots");
+                    b.ToTable("OrderSnapshots", "support");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Support.Domain.OrderSnapshotLine", b =>
@@ -238,7 +239,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderSnapshotLines");
+                    b.ToTable("OrderSnapshotLines", "support");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Support.Domain.Ticket", b =>
@@ -267,7 +268,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("Tickets");
+                    b.ToTable("Tickets", "support");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Support.Domain.TicketMessage", b =>
@@ -293,7 +294,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("TicketId");
 
-                    b.ToTable("TicketMessages");
+                    b.ToTable("TicketMessages", "support");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Support.Infrastructure.Sagas.RmaState", b =>
@@ -331,7 +332,7 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.HasIndex("RefundId");
 
-                    b.ToTable("Rmas");
+                    b.ToTable("Rmas", "support");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

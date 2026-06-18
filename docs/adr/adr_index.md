@@ -1,7 +1,6 @@
 # ADR Index
 
 Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on 2026-06-12 from the PRD design interview (`docs/prd/3commerce/15-appendix.md`, Appendix A). New ADRs continue the numbering.
-
 | ADR | Title | Status | Area |
 |-----|-------|--------|------|
 | [0001](./0001-dual-purpose-learning-and-business.md) | Dual purpose — learning vehicle AND real business | Accepted | Project posture |
@@ -25,3 +24,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0019](./0019-blazor-server-admin.md) | Blazor Server admin app behind the gateway | Accepted | Admin |
 | [0020](./0020-postgres-fts-search.md) | Search via Postgres FTS + pg_trgm behind ISearchProvider | Accepted | Catalog / search |
 | [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted | Deployment / infra |
+| [0022](./0022-named-schema-per-service.md) | Named schema per service (within each service database) | Accepted | Data / persistence |
