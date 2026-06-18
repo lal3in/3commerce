@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-17 (Containerized launch plan cl_1..cl_15 COMPLETE: compose+launch.sh fresh-dev verified booting all 12 containers; Helm chart + kind CI; project-analysis re-audited to A; docs refreshed)
+Last Modified Date-Time: 2026-06-18 (Generated phase-level multi-tenant expansion plans and regrouped status tasks mt1_1..mt6_12 as PLANNED; then registered storefront/admin design-grill addendum tasks mt1_7..mt1_8, mt3_10..mt3_16, mt4_10..mt4_11, mt6_13..mt6_14 as PLANNED; implementation not started)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -114,3 +114,117 @@ Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLAN
 | cl_13 | Full re-audit -> regenerate project-analysis.html (Atelier) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | expect ~20 Met/1 Partial/0 Missing ~A |
 | cl_14 | Refresh deployment.md/html + getting-started + AGENTS.md | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | keep bare-run section |
 | cl_15 | Update status + e2e-verify test-list | P7 validate | done | .ai-shared/plans/containerized-launch-and-deploy.md | |
+
+---
+
+## Plan: Multi-tenant / multi-storefront platform expansion
+
+Parent Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion.md`
+Status: PLANNED (phase plans generated; implementation not started).
+
+### Phase 1: Foundation
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt1_1 | Architecture ADRs and scope baseline | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Multi-tenancy/RLS/PDP/PEP ADRs before code |
+| mt1_2 | Identity tenant/principal/service-account/domain authorization foundation | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Includes MasterGlobal/TenantOwner invariants |
+| mt1_3 | PDP/PEP policy engine and field-level metadata | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Central PDP, service-side PEP helpers |
+| mt1_4 | Tenant context propagation and PostgreSQL RLS helpers | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | SET LOCAL transaction-scoped tenant context |
+| mt1_5 | Gateway domain resolution and contextual rate limits | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Trusted tenant/storefront context only from Gateway |
+| mt1_6 | .NET global tool CLI skeleton | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Human MasterGlobal broad mirror; service accounts narrow |
+| mt1_7 | Dynamic admin-defined roles + permission registry | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Grill addendum: roles are data over code-defined permissions; claim invalidation on change |
+| mt1_8 | Admin/CLI role + permission management surface | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Grill addendum: create/edit roles, assign perms, preview effective permissions |
+
+### Phase 2: Entity / Supplier
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt2_1 | Entity service | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | New Api/Domain/Infrastructure/tests projects |
+| mt2_2 | Central tenant-scoped Entity model | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | NaturalPerson, Company, Trust, etc. |
+| mt2_3 | Addresses, identifiers, contacts, relationships | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Immutable/versioned addresses; ABN/ACN verification status |
+| mt2_4 | Duplicate detection warnings and overrides | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | No entity merge in v1 |
+| mt2_5 | Supplier onboarding lifecycle | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Draft→Active readiness workflow |
+| mt2_6 | Supplier Portal | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Generic platform-branded; stock update allowed |
+| mt2_7 | Admin/CLI entity and supplier management | Phase 2 entity/supplier | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-2-entity-supplier.md | Entity CRUD, customer link/de-link, supplier requests |
+
+### Phase 3: Storefront / Catalog / Pricing / Payments
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt3_1 | Storefront lifecycle, domains, readiness, activation | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Draft/Preview/Active/Paused/Archived; live activation approval |
+| mt3_2 | Catalog tenant/storefront product model | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Variants, identifiers, bundles, taxonomy |
+| mt3_3 | Publication readiness and SEO/product overrides | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Explicit storefront publish only |
+| mt3_4 | Pricing and promotions | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | SupplierCost, SellingPrice, tax mode, limited promos |
+| mt3_5 | Ordering checkout model | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | CheckoutAttempt before Order |
+| mt3_6 | Payments payment account lifecycle | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Tenant default + storefront override |
+| mt3_7 | Supplier bank accounts, payout instructions, payable policies | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Payments-owned bank data; approval protected |
+| mt3_8 | Xero/accounting mappings | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Summary journals first; detailed sync model-ready |
+| mt3_9 | Admin/CLI/Storefront views | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Field-level policy on all sensitive fields |
+| mt3_10 | Variant-aware cart + Ordering projection | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: cart line keyed by (Product,Variant); ProductCopies carries variants |
+| mt3_11 | Customer shopping profile (name + typed address book) | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: billing(residential)/shipping(friend) + defaults; distinct from Entity |
+| mt3_12 | Auth-aware single-page checkout | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: prefill, live-recalc, hide create-account, auto-attach order |
+| mt3_13 | Saved cards / card-on-file (Stripe Customer + Payment Element) | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: Apple/Google/card, opt-in save, one-click; PCI SAQ-A |
+| mt3_14 | Quantity-tier promotions + DiscountMinor | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: extends mt3_4 promo set; best-discount-wins |
+| mt3_15 | ITaxStrategy seam (home regime, export zero-rating) | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: defaults to 0 (ADR-0015) until a home regime is configured |
+| mt3_16 | Storefront PDP/cart purchase UX | Phase 3 storefront/catalog/pricing/payments | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-3-storefront-catalog-payments.md | Grill addendum: variant picker, qty steppers, shipping-estimate widget (postcode prompt) |
+
+### Phase 4: Shipping / Inventory / Fulfillment
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt4_1 | Fulfillment inventory locations and stock | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Locations linked to Entity/address |
+| mt4_2 | Hybrid inventory reservations | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Hard reserve during checkout/payment saga |
+| mt4_3 | Carrier integration model and lifecycle | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Tenant default + storefront overrides |
+| mt4_4 | Carrier adapters: fake, Australia Post, DHL | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Fake carrier required for tests/dev |
+| mt4_5 | Checkout shipping groups and quote selection | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | One order, multiple shipment groups |
+| mt4_6 | Quote expiry, fallback, and final revalidation | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Revalidate before payment |
+| mt4_7 | Shipments, packages, labels, tracking | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Label/tracking automation default off |
+| mt4_8 | Support/RMA shipment/order-line awareness | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Partial returns and manual restock |
+| mt4_9 | Order holds before fulfillment | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Fraud/payment/address/inventory holds |
+| mt4_10 | Carrier adapters: FedEx, UPS, StarTrack, Pack & Send | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Grill addendum: extends mt4_4 (AusPost/DHL/Fake); Postman-testable /api/shipping/quote |
+| mt4_11 | Per-variant weight + dims with default-parcel fallback | Phase 4 shipping/inventory/fulfillment | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-4-shipping-inventory-fulfillment.md | Grill addendum: carrier rate inputs; seeded SKUs fall back to a configurable default parcel |
+
+### Phase 5: Marketing / Theme / SEO
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt5_1 | Marketing/Analytics service | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Dedicated service boundary |
+| mt5_2 | Campaign targeting and attribution | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Store all touches; last-click v1 |
+| mt5_3 | Short links | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Platform global short domain v1 |
+| mt5_4 | Analytics event collector | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Batched JSONB append-only events |
+| mt5_5 | Storefront consent and behavior tracking | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Consent-aware first-party analytics |
+| mt5_6 | Storefront theme/template framework | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Shared core + templates + bespoke seam |
+| mt5_7 | Draft/preview/publish/scheduled publishing | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Workflow scheduled publish commands |
+| mt5_8 | SEO/agent-friendly metadata | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | JSON-LD, sitemap, robots, llms.txt |
+| mt5_9 | Product feeds per storefront | Phase 5 marketing/theme/SEO | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-5-marketing-theme-seo.md | Toggleable merchant/ad feeds |
+
+### Phase 6: Audit / Workflow / Compliance
+
+Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| mt6_1 | Audit service and local audit framework | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Local authoritative + central projection |
+| mt6_2 | Audit coverage rules | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Mutations, sensitive reads, high-risk denies |
+| mt6_3 | Workflow service | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Quartz + MassTransit typed jobs |
+| mt6_4 | Approval orchestration | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Identity policy + Workflow task + owning service apply |
+| mt6_5 | Notifications channel abstraction and alerts | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Email first; high-risk alerts |
+| mt6_6 | Outbound tenant webhooks | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Signed delivery/retry logs |
+| mt6_7 | Inbound provider webhook routing conventions | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Gateway routes; owning service verifies |
+| mt6_8 | Import/export adapters and async export jobs | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | CSV/JSON first; sensitive exports audited |
+| mt6_9 | Object storage abstraction and image variants | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Metadata in owning services |
+| mt6_10 | MFA/step-up toggle and tenant policy | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Tenant configurable within platform minimums |
+| mt6_11 | Region-aware operations and retention | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | One physical region initially |
+| mt6_12 | Docs, e2e-verify, SLOs, launch gates | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Keep contracts/ADRs/regression current |
+| mt6_13 | Observability metrics stack (OTel metrics + Prometheus + Grafana) | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Grill addendum: metrics export + dashboards (compose + Helm); today traces-only |
+| mt6_14 | Admin mission-control console | Phase 6 audit/workflow/compliance | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-6-audit-workflow-compliance.md | Grill addendum: live bus view + wiretap, heartbeat/metrics dashboard, Accounts section |
