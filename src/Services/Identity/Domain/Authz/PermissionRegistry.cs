@@ -60,6 +60,13 @@ public static class PermissionRegistry
 
     public static bool IsKnown(string key) => KeySet.Contains(key);
 
+    private static readonly Dictionary<string, PermissionRiskLevel> RiskByKey =
+        Permissions.ToDictionary(p => p.Key, p => p.Risk, StringComparer.Ordinal);
+
+    /// <summary>Risk level of a permission; Low for an unknown key (it will be denied anyway).</summary>
+    public static PermissionRiskLevel RiskOf(string key) =>
+        RiskByKey.TryGetValue(key, out var risk) ? risk : PermissionRiskLevel.Low;
+
     public static IReadOnlyList<RoleTemplate> DefaultRoles { get; } =
     [
         new("admin", "Administrator", "Full access to the tenant.", IsBuiltIn: true, AllPermissionKeys),
