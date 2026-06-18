@@ -17,6 +17,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("payments")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -66,7 +67,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "payments");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -157,7 +158,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "payments");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -187,7 +188,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.IdempotencyRecord", b =>
@@ -208,7 +209,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("IdempotencyRecords");
+                    b.ToTable("IdempotencyRecords", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalEntry", b =>
@@ -236,7 +237,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("Reference");
 
-                    b.ToTable("JournalEntries");
+                    b.ToTable("JournalEntries", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalLine", b =>
@@ -264,7 +265,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("EntryId");
 
-                    b.ToTable("JournalLines", t =>
+                    b.ToTable("JournalLines", "payments", t =>
                         {
                             t.HasCheckConstraint("ck_line_nonneg", "\"DebitMinor\" >= 0 AND \"CreditMinor\" >= 0");
 
@@ -286,7 +287,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("LedgerAccounts");
+                    b.ToTable("LedgerAccounts", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Payment", b =>
@@ -329,7 +330,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("PaymentIntentId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Refund", b =>
@@ -358,7 +359,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("Refunds");
+                    b.ToTable("Refunds", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.WebhookInboxEntry", b =>
@@ -371,7 +372,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasKey("EventId");
 
-                    b.ToTable("WebhookInbox");
+                    b.ToTable("WebhookInbox", "payments");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Xero.SyncRun", b =>
@@ -401,7 +402,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.HasIndex("Reference")
                         .IsUnique();
 
-                    b.ToTable("SyncRuns");
+                    b.ToTable("SyncRuns", "payments");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

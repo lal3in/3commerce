@@ -4,16 +4,20 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ThreeCommerce.Payments.Infrastructure.Migrations;
+namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations;
 
 /// <inheritdoc />
-public partial class InitialOutbox : Migration
+public partial class InitialCreate : Migration
 {
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.EnsureSchema(
+            name: "fulfillment");
+
         migrationBuilder.CreateTable(
             name: "InboxState",
+            schema: "fulfillment",
             columns: table => new
             {
                 Id = table.Column<long>(type: "bigint", nullable: false)
@@ -37,6 +41,7 @@ public partial class InitialOutbox : Migration
 
         migrationBuilder.CreateTable(
             name: "OutboxState",
+            schema: "fulfillment",
             columns: table => new
             {
                 OutboxId = table.Column<Guid>(type: "uuid", nullable: false),
@@ -52,7 +57,27 @@ public partial class InitialOutbox : Migration
             });
 
         migrationBuilder.CreateTable(
+            name: "Shipments",
+            schema: "fulfillment",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                OrderId = table.Column<Guid>(type: "uuid", nullable: false),
+                FulfillmentSource = table.Column<string>(type: "text", nullable: false),
+                Status = table.Column<int>(type: "integer", nullable: false),
+                Carrier = table.Column<string>(type: "text", nullable: true),
+                TrackingNumber = table.Column<string>(type: "text", nullable: true),
+                Email = table.Column<string>(type: "text", nullable: true),
+                CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Shipments", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
             name: "OutboxMessage",
+            schema: "fulfillment",
             columns: table => new
             {
                 SequenceNumber = table.Column<long>(type: "bigint", nullable: false)
@@ -84,58 +109,113 @@ public partial class InitialOutbox : Migration
                 table.ForeignKey(
                     name: "FK_OutboxMessage_InboxState_InboxMessageId_InboxConsumerId",
                     columns: x => new { x.InboxMessageId, x.InboxConsumerId },
+                    principalSchema: "fulfillment",
                     principalTable: "InboxState",
                     principalColumns: new[] { "MessageId", "ConsumerId" });
                 table.ForeignKey(
                     name: "FK_OutboxMessage_OutboxState_OutboxId",
                     column: x => x.OutboxId,
+                    principalSchema: "fulfillment",
                     principalTable: "OutboxState",
                     principalColumn: "OutboxId");
             });
 
+        migrationBuilder.CreateTable(
+            name: "ShipmentLines",
+            schema: "fulfillment",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "uuid", nullable: false),
+                ShipmentId = table.Column<Guid>(type: "uuid", nullable: false),
+                ProductId = table.Column<Guid>(type: "uuid", nullable: false),
+                Title = table.Column<string>(type: "text", nullable: false),
+                Quantity = table.Column<int>(type: "integer", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_ShipmentLines", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_ShipmentLines_Shipments_ShipmentId",
+                    column: x => x.ShipmentId,
+                    principalSchema: "fulfillment",
+                    principalTable: "Shipments",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
         migrationBuilder.CreateIndex(
             name: "IX_InboxState_Delivered",
+            schema: "fulfillment",
             table: "InboxState",
             column: "Delivered");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_EnqueueTime",
+            schema: "fulfillment",
             table: "OutboxMessage",
             column: "EnqueueTime");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_ExpirationTime",
+            schema: "fulfillment",
             table: "OutboxMessage",
             column: "ExpirationTime");
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_InboxMessageId_InboxConsumerId_SequenceNumber",
+            schema: "fulfillment",
             table: "OutboxMessage",
             columns: new[] { "InboxMessageId", "InboxConsumerId", "SequenceNumber" },
             unique: true);
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxMessage_OutboxId_SequenceNumber",
+            schema: "fulfillment",
             table: "OutboxMessage",
             columns: new[] { "OutboxId", "SequenceNumber" },
             unique: true);
 
         migrationBuilder.CreateIndex(
             name: "IX_OutboxState_Created",
+            schema: "fulfillment",
             table: "OutboxState",
             column: "Created");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_ShipmentLines_ShipmentId",
+            schema: "fulfillment",
+            table: "ShipmentLines",
+            column: "ShipmentId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Shipments_OrderId_FulfillmentSource",
+            schema: "fulfillment",
+            table: "Shipments",
+            columns: new[] { "OrderId", "FulfillmentSource" },
+            unique: true);
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.DropTable(
-            name: "OutboxMessage");
+            name: "OutboxMessage",
+            schema: "fulfillment");
 
         migrationBuilder.DropTable(
-            name: "InboxState");
+            name: "ShipmentLines",
+            schema: "fulfillment");
 
         migrationBuilder.DropTable(
-            name: "OutboxState");
+            name: "InboxState",
+            schema: "fulfillment");
+
+        migrationBuilder.DropTable(
+            name: "OutboxState",
+            schema: "fulfillment");
+
+        migrationBuilder.DropTable(
+            name: "Shipments",
+            schema: "fulfillment");
     }
 }

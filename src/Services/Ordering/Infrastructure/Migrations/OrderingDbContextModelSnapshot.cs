@@ -17,6 +17,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("ordering")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -66,7 +67,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "ordering");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -157,7 +158,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "ordering");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -187,7 +188,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Cart", b =>
@@ -211,7 +212,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Carts");
+                    b.ToTable("Carts", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.CartItem", b =>
@@ -251,7 +252,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("CartId");
 
-                    b.ToTable("CartItems");
+                    b.ToTable("CartItems", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Order", b =>
@@ -315,7 +316,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.OrderLine", b =>
@@ -347,7 +348,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderLines");
+                    b.ToTable("OrderLines", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.ProductCopy", b =>
@@ -378,7 +379,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasIndex("Slug");
 
-                    b.ToTable("ProductCopies");
+                    b.ToTable("ProductCopies", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Infrastructure.Sagas.CheckoutState", b =>
@@ -412,7 +413,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.HasKey("CorrelationId");
 
-                    b.ToTable("CheckoutStates");
+                    b.ToTable("CheckoutStates", "ordering");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

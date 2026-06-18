@@ -14,7 +14,7 @@ builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddDbContext<FulfillmentDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<OrderConfirmedConsumer>();

@@ -15,7 +15,7 @@ builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddDbContext<SupportDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer>();
@@ -24,6 +24,7 @@ builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
         {
             r.ExistingDbContext<SupportDbContext>();
             r.UsePostgres();
+            r.LockStatementProvider = new MassTransit.EntityFrameworkCoreIntegration.PostgresLockStatementProvider(enableSchemaCaching: false);
         });
 });
 builder.Services.AddServiceHealth<SupportDbContext>();
