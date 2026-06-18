@@ -1,0 +1,221 @@
+@page "/entities"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Entities &amp; suppliers</h1>
+<p>Tenant-scoped party master data, supplier onboarding, and the supplier change-request approval queue (maker-checker).</p>
+
+<label>
+    Tenant ID
+    <input @bind="tenantId" style="width:28rem;" />
+</label>
+<button @onclick="LoadAsync">Load</button>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:#b91c1c;">@error</p>
+}
+@if (!string.IsNullOrEmpty(info))
+{
+    <p style="color:#15803d;">@info</p>
+}
+
+<section style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:1rem;">
+    <div>
+        <h2>Entities</h2>
+        @if (entities.Count == 0)
+        {
+            <p>No entities loaded.</p>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var e in entities)
+                {
+                    <tr>
+                        <td>@e.DisplayName</td>
+                        <td>@TypeName(e.Type)</td>
+                        <td>@StatusName(e.Status)</td>
+                        <td><button @onclick="() => StartOnboardingAsync(e.Id)">Start onboarding</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+
+        <h3>Create entity</h3>
+        <div style="display:grid; gap:.4rem; max-width:28rem;">
+            <input @bind="newLegalName" placeholder="Legal name" />
+            <input @bind="newTradingName" placeholder="Trading name (optional)" />
+            <select @bind="newType">
+                <option value="2">Company</option>
+                <option value="1">Natural person</option>
+                <option value="3">Trust</option>
+                <option value="4">Partnership</option>
+                <option value="5">Sole trader</option>
+                <option value="6">Government body</option>
+                <option value="7">Non-profit / association</option>
+                <option value="99">Other</option>
+            </select>
+            <button @onclick="CreateAsync">Create</button>
+        </div>
+    </div>
+
+    <div>
+        <h2>Pending supplier change requests</h2>
+        <label>
+            Decision reason
+            <input @bind="decisionReason" style="width:20rem;" placeholder="Reason (required to reject)" />
+        </label>
+        @if (requests.Count == 0)
+        {
+            <p>No pending change requests.</p>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Type</th><th>Summary</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var r in requests)
+                {
+                    <tr>
+                        <td>@ChangeTypeName(r.Type)</td>
+                        <td>@r.Summary</td>
+                        <td>
+                            <button @onclick="() => ApproveAsync(r.Id)">Approve</button>
+                            <button @onclick="() => RejectAsync(r.Id)">Reject</button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</section>
+
+@code {
+    private string tenantId = "00000000-0000-0000-0000-000000000001";
+    private string? error;
+    private string? info;
+    private List<EntitySummary> entities = [];
+    private List<ChangeRequest> requests = [];
+    private string newLegalName = string.Empty;
+    private string newTradingName = string.Empty;
+    private int newType = 2;
+    private string decisionReason = string.Empty;
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        info = null;
+        if (!Guid.TryParse(tenantId, out _))
+        {
+            error = "Tenant ID must be a GUID.";
+            return;
+        }
+
+        entities = await Gateway.GetListAsync<EntitySummary>($"/api/entity/entities?tenantId={tenantId}");
+        requests = await Gateway.GetListAsync<ChangeRequest>($"/api/entity/entities/suppliers/change-requests?tenantId={tenantId}&status=Pending");
+    }
+
+    private async Task CreateAsync()
+    {
+        error = null;
+        info = null;
+        if (!Guid.TryParse(tenantId, out var tid))
+        {
+            error = "Tenant ID must be a GUID.";
+            return;
+        }
+
+        var body = new { tenantId = tid, type = newType, legalName = newLegalName, tradingName = string.IsNullOrWhiteSpace(newTradingName) ? null : newTradingName };
+        var response = await Gateway.PostAsync("/api/entity/entities", body);
+        if (response.IsSuccessStatusCode)
+        {
+            info = $"Created '{newLegalName}'.";
+            newLegalName = string.Empty;
+            newTradingName = string.Empty;
+            await LoadAsync();
+        }
+        else
+        {
+            error = $"Create failed ({(int)response.StatusCode}).";
+        }
+    }
+
+    private async Task StartOnboardingAsync(Guid entityId)
+    {
+        var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/suppliers");
+        info = response.IsSuccessStatusCode ? "Supplier onboarding started." : null;
+        error = response.IsSuccessStatusCode ? null : $"Onboarding failed ({(int)response.StatusCode}).";
+    }
+
+    private async Task ApproveAsync(Guid requestId) =>
+        await DecideAsync(requestId, "approve");
+
+    private async Task RejectAsync(Guid requestId)
+    {
+        if (string.IsNullOrWhiteSpace(decisionReason))
+        {
+            error = "A reason is required to reject.";
+            return;
+        }
+
+        await DecideAsync(requestId, "reject");
+    }
+
+    private async Task DecideAsync(Guid requestId, string decision)
+    {
+        error = null;
+        info = null;
+        var body = new { reason = string.IsNullOrWhiteSpace(decisionReason) ? null : decisionReason };
+        var response = await Gateway.PostAsync($"/api/entity/entities/suppliers/change-requests/{requestId}/{decision}?tenantId={tenantId}", body);
+        if (response.IsSuccessStatusCode)
+        {
+            info = $"Request {decision}d.";
+            decisionReason = string.Empty;
+            await LoadAsync();
+        }
+        else
+        {
+            error = $"{decision} failed ({(int)response.StatusCode}).";
+        }
+    }
+
+    private static string TypeName(int type) => type switch
+    {
+        1 => "Natural person",
+        2 => "Company",
+        3 => "Trust",
+        4 => "Partnership",
+        5 => "Sole trader",
+        6 => "Government body",
+        7 => "Non-profit",
+        _ => "Other",
+    };
+
+    private static string StatusName(int status) => status switch
+    {
+        1 => "Active",
+        2 => "Inactive",
+        3 => "Archived",
+        _ => status.ToString(),
+    };
+
+    private static string ChangeTypeName(int type) => type switch
+    {
+        1 => "User access",
+        2 => "Contact",
+        3 => "Bank account",
+        _ => type.ToString(),
+    };
+
+    private sealed record EntitySummary(
+        Guid Id, Guid TenantId, int Type, string LegalName, string? TradingName, string DisplayName, int Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+    private sealed record ChangeRequest(
+        Guid Id, Guid TenantId, Guid EntityId, int Type, string Summary, string? Detail, int Status, Guid RequestedByPrincipalId, DateTimeOffset CreatedAt, Guid? DecidedByPrincipalId, string? DecisionReason, DateTimeOffset? DecidedAt);
+}

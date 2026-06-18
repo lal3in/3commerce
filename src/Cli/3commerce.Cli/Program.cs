@@ -13,6 +13,8 @@ return command switch
     "auth" => HandleAuth(args.Skip(1).ToArray(), options),
     "context" => HandleContext(args.Skip(1).ToArray(), options),
     "rbac" => HandleRbac(args.Skip(1).ToArray(), options),
+    "entity" => HandleEntity(args.Skip(1).ToArray(), options),
+    "supplier" => HandleSupplier(args.Skip(1).ToArray(), options),
     "version" => WriteOutput(new { name = "3commerce.Cli", version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "dev" }, options),
     _ => Unknown(command),
 };
@@ -40,11 +42,52 @@ static int HandleRbac(string[] args, CliOptions options)
     };
 }
 
+static int HandleEntity(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "list" => TenantScopedPlaceholder("GET /api/entity/entities?tenantId=<tenant>", options),
+        "create" => TenantScopedPlaceholder("POST /api/entity/entities", options),
+        "archive" => TenantScopedPlaceholder("DELETE /api/entity/entities/<id>", options),
+        "customer-links" => TenantScopedPlaceholder("GET /api/entity/entities/<id>/customer-links?tenantId=<tenant>", options),
+        "link-customer" => TenantScopedPlaceholder("POST /api/entity/entities/<id>/customer-links", options),
+        "unlink-customer" => TenantScopedPlaceholder("POST /api/entity/entities/customer-links/<linkId>/unlink?tenantId=<tenant>", options),
+        _ => Unknown($"entity {sub}"),
+    };
+}
+
+static int HandleSupplier(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "onboard" => TenantScopedPlaceholder("POST /api/entity/entities/<id>/suppliers", options),
+        "readiness" => TenantScopedPlaceholder("GET /api/entity/entities/<id>/suppliers/readiness", options),
+        "activate" => TenantScopedPlaceholder("POST /api/entity/entities/<id>/suppliers/activate", options),
+        "requests" => TenantScopedPlaceholder("GET /api/entity/entities/suppliers/change-requests?tenantId=<tenant>", options),
+        "approve" => TenantScopedPlaceholder("POST /api/entity/entities/suppliers/change-requests/<id>/approve?tenantId=<tenant>", options),
+        "reject" => TenantScopedPlaceholder("POST /api/entity/entities/suppliers/change-requests/<id>/reject?tenantId=<tenant>", options),
+        _ => Unknown($"supplier {sub}"),
+    };
+}
+
 static int RequireTenantOrWritePlaceholder(string endpoint, CliOptions options)
 {
     if (string.IsNullOrWhiteSpace(options.Tenant))
     {
         Console.Error.WriteLine("RBAC commands require explicit --tenant.");
+        return 2;
+    }
+
+    return WriteOutput(new { status = "not-implemented", endpoint, tenant = options.Tenant }, options);
+}
+
+static int TenantScopedPlaceholder(string endpoint, CliOptions options)
+{
+    if (string.IsNullOrWhiteSpace(options.Tenant))
+    {
+        Console.Error.WriteLine("This command requires explicit --tenant.");
         return 2;
     }
 
@@ -102,6 +145,8 @@ static void PrintHelp()
           3commerce rbac permissions --tenant TENANT_ID
           3commerce rbac roles --tenant TENANT_ID
           3commerce rbac effective --tenant TENANT_ID --principal PRINCIPAL_ID
+          3commerce entity list|create|archive|customer-links|link-customer|unlink-customer --tenant TENANT_ID
+          3commerce supplier onboard|readiness|activate|requests|approve|reject --tenant TENANT_ID
           3commerce version [--output table|json]
 
         Safety rules:
