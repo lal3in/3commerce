@@ -1,6 +1,8 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Identity.Domain;
+using ThreeCommerce.Identity.Domain.Authz;
+using ThreeCommerce.Identity.Domain.Tenancy;
 
 namespace ThreeCommerce.Identity.Infrastructure;
 
@@ -10,6 +12,16 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+
+    // Multi-tenant foundation (ADR-0023/0025/0026).
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Principal> Principals => Set<Principal>();
+    public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+    public DbSet<ServiceAccount> ServiceAccounts => Set<ServiceAccount>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<MembershipRole> MembershipRoles => Set<MembershipRole>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +46,51 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
         modelBuilder.Entity<EmailToken>(token =>
         {
             token.HasIndex(t => t.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<Tenant>(tenant =>
+        {
+            tenant.HasIndex(t => t.Slug).IsUnique();
+        });
+
+        modelBuilder.Entity<Principal>();
+
+        modelBuilder.Entity<TenantMembership>(m =>
+        {
+            // One membership per principal per tenant.
+            m.HasIndex(x => new { x.TenantId, x.PrincipalId }).IsUnique();
+            m.HasIndex(x => x.PrincipalId);
+            m.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId);
+            m.HasOne<Principal>().WithMany().HasForeignKey(x => x.PrincipalId);
+        });
+
+        modelBuilder.Entity<ServiceAccount>(sa =>
+        {
+            sa.HasIndex(x => x.ClientId).IsUnique();
+            sa.HasOne<Principal>().WithMany().HasForeignKey(x => x.PrincipalId);
+        });
+
+        // Permission is the persisted snapshot of the code-defined registry (ADR-0025).
+        modelBuilder.Entity<Permission>(p => p.HasKey(x => x.Key));
+
+        modelBuilder.Entity<Role>(role =>
+        {
+            // Key unique within a tenant (null tenant = system/template roles).
+            role.HasIndex(r => new { r.TenantId, r.Key }).IsUnique();
+            role.HasMany(r => r.Permissions).WithOne().HasForeignKey(rp => rp.RoleId);
+        });
+
+        modelBuilder.Entity<RolePermission>(rp =>
+        {
+            rp.HasKey(x => new { x.RoleId, x.PermissionKey });
+            rp.HasOne<Permission>().WithMany().HasForeignKey(x => x.PermissionKey);
+        });
+
+        modelBuilder.Entity<MembershipRole>(mr =>
+        {
+            mr.HasKey(x => new { x.TenantMembershipId, x.RoleId });
+            mr.HasOne<TenantMembership>().WithMany().HasForeignKey(x => x.TenantMembershipId);
+            mr.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId);
         });
 
         // MassTransit transactional outbox + inbox tables (ADR-0007).
