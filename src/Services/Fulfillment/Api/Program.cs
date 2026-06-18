@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
@@ -8,6 +9,7 @@ using ThreeCommerce.Fulfillment.Infrastructure;
 using ThreeCommerce.Fulfillment.Infrastructure.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("fulfillment");
 builder.Services.AddApiProblemDetails();

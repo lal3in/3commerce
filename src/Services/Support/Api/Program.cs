@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
@@ -9,6 +10,7 @@ using ThreeCommerce.Support.Infrastructure;
 using ThreeCommerce.Support.Infrastructure.Sagas;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("support");
 builder.Services.AddApiProblemDetails();

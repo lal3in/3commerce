@@ -1,0 +1,5 @@
+# Dev overlay: committed dev ES256 keys (baked into the images) are accepted because
+# the environment is Development. No external Secret needed.
+environment: Development
+secret:
+  name: ""

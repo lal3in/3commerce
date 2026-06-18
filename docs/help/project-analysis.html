@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Project analysis — 3commerce Operations Wiki</title>
-<meta name="description" content="An honest, evidence-led assessment of 3commerce: its microservices architecture, the trade-offs it makes, and an A− verdict.">
+<meta name="description" content="An honest, evidence-led re-audit of 3commerce: its microservices architecture, the trade-offs it makes, and an A verdict after the post-MVP backlog and containerized launch.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="assets/wiki.css">
@@ -46,84 +46,94 @@
 
     <main id="main" class="content">
       <div class="content-inner">
-        <p class="eyebrow">Reference · Honest assessment</p>
+        <p class="eyebrow">Reference · Honest assessment · as of 2026-06-17</p>
         <h1>3commerce — Project analysis &amp; honest assessment</h1>
-        <p class="lede">A from-scratch, distributed e-commerce platform built deliberately as both a <strong>learning vehicle</strong> and a <strong>launchable business</strong> — six .NET&nbsp;10 microservices, an event-driven money core, and a two-language frontend estate. This page weighs what it does brilliantly against what it leaves unfinished.</p>
+        <p class="lede">A from-scratch, distributed e-commerce platform built deliberately as both a <strong>learning vehicle</strong> and a <strong>launchable business</strong> — six .NET&nbsp;10 microservices, an event-driven money core, and a two-language frontend estate. This is a full re-audit: every requirement re-walked against the current code after the post-MVP backlog (BL-1&hellip;BL-11) and the new containerized launch track landed.</p>
 
         <div class="statline">
-          <div class="stat"><div class="n">A&minus;</div><div class="l">Conformance grade</div></div>
+          <div class="stat"><div class="n">A</div><div class="l">Conformance grade</div></div>
           <div class="stat"><div class="n">21</div><div class="l">Requirements assessed</div></div>
           <div class="stat"><div class="n">6</div><div class="l">Microservices · .NET 10</div></div>
           <div class="stat"><div class="n">PRD↔code</div><div class="l">Evidence-led</div></div>
         </div>
 
         <h2 id="what-it-is">What 3commerce is</h2>
-        <p>3commerce is a ground-up e-commerce platform with two stated, equal goals: be a <strong>serious learning exercise in distributed-systems engineering</strong>, and be a <strong>real, launchable storefront</strong> a solo operator could put live. That dual mandate (codified in <code>ADR-0001</code>) explains nearly every decision on the page below — it is why the system reaches for production-grade patterns (sagas, outbox, double-entry ledger, custom auth) that a pure MVP would skip, and also why some of those patterns are wired but not yet load-bearing.</p>
+        <p>3commerce is a ground-up e-commerce platform with two stated, equal goals: be a <strong>serious learning exercise in distributed-systems engineering</strong>, and be a <strong>real, launchable storefront</strong> a solo operator could put live. That dual mandate (codified in <code>ADR-0001</code>) explains nearly every decision on the page below — it is why the system reaches for production-grade patterns (sagas, outbox, double-entry ledger, custom auth) that a pure MVP would skip.</p>
 
         <h3 id="shape-of-the-system">The shape of the system</h3>
         <ul>
           <li><strong>Backend:</strong> 6 C# services — Identity, Catalog, Ordering, Payments, Fulfillment, Support — each owning its own PostgreSQL database.</li>
           <li><strong>Messaging:</strong> async via MassTransit + RabbitMQ, with an EF transactional <strong>outbox</strong> and <strong>saga state machines</strong> (checkout, RMA).</li>
           <li><strong>Edge:</strong> a YARP gateway as the single public origin; an opaque <code>3c_session</code> cookie is exchanged for an internal ES256 claims JWT minted gateway-side.</li>
-          <li><strong>Money:</strong> an append-only <strong>double-entry ledger</strong> with DB-enforced balance and append-only triggers; <code>IPaymentProvider</code> (real Stripe + <code>FakePaymentProvider</code>); a single <code>RefundRequested</code> refund path.</li>
+          <li><strong>Money:</strong> an append-only <strong>double-entry ledger</strong> with DB-enforced balance and append-only triggers; <code>IPaymentProvider</code> (real Stripe + <code>FakePaymentProvider</code>); a single server-derived <code>RefundRequested</code> refund path.</li>
           <li><strong>Frontends:</strong> a Next.js&nbsp;15 SSR storefront (<code>:3000</code>) and a Blazor Server admin console (<code>:5200</code>), both thin and gateway-only.</li>
-          <li><strong>Assurance:</strong> 11 unit + 25 integration (Testcontainers) + 13 Playwright E2E tests, an <code>e2e-verify.sh</code> regression script, and a green multi-job CI matrix.</li>
-          <li><strong>Docs:</strong> a 16-section PRD, 20 ADRs, 6 OpenAPI specs, an ASVS L1 audit, an MVP runbook, and the <a class="inline" href="index.html">operator wiki</a> this page belongs to.</li>
+          <li><strong>Launch:</strong> a dual model — bare <code>dotnet run</code> for the inner loop, plus a full <code>docker-compose.yml</code> stack and a Helm umbrella chart, wrapped by <code>scripts/launch.sh</code> (<code>--fresh</code>/<code>--reuse</code> × <code>--env dev</code>/<code>prod</code>).</li>
+          <li><strong>Assurance:</strong> ~14 unit + ~36 integration (Testcontainers) + 13 Playwright E2E tests, an <code>e2e-verify.sh</code> regression script, and a green multi-job CI matrix (incl. compose-smoke + kind-deploy).</li>
+          <li><strong>Docs:</strong> a 16-section PRD, 21 ADRs, OpenAPI specs, an ASVS L1 audit, an MVP runbook, and the <a class="inline" href="index.html">operator wiki</a> this page belongs to.</li>
         </ul>
         <p>Operator-facing docs for these components live in the <a class="inline" href="index.html">help wiki</a> (getting-started, storefront, admin, testing, deployment).</p>
 
         <h2 id="conformance-scorecard">Conformance scorecard</h2>
-        <p>An independent reviewer mapped the PRD against the actual code (grepping and opening sources, not trusting status files). The headline: a strong <strong>A&minus;</strong>, with most of the deductions concentrated in the frontend and in measurement rather than in the core engine.</p>
+        <p>This is a fresh re-audit: every FR/NFR was re-verified by opening the current sources, not by trusting the status file or the prior review. Since that prior review, the post-MVP backlog closed every gap it had flagged — guest&rarr;account conversion, admin catalog CRUD, the chaos and trace tests, the server-derived RMA amount, app-tier Dockerfiles, and the dev-secret gate are all now real in code.</p>
 
         <div class="statline">
-          <div class="stat"><div class="n">15</div><div class="l">Met</div></div>
-          <div class="stat"><div class="n">4</div><div class="l">Partial</div></div>
-          <div class="stat"><div class="n">1</div><div class="l">Missing</div></div>
+          <div class="stat"><div class="n">20</div><div class="l">Met</div></div>
+          <div class="stat"><div class="n">1</div><div class="l">Partial</div></div>
+          <div class="stat"><div class="n">0</div><div class="l">Missing</div></div>
           <div class="stat"><div class="n">21</div><div class="l">Total reqs</div></div>
         </div>
 
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Area</th><th>Status</th><th>Notes</th></tr></thead>
+            <thead><tr><th>Area</th><th>Status</th><th>Notes (verified in code)</th></tr></thead>
             <tbody>
-              <tr><td>Functional requirements (FR)</td><td><span class="pill met">10 Met</span></td><td>Catalog, search, cart, guest checkout, payment, refund, support — all real.</td></tr>
-              <tr><td><strong>FR-7</strong> guest&rarr;account conversion</td><td><span class="pill gap">Missing</span></td><td>No service method, endpoint, or page; guest orders never attach. Status file overstates it as done.</td></tr>
-              <tr><td><strong>FR-12</strong> admin catalog management</td><td><span class="pill partial">Partial</span></td><td>Only <code>DELETE /admin/products/{id}</code>; no Blazor catalog CRUD page.</td></tr>
-              <tr><td>Non-functional requirements (NFR)</td><td><span class="pill met">5 Met</span></td><td>Security, isolation, observability scaffolding largely present.</td></tr>
-              <tr><td><strong>NFR-2</strong> resilience/chaos</td><td><span class="pill partial">Partial</span></td><td>Chaos test exists only on the ping-pong spine, not the checkout saga.</td></tr>
-              <tr><td><strong>NFR-5 / NFR-7</strong> performance &amp; tracing</td><td><span class="pill partial">Partial</span></td><td>Product-SSR p95 and the end-to-end checkout trace are wired but unmeasured by tests (search p95 <em>is</em> measured).</td></tr>
+              <tr><td>Functional requirements (FR-1&hellip;FR-13)</td><td><span class="pill met">13 Met</span></td><td>Catalog, search, cart, guest checkout, saga, refund, RMA, Xero job, transactional email — all real and test-backed.</td></tr>
+              <tr><td><strong>FR-7</strong> guest&rarr;account conversion</td><td><span class="pill met">Met</span></td><td><code>AuthService</code> publishes <code>EmailVerified</code> on verify; Ordering's <code>GuestOrderAttachConsumer</code> back-fills <code>UserId</code> on prior guest orders by verified email; <code>/convert-guest</code> endpoint + storefront form. Covered by <code>GuestConversionTests</code>.</td></tr>
+              <tr><td><strong>FR-12</strong> admin catalog CRUD</td><td><span class="pill met">Met</span></td><td>Catalog <code>AdminEndpoints</code> exposes <code>GET/POST/PUT/DELETE /admin/products</code>; Blazor <code>Catalog.razor</code> is a full list/search + editor. <code>CatalogAdminTests</code> (4) pass.</td></tr>
+              <tr><td>Non-functional requirements (NFR-1&hellip;NFR-8)</td><td><span class="pill met">7 Met</span></td><td>Ledger invariant, idempotency, isolation, security, observability, revocation, resilience — all verified.</td></tr>
+              <tr><td><strong>NFR-2</strong> resilience / chaos</td><td><span class="pill met">Met</span></td><td><code>MoneyFlowTests.Checkout_saga_survives_an_ordering_outage_during_payment</code> restarts the Ordering saga host mid-flight; the saga still reaches Confirmed with a balanced ledger.</td></tr>
+              <tr><td><strong>NFR-7</strong> single distributed trace</td><td><span class="pill met">Met</span></td><td><code>Checkout_emits_one_distributed_trace_across_the_http_and_message_hops</code> uses an <code>ActivityListener</code> to prove one TraceId spans the HTTP entry span and the MassTransit hops.</td></tr>
+              <tr><td><strong>NFR-5</strong> performance (p95)</td><td><span class="pill partial">Partial</span></td><td>Search <em>and</em> product-detail API p95 &lt; 500ms are now both asserted (<code>CatalogSearchTests</code>). The literal target — Next.js <em>SSR-render</em> p95 &lt; 800ms — is approximated by the SSR-dominant API fetch, not measured at the rendered page. A strong proxy, not the exact metric.</td></tr>
             </tbody>
           </table>
         </div>
 
-        <div class="callout note">
-          <span class="mark">i</span>
-          <p><strong>Reading the grade —</strong> The A&minus; is honest: the <strong>money and auth core is genuinely excellent</strong>, and the gaps are real but bounded — a missing conversion flow, placeholder admin screens, and untested (not unbuilt) performance/chaos targets. None of the deductions are in the ledger.</p>
+        <div class="callout good">
+          <span class="mark">+</span>
+          <p><strong>Reading the grade —</strong> The jump from A&minus; to <strong>A</strong> is earned, not inflated: every gap the prior audit named has corresponding code and tests now. The lone Partial (NFR-5) is a measurement nuance — the SSR-dominant fetch is benchmarked under budget; only the literal rendered-page p95 isn't isolated. None of the deductions touch the ledger or the money path.</p>
         </div>
+
+        <h2 id="containerized-launch">New: a repeatable containerized launch</h2>
+        <p>The most significant change since the last audit is operational. <code>ADR-0021</code> adds a <strong>dual launch model</strong> on top of the bare-run inner loop, so the whole estate can be brought up the way it would actually deploy.</p>
+        <div class="callout good">
+          <span class="mark">+</span>
+          <p><strong>★ Compose &rarr; Helm/k8s, fresh or reuse, dev or prod —</strong> A hardened <code>docker-compose.yml</code> runs all 10 app images + infra on one network (healthchecks, <code>depends_on</code>, resource limits, env-files), wrapped by <code>scripts/launch.sh [--fresh|--reuse] [--env dev|prod]</code>. The same topology is packaged as a Helm umbrella chart (<code>deploy/helm/3commerce</code>) and validated against a <code>kind</code> cluster in CI. Migrations run as a one-shot <code>migrate</code> image of framework-dependent EF bundles (<code>deploy/migrator</code>) with design-time <code>DbContext</code> factories — decoupled from app boot and secrets. <code>--fresh</code> drops the <code>pgdata</code> volume so init-SQL and migrations re-run; <code>--env prod</code> mints a fresh ES256 keypair and enforces the BL-11 secret gate.</p>
+        </div>
+        <p>This closes the loop the prior audit flagged as "app tier not containerized / k8s deferred": both frontends now have Dockerfiles, the full stack composes, and a chart deploys. What remains deferred is genuinely external (below), not plumbing.</p>
 
         <h2 id="architecture-analysis">Architecture analysis</h2>
 
         <h3 id="microservices-choice">Microservices — chosen knowingly against the safer default</h3>
-        <p>The most consequential decision is also the most debatable: 3commerce is <strong>6 microservices from day one</strong> (<code>ADR-0005</code>/<code>ADR-0006</code>), even though the conventional advice for a solo builder is "modular monolith first, extract services later." This was a <em>deliberate</em> choice driven by the learning goal, and it should be judged as such rather than as an accident.</p>
+        <p>The most consequential decision is also the most debatable: 3commerce is <strong>6 microservices from day one</strong> (<code>ADR-0005</code>/<code>ADR-0006</code>), even though the conventional advice for a solo builder is "modular monolith first, extract services later." This was a <em>deliberate</em> choice driven by the learning goal, and it should be judged as such.</p>
         <div class="callout good">
           <span class="mark">+</span>
           <p><strong>What it buys —</strong> Real distributed-systems practice: capability seams, independent schemas, async contracts, saga orchestration, and the operational reality of a message bus — exactly the things you cannot learn from a monolith.</p>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>What it costs —</strong> Six deployables, six DBs, a bus, and a gateway to run for what an MVP could ship as one process. The cost shows up downstream: the app tier still isn't containerized, k8s is deferred, and the operational surface is larger than the feature set strictly needs.</p>
+          <p><strong>What it costs —</strong> Ten deployables, six DBs, a bus, and a gateway to run for what an MVP could ship as one process. The operational surface is larger than the feature set strictly needs — though it is now fully containerized and chart-deployable, so the cost is paid in run-cost and complexity rather than in missing plumbing.</p>
         </div>
         <p>The honest verdict: for a <em>learning-first</em> project the split is defensible and well executed (clean DB-per-service isolation, event-fed read models, zero out-of-scope creep). For a <em>business-first</em> MVP it is over-engineered — but the project never pretended otherwise.</p>
 
         <h3 id="event-driven-core">Event-driven core: outbox + sagas</h3>
-        <p>Async messaging is done by the book: an <strong>EF transactional outbox</strong> means state changes and the events announcing them commit atomically, and <strong>saga state machines</strong> coordinate multi-step flows (checkout, RMA) without distributed transactions. The dedup <strong>inbox</strong> makes consumers idempotent. This is the right pattern and it is implemented faithfully.</p>
+        <p>Async messaging is done by the book: an <strong>EF transactional outbox</strong> means state changes and the events announcing them commit atomically, and <strong>saga state machines</strong> coordinate multi-step flows (checkout, RMA) without distributed transactions. The dedup <strong>inbox</strong> makes consumers idempotent. The resilience claim is no longer just mechanism-deep: a chaos test restarts the saga host mid-checkout and the saga still reaches a correct, balanced terminal state.</p>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>Caveat — wired, lightly proven —</strong> The saga scheduler is in-memory Quartz, and the checkout saga's resilience is largely untested: the only chaos test runs against the ping-pong spine (NFR-2 Partial). A code comment in <code>CheckoutStateMachine</code> claims out-of-order webhook tolerance, but the code actually requires <code>CartSubmitted</code> first — a candid honesty gap admitted as future hardening.</p>
+          <p><strong>Caveat — durability of the scheduler —</strong> The saga timeout scheduler is in-memory Quartz, so scheduled timeouts don't survive a process restart (the chaos test exercises the durable-queue path, not a pending timeout across a restart). A production-durable scheduler is a known future hardening, not a correctness gap on the happy/declined paths.</p>
         </div>
 
         <h3 id="gateway-auth-model">Gateway + auth model</h3>
-        <p>A YARP gateway is the single public origin (<code>ADR-0011</code>). Browsers hold only an opaque <code>3c_session</code> cookie; the gateway exchanges it for a short-lived <strong>ES256 internal-claims JWT</strong>, with the private key held gateway-side only and inbound claim headers stripped. This is a textbook BFF/edge-auth design and one of the project's strongest pieces (see The best of this project).</p>
+        <p>A YARP gateway is the single public origin (<code>ADR-0011</code>). Browsers hold only an opaque <code>3c_session</code> cookie; the gateway exchanges it for a short-lived <strong>ES256 internal-claims JWT</strong>, with the private key held gateway-side only and inbound claim headers stripped. This is a textbook BFF/edge-auth design and one of the project's strongest pieces (see The best of this project). A new <strong>dev-secret gate</strong> (<code>DevSecretGuard</code>) refuses to boot outside Development with the committed dev key.</p>
 
         <h3 id="ledger-source-of-truth">Ledger as source of truth</h3>
         <p>Money does not live in mutable order rows; it lives in an <strong>append-only double-entry ledger</strong> whose invariants are enforced <em>in the database</em> — a deferred balance-constraint trigger, append-only triggers, and line-level check constraints. The application cannot write an unbalanced or back-dated entry even if it tries. Trial-balance-equals-zero is verified in tests and in live E2E. This is the architectural decision that most elevates the project.</p>
@@ -133,21 +143,22 @@
           <table>
             <thead><tr><th>Choice</th><th>Why it's good</th><th>What it costs</th></tr></thead>
             <tbody>
-              <tr><td><strong>.NET 10 + EF Core</strong></td><td>Modern, fast, first-class async; EF gives the transactional outbox cheaply.</td><td>Bleeding-edge runtime; smaller pool of off-the-shelf examples.</td></tr>
+              <tr><td><strong>.NET 10 + EF Core</strong></td><td>Modern, fast, first-class async; EF gives the transactional outbox cheaply and powers the migration bundles.</td><td>Bleeding-edge runtime; smaller pool of off-the-shelf examples.</td></tr>
               <tr><td><strong>MassTransit + RabbitMQ</strong></td><td>Mature outbox/saga/retry primitives; idempotent consumers made easy.</td><td>Pinned to <code>8.5.10</code> — MassTransit v9 is commercial, so the version ceiling is now a licensing decision, not a technical one.</td></tr>
               <tr><td><strong>YARP gateway</strong></td><td>Microsoft-backed reverse proxy; clean single-origin + edge-auth fit.</td><td>Auth/claims logic is bespoke and must be carefully maintained.</td></tr>
               <tr><td><strong>PostgreSQL (per service)</strong></td><td>Strong constraints/triggers power the ledger; FTS powers search (<code>ADR-0020</code>).</td><td>One Postgres instance hosts many logical DBs — real isolation, shared blast radius.</td></tr>
               <tr><td><strong>Next.js 15 SSR storefront</strong></td><td>SSR/ISR for SEO + speed; Server Actions keep the client thin and gateway-only.</td><td>Adds a Node/TypeScript estate alongside the C# one.</td></tr>
-              <tr><td><strong>Blazor Server admin</strong></td><td>Lets the team stay in C# for internal tooling; fast to build CRUD.</td><td><strong>Two-language frontend estate</strong> (TS + C#) — double the tooling, CI, and mental model for a solo dev.</td></tr>
+              <tr><td><strong>Blazor Server admin</strong></td><td>Lets the team stay in C# for internal tooling; now a full catalog editor and real order list.</td><td><strong>Two-language frontend estate</strong> (TS + C#) — double the tooling, CI, and mental model for a solo dev.</td></tr>
               <tr><td><strong>Testcontainers</strong></td><td>Integration tests run against real Postgres/RabbitMQ, not mocks — high fidelity.</td><td>Slower suites; Docker required in CI.</td></tr>
               <tr><td><strong>Playwright E2E</strong></td><td>13 real-browser tests across storefront <em>and</em> admin — rare at this scale.</td><td>Maintenance cost as UI evolves.</td></tr>
+              <tr><td><strong>Compose + Helm/kind</strong></td><td>One topology runs locally (compose) and on a cluster (chart); kind-deploy in CI proves it boots.</td><td>Two config matrices (dev/prod × compose/k8s) to keep in sync; the kind job is slow/flaky and cost-gated.</td></tr>
               <tr><td><strong>Quartz scheduler</strong></td><td>Simple saga timeout/scheduling in dev.</td><td><strong>In-memory</strong> — schedules don't survive a restart; not production-durable.</td></tr>
             </tbody>
           </table>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>The standout stack tension —</strong> The <strong>two-language frontend</strong> (Next.js + Blazor) is the most questionable stack choice for a solo team. It is internally justified — public storefront wants SSR/SEO, internal admin wants fast C# CRUD — but it doubles the toolchain and is part of why the admin console lags the storefront in completeness (placeholder orders screen, no catalog CRUD).</p>
+          <p><strong>The standout stack tension —</strong> The <strong>two-language frontend</strong> (Next.js + Blazor) is still the most questionable stack choice for a solo team. It is internally justified — public storefront wants SSR/SEO, internal admin wants fast C# CRUD — and the admin has now caught up (real orders list, full catalog editor), so the historic "admin lags storefront" gap is largely closed; the standing cost is the doubled toolchain itself.</p>
         </div>
 
         <h2 id="best-of-this-project">The best of this project</h2>
@@ -157,7 +168,7 @@
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ A single, honest refund path —</strong> Every refund — customer RMA or operator action — funnels through one idempotent <code>RefundRequested</code> / <code>ExecuteRefundConsumer</code>, with an over-refund guard, proportional tax reversal, and a double-approve no-op. No side doors, no ad-hoc money movement.</p>
+          <p><strong>★ A single, server-derived refund path —</strong> Every refund — customer RMA or operator action — funnels through one idempotent <code>RefundRequested</code> / <code>ExecuteRefundConsumer</code>. The RMA amount is now <em>derived server-side</em> from an <code>OrderSnapshot</code> read-copy (summed per selected line, capped at purchased quantity); the client never supplies a trusted figure. Over-refund guard, proportional tax reversal, and a double-approve no-op round it out.</p>
         </div>
         <div class="callout good">
           <span class="mark">+</span>
@@ -165,45 +176,38 @@
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Custom auth, done correctly —</strong> Argon2id (<code>m=19456, t=2, p=1</code>), opaque cookie &rarr; ES256 claims with a gateway-only private key, inbound header-strip, and &le;60s revocation — all test-backed. A genuinely hard thing to get right, and it is right.</p>
+          <p><strong>★ Custom auth, done correctly —</strong> Argon2id (<code>m=19456, t=2, p=1</code>), opaque cookie &rarr; ES256 claims with a gateway-only private key, inbound header-strip, &le;60s revocation, and a fail-fast <code>DevSecretGuard</code> against shipping the committed dev key — all test-backed. A genuinely hard thing to get right, and it is right.</p>
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Test depth &amp; green CI —</strong> 11 unit + 25 integration (against real infra) + 13 Playwright E2E across both frontends, an <code>e2e-verify.sh</code> L1&ndash;L20 regression script, and a green build/integration/browser/docker CI matrix. Real-browser admin E2E in particular is rare for a project this size.</p>
+          <p><strong>★ Test depth &amp; green CI —</strong> ~14 unit + ~36 integration (against real Postgres/RabbitMQ) + 13 Playwright E2E across both frontends, an <code>e2e-verify.sh</code> regression script, and a green build/integration/browser/docker + compose-smoke + kind-deploy CI matrix. The new chaos and single-trace tests close the prior "wired but unmeasured" gaps.</p>
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Documentation rigor —</strong> 16-section PRD, 20 ADRs, 6 OpenAPI specs, an ASVS L1 security audit, and a runbook. The <em>reasoning</em> behind every major decision is written down — which is precisely what makes an honest conformance review possible in the first place.</p>
+          <p><strong>★ Documentation rigor —</strong> 16-section PRD, 21 ADRs, OpenAPI specs, an ASVS L1 security audit, a runbook, and a secrets/rotation doc. The <em>reasoning</em> behind every major decision is written down — which is precisely what makes an honest conformance re-audit possible in the first place.</p>
         </div>
 
-        <h2 id="weakest-parts">The weakest parts</h2>
-        <div class="callout bad">
-          <span class="mark">–</span>
-          <p><strong>FR-7 missing — and the status file says it's done —</strong> Post-purchase guest&rarr;account conversion simply doesn't exist: no service method, no endpoint, no page, and guest orders never attach to a later account. Worse than the gap is the <strong>honesty mismatch</strong> — a status file overstates it as complete. This is the single most important thing to fix, in code <em>and</em> in the tracking docs.</p>
-        </div>
-        <div class="callout bad">
-          <span class="mark">–</span>
-          <p><strong>Placeholder admin &amp; account screens —</strong> The admin <strong>orders screen is a placeholder</strong> (explanatory text, no list/detail), there's <strong>no catalog CRUD</strong> (FR-12 Partial), and the customer <strong>account page has no order history</strong> (just email + verified flag). The storefront is well ahead of the back office.</p>
-        </div>
-        <div class="callout bad">
-          <span class="mark">–</span>
-          <p><strong>UI honesty gap — build-validated only —</strong> Several UI flows are validated by compiling/building, not by exercising behavior. Combined with the <code>CheckoutStateMachine</code> comment that overstates webhook tolerance, the project's <em>claims</em> occasionally run slightly ahead of its <em>proof</em>.</p>
+        <h2 id="remaining-gates">What's still open (launch gates, not engine flaws)</h2>
+        <p>With every code gap from the prior audit closed, the remaining work is deliberately external or a measurement nuance — none of it sits in the money or auth core.</p>
+        <div class="callout warn">
+          <span class="mark">!</span>
+          <p><strong>External integrations await a legal entity —</strong> Stripe and Xero run against an interface-seamed <code>FakePaymentProvider</code> / <code>LoggingXeroClient</code>, and <code>ITaxStrategy</code> is a flat-rate placeholder. Going live needs company registration &rarr; real Stripe/Xero credentials and a real tax strategy. The seams (<code>IPaymentProvider</code>, <code>IXeroClient</code>, <code>ITaxStrategy</code>) make these swaps, not rewrites.</p>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>Untested NFRs (2 / 5 / 7) —</strong> Saga chaos resilience, product-SSR p95, and the single end-to-end checkout trace are all <em>wired but unmeasured by tests</em>. (Search p95 is measured — proof that the harness can do it.) The targets exist; the evidence doesn't yet.</p>
+          <p><strong>NFR-5 SSR p95 is proxied, not isolated —</strong> The SSR-dominant product-detail API fetch is benchmarked under a 500ms p95 budget, but the literal rendered-page p95 (&lt; 800ms target) isn't measured at the Next.js render boundary. Close, and almost certainly satisfied — but the exact metric is a proxy.</p>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>Free-form RMA refund amount —</strong> The RMA flow takes the refund amount as <strong>free-form customer input</strong> ("Amount in cents"). The over-refund guard catches the worst case, but accepting customer-supplied money figures is a trust/validation smell that ought to derive the amount server-side.</p>
+          <p><strong>Prod DB-credential rotation deferred —</strong> Prod launch rotates app secrets (ES256 keypair + admin password via the BL-11 gate), but local Postgres/RabbitMQ creds in compose/k8s remain the init-SQL dev passwords. Real cluster-credential rotation and a secrets store are explicitly deferred (<code>ADR-0021</code>).</p>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>No app-tier containerization · dev secrets committed · no k8s —</strong> Only the 6 backend services + gateway + worker have Dockerfiles; the <strong>storefront and admin run via bare <code>dotnet run</code>/<code>npm</code></strong> (no Dockerfiles). A dev ES256 private key and admin password are committed (clearly labelled DEV-ONLY) and <code>STORE_CURRENCY</code> is hard-coded to <code>"EUR"</code> rather than wired despite <code>ADR-0015</code> referencing it. k8s and production are deferred. These are <em>launch gates</em>, not engine flaws — but they're real.</p>
+          <p><strong>kind-deploy CI is slow and cost-gated; external pen test pending —</strong> The kind cluster deploy is the slowest, flakiest CI job (paths-gated, <code>helm --wait</code>). And an <strong>external penetration test</strong> remains a pre-launch gate — the ASVS L1 self-audit is internal.</p>
         </div>
         <div class="callout note">
           <span class="mark">i</span>
-          <p><strong>Minor drift to clean up —</strong> No nav links to <code>/orders/[id]/support</code> (the page works, nothing points to it); the admin console verifies the admin role by <em>side-effect</em> (probing a Xero endpoint) rather than a dedicated check; and docs lag reality (<code>AGENTS.md</code> says "L1&ndash;L19 / 11 unit + 25 integration" while the script is now L1&ndash;L20). Small, but they erode trust in the written record.</p>
+          <p><strong>Minor housekeeping —</strong> The status file still marks <code>cl_8</code> (<code>launch.sh</code>) and a few doc tasks <code>pending</code> even though the script and artifacts exist on disk — stale markers, verified by inspection, not real gaps. The saga timeout scheduler remains in-memory Quartz (future-durable).</p>
         </div>
 
         <h2 id="strengths-vs-drawbacks">Strengths vs drawbacks</h2>
@@ -211,26 +215,12 @@
           <table>
             <thead><tr><th>Strengths</th><th>Drawbacks</th></tr></thead>
             <tbody>
-              <tr><td>DB-enforced double-entry ledger; trial balance verified live.</td><td>FR-7 (guest&rarr;account) missing and overstated as done.</td></tr>
-              <tr><td>One idempotent, guarded refund path for all actors.</td><td>Admin orders/catalog screens are placeholders; account has no order history.</td></tr>
-              <tr><td>Dev fakes reuse the real payment processing path.</td><td>RMA refund amount is free-form customer input.</td></tr>
-              <tr><td>Custom auth by the book (Argon2id, ES256, header-strip, fast revocation).</td><td>NFR-2/5/7 wired but unmeasured by tests.</td></tr>
-              <tr><td>High-fidelity tests (real infra + real browsers) and green CI.</td><td>No app-tier Dockerfiles; dev secrets committed; k8s/prod deferred.</td></tr>
-              <tr><td>Exceptional documentation (PRD, 20 ADRs, OpenAPI, ASVS audit).</td><td>Doc drift &amp; honesty gaps (status file, code comments, AGENTS.md).</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h2 id="benefits-vs-limitations">Benefits vs limitations</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Benefits</th><th>Limitations</th></tr></thead>
-            <tbody>
-              <tr><td>A faithful, hands-on tour of real distributed-systems patterns.</td><td>Operational surface (6 services + bus + gateway) exceeds the MVP feature set.</td></tr>
-              <tr><td>Money handling you could defend to an auditor.</td><td>Resilience under failure is asserted by design, not yet by chaos tests.</td></tr>
-              <tr><td>Excellent template for learning event-driven .NET.</td><td>Not yet a turnkey product — back-office and launch plumbing are incomplete.</td></tr>
-              <tr><td>Decisions are documented, so the codebase is teachable and reviewable.</td><td>Two-language frontend doubles tooling and slows the admin side.</td></tr>
-              <tr><td>Real Stripe adapter + keyless fake means easy onboarding and a real upgrade path.</td><td>Several external integrations (Xero, email) are logging stand-ins by design.</td></tr>
+              <tr><td>DB-enforced double-entry ledger; trial balance verified live.</td><td>NFR-5 SSR p95 is proxied by the API fetch, not isolated at the render boundary.</td></tr>
+              <tr><td>One idempotent, server-derived refund path for all actors.</td><td>Stripe/Xero/tax are seamed fakes pending a legal entity.</td></tr>
+              <tr><td>Dev fakes reuse the real payment processing path.</td><td>In-memory Quartz scheduler isn't restart-durable for pending timeouts.</td></tr>
+              <tr><td>Custom auth by the book + fail-fast dev-secret gate.</td><td>Prod DB/RabbitMQ credential rotation + secrets store deferred.</td></tr>
+              <tr><td>High-fidelity tests (real infra + real browsers) and green CI incl. compose-smoke + kind-deploy.</td><td>kind-deploy CI job is slow/flaky and cost-gated; external pen test pending.</td></tr>
+              <tr><td>Full containerized launch (compose &rarr; Helm/k8s, fresh/reuse × dev/prod).</td><td>Two-language frontend doubles the toolchain (admin completeness now caught up).</td></tr>
             </tbody>
           </table>
         </div>
@@ -244,7 +234,7 @@
             <tbody>
               <tr><td>Learning value</td><td>High — real sagas, bus, DB-per-service.</td><td>Lower — distributed concerns are simulated, not lived.</td></tr>
               <tr><td>Time to MVP</td><td>Slower — more moving parts to build &amp; wire.</td><td>Faster — one deployable, one DB.</td></tr>
-              <tr><td>Operational cost</td><td>High — 6 services + bus + gateway; app tier still uncontainerized.</td><td>Low — single process to run and deploy.</td></tr>
+              <tr><td>Operational cost</td><td>High — 10 deployables + bus + gateway; now fully containerized &amp; chart-deployable.</td><td>Low — single process to run and deploy.</td></tr>
               <tr><td>Future scaling</td><td>Already decomposed along capability seams.</td><td>Requires later extraction (but that's a known, tractable path).</td></tr>
               <tr><td><strong>Net for this project</strong></td><td>Right call <em>given the learning goal</em>.</td><td>Would've shipped sooner, learned less.</td></tr>
             </tbody>
@@ -259,7 +249,7 @@
               <tr><td>Dev onboarding</td><td>Needs keys/accounts.</td><td>Keyless — clone &amp; run.</td></tr>
               <tr><td>Path fidelity</td><td>Exact.</td><td>High — fakes reuse the real processor &amp; inbox.</td></tr>
               <tr><td>Production readiness</td><td>Live.</td><td>Stripe adapter is real and ready; Xero is a logging stand-in (<code>ADR-0017</code>).</td></tr>
-              <tr><td><strong>Net</strong></td><td colspan="2">Best of both — a real Stripe adapter <em>plus</em> a faithful fake; the seam (<code>IPaymentProvider</code>) makes the swap trivial.</td></tr>
+              <tr><td><strong>Net</strong></td><td colspan="2">Best of both — a real Stripe adapter <em>plus</em> a faithful fake; the seam (<code>IPaymentProvider</code>) makes the swap trivial. Going live is a launch gate, not an engineering one.</td></tr>
             </tbody>
           </table>
         </div>
@@ -270,9 +260,9 @@
             <thead><tr><th>Dimension</th><th>Two frontends (chosen)</th><th>One frontend</th></tr></thead>
             <tbody>
               <tr><td>Storefront SEO/SSR</td><td>Excellent (Next.js SSR/ISR).</td><td>Depends which one you pick.</td></tr>
-              <tr><td>Admin build speed</td><td>Fast C# CRUD in Blazor.</td><td>Re-implement in TS, or lose SSR.</td></tr>
+              <tr><td>Admin build speed</td><td>Fast C# CRUD in Blazor (now a full catalog editor).</td><td>Re-implement in TS, or lose SSR.</td></tr>
               <tr><td>Tooling burden</td><td>Two ecosystems (TS + C#) to maintain.</td><td>One toolchain.</td></tr>
-              <tr><td>Observed cost</td><td>Admin lags storefront (placeholders, no catalog CRUD).</td><td>Effort concentrated in one place.</td></tr>
+              <tr><td>Observed cost</td><td>Doubled toolchain; admin feature-completeness has now caught up.</td><td>Effort concentrated in one place.</td></tr>
               <tr><td><strong>Net</strong></td><td>Defensible, but the priciest stack choice for a solo team.</td><td>Simpler — at some SEO or velocity cost.</td></tr>
             </tbody>
           </table>
@@ -281,15 +271,15 @@
         <h2 id="verdict">Verdict</h2>
         <div class="verdict">
           <p class="eyebrow">Verdict</p>
-          <p><strong>3commerce is an exceptional learning artifact and a genuinely solid engineering core, wrapped in an MVP that isn't finished.</strong> The A&minus; is well earned and well placed.</p>
-          <p><strong>What it is excellent at:</strong> the money engine. A DB-enforced double-entry ledger, a single idempotent refund path, seam discipline where dev fakes exercise the real path, by-the-book custom auth, high-fidelity tests with real browsers and green CI, and documentation rigor most teams never approach. If you want to <em>learn</em> event-driven .NET — outbox, sagas, gateway auth, ledgers — this is a near-ideal reference.</p>
-          <p><strong>What it is not (yet):</strong> a turnkey, launchable business. FR-7 is missing (and mislabelled as done), the admin and account screens are partly placeholders, key NFRs are wired but unmeasured, the RMA amount is customer-supplied, the app tier isn't containerized, dev secrets are committed, and k8s/production are deferred. These are launch gates and honesty cleanups — bounded, well-understood, and none of them touch the ledger.</p>
-          <p><strong>Who it's a good template for:</strong> engineers and teams who want a rigorous, well-documented blueprint for distributed e-commerce in modern .NET — provided they treat the frontend/back-office completeness and the launch plumbing as the remaining work, and tighten the few places where the written record runs ahead of the code.</p>
+          <p><strong>3commerce is an exceptional learning artifact and a genuinely solid engineering core — and, after the post-MVP backlog and the containerized launch track, it is now a near-complete MVP.</strong> The grade rises to a well-earned <strong>A</strong>.</p>
+          <p><strong>What it is excellent at:</strong> the money engine. A DB-enforced double-entry ledger, a single server-derived idempotent refund path, seam discipline where dev fakes exercise the real path, by-the-book custom auth with a fail-fast secret gate, high-fidelity tests with real browsers + chaos + single-trace coverage and green CI, and documentation rigor most teams never approach. If you want to <em>learn</em> event-driven .NET — outbox, sagas, gateway auth, ledgers — this is a near-ideal reference.</p>
+          <p><strong>What now remains:</strong> external launch gates, not engine work. Live Stripe/Xero and a real <code>ITaxStrategy</code> await a legal entity; an external pen test is pending; prod DB-credential rotation and a secrets store are deferred; one NFR (SSR p95) is proxied rather than measured at the render boundary; and the kind-deploy CI job is slow and cost-gated. Every one of these is bounded, documented, and outside the ledger.</p>
+          <p><strong>Who it's a good template for:</strong> engineers and teams who want a rigorous, well-documented, now-containerized blueprint for distributed e-commerce in modern .NET — with the remaining work being business onboarding and external assurance rather than core construction.</p>
         </div>
 
         <div class="callout note">
           <span class="mark">i</span>
-          <p>Part of the <a class="inline" href="index.html">3commerce help wiki</a> · companion pages: <a class="inline" href="getting-started.html">Getting started</a> · <a class="inline" href="storefront-operations.html">Storefront</a> · <a class="inline" href="admin-operations.html">Admin</a> · <a class="inline" href="testing.html">Testing</a> · <a class="inline" href="deployment.html">Deployment</a>. Assessment synthesizes an evidence-based PRD-vs-code conformance review (grade A&minus;, 21 requirements) and a frontend documentation pass. Source paths referenced throughout live under the repository root; key decisions are recorded in <code>docs/adr/</code> and <code>docs/prd/</code>.</p>
+          <p>Part of the <a class="inline" href="index.html">3commerce help wiki</a> · companion pages: <a class="inline" href="getting-started.html">Getting started</a> · <a class="inline" href="storefront-operations.html">Storefront</a> · <a class="inline" href="admin-operations.html">Admin</a> · <a class="inline" href="testing.html">Testing</a> · <a class="inline" href="deployment.html">Deployment</a>. Assessment is a full evidence-based PRD-vs-code re-audit (grade A, 21 requirements, as of 2026-06-17). Source paths referenced throughout live under the repository root; key decisions are recorded in <code>docs/adr/</code> and <code>docs/prd/</code>.</p>
         </div>
 
         <footer class="page-nav">

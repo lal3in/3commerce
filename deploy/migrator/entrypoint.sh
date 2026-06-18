@@ -1,0 +1,24 @@
+#!/bin/sh
+# Applies each service's EF migration bundle against its database. Connection strings are
+# injected per service (compose/Helm); each DB already exists via Postgres init SQL.
+set -eu
+
+migrate() {
+  svc="$1"
+  conn="$2"
+  if [ -z "$conn" ]; then
+    echo "ERROR: no connection string for '$svc' (set CONN_$(echo "$svc" | tr '[:lower:]' '[:upper:]'))" >&2
+    exit 1
+  fi
+  echo ">> migrating $svc"
+  "/bundles/efbundle-$svc" --connection "$conn"
+}
+
+migrate identity    "${CONN_IDENTITY:-}"
+migrate catalog     "${CONN_CATALOG:-}"
+migrate ordering    "${CONN_ORDERING:-}"
+migrate payments    "${CONN_PAYMENTS:-}"
+migrate fulfillment "${CONN_FULFILLMENT:-}"
+migrate support     "${CONN_SUPPORT:-}"
+
+echo ">> all migrations applied"

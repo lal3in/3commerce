@@ -8,7 +8,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 > **Status:** MVP on dev/test rails (Phases 1–4), **conformance grade A−→A** (16 Met / 4 Partial / 0 Missing of 21 FR/NFR — see `docs/reviews/prd-vs-implementation.md`). All six services, gateway, Next.js storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (single refund path), and Xero summary journals (logging client; real OAuth a future swap). Tests: **11 unit + 27 integration + 13 Playwright browser E2E** (storefront + admin), green in CI; `scripts/e2e-verify.sh --live` covers **L1–L20**.
 >
-> **Known gaps (backlog in `.ai-shared/plans/plan_status_executions.md`):** admin catalog CRUD (FR-12) and the admin Orders / storefront account screens are placeholders; NFR-2/5/7 are wired but not asserted by tests; UI is partly build-validated. Non-code launch gates (registration → live Stripe/Xero, supplier, external pen test, k8s) are in `docs/prd/3commerce/15-appendix.md`. Frontend wiki (HTML — open `docs/help/index.html`); analysis: `docs/help/project-analysis.html`.
+> **Post-MVP work done (`.ai-shared/plans/plan_status_executions.md`):** backlog BL-1..BL-11 complete — FR-7 guest→account, FR-12 admin catalog CRUD, real admin Orders / storefront account screens, NFR-2/5/7 now asserted by tests, per-line server-derived RMA, configurable `Store:Currency`, app-tier Dockerfiles, and the BL-11 dev-secret launch gate. **Containerized launch (ADR-0021):** `scripts/launch.sh [--fresh|--reuse] [--env dev|prod]` runs the full stack via `docker-compose.yml` (EF-bundle migrator), and a Helm chart (`deploy/helm/3commerce`) is `kind`/CI-validated. **Still deferred (launch gates):** live Stripe/Xero, real `ITaxStrategy`, external pen test, a managed cloud cluster — `docs/prd/3commerce/15-appendix.md`. Frontend wiki (HTML — open `docs/help/index.html`); analysis: `docs/help/project-analysis.html`.
 
 ---
 
@@ -68,10 +68,15 @@ When PRD is needed:
 ## Commands
 
 ```bash
-# Development (infra first, then any services you need)
+# Development (infra first, then any services you need) — bare-run, ADR-0009
 docker compose -f docker-compose.infra.yml up -d   # Postgres 17 + RabbitMQ
 dotnet run --project src/Services/<Name>/Api        # per service; same for Gateway, Workers
 cd src/Storefront && npm run dev                    # Next.js storefront
+
+# Containerized launch (full stack in containers) — ADR-0021
+scripts/launch.sh --fresh --env dev                 # brand-new deployment (down -v + build + up)
+scripts/launch.sh --reuse --env dev                 # relaunch, keep data
+scripts/launch.sh --fresh --env prod                # rotated keys, BL-11 gate enforced
 
 # Build
 dotnet build 3commerce.sln

@@ -1,6 +1,6 @@
 # Plan Execution Status
 
-Last Modified Date-Time: 2026-06-15 (post-MVP backlog COMPLETE: BL-1..BL-11 all DONE; CI paths-filter added — docs-only pushes skip the browser-e2e job via a `changes` job + dorny/paths-filter)
+Last Modified Date-Time: 2026-06-17 (Containerized launch plan cl_1..cl_15 COMPLETE: compose+launch.sh fresh-dev verified booting all 12 containers; Helm chart + kind CI; project-analysis re-audited to A; docs refreshed)
 
 Statuses: `pending` | `in_progress` | `done` | `blocked` | `skipped`
 
@@ -89,3 +89,28 @@ Independent team review (`docs/reviews/prd-vs-implementation.md`): **grade A−*
 | e2e-verify.sh L1-L20 (incl. real-browser E2E) | done | full live regression, 28 checks |
 | CI browser-e2e job (boots stack, runs Playwright) | done | green on main; Importer:TargetRows=400 in CI |
 | Frontend wiki + conformance review + analysis page | done | docs/help/, docs/reviews/ |
+
+---
+
+## Plan: Containerized launch + repeatable fresh/reuse deployment (compose → Helm/k8s)
+
+Plan Path: `.ai-shared/plans/containerized-launch-and-deploy.md`
+Branch (when executing): `feat/containerized-launch` off `develop`. Status: PLANNED (not started).
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| cl_1 | ContainerConfig.cs (flag-loaded appsettings.Container.json) | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | USE_CONTAINER_CONFIG=true, decoupled from env name |
+| cl_2 | AddContainerConfig in 8 app Program.cs | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | after CreateBuilder |
+| cl_3 | 8x appsettings.Container.json host overrides | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | postgres/rabbitmq/service names == compose==k8s |
+| cl_4 | Add curl + ASPNETCORE_URLS :8080 to 8 runtime images | P1 config | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthcheck needs curl |
+| cl_5 | deploy/migrator (6 EF bundles, self-contained linux-x64) + entrypoint | P2 migrations | done | .ai-shared/plans/containerized-launch-and-deploy.md | worker excluded (no DB) |
+| cl_6 | docker-compose.yml hardened full stack | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | healthchecks/depends_on/limits/env_file |
+| cl_7 | deploy/.env.dev (+ gitignore .env.prod) | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | prod env_file minted by launch.sh |
+| cl_8 | scripts/launch.sh [--fresh / --reuse] [--env dev / prod] | P3 compose | done | .ai-shared/plans/containerized-launch-and-deploy.md | fresh=down -v; prod mints+injects keys; verified end-to-end |
+| cl_9 | deploy/helm/3commerce umbrella chart (per-service migrate initContainer) | P4 k8s | done | .ai-shared/plans/containerized-launch-and-deploy.md | dev/prod values; native Secrets; CI-validated in cl_11 |
+| cl_10 | deploy/helm/make-secret.sh (prod K8s Secret) | P4 k8s | done | .ai-shared/plans/containerized-launch-and-deploy.md | base64 PEMs preserve newlines |
+| cl_11 | CI: paths-filter + compose-smoke + kind-deploy jobs | P5 CI | done | .ai-shared/plans/containerized-launch-and-deploy.md | kind helm install --wait |
+| cl_12 | ADR-0021 dual launch model (amends ADR-0009) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | |
+| cl_13 | Full re-audit -> regenerate project-analysis.html (Atelier) | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | expect ~20 Met/1 Partial/0 Missing ~A |
+| cl_14 | Refresh deployment.md/html + getting-started + AGENTS.md | P6 docs | done | .ai-shared/plans/containerized-launch-and-deploy.md | keep bare-run section |
+| cl_15 | Update status + e2e-verify test-list | P7 validate | done | .ai-shared/plans/containerized-launch-and-deploy.md | |

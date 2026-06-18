@@ -1,0 +1,6 @@
+apiVersion: v2
+name: 3commerce
+description: 3commerce full-stack containerized deployment (ADR-0021) — gateway, six services, worker, admin, storefront, Postgres, RabbitMQ.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

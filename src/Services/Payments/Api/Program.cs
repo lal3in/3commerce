@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
@@ -15,6 +16,7 @@ using ThreeCommerce.Payments.Infrastructure.Stripe;
 using ThreeCommerce.Payments.Infrastructure.Xero;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("payments");
 builder.Services.AddApiProblemDetails();
