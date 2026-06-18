@@ -26,6 +26,14 @@ release.
   permissions — fully dynamic RBAC, no code change to add a role. A role may never grant a
   permission absent from the registry. `customer` stays a built-in role; staff roles are
   tenant-scoped data.
+- **Default role catalog, then editable.** Each tenant is **seeded with a default set of roles**
+  (e.g. Admin, Ops, Finance, Support, Merchandiser, + built-in Customer), each pre-mapped to a
+  curated default permission set drawn from the registry. From there operators **add/remove
+  individual permissions** on any role and **clone (duplicate) a role into a new role** to use
+  it as a starting template — all as data. The seed gives a working baseline on day one; the
+  registry bounds what any role (seeded or custom) may reference. Built-in roles
+  (e.g. `customer`, the last-resort tenant-owner role) are protected from deletion/lockout
+  (the ≥1 active TenantOwner invariant, ADR-0023, still holds).
 - **Effective permissions** ride in the internal signed claims (ADR-0012). On a role or
   membership change, affected sessions are **invalidated / re-evaluated** so a revoked
   permission takes effect promptly, not only at next login.
@@ -45,9 +53,9 @@ release.
 
 - **Keep coarse `Customer`/`Admin`** — rejected: cannot express per-tenant staff scopes,
   field masking, or maker-checker.
-- **Fixed code-defined role catalog** — considered and rejected for v1: operators explicitly
-  want to compose their own roles; we keep the *permissions* code-defined for safety but make
-  *roles* data.
+- **Fixed (locked) code-defined role catalog** — rejected: operators explicitly want to compose
+  their own roles. We instead ship the default catalog as *editable seed data* (add/remove
+  permissions, clone-as-template) and keep only the *permissions* code-defined for safety.
 - **Embed an external engine (OPA/OpenFGA) now** — deferred: start with an in-platform policy
   engine over ASP.NET authorization + the registry; keep a seam to adopt OPA/OpenFGA later.
 - **RLS as the authorization layer** — rejected: RLS isolates rows by tenant (ADR-0024); it
