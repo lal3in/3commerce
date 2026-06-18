@@ -23,6 +23,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DuplicateDetectionService>();
 builder.Services.AddScoped<SupplierOnboardingService>();
 builder.Services.AddScoped<SupplierChangeRequestService>();
+builder.Services.AddScoped<CustomerEntityLinkService>();
 
 var app = builder.Build();
 

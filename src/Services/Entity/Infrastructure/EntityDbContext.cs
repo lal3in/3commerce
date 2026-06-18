@@ -15,6 +15,7 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
     public DbSet<DuplicateWarning> DuplicateWarnings => Set<DuplicateWarning>();
     public DbSet<SupplierOnboarding> SupplierOnboardings => Set<SupplierOnboarding>();
     public DbSet<SupplierChangeRequest> SupplierChangeRequests => Set<SupplierChangeRequest>();
+    public DbSet<CustomerEntityLink> CustomerEntityLinks => Set<CustomerEntityLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +115,18 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
             request.Property(r => r.DecisionReason).HasMaxLength(500);
             request.HasIndex(r => new { r.TenantId, r.Status });
             request.HasIndex(r => new { r.TenantId, r.EntityId });
+        });
+
+        modelBuilder.Entity<CustomerEntityLink>(link =>
+        {
+            link.ToTable("CustomerEntityLinks");
+            link.HasKey(l => l.Id);
+            link.HasIndex(l => new { l.TenantId, l.EntityId });
+            link.HasIndex(l => new { l.TenantId, l.CustomerPrincipalId });
+            // At most one active link of a given role per (customer, entity).
+            link.HasIndex(l => new { l.TenantId, l.CustomerPrincipalId, l.EntityId, l.Role })
+                .IsUnique()
+                .HasFilter("\"EffectiveTo\" IS NULL");
         });
 
         modelBuilder.AddInboxStateEntity();

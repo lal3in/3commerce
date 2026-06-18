@@ -48,6 +48,14 @@ public static class EntityEndpoints
             .WithSummary("Approve a pending supplier change request (maker-checker).");
         group.MapPost("/suppliers/change-requests/{requestId:guid}/reject", RejectSupplierChangeRequest)
             .WithSummary("Reject a pending supplier change request (maker-checker).");
+        group.MapPost("/{id:guid}/customer-links", LinkCustomer)
+            .WithSummary("Link a tenant customer to this entity with a typed role.");
+        group.MapGet("/{id:guid}/customer-links", ListEntityCustomerLinks)
+            .WithSummary("List customers linked to this entity.");
+        group.MapGet("/customer-links", ListCustomerLinks)
+            .WithSummary("List entities a customer is linked to.");
+        group.MapPost("/customer-links/{linkId:guid}/unlink", UnlinkCustomer)
+            .WithSummary("End a customer↔entity link (preserves history).");
         group.MapDelete("/{id:guid}", Archive)
             .WithSummary("Archive an entity record.");
 
@@ -311,10 +319,72 @@ public static class EntityEndpoints
         }
     }
 
+    private static async Task<Results<Created<CustomerEntityLinkResponse>, ValidationProblem>> LinkCustomer(
+        Guid id,
+        Guid tenantId,
+        LinkCustomerBody request,
+        HttpContext http,
+        CustomerEntityLinkService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var link = await service.LinkAsync(tenantId, id, request.CustomerPrincipalId, request.Role, ActingPrincipal(http), cancellationToken);
+            return TypedResults.Created($"/entities/customer-links/{link.Id}", ToResponse(link));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["customerLink"] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Ok<List<CustomerEntityLinkResponse>>> ListEntityCustomerLinks(
+        Guid id,
+        Guid tenantId,
+        bool? activeOnly,
+        CustomerEntityLinkService service,
+        CancellationToken cancellationToken)
+    {
+        var links = await service.ListForEntityAsync(tenantId, id, activeOnly ?? false, cancellationToken);
+        return TypedResults.Ok(links.Select(ToResponse).ToList());
+    }
+
+    private static async Task<Ok<List<CustomerEntityLinkResponse>>> ListCustomerLinks(
+        Guid tenantId,
+        Guid customerPrincipalId,
+        bool? activeOnly,
+        CustomerEntityLinkService service,
+        CancellationToken cancellationToken)
+    {
+        var links = await service.ListForCustomerAsync(tenantId, customerPrincipalId, activeOnly ?? false, cancellationToken);
+        return TypedResults.Ok(links.Select(ToResponse).ToList());
+    }
+
+    private static async Task<Results<Ok<CustomerEntityLinkResponse>, NotFound>> UnlinkCustomer(
+        Guid linkId,
+        Guid tenantId,
+        CustomerEntityLinkService service,
+        CancellationToken cancellationToken)
+    {
+        var link = await service.UnlinkAsync(tenantId, linkId, cancellationToken);
+        return link is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(link));
+    }
+
     // The acting principal is taken from the internal claims (sub), never a client-supplied body,
     // so maker-checker (approver != requester) cannot be spoofed.
     private static Guid ActingPrincipal(HttpContext http) =>
         Guid.TryParse(http.User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
+
+    private static CustomerEntityLinkResponse ToResponse(CustomerEntityLink link) => new(
+        link.Id,
+        link.TenantId,
+        link.CustomerPrincipalId,
+        link.EntityId,
+        link.Role,
+        link.IsActive,
+        link.EffectiveFrom,
+        link.EffectiveTo,
+        link.LinkedByPrincipalId);
 
     private static SupplierChangeRequestResponse ToResponse(SupplierChangeRequest request) => new(
         request.Id,
@@ -400,3 +470,18 @@ public sealed record SupplierChangeRequestResponse(
     Guid? DecidedByPrincipalId,
     string? DecisionReason,
     DateTimeOffset? DecidedAt);
+
+public sealed record LinkCustomerBody(
+    [property: Required] Guid CustomerPrincipalId,
+    [property: Required] CustomerEntityRole Role);
+
+public sealed record CustomerEntityLinkResponse(
+    Guid Id,
+    Guid TenantId,
+    Guid CustomerPrincipalId,
+    Guid EntityId,
+    CustomerEntityRole Role,
+    bool IsActive,
+    DateTimeOffset EffectiveFrom,
+    DateTimeOffset? EffectiveTo,
+    Guid LinkedByPrincipalId);
