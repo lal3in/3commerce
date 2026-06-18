@@ -233,9 +233,11 @@ run_live() {
 
   stage "L15-L19  Money flow: cart → checkout saga → ledger → refund"
   pay_scalar() { docker exec 3commerce-postgres psql -U payments_svc -d payments_db -tAc "$1" 2>/dev/null | tr -d '[:space:]'; }
-  local trialbal='SELECT COALESCE(sum("DebitMinor"),0)-COALESCE(sum("CreditMinor"),0) FROM "JournalLines"'
+  # Tables live in each service's named schema (ADR-0022), and the service role's search_path
+  # ("$user",public) does not include it — so every direct psql query must schema-qualify.
+  local trialbal='SELECT COALESCE(sum("DebitMinor"),0)-COALESCE(sum("CreditMinor"),0) FROM payments."JournalLines"'
   # Pick a product known to the Ordering projection (populated from the import via events).
-  local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM "ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
+  local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM ordering."ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
   local cartjar=/tmp/3c-e2e-cart.txt; rm -f "$cartjar"
   if [[ -n "$prod" ]]; then
     local addcode; addcode="$(curl -s -o /dev/null -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2}")"
@@ -265,7 +267,7 @@ run_live() {
     curl -s -o /dev/null -b "$admin" -X POST $GATEWAY/api/payments/admin/refunds -H 'content-type: application/json' -H "Idempotency-Key: e2e-refund-$oid" -d "{\"orderId\":\"$oid\",\"amountMinor\":$gross,\"reason\":\"e2e\"}"
     sleep 4
     local refTb; refTb="$(pay_scalar "$trialbal")"
-    local refunded; refunded="$(pay_scalar "SELECT count(*) FROM \"Refunds\" WHERE \"OrderId\"='$oid'")"
+    local refunded; refunded="$(pay_scalar "SELECT count(*) FROM payments.\"Refunds\" WHERE \"OrderId\"='$oid'")"
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
   else
     fail "L15-L19 no product in Ordering projection (import may not have propagated)"

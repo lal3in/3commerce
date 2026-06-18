@@ -13,6 +13,8 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema("fulfillment");
+
         modelBuilder.Entity<Shipment>(s =>
         {
             s.HasIndex(x => new { x.OrderId, x.FulfillmentSource }).IsUnique();

@@ -16,7 +16,7 @@ public sealed class PaymentsDbContextDesignFactory : IDesignTimeDbContextFactory
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev";
-        var options = new DbContextOptionsBuilder<PaymentsDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<PaymentsDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new PaymentsDbContext(options);
     }
 }

@@ -1,6 +1,8 @@
 -- Creates one database + dedicated role per service (ADR-0008: hard isolation).
 -- Runs once on first container start via /docker-entrypoint-initdb.d/.
 -- Local-dev credentials only — never reuse in deployed environments.
+-- The per-service named schema (<service>.*, ADR-0022) is NOT created here — EF migrations
+-- create it (EnsureSchema) owned by the service role; this file only sets up DBs/roles/extensions.
 
 \set ON_ERROR_STOP on
 

@@ -18,6 +18,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("catalog")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -67,7 +68,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "catalog");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -158,7 +159,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "catalog");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -188,7 +189,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Category", b =>
@@ -213,7 +214,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Categories");
+                    b.ToTable("Categories", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ImportRun", b =>
@@ -247,7 +248,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ImportRuns");
+                    b.ToTable("ImportRuns", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.PingRecord", b =>
@@ -261,7 +262,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Pings");
+                    b.ToTable("Pings", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Product", b =>
@@ -313,7 +314,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
@@ -347,7 +348,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("Sku")
                         .IsUnique();
 
-                    b.ToTable("Variants");
+                    b.ToTable("Variants", "catalog");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

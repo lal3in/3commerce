@@ -17,6 +17,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("fulfillment")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -66,7 +67,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -157,7 +158,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -187,7 +188,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "fulfillment");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.Shipment", b =>
@@ -223,7 +224,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
                     b.HasIndex("OrderId", "FulfillmentSource")
                         .IsUnique();
 
-                    b.ToTable("Shipments");
+                    b.ToTable("Shipments", "fulfillment");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.ShipmentLine", b =>
@@ -249,7 +250,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
 
                     b.HasIndex("ShipmentId");
 
-                    b.ToTable("ShipmentLines");
+                    b.ToTable("ShipmentLines", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

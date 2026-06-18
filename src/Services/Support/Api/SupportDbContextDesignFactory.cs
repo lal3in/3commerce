@@ -16,7 +16,7 @@ public sealed class SupportDbContextDesignFactory : IDesignTimeDbContextFactory<
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=support_db;Username=support_svc;Password=support_dev";
-        var options = new DbContextOptionsBuilder<SupportDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<SupportDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new SupportDbContext(options);
     }
 }

@@ -1,4 +1,5 @@
 using MassTransit;
+using MassTransit.EntityFrameworkCoreIntegration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,11 @@ public static class MassTransitExtensions
             bus.AddEntityFrameworkOutbox<TDbContext>(outbox =>
             {
                 outbox.UsePostgres();
+                // Resolve the outbox/inbox table schema from the DbContext model on every call,
+                // not a static cache keyed by the shared OutboxState type. With named schemas
+                // (HasDefaultSchema), the default cache leaks one service's schema to others when
+                // multiple services share a process (integration tests / in-process hosts).
+                outbox.LockStatementProvider = new PostgresLockStatementProvider(enableSchemaCaching: false);
                 outbox.UseBusOutbox();
             });
 

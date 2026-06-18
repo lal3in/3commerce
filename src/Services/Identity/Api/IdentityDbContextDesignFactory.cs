@@ -16,7 +16,7 @@ public sealed class IdentityDbContextDesignFactory : IDesignTimeDbContextFactory
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev";
-        var options = new DbContextOptionsBuilder<IdentityDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<IdentityDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new IdentityDbContext(options);
     }
 }

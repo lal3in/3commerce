@@ -17,6 +17,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("identity")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -67,7 +68,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "identity");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -158,7 +159,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "identity");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -188,7 +189,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "identity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.Address", b =>
@@ -227,7 +228,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", "identity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.EmailToken", b =>
@@ -257,7 +258,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("EmailTokens");
+                    b.ToTable("EmailTokens", "identity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.Session", b =>
@@ -289,7 +290,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Sessions");
+                    b.ToTable("Sessions", "identity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.User", b =>
@@ -327,7 +328,7 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", "identity");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

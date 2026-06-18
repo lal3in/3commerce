@@ -16,7 +16,7 @@ public sealed class FulfillmentDbContextDesignFactory : IDesignTimeDbContextFact
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev";
-        var options = new DbContextOptionsBuilder<FulfillmentDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<FulfillmentDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new FulfillmentDbContext(options);
     }
 }

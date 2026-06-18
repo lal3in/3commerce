@@ -5,21 +5,22 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using ThreeCommerce.Payments.Infrastructure;
+using ThreeCommerce.Fulfillment.Infrastructure;
 
 #nullable disable
 
-namespace ThreeCommerce.Payments.Infrastructure.Migrations
+namespace ThreeCommerce.Fulfillment.Infrastructure.Migrations
 {
-    [DbContext(typeof(PaymentsDbContext))]
-    [Migration("20260613135722_PaymentsIdempotency")]
-    partial class PaymentsIdempotency
+    [DbContext(typeof(FulfillmentDbContext))]
+    [Migration("20260617210202_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("fulfillment")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -69,7 +70,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState");
+                    b.ToTable("InboxState", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -160,7 +161,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage");
+                    b.ToTable("OutboxMessage", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -190,191 +191,69 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState");
+                    b.ToTable("OutboxState", "fulfillment");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.IdempotencyRecord", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RequestHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResponseJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("IdempotencyRecords");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalEntry", b =>
+            modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.Shipment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
+                    b.Property<string>("Carrier")
                         .HasColumnType("text");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Reference")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Reference");
-
-                    b.ToTable("JournalEntries");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalLine", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AccountCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("CreditMinor")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("DebitMinor")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("EntryId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountCode");
-
-                    b.HasIndex("EntryId");
-
-                    b.ToTable("JournalLines", t =>
-                        {
-                            t.HasCheckConstraint("ck_line_nonneg", "\"DebitMinor\" >= 0 AND \"CreditMinor\" >= 0");
-
-                            t.HasCheckConstraint("ck_line_one_side", "(\"DebitMinor\" = 0) <> (\"CreditMinor\" = 0)");
-                        });
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.LedgerAccount", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Code");
-
-                    b.ToTable("LedgerAccounts");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Payment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("AmountMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Currency")
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FulfillmentSource")
                         .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("PaymentIntentId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("RefundedMinor")
-                        .HasColumnType("bigint");
-
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<long>("TaxMinor")
-                        .HasColumnType("bigint");
+                    b.Property<string>("TrackingNumber")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId")
+                    b.HasIndex("OrderId", "FulfillmentSource")
                         .IsUnique();
 
-                    b.HasIndex("PaymentIntentId");
-
-                    b.ToTable("Payments");
+                    b.ToTable("Shipments", "fulfillment");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Refund", b =>
+            modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.ShipmentLine", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<long>("AmountMinor")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("OrderId")
+                    b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("PaymentIntentId")
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId");
+                    b.HasIndex("ShipmentId");
 
-                    b.ToTable("Refunds");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.WebhookInboxEntry", b =>
-                {
-                    b.Property<string>("EventId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("ReceivedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("EventId");
-
-                    b.ToTable("WebhookInbox");
+                    b.ToTable("ShipmentLines", "fulfillment");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -389,16 +268,16 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                         .HasPrincipalKey("MessageId", "ConsumerId");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalLine", b =>
+            modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.ShipmentLine", b =>
                 {
-                    b.HasOne("ThreeCommerce.Payments.Domain.Ledger.JournalEntry", null)
+                    b.HasOne("ThreeCommerce.Fulfillment.Domain.Shipment", null)
                         .WithMany("Lines")
-                        .HasForeignKey("EntryId")
+                        .HasForeignKey("ShipmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalEntry", b =>
+            modelBuilder.Entity("ThreeCommerce.Fulfillment.Domain.Shipment", b =>
                 {
                     b.Navigation("Lines");
                 });

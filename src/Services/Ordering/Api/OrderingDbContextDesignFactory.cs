@@ -16,7 +16,7 @@ public sealed class OrderingDbContextDesignFactory : IDesignTimeDbContextFactory
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev";
-        var options = new DbContextOptionsBuilder<OrderingDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<OrderingDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new OrderingDbContext(options);
     }
 }

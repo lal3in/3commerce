@@ -16,7 +16,7 @@ public sealed class CatalogDbContextDesignFactory : IDesignTimeDbContextFactory<
     {
         var connectionString = Environment.GetEnvironmentVariable("MIGRATIONS_CONNECTION")
             ?? "Host=localhost;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev";
-        var options = new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<CatalogDbContext>().UseNpgsql(connectionString, o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")).Options;
         return new CatalogDbContext(options);
     }
 }
