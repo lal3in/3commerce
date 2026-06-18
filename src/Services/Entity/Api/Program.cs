@@ -22,6 +22,7 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DuplicateDetectionService>();
 builder.Services.AddScoped<SupplierOnboardingService>();
+builder.Services.AddScoped<SupplierChangeRequestService>();
 
 var app = builder.Build();
 

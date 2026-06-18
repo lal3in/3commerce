@@ -14,6 +14,7 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
     public DbSet<EntityRelationship> EntityRelationships => Set<EntityRelationship>();
     public DbSet<DuplicateWarning> DuplicateWarnings => Set<DuplicateWarning>();
     public DbSet<SupplierOnboarding> SupplierOnboardings => Set<SupplierOnboarding>();
+    public DbSet<SupplierChangeRequest> SupplierChangeRequests => Set<SupplierChangeRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +103,17 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
             supplier.Property(s => s.SuspensionReason).HasMaxLength(500);
             supplier.HasIndex(s => new { s.TenantId, s.EntityId }).IsUnique();
             supplier.HasIndex(s => new { s.TenantId, s.State });
+        });
+
+        modelBuilder.Entity<SupplierChangeRequest>(request =>
+        {
+            request.ToTable("SupplierChangeRequests");
+            request.HasKey(r => r.Id);
+            request.Property(r => r.Summary).HasMaxLength(300);
+            request.Property(r => r.Detail).HasMaxLength(2000);
+            request.Property(r => r.DecisionReason).HasMaxLength(500);
+            request.HasIndex(r => new { r.TenantId, r.Status });
+            request.HasIndex(r => new { r.TenantId, r.EntityId });
         });
 
         modelBuilder.AddInboxStateEntity();

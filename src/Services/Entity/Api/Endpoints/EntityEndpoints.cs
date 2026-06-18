@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,14 @@ public static class EntityEndpoints
             .WithSummary("Scan an entity record for duplicate warnings.");
         group.MapPost("/duplicate-warnings/{warningId:guid}/override", OverrideDuplicateWarning)
             .WithSummary("Override a duplicate warning with a reason.");
+        group.MapPost("/{id:guid}/suppliers/change-requests", OpenSupplierChangeRequest)
+            .WithSummary("Raise a supplier change request (user/contact/bank).");
+        group.MapGet("/suppliers/change-requests", ListSupplierChangeRequests)
+            .WithSummary("List supplier change requests for the tenant.");
+        group.MapPost("/suppliers/change-requests/{requestId:guid}/approve", ApproveSupplierChangeRequest)
+            .WithSummary("Approve a pending supplier change request (maker-checker).");
+        group.MapPost("/suppliers/change-requests/{requestId:guid}/reject", RejectSupplierChangeRequest)
+            .WithSummary("Reject a pending supplier change request (maker-checker).");
         group.MapDelete("/{id:guid}", Archive)
             .WithSummary("Archive an entity record.");
 
@@ -234,6 +243,92 @@ public static class EntityEndpoints
         warning.MatchedValue,
         warning.Status,
         warning.CreatedAt);
+
+    private static async Task<Results<Created<SupplierChangeRequestResponse>, ValidationProblem>> OpenSupplierChangeRequest(
+        Guid id,
+        Guid tenantId,
+        OpenSupplierChangeRequestBody request,
+        HttpContext http,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var created = await service.OpenAsync(tenantId, id, request.Type, request.Summary, request.Detail, ActingPrincipal(http), cancellationToken);
+            return TypedResults.Created($"/entities/suppliers/change-requests/{created.Id}", ToResponse(created));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["changeRequest"] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Ok<List<SupplierChangeRequestResponse>>> ListSupplierChangeRequests(
+        Guid tenantId,
+        SupplierChangeRequestStatus? status,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        var requests = await service.ListAsync(tenantId, status, cancellationToken);
+        return TypedResults.Ok(requests.Select(ToResponse).ToList());
+    }
+
+    private static async Task<Results<Ok<SupplierChangeRequestResponse>, NotFound, ValidationProblem>> ApproveSupplierChangeRequest(
+        Guid requestId,
+        Guid tenantId,
+        SupplierChangeDecisionBody request,
+        HttpContext http,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["changeRequest"] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<SupplierChangeRequestResponse>, NotFound, ValidationProblem>> RejectSupplierChangeRequest(
+        Guid requestId,
+        Guid tenantId,
+        RejectSupplierChangeRequestBody request,
+        HttpContext http,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["changeRequest"] = [ex.Message] });
+        }
+    }
+
+    // The acting principal is taken from the internal claims (sub), never a client-supplied body,
+    // so maker-checker (approver != requester) cannot be spoofed.
+    private static Guid ActingPrincipal(HttpContext http) =>
+        Guid.TryParse(http.User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
+
+    private static SupplierChangeRequestResponse ToResponse(SupplierChangeRequest request) => new(
+        request.Id,
+        request.TenantId,
+        request.EntityId,
+        request.Type,
+        request.Summary,
+        request.Detail,
+        request.Status,
+        request.RequestedByPrincipalId,
+        request.CreatedAt,
+        request.DecidedByPrincipalId,
+        request.DecisionReason,
+        request.DecidedAt);
 }
 
 public sealed record CreateEntityRequest(
@@ -280,3 +375,28 @@ public sealed record DuplicateWarningResponse(
     string MatchedValue,
     DuplicateWarningStatus Status,
     DateTimeOffset CreatedAt);
+
+public sealed record OpenSupplierChangeRequestBody(
+    [property: Required] SupplierChangeRequestType Type,
+    [property: Required, StringLength(300, MinimumLength = 3)] string Summary,
+    [property: StringLength(2000)] string? Detail);
+
+public sealed record SupplierChangeDecisionBody(
+    [property: StringLength(500)] string? Reason);
+
+public sealed record RejectSupplierChangeRequestBody(
+    [property: Required, StringLength(500, MinimumLength = 8)] string Reason);
+
+public sealed record SupplierChangeRequestResponse(
+    Guid Id,
+    Guid TenantId,
+    Guid EntityId,
+    SupplierChangeRequestType Type,
+    string Summary,
+    string? Detail,
+    SupplierChangeRequestStatus Status,
+    Guid RequestedByPrincipalId,
+    DateTimeOffset CreatedAt,
+    Guid? DecidedByPrincipalId,
+    string? DecisionReason,
+    DateTimeOffset? DecidedAt);
