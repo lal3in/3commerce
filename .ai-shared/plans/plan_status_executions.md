@@ -129,7 +129,7 @@ Plan Path: `.ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 |---------|-----------|-------|--------|-----------|----------|
 | mt1_1 | Architecture ADRs and scope baseline | Phase 1 foundation | done | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | ADRs 0023 (strict multi-tenancy), 0024 (RLS via SET LOCAL), 0025 (PDP/PEP + dynamic RBAC), 0026 (service accounts + CLI) + adr_index updated |
-| mt1_2 | Identity tenant/principal/service-account/domain authorization foundation | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Includes MasterGlobal/TenantOwner invariants |
+| mt1_2 | Identity tenant/principal/service-account/domain authorization foundation | Phase 1 foundation | in_progress | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Decomposed: 2a domain model + registry + invariants + tests (in progress); 2b DbContext + EF migration; 2c link User↔Principal, per-tenant email, auth rewrite, default-role seeding |
 | mt1_3 | PDP/PEP policy engine and field-level metadata | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Central PDP, service-side PEP helpers |
 | mt1_4 | Tenant context propagation and PostgreSQL RLS helpers | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | SET LOCAL transaction-scoped tenant context |
 | mt1_5 | Gateway domain resolution and contextual rate limits | Phase 1 foundation | pending | .ai-shared/plans/multi-tenant-platform-expansion-phase-1-foundation.md | Trusted tenant/storefront context only from Gateway |
