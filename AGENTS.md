@@ -52,7 +52,7 @@ When PRD is needed:
 | .NET 10 (LTS) / C# | All backend services, gateway, admin |
 | ASP.NET Core minimal APIs | One small HTTP surface per service |
 | EF Core 10 + Npgsql | Persistence + migrations, one DbContext per service |
-| PostgreSQL 17 | One container, **one database per service**; FTS + pg_trgm + JSONB for catalog search |
+| PostgreSQL 17 | One container, **one database + login per service** (ADR-0008), each service's tables in a **named schema** within its DB (`<service>.*`, ADR-0022); FTS + pg_trgm + JSONB for catalog search |
 | MassTransit v8 + RabbitMQ | Async events, saga state machines (checkout, refund), EF transactional outbox |
 | YARP | Gateway: single public origin, session validation, internal claims, rate limiting |
 | Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX) |
@@ -139,7 +139,9 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 
 Event-driven microservices cut along business-capability seams. State changes propagate as MassTransit events over RabbitMQ; synchronous REST between services is allowed only for read-time queries, never inside a saga step. Checkout (Ordering) and refund (Support → Payments) are MassTransit saga state machines with timeouts and compensation. Every "write DB + publish event" goes through the EF Core transactional outbox; every consumer is idempotent (dedup by message ID; Stripe webhooks by event ID).
 
-Data: hard isolation — no cross-database joins, no shared domain types. When a service needs another's data for display (e.g. product names on orders), it keeps a local copy updated via events. The Payments ledger is append-only double-entry and is the source of truth for all money facts; Stripe is a rail, Xero is a downstream report.
+Data: hard isolation — no cross-database joins, no shared domain types. When a service needs another's data for display (e.g. product names on orders), it keeps a local copy updated via events. Each service's tables (domain + the MassTransit outbox/inbox/saga-state) live in a **named schema** within its own database (`<service>.*`, not `public`; ADR-0022). The Payments ledger is append-only double-entry and is the source of truth for all money facts; Stripe is a rail, Xero is a downstream report.
+
+> **Adding a DB-owning service — named-schema rules (ADR-0022):** `modelBuilder.HasDefaultSchema("<svc>")`; pin `MigrationsHistoryTable("__EFMigrationsHistory", "public")` on `UseNpgsql`; set `PostgresLockStatementProvider(enableSchemaCaching: false)` on the EF outbox **and** every saga `EntityFrameworkRepository` (the schema cache leaks across services in the in-process tests otherwise); **schema-qualify all raw SQL** (EF qualifies automatically; raw SQL does not); generate migrations with the schema baked in (`EnsureSchema`), never a `SET SCHEMA` move.
 
 Auth: opaque session token in a Secure/HttpOnly cookie, validated at the gateway against Identity (cached ≤ 60 s), converted to a short-lived signed internal-claims JWT that services verify by signature only. Public traffic reaches services exclusively through the gateway.
 
