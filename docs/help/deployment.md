@@ -39,6 +39,9 @@ How it fits together:
 - **Migrations** run via `deploy/migrator` — a one-shot image that builds a framework-dependent
   **EF migration bundle** per DB-owning service and applies them before the services start.
   Design-time `DbContext` factories let the bundles build the context without the app host.
+- **Schema:** each service's tables (domain + MassTransit outbox/inbox/saga) live in a **named
+  schema** within its own database (`<service>.*`, not `public`; ADR-0022). The migration creates
+  the schema (`EnsureSchema`); `__EFMigrationsHistory` stays in `public`.
 
 ## Containerized launch (Kubernetes / Helm)
 
