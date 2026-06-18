@@ -126,7 +126,9 @@ services:
     depends_on:
       gateway: { condition: service_healthy }
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1"]
+      # 127.0.0.1 (not localhost): BusyBox wget resolves localhost to IPv6 [::1], but the
+      # Next server binds IPv4 0.0.0.0 (Dockerfile HOSTNAME) — [::1] would be refused.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 12
