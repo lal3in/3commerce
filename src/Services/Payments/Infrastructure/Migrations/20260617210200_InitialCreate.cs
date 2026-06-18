@@ -323,7 +323,7 @@ public partial class InitialCreate : Migration
         // NFR-1: every journal entry balances (deferred constraint trigger). Table refs are
         // schema-qualified; the trigger functions live in public and resolve the tables explicitly.
         migrationBuilder.Sql("""
-            CREATE OR REPLACE FUNCTION ledger_entry_balances() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION payments.ledger_entry_balances() RETURNS trigger AS $$
             DECLARE d bigint; c bigint;
             BEGIN
                 SELECT COALESCE(sum("DebitMinor"),0), COALESCE(sum("CreditMinor"),0)
@@ -339,11 +339,11 @@ public partial class InitialCreate : Migration
             CREATE CONSTRAINT TRIGGER trg_ledger_balance
             AFTER INSERT ON payments."JournalLines"
             DEFERRABLE INITIALLY DEFERRED
-            FOR EACH ROW EXECUTE FUNCTION ledger_entry_balances();
+            FOR EACH ROW EXECUTE FUNCTION payments.ledger_entry_balances();
             """);
         // Append-only ledger: journal rows can never be updated or deleted.
         migrationBuilder.Sql("""
-            CREATE OR REPLACE FUNCTION ledger_append_only() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION payments.ledger_append_only() RETURNS trigger AS $$
             BEGIN
                 RAISE EXCEPTION 'Ledger is append-only: % on % is not allowed', TG_OP, TG_TABLE_NAME;
             END;
@@ -351,11 +351,11 @@ public partial class InitialCreate : Migration
             """);
         migrationBuilder.Sql("""
             CREATE TRIGGER trg_entries_append_only BEFORE UPDATE OR DELETE ON payments."JournalEntries"
-            FOR EACH ROW EXECUTE FUNCTION ledger_append_only();
+            FOR EACH ROW EXECUTE FUNCTION payments.ledger_append_only();
             """);
         migrationBuilder.Sql("""
             CREATE TRIGGER trg_lines_append_only BEFORE UPDATE OR DELETE ON payments."JournalLines"
-            FOR EACH ROW EXECUTE FUNCTION ledger_append_only();
+            FOR EACH ROW EXECUTE FUNCTION payments.ledger_append_only();
             """);
     }
 
