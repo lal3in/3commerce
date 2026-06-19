@@ -10,4 +10,12 @@ public record ProductUpserted(
     string Title,
     long MinPriceMinor,
     string Currency,
-    string? ImageUrl);
+    string? ImageUrl,
+    IReadOnlyList<ProductVariantUpserted> Variants);
+
+public record ProductVariantUpserted(
+    Guid VariantId,
+    string Sku,
+    long PriceMinor,
+    string Currency,
+    int StockQuantity);

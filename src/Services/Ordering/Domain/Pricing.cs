@@ -16,6 +16,7 @@ public enum PromotionKind
     AutomaticStorefront = 5,
     BundleDiscount = 6,
     FreeShipping = 7,
+    QuantityTier = 8,
 }
 
 public sealed record PricingInput(
@@ -24,7 +25,8 @@ public sealed record PricingInput(
     string Currency,
     IReadOnlyList<PricingLineInput> Lines,
     long ShippingMinor,
-    string? CouponCode = null);
+    string? CouponCode = null,
+    string? ShipCountry = null);
 
 public sealed record PricingLineInput(
     Guid ProductId,
@@ -46,6 +48,7 @@ public sealed record Promotion(
     Guid? ProductId = null,
     Guid? CategoryId = null,
     Guid? BundleProductId = null,
+    int MinimumQuantity = 0,
     bool Active = true)
 {
     public void Validate(string currency)
@@ -55,9 +58,14 @@ public sealed record Promotion(
             throw new PricingRuleException("Promotion tenant is required.");
         }
 
-        if (AmountMinor < 0 || PercentOff is < 0 or > 100)
+        if (AmountMinor < 0 || PercentOff is < 0 or > 100 || MinimumQuantity < 0)
         {
             throw new PricingRuleException("Promotion discount values are invalid.");
+        }
+
+        if (Kind == PromotionKind.QuantityTier && (MinimumQuantity < 2 || ProductId is null && CategoryId is null))
+        {
+            throw new PricingRuleException("Quantity-tier promotions require a minimum quantity and product or category scope.");
         }
 
         if (currency.Length != 3)
@@ -77,8 +85,63 @@ public sealed record PricingResult(
     Guid? AppliedPromotionId,
     bool FreeShippingApplied);
 
-public sealed class PricingEngine
+public interface ITaxStrategy
 {
+    public long TaxFor(TaxCalculationInput input);
+}
+
+public sealed record TaxCalculationInput(
+    string Currency,
+    string? ShipCountry,
+    IReadOnlyList<PricingLineInput> Lines,
+    long DiscountMinor);
+
+public sealed class ZeroTaxStrategy : ITaxStrategy
+{
+    public static ZeroTaxStrategy Instance { get; } = new();
+
+    private ZeroTaxStrategy()
+    {
+    }
+
+    public long TaxFor(TaxCalculationInput input) => 0;
+}
+
+public sealed class HomeRegimeTaxStrategy(string? homeCountry, int rateBasisPoints, bool pricesIncludeTax = false) : ITaxStrategy
+{
+    public long TaxFor(TaxCalculationInput input)
+    {
+        if (string.IsNullOrWhiteSpace(homeCountry) || rateBasisPoints <= 0)
+        {
+            return 0;
+        }
+
+        if (!string.Equals(input.ShipCountry, homeCountry, StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        var taxableSubtotal = input.Lines
+            .Where(l => l.TaxMode != TaxMode.Exempt)
+            .Sum(l => checked(l.SellingPriceMinor * l.Quantity));
+        var totalSubtotal = input.Lines.Sum(l => checked(l.SellingPriceMinor * l.Quantity));
+        if (taxableSubtotal == 0 || totalSubtotal == 0)
+        {
+            return 0;
+        }
+
+        var taxableDiscount = input.DiscountMinor * taxableSubtotal / totalSubtotal;
+        var taxableBase = Math.Max(0, taxableSubtotal - taxableDiscount);
+        return pricesIncludeTax
+            ? (long)Math.Round(taxableBase * rateBasisPoints / (10000m + rateBasisPoints), MidpointRounding.ToEven)
+            : (long)Math.Round(taxableBase * rateBasisPoints / 10000m, MidpointRounding.ToEven);
+    }
+}
+
+public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
+{
+    private readonly ITaxStrategy _taxStrategy = taxStrategy ?? ZeroTaxStrategy.Instance;
+
     public PricingResult Price(PricingInput input, IReadOnlyList<Promotion> promotions)
     {
         Validate(input);
@@ -98,7 +161,7 @@ public sealed class PricingEngine
 
         var discountMinor = Math.Min(best?.DiscountMinor ?? 0, subtotal);
         var shippingMinor = best?.FreeShippingApplied == true ? 0 : input.ShippingMinor;
-        var taxMinor = 0L; // mt3_15 wires real ITaxStrategy; mt3_4 records mode and keeps seam explicit.
+        var taxMinor = _taxStrategy.TaxFor(new TaxCalculationInput(input.Currency, input.ShipCountry, input.Lines, discountMinor));
         var gross = subtotal - discountMinor + shippingMinor + taxMinor;
 
         return new PricingResult(subtotal, discountMinor, shippingMinor, taxMinor, gross, input.Currency, best?.PromotionId, best?.FreeShippingApplied == true);
@@ -154,6 +217,7 @@ public sealed class PricingEngine
             PromotionKind.AutomaticProduct => input.Lines.Any(l => l.ProductId == promotion.ProductId),
             PromotionKind.AutomaticCategory => input.Lines.Any(l => l.CategoryId == promotion.CategoryId),
             PromotionKind.BundleDiscount => input.Lines.Any(l => l.ProductId == promotion.BundleProductId),
+            PromotionKind.QuantityTier => TierEligibleQuantity(promotion, input) >= promotion.MinimumQuantity,
             PromotionKind.AutomaticStorefront or PromotionKind.FreeShipping => true,
             _ => false,
         };
@@ -166,6 +230,7 @@ public sealed class PricingEngine
             PromotionKind.AutomaticProduct => input.Lines.Where(l => l.ProductId == promotion.ProductId).Sum(LineTotal),
             PromotionKind.AutomaticCategory => input.Lines.Where(l => l.CategoryId == promotion.CategoryId).Sum(LineTotal),
             PromotionKind.BundleDiscount => input.Lines.Where(l => l.ProductId == promotion.BundleProductId).Sum(LineTotal),
+            PromotionKind.QuantityTier => input.Lines.Where(l => TierLineMatches(promotion, l)).Sum(LineTotal),
             PromotionKind.FreeShipping => 0,
             _ => subtotal,
         };
@@ -174,7 +239,7 @@ public sealed class PricingEngine
         {
             PromotionKind.CouponFixed => promotion.AmountMinor,
             PromotionKind.CouponPercent => Percent(subtotal, promotion.PercentOff),
-            PromotionKind.AutomaticProduct or PromotionKind.AutomaticCategory or PromotionKind.AutomaticStorefront or PromotionKind.BundleDiscount =>
+            PromotionKind.AutomaticProduct or PromotionKind.AutomaticCategory or PromotionKind.AutomaticStorefront or PromotionKind.BundleDiscount or PromotionKind.QuantityTier =>
                 promotion.PercentOff > 0 ? Percent(eligibleSubtotal, promotion.PercentOff) : promotion.AmountMinor,
             PromotionKind.FreeShipping => 0,
             _ => 0,
@@ -182,6 +247,12 @@ public sealed class PricingEngine
 
         return new PromotionEvaluation(promotion.Id, Math.Min(discount, subtotal), promotion.Kind == PromotionKind.FreeShipping);
     }
+
+    private static int TierEligibleQuantity(Promotion promotion, PricingInput input) =>
+        input.Lines.Where(l => TierLineMatches(promotion, l)).Sum(l => l.Quantity);
+
+    private static bool TierLineMatches(Promotion promotion, PricingLineInput line) =>
+        promotion.ProductId is { } productId ? line.ProductId == productId : line.CategoryId == promotion.CategoryId;
 
     private static long LineTotal(PricingLineInput line) => checked(line.SellingPriceMinor * line.Quantity);
 

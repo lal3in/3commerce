@@ -16,6 +16,7 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
       </div>
       <div className="flex-1">
         <p className="text-sm font-medium">{item.title}</p>
+        {item.variantSku && <p className="text-xs text-neutral-500">Variant: {item.variantSku}</p>}
         <p className="text-sm text-neutral-500">
           {item.quantity} × {formatMoney(item.unitPriceMinor, item.currency)}
         </p>
@@ -23,7 +24,7 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
       <button
         type="button"
         disabled={pending}
-        onClick={() => start(() => removeFromCart(item.productId))}
+        onClick={() => start(() => removeFromCart(item.productId, item.variantId))}
         className="text-sm text-neutral-500 hover:text-red-600 disabled:opacity-50"
       >
         Remove

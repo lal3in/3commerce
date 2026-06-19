@@ -207,6 +207,29 @@
             "description": "Not Found"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
       }
     },
     "/me/addresses": {
@@ -323,6 +346,8 @@
     "schemas": {
       "AddressRequest": {
         "required": [
+          "purpose",
+          "isDefault",
           "name",
           "line1",
           "line2",
@@ -332,6 +357,12 @@
         ],
         "type": "object",
         "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/AddressPurpose"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
           "name": {
             "maxLength": 100,
             "type": "string"
@@ -365,6 +396,8 @@
       "AddressResponse": {
         "required": [
           "id",
+          "purpose",
+          "isDefault",
           "name",
           "line1",
           "line2",
@@ -377,6 +410,12 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/AddressPurpose"
+          },
+          "isDefault": {
+            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -400,6 +439,14 @@
             "type": "string"
           }
         }
+      },
+      "AddressPurpose": {
+        "enum": [
+          "Billing",
+          "Shipping",
+          "Both"
+        ],
+        "type": "string"
       },
       "EmailRequest": {
         "required": [
@@ -438,10 +485,31 @@
           }
         }
       },
+      "ProfileRequest": {
+        "type": "object",
+        "properties": {
+          "givenName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "familyName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ProfileResponse": {
         "required": [
           "id",
           "email",
+          "givenName",
+          "familyName",
           "emailVerified",
           "createdAt"
         ],
@@ -453,6 +521,18 @@
           },
           "email": {
             "type": "string"
+          },
+          "givenName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "familyName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "emailVerified": {
             "type": "boolean"

@@ -23,6 +23,7 @@ public class IdentityUsersRlsTests : IAsyncLifetime
     private static readonly Guid TenantA = Guid.NewGuid();
     private static readonly Guid TenantB = Guid.NewGuid();
     private static readonly Guid UserAId = Guid.NewGuid();
+    private static readonly Guid AddressAId = Guid.NewGuid();
     private string _appConnectionString = null!;
 
     public async Task InitializeAsync()
@@ -58,6 +59,13 @@ public class IdentityUsersRlsTests : IAsyncLifetime
                        OR current_setting('app.is_platform_admin', true) = 'true')
                 WITH CHECK ("TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid
                        OR current_setting('app.is_platform_admin', true) = 'true');
+            ALTER TABLE identity."Addresses" ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE identity."Addresses" FORCE ROW LEVEL SECURITY;
+            CREATE POLICY addresses_tenant_isolation ON identity."Addresses"
+                USING ("TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid
+                       OR current_setting('app.is_platform_admin', true) = 'true')
+                WITH CHECK ("TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid
+                       OR current_setting('app.is_platform_admin', true) = 'true');
             """);
 
         // Tenants/Principals are not RLS'd — seed the FK targets directly.
@@ -80,6 +88,17 @@ public class IdentityUsersRlsTests : IAsyncLifetime
                 Email = $"a-{UserAId:N}@example.test",
                 PasswordHash = "x",
                 CreatedAt = now,
+            });
+            db.Addresses.Add(new Address
+            {
+                Id = AddressAId,
+                UserId = UserAId,
+                TenantId = TenantA,
+                Name = "A",
+                Line1 = "1 St",
+                City = "Berlin",
+                Postcode = "10115",
+                Country = "DE",
             });
             await db.SaveChangesAsync();
         });
@@ -122,5 +141,22 @@ public class IdentityUsersRlsTests : IAsyncLifetime
     {
         await using var db = NewContext();
         Assert.Empty(await db.Users.AsNoTracking().Where(u => u.Id == UserAId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Address_owning_tenant_scope_sees_it_other_does_not()
+    {
+        await using var db = NewContext();
+        Assert.True(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA),
+            () => db.Addresses.AsNoTracking().AnyAsync(a => a.Id == AddressAId)));
+        Assert.False(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantB),
+            () => db.Addresses.AsNoTracking().AnyAsync(a => a.Id == AddressAId)));
+    }
+
+    [Fact]
+    public async Task Address_no_scope_fails_closed()
+    {
+        await using var db = NewContext();
+        Assert.Empty(await db.Addresses.AsNoTracking().Where(a => a.Id == AddressAId).ToListAsync());
     }
 }

@@ -22,6 +22,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<SupplierPayablePolicy> SupplierPayablePolicies => Set<SupplierPayablePolicy>();
     public DbSet<SupplierPayable> SupplierPayables => Set<SupplierPayable>();
     public DbSet<XeroAccountMapping> XeroAccountMappings => Set<XeroAccountMapping>();
+    public DbSet<PaymentCustomer> PaymentCustomers => Set<PaymentCustomer>();
+    public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -90,6 +92,24 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         {
             payable.Property(x => x.Currency).HasMaxLength(3);
             payable.HasIndex(x => new { x.TenantId, x.SupplierEntityId, x.OrderId });
+        });
+
+        modelBuilder.Entity<PaymentCustomer>(customer =>
+        {
+            customer.Property(x => x.Provider).HasMaxLength(40);
+            customer.Property(x => x.ProviderCustomerId).HasMaxLength(200);
+            customer.HasIndex(x => new { x.TenantId, x.UserId, x.Provider }).IsUnique();
+            customer.HasMany(x => x.PaymentMethods).WithOne().HasForeignKey(x => x.PaymentCustomerId);
+        });
+
+        modelBuilder.Entity<SavedPaymentMethod>(method =>
+        {
+            method.Property(x => x.Provider).HasMaxLength(40);
+            method.Property(x => x.ProviderPaymentMethodId).HasMaxLength(200);
+            method.Property(x => x.Brand).HasMaxLength(40);
+            method.Property(x => x.Last4).HasMaxLength(4);
+            method.HasIndex(x => new { x.TenantId, x.UserId, x.State });
+            method.HasIndex(x => new { x.PaymentCustomerId, x.ProviderPaymentMethodId }).IsUnique();
         });
 
         modelBuilder.Entity<WebhookInboxEntry>().HasKey(x => x.EventId);

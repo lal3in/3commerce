@@ -65,6 +65,7 @@ public sealed class Phase2Fixture : IAsyncLifetime
                 ["sub"] = userId.ToString(),
                 ["role"] = role,
                 ["sid"] = Guid.NewGuid().ToString(),
+                ["tenant"] = "00000000-0000-0000-0000-000000000001",
             },
         });
     }

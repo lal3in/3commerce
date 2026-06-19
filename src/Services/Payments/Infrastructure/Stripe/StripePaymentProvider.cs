@@ -14,6 +14,9 @@ public sealed class StripePaymentProvider : IPaymentProvider
     private readonly string _webhookSecret;
     private readonly PaymentIntentService _intents = new();
     private readonly RefundService _refunds = new();
+    private readonly CustomerService _customers = new();
+    private readonly SetupIntentService _setupIntents = new();
+    private readonly PaymentMethodService _paymentMethods = new();
 
     public StripePaymentProvider(IConfiguration configuration)
     {
@@ -22,20 +25,71 @@ public sealed class StripePaymentProvider : IPaymentProvider
         _webhookSecret = configuration["Stripe:WebhookSecret"] ?? string.Empty;
     }
 
-    public async Task<PaymentIntentResult> CreateIntentAsync(Guid orderId, long amountMinor, string currency, string idempotencyKey, CancellationToken ct)
+    public async Task<PaymentIntentResult> CreateIntentAsync(
+        Guid orderId,
+        long amountMinor,
+        string currency,
+        string idempotencyKey,
+        string? providerCustomerId,
+        string? providerPaymentMethodId,
+        bool setupFutureUsage,
+        CancellationToken ct)
     {
+        var options = new PaymentIntentCreateOptions
+        {
+            Amount = amountMinor,
+            Currency = currency.ToLowerInvariant(),
+            AutomaticPaymentMethods = providerPaymentMethodId is null ? new() { Enabled = true } : null,
+            Customer = providerCustomerId,
+            PaymentMethod = providerPaymentMethodId,
+            Confirm = providerPaymentMethodId is not null,
+            OffSession = providerPaymentMethodId is not null,
+            SetupFutureUsage = setupFutureUsage ? "off_session" : null,
+            Metadata = new() { ["order_id"] = orderId.ToString() },
+        };
+
         var intent = await _intents.CreateAsync(
-            new PaymentIntentCreateOptions
-            {
-                Amount = amountMinor,
-                Currency = currency.ToLowerInvariant(),
-                AutomaticPaymentMethods = new() { Enabled = true },
-                Metadata = new() { ["order_id"] = orderId.ToString() },
-            },
+            options,
             new RequestOptions { IdempotencyKey = idempotencyKey },
             ct);
 
         return new PaymentIntentResult(intent.Id, intent.ClientSecret);
+    }
+
+    public async Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct)
+    {
+        var customer = await _customers.CreateAsync(
+            new CustomerCreateOptions
+            {
+                Email = email,
+                Metadata = new() { ["user_id"] = userId.ToString() },
+            },
+            cancellationToken: ct);
+        return customer.Id;
+    }
+
+    public async Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct)
+    {
+        var intent = await _setupIntents.CreateAsync(
+            new SetupIntentCreateOptions
+            {
+                Customer = providerCustomerId,
+                AutomaticPaymentMethods = new() { Enabled = true },
+                Usage = "off_session",
+            },
+            cancellationToken: ct);
+        return new SetupIntentResult(intent.Id, intent.ClientSecret);
+    }
+
+    public async Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct)
+    {
+        var method = await _paymentMethods.GetAsync(providerPaymentMethodId, cancellationToken: ct);
+        return new SavedPaymentMethodDetails(
+            method.Id,
+            method.Card?.Brand ?? "card",
+            method.Card?.Last4 ?? "unknown",
+            (int)(method.Card?.ExpMonth ?? 0),
+            (int)(method.Card?.ExpYear ?? 0));
     }
 
     public async Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct)

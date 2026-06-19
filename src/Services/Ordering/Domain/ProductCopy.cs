@@ -16,4 +16,15 @@ public class ProductCopy
     public Guid? StorefrontId { get; set; }
     public required string Currency { get; set; }
     public string? ImageUrl { get; set; }
+    public List<ProductVariantCopy> Variants { get; init; } = [];
+}
+
+public class ProductVariantCopy
+{
+    public Guid VariantId { get; init; }
+    public Guid ProductId { get; init; }
+    public required string Sku { get; set; }
+    public long PriceMinor { get; set; }
+    public required string Currency { get; set; }
+    public int StockQuantity { get; set; }
 }

@@ -10,10 +10,12 @@ export function ConfirmationView({
   orderId,
   initialStatus,
   guestEmail,
+  isAuthenticated,
 }: {
   orderId: string;
   initialStatus: string;
   guestEmail: string;
+  isAuthenticated: boolean;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [paying, setPaying] = useState(false);
@@ -36,15 +38,16 @@ export function ConfirmationView({
       <div className="max-w-md mx-auto text-center py-12 space-y-4">
         <h1 className="text-2xl font-bold">Thank you!</h1>
         <p className="text-neutral-600">Your order is confirmed. A confirmation email is on its way.</p>
-        {/* FR-7: turn the guest into an account; verifying the email attaches this order. */}
-        <div className="rounded-md border border-neutral-200 p-4 text-left text-sm">
-          {convert.ok ? (
+        {/* FR-7: guests can convert after checkout; authenticated orders are attached by Ordering.UserId. */}
+        {!isAuthenticated && (
+          <div className="rounded-md border border-neutral-200 p-4 text-left text-sm">
+            {convert.ok ? (
             <p className="text-green-700">
               Account created — check your email to verify it, then your order appears in{" "}
               <Link href="/account" className="underline">your account</Link>.
             </p>
-          ) : (
-            <form action={convertAction} className="space-y-2">
+            ) : (
+              <form action={convertAction} className="space-y-2">
               <p className="font-medium">Track your order — create an account</p>
               {convert.error && <p className="text-red-600">{convert.error}</p>}
               <input
@@ -70,9 +73,15 @@ export function ConfirmationView({
               >
                 {converting ? "Creating…" : "Create account"}
               </button>
-            </form>
-          )}
-        </div>
+              </form>
+            )}
+          </div>
+        )}
+        {isAuthenticated && (
+          <p className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+            This order is attached to your account automatically.
+          </p>
+        )}
         {/* BL-5: make the order support / refund flow discoverable. */}
         <p className="text-sm text-neutral-500">
           Problem with this order?{" "}

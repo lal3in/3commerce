@@ -77,6 +77,64 @@ public class PricingTests
     }
 
     [Fact]
+    public void Pricing_applies_quantity_tier_promotion_when_threshold_is_met()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var productId = Guid.CreateVersion7();
+        var promotion = new Promotion(
+            Guid.CreateVersion7(),
+            tenantId,
+            storefrontId,
+            PromotionKind.QuantityTier,
+            PercentOff: 15,
+            ProductId: productId,
+            MinimumQuantity: 3);
+
+        var result = _engine.Price(NewInput(tenantId, storefrontId, lines: [Line(productId, price: 1000, quantity: 3)]), [promotion]);
+
+        Assert.Equal(450, result.DiscountMinor);
+        Assert.Equal(promotion.Id, result.AppliedPromotionId);
+        Assert.Equal(3049, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Pricing_ignores_quantity_tier_below_threshold()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var productId = Guid.CreateVersion7();
+        var promotion = new Promotion(
+            Guid.CreateVersion7(),
+            tenantId,
+            storefrontId,
+            PromotionKind.QuantityTier,
+            AmountMinor: 500,
+            ProductId: productId,
+            MinimumQuantity: 3);
+
+        var result = _engine.Price(NewInput(tenantId, storefrontId, lines: [Line(productId, price: 1000, quantity: 2)]), [promotion]);
+
+        Assert.Equal(0, result.DiscountMinor);
+        Assert.Null(result.AppliedPromotionId);
+    }
+
+    [Fact]
+    public void Pricing_applies_best_discount_wins_between_tier_and_coupon()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var productId = Guid.CreateVersion7();
+        var tier = new Promotion(Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.QuantityTier, PercentOff: 10, ProductId: productId, MinimumQuantity: 3);
+        var coupon = new Promotion(Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.CouponFixed, AmountMinor: 700, CouponCode: "SAVE");
+
+        var result = _engine.Price(NewInput(tenantId, storefrontId, couponCode: "SAVE", lines: [Line(productId, price: 1000, quantity: 3)]), [tier, coupon]);
+
+        Assert.Equal(700, result.DiscountMinor);
+        Assert.Equal(coupon.Id, result.AppliedPromotionId);
+    }
+
+    [Fact]
     public void Pricing_ignores_other_storefront_promotions()
     {
         var tenantId = Guid.CreateVersion7();
@@ -89,6 +147,53 @@ public class PricingTests
     }
 
     [Fact]
+    public void Tax_defaults_to_zero_without_home_regime()
+    {
+        var result = _engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "AU"), []);
+
+        Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(1499, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Tax_applies_home_regime_rate_for_domestic_shipping()
+    {
+        var engine = new PricingEngine(new HomeRegimeTaxStrategy("AU", rateBasisPoints: 1000));
+
+        var result = engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "AU"), []);
+
+        Assert.Equal(100, result.TaxMinor);
+        Assert.Equal(1599, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Tax_zero_rates_exports_outside_home_regime()
+    {
+        var engine = new PricingEngine(new HomeRegimeTaxStrategy("AU", rateBasisPoints: 1000));
+
+        var result = engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "NZ"), []);
+
+        Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(1499, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Tax_ignores_exempt_lines_and_allocates_discounts()
+    {
+        var engine = new PricingEngine(new HomeRegimeTaxStrategy("AU", rateBasisPoints: 1000));
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var promotion = new Promotion(Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.AutomaticStorefront, AmountMinor: 100);
+        var taxable = Line(price: 1000);
+        var exempt = Line(price: 1000, taxMode: TaxMode.Exempt);
+
+        var result = engine.Price(NewInput(tenantId, storefrontId, lines: [taxable, exempt], shipCountry: "AU"), [promotion]);
+
+        Assert.Equal(95, result.TaxMinor);
+        Assert.Equal(2494, result.GrossMinor);
+    }
+
+    [Fact]
     public void Pricing_rejects_negative_money()
     {
         var ex = Assert.Throws<PricingRuleException>(() => _engine.Price(NewInput(lines: [Line(price: -1)]), []));
@@ -96,20 +201,21 @@ public class PricingTests
         Assert.Contains("non-negative money", ex.Message, StringComparison.Ordinal);
     }
 
-    private static PricingInput NewInput(Guid? tenantId = null, Guid? storefrontId = null, string? couponCode = null, IReadOnlyList<PricingLineInput>? lines = null) => new(
+    private static PricingInput NewInput(Guid? tenantId = null, Guid? storefrontId = null, string? couponCode = null, IReadOnlyList<PricingLineInput>? lines = null, string? shipCountry = null) => new(
         tenantId ?? Guid.CreateVersion7(),
         storefrontId ?? Guid.CreateVersion7(),
         "AUD",
         lines ?? [Line(price: 1000)],
         499,
-        couponCode);
+        couponCode,
+        shipCountry);
 
-    private static PricingLineInput Line(Guid? productId = null, long price = 1000, int quantity = 1, Guid? categoryId = null) => new(
+    private static PricingLineInput Line(Guid? productId = null, long price = 1000, int quantity = 1, Guid? categoryId = null, TaxMode taxMode = TaxMode.Exclusive) => new(
         productId ?? Guid.CreateVersion7(),
         categoryId,
         Guid.CreateVersion7(),
         SupplierCostMinor: Math.Max(0, price / 2),
         SellingPriceMinor: price,
         Quantity: quantity,
-        TaxMode: TaxMode.Exclusive);
+        TaxMode: taxMode);
 }

@@ -39,10 +39,12 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         checkout.EnsureSuccessStatusCode();
         var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
 
-        // net = 2×10000 + 499 shipping = 20499; tax 19% = 3895; gross 24394.
-        Assert.Equal(20_499, order.NetMinor);
-        Assert.Equal(3_895, order.TaxMinor);
-        Assert.Equal(24_394, order.GrossMinor);
+        // Net is items-only (shipping is a separate field): net = 2×10000 = 20000; shipping 499.
+        // Tax defaults to 0 — no home regime configured (ADR-0015 / ITaxStrategy), exports
+        // zero-rated (ADR-0016); gross = 20000 + 499 + 0 = 20499.
+        Assert.Equal(20_000, order.NetMinor);
+        Assert.Equal(0, order.TaxMinor);
+        Assert.Equal(20_499, order.GrossMinor);
         Assert.StartsWith("pi_fake_", order.ClientSecret);
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);

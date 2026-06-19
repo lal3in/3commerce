@@ -5,6 +5,8 @@ public class User
     public Guid Id { get; init; }
     public required string Email { get; set; }
     public required string PasswordHash { get; set; }
+    public string? GivenName { get; set; }
+    public string? FamilyName { get; set; }
     public bool EmailVerified { get; set; }
 
     /// <summary>Default tenant/customer scope for the current auth surface. Future APIs select tenant explicitly.</summary>

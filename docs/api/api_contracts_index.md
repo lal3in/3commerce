@@ -25,8 +25,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/logout` | cookie | Revokes session |
 | POST | `/verify-email` | anon | Single-use token |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
-| GET/PUT | `/me` | session | Profile |
-| GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Saved addresses (ownership-scoped) |
+| GET/PUT | `/me` | session | Customer shopping profile with optional `givenName` / `familyName` |
+| GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
 
 > `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly.
 
@@ -77,9 +77,9 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET/POST/PUT/DELETE | `/cart[/items[/{productId}]]` | anon (cookie-keyed) | Cart; merges into the user cart on login |
-| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, snapshots totals/shipping/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
-| GET | `/orders` · `/orders/{id}` | session | Order history / detail |
+| GET/POST/PUT/DELETE | `/cart[/items[/{productId}[/{variantId}]]]` | anon/session (cookie-keyed) | Variant-aware cart keyed by product + variant; qty 0 removes; merges into the user cart on login |
+| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, passes ship-country to the tax seam, optionally uses/saves a saved payment method for signed-in users, snapshots subtotal/discount/shipping/tax/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
+| GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 
 ## Payments (`/api/payments`)
@@ -90,8 +90,10 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
+| GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
+| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
 
-Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals. Xero mappings are model-ready with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution. Admin HTTP surface for managing these accounts is scheduled in `mt3_9`; no public account-management endpoints are exposed yet.
+Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals. Xero mappings are model-ready with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution. Admin HTTP surface for managing these accounts is scheduled after RBAC field-level permissions are enforced.
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 

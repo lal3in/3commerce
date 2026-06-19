@@ -20,7 +20,9 @@ public static class CartEndpoints
         group.MapGet("/", GetCart);
         group.MapPost("/items", AddItem);
         group.MapPut("/items/{productId:guid}", UpdateItem);
+        group.MapPut("/items/{productId:guid}/{variantId:guid}", UpdateVariantItem);
         group.MapDelete("/items/{productId:guid}", RemoveItem);
+        group.MapDelete("/items/{productId:guid}/{variantId:guid}", RemoveVariantItem);
         return app;
     }
 
@@ -57,28 +59,35 @@ public static class CartEndpoints
     private static async Task<Results<Ok<CartResponse>, NotFound<string>>> AddItem(
         AddItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
-        var product = await db.ProductCopies.FindAsync([request.ProductId], ct);
+        var product = await db.ProductCopies.Include(p => p.Variants).SingleOrDefaultAsync(p => p.ProductId == request.ProductId, ct);
         if (product is null)
         {
             return TypedResults.NotFound("Unknown product.");
         }
 
+        var selected = SelectVariant(product, request.VariantId);
+        if (selected is null)
+        {
+            return TypedResults.NotFound("Unknown variant.");
+        }
+
         var key = EnsureCartKey(http);
         var cart = await carts.GetOrCreateAsync(UserId(http.User), key, ct);
-        var item = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId);
+        var item = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId && i.VariantId == selected.VariantId);
         if (item is null)
         {
-            // Explicit Add marks the row Added (INSERT); collection-add can mis-infer Modified.
             var newItem = new CartItem
             {
                 Id = Guid.CreateVersion7(),
                 CartId = cart.Id,
                 ProductId = product.ProductId,
+                VariantId = selected.VariantId,
+                VariantSku = selected.Sku,
                 Slug = product.Slug,
                 Title = product.Title,
                 ImageUrl = product.ImageUrl,
-                UnitPriceMinor = product.MinPriceMinor,
-                Currency = product.Currency,
+                UnitPriceMinor = selected.PriceMinor,
+                Currency = selected.Currency,
                 Quantity = request.Quantity,
             };
             cart.Items.Add(newItem);
@@ -93,11 +102,19 @@ public static class CartEndpoints
         return TypedResults.Ok(ToResponse(cart));
     }
 
-    private static async Task<Results<Ok<CartResponse>, NotFound>> UpdateItem(
-        Guid productId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
+    private static Task<Results<Ok<CartResponse>, NotFound>> UpdateItem(
+        Guid productId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
+        UpdateLine(productId, null, request, http, carts, db, ct);
+
+    private static Task<Results<Ok<CartResponse>, NotFound>> UpdateVariantItem(
+        Guid productId, Guid variantId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
+        UpdateLine(productId, variantId, request, http, carts, db, ct);
+
+    private static async Task<Results<Ok<CartResponse>, NotFound>> UpdateLine(
+        Guid productId, Guid? variantId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
         var cart = await carts.GetOrCreateAsync(UserId(http.User), EnsureCartKey(http), ct);
-        var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+        var item = FindLine(cart, productId, variantId);
         if (item is null)
         {
             return TypedResults.NotFound();
@@ -117,11 +134,19 @@ public static class CartEndpoints
         return TypedResults.Ok(ToResponse(cart));
     }
 
-    private static async Task<Ok<CartResponse>> RemoveItem(
-        Guid productId, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
+    private static Task<Ok<CartResponse>> RemoveItem(
+        Guid productId, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
+        RemoveLine(productId, null, http, carts, db, ct);
+
+    private static Task<Ok<CartResponse>> RemoveVariantItem(
+        Guid productId, Guid variantId, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
+        RemoveLine(productId, variantId, http, carts, db, ct);
+
+    private static async Task<Ok<CartResponse>> RemoveLine(
+        Guid productId, Guid? variantId, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
         var cart = await carts.GetOrCreateAsync(UserId(http.User), EnsureCartKey(http), ct);
-        var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
+        var item = FindLine(cart, productId, variantId);
         if (item is not null)
         {
             cart.Items.Remove(item);
@@ -132,10 +157,27 @@ public static class CartEndpoints
         return TypedResults.Ok(ToResponse(cart));
     }
 
+    private static ProductVariantCopy? SelectVariant(ProductCopy product, Guid? variantId) =>
+        variantId is { } id
+            ? product.Variants.FirstOrDefault(v => v.VariantId == id)
+            : product.Variants.OrderBy(v => v.PriceMinor).FirstOrDefault()
+                ?? new ProductVariantCopy
+                {
+                    VariantId = Guid.Empty,
+                    ProductId = product.ProductId,
+                    Sku = "default",
+                    PriceMinor = product.MinPriceMinor,
+                    Currency = product.Currency,
+                    StockQuantity = 0,
+                };
+
+    private static CartItem? FindLine(Cart cart, Guid productId, Guid? variantId) =>
+        cart.Items.FirstOrDefault(i => i.ProductId == productId && (variantId == null || i.VariantId == variantId));
+
     private static CartResponse ToResponse(Cart cart)
     {
         var items = cart.Items
-            .Select(i => new CartItemResponse(i.ProductId, i.Slug, i.Title, i.ImageUrl, i.UnitPriceMinor, i.Currency, i.Quantity))
+            .Select(i => new CartItemResponse(i.ProductId, i.VariantId, i.VariantSku, i.Slug, i.Title, i.ImageUrl, i.UnitPriceMinor, i.Currency, i.Quantity))
             .ToList();
         var subtotal = items.Sum(i => i.UnitPriceMinor * i.Quantity);
         var currency = items.FirstOrDefault()?.Currency ?? StoreCurrency;
@@ -143,7 +185,7 @@ public static class CartEndpoints
     }
 }
 
-public record AddItemRequest([property: Required] Guid ProductId, [property: Range(1, 99)] int Quantity);
+public record AddItemRequest([property: Required] Guid ProductId, Guid? VariantId, [property: Range(1, 99)] int Quantity);
 public record UpdateItemRequest([property: Range(0, 99)] int Quantity);
-public record CartItemResponse(Guid ProductId, string Slug, string Title, string? ImageUrl, long UnitPriceMinor, string Currency, int Quantity);
+public record CartItemResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Slug, string Title, string? ImageUrl, long UnitPriceMinor, string Currency, int Quantity);
 public record CartResponse(Guid CartId, List<CartItemResponse> Items, long SubtotalMinor, string Currency);

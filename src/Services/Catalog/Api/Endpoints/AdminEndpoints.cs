@@ -241,7 +241,8 @@ public static class AdminEndpoints
             product.Title,
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
             product.Variants.FirstOrDefault()?.Currency ?? fallbackCurrency,
-            product.ImageUrls.FirstOrDefault()), ct);
+            product.ImageUrls.FirstOrDefault(),
+            product.Variants.Select(v => new ProductVariantUpserted(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList()), ct);
 
     private static ValidationProblem? Validate(ProductWriteRequest request)
     {

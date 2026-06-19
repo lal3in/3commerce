@@ -8,6 +8,7 @@ namespace ThreeCommerce.Ordering.Infrastructure;
 public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : DbContext(options)
 {
     public DbSet<ProductCopy> ProductCopies => Set<ProductCopy>();
+    public DbSet<ProductVariantCopy> ProductVariantCopies => Set<ProductVariantCopy>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
@@ -23,14 +24,26 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
 
         modelBuilder.HasDefaultSchema("ordering");
 
-        modelBuilder.Entity<ProductCopy>().HasKey(p => p.ProductId);
-        modelBuilder.Entity<ProductCopy>().HasIndex(p => p.Slug);
+        modelBuilder.Entity<ProductCopy>(product =>
+        {
+            product.HasKey(p => p.ProductId);
+            product.HasIndex(p => p.Slug);
+            product.HasMany(p => p.Variants).WithOne().HasForeignKey(v => v.ProductId);
+        });
+
+        modelBuilder.Entity<ProductVariantCopy>(variant =>
+        {
+            variant.HasKey(v => v.VariantId);
+            variant.HasIndex(v => new { v.ProductId, v.Sku });
+            variant.Property(v => v.Currency).HasMaxLength(3);
+        });
 
         modelBuilder.Entity<Cart>(c =>
         {
             c.HasIndex(x => x.CartKey);
             c.HasIndex(x => x.UserId);
             c.HasMany(x => x.Items).WithOne().HasForeignKey(i => i.CartId);
+            c.Navigation(x => x.Items).AutoInclude();
         });
 
         modelBuilder.Entity<Order>(o =>

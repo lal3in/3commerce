@@ -192,7 +192,8 @@ public sealed class SampleDataImporter(
             product.Title,
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
             product.Variants.FirstOrDefault()?.Currency ?? _currency,
-            product.ImageUrls.FirstOrDefault()), ct);
+            product.ImageUrls.FirstOrDefault(),
+            product.Variants.Select(v => new ProductVariantUpserted(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList()), ct);
 
     private async Task<List<Category>> EnsureCategoriesAsync(CancellationToken ct)
     {

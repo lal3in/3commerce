@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getProfile, getMyOrders } from "@/lib/gateway";
+import { getAddresses, getProfile, getMyOrders, getSavedPaymentMethods } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { logout } from "@/lib/auth-actions";
 
@@ -12,7 +12,7 @@ export default async function AccountPage() {
   if (!profile) {
     redirect("/login");
   }
-  const orders = await getMyOrders();
+  const [orders, addresses, paymentMethods] = await Promise.all([getMyOrders(), getAddresses(), getSavedPaymentMethods()]);
 
   return (
     <div className="max-w-md">
@@ -23,10 +23,45 @@ export default async function AccountPage() {
           <dd>{profile.email}</dd>
         </div>
         <div className="flex justify-between border-b border-neutral-100 py-2">
+          <dt className="text-neutral-500">Name</dt>
+          <dd>{[profile.givenName, profile.familyName].filter(Boolean).join(" ") || "Not set"}</dd>
+        </div>
+        <div className="flex justify-between border-b border-neutral-100 py-2">
           <dt className="text-neutral-500">Email verified</dt>
           <dd>{profile.emailVerified ? "Yes" : "Pending"}</dd>
         </div>
       </dl>
+
+      <h2 className="mt-8 text-lg font-semibold">Address book</h2>
+      {addresses.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">No saved addresses yet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-neutral-100 text-sm">
+          {addresses.map((address) => (
+            <li key={address.id} className="py-2">
+              <div className="flex justify-between">
+                <span className="font-medium">{address.name}</span>
+                <span className="text-neutral-500">{address.purpose}{address.isDefault ? " · default" : ""}</span>
+              </div>
+              <p className="text-neutral-500">{address.line1}, {address.city} {address.postcode}, {address.country}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2 className="mt-8 text-lg font-semibold">Saved cards</h2>
+      {paymentMethods.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">No saved cards yet. You can save one during checkout.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-neutral-100 text-sm">
+          {paymentMethods.map((method) => (
+            <li key={method.id} className="flex justify-between py-2">
+              <span>{method.brand.toUpperCase()} ending {method.last4}</span>
+              <span className="text-neutral-500">{method.expMonth}/{method.expYear}{method.isDefault ? " · default" : ""}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2 className="mt-8 text-lg font-semibold">Order history</h2>
       {orders.length === 0 ? (

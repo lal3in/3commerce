@@ -18,6 +18,7 @@ public class CheckoutAttempt
     public long NetMinor { get; init; }
     public long ShippingMinor { get; init; }
     public long TaxMinor { get; init; }
+    public long DiscountMinor { get; init; }
     public long GrossMinor { get; init; }
     public required string Currency { get; init; }
     public required string PaymentIntentId { get; init; }
@@ -48,6 +49,7 @@ public class CheckoutAttempt
             NetMinor = NetMinor,
             ShippingMinor = ShippingMinor,
             TaxMinor = TaxMinor,
+            DiscountMinor = DiscountMinor,
             GrossMinor = GrossMinor,
             Currency = Currency,
             PaymentIntentId = PaymentIntentId,
@@ -62,8 +64,11 @@ public class CheckoutAttempt
                 Id = Guid.CreateVersion7(),
                 OrderId = Id,
                 ProductId = l.ProductId,
+                VariantId = l.VariantId,
+                VariantSku = l.VariantSku,
                 Title = l.Title,
                 UnitPriceMinor = l.UnitPriceMinor,
+                DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
                 FulfillmentSource = l.FulfillmentSource,
             }).ToList(),
@@ -76,8 +81,11 @@ public class CheckoutAttemptLine
     public Guid Id { get; init; }
     public Guid CheckoutAttemptId { get; init; }
     public Guid ProductId { get; init; }
+    public Guid? VariantId { get; init; }
+    public string? VariantSku { get; init; }
     public required string Title { get; init; }
     public long UnitPriceMinor { get; init; }
+    public long DiscountMinor { get; init; }
     public int Quantity { get; init; }
     public FulfillmentSource FulfillmentSource { get; init; } = FulfillmentSource.Unassigned;
 }

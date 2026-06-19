@@ -18,19 +18,25 @@
 # Automated (encoded in test suites / build):
 #   A1  Solution builds with 0 warnings (warnings-as-errors)
 #   A2  Formatting clean (dotnet format --verify-no-changes)
-#   A3  Backend unit + contract tests (Identity hasher/tokens, tenant/RBAC/Authz
+#   A3  Backend unit + contract tests (Identity hasher/tokens, customer shopping
+#       profile names + typed address defaults, tenant/RBAC/Authz
 #       policy engine + PDP resolver, contract equality, DevSecretGuard refuses the
 #       committed dev key outside Development — BL-11; Entity domain skeleton invariants;
 #       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
 #       Catalog Publication readiness/SEO/fulfillment-source invariants;
 #       Ordering Pricing engine: supplier/selling price inputs, tax-mode seam,
 #       fixed/percent/product/category/storefront/bundle/free-shipping promotions,
-#       best-discount-wins; Ordering CheckoutAttempt before Order, per-storefront
+#       best-discount-wins, quantity-tier promotions, DiscountMinor snapshots,
+#       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
+#       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
 #       Payments PaymentAccount lifecycle/readiness, tenant default/storefront override,
+#       saved card/customer vault snapshots and active-method rules,
 #       active-only checkout snapshot, provider mode snapshot, supplier bank approval,
 #       payout instruction routing, supplier payable policy, balanced payable accrual,
-#       and Xero tenant/storefront/category/supplier/product mapping precedence)
+#       and Xero tenant/storefront/category/supplier/product mapping precedence;
+#       Ordering variant-aware cart/projection: ProductCopies carry variants,
+#       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions
@@ -51,7 +57,9 @@
 #       deny path; per-line RMA derives the refund server-side from the order snapshot
 #       (BL-8); Fulfillment: shipments grouped by source, idempotent
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
-#   A7  Storefront typecheck (tsc) + production build (next build)
+#   A7  Storefront typecheck (tsc) + production build (next build), including
+#       auth-aware checkout prefill/review, checkout +/- recalculation, and
+#       authenticated confirmation hiding guest account conversion
 #   A8  No vulnerable NuGet packages
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the

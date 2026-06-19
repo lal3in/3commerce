@@ -40,6 +40,13 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
             user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId);
         });
 
+        modelBuilder.Entity<Address>(address =>
+        {
+            address.Property(a => a.Purpose).HasConversion<string>().HasMaxLength(16);
+            address.HasIndex(a => new { a.TenantId, a.UserId });
+            address.HasIndex(a => new { a.UserId, a.Purpose, a.IsDefault });
+        });
+
         modelBuilder.Entity<Session>(session =>
         {
             session.HasIndex(s => s.TokenHash).IsUnique();

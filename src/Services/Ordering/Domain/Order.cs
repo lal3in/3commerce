@@ -16,6 +16,7 @@ public class Order
     public long NetMinor { get; set; }
     public long TaxMinor { get; set; }
     public long ShippingMinor { get; set; }
+    public long DiscountMinor { get; set; }
     public long GrossMinor { get; set; }
     public required string Currency { get; set; }
     public string? PaymentIntentId { get; set; }
@@ -33,8 +34,11 @@ public class OrderLine
     public Guid Id { get; init; }
     public Guid OrderId { get; init; }
     public Guid ProductId { get; init; }
+    public Guid? VariantId { get; init; }
+    public string? VariantSku { get; set; }
     public required string Title { get; set; }
     public long UnitPriceMinor { get; init; }
+    public long DiscountMinor { get; init; }
     public int Quantity { get; init; }
     public FulfillmentSource FulfillmentSource { get; set; } = FulfillmentSource.Unassigned;
 }

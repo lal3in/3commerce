@@ -46,23 +46,27 @@ public static class CheckoutEndpoints
         var priceChanged = false;
         foreach (var item in cart.Items)
         {
-            var current = await db.ProductCopies.FindAsync([item.ProductId], ct);
-            if (current is not null && current.MinPriceMinor != item.UnitPriceMinor)
+            var current = item.VariantId is { } variantId
+                ? await db.ProductVariantCopies.FindAsync([variantId], ct)
+                : null;
+            var currentPrice = current?.PriceMinor ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
+            if (currentPrice is { } price && price != item.UnitPriceMinor)
             {
-                item.UnitPriceMinor = current.MinPriceMinor;
+                item.UnitPriceMinor = price;
                 priceChanged = true;
             }
         }
 
         var currency = cart.Items[0].Currency;
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
-        var netMinor = subtotal + FlatShippingMinor;
+        var discountMinor = 0L;
+        var netMinor = subtotal - discountMinor + FlatShippingMinor;
 
         if (priceChanged)
         {
             await db.SaveChangesAsync(ct);
             return TypedResults.Conflict(new CheckoutResponse(
-                Guid.Empty, null, netMinor, 0, netMinor, currency, "Prices changed; review your cart."));
+                Guid.Empty, null, subtotal, discountMinor, FlatShippingMinor, 0, netMinor, currency, "Prices changed; review your cart."));
         }
 
         var orderId = Guid.CreateVersion7();
@@ -72,7 +76,7 @@ public static class CheckoutEndpoints
         try
         {
             var response = await authorize.GetResponse<AuthorizePaymentResult>(
-                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey), ct);
+                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country), ct);
             intent = response.Message;
         }
         catch (RequestTimeoutException)
@@ -93,6 +97,7 @@ public static class CheckoutEndpoints
             Status = CheckoutAttemptStatus.AwaitingPayment,
             NetMinor = subtotal,
             ShippingMinor = FlatShippingMinor,
+            DiscountMinor = discountMinor,
             TaxMinor = intent.TaxMinor,
             GrossMinor = intent.GrossMinor,
             Currency = currency,
@@ -109,8 +114,11 @@ public static class CheckoutEndpoints
                 Id = Guid.CreateVersion7(),
                 CheckoutAttemptId = orderId,
                 ProductId = i.ProductId,
+                VariantId = i.VariantId,
+                VariantSku = i.VariantSku,
                 Title = i.Title,
                 UnitPriceMinor = i.UnitPriceMinor,
+                DiscountMinor = 0,
                 Quantity = i.Quantity,
                 FulfillmentSource = FulfillmentSource.Unassigned,
             }).ToList(),
@@ -123,7 +131,7 @@ public static class CheckoutEndpoints
         await db.SaveChangesAsync(ct);
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
-            orderId, intent.ClientSecret, subtotal + FlatShippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
+            orderId, intent.ClientSecret, subtotal, discountMinor, FlatShippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -137,6 +145,11 @@ public record AddressRequest(
     [property: Required] string Postcode,
     [property: Required, StringLength(2, MinimumLength = 2)] string Country);
 
-public record CheckoutRequest([property: Required, EmailAddress] string Email, [property: Required] AddressRequest ShippingAddress, string? CampaignRef = null);
+public record CheckoutRequest(
+    [property: Required, EmailAddress] string Email,
+    [property: Required] AddressRequest ShippingAddress,
+    string? CampaignRef = null,
+    Guid? SavedPaymentMethodId = null,
+    bool SavePaymentMethod = false);
 
-public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
+public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);

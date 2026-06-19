@@ -55,7 +55,7 @@ public sealed class CartService(OrderingDbContext db, TimeProvider time)
     {
         foreach (var item in from.Items)
         {
-            var existing = into.Items.FirstOrDefault(i => i.ProductId == item.ProductId);
+            var existing = into.Items.FirstOrDefault(i => i.ProductId == item.ProductId && i.VariantId == item.VariantId);
             if (existing is not null)
             {
                 existing.Quantity += item.Quantity;
@@ -67,6 +67,8 @@ public sealed class CartService(OrderingDbContext db, TimeProvider time)
                     Id = Guid.CreateVersion7(),
                     CartId = into.Id,
                     ProductId = item.ProductId,
+                    VariantId = item.VariantId,
+                    VariantSku = item.VariantSku,
                     Slug = item.Slug,
                     Title = item.Title,
                     ImageUrl = item.ImageUrl,

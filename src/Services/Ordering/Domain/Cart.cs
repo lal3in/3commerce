@@ -19,6 +19,8 @@ public class CartItem
     public Guid Id { get; init; }
     public Guid CartId { get; init; }
     public Guid ProductId { get; init; }
+    public Guid? VariantId { get; init; }
+    public string? VariantSku { get; set; }
     public required string Slug { get; set; }
     public required string Title { get; set; }
     public string? ImageUrl { get; set; }

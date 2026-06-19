@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Identity.Infrastructure;
@@ -11,9 +12,11 @@ using ThreeCommerce.Identity.Infrastructure;
 namespace ThreeCommerce.Identity.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentityDbContext))]
-    partial class IdentityDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619070920_AddressTenantScope")]
+    partial class AddressTenantScope
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -206,9 +209,6 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Line1")
                         .IsRequired()
                         .HasColumnType("text");
@@ -224,11 +224,6 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Purpose")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
@@ -237,9 +232,9 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "UserId");
+                    b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "Purpose", "IsDefault");
+                    b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("Addresses", "identity");
                 });
@@ -552,12 +547,6 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
 
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("integer");
-
-                    b.Property<string>("FamilyName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("GivenName")
-                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");

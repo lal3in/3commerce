@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -11,9 +12,11 @@ using ThreeCommerce.Ordering.Infrastructure;
 namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 {
     [DbContext(typeof(OrderingDbContext))]
-    partial class OrderingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619071247_VariantAwareCart")]
+    partial class VariantAwareCart
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -279,9 +282,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
-                    b.Property<long>("DiscountMinor")
-                        .HasColumnType("bigint");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
@@ -351,9 +351,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid>("CheckoutAttemptId")
                         .HasColumnType("uuid");
 
-                    b.Property<long>("DiscountMinor")
-                        .HasColumnType("bigint");
-
                     b.Property<int>("FulfillmentSource")
                         .HasColumnType("integer");
 
@@ -396,9 +393,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
-
-                    b.Property<long>("DiscountMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -464,9 +458,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<long>("DiscountMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<int>("FulfillmentSource")
                         .HasColumnType("integer");
