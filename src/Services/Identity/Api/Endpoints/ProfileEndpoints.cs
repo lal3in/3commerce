@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Infrastructure;
 
@@ -32,7 +33,11 @@ public static class ProfileEndpoints
         ClaimsPrincipal principal, IdentityDbContext db, CancellationToken cancellationToken)
     {
         var userId = UserId(principal);
-        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        // Users is FORCE-RLS (ADR-0024); the internal claims don't carry a tenant id, so the
+        // authenticated self-read runs under platform scope (the sub is verified), like
+        // introspection. (Carrying the tenant in the internal claims would let this be tenant-scoped.)
+        var user = await db.RunInTenantScopeAsync(TenantContext.Platform(),
+            () => db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken));
         return user is null
             ? TypedResults.NotFound()
             : TypedResults.Ok(new ProfileResponse(user.Id, user.Email, user.EmailVerified, user.CreatedAt));
