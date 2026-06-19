@@ -25,7 +25,7 @@ export default async function CartPage() {
       <h1 className="text-xl font-semibold">Your cart</h1>
       <ul className="divide-y divide-neutral-200">
         {cart.items.map((item) => (
-          <CartItemRow key={item.productId} item={item} />
+          <CartItemRow key={`${item.productId}:${item.variantId ?? "default"}`} item={item} />
         ))}
       </ul>
       <div className="flex justify-between border-t border-neutral-200 pt-4">

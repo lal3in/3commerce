@@ -12,6 +12,9 @@ public class Payment
     public long TaxMinor { get; init; }
     public required string Currency { get; init; }
     public PaymentStatus Status { get; set; }
+    public string? ProviderCustomerId { get; set; }
+    public string? ProviderPaymentMethodId { get; set; }
+    public bool SavePaymentMethodRequested { get; set; }
     public long RefundedMinor { get; set; }
     public DateTimeOffset CreatedAt { get; init; }
 }

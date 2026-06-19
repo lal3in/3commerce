@@ -31,4 +31,4 @@ public sealed record RegisterResult(bool IsNewUser);
 
 public sealed record LoginResult(string RawSessionToken, Guid UserId, string Role, DateTimeOffset ExpiresAt);
 
-public sealed record SessionInfo(Guid SessionId, Guid UserId, string Role, DateTimeOffset ExpiresAt);
+public sealed record SessionInfo(Guid SessionId, Guid UserId, Guid TenantId, string Role, DateTimeOffset ExpiresAt);

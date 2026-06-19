@@ -26,6 +26,9 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IdentityBootstrapper>();
+builder.Services.AddScoped<PolicyDecisionService>();
+builder.Services.AddScoped<RbacManagementService>();
 
 var app = builder.Build();
 
@@ -40,6 +43,8 @@ app.MapServiceHealth();
 app.MapAuth();
 app.MapProfile();
 app.MapIntrospection();
+app.MapAuthz();
+app.MapAdminRbac();
 
 await DevAdminSeeder.SeedAsync(app);
 

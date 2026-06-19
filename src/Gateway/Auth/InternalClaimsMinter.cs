@@ -39,7 +39,7 @@ public sealed class InternalClaimsMinter
         _credentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
     }
 
-    public string Mint(Guid userId, string role, Guid sessionId)
+    public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId)
     {
         var now = DateTime.UtcNow;
         return _handler.CreateToken(new SecurityTokenDescriptor
@@ -54,6 +54,7 @@ public sealed class InternalClaimsMinter
                 ["sub"] = userId.ToString(),
                 ["role"] = role,
                 ["sid"] = sessionId.ToString(),
+                ["tenant"] = tenantId.ToString(),
             },
         });
     }

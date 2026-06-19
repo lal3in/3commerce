@@ -10,11 +10,12 @@ resources:
   limits:
     memory: 512Mi
 
-# The 6 DB-owning services. Image name == k8s Service name == container hostname in
+# DB-owning services. Image name == k8s Service name == container hostname in
 # appsettings.Container.json, so no per-service config is needed here.
 services:
   - identity
   - catalog
+  - entity
   - ordering
   - payments
   - fulfillment

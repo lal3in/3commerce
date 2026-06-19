@@ -51,9 +51,15 @@ public static class OrdersEndpoints
         Guid id, OrderingDbContext db, CancellationToken ct)
     {
         var order = await db.Orders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, ct);
-        return order is null
+        if (order is not null)
+        {
+            return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+        }
+
+        var attempt = await db.CheckoutAttempts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id, ct);
+        return attempt is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+            : TypedResults.Ok(new OrderStatusResponse(attempt.Id, attempt.Status.ToString()));
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListAllOrders(
@@ -79,11 +85,11 @@ public static class OrdersEndpoints
     }
 
     private static OrderDetail ToDetail(ThreeCommerce.Ordering.Domain.Order o) => new(
-        o.Id, o.Status.ToString(), o.Email, o.NetMinor, o.ShippingMinor, o.TaxMinor, o.GrossMinor, o.Currency, o.CreatedAt,
-        o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.Title, l.UnitPriceMinor, l.Quantity, l.FulfillmentSource.ToString())).ToList());
+        o.Id, o.Status.ToString(), o.Email, o.NetMinor, o.ShippingMinor, o.DiscountMinor, o.TaxMinor, o.GrossMinor, o.Currency, o.CreatedAt,
+        o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.VariantId, l.VariantSku, l.Title, l.UnitPriceMinor, l.DiscountMinor, l.Quantity, l.FulfillmentSource.ToString())).ToList());
 }
 
 public record OrderSummary(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
-public record OrderLineResponse(Guid ProductId, string Title, long UnitPriceMinor, int Quantity, string FulfillmentSource);
-public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
+public record OrderLineResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfillmentSource);
+public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
 public record OrderStatusResponse(Guid Id, string Status);

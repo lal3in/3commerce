@@ -42,7 +42,7 @@ services:
       timeout: 3s
       retries: 12
 
-  # One-shot: applies all 6 schemas via EF bundles to the EXTERNAL Postgres, then exits.
+  # One-shot: applies all service schemas via EF bundles to the EXTERNAL Postgres, then exits.
   # Gates the app services. scripts/launch.sh ensures Postgres is healthy before this runs.
   migrate:
     build:
@@ -51,6 +51,7 @@ services:
     environment:
       CONN_IDENTITY: Host=postgres;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev
       CONN_CATALOG: Host=postgres;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev
+      CONN_ENTITY: Host=postgres;Port=5432;Database=entity_db;Username=entity_svc;Password=entity_dev
       CONN_ORDERING: Host=postgres;Port=5432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev
       CONN_PAYMENTS: Host=postgres;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev
       CONN_FULFILLMENT: Host=postgres;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
@@ -63,6 +64,9 @@ services:
   catalog:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Catalog/Api/Dockerfile }
+  entity:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Entity/Api/Dockerfile }
   ordering:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Ordering/Api/Dockerfile }
@@ -90,6 +94,7 @@ services:
     depends_on:
       identity: { condition: service_healthy }
       catalog: { condition: service_healthy }
+      entity: { condition: service_healthy }
       ordering: { condition: service_healthy }
       payments: { condition: service_healthy }
       fulfillment: { condition: service_healthy }
@@ -106,6 +111,20 @@ services:
     build: { context: ., dockerfile: src/Admin/Dockerfile }
     ports:
       - "5200:8080"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  supplier-portal:
+    <<: [*app, *limits]
+    build: { context: ., dockerfile: src/SupplierPortal/Dockerfile }
+    ports:
+      - "5300:8080"
     depends_on:
       gateway: { condition: service_healthy }
     healthcheck:

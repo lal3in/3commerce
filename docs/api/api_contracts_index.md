@@ -10,6 +10,7 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 |---------|----------|----------------|-------------|
 | Identity | [identity.openapi.json](./identity.openapi.json) | `/api/identity` | 5101 |
 | Catalog | [catalog.openapi.json](./catalog.openapi.json) | `/api/catalog` | 5102 |
+| Entity | [entity.openapi.json](./entity.openapi.json) | `/api/entity` | 5107 |
 | Ordering | [ordering.openapi.json](./ordering.openapi.json) | `/api/ordering` | 5103 |
 | Payments | [payments.openapi.json](./payments.openapi.json) | `/api/payments` | 5104 |
 | Fulfillment | [fulfillment.openapi.json](./fulfillment.openapi.json) | `/api/fulfillment` | 5105 |
@@ -24,8 +25,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/logout` | cookie | Revokes session |
 | POST | `/verify-email` | anon | Single-use token |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
-| GET/PUT | `/me` | session | Profile |
-| GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Saved addresses (ownership-scoped) |
+| GET/PUT | `/me` | session | Customer shopping profile with optional `givenName` / `familyName` |
+| GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
 
 > `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly.
 
@@ -38,7 +39,15 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
-| DELETE | `/admin/products/{id}` | admin | Remove product |
+| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create |
+| POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
+| GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
+| POST | `/admin/storefronts/{id}/preview|activate|pause|archive` | admin | Storefront lifecycle transitions |
+| POST | `/admin/storefronts/{id}/products` | admin | Assign tenant product to storefront with SEO/fulfillment overrides |
+| GET | `/admin/storefronts/{id}/products/{productId}/readiness` | admin | Check publication readiness before live publish |
+| POST | `/admin/storefronts/{id}/products/{productId}/publish|unpublish` | admin | Explicit storefront product publication transitions |
+| GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants |
+| GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 
 ## Conventions (see `docs/reference/api.md`)
 
@@ -47,13 +56,30 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 - Auth transport: opaque `3c_session` cookie → gateway mints `X-Internal-Claims` ES256 JWT → services verify (ADR-0012).
 - Pagination: `page`/`pageSize` (max 100) + `X-Total-Count`.
 
+## Entity (`/api/entity`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/entities?tenantId=` | admin/internal claims | List tenant-scoped entity records |
+| POST | `/entities` | admin/internal claims | Create tenant-scoped entity record with type, legal/trading names, and role profiles |
+| DELETE | `/entities/{id}` | admin/internal claims | Archive an entity record |
+| POST | `/entities/{id}/duplicate-warnings/scan` | admin/internal claims | Warn on duplicate legal/trading names, ABN/ACN/GST identifiers, and contacts |
+| POST | `/entities/duplicate-warnings/{warningId}/override` | admin/internal claims | Permissioned duplicate-warning override with reason |
+| POST | `/entities/{id}/suppliers` | admin/internal claims | Start supplier onboarding in Draft |
+| GET | `/entities/{id}/suppliers/readiness` | admin/internal claims | Check verified identifier/contact/address readiness |
+| POST | `/entities/{id}/suppliers/submit-verification` | admin/internal claims | Draft → PendingVerification |
+| POST | `/entities/{id}/suppliers/verification-complete` | admin/internal claims | PendingVerification → PendingApproval |
+| POST | `/entities/{id}/suppliers/activate` | admin/internal claims | PendingApproval → Active |
+| POST | `/entities/{id}/suppliers/suspend` | admin/internal claims | Active → Suspended with reason |
+| POST | `/entities/{id}/suppliers/archive` | admin/internal claims | Any non-archived state → Archived |
+
 ## Ordering (`/api/ordering`)
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET/POST/PUT/DELETE | `/cart[/items[/{productId}]]` | anon (cookie-keyed) | Cart; merges into the user cart on login |
-| POST | `/checkout` | anon (guest) | Returns 201 + clientSecret + totals once the intent exists (never blocks on the saga) |
-| GET | `/orders` · `/orders/{id}` | session | Order history / detail |
+| GET/POST/PUT/DELETE | `/cart[/items[/{productId}[/{variantId}]]]` | anon/session (cookie-keyed) | Variant-aware cart keyed by product + variant; qty 0 removes; merges into the user cart on login |
+| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, passes ship-country to the tax seam, optionally uses/saves a saved payment method for signed-in users, snapshots subtotal/discount/shipping/tax/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
+| GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 
 ## Payments (`/api/payments`)
@@ -64,6 +90,10 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
+| GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
+| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
+
+Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals. Xero mappings are model-ready with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution. Admin HTTP surface for managing these accounts is scheduled after RBAC field-level permissions are enforced.
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 
@@ -83,5 +113,5 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
 | POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |
 
-All six services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
+All current services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
 through the gateway; it adds no new public endpoints.

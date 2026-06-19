@@ -74,7 +74,13 @@ public sealed class Phase4Fixture : IAsyncLifetime
         IssuedAt = DateTime.UtcNow,
         Expires = DateTime.UtcNow.AddMinutes(5),
         SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
-        Claims = new Dictionary<string, object> { ["sub"] = Guid.CreateVersion7().ToString(), ["role"] = role },
+        Claims = new Dictionary<string, object>
+        {
+            ["sub"] = Guid.CreateVersion7().ToString(),
+            ["role"] = role,
+            ["sid"] = Guid.NewGuid().ToString(),
+            ["tenant"] = "00000000-0000-0000-0000-000000000001",
+        },
     });
 
     /// <summary>Seeds a captured payment so the refund path has something to reverse.</summary>

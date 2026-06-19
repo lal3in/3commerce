@@ -57,6 +57,19 @@
           <li><strong>Cookie auth</strong>: the admin app keeps its <strong>own</strong> auth cookie; the gateway session token is stored inside it as a <code>3c_session</code> claim and forwarded to the gateway on every call.</li>
         </ul>
 
+        <h2 id="new-operator-surfaces">New operator surfaces (platform expansion)</h2>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p>In progress on <code>feat/mt-phase1-foundation</code>. These nav items exist alongside the classic MVP screens below. They are tenant-scoped — most take a <strong>Tenant ID</strong> field (the seeded default is <code>00000000-0000-0000-0000-000000000001</code>).</p>
+        </div>
+        <ul>
+          <li><strong>Entities &amp; suppliers</strong> (<code>/entities</code>) — list/create tenant party records, start supplier onboarding, and work the <strong>supplier change-request approval queue</strong> (approve/reject with maker-checker: the deciding operator must differ from the requester; a reason is required to reject). Backed by the <strong>Entity</strong> service.</li>
+          <li><strong>Roles &amp; permissions</strong> (<code>/rbac</code>) — the dynamic RBAC console: the code-defined permission registry and the tenant's roles (seeded admin/ops/finance/support/merchandiser/customer), editable and clonable. Enforced by the Identity/Authz <strong>PDP</strong>; changes re-evaluate active sessions (ADR-0025).</li>
+          <li><strong>Commerce ops</strong> (<code>/commerce-ops</code>) — storefront lifecycle, domains, and product-publication operations, plus payment/pricing policy summaries (Phase 3).</li>
+          <li><strong>Supplier Portal</strong> (separate app, <code>:5300</code>) — suppliers view readiness, upload stock feeds, and raise change requests that operators approve here.</li>
+          <li><strong>CLI</strong> (<code>src/Cli</code>, <code>dotnet tool</code>) — the same operations from a terminal, Gateway-only, with explicit <code>--tenant</code>/<code>--storefront</code> scope (scaffolded; live calls follow once CLI auth lands).</li>
+        </ul>
+
         <h2 id="login">1. Login — <code>/login</code></h2>
         <p>File: <code>Components/Pages/Login.razor</code>; handler <code>Services/LoginEndpoints.cs</code>. Uses the <code>EmptyLayout</code> (no nav). Login is a plain HTML form POST with an antiforgery token.</p>
         <p>Steps:</p>

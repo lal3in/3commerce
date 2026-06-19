@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCart } from "@/lib/gateway";
+import { getAddresses, getCart, getProfile, getSavedPaymentMethods } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 
@@ -7,6 +7,10 @@ export const metadata = { title: "Checkout" };
 
 export default async function CheckoutPage() {
   const cart = await getCart();
+  const profile = await getProfile();
+  const [addresses, paymentMethods] = profile
+    ? await Promise.all([getAddresses(), getSavedPaymentMethods()])
+    : [[], []];
   if (cart.items.length === 0) {
     redirect("/cart");
   }
@@ -21,7 +25,7 @@ export default async function CheckoutPage() {
         </div>
         <p className="mt-1 text-neutral-500">+ shipping and tax, shown after you place the order.</p>
       </div>
-      <CheckoutForm />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} />
     </div>
   );
 }

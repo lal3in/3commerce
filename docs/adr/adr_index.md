@@ -25,3 +25,8 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0020](./0020-postgres-fts-search.md) | Search via Postgres FTS + pg_trgm behind ISearchProvider | Accepted | Catalog / search |
 | [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted | Deployment / infra |
 | [0022](./0022-named-schema-per-service.md) | Named schema per service (within each service database) | Accepted | Data / persistence |
+| [0023](./0023-strict-multi-tenancy.md) | Strict multi-tenancy — tenant = legal operator, principals span tenants | Accepted | Multi-tenancy |
+| [0024](./0024-tenant-isolation-postgres-rls.md) | Tenant isolation via PostgreSQL RLS with transaction-scoped `SET LOCAL` | Accepted | Multi-tenancy / data |
+| [0025](./0025-pdp-pep-dynamic-rbac.md) | Central PDP + service-side PEP, field/action policy, dynamic admin-defined RBAC | Accepted | Security / authz |
+| [0026](./0026-service-accounts-and-cli.md) | Service accounts + installable .NET global-tool CLI | Accepted | Security / tooling |
+| [0027](./0027-entity-service-master-data-boundary.md) | Entity service master-data boundary | Accepted | Entity / service boundary |

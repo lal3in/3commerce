@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>3commerce</ToolCommandName>
+    <PackageId>3commerce.Cli</PackageId>
+    <Description>Administrative and automation CLI for 3commerce.</Description>
+  </PropertyGroup>
+</Project>

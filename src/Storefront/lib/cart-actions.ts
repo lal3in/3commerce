@@ -25,48 +25,73 @@ async function relayCartCookie(response: Response): Promise<void> {
   }
 }
 
-export async function addToCart(productId: string): Promise<void> {
+export async function addToCart(productId: string, variantId?: string, quantity = 1): Promise<void> {
   const response = await fetch(`${GATEWAY_URL}/api/ordering/cart/items`, {
     method: "POST",
     headers: await cartHeaders(),
-    body: JSON.stringify({ productId, quantity: 1 }),
+    body: JSON.stringify({ productId, variantId, quantity: Math.max(1, quantity) }),
   });
   await relayCartCookie(response);
   revalidatePath("/cart");
 }
 
-export async function removeFromCart(productId: string): Promise<void> {
-  await fetch(`${GATEWAY_URL}/api/ordering/cart/items/${productId}`, {
+export async function updateCartQuantity(productId: string, variantId: string | null, quantity: number): Promise<void> {
+  const suffix = variantId ? `${productId}/${variantId}` : productId;
+  await fetch(`${GATEWAY_URL}/api/ordering/cart/items/${suffix}`, {
+    method: "PUT",
+    headers: await cartHeaders(),
+    body: JSON.stringify({ quantity }),
+  });
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
+}
+
+export async function removeFromCart(productId: string, variantId?: string | null): Promise<void> {
+  const suffix = variantId ? `${productId}/${variantId}` : productId;
+  await fetch(`${GATEWAY_URL}/api/ordering/cart/items/${suffix}`, {
     method: "DELETE",
     headers: await cartHeaders(),
   });
   revalidatePath("/cart");
+  revalidatePath("/checkout");
 }
 
 export type CheckoutState = { error?: string };
 
 export async function submitCheckout(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
+  const headers = await cartHeaders();
+  const profileResponse = await fetch(`${GATEWAY_URL}/api/identity/me`, { headers, cache: "no-store" });
+  const profile = profileResponse.ok ? ((await profileResponse.json()) as { email: string }) : null;
+  const email = profile?.email ?? String(formData.get("email") ?? "");
+  const savedPaymentMethodId = String(formData.get("savedPaymentMethodId") ?? "");
   const body = {
-    email: String(formData.get("email") ?? ""),
+    email,
+    savedPaymentMethodId: savedPaymentMethodId && savedPaymentMethodId !== "new" ? savedPaymentMethodId : null,
+    savePaymentMethod: formData.get("savePaymentMethod") === "on",
     shippingAddress: {
-      name: String(formData.get("name") ?? ""),
-      line1: String(formData.get("line1") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      postcode: String(formData.get("postcode") ?? ""),
-      country: String(formData.get("country") ?? ""),
+      name: String(formData.get("shippingName") || formData.get("name") || ""),
+      line1: String(formData.get("shippingLine1") || formData.get("line1") || ""),
+      city: String(formData.get("shippingCity") || formData.get("city") || ""),
+      postcode: String(formData.get("shippingPostcode") || formData.get("postcode") || ""),
+      country: String(formData.get("shippingCountry") || formData.get("country") || ""),
     },
   };
   const response = await fetch(`${GATEWAY_URL}/api/ordering/checkout`, {
     method: "POST",
-    headers: await cartHeaders(),
+    headers,
     body: JSON.stringify(body),
   });
   if (!response.ok) {
     return { error: "Checkout failed. Please review your cart and details." };
   }
   const result = (await response.json()) as { orderId: string };
-  // Remember the guest email so the confirmation page can offer account creation (FR-7).
-  (await cookies()).set("3c_guest_email", body.email, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
+  // Remember only guest email so the confirmation page can offer account creation (FR-7).
+  const cookieStore = await cookies();
+  if (profile) {
+    cookieStore.delete("3c_guest_email");
+  } else {
+    cookieStore.set("3c_guest_email", body.email, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
+  }
   redirect(`/checkout/confirmation?order=${result.orderId}`);
 }
 

@@ -9,11 +9,32 @@ namespace ThreeCommerce.Payments.Infrastructure.Payments;
 /// </summary>
 public sealed class FakePaymentProvider : IPaymentProvider
 {
-    public Task<PaymentIntentResult> CreateIntentAsync(Guid orderId, long amountMinor, string currency, string idempotencyKey, CancellationToken ct)
+    public Task<PaymentIntentResult> CreateIntentAsync(
+        Guid orderId,
+        long amountMinor,
+        string currency,
+        string idempotencyKey,
+        string? providerCustomerId,
+        string? providerPaymentMethodId,
+        bool setupFutureUsage,
+        CancellationToken ct)
     {
-        var intentId = $"pi_fake_{orderId:N}";
+        var suffix = providerPaymentMethodId is null ? orderId.ToString("N") : $"{orderId:N}_{providerPaymentMethodId}";
+        var intentId = $"pi_fake_{suffix}";
         return Task.FromResult(new PaymentIntentResult(intentId, $"{intentId}_secret_test"));
     }
+
+    public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct) =>
+        Task.FromResult($"cus_fake_{userId:N}");
+
+    public Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct)
+    {
+        var id = $"seti_fake_{Guid.CreateVersion7():N}";
+        return Task.FromResult(new SetupIntentResult(id, $"{id}_secret_test"));
+    }
+
+    public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) =>
+        Task.FromResult(new SavedPaymentMethodDetails(providerPaymentMethodId, "visa", "4242", 12, DateTimeOffset.UtcNow.Year + 3));
 
     public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) =>
         Task.FromResult(new ProviderRefundResult($"re_fake_{Guid.CreateVersion7():N}", Succeeded: true));

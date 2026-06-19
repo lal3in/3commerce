@@ -89,15 +89,55 @@ export async function listCategories(): Promise<Category[]> {
   return response.ok ? ((await response.json()) as Category[]) : [];
 }
 
-export async function getProfile(): Promise<{ email: string; emailVerified: boolean } | null> {
+export type ProfileDto = {
+  email: string;
+  givenName: string | null;
+  familyName: string | null;
+  emailVerified: boolean;
+};
+
+export type AddressDto = {
+  id: string;
+  purpose: "Billing" | "Shipping" | "Both";
+  isDefault: boolean;
+  name: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  postcode: string;
+  country: string;
+};
+
+export async function getProfile(): Promise<ProfileDto | null> {
   const response = await gatewayFetch(`/api/identity/me`, { cache: "no-store" });
-  return response.ok ? ((await response.json()) as { email: string; emailVerified: boolean }) : null;
+  return response.ok ? ((await response.json()) as ProfileDto) : null;
+}
+
+export async function getAddresses(): Promise<AddressDto[]> {
+  const response = await gatewayFetch(`/api/identity/me/addresses`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as AddressDto[]) : [];
 }
 
 export { GATEWAY_URL };
 
+export type SavedPaymentMethodDto = {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+};
+
+export async function getSavedPaymentMethods(): Promise<SavedPaymentMethodDto[]> {
+  const response = await gatewayFetch(`/api/payments/payment-methods/`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as SavedPaymentMethodDto[]) : [];
+}
+
 export type CartItemDto = {
   productId: string;
+  variantId: string | null;
+  variantSku: string | null;
   slug: string;
   title: string;
   imageUrl: string | null;

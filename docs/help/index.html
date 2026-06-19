@@ -67,15 +67,22 @@
             <thead><tr><th>App</th><th>Tech</th><th>Port</th><th>Talks to</th><th>Audience</th></tr></thead>
             <tbody>
               <tr><td><strong>Storefront</strong></td><td>Next.js 15 · React 19 · Tailwind</td><td><code>:3000</code></td><td>YARP gateway only (<code>:8080</code>)</td><td>Customers — browse, buy as guest, account, support</td></tr>
-              <tr><td><strong>Admin</strong></td><td>Blazor Server (.NET 10)</td><td><code>:5200</code></td><td>Gateway only, <code>admin</code> role</td><td>Operators — orders, RMAs, ledger, Xero, imports</td></tr>
-              <tr><td><strong>Gateway</strong></td><td>YARP</td><td><code>:8080</code></td><td>The 6 backend services</td><td>Single public origin — session validation, internal claims</td></tr>
+              <tr><td><strong>Admin</strong></td><td>Blazor Server (.NET 10)</td><td><code>:5200</code></td><td>Gateway only, <code>admin</code> role</td><td>Operators — orders, RMAs, ledger, Xero, imports, entities &amp; suppliers, roles &amp; permissions, commerce ops</td></tr>
+              <tr><td><strong>Supplier Portal</strong></td><td>Blazor Server (.NET 10)</td><td><code>:5300</code></td><td>Gateway only, supplier session</td><td>Suppliers — readiness, stock feeds, change requests</td></tr>
+              <tr><td><strong>Gateway</strong></td><td>YARP</td><td><code>:8080</code></td><td>The 7 backend services</td><td>Single public origin — session validation, internal claims</td></tr>
+              <tr><td><strong>CLI</strong></td><td>.NET global tool (<code>src/Cli</code>)</td><td>—</td><td>Gateway only</td><td>Operators/automation — Gateway-only, explicit <code>--tenant</code> scope</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="callout note">
           <span class="mark">i</span>
-          <p>Backend, for context: six microservices (Identity, Catalog, Ordering, Payments, Fulfillment, Support) + gateway + a Notifications worker, over RabbitMQ/MassTransit, each owning a Postgres database. In dev there is <strong>no live Stripe or Xero</strong> — a <code>FakePaymentProvider</code> and a <code>LoggingXeroClient</code> stand in.</p>
+          <p>Backend, for context: seven microservices (Identity, Catalog, <strong>Entity</strong>, Ordering, Payments, Fulfillment, Support) + gateway + a Notifications worker, over RabbitMQ/MassTransit, each owning a Postgres database. In dev there is <strong>no live Stripe or Xero</strong> — a <code>FakePaymentProvider</code> and a <code>LoggingXeroClient</code> stand in.</p>
+        </div>
+
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Platform expansion (in progress, <code>feat/mt-phase1-foundation</code>).</strong> The platform is being made <strong>multi-tenant</strong> (a tenant = one legal business; PostgreSQL row-level security + a central PDP/PEP with dynamic admin-defined RBAC), adding an <strong>Entity</strong> master-data service, a generic <strong>Supplier Portal</strong>, an installable <strong>CLI</strong>, and richer Catalog/Ordering/Payments (storefront lifecycle, product publication, pricing/promotions, payment accounts, supplier payables, Xero mappings). See ADRs <code>0023</code>–<code>0027</code> and the phase plans under <code>.ai-shared/plans/</code>. The page-by-page guides below still describe the single-tenant MVP flows; the new operator surfaces are summarized in Admin operations.</p>
         </div>
 
         <h2 id="contents">Start reading</h2>

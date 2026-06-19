@@ -77,7 +77,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </dl>
         )}
 
-        <AddToCartButton productId={product.id} />
+        <AddToCartButton productId={product.id} variants={product.variants} />
       </div>
     </div>
   );

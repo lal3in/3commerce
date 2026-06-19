@@ -9,8 +9,10 @@ and accurate to the code.
 | App | Tech | Port | Talks to | Audience |
 |-----|------|------|----------|----------|
 | **Storefront** | Next.js 15 (App Router, SSR/ISR) + React 19 + Tailwind | `:3000` | YARP gateway only (`:8080`) | Customers (browse, buy as guest, account, support) |
-| **Admin** | Blazor Server (.NET 10) | `:5200` | YARP gateway only (`:8080`), `admin` role required | Operators (orders, RMAs, ledger, Xero, imports) |
-| **Gateway** | YARP | `:8080` | The 6 backend services | Single public origin; session validation, internal claims |
+| **Admin** | Blazor Server (.NET 10) | `:5200` | YARP gateway only (`:8080`), `admin` role required | Operators (orders, RMAs, ledger, Xero, imports, **entities & suppliers, roles & permissions, commerce ops**) |
+| **Supplier Portal** | Blazor Server (.NET 10) | `:5300` | YARP gateway only (`:8080`), supplier session | Suppliers (readiness, stock feeds, change requests) |
+| **Gateway** | YARP | `:8080` | The 7 backend services | Single public origin; session validation, internal claims |
+| **CLI** | .NET global tool (`src/Cli`) | — | YARP gateway only | Operators/automation (Gateway-only, explicit `--tenant` scope) |
 
 Both frontends are thin: they **only** reach the backend through the gateway and
 hold no database access. The Storefront mutates state through **Server Actions**
@@ -18,10 +20,20 @@ hold no database access. The Storefront mutates state through **Server Actions**
 `GatewayClient`. Authentication is an opaque `3c_session` cookie issued by the
 Identity service via the gateway.
 
-> Backend, for context: 6 C# microservices (Identity, Catalog, Ordering,
-> Payments, Fulfillment, Support) + gateway + a Notifications worker, over
+> Backend, for context: 7 C# microservices (Identity, Catalog, **Entity**,
+> Ordering, Payments, Fulfillment, Support) + gateway + a Notifications worker, over
 > RabbitMQ/MassTransit, each owning a Postgres database. In dev there is **no live
 > Stripe or Xero** — a `FakePaymentProvider` and a `LoggingXeroClient` stand in.
+
+> **Platform expansion (in progress, `feat/mt-phase1-foundation`).** The platform is
+> being made **multi-tenant** (a tenant = one legal business; PostgreSQL row-level
+> security + a central PDP/PEP with dynamic admin-defined RBAC), adding an **Entity**
+> master-data service, a generic **Supplier Portal**, an installable **CLI**, and
+> richer Catalog/Ordering/Payments (storefront lifecycle, product publication,
+> pricing/promotions, payment accounts, supplier payables, Xero mappings). See the
+> ADRs (`docs/adr/0023`–`0027`) and the phase plans under `.ai-shared/plans/`. The
+> page-by-page guides below still describe the single-tenant MVP flows; the new
+> operator surfaces are summarized in [Admin operations](./admin-operations.md).
 
 ## Table of contents
 

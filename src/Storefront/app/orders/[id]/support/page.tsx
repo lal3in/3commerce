@@ -18,7 +18,7 @@ export default async function OrderSupportPage({
       <h1 className="text-xl font-semibold">Order support</h1>
       {submitted && (
         <p className="rounded bg-green-50 text-green-700 px-3 py-2 text-sm">
-          Your request was submitted. We'll email you with updates.
+          Your request was submitted. We&apos;ll email you with updates.
         </p>
       )}
       <SupportForms orderId={id} refundable={refundable} />

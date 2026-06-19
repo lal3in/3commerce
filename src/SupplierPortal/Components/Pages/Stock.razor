@@ -1,0 +1,42 @@
+@page "/stock"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<h1>Stock feeds</h1>
+<p>Upload a stock feed request for platform review. Suppliers may update availability only; product content and pricing remain platform-controlled.</p>
+
+<EditForm Model="request" OnValidSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <label>Supplier entity ID<br /><InputText @bind-Value="request.EntityId" style="width:100%;padding:.4rem;" /></label><br /><br />
+    <label>Feed URI or filename<br /><InputText @bind-Value="request.FeedReference" style="width:100%;padding:.4rem;" /></label><br /><br />
+    <label>Notes<br /><InputTextArea @bind-Value="request.Notes" style="width:100%;padding:.4rem;min-height:6rem;" /></label><br /><br />
+    <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">Submit stock feed request</button>
+</EditForm>
+
+@if (submitted)
+{
+    <p style="color:#047857;">Stock feed request captured locally. Workflow/audit persistence is scheduled for Phase 6.</p>
+}
+
+@code {
+    private StockFeedRequest request = new();
+    private bool submitted;
+
+    private Task SubmitAsync()
+    {
+        submitted = true;
+        return Task.CompletedTask;
+    }
+
+    private sealed class StockFeedRequest
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string EntityId { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string FeedReference { get; set; } = string.Empty;
+
+        public string? Notes { get; set; }
+    }
+}

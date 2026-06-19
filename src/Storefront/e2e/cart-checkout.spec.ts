@@ -22,11 +22,14 @@ test.describe("Cart & checkout", () => {
     await page.getByRole("link", { name: /checkout/i }).click();
     await expect(page).toHaveURL(/\/checkout/);
     await page.getByLabel("Email").fill(`shopper-${Date.now()}@example.com`);
-    await page.getByLabel("Full name").fill("Test Shopper");
-    await page.getByLabel("Address").fill("1 Test Street");
-    await page.getByLabel("City").fill("Berlin");
-    await page.getByLabel("Postcode").fill("10115");
-    await page.getByLabel(/country/i).fill("DE");
+    // The checkout has shipping + billing sections; scope to shipping so labels are unambiguous
+    // (a bare getByLabel("Address") also matches the "Billing address" select).
+    const shipping = page.locator("section").filter({ hasText: "Shipping address" });
+    await shipping.getByLabel("Full name").fill("Test Shopper");
+    await shipping.getByLabel("Address").fill("1 Test Street");
+    await shipping.getByLabel("City").fill("Berlin");
+    await shipping.getByLabel("Postcode").fill("10115");
+    await shipping.getByLabel(/country/i).fill("DE");
     await page.getByRole("button", { name: /place order/i }).click();
 
     // Confirmation page: pending → complete the simulated payment → confirmed.

@@ -63,6 +63,7 @@ app.MapServiceHealth();
 app.MapWebhooks();
 app.MapAdmin();
 app.MapAdminXero();
+app.MapCustomerPaymentMethods();
 
 await ChartOfAccountsSeeder.SeedAsync(app);
 

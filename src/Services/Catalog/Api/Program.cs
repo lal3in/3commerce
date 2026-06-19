@@ -44,6 +44,7 @@ app.MapServiceHealth();
 app.MapPing();
 app.MapProducts();
 app.MapAdmin();
+app.MapStorefrontAdmin();
 
 app.Run();
 
