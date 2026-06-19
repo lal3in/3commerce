@@ -152,6 +152,10 @@ Data: hard isolation — no cross-database joins, no shared domain types. When a
 
 Auth: opaque session token in a Secure/HttpOnly cookie, validated at the gateway against Identity (cached ≤ 60 s), converted to a short-lived signed internal-claims JWT that services verify by signature only. Public traffic reaches services exclusively through the gateway.
 
+Multi-tenancy (platform expansion, in progress on `feat/mt-phase1-foundation`): the platform is being made **strictly multi-tenant** — a tenant is one legal operating business; `Principal`s span tenants; customers are tenant-scoped (email unique per tenant). Tenant-owned rows carry `TenantId` and are isolated by **PostgreSQL RLS** (transaction-scoped `set_config('app.tenant_id', …, true)`, `FORCE ROW LEVEL SECURITY`, non-superuser service role) **plus** application checks. Authorization is a central **PDP in Identity** + service-side **PEP**, with fully dynamic admin-defined **RBAC** over a code-defined permission registry. New surfaces: an **Entity** master-data service, a generic **SupplierPortal**, and an installable **.NET global-tool CLI** (`src/Cli`, Gateway-only). See **ADR-0023** (strict multi-tenancy), **0024** (RLS), **0025** (PDP/PEP + RBAC), **0026** (service accounts + CLI), **0027** (Entity boundary).
+
+> **Writing tenant-owned tables under FORCE RLS (ADR-0024):** every write/read must run inside a tenant scope — `db.RunInTenantScopeAsync(TenantContext.ForTenant(id), …)` or `BeginTenantScopeAsync` (tenant scope for tenant-keyed ops; **platform scope** for secret-keyed cross-tenant lookups like session introspection). An unscoped `INSERT` fails the `WITH CHECK` policy (`42501`) as the non-superuser service role — and superuser-connected tests will *not* catch it, so validate via the containerized launch / a non-superuser test (see `IdentityUsersRlsTests`). Secret-keyed tables (Identity `Sessions`/`EmailTokens`, looked up by global hash) stay isolated cryptographically, not by RLS.
+
 ---
 
 ## Rules

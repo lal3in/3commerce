@@ -20,6 +20,35 @@ antiforgery → authentication → authorization**.
 
 ---
 
+## New operator surfaces (platform expansion)
+
+> In progress on `feat/mt-phase1-foundation`. These nav items exist alongside the
+> classic MVP screens below. They are tenant-scoped — most take a **Tenant ID**
+> field (the seeded default is `00000000-0000-0000-0000-000000000001`).
+
+- **Entities & suppliers** (`/entities`, `Components/Pages/Entities.razor`) — list
+  and create tenant party records (companies, people, trusts…), start supplier
+  onboarding, and work the **supplier change-request approval queue** (approve /
+  reject with maker-checker: the deciding operator must differ from the requester,
+  and a reason is required to reject). Backed by the **Entity** service
+  (`/api/entity/...`).
+- **Roles & permissions** (`/rbac`, `Components/Pages/Rbac.razor`) — the dynamic
+  RBAC console: view the code-defined permission registry and the tenant's roles
+  (seeded catalog: admin/ops/finance/support/merchandiser/customer), editable and
+  clonable. Changes are enforced by the Identity/Authz **PDP** and re-evaluate
+  active sessions (ADR-0025).
+- **Commerce ops** (`/commerce-ops`, `Components/Pages/CommerceOps.razor`) —
+  storefront lifecycle, domains, and product-publication operations, plus
+  payment/pricing policy summaries (Phase 3: storefront/catalog/pricing/payments).
+- **Supplier Portal** (separate app, `:5300`) — suppliers sign in to view
+  readiness, upload stock feeds, and raise user/contact/bank **change requests**
+  that operators approve here.
+- **CLI** (`src/Cli`, `dotnet tool`) — the same operations from a terminal,
+  Gateway-only, with explicit `--tenant`/`--storefront` scope (command surfaces are
+  scaffolded; live calls follow once CLI auth lands).
+
+---
+
 ## 1. Login — `/login`
 
 File: `Components/Pages/Login.razor`; handler `Services/LoginEndpoints.cs`.
