@@ -20,6 +20,7 @@ interface AddToCartButtonProps {
 
 export function AddToCartButton({ productId, variants }: AddToCartButtonProps) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? "");
+  const [quantity, setQuantity] = useState(1);
   const [pending, start] = useTransition();
   const router = useRouter();
   const selected = variants.find((variant) => variant.id === selectedVariantId) ?? variants[0];
@@ -42,12 +43,36 @@ export function AddToCartButton({ productId, variants }: AddToCartButtonProps) {
           </select>
         </label>
       )}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium">Quantity</span>
+        <div className="inline-flex items-center rounded-md border border-neutral-300">
+          <button
+            type="button"
+            aria-label="Decrease quantity"
+            disabled={quantity <= 1}
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            className="px-3 py-1.5 text-sm disabled:opacity-40"
+          >
+            −
+          </button>
+          <span className="w-10 text-center text-sm tabular-nums">{quantity}</span>
+          <button
+            type="button"
+            aria-label="Increase quantity"
+            disabled={quantity >= 99}
+            onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+            className="px-3 py-1.5 text-sm disabled:opacity-40"
+          >
+            +
+          </button>
+        </div>
+      </div>
       <button
         type="button"
         disabled={pending || !selected?.inStock}
         onClick={() =>
           start(async () => {
-            await addToCart(productId, selected?.id);
+            await addToCart(productId, selected?.id, quantity);
             router.push("/cart");
           })
         }
