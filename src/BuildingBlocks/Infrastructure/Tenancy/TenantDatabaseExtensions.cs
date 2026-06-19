@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 
@@ -39,4 +40,24 @@ public static class TenantDatabaseExtensions
     public static Task RunInTenantScopeAsync(
         this DbContext db, TenantContext context, Func<Task> work, CancellationToken ct = default) =>
         db.RunInTenantScopeAsync(context, async () => { await work(); return true; }, ct);
+
+    /// <summary>
+    /// Opens a transaction with the tenant context applied (transaction-local), and returns it so
+    /// the caller can do its work, <c>SaveChangesAsync</c>, and then <c>CommitAsync</c>. Use when a
+    /// lambda body is awkward (e.g. flows with early returns); dispose without commit to roll back.
+    /// </summary>
+    public static async Task<IDbContextTransaction> BeginTenantScopeAsync(
+        this DbContext db, TenantContext context, CancellationToken ct = default)
+    {
+        var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlRawAsync(
+            SetScopeSql,
+            [
+                context.TenantId?.ToString() ?? string.Empty,
+                context.PrincipalId?.ToString() ?? string.Empty,
+                context.IsPlatformAdmin ? "true" : "false",
+            ],
+            ct);
+        return tx;
+    }
 }

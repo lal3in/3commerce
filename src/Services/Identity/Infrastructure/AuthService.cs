@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Identity;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Domain.Tenancy;
 using ThreeCommerce.Identity.Infrastructure.Security;
@@ -30,6 +31,9 @@ public sealed class AuthService(
     {
         var normalized = email.Trim().ToLowerInvariant();
         var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        // Tenant-scoped RLS context for the Users write (ADR-0024). Tenants/Roles/Permissions are
+        // not RLS'd, so the seeding below is unaffected by the scope.
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenant.Id), ct);
         await bootstrapper.SeedPermissionRegistryAsync(tenant.Id, ct);
 
         var existing = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
@@ -67,6 +71,7 @@ public sealed class AuthService(
         var rawToken = CreateEmailToken(user.Id, EmailTokenPurpose.VerifyEmail, VerifyTokenLifetime, now);
         await publisher.Publish(new UserRegistered(user.Id, user.Email, rawToken), ct);
         await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
 
         return new RegisterResult(IsNewUser: true);
     }
@@ -76,6 +81,7 @@ public sealed class AuthService(
         var normalized = email.Trim().ToLowerInvariant();
         var now = time.GetUtcNow();
         var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenant.Id), ct);
         await bootstrapper.SeedPermissionRegistryAsync(tenant.Id, ct);
         var user = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
 
@@ -103,6 +109,7 @@ public sealed class AuthService(
             }
 
             await db.SaveChangesAsync(ct);
+            await scope.CommitAsync(ct);
             return null;
         }
 
@@ -130,6 +137,7 @@ public sealed class AuthService(
         };
         db.Sessions.Add(session);
         await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
 
         return new LoginResult(rawToken, user.Id, user.Role, session.ExpiresAt);
     }
@@ -147,6 +155,9 @@ public sealed class AuthService(
 
     public async Task<bool> VerifyEmailAsync(string rawToken, CancellationToken ct)
     {
+        // Secret-keyed, cross-tenant: the token resolves the user. Platform scope so the Users
+        // RLS policy permits loading the user regardless of tenant (ADR-0024/0025).
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
         var token = await FindUsableTokenAsync(rawToken, EmailTokenPurpose.VerifyEmail, ct);
         if (token is null)
         {
@@ -159,6 +170,7 @@ public sealed class AuthService(
         // Attach any prior guest orders placed with this (now-verified) email (FR-7).
         await publisher.Publish(new EmailVerified(user.Id, user.Email), ct);
         await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
         return true;
     }
 
@@ -166,6 +178,7 @@ public sealed class AuthService(
     {
         var normalized = email.Trim().ToLowerInvariant();
         var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenant.Id), ct);
         var user = await db.Users.SingleOrDefaultAsync(u => u.TenantId == tenant.Id && u.Email == normalized, ct);
         if (user is null)
         {
@@ -176,10 +189,13 @@ public sealed class AuthService(
         var rawToken = CreateEmailToken(user.Id, EmailTokenPurpose.ResetPassword, ResetTokenLifetime, now);
         await publisher.Publish(new PasswordResetRequested(user.Id, user.Email, rawToken), ct);
         await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
     }
 
     public async Task<bool> ConfirmPasswordResetAsync(string rawToken, string newPassword, CancellationToken ct)
     {
+        // Secret-keyed, cross-tenant (token resolves the user) — platform scope.
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
         var token = await FindUsableTokenAsync(rawToken, EmailTokenPurpose.ResetPassword, ct);
         if (token is null)
         {
@@ -203,6 +219,7 @@ public sealed class AuthService(
         }
 
         await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
         return true;
     }
 
@@ -211,6 +228,10 @@ public sealed class AuthService(
         var hash = OpaqueToken.HashOf(rawSessionToken);
         var now = time.GetUtcNow();
 
+        // The session token is global; resolving its user is inherently cross-tenant (the gateway
+        // calls this before any tenant scope of its own), so introspection reads under platform
+        // scope and the Users RLS policy permits the join (ADR-0024).
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
         var result = await db.Sessions
             .Where(s => s.TokenHash == hash && s.RevokedAt == null && s.ExpiresAt > now)
             .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { Session = s, User = u })
@@ -219,6 +240,7 @@ public sealed class AuthService(
             .Select(x => new SessionInfo(x.Session.Id, x.User.Id, x.User.Role, x.Session.ExpiresAt))
             .SingleOrDefaultAsync(ct);
 
+        await scope.CommitAsync(ct);
         return result;
     }
 

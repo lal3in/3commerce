@@ -49,3 +49,11 @@ closed even when application code is wrong.
   use that skips it is a review red flag.
 - Connection-pool safety is covered by a dedicated isolation test (set tenant A, run, return
   connection, assert tenant B cannot see A's rows).
+- **Secret-keyed tables are exempt by design.** Rows accessed by an unguessable cryptographic
+  secret rather than by tenant — Identity's `Sessions` and `EmailTokens` (looked up by a global
+  `TokenHash`, with the tenant unknown at lookup time) — are isolated *cryptographically*, not by
+  RLS, and carry no `TenantId`. Identity applies FORCE RLS to `Users` (tenant-owned PII); its
+  `AuthService` runs each operation under the right scope (tenant scope for register/login/
+  reset-request; **platform scope** for the cross-tenant, secret-keyed introspect/verify/
+  confirm-reset paths). A non-superuser test (`IdentityUsersRlsTests`) proves this end to end,
+  since superuser-connected tests and the anonymous CI smoke jobs would not catch an RLS break.
