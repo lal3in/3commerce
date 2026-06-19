@@ -124,10 +124,8 @@ jobs:
           - src/Services/Payments/Api/Dockerfile
           - src/Services/Fulfillment/Api/Dockerfile
           - src/Services/Support/Api/Dockerfile
-          - src/Services/Entity/Api/Dockerfile
           - src/Admin/Dockerfile
           - src/Storefront/Dockerfile
-          - src/SupplierPortal/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Docker build
@@ -189,8 +187,7 @@ jobs:
             [storefront]=src/Storefront/Dockerfile [notifications]=src/Workers/Notifications/Dockerfile \
             [identity]=src/Services/Identity/Api/Dockerfile [catalog]=src/Services/Catalog/Api/Dockerfile \
             [ordering]=src/Services/Ordering/Api/Dockerfile [payments]=src/Services/Payments/Api/Dockerfile \
-            [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile \
-            [entity]=src/Services/Entity/Api/Dockerfile [supplier-portal]=src/SupplierPortal/Dockerfile )
+            [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile )
           for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; done
           docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
           kind load docker-image 3commerce/migrator:local --name 3c
