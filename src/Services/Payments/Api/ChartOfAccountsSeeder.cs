@@ -28,7 +28,9 @@ public static class ChartOfAccountsSeeder
             new LedgerAccount { Code = Accounts.RevenueSales, Name = "Sales revenue", Type = AccountType.Revenue },
             new LedgerAccount { Code = Accounts.RevenueRefunds, Name = "Refunds (contra-revenue)", Type = AccountType.Revenue },
             new LedgerAccount { Code = Accounts.ExpenseStripeFees, Name = "Stripe fees", Type = AccountType.Expense },
-            new LedgerAccount { Code = Accounts.LiabilityTaxCollected, Name = "Tax collected", Type = AccountType.Liability });
+            new LedgerAccount { Code = Accounts.ExpenseCostOfGoodsSold, Name = "Cost of goods sold", Type = AccountType.Expense },
+            new LedgerAccount { Code = Accounts.LiabilityTaxCollected, Name = "Tax collected", Type = AccountType.Liability },
+            new LedgerAccount { Code = Accounts.LiabilitySupplierPayable, Name = "Supplier payables", Type = AccountType.Liability });
         await db.SaveChangesAsync();
         app.Logger.LogInformation("Seeded chart of accounts");
     }

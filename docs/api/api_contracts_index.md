@@ -39,7 +39,15 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
-| DELETE | `/admin/products/{id}` | admin | Remove product |
+| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create |
+| POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
+| GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
+| POST | `/admin/storefronts/{id}/preview|activate|pause|archive` | admin | Storefront lifecycle transitions |
+| POST | `/admin/storefronts/{id}/products` | admin | Assign tenant product to storefront with SEO/fulfillment overrides |
+| GET | `/admin/storefronts/{id}/products/{productId}/readiness` | admin | Check publication readiness before live publish |
+| POST | `/admin/storefronts/{id}/products/{productId}/publish|unpublish` | admin | Explicit storefront product publication transitions |
+| GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants |
+| GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 
 ## Conventions (see `docs/reference/api.md`)
 
@@ -70,7 +78,7 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET/POST/PUT/DELETE | `/cart[/items[/{productId}]]` | anon (cookie-keyed) | Cart; merges into the user cart on login |
-| POST | `/checkout` | anon (guest) | Returns 201 + clientSecret + totals once the intent exists (never blocks on the saga) |
+| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, snapshots totals/shipping/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 
@@ -82,6 +90,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
+
+Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals. Xero mappings are model-ready with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution. Admin HTTP surface for managing these accounts is scheduled in `mt3_9`; no public account-management endpoints are exposed yet.
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 

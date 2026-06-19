@@ -80,28 +80,34 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Payment service unavailable; please retry.");
         }
 
-        var order = new Order
+        var now = time.GetUtcNow();
+        var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var storefrontId = HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
+        var attempt = new CheckoutAttempt
         {
             Id = orderId,
+            TenantId = tenantId,
+            StorefrontId = storefrontId,
             UserId = userId,
-            Email = userId is null ? request.Email : request.Email,
-            Status = OrderStatus.AwaitingPayment,
+            Email = request.Email,
+            Status = CheckoutAttemptStatus.AwaitingPayment,
             NetMinor = subtotal,
             ShippingMinor = FlatShippingMinor,
             TaxMinor = intent.TaxMinor,
             GrossMinor = intent.GrossMinor,
             Currency = currency,
             PaymentIntentId = intent.PaymentIntentId,
+            CampaignRef = request.CampaignRef,
             ShipName = request.ShippingAddress.Name,
             ShipLine1 = request.ShippingAddress.Line1,
             ShipCity = request.ShippingAddress.City,
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
-            CreatedAt = time.GetUtcNow(),
-            Lines = cart.Items.Select(i => new OrderLine
+            CreatedAt = now,
+            Lines = cart.Items.Select(i => new CheckoutAttemptLine
             {
                 Id = Guid.CreateVersion7(),
-                OrderId = orderId,
+                CheckoutAttemptId = orderId,
                 ProductId = i.ProductId,
                 Title = i.Title,
                 UnitPriceMinor = i.UnitPriceMinor,
@@ -109,16 +115,19 @@ public static class CheckoutEndpoints
                 FulfillmentSource = FulfillmentSource.Unassigned,
             }).ToList(),
         };
-        db.Orders.Add(order);
+        db.CheckoutAttempts.Add(attempt);
 
         // Start the saga; clearing the cart and publishing commit in one transaction (outbox).
-        await publisher.Publish(new CartSubmitted(orderId, intent.PaymentIntentId, intent.GrossMinor, currency, order.Email), ct);
+        await publisher.Publish(new CartSubmitted(orderId, intent.PaymentIntentId, intent.GrossMinor, currency, attempt.Email), ct);
         db.CartItems.RemoveRange(cart.Items);
         await db.SaveChangesAsync(ct);
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
             orderId, intent.ClientSecret, subtotal + FlatShippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
     }
+
+    private static Guid? HeaderGuid(HttpContext http, string name) =>
+        Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
 }
 
 public record AddressRequest(
@@ -128,6 +137,6 @@ public record AddressRequest(
     [property: Required] string Postcode,
     [property: Required, StringLength(2, MinimumLength = 2)] string Country);
 
-public record CheckoutRequest([property: Required, EmailAddress] string Email, [property: Required] AddressRequest ShippingAddress);
+public record CheckoutRequest([property: Required, EmailAddress] string Email, [property: Required] AddressRequest ShippingAddress, string? CampaignRef = null);
 
 public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);

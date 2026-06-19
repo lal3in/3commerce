@@ -51,9 +51,15 @@ public static class OrdersEndpoints
         Guid id, OrderingDbContext db, CancellationToken ct)
     {
         var order = await db.Orders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, ct);
-        return order is null
+        if (order is not null)
+        {
+            return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+        }
+
+        var attempt = await db.CheckoutAttempts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id, ct);
+        return attempt is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+            : TypedResults.Ok(new OrderStatusResponse(attempt.Id, attempt.Status.ToString()));
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListAllOrders(

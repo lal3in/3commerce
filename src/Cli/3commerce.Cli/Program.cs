@@ -15,6 +15,12 @@ return command switch
     "rbac" => HandleRbac(args.Skip(1).ToArray(), options),
     "entity" => HandleEntity(args.Skip(1).ToArray(), options),
     "supplier" => HandleSupplier(args.Skip(1).ToArray(), options),
+    "storefront" => HandleStorefront(args.Skip(1).ToArray(), options),
+    "catalog" => HandleCatalog(args.Skip(1).ToArray(), options),
+    "pricing" => HandlePricing(args.Skip(1).ToArray(), options),
+    "payment" => HandlePayment(args.Skip(1).ToArray(), options),
+    "payout" => HandlePayout(args.Skip(1).ToArray(), options),
+    "xero" => HandleXero(args.Skip(1).ToArray(), options),
     "version" => WriteOutput(new { name = "3commerce.Cli", version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "dev" }, options),
     _ => Unknown(command),
 };
@@ -72,6 +78,80 @@ static int HandleSupplier(string[] args, CliOptions options)
     };
 }
 
+static int HandleStorefront(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "list" => TenantScopedPlaceholder("GET /api/catalog/admin/storefronts?tenantId=<tenant>", options),
+        "create" => TenantScopedPlaceholder("POST /api/catalog/admin/storefronts", options),
+        "domain" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/domains", options),
+        "readiness" => StorefrontScopedPlaceholder("GET /api/catalog/admin/storefronts/<storefront>/readiness", options),
+        "activate" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/activate", options),
+        "pause" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/pause", options),
+        _ => Unknown($"storefront {sub}"),
+    };
+}
+
+static int HandleCatalog(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "products" => TenantScopedPlaceholder("GET /api/catalog/admin/products", options),
+        "assign" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/products", options),
+        "publish" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/products/<product>/publish", options),
+        "unpublish" => StorefrontScopedPlaceholder("POST /api/catalog/admin/storefronts/<storefront>/products/<product>/unpublish", options),
+        _ => Unknown($"catalog {sub}"),
+    };
+}
+
+static int HandlePricing(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "promotions" => StorefrontScopedPlaceholder("GET/POST /api/ordering/admin/promotions (planned Admin API)", options),
+        "preview" => StorefrontScopedPlaceholder("POST /api/ordering/admin/pricing/preview (planned Admin API)", options),
+        _ => Unknown($"pricing {sub}"),
+    };
+}
+
+static int HandlePayment(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/payment-accounts (planned Admin API)", options),
+        "activate" => TenantScopedPlaceholder("POST /api/payments/admin/payment-accounts/<id>/activate (planned Admin API)", options),
+        _ => Unknown($"payment {sub}"),
+    };
+}
+
+static int HandlePayout(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "bank-accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/bank-accounts (planned Admin API)", options),
+        "approve-bank" => RequireReason(TenantScopedPlaceholder("POST /api/payments/admin/supplier-bank-accounts/<id>/approve (planned Admin API)", options), options),
+        "instructions" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/payout-instructions (planned Admin API)", options),
+        "policies" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/payable-policies (planned Admin API)", options),
+        _ => Unknown($"payout {sub}"),
+    };
+}
+
+static int HandleXero(string[] args, CliOptions options)
+{
+    var sub = args.FirstOrDefault();
+    return sub switch
+    {
+        "mappings" => TenantScopedPlaceholder("GET/POST /api/payments/admin/xero/mappings (planned Admin API)", options),
+        "sync" => TenantScopedPlaceholder("POST /api/payments/admin/xero/sync/<date>", options),
+        _ => Unknown($"xero {sub}"),
+    };
+}
+
 static int RequireTenantOrWritePlaceholder(string endpoint, CliOptions options)
 {
     if (string.IsNullOrWhiteSpace(options.Tenant))
@@ -92,6 +172,33 @@ static int TenantScopedPlaceholder(string endpoint, CliOptions options)
     }
 
     return WriteOutput(new { status = "not-implemented", endpoint, tenant = options.Tenant }, options);
+}
+
+static int StorefrontScopedPlaceholder(string endpoint, CliOptions options)
+{
+    if (string.IsNullOrWhiteSpace(options.Tenant) || string.IsNullOrWhiteSpace(options.Storefront))
+    {
+        Console.Error.WriteLine("This command requires explicit --tenant and --storefront.");
+        return 2;
+    }
+
+    return WriteOutput(new { status = "not-implemented", endpoint, tenant = options.Tenant, storefront = options.Storefront }, options);
+}
+
+static int RequireReason(int result, CliOptions options)
+{
+    if (result != 0)
+    {
+        return result;
+    }
+
+    if (string.IsNullOrWhiteSpace(options.Reason))
+    {
+        Console.Error.WriteLine("This high-risk command requires --reason.");
+        return 2;
+    }
+
+    return 0;
 }
 
 static int HandleContext(string[] args, CliOptions options)
@@ -147,6 +254,12 @@ static void PrintHelp()
           3commerce rbac effective --tenant TENANT_ID --principal PRINCIPAL_ID
           3commerce entity list|create|archive|customer-links|link-customer|unlink-customer --tenant TENANT_ID
           3commerce supplier onboard|readiness|activate|requests|approve|reject --tenant TENANT_ID
+          3commerce storefront list|create|domain|readiness|activate|pause --tenant TENANT_ID [--storefront STOREFRONT_ID]
+          3commerce catalog products|assign|publish|unpublish --tenant TENANT_ID [--storefront STOREFRONT_ID]
+          3commerce pricing promotions|preview --tenant TENANT_ID --storefront STOREFRONT_ID
+          3commerce payment accounts|activate --tenant TENANT_ID
+          3commerce payout bank-accounts|approve-bank|instructions|policies --tenant TENANT_ID --reason REASON
+          3commerce xero mappings|sync --tenant TENANT_ID
           3commerce version [--output table|json]
 
         Safety rules:
@@ -160,7 +273,8 @@ internal sealed record CliOptions(
     string Output,
     string? Tenant,
     string? Storefront,
-    string? GatewayUrl)
+    string? GatewayUrl,
+    string? Reason)
 {
     public static CliOptions Parse(IEnumerable<string> args)
     {
@@ -168,6 +282,7 @@ internal sealed record CliOptions(
         string? tenant = null;
         string? storefront = null;
         string? gateway = null;
+        string? reason = null;
         var list = args.ToArray();
         for (var i = 0; i < list.Length; i++)
         {
@@ -190,9 +305,13 @@ internal sealed record CliOptions(
                     gateway = value;
                     i++;
                     break;
+                case "--reason" when value is not null:
+                    reason = value;
+                    i++;
+                    break;
             }
         }
 
-        return new CliOptions(output, tenant, storefront, gateway);
+        return new CliOptions(output, tenant, storefront, gateway, reason);
     }
 }

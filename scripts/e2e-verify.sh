@@ -20,7 +20,17 @@
 #   A2  Formatting clean (dotnet format --verify-no-changes)
 #   A3  Backend unit + contract tests (Identity hasher/tokens, tenant/RBAC/Authz
 #       policy engine + PDP resolver, contract equality, DevSecretGuard refuses the
-#       committed dev key outside Development — BL-11; Entity domain skeleton invariants)
+#       committed dev key outside Development — BL-11; Entity domain skeleton invariants;
+#       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
+#       Catalog Publication readiness/SEO/fulfillment-source invariants;
+#       Ordering Pricing engine: supplier/selling price inputs, tax-mode seam,
+#       fixed/percent/product/category/storefront/bundle/free-shipping promotions,
+#       best-discount-wins; Ordering CheckoutAttempt before Order, per-storefront
+#       order-number sequence, and campaign/storefront checkout snapshot seam;
+#       Payments PaymentAccount lifecycle/readiness, tenant default/storefront override,
+#       active-only checkout snapshot, provider mode snapshot, supplier bank approval,
+#       payout instruction routing, supplier payable policy, balanced payable accrual,
+#       and Xero tenant/storefront/category/supplier/product mapping precedence)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions

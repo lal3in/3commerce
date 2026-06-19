@@ -16,6 +16,12 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<WebhookInboxEntry> WebhookInbox => Set<WebhookInboxEntry>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<SyncRun> SyncRuns => Set<SyncRun>();
+    public DbSet<PaymentAccount> PaymentAccounts => Set<PaymentAccount>();
+    public DbSet<SupplierBankAccount> SupplierBankAccounts => Set<SupplierBankAccount>();
+    public DbSet<PayoutInstruction> PayoutInstructions => Set<PayoutInstruction>();
+    public DbSet<SupplierPayablePolicy> SupplierPayablePolicies => Set<SupplierPayablePolicy>();
+    public DbSet<SupplierPayable> SupplierPayables => Set<SupplierPayable>();
+    public DbSet<XeroAccountMapping> XeroAccountMappings => Set<XeroAccountMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,12 +56,55 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
 
         modelBuilder.Entity<Refund>(r => r.HasIndex(x => x.OrderId));
 
+        modelBuilder.Entity<PaymentAccount>(account =>
+        {
+            account.Property(x => x.Name).HasMaxLength(120);
+            account.Property(x => x.Provider).HasMaxLength(40);
+            account.Property(x => x.ExternalAccountRef).HasMaxLength(200);
+            account.HasIndex(x => new { x.TenantId, x.IsDefaultForTenant });
+            account.HasIndex(x => new { x.TenantId, x.StorefrontId });
+        });
+
+        modelBuilder.Entity<SupplierBankAccount>(account =>
+        {
+            account.Property(x => x.AccountName).HasMaxLength(160);
+            account.Property(x => x.BankCountry).HasMaxLength(2);
+            account.Property(x => x.RoutingNumberMasked).HasMaxLength(40);
+            account.Property(x => x.AccountNumberMasked).HasMaxLength(40);
+            account.Property(x => x.AccountTokenRef).HasMaxLength(200);
+            account.Property(x => x.ApprovalReason).HasMaxLength(500);
+            account.HasIndex(x => new { x.TenantId, x.SupplierEntityId, x.State });
+        });
+
+        modelBuilder.Entity<PayoutInstruction>(instruction =>
+        {
+            instruction.HasIndex(x => new { x.TenantId, x.SupplierEntityId, x.Active });
+        });
+
+        modelBuilder.Entity<SupplierPayablePolicy>(policy =>
+        {
+            policy.HasIndex(x => new { x.TenantId, x.SupplierEntityId, x.Active });
+        });
+
+        modelBuilder.Entity<SupplierPayable>(payable =>
+        {
+            payable.Property(x => x.Currency).HasMaxLength(3);
+            payable.HasIndex(x => new { x.TenantId, x.SupplierEntityId, x.OrderId });
+        });
+
         modelBuilder.Entity<WebhookInboxEntry>().HasKey(x => x.EventId);
         modelBuilder.Entity<IdempotencyRecord>().HasKey(x => x.Key);
         modelBuilder.Entity<SyncRun>(s =>
         {
             s.HasKey(x => x.Id);
             s.HasIndex(x => x.Reference).IsUnique();
+        });
+
+        modelBuilder.Entity<XeroAccountMapping>(mapping =>
+        {
+            mapping.Property(x => x.LedgerAccountCode).HasMaxLength(80);
+            mapping.Property(x => x.XeroAccountCode).HasMaxLength(40);
+            mapping.HasIndex(x => new { x.TenantId, x.Scope, x.LedgerAccountCode });
         });
 
         // MassTransit transactional outbox + inbox tables (ADR-0007).

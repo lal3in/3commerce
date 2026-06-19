@@ -19,6 +19,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
                 Slug = m.Slug,
                 Title = m.Title,
                 MinPriceMinor = m.MinPriceMinor,
+                SellingPriceMinor = m.MinPriceMinor,
                 Currency = m.Currency,
                 ImageUrl = m.ImageUrl,
             });
@@ -28,6 +29,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
             copy.Slug = m.Slug;
             copy.Title = m.Title;
             copy.MinPriceMinor = m.MinPriceMinor;
+            copy.SellingPriceMinor = m.MinPriceMinor;
             copy.Currency = m.Currency;
             copy.ImageUrl = m.ImageUrl;
         }

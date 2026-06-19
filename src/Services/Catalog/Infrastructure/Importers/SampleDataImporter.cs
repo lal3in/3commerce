@@ -23,6 +23,9 @@ public sealed class SampleDataImporter(
     // The store's single currency (ADR-0015). Data model is per-entity currency, so this is
     // just the origin; multi-currency *display* (FX) remains a future storefront concern.
     private readonly string _currency = configuration["Store:Currency"] ?? "EUR";
+    private readonly Guid _tenantId = Guid.TryParse(configuration["Tenancy:DefaultTenantId"], out var tenantId)
+        ? tenantId
+        : Guid.Parse("00000000-0000-0000-0000-000000000001");
     private const int BatchSize = 500;
     private const int Seed = 42;
 
@@ -53,6 +56,7 @@ public sealed class SampleDataImporter(
 
         var categories = await EnsureCategoriesAsync(ct);
         var existingBySlug = await db.Products.Include(p => p.Variants)
+            .Where(p => p.TenantId == _tenantId)
             .ToDictionaryAsync(p => p.Slug, ct);
 
         int read = 0, accepted = 0, rejected = 0, pendingInBatch = 0;
@@ -131,6 +135,7 @@ public sealed class SampleDataImporter(
                 var product = new Product
                 {
                     Id = Guid.CreateVersion7(),
+                    TenantId = _tenantId,
                     Slug = slug,
                     Title = title,
                     Brand = brand,
@@ -191,7 +196,7 @@ public sealed class SampleDataImporter(
 
     private async Task<List<Category>> EnsureCategoriesAsync(CancellationToken ct)
     {
-        var existing = await db.Categories.ToListAsync(ct);
+        var existing = await db.Categories.Where(c => c.TenantId == _tenantId).ToListAsync(ct);
         if (existing.Count > 0)
         {
             return existing;
@@ -200,6 +205,7 @@ public sealed class SampleDataImporter(
         var categories = CategoryNames.Select(name => new Category
         {
             Id = Guid.CreateVersion7(),
+            TenantId = _tenantId,
             Name = name,
             Slug = Slugify(name),
         }).ToList();

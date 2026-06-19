@@ -10,6 +10,10 @@ public class ProductCopy
     public required string Slug { get; set; }
     public required string Title { get; set; }
     public long MinPriceMinor { get; set; }
+    public long SupplierCostMinor { get; set; }
+    public long SellingPriceMinor { get; set; }
+    public TaxMode TaxMode { get; set; } = TaxMode.Exclusive;
+    public Guid? StorefrontId { get; set; }
     public required string Currency { get; set; }
     public string? ImageUrl { get; set; }
 }

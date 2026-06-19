@@ -255,11 +255,15 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.ToTable("CartItems", "ordering");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Order", b =>
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.CheckoutAttempt", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CampaignRef")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -280,7 +284,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("PaymentIntentId")
-                        .HasColumnType("text");
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("ShipCity")
                         .IsRequired()
@@ -308,6 +314,116 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("TaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorefrontId", "Status");
+
+                    b.ToTable("CheckoutAttempts", "ordering");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.CheckoutAttemptLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CheckoutAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("FulfillmentSource")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("UnitPriceMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckoutAttemptId");
+
+                    b.ToTable("CheckoutAttemptLines", "ordering");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("GrossMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("NetMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PaymentIntentId")
+                        .HasColumnType("text");
+
+                    b.Property<long>("PublicOrderNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ShipCity")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShipCountry")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShipLine1")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShipName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ShipPostcode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ShippingMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StorefrontId")
+                        .HasColumnType("uuid");
+
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
 
@@ -315,6 +431,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StorefrontId", "PublicOrderNumber")
+                        .IsUnique();
 
                     b.ToTable("Orders", "ordering");
                 });
@@ -351,6 +470,20 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.ToTable("OrderLines", "ordering");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.OrderNumberSequence", b =>
+                {
+                    b.Property<Guid>("StorefrontId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("NextNumber")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("StorefrontId");
+
+                    b.ToTable("OrderNumberSequences", "ordering");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.ProductCopy", b =>
                 {
                     b.Property<Guid>("ProductId")
@@ -367,9 +500,21 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<long>("MinPriceMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<long>("SellingPriceMinor")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SupplierCostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxMode")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -437,6 +582,15 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.CheckoutAttemptLine", b =>
+                {
+                    b.HasOne("ThreeCommerce.Ordering.Domain.CheckoutAttempt", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("CheckoutAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.OrderLine", b =>
                 {
                     b.HasOne("ThreeCommerce.Ordering.Domain.Order", null)
@@ -449,6 +603,11 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Cart", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.CheckoutAttempt", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.Order", b =>

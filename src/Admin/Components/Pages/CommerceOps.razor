@@ -1,0 +1,250 @@
+@page "/commerce-ops"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Storefront commerce operations</h1>
+<p style="color:#4b5563; max-width:900px;">
+    Tenant/storefront catalog, publication, pricing, payment, payout, and Xero setup surfaces. Sensitive values
+    (supplier cost, margins, bank tokens, provider account refs, accounting mappings) are intentionally summarized here;
+    field-level policy/audit enforcement is provided by the owning service/Admin API as those mutation endpoints are expanded.
+</p>
+
+<section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
+    <h2>Tenant context</h2>
+    <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
+        <label>Tenant ID<br /><input @bind="_tenantId" style="width:24rem; padding:.4rem;" /></label>
+        <button @onclick="LoadStorefronts" style="padding:.45rem .8rem;">Load storefronts</button>
+    </div>
+</section>
+
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+
+<section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
+    <h2>Storefronts</h2>
+    <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
+        <label>Name<br /><input @bind="_newStorefrontName" style="padding:.4rem;" /></label>
+        <label>Visibility<br />
+            <select @bind="_newVisibility" style="padding:.4rem;">
+                <option value="1">Private</option>
+                <option value="2">Password</option>
+                <option value="3">Invite only</option>
+                <option value="4">Public</option>
+            </select>
+        </label>
+        <button @onclick="CreateStorefront" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">Create storefront</button>
+    </div>
+
+    @if (_storefronts is null)
+    {
+        <p>Load storefronts to begin.</p>
+    }
+    else if (_storefronts.Count == 0)
+    {
+        <p>No storefronts for this tenant.</p>
+    }
+    else
+    {
+        <table style="border-collapse:collapse;width:100%;">
+            <thead><tr><th style="text-align:left;">Name</th><th>State</th><th>Visibility</th><th>Domains</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var s in _storefronts)
+            {
+                <tr style="border-top:1px solid #e5e7eb;">
+                    <td>@s.Name<br /><span style="color:#6b7280; font-size:.8rem;">@s.Id</span></td>
+                    <td style="text-align:center;">@s.State</td>
+                    <td style="text-align:center;">@s.Visibility</td>
+                    <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <button @onclick="() => SelectStorefront(s)">Manage</button>
+                        <button @onclick='() => Transition(s.Id, "preview")'>Preview</button>
+                        <button @onclick='() => Transition(s.Id, "activate")'>Activate</button>
+                        <button @onclick='() => Transition(s.Id, "pause")'>Pause</button>
+                        <button @onclick='() => Transition(s.Id, "archive")' style="color:#b91c1c;">Archive</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
+
+@if (_selectedStorefront is not null)
+{
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
+        <h2>Manage @_selectedStorefront.Name</h2>
+        <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
+            <label>Domain host<br /><input @bind="_domainHost" placeholder="shop.example.com" style="padding:.4rem;" /></label>
+            <label><input type="checkbox" @bind="_domainCanonical" /> Canonical</label>
+            <button @onclick="AddDomain">Add domain</button>
+            <button @onclick="CheckReadiness">Check readiness</button>
+        </div>
+        @if (_readiness is not null)
+        {
+            <p>Readiness: <strong>@(_readiness.IsReady ? "Ready" : "Not ready")</strong></p>
+            @if (!_readiness.IsReady)
+            {
+                <ul>
+                    @foreach (var missing in _readiness.MissingRequirements)
+                    {
+                        <li>@missing</li>
+                    }
+                </ul>
+            }
+        }
+
+        <h3>Product publication</h3>
+        <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:.5rem; align-items:end;">
+            <label>Product ID<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" /></label>
+            <label>SEO title<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" /></label>
+            <label>Fulfillment<br />
+                <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;">
+                    <option value="0">Unassigned (blocks publish)</option>
+                    <option value="1">Dropship</option>
+                    <option value="2">Own warehouse</option>
+                </select>
+            </label>
+        </div>
+        <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+            <button @onclick="AssignProduct">Assign product</button>
+            <button @onclick="CheckProductReadiness">Product readiness</button>
+            <button @onclick="PublishProduct">Publish</button>
+            <button @onclick="UnpublishProduct">Unpublish</button>
+        </div>
+        @if (_publicationReadiness is not null)
+        {
+            <p>Publication readiness: <strong>@(_publicationReadiness.IsReady ? "Ready" : "Not ready")</strong></p>
+            @if (!_publicationReadiness.IsReady)
+            {
+                <ul>
+                    @foreach (var missing in _publicationReadiness.MissingRequirements)
+                    {
+                        <li>@missing</li>
+                    }
+                </ul>
+            }
+        }
+    </section>
+}
+
+<section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
+    <h2>Pricing, payment, payout, and Xero policy surfaces</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
+        <PolicyCard Title="Pricing & promotions" Body="SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Ordering. Admin mutation endpoints are scheduled after policy/audit wiring." />
+        <PolicyCard Title="Payment accounts" Body="Payments owns tenant defaults, storefront overrides, provider mode, readiness, live activation approval, and checkout snapshots. Use active eligible accounts only." />
+        <PolicyCard Title="Supplier payouts" Body="Payments owns masked/tokenized bank accounts, approval-protected payout instructions, payable policies, and balanced supplier payable accruals." />
+        <PolicyCard Title="Xero mappings" Body="Payments owns tenant default plus storefront/category/supplier/product mapping precedence. Xero remains downstream of ledger truth." />
+    </div>
+</section>
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string _newStorefrontName = string.Empty;
+    private int _newVisibility = 1;
+    private List<StorefrontDto>? _storefronts;
+    private StorefrontDto? _selectedStorefront;
+    private string? _status;
+    private string? _error;
+    private string _domainHost = string.Empty;
+    private bool _domainCanonical = true;
+    private ReadinessDto? _readiness;
+    private string _assignProductId = string.Empty;
+    private string? _seoTitle;
+    private int _fulfillmentSource;
+    private ReadinessDto? _publicationReadiness;
+
+    private async Task LoadStorefronts()
+    {
+        _error = null;
+        _storefronts = await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Uri.EscapeDataString(_tenantId)}");
+    }
+
+    private async Task CreateStorefront()
+    {
+        _error = null;
+        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility });
+        await HandleMutation(response, "Storefront created.");
+        await LoadStorefronts();
+    }
+
+    private void SelectStorefront(StorefrontDto storefront)
+    {
+        _selectedStorefront = storefront;
+        _readiness = null;
+        _publicationReadiness = null;
+    }
+
+    private async Task Transition(Guid id, string transition)
+    {
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{id}/{transition}");
+        await HandleMutation(response, $"Storefront {transition} requested.");
+        await LoadStorefronts();
+    }
+
+    private async Task AddDomain()
+    {
+        if (_selectedStorefront is null) return;
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/domains", new { host = _domainHost, canonical = _domainCanonical });
+        await HandleMutation(response, "Domain added.");
+        await LoadStorefronts();
+    }
+
+    private async Task CheckReadiness()
+    {
+        if (_selectedStorefront is null) return;
+        _readiness = await Gateway.GetAsync<ReadinessDto>($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/readiness");
+    }
+
+    private async Task AssignProduct()
+    {
+        if (_selectedStorefront is null || !Guid.TryParse(_assignProductId, out var productId)) return;
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products", new
+        {
+            productId,
+            seoTitle = _seoTitle,
+            fulfillmentSource = _fulfillmentSource,
+            countryOfOrigin = "AU",
+        });
+        await HandleMutation(response, "Product assigned.");
+    }
+
+    private async Task CheckProductReadiness()
+    {
+        if (_selectedStorefront is null || !Guid.TryParse(_assignProductId, out var productId)) return;
+        _publicationReadiness = await Gateway.GetAsync<ReadinessDto>($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products/{productId}/readiness");
+    }
+
+    private Task PublishProduct() => ProductTransition("publish", "Product publish requested.");
+    private Task UnpublishProduct() => ProductTransition("unpublish", "Product unpublish requested.");
+
+    private async Task ProductTransition(string transition, string message)
+    {
+        if (_selectedStorefront is null || !Guid.TryParse(_assignProductId, out var productId)) return;
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products/{productId}/{transition}");
+        await HandleMutation(response, message);
+    }
+
+    private async Task HandleMutation(HttpResponseMessage response, string success)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            _status = success;
+            _error = null;
+            return;
+        }
+
+        _status = null;
+        _error = $"Request failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}";
+    }
+
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
+    public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
+}

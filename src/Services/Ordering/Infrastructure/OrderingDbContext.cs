@@ -12,6 +12,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+    public DbSet<CheckoutAttempt> CheckoutAttempts => Set<CheckoutAttempt>();
+    public DbSet<CheckoutAttemptLine> CheckoutAttemptLines => Set<CheckoutAttemptLine>();
+    public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,7 +36,22 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         modelBuilder.Entity<Order>(o =>
         {
             o.Property(x => x.Currency).HasMaxLength(3);
+            o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
+        });
+
+        modelBuilder.Entity<CheckoutAttempt>(attempt =>
+        {
+            attempt.Property(x => x.Currency).HasMaxLength(3);
+            attempt.Property(x => x.PaymentIntentId).HasMaxLength(200);
+            attempt.Property(x => x.CampaignRef).HasMaxLength(120);
+            attempt.HasIndex(x => new { x.StorefrontId, x.Status });
+            attempt.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.CheckoutAttemptId);
+        });
+
+        modelBuilder.Entity<OrderNumberSequence>(sequence =>
+        {
+            sequence.HasKey(x => x.StorefrontId);
         });
 
         // Saga state persistence (MassTransit EF saga repository).

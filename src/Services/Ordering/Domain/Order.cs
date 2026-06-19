@@ -8,6 +8,8 @@ public enum FulfillmentSource { Unassigned = 0, Dropship = 1, OwnWarehouse = 2 }
 public class Order
 {
     public Guid Id { get; init; }
+    public long PublicOrderNumber { get; set; }
+    public Guid? StorefrontId { get; set; }
     public Guid? UserId { get; set; }
     public required string Email { get; set; }
     public OrderStatus Status { get; set; }
