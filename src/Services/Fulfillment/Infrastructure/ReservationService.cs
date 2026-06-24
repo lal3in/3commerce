@@ -11,7 +11,7 @@ public sealed record ReservationLine(Guid ProductId, Guid? VariantId, int Quanti
 /// order, allocating across active locations and recording every change in the movement ledger.
 /// Idempotent by (reference, movement type) so a redelivered saga message is safe.
 /// </summary>
-public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clock)
+public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clock, AvailabilityNotifier availability)
 {
     /// <summary>Place a hold for an order. Reserves up to what is available; a shortfall is left unreserved (v1).</summary>
     public async Task ReserveAsync(Guid tenantId, Guid orderId, IReadOnlyList<ReservationLine> lines, CancellationToken ct)
@@ -46,6 +46,7 @@ public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clo
         }
 
         await db.SaveChangesAsync(ct);
+        await availability.PublishAsync(tenantId, lines.Select(l => (l.ProductId, l.VariantId)), ct);
     }
 
     /// <summary>Release a hold (order cancelled before confirmation).</summary>
@@ -57,7 +58,8 @@ public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clo
         }
 
         var now = clock.GetUtcNow();
-        foreach (var (item, quantity) in await ReservedByItemAsync(orderId, ct))
+        var released = await ReservedByItemAsync(orderId, ct);
+        foreach (var (item, quantity) in released)
         {
             item.Release(quantity, now);
             db.InventoryMovements.Add(InventoryMovement.For(
@@ -65,6 +67,7 @@ public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clo
         }
 
         await db.SaveChangesAsync(ct);
+        await PublishAvailabilityAsync(released.Select(r => r.Item), ct);
     }
 
     /// <summary>
@@ -116,6 +119,18 @@ public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clo
         }
 
         await db.SaveChangesAsync(ct);
+        var confirmedKeys = reserved.Count > 0
+            ? reserved.Select(r => (r.Item.ProductId, r.Item.VariantId))
+            : lines.Select(l => (l.ProductId, l.VariantId));
+        await availability.PublishAsync(tenantId, confirmedKeys, ct);
+    }
+
+    private async Task PublishAvailabilityAsync(IEnumerable<InventoryItem> items, CancellationToken ct)
+    {
+        foreach (var byTenant in items.GroupBy(i => i.TenantId))
+        {
+            await availability.PublishAsync(byTenant.Key, byTenant.Select(i => (i.ProductId, i.VariantId)), ct);
+        }
     }
 
     private Task<bool> HasMovementAsync(Guid orderId, InventoryMovementType type, CancellationToken ct) =>

@@ -111,6 +111,12 @@ public class Variant
     public long PriceMinor { get; set; }
     /// <summary>ISO 4217. Single configured store currency in v1 (ADR-0015).</summary>
     public required string Currency { get; set; }
+
+    /// <summary>
+    /// Read model only (ADR-0028): availability is owned by Fulfillment and projected here via
+    /// InventoryAvailabilityChanged. Do not treat as a source of truth — feed stock through the
+    /// Fulfillment inventory endpoints, not by editing this.
+    /// </summary>
     public int StockQuantity { get; set; }
     public int? WeightGrams { get; set; }
     public int? LengthMm { get; set; }

@@ -24,6 +24,7 @@ builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus 
 builder.Services.AddServiceHealth<FulfillmentDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<AvailabilityNotifier>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<ReservationService>();
 

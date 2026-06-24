@@ -24,7 +24,10 @@ catalogDataSource.EnableDynamicJson();
 builder.Services.AddSingleton(catalogDataSource.Build());
 builder.Services.AddDbContext<CatalogDbContext>((sp, options) =>
     options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>(), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
-builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration);
+builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration, bus =>
+{
+    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.InventoryAvailabilityConsumer>();
+});
 builder.Services.AddServiceHealth<CatalogDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 

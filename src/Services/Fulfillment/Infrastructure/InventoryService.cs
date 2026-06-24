@@ -7,7 +7,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure;
 /// Inventory locations and on-hand stock (mt4_1). Locations are linked to an owning Entity;
 /// stock is fed per (product, variant, location) by admins or supplier feeds.
 /// </summary>
-public sealed class InventoryService(FulfillmentDbContext db, TimeProvider clock)
+public sealed class InventoryService(FulfillmentDbContext db, TimeProvider clock, AvailabilityNotifier availability)
 {
     public async Task<InventoryLocation> CreateLocationAsync(
         Guid tenantId, Guid entityId, Guid? addressId, string name, LocationKind kind, CancellationToken ct)
@@ -53,6 +53,7 @@ public sealed class InventoryService(FulfillmentDbContext db, TimeProvider clock
         }
 
         await db.SaveChangesAsync(ct);
+        await availability.PublishAsync(tenantId, [(productId, variantId)], ct);
         return item;
     }
 
