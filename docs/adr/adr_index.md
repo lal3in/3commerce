@@ -30,3 +30,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0025](./0025-pdp-pep-dynamic-rbac.md) | Central PDP + service-side PEP, field/action policy, dynamic admin-defined RBAC | Accepted | Security / authz |
 | [0026](./0026-service-accounts-and-cli.md) | Service accounts + installable .NET global-tool CLI | Accepted | Security / tooling |
 | [0027](./0027-entity-service-master-data-boundary.md) | Entity service master-data boundary | Accepted | Entity / service boundary |
+| [0028](./0028-product-supply-profiles-composable-supply.md) | Product supply profiles (Offers) — composable supply/fulfilment/pricing/entitlement | Accepted | Catalog / supply / architecture |

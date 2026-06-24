@@ -200,3 +200,58 @@ Acceptance additions:
 - [ ] DHL, Australia Post, FedEx, UPS, StarTrack, and Pack & Send adapters exist behind the seam, plus a keyless Fake.
 - [ ] `POST /api/shipping/quote` is Postman/CI-testable (Fake/sandbox) and accepts an override parcel.
 - [ ] Variants carry weight + dimensions with a configurable default-parcel fallback.
+
+---
+
+## ADDENDUM — Supply seam (ADR-0028), reordered ahead of reservations
+
+Comparison against a full supply-type reference model (physical warehouse/dropship + digital
+download/subscription/usage) showed the current shape — supply as a physical-only enum on the
+catalog variant, duplicated in Ordering and stringified on the bus; price as `Variant.PriceMinor`;
+supplier as a single `Product.SupplierRef` — fights the multi-supplier/digital roadmap. ADR-0028
+promotes supply into a first-class **Offer (product supply profile)** behind one `ISupplyStrategy`
+seam. These tasks are inserted **before mt4_2** so reservations build on the Offer, not on
+`(product, variant)`.
+
+### mt4_1b ADD supply seam — Offers + supplier_type + fulfilment_type + price-off-variant
+
+- **IMPLEMENT**: First-class **Offer / product_supply_profile** `(tenant, product/variant,
+  supplier) → supply_category + fulfilment_type` owning price + availability strategy
+  (multi-supplier). Add `SupplierType` to Entity (`internal/warehouse_partner/dropship_partner/
+  digital_provider/service_provider/marketplace_seller`). Add `product_type`
+  (`physical/digital/service/bundle`) to Catalog. **Unify** the two `FulfillmentSource` enums +
+  the bus string into one shared typed `FulfilmentType` in `BuildingBlocks.Contracts`, widened
+  for digital modes. Move price ownership to the Offer (introduce `pricing_model = one_time` now;
+  full pricing models land in Phase 7). Order line carries `fulfilment_type` + supplier/offer ref
+  + `billing_mode`. `mt4_1` `InventoryItem` becomes the warehouse strategy (no schema change).
+- **PATTERN**: ADR-0028; `ISearchProvider`/`IPaymentProvider` seam; Catalog/Entity/Ordering models.
+- **GOTCHA**: Live event-contract change (`OrderLineInfo`) — do it now while there are ~6 call
+  sites; after mt4_2/5/7 it is woven through the whole fulfilment path. A Digital supplier may not
+  back a Warehouse offer (validate). Keep `subscription` out of `product_type` (ADR-0028).
+- **VALIDATE**: `dotnet test src/Services/Ordering/tests --filter Supply` + Fulfillment `Inventory`.
+
+### mt4_2 (UPDATED) hybrid inventory reservations + movement ledger + single stock owner
+
+- **IMPLEMENT**: Hard-reserve during the checkout/payment saga **against the Offer** (warehouse
+  strategy → `InventoryItem.QuantityReserved`; dropship → soft/availability; digital → no-op). Add
+  an **`inventory_movements`** ledger (`purchase_in / order_reserved / order_confirmed /
+  order_cancelled / returned / adjustment / transfer` with `reference_type/reference_id`) — a
+  reservation **is** a movement, and the ledger seeds audit (mt6_1). **Collapse the duplicate
+  stock**: Fulfillment `InventoryItem` is the single owner; Catalog `Variant.StockQuantity` becomes
+  a projected availability read model, not a source of truth.
+- **GOTCHA**: Reserve/confirm/cancel must be idempotent and balanced (movements reconcile to
+  on-hand/reserved). Availability projection to Catalog is eventually consistent.
+- **VALIDATE**: `dotnet test src/Services/Fulfillment/tests --filter Reservation`.
+
+### mt4_4b ADD dropship fulfilment — supplier orders + availability feed
+
+- **IMPLEMENT**: `dropship_profiles` (supplier SKU, supplier API/product id, supplier price,
+  dispatch/delivery days, auto-order) + `supplier_product_availability` (available/out_of_stock/
+  discontinued/unknown, external quantity, last_checked). Dropship fulfilment flow:
+  `SupplierOrderRequested → SupplierOrderAccepted → SupplierTrackingReceived → OrderFulfilled`
+  behind an `ISupplierOrderProvider` seam (Fake first). No internal inventory movements for pure
+  dropship; availability comes from the feed.
+- **PATTERN**: carrier adapter seam mt4_4; Offer/supply profile mt4_1b; Entity supplier credentials.
+- **GOTCHA**: Supplier API access is an external onboarding dependency — ship the Fake provider so
+  UI/CI are unblocked; per-source credentials (ADR-0028), not per-brand.
+- **VALIDATE**: `dotnet test src/Services/Fulfillment/tests --filter Dropship`.

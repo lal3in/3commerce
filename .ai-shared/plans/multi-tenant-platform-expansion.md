@@ -340,6 +340,20 @@ Foundation-heavy. No broad domain feature rewrites until tenant context and poli
 14. Define SLOs and monitor critical checkout/payment/shipping/auth/domain/webhook/workflow/analytics surfaces from v1.
 15. Launch gates: external penetration test before live payments, load/performance testing for critical storefront checkout/shipping/payment, live integrations approved; deeper vulnerability/container/SAST scanning and DR restore testing later hardening unless policy changes.
 
+### Phase 7: Digital Supply, Entitlements, Usage Metering, Billing (ADR-0028)
+
+Extends the composable supply model (ADR-0028; supply seam landed in Phase 4 as mt4_1b) along the digital axis. See `.ai-shared/plans/multi-tenant-platform-expansion-phase-7-digital-supply-billing.md`.
+
+**Tasks:**
+
+1. Pricing/Billing service + price models (`prices` with `pricing_model`/`billing_period`/currency, `price_tiers`); finish moving price off `Variant.PriceMinor` onto the Offer.
+2. Entitlement service: `customer_entitlements` (subscription/license/download/api_access/service_access) + `subscription_products`; issue + activate on digital line confirmation.
+3. Subscription billing: `billing_mode = recurring` sets up a subscription at checkout (not single capture); renewals/trials/dunning behind `IPaymentProvider`.
+4. Usage Metering service: `usage_plans` (token/transaction/request/minute/seat/storage) + append-only `usage_records` rolled into `usage_balances` per period.
+5. Usage-based billing + overage: rate usage vs plan/tiers; `UsageThresholdReached → OverageCharged/AccessLimited`; balances gate access.
+6. Digital fulfilment flows + React storefront UX (subscription/usage/download checkout, "my access/usage", mixed-cart one-time+recurring+metered).
+7. Docs/e2e-verify/ADR currency for the digital supply axis.
+
 ---
 
 ## STEP-BY-STEP TASKS
