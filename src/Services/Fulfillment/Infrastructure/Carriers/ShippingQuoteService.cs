@@ -17,4 +17,22 @@ public sealed class ShippingQuoteService(CarrierService carriers, CarrierRegistr
         provider ??= fake;
         return await provider.GetRatesAsync(request, ct);
     }
+
+    /// <summary>Quote each shipment group of an order independently (mt4_5) — one order, multiple shipments.</summary>
+    public async Task<IReadOnlyList<GroupQuote>> QuoteGroupsAsync(
+        Guid tenantId, Guid? storefrontId, ShipAddress destination,
+        IReadOnlyList<(string SourceKey, ShipAddress Origin, Parcel Parcel)> groups, CancellationToken ct)
+    {
+        var result = new List<GroupQuote>();
+        foreach (var group in groups)
+        {
+            var rates = await QuoteAsync(tenantId, storefrontId, new RateRequest(group.Origin, destination, group.Parcel), ct);
+            result.Add(new GroupQuote(group.SourceKey, rates));
+        }
+
+        return result;
+    }
 }
+
+/// <summary>Shipping options for one shipment group (mt4_5). The customer selects one per group.</summary>
+public sealed record GroupQuote(string SourceKey, IReadOnlyList<CarrierRate> Rates);

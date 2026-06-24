@@ -56,6 +56,7 @@ app.MapServiceHealth();
 app.MapAdminShipments();
 app.MapInventory();
 app.MapCarriers();
+app.MapShipping();
 
 app.Run();
 

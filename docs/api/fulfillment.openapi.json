@@ -555,10 +555,97 @@
           }
         }
       }
+    },
+    "/shipping/quote": {
+      "post": {
+        "tags": [
+          "Shipping"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shipping/quote/groups": {
+      "post": {
+        "tags": [
+          "Shipping"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupQuoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupQuoteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AddressDto": {
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postcode",
+          "country"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 2,
+            "minLength": 2,
+            "type": "string"
+          }
+        }
+      },
       "CarrierCode": {
         "type": "integer"
       },
@@ -674,6 +761,91 @@
           }
         }
       },
+      "GroupQuoteDto": {
+        "required": [
+          "sourceKey",
+          "rates"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceKey": {
+            "type": "string"
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateDto"
+            }
+          }
+        }
+      },
+      "GroupQuoteRequest": {
+        "required": [
+          "tenantId",
+          "storefrontId",
+          "destination",
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRequestDto"
+            }
+          }
+        }
+      },
+      "GroupQuoteResponse": {
+        "required": [
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupQuoteDto"
+            }
+          }
+        }
+      },
+      "GroupRequestDto": {
+        "required": [
+          "sourceKey",
+          "origin",
+          "parcel"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceKey": {
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "parcel": {
+            "$ref": "#/components/schemas/ParcelDto"
+          }
+        }
+      },
       "LocationDto": {
         "required": [
           "id",
@@ -718,6 +890,148 @@
       },
       "LocationKind": {
         "type": "integer"
+      },
+      "ParcelDto": {
+        "required": [
+          "weightGrams",
+          "lengthMm",
+          "widthMm",
+          "heightMm"
+        ],
+        "type": "object",
+        "properties": {
+          "weightGrams": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lengthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "widthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "heightMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "QuoteRequest": {
+        "required": [
+          "tenantId",
+          "storefrontId",
+          "origin",
+          "destination",
+          "parcel",
+          "service"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "parcel": {
+            "$ref": "#/components/schemas/ParcelDto"
+          },
+          "service": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "QuoteResponse": {
+        "required": [
+          "rates"
+        ],
+        "type": "object",
+        "properties": {
+          "rates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RateDto"
+            }
+          }
+        }
+      },
+      "RateDto": {
+        "required": [
+          "carrier",
+          "service",
+          "serviceName",
+          "amountMinor",
+          "currency",
+          "estimatedDays"
+        ],
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "serviceName": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "estimatedDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
       },
       "SetCredentialRequest": {
         "required": [
@@ -932,6 +1246,9 @@
     },
     {
       "name": "Carriers"
+    },
+    {
+      "name": "Shipping"
     }
   ]
 }
