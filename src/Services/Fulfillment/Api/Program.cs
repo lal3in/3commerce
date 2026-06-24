@@ -27,6 +27,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<AvailabilityNotifier>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<ReservationService>();
+builder.Services.AddScoped<CarrierService>();
 
 var app = builder.Build();
 
@@ -41,6 +42,7 @@ app.UseAuthorization();
 app.MapServiceHealth();
 app.MapAdminShipments();
 app.MapInventory();
+app.MapCarriers();
 
 app.Run();
 

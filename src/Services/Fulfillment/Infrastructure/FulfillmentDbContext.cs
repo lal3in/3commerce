@@ -11,6 +11,7 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<InventoryLocation> InventoryLocations => Set<InventoryLocation>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
+    public DbSet<CarrierIntegration> CarrierIntegrations => Set<CarrierIntegration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +48,14 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
             // Idempotency + history lookups are by reference (order) and type.
             move.HasIndex(x => new { x.ReferenceId, x.Type });
             move.HasIndex(x => x.InventoryItemId);
+        });
+
+        modelBuilder.Entity<CarrierIntegration>(carrier =>
+        {
+            carrier.Property(x => x.Carrier).HasConversion<string>().HasMaxLength(24);
+            carrier.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            carrier.Property(x => x.CredentialRef).HasMaxLength(200);
+            carrier.HasIndex(x => new { x.TenantId, x.StorefrontId });
         });
 
         modelBuilder.AddInboxStateEntity();
