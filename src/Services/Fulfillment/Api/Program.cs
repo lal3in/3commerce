@@ -30,6 +30,7 @@ builder.Services.AddScoped<AvailabilityNotifier>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<ReservationService>();
 builder.Services.AddScoped<CarrierService>();
+builder.Services.AddScoped<ShipmentService>();
 
 // Carrier adapters (mt4_4): Fake is keyless and serves all three seams; AusPost/DHL are rate
 // adapters (sandbox placeholders until credentials onboard). They self-register by CarrierCode.

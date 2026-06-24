@@ -58,6 +58,7 @@ public sealed class OrderConfirmedConsumer(
             var shipment = new Shipment
             {
                 Id = Guid.CreateVersion7(),
+                TenantId = m.TenantId,
                 OrderId = m.OrderId,
                 FulfillmentSource = group.Key.ToString(),
                 Status = ShipmentStatus.Created,

@@ -8,6 +8,7 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
 {
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentLine> ShipmentLines => Set<ShipmentLine>();
+    public DbSet<Package> Packages => Set<Package>();
     public DbSet<InventoryLocation> InventoryLocations => Set<InventoryLocation>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
@@ -25,6 +26,15 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
         {
             s.HasIndex(x => new { x.OrderId, x.FulfillmentSource }).IsUnique();
             s.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.ShipmentId);
+            s.HasMany(x => x.Packages).WithOne().HasForeignKey(p => p.ShipmentId);
+        });
+
+        modelBuilder.Entity<Package>(p =>
+        {
+            p.Property(x => x.Carrier).HasConversion<string>().HasMaxLength(24);
+            p.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            p.HasIndex(x => x.ShipmentId);
+            p.HasIndex(x => new { x.TenantId, x.TrackingNumber });
         });
 
         modelBuilder.Entity<InventoryLocation>(loc =>

@@ -6,6 +6,7 @@ public enum ShipmentStatus { Created = 1, Dispatched = 2 }
 public class Shipment
 {
     public Guid Id { get; init; }
+    public Guid TenantId { get; init; }
     public Guid OrderId { get; init; }
     public required string FulfillmentSource { get; init; }
     public ShipmentStatus Status { get; set; }
@@ -14,6 +15,7 @@ public class Shipment
     public string? Email { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public List<ShipmentLine> Lines { get; init; } = [];
+    public List<Package> Packages { get; init; } = [];
 }
 
 public class ShipmentLine
