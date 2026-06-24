@@ -74,6 +74,7 @@ public class CheckoutAttempt
                 DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
                 FulfilmentType = l.FulfilmentType,
+                SupplierId = l.SupplierId,
                 BillingMode = l.BillingMode,
             }).ToList(),
         };
@@ -92,6 +93,7 @@ public class CheckoutAttemptLine
     public long DiscountMinor { get; init; }
     public int Quantity { get; init; }
     public FulfilmentType FulfilmentType { get; init; } = FulfilmentType.Unassigned;
+    public Guid? SupplierId { get; init; }
     public BillingMode BillingMode { get; init; } = BillingMode.OneTime;
 }
 

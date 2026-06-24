@@ -46,6 +46,9 @@ public class OrderLine
     /// <summary>How this line is sourced/delivered (ADR-0028, shared vocabulary).</summary>
     public FulfilmentType FulfilmentType { get; set; } = FulfilmentType.Unassigned;
 
+    /// <summary>The supplier fulfilling this line (from its resolved offer) — drives dropship routing.</summary>
+    public Guid? SupplierId { get; set; }
+
     /// <summary>How this line is charged. One-time today; recurring/metered in Phase 7.</summary>
     public BillingMode BillingMode { get; set; } = BillingMode.OneTime;
 }

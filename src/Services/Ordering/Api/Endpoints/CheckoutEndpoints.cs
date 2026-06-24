@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 
@@ -129,7 +130,8 @@ public static class CheckoutEndpoints
                 UnitPriceMinor = i.UnitPriceMinor,
                 DiscountMinor = 0,
                 Quantity = i.Quantity,
-                FulfilmentType = OfferResolution.ResolveFulfilment(offerCopies, tenantId, i.ProductId, i.VariantId),
+                FulfilmentType = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId)?.FulfilmentType ?? FulfilmentType.Unassigned,
+                SupplierId = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId)?.SupplierId,
             }).ToList(),
         };
         db.CheckoutAttempts.Add(attempt);

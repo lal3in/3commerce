@@ -21,6 +21,7 @@ public sealed class OfferChangedConsumer(OrderingDbContext db) : IConsumer<Offer
         copy.TenantId = m.TenantId;
         copy.ProductId = m.ProductId;
         copy.VariantId = m.VariantId;
+        copy.SupplierId = m.SupplierId;
         copy.FulfilmentType = m.FulfilmentType;
         copy.Priority = m.Priority;
         copy.Active = m.Active;

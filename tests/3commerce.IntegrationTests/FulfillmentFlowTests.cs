@@ -11,18 +11,20 @@ namespace ThreeCommerce.IntegrationTests;
 [Collection(Phase4Collection.Name)]
 public class FulfillmentFlowTests(Phase4Fixture fixture)
 {
+    private static readonly ShipToInfo Ship = new("Buyer", "1 St", "Sydney", "2000", "AU");
+
     [Fact]
     public async Task OrderConfirmed_creates_shipments_grouped_by_source()
     {
         var orderId = Guid.CreateVersion7();
         var lines = new List<OrderLineInfo>
         {
-            new(Guid.CreateVersion7(), null, "Item A", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 1000),
-            new(Guid.CreateVersion7(), null, "Item B", 2, FulfilmentType.Unassigned, BillingMode.OneTime, 1500),
-            new(Guid.CreateVersion7(), null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
+            new(Guid.CreateVersion7(), null, null, "Item A", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 1000),
+            new(Guid.CreateVersion7(), null, null, "Item B", 2, FulfilmentType.Unassigned, BillingMode.OneTime, 1500),
+            new(Guid.CreateVersion7(), null, null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
         };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "buyer@example.com", 9999, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "buyer@example.com", 9999, "EUR", Ship, lines));
 
         var shipments = await WaitForShipmentsAsync(orderId);
         // Two distinct fulfilment types → two shipments; the Unassigned one has both its lines.
@@ -35,10 +37,10 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
     public async Task Duplicate_OrderConfirmed_does_not_duplicate_shipments()
     {
         var orderId = Guid.CreateVersion7();
-        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), null, "X", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 100) };
+        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), null, null, "X", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 100) };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", lines));
-        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", Ship, lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", Ship, lines));
 
         await Task.Delay(2000);
         var shipments = await WaitForShipmentsAsync(orderId);
