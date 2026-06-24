@@ -154,6 +154,8 @@ Auth: opaque session token in a Secure/HttpOnly cookie, validated at the gateway
 
 Multi-tenancy (platform expansion, in progress on `feat/mt-phase1-foundation`): the platform is being made **strictly multi-tenant** — a tenant is one legal operating business; `Principal`s span tenants; customers are tenant-scoped (email unique per tenant). Tenant-owned rows carry `TenantId` and are isolated by **PostgreSQL RLS** (transaction-scoped `set_config('app.tenant_id', …, true)`, `FORCE ROW LEVEL SECURITY`, non-superuser service role) **plus** application checks. Authorization is a central **PDP in Identity** + service-side **PEP**, with fully dynamic admin-defined **RBAC** over a code-defined permission registry. New surfaces: an **Entity** master-data service, a generic **SupplierPortal**, and an installable **.NET global-tool CLI** (`src/Cli`, Gateway-only). See **ADR-0023** (strict multi-tenancy), **0024** (RLS), **0025** (PDP/PEP + RBAC), **0026** (service accounts + CLI), **0027** (Entity boundary).
 
+> **Composable supply (ADR-0028, Phase 4 mt4_*):** how a product is *sourced/delivered/charged* lives on a first-class **Offer** (product supply profile) `(product/variant × supplier) → supply category + fulfilment type + price + pricing model`, not on the product. One shared `FulfilmentType`/`SupplyCategory`/`BillingMode`/`PricingModel` vocabulary (`BuildingBlocks.Contracts.Supply`) replaces the old per-service enums + the bus string. Fulfillment owns **inventory + reservations + an append-only movement ledger** (single stock owner; Catalog mirrors availability), **carrier integrations** (tenant default + per-storefront override; `CredentialRef` only), **shipping quotes** (`ISupplyStrategy`/`ICarrierRateProvider` seams, Fake keyless + AusPost/DHL sandbox, quote expiry/revalidation/fallback), and **dropship** supplier-order forwarding (`ISupplierOrderProvider`, Fake-first) + a supplier availability feed. Checkout resolves each line's offer from a local `OfferCopy` read model (Catalog `OfferChanged`); `OrderConfirmed` carries tenant + ship-to + per-line supply so Fulfillment consumes warehouse stock and auto-forwards dropship lines. Digital supply (entitlements/usage/subscriptions/pricing) is the Phase-7 axis behind the same seam.
+
 > **Writing tenant-owned tables under FORCE RLS (ADR-0024):** every write/read must run inside a tenant scope — `db.RunInTenantScopeAsync(TenantContext.ForTenant(id), …)` or `BeginTenantScopeAsync` (tenant scope for tenant-keyed ops; **platform scope** for secret-keyed cross-tenant lookups like session introspection). An unscoped `INSERT` fails the `WITH CHECK` policy (`42501`) as the non-superuser service role — and superuser-connected tests will *not* catch it, so validate via the containerized launch / a non-superuser test (see `IdentityUsersRlsTests`). Secret-keyed tables (Identity `Sessions`/`EmailTokens`, looked up by global hash) stay isolated cryptographically, not by RLS.
 
 ---
@@ -196,7 +198,8 @@ The following repository rules must always be followed:
 ### Domain invariants (non-negotiable)
 - Money = integer minor units + ISO 4217 code; never floating point.
 - Every ledger transaction balances (Σ debits = Σ credits) — DB-constraint enforced.
-- Order line items always carry a `FulfillmentSource` (`Unassigned` allowed).
+- Order line items carry a typed `FulfilmentType` (`Unassigned` allowed) + `BillingMode` + resolved `SupplierId` (ADR-0028) — one shared supply vocabulary in `BuildingBlocks.Contracts.Supply`, not the old per-service `FulfillmentSource` enum.
+- Stock has a single owner: Fulfillment `InventoryItem`. Catalog `Variant.StockQuantity` is a read-model projection (`InventoryAvailabilityChanged`), never edited directly (ADR-0028).
 - IDs are UUIDv7.
 
 ---

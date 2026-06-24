@@ -30,8 +30,14 @@ Identity service via the gateway.
 > security + a central PDP/PEP with dynamic admin-defined RBAC), adding an **Entity**
 > master-data service, a generic **Supplier Portal**, an installable **CLI**, and
 > richer Catalog/Ordering/Payments (storefront lifecycle, product publication,
-> pricing/promotions, payment accounts, supplier payables, Xero mappings). See the
-> ADRs (`docs/adr/0023`–`0027`) and the phase plans under `.ai-shared/plans/`. The
+> pricing/promotions, payment accounts, supplier payables, Xero mappings).
+> **Phase 4 (shipping/inventory/fulfilment)** adds **composable supply** (ADR-0028):
+> a product is sold via **Offers** `(product/variant × supplier) → supply type + price`,
+> and Fulfillment gains inventory + reservations + a movement ledger, carrier
+> integrations (Fake/AusPost/DHL + sandbox), shipping quotes (with expiry/revalidation),
+> and dropship supplier-order forwarding — all API surfaces today (`/api/fulfillment/*`,
+> `/api/catalog/admin/offers`), with operator UI to follow. See the ADRs
+> (`docs/adr/0023`–`0028`) and the phase plans under `.ai-shared/plans/`. The
 > page-by-page guides below still describe the single-tenant MVP flows; the new
 > operator surfaces are summarized in [Admin operations](./admin-operations.md).
 

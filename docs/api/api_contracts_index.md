@@ -48,6 +48,8 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | POST | `/admin/storefronts/{id}/products/{productId}/publish|unpublish` | admin | Explicit storefront product publication transitions |
 | GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants |
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
+| GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
+| PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state |
 
 ## Conventions (see `docs/reference/api.md`)
 
@@ -82,6 +84,11 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 
+> At checkout each line resolves its **offer** (ADR-0028) from the local `OfferCopy` read model
+> (fed by Catalog `OfferChanged`) and is stamped with `FulfilmentType` + `SupplierId` + `BillingMode`.
+> `OrderConfirmed` carries the tenant, ship-to, and per-line supply so Fulfillment can consume
+> warehouse stock and auto-forward dropship lines to suppliers.
+
 ## Payments (`/api/payments`)
 
 | Method | Path | Auth | Purpose |
@@ -99,10 +106,21 @@ Payment account lifecycle data is Payments-owned: tenant defaults plus storefron
 
 ## Fulfillment (`/api/fulfillment`)
 
+Fulfillment owns inventory, reservations, the inventory movement ledger, carrier integrations,
+shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4 mt4_*).
+
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/admin/shipments?orderId=` | admin | Shipments grouped by fulfillment source |
+| GET | `/admin/shipments?orderId=` | admin | Shipments grouped by fulfilment type |
 | POST | `/admin/shipments/{id}/tracking` | admin | Assign tracking → TrackingAssigned event/email |
+| GET/POST | `/admin/inventory/locations` | admin | Inventory locations linked to an Entity warehouse/supplier/forwarder (mt4_1) |
+| GET/POST | `/admin/inventory/stock` | admin | On-hand stock feed per (product, variant, location); supplier-feedable. Confirmed orders consume it (mt4_2); changes publish `InventoryAvailabilityChanged` → Catalog mirror |
+| GET/POST | `/admin/carriers` | admin | Carrier integration config (Fake/AusPost/DHL/FedEx/UPS/StarTrack/Pack&Send); `CredentialRef` only, never the secret (mt4_3) |
+| POST | `/admin/carriers/{id}/activate\|suspend\|disable\|default` · PUT `/{id}/credential` | admin | Carrier lifecycle; tenant default + per-storefront override |
+| POST | `/shipping/quote` · `/shipping/quote/groups` | anon | Carrier rate quotes — single + per shipment group (one order, multiple shipments); response carries `ExpiresAt` (mt4_4/mt4_5) |
+| POST | `/shipping/revalidate` | anon | Revalidate a selected quote before payment → `Valid` / `Expired` / `PriceChanged` / `Unavailable`; carrier fallback to Fake (mt4_6) |
+| GET | `/admin/dropship/orders?orderId=` | admin | Dropship supplier orders (Requested→Accepted→TrackingReceived) auto-forwarded on confirm (mt4_4b) |
+| GET/POST | `/admin/dropship/availability` | admin | Supplier availability feed (dropship sellability comes from the feed, not internal stock) |
 
 ## Support (`/api/support`)
 

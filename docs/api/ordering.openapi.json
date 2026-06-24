@@ -785,7 +785,8 @@
           "unitPriceMinor",
           "discountMinor",
           "quantity",
-          "fulfillmentSource"
+          "fulfilmentType",
+          "billingMode"
         ],
         "type": "object",
         "properties": {
@@ -833,7 +834,10 @@
             ],
             "format": "int32"
           },
-          "fulfillmentSource": {
+          "fulfilmentType": {
+            "type": "string"
+          },
+          "billingMode": {
             "type": "string"
           }
         }
