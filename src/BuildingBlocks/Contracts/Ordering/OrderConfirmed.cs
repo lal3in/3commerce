@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 
 /// <summary>
@@ -11,4 +13,5 @@ public record OrderConfirmed(
     string Currency,
     IReadOnlyList<OrderLineInfo> Lines);
 
-public record OrderLineInfo(Guid ProductId, string Title, int Quantity, string FulfillmentSource, long UnitPriceMinor);
+public record OrderLineInfo(
+    Guid ProductId, string Title, int Quantity, FulfilmentType FulfilmentType, BillingMode BillingMode, long UnitPriceMinor);

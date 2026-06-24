@@ -1,9 +1,8 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.Ordering.Domain;
 
 public enum OrderStatus { Pending = 1, AwaitingPayment = 2, Confirmed = 3, Cancelled = 4 }
-
-/// <summary>Per-line fulfillment source (ADR-0003) — Unassigned in v1, decided per item later.</summary>
-public enum FulfillmentSource { Unassigned = 0, Dropship = 1, OwnWarehouse = 2 }
 
 public class Order
 {
@@ -40,5 +39,10 @@ public class OrderLine
     public long UnitPriceMinor { get; init; }
     public long DiscountMinor { get; init; }
     public int Quantity { get; init; }
-    public FulfillmentSource FulfillmentSource { get; set; } = FulfillmentSource.Unassigned;
+
+    /// <summary>How this line is sourced/delivered (ADR-0028, shared vocabulary).</summary>
+    public FulfilmentType FulfilmentType { get; set; } = FulfilmentType.Unassigned;
+
+    /// <summary>How this line is charged. One-time today; recurring/metered in Phase 7.</summary>
+    public BillingMode BillingMode { get; set; } = BillingMode.OneTime;
 }

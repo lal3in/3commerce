@@ -1,3 +1,4 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 
 namespace ThreeCommerce.Ordering.Tests;
@@ -66,7 +67,7 @@ public class CheckoutTests
                 Title = "Product",
                 UnitPriceMinor = 1000,
                 Quantity = 1,
-                FulfillmentSource = FulfillmentSource.Dropship,
+                FulfilmentType = FulfilmentType.Dropship,
             },
         ],
     };

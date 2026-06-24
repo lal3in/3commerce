@@ -1,3 +1,4 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Catalog.Domain;
 
 namespace ThreeCommerce.Catalog.Tests;
@@ -21,7 +22,7 @@ public class PublicationTests
     {
         var product = NewProduct();
         var publication = ProductPublication.Assign(product.TenantId, Guid.CreateVersion7(), product, DateTimeOffset.UtcNow);
-        publication.SetFulfillment(CatalogFulfillmentSource.Dropship, "au", "8518", DateTimeOffset.UtcNow);
+        publication.SetFulfillment(FulfilmentType.Dropship, "au", "8518", DateTimeOffset.UtcNow);
         foreach (var variant in publication.Variants)
         {
             variant.Visible = false;
@@ -38,7 +39,7 @@ public class PublicationTests
     {
         var product = NewProduct();
         var publication = ProductPublication.Assign(product.TenantId, Guid.CreateVersion7(), product, DateTimeOffset.UtcNow);
-        publication.SetFulfillment(CatalogFulfillmentSource.Dropship, "au", "8518", DateTimeOffset.UtcNow);
+        publication.SetFulfillment(FulfilmentType.Dropship, "au", "8518", DateTimeOffset.UtcNow);
         publication.SetOverrides("custom-slug", "Custom title", "Custom description", "SEO title", "SEO description", DateTimeOffset.UtcNow);
 
         publication.Publish(product, DateTimeOffset.UtcNow);

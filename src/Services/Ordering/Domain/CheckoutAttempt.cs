@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.Ordering.Domain;
 
 public enum CheckoutAttemptStatus
@@ -70,7 +72,8 @@ public class CheckoutAttempt
                 UnitPriceMinor = l.UnitPriceMinor,
                 DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
-                FulfillmentSource = l.FulfillmentSource,
+                FulfilmentType = l.FulfilmentType,
+                BillingMode = l.BillingMode,
             }).ToList(),
         };
     }
@@ -87,7 +90,8 @@ public class CheckoutAttemptLine
     public long UnitPriceMinor { get; init; }
     public long DiscountMinor { get; init; }
     public int Quantity { get; init; }
-    public FulfillmentSource FulfillmentSource { get; init; } = FulfillmentSource.Unassigned;
+    public FulfilmentType FulfilmentType { get; init; } = FulfilmentType.Unassigned;
+    public BillingMode BillingMode { get; init; } = BillingMode.OneTime;
 }
 
 public class OrderNumberSequence

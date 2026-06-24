@@ -5,6 +5,9 @@ public sealed class SupplierOnboarding
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid EntityId { get; init; }
+
+    /// <summary>How this supplier sources/supplies (ADR-0028). Gates which Offer kinds it can back.</summary>
+    public SupplierType SupplierType { get; set; } = SupplierType.WarehousePartner;
     public SupplierOnboardingState State { get; private set; } = SupplierOnboardingState.Draft;
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -138,4 +141,15 @@ public enum SupplierOnboardingState
     Active = 4,
     Suspended = 5,
     Archived = 6,
+}
+
+/// <summary>What kind of supplier this is (ADR-0028) — drives which fulfilment types it can offer.</summary>
+public enum SupplierType
+{
+    Internal = 1,
+    WarehousePartner = 2,
+    DropshipPartner = 3,
+    DigitalProvider = 4,
+    ServiceProvider = 5,
+    MarketplaceSeller = 6,
 }

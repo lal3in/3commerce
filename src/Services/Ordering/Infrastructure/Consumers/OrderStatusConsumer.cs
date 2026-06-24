@@ -52,7 +52,7 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
         await context.Publish(new OrderConfirmed(
             order.Id, order.Email, order.GrossMinor, order.Currency,
             order.Lines.Select(l => new OrderLineInfo(
-                l.ProductId, l.Title, l.Quantity, l.FulfillmentSource.ToString(), l.UnitPriceMinor)).ToList()));
+                l.ProductId, l.Title, l.Quantity, l.FulfilmentType, l.BillingMode, l.UnitPriceMinor)).ToList()));
     }
 
     public async Task Consume(ConsumeContext<OrderCancelled> context)

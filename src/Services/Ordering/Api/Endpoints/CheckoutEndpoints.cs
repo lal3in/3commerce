@@ -120,7 +120,8 @@ public static class CheckoutEndpoints
                 UnitPriceMinor = i.UnitPriceMinor,
                 DiscountMinor = 0,
                 Quantity = i.Quantity,
-                FulfillmentSource = FulfillmentSource.Unassigned,
+                // FulfilmentType/BillingMode default to Unassigned/OneTime; the offer/supply
+                // profile assigns them once mt4_1b wiring resolves the line's offer.
             }).ToList(),
         };
         db.CheckoutAttempts.Add(attempt);

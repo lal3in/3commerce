@@ -20,13 +20,13 @@ public sealed class OrderConfirmedConsumer(FulfillmentDbContext db, TimeProvider
             return;
         }
 
-        foreach (var group in m.Lines.GroupBy(l => l.FulfillmentSource))
+        foreach (var group in m.Lines.GroupBy(l => l.FulfilmentType))
         {
             var shipment = new Shipment
             {
                 Id = Guid.CreateVersion7(),
                 OrderId = m.OrderId,
-                FulfillmentSource = group.Key,
+                FulfillmentSource = group.Key.ToString(),
                 Status = ShipmentStatus.Created,
                 Email = m.Email,
                 CreatedAt = time.GetUtcNow(),

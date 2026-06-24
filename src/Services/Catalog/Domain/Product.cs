@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.Catalog.Domain;
 
 /// <summary>
@@ -14,6 +16,9 @@ public class Product
     public string Description { get; set; } = string.Empty;
     public Guid CategoryId { get; set; }
     public ProductKind Kind { get; set; } = ProductKind.Standard;
+
+    /// <summary>Nature of the product (ADR-0028) — not the fulfilment mechanism (that lives on the Offer).</summary>
+    public ProductType ProductType { get; set; } = ProductType.Physical;
     public Dictionary<string, string> Attributes { get; set; } = [];
     public List<string> ImageUrls { get; set; } = [];
     public string? SupplierRef { get; set; }
@@ -169,7 +174,7 @@ public sealed class ProductPublication
     public string? DescriptionOverride { get; private set; }
     public string? SeoTitle { get; private set; }
     public string? SeoDescription { get; private set; }
-    public CatalogFulfillmentSource FulfillmentSource { get; private set; } = CatalogFulfillmentSource.Unassigned;
+    public FulfilmentType FulfillmentSource { get; private set; } = FulfilmentType.Unassigned;
     public string? CountryOfOrigin { get; private set; }
     public string? HarmonizedSystemCode { get; private set; }
     public List<ProductPublicationVariant> Variants { get; init; } = [];
@@ -213,7 +218,7 @@ public sealed class ProductPublication
         UpdatedAt = now;
     }
 
-    public void SetFulfillment(CatalogFulfillmentSource source, string? countryOfOrigin, string? harmonizedSystemCode, DateTimeOffset now)
+    public void SetFulfillment(FulfilmentType source, string? countryOfOrigin, string? harmonizedSystemCode, DateTimeOffset now)
     {
         if (!Enum.IsDefined(source))
         {
@@ -244,7 +249,7 @@ public sealed class ProductPublication
             missing.Add("at least one product image");
         }
 
-        if (FulfillmentSource == CatalogFulfillmentSource.Unassigned)
+        if (FulfillmentSource == FulfilmentType.Unassigned)
         {
             missing.Add("assigned fulfillment source");
         }
@@ -314,9 +319,11 @@ public enum PublicationState
     Published = 2,
 }
 
-public enum CatalogFulfillmentSource
+/// <summary>Nature of a product (ADR-0028). Distinct from ProductKind (Standard/Bundle).</summary>
+public enum ProductType
 {
-    Unassigned = 0,
-    Dropship = 1,
-    OwnWarehouse = 2,
+    Physical = 1,
+    Digital = 2,
+    Service = 3,
+    Bundle = 4,
 }
