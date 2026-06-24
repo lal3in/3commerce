@@ -22,6 +22,7 @@ builder.Services.AddDbContext<FulfillmentDbContext>(options =>
 builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<OrderConfirmedConsumer>();
+    bus.AddConsumer<RestockRequestedConsumer>();
 });
 builder.Services.AddServiceHealth<FulfillmentDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

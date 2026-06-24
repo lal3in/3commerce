@@ -6,6 +6,9 @@ namespace ThreeCommerce.Fulfillment.Infrastructure;
 /// <summary>A warehouse line to reserve/confirm: (product, variant, quantity).</summary>
 public sealed record ReservationLine(Guid ProductId, Guid? VariantId, int Quantity);
 
+/// <summary>A returned line to restock into a specific location: (product, variant, location, quantity).</summary>
+public sealed record RestockLine(Guid ProductId, Guid? VariantId, Guid LocationId, int Quantity);
+
 /// <summary>
 /// Hybrid inventory reservations (mt4_2): hold / release / confirm warehouse stock against an
 /// order, allocating across active locations and recording every change in the movement ledger.
@@ -131,6 +134,44 @@ public sealed class ReservationService(FulfillmentDbContext db, TimeProvider clo
         {
             await availability.PublishAsync(byTenant.Key, byTenant.Select(i => (i.ProductId, i.VariantId)), ct);
         }
+    }
+
+    /// <summary>
+    /// Restock returned items (mt4_8): increment on-hand at the given location (create the row if
+    /// missing) and record a Returned movement. Idempotent by reference; partial returns are just
+    /// the subset of lines supplied.
+    /// </summary>
+    public async Task RestockAsync(Guid tenantId, Guid referenceId, IReadOnlyList<RestockLine> items, CancellationToken ct)
+    {
+        if (await HasMovementAsync(referenceId, InventoryMovementType.Returned, ct))
+        {
+            return;
+        }
+
+        var now = clock.GetUtcNow();
+        var keys = new List<(Guid ProductId, Guid? VariantId)>();
+        foreach (var line in items.Where(l => l.Quantity > 0))
+        {
+            var item = await db.InventoryItems.SingleOrDefaultAsync(
+                i => i.TenantId == tenantId && i.LocationId == line.LocationId
+                     && i.ProductId == line.ProductId && i.VariantId == line.VariantId, ct);
+            if (item is null)
+            {
+                item = InventoryItem.Create(tenantId, line.LocationId, line.ProductId, line.VariantId, line.Quantity, now);
+                db.InventoryItems.Add(item);
+            }
+            else
+            {
+                item.Adjust(line.Quantity, now);
+            }
+
+            db.InventoryMovements.Add(InventoryMovement.For(
+                item, InventoryMovementType.Returned, line.Quantity, InventoryReferenceType.Refund, referenceId, now));
+            keys.Add((line.ProductId, line.VariantId));
+        }
+
+        await db.SaveChangesAsync(ct);
+        await availability.PublishAsync(tenantId, keys, ct);
     }
 
     private Task<bool> HasMovementAsync(Guid orderId, InventoryMovementType type, CancellationToken ct) =>

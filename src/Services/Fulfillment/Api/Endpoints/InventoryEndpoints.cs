@@ -18,7 +18,19 @@ public static class InventoryEndpoints
         // Stock feed — admins and supplier feeds set on-hand; dispatch/tracking stays admin-only (v1).
         group.MapPost("/stock", SetStock);
         group.MapGet("/stock", ListStock);
+        // Manual restock of returned items (mt4_8) — operator-driven, partial allowed.
+        group.MapPost("/restock", Restock);
         return app;
+    }
+
+    private static async Task<Ok> Restock(
+        RestockRequest request, ReservationService reservations, IConfiguration config, CancellationToken ct)
+    {
+        var lines = request.Items
+            .Select(i => new RestockLine(i.ProductId, i.VariantId, i.LocationId, i.Quantity))
+            .ToList();
+        await reservations.RestockAsync(request.TenantId ?? DefaultTenantId(config), request.ReferenceId, lines, ct);
+        return TypedResults.Ok();
     }
 
     private static async Task<Results<Created<LocationDto>, BadRequest<string>>> CreateLocation(
@@ -96,3 +108,9 @@ public record SetStockRequest(
 public record LocationDto(Guid Id, Guid TenantId, Guid EntityId, Guid? AddressId, string Name, string Kind, string Status);
 
 public record StockDto(Guid Id, Guid LocationId, Guid ProductId, Guid? VariantId, int OnHand, int Reserved, int Available);
+
+public record RestockRequest(Guid? TenantId, [property: Required] Guid ReferenceId, List<RestockItem> Items);
+
+public record RestockItem(
+    [property: Required] Guid ProductId, Guid? VariantId, [property: Required] Guid LocationId,
+    [property: Range(1, int.MaxValue)] int Quantity);
