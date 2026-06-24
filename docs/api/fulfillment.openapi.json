@@ -613,6 +613,35 @@
           }
         }
       }
+    },
+    "/shipping/revalidate": {
+      "post": {
+        "tags": [
+          "Shipping"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevalidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -980,7 +1009,8 @@
       },
       "QuoteResponse": {
         "required": [
-          "rates"
+          "rates",
+          "expiresAt"
         ],
         "type": "object",
         "properties": {
@@ -989,6 +1019,10 @@
             "items": {
               "$ref": "#/components/schemas/RateDto"
             }
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1030,6 +1064,81 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RevalidateRequest": {
+        "required": [
+          "tenantId",
+          "storefrontId",
+          "origin",
+          "destination",
+          "parcel",
+          "selectedService",
+          "expectedAmountMinor",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "parcel": {
+            "$ref": "#/components/schemas/ParcelDto"
+          },
+          "selectedService": {
+            "type": "string"
+          },
+          "expectedAmountMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RevalidateResponse": {
+        "required": [
+          "outcome",
+          "currentRate"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string"
+          },
+          "currentRate": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RateDto"
+              }
+            ]
           }
         }
       },

@@ -17,17 +17,33 @@ public static class ShippingEndpoints
         var group = app.MapGroup("/shipping").WithTags("Shipping");
         group.MapPost("/quote", Quote).AllowAnonymous();
         group.MapPost("/quote/groups", QuoteGroups).AllowAnonymous();
+        group.MapPost("/revalidate", Revalidate).AllowAnonymous();
         return app;
     }
 
     private static async Task<Ok<QuoteResponse>> Quote(
-        QuoteRequest request, ShippingQuoteService quotes, IConfiguration config, CancellationToken ct)
+        QuoteRequest request, ShippingQuoteService quotes, IConfiguration config, TimeProvider clock, CancellationToken ct)
     {
         var rates = await quotes.QuoteAsync(
             request.TenantId ?? DefaultTenantId(config), request.StorefrontId,
             new RateRequest(request.Origin.ToAddress(), request.Destination.ToAddress(), request.Parcel.ToParcel(), request.Service), ct);
-        return TypedResults.Ok(new QuoteResponse(rates.Select(ToDto).ToList()));
+        var expiresAt = clock.GetUtcNow().AddMinutes(QuoteTtlMinutes(config));
+        return TypedResults.Ok(new QuoteResponse(rates.Select(ToDto).ToList(), expiresAt));
     }
+
+    private static async Task<Ok<RevalidateResponse>> Revalidate(
+        RevalidateRequest request, ShippingQuoteService quotes, IConfiguration config, CancellationToken ct)
+    {
+        var result = await quotes.RevalidateAsync(
+            request.TenantId ?? DefaultTenantId(config), request.StorefrontId,
+            new RateRequest(request.Origin.ToAddress(), request.Destination.ToAddress(), request.Parcel.ToParcel()),
+            request.SelectedService, request.ExpectedAmountMinor, request.ExpiresAt, ct);
+        return TypedResults.Ok(new RevalidateResponse(
+            result.Outcome.ToString(), result.CurrentRate is null ? null : ToDto(result.CurrentRate)));
+    }
+
+    private static int QuoteTtlMinutes(IConfiguration config) =>
+        int.TryParse(config["Shipping:QuoteTtlMinutes"], out var ttl) && ttl > 0 ? ttl : 30;
 
     private static async Task<Ok<GroupQuoteResponse>> QuoteGroups(
         GroupQuoteRequest request, ShippingQuoteService quotes, IConfiguration config, CancellationToken ct)
@@ -74,7 +90,13 @@ public record GroupQuoteRequest(Guid? TenantId, Guid? StorefrontId, AddressDto D
 
 public record RateDto(string Carrier, string Service, string ServiceName, long AmountMinor, string Currency, int EstimatedDays);
 
-public record QuoteResponse(IReadOnlyList<RateDto> Rates);
+public record QuoteResponse(IReadOnlyList<RateDto> Rates, DateTimeOffset ExpiresAt);
+
+public record RevalidateRequest(
+    Guid? TenantId, Guid? StorefrontId, AddressDto Origin, AddressDto Destination, ParcelDto Parcel,
+    [property: Required] string SelectedService, long ExpectedAmountMinor, DateTimeOffset ExpiresAt);
+
+public record RevalidateResponse(string Outcome, RateDto? CurrentRate);
 
 public record GroupQuoteDto(string SourceKey, IReadOnlyList<RateDto> Rates);
 
