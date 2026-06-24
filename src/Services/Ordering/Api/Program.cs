@@ -28,6 +28,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
     {
         bus.AddConsumer<PingRequestedConsumer>();
         bus.AddConsumer<ProductCopyConsumer>();
+        bus.AddConsumer<OfferChangedConsumer>();
         bus.AddConsumer<OrderStatusConsumer>();
         bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()

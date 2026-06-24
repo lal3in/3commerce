@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
@@ -40,7 +42,8 @@ public static class OfferEndpoints
     }
 
     private static async Task<Results<Created<OfferDto>, BadRequest<string>>> Create(
-        CreateOfferRequest request, CatalogDbContext db, IConfiguration config, TimeProvider clock, CancellationToken ct)
+        CreateOfferRequest request, CatalogDbContext db, IConfiguration config, TimeProvider clock,
+        IPublishEndpoint publisher, CancellationToken ct)
     {
         try
         {
@@ -50,6 +53,7 @@ public static class OfferEndpoints
                 request.Priority, clock.GetUtcNow());
             db.Offers.Add(offer);
             await db.SaveChangesAsync(ct);
+            await publisher.Publish(ToEvent(offer), ct);
             return TypedResults.Created($"/admin/offers/{offer.Id}", ToDto(offer));
         }
         catch (CatalogRuleException ex)
@@ -59,7 +63,8 @@ public static class OfferEndpoints
     }
 
     private static async Task<Results<Ok<OfferDto>, NotFound, BadRequest<string>>> Update(
-        Guid id, UpdateOfferRequest request, CatalogDbContext db, TimeProvider clock, CancellationToken ct)
+        Guid id, UpdateOfferRequest request, CatalogDbContext db, TimeProvider clock,
+        IPublishEndpoint publisher, CancellationToken ct)
     {
         var offer = await db.Offers.SingleOrDefaultAsync(o => o.Id == id, ct);
         if (offer is null)
@@ -93,6 +98,7 @@ public static class OfferEndpoints
             }
 
             await db.SaveChangesAsync(ct);
+            await publisher.Publish(ToEvent(offer), ct);
             return TypedResults.Ok(ToDto(offer));
         }
         catch (CatalogRuleException ex)
@@ -100,6 +106,9 @@ public static class OfferEndpoints
             return TypedResults.BadRequest(ex.Message);
         }
     }
+
+    private static OfferChanged ToEvent(Offer o) =>
+        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.Priority, o.IsActive);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)

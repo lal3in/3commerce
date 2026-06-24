@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Ordering.Domain;
@@ -87,6 +88,14 @@ public static class CheckoutEndpoints
         var now = time.GetUtcNow();
         var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
         var storefrontId = HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
+
+        // Resolve each line's fulfilment from its offer (ADR-0028 / mt7_1-lite): the OfferCopy read
+        // model is fed by Catalog's OfferChanged events. No offer → Unassigned (no shipment/inventory).
+        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+        var offerCopies = await db.OfferCopies.AsNoTracking()
+            .Where(o => o.TenantId == tenantId && productIds.Contains(o.ProductId))
+            .ToListAsync(ct);
+
         var attempt = new CheckoutAttempt
         {
             Id = orderId,
@@ -120,8 +129,7 @@ public static class CheckoutEndpoints
                 UnitPriceMinor = i.UnitPriceMinor,
                 DiscountMinor = 0,
                 Quantity = i.Quantity,
-                // FulfilmentType/BillingMode default to Unassigned/OneTime; the offer/supply
-                // profile assigns them once mt4_1b wiring resolves the line's offer.
+                FulfilmentType = OfferResolution.ResolveFulfilment(offerCopies, tenantId, i.ProductId, i.VariantId),
             }).ToList(),
         };
         db.CheckoutAttempts.Add(attempt);

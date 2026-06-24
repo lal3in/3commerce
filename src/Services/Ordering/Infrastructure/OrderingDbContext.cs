@@ -17,12 +17,20 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<CheckoutAttemptLine> CheckoutAttemptLines => Set<CheckoutAttemptLine>();
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
+    public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasDefaultSchema("ordering");
+
+        modelBuilder.Entity<OfferCopy>(offer =>
+        {
+            offer.HasKey(o => o.OfferId);
+            offer.Property(o => o.FulfilmentType).HasConversion<string>().HasMaxLength(24);
+            offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
+        });
 
         modelBuilder.Entity<ProductCopy>(product =>
         {
