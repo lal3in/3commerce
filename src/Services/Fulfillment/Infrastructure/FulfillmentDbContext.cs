@@ -12,6 +12,8 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
     public DbSet<CarrierIntegration> CarrierIntegrations => Set<CarrierIntegration>();
+    public DbSet<Domain.Dropship.SupplierOrder> SupplierOrders => Set<Domain.Dropship.SupplierOrder>();
+    public DbSet<Domain.Dropship.SupplierAvailability> SupplierAvailabilities => Set<Domain.Dropship.SupplierAvailability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,6 +58,20 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
             carrier.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             carrier.Property(x => x.CredentialRef).HasMaxLength(200);
             carrier.HasIndex(x => new { x.TenantId, x.StorefrontId });
+        });
+
+        modelBuilder.Entity<Domain.Dropship.SupplierOrder>(order =>
+        {
+            order.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            order.HasIndex(x => new { x.OrderId, x.SupplierId }).IsUnique();
+            order.HasIndex(x => new { x.TenantId, x.OrderId });
+        });
+
+        modelBuilder.Entity<Domain.Dropship.SupplierAvailability>(availability =>
+        {
+            availability.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            availability.Property(x => x.SupplierSku).HasMaxLength(100);
+            availability.HasIndex(x => new { x.TenantId, x.SupplierId, x.ProductId, x.VariantId });
         });
 
         modelBuilder.AddInboxStateEntity();

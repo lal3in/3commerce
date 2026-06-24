@@ -642,6 +642,121 @@
           }
         }
       }
+    },
+    "/admin/dropship/orders": {
+      "get": {
+        "tags": [
+          "Dropship"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "orderId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupplierOrderDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/dropship/availability": {
+      "post": {
+        "tags": [
+          "Dropship"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Dropship"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "supplierId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AvailabilityDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -672,6 +787,66 @@
             "maxLength": 2,
             "minLength": 2,
             "type": "string"
+          }
+        }
+      },
+      "AvailabilityDto": {
+        "required": [
+          "id",
+          "supplierId",
+          "productId",
+          "variantId",
+          "supplierSku",
+          "status",
+          "externalQuantity",
+          "isSellable",
+          "lastCheckedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "supplierSku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "externalQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isSellable": {
+            "type": "boolean"
+          },
+          "lastCheckedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1142,6 +1317,61 @@
           }
         }
       },
+      "SetAvailabilityRequest": {
+        "required": [
+          "tenantId",
+          "supplierId",
+          "productId",
+          "variantId",
+          "status",
+          "externalQuantity",
+          "supplierSku"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SupplierStockStatus"
+          },
+          "externalQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "supplierSku": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SetCredentialRequest": {
         "required": [
           "credentialRef"
@@ -1329,6 +1559,63 @@
           }
         }
       },
+      "SupplierOrderDto": {
+        "required": [
+          "id",
+          "orderId",
+          "supplierId",
+          "status",
+          "externalReference",
+          "trackingNumber",
+          "carrier",
+          "failureReason"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "externalReference": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trackingNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "carrier": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupplierStockStatus": {
+        "type": "integer"
+      },
       "TrackingRequest": {
         "required": [
           "carrier",
@@ -1358,6 +1645,9 @@
     },
     {
       "name": "Shipping"
+    },
+    {
+      "name": "Dropship"
     }
   ]
 }

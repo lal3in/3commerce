@@ -42,6 +42,12 @@ builder.Services.AddSingleton<ICarrierRateProvider, DhlRateProvider>();
 builder.Services.AddSingleton<CarrierRegistry>();
 builder.Services.AddScoped<ShippingQuoteService>();
 
+// Dropship (mt4_4b): Fake supplier-order provider until real suppliers onboard (per-source creds).
+builder.Services.AddSingleton<ThreeCommerce.Fulfillment.Domain.Dropship.ISupplierOrderProvider,
+    ThreeCommerce.Fulfillment.Infrastructure.Dropship.FakeSupplierOrderProvider>();
+builder.Services.AddScoped<ThreeCommerce.Fulfillment.Infrastructure.Dropship.SupplierOrderService>();
+builder.Services.AddScoped<ThreeCommerce.Fulfillment.Infrastructure.Dropship.SupplierAvailabilityService>();
+
 var app = builder.Build();
 
 app.UseApiProblemDetails();
@@ -57,6 +63,7 @@ app.MapAdminShipments();
 app.MapInventory();
 app.MapCarriers();
 app.MapShipping();
+app.MapDropship();
 
 app.Run();
 
