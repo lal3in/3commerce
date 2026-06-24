@@ -22,7 +22,7 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
             new(Guid.CreateVersion7(), null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
         };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "buyer@example.com", 9999, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "buyer@example.com", 9999, "EUR", lines));
 
         var shipments = await WaitForShipmentsAsync(orderId);
         // Two distinct fulfilment types → two shipments; the Unassigned one has both its lines.
@@ -37,8 +37,8 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
         var orderId = Guid.CreateVersion7();
         var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), null, "X", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 100) };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", lines));
 
         await Task.Delay(2000);
         var shipments = await WaitForShipmentsAsync(orderId);

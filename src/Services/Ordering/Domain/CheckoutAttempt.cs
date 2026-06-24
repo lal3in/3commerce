@@ -44,6 +44,7 @@ public class CheckoutAttempt
         {
             Id = Id,
             PublicOrderNumber = orderNumber,
+            TenantId = TenantId,
             StorefrontId = StorefrontId,
             UserId = UserId,
             Email = Email,

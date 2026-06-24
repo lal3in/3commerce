@@ -8,6 +8,9 @@ public class Order
 {
     public Guid Id { get; init; }
     public long PublicOrderNumber { get; set; }
+
+    /// <summary>The owning tenant (carried from the checkout attempt) — Fulfillment scopes inventory by it.</summary>
+    public Guid TenantId { get; set; }
     public Guid? StorefrontId { get; set; }
     public Guid? UserId { get; set; }
     public required string Email { get; set; }

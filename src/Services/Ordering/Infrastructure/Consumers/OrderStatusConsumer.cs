@@ -50,7 +50,7 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
         }
 
         await context.Publish(new OrderConfirmed(
-            order.Id, order.Email, order.GrossMinor, order.Currency,
+            order.Id, order.TenantId, order.Email, order.GrossMinor, order.Currency,
             order.Lines.Select(l => new OrderLineInfo(
                 l.ProductId, l.VariantId, l.Title, l.Quantity, l.FulfilmentType, l.BillingMode, l.UnitPriceMinor)).ToList()));
     }

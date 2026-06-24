@@ -8,6 +8,7 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 /// </summary>
 public record OrderConfirmed(
     Guid OrderId,
+    Guid TenantId,
     string Email,
     long AmountMinor,
     string Currency,
