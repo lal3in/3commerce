@@ -15,6 +15,8 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<CarrierIntegration> CarrierIntegrations => Set<CarrierIntegration>();
     public DbSet<Domain.Dropship.SupplierOrder> SupplierOrders => Set<Domain.Dropship.SupplierOrder>();
     public DbSet<Domain.Dropship.SupplierAvailability> SupplierAvailabilities => Set<Domain.Dropship.SupplierAvailability>();
+    public DbSet<OrderHold> OrderHolds => Set<OrderHold>();
+    public DbSet<HeldOrder> HeldOrders => Set<HeldOrder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -82,6 +84,19 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
             availability.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             availability.Property(x => x.SupplierSku).HasMaxLength(100);
             availability.HasIndex(x => new { x.TenantId, x.SupplierId, x.ProductId, x.VariantId });
+        });
+
+        modelBuilder.Entity<OrderHold>(hold =>
+        {
+            hold.Property(x => x.Reason).HasConversion<string>().HasMaxLength(16);
+            hold.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            hold.HasIndex(x => new { x.TenantId, x.OrderId, x.Status });
+        });
+
+        modelBuilder.Entity<HeldOrder>(held =>
+        {
+            held.Property(x => x.PayloadJson).HasColumnType("jsonb");
+            held.HasIndex(x => x.OrderId).IsUnique();
         });
 
         modelBuilder.AddInboxStateEntity();

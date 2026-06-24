@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.Fulfillment.Domain;
 using ThreeCommerce.Fulfillment.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -17,14 +18,25 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
     public async Task OrderConfirmed_creates_shipments_grouped_by_source()
     {
         var orderId = Guid.CreateVersion7();
+        var tenant = Guid.NewGuid();
+        var warehouseProduct = Guid.CreateVersion7();
+
+        // Stock the warehouse line so it isn't auto-held for inventory shortage (mt4_9).
+        using (var scope = fixture.Fulfillment.Services.CreateScope())
+        {
+            var inventory = scope.ServiceProvider.GetRequiredService<InventoryService>();
+            var location = await inventory.CreateLocationAsync(tenant, Guid.NewGuid(), null, "DC", LocationKind.TenantWarehouse, default);
+            await inventory.SetStockAsync(tenant, location.Id, warehouseProduct, null, 10, default);
+        }
+
         var lines = new List<OrderLineInfo>
         {
             new(Guid.CreateVersion7(), null, null, "Item A", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 1000),
             new(Guid.CreateVersion7(), null, null, "Item B", 2, FulfilmentType.Unassigned, BillingMode.OneTime, 1500),
-            new(Guid.CreateVersion7(), null, null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
+            new(warehouseProduct, null, null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
         };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "buyer@example.com", 9999, "EUR", Ship, lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, tenant, "buyer@example.com", 9999, "EUR", Ship, lines));
 
         var shipments = await WaitForShipmentsAsync(orderId);
         // Two distinct fulfilment types → two shipments; the Unassigned one has both its lines.
