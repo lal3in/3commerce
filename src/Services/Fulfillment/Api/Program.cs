@@ -24,6 +24,7 @@ builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus 
 builder.Services.AddServiceHealth<FulfillmentDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<InventoryService>();
 
 var app = builder.Build();
 
@@ -37,6 +38,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
 app.MapAdminShipments();
+app.MapInventory();
 
 app.Run();
 
