@@ -43,6 +43,10 @@ builder.Services.AddSingleton<ICarrierLabelProvider>(sp => sp.GetRequiredService
 builder.Services.AddSingleton<ICarrierTrackingProvider>(sp => sp.GetRequiredService<FakeCarrierProvider>());
 builder.Services.AddSingleton<ICarrierRateProvider, AustraliaPostRateProvider>();
 builder.Services.AddSingleton<ICarrierRateProvider, DhlRateProvider>();
+builder.Services.AddSingleton<ICarrierRateProvider, FedExRateProvider>();
+builder.Services.AddSingleton<ICarrierRateProvider, UpsRateProvider>();
+builder.Services.AddSingleton<ICarrierRateProvider, StarTrackRateProvider>();
+builder.Services.AddSingleton<ICarrierRateProvider, PackAndSendRateProvider>();
 builder.Services.AddSingleton<CarrierRegistry>();
 builder.Services.AddScoped<ShippingQuoteService>();
 

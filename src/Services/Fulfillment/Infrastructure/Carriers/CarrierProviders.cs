@@ -76,6 +76,74 @@ public sealed class DhlRateProvider : ICarrierRateProvider
     }
 }
 
+/// <summary>FedEx rates — sandbox/deterministic placeholder behind the seam (mt4_10). Swap for real FedEx Ship/Rate API on onboarding.</summary>
+public sealed class FedExRateProvider : ICarrierRateProvider
+{
+    public CarrierCode Carrier => CarrierCode.FedEx;
+
+    public Task<IReadOnlyList<CarrierRate>> GetRatesAsync(RateRequest request, CancellationToken ct)
+    {
+        var weightUnits = Math.Max(1, request.Parcel.WeightGrams / 500);
+        var rates = new List<CarrierRate>
+        {
+            new(Carrier, "FEDEX_INTL_ECONOMY", "FedEx International Economy", 1800 + (weightUnits * 200), "USD", 5),
+            new(Carrier, "FEDEX_INTL_PRIORITY", "FedEx International Priority", 2900 + (weightUnits * 320), "USD", 2),
+        };
+        return Task.FromResult(FakeCarrierProvider.Filter(rates, request.Service));
+    }
+}
+
+/// <summary>UPS rates — sandbox/deterministic placeholder behind the seam (mt4_10). Swap for real UPS Rating API on onboarding.</summary>
+public sealed class UpsRateProvider : ICarrierRateProvider
+{
+    public CarrierCode Carrier => CarrierCode.Ups;
+
+    public Task<IReadOnlyList<CarrierRate>> GetRatesAsync(RateRequest request, CancellationToken ct)
+    {
+        var weightUnits = Math.Max(1, request.Parcel.WeightGrams / 500);
+        var rates = new List<CarrierRate>
+        {
+            new(Carrier, "UPS_STANDARD", "UPS Standard", 1700 + (weightUnits * 190), "USD", 6),
+            new(Carrier, "UPS_EXPRESS_SAVER", "UPS Express Saver", 2600 + (weightUnits * 300), "USD", 3),
+        };
+        return Task.FromResult(FakeCarrierProvider.Filter(rates, request.Service));
+    }
+}
+
+/// <summary>StarTrack rates — sandbox/deterministic placeholder (mt4_10). Domestic AU premium courier; may share AusPost credentials.</summary>
+public sealed class StarTrackRateProvider : ICarrierRateProvider
+{
+    public CarrierCode Carrier => CarrierCode.StarTrack;
+
+    public Task<IReadOnlyList<CarrierRate>> GetRatesAsync(RateRequest request, CancellationToken ct)
+    {
+        var weightUnits = Math.Max(1, request.Parcel.WeightGrams / 500);
+        var rates = new List<CarrierRate>
+        {
+            new(Carrier, "STARTRACK_PREMIUM", "StarTrack Premium", 1395 + (weightUnits * 160), "AUD", 1),
+            new(Carrier, "STARTRACK_EXPRESS", "StarTrack Express", 995 + (weightUnits * 130), "AUD", 2),
+        };
+        return Task.FromResult(FakeCarrierProvider.Filter(rates, request.Service));
+    }
+}
+
+/// <summary>Pack &amp; Send rates — sandbox/deterministic placeholder (mt4_10). Multi-carrier reseller; per-source credentials.</summary>
+public sealed class PackAndSendRateProvider : ICarrierRateProvider
+{
+    public CarrierCode Carrier => CarrierCode.PackAndSend;
+
+    public Task<IReadOnlyList<CarrierRate>> GetRatesAsync(RateRequest request, CancellationToken ct)
+    {
+        var weightUnits = Math.Max(1, request.Parcel.WeightGrams / 500);
+        var rates = new List<CarrierRate>
+        {
+            new(Carrier, "PNS_ROAD", "Pack & Send Road", 1250 + (weightUnits * 150), "AUD", 5),
+            new(Carrier, "PNS_AIR", "Pack & Send Air", 2100 + (weightUnits * 240), "AUD", 3),
+        };
+        return Task.FromResult(FakeCarrierProvider.Filter(rates, request.Service));
+    }
+}
+
 /// <summary>Resolves the registered provider for a carrier code (mt4_4). Adapters self-register by Carrier.</summary>
 public sealed class CarrierRegistry(
     IEnumerable<ICarrierRateProvider> rateProviders,

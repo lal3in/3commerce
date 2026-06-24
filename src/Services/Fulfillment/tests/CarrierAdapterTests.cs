@@ -79,8 +79,54 @@ public class CarrierAdapterTests
         Assert.Equal(CarrierCode.AustraliaPost, registry.Rates(CarrierCode.AustraliaPost)!.Carrier);
         Assert.Equal(CarrierCode.Dhl, registry.Rates(CarrierCode.Dhl)!.Carrier);
         Assert.Equal(CarrierCode.Fake, registry.Rates(CarrierCode.Fake)!.Carrier);
-        Assert.Null(registry.Rates(CarrierCode.Ups)); // not registered
+        Assert.Null(registry.Rates(CarrierCode.Ups)); // not registered in this minimal set
         Assert.NotNull(registry.Labels(CarrierCode.Fake));
         Assert.NotNull(registry.Tracking(CarrierCode.Fake));
+    }
+
+    [Theory]
+    [InlineData("USD")]
+    public async Task FedEx_and_Ups_quote_in_usd(string currency)
+    {
+        foreach (ICarrierRateProvider provider in new ICarrierRateProvider[] { new FedExRateProvider(), new UpsRateProvider() })
+        {
+            var rates = await provider.GetRatesAsync(International(1000), default);
+            Assert.NotEmpty(rates);
+            Assert.All(rates, r => Assert.Equal(provider.Carrier, r.Carrier));
+            Assert.All(rates, r => Assert.Equal(currency, r.Currency));
+        }
+    }
+
+    [Fact]
+    public async Task StarTrack_and_PackAndSend_quote_in_aud()
+    {
+        foreach (ICarrierRateProvider provider in new ICarrierRateProvider[] { new StarTrackRateProvider(), new PackAndSendRateProvider() })
+        {
+            var rates = await provider.GetRatesAsync(Domestic(1000), default);
+            Assert.NotEmpty(rates);
+            Assert.All(rates, r => Assert.Equal(provider.Carrier, r.Carrier));
+            Assert.All(rates, r => Assert.Equal("AUD", r.Currency));
+        }
+    }
+
+    [Fact]
+    public void Registry_resolves_all_six_real_carriers_plus_fake()
+    {
+        var fake = new FakeCarrierProvider();
+        var registry = new CarrierRegistry(
+            [
+                fake, new AustraliaPostRateProvider(), new DhlRateProvider(),
+                new FedExRateProvider(), new UpsRateProvider(), new StarTrackRateProvider(), new PackAndSendRateProvider(),
+            ],
+            [fake], [fake]);
+
+        foreach (var code in new[]
+        {
+            CarrierCode.Fake, CarrierCode.AustraliaPost, CarrierCode.Dhl,
+            CarrierCode.FedEx, CarrierCode.Ups, CarrierCode.StarTrack, CarrierCode.PackAndSend,
+        })
+        {
+            Assert.Equal(code, registry.Rates(code)!.Carrier);
+        }
     }
 }

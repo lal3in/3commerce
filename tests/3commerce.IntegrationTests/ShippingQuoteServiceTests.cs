@@ -45,4 +45,24 @@ public class ShippingQuoteServiceTests(Phase4Fixture fixture)
         Assert.NotEmpty(rates);
         Assert.All(rates, r => Assert.Equal(CarrierCode.AustraliaPost, r.Carrier));
     }
+
+    [Theory]
+    [InlineData(CarrierCode.FedEx)]
+    [InlineData(CarrierCode.StarTrack)]
+    public async Task Quote_uses_an_mt4_10_carrier_when_configured(CarrierCode carrier)
+    {
+        var tenant = Guid.NewGuid();
+        using (var setup = fixture.Fulfillment.Services.CreateScope())
+        {
+            var carriers = setup.ServiceProvider.GetRequiredService<CarrierService>();
+            var integration = await carriers.ConfigureAsync(tenant, null, carrier, "ref", default);
+            await carriers.TransitionAsync(tenant, integration.Id, (c, n) => c.Activate(n), default);
+            await carriers.MakeDefaultAsync(tenant, integration.Id, default);
+        }
+
+        using var scope = fixture.Fulfillment.Services.CreateScope();
+        var rates = await scope.ServiceProvider.GetRequiredService<ShippingQuoteService>().QuoteAsync(tenant, null, Request, default);
+        Assert.NotEmpty(rates);
+        Assert.All(rates, r => Assert.Equal(carrier, r.Carrier));
+    }
 }
