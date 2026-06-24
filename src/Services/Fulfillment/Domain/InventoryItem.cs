@@ -66,6 +66,48 @@ public sealed class InventoryItem
         UpdatedAt = now;
     }
 
+    /// <summary>Hold stock against an in-flight order (mt4_2). Never reserves beyond what is available.</summary>
+    public void Reserve(int quantity, DateTimeOffset now)
+    {
+        if (quantity <= 0)
+        {
+            throw new FulfillmentRuleException("Reserve quantity must be positive.");
+        }
+
+        if (quantity > Available)
+        {
+            throw new FulfillmentRuleException("Insufficient available stock to reserve.");
+        }
+
+        QuantityReserved += quantity;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Release a hold (order cancelled before confirmation). Clamped so reserved never goes negative.</summary>
+    public void Release(int quantity, DateTimeOffset now)
+    {
+        if (quantity <= 0)
+        {
+            throw new FulfillmentRuleException("Release quantity must be positive.");
+        }
+
+        QuantityReserved = Math.Max(0, QuantityReserved - quantity);
+        UpdatedAt = now;
+    }
+
+    /// <summary>Convert a hold into a sale: consume on-hand and drop the matching reservation.</summary>
+    public void ConfirmReservation(int quantity, DateTimeOffset now)
+    {
+        if (quantity <= 0)
+        {
+            throw new FulfillmentRuleException("Confirm quantity must be positive.");
+        }
+
+        QuantityReserved = Math.Max(0, QuantityReserved - quantity);
+        QuantityOnHand = Math.Max(0, QuantityOnHand - quantity);
+        UpdatedAt = now;
+    }
+
     /// <summary>Relative correction (e.g. +25 received, -2 shrinkage). Cannot drive on-hand below reservations.</summary>
     public void Adjust(int delta, DateTimeOffset now)
     {

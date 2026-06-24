@@ -25,6 +25,7 @@ builder.Services.AddServiceHealth<FulfillmentDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<InventoryService>();
+builder.Services.AddScoped<ReservationService>();
 
 var app = builder.Build();
 

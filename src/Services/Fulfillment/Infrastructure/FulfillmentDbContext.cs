@@ -10,6 +10,7 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<ShipmentLine> ShipmentLines => Set<ShipmentLine>();
     public DbSet<InventoryLocation> InventoryLocations => Set<InventoryLocation>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +38,15 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
             // uniqueness is enforced in InventoryService (Postgres treats NULLs as distinct).
             item.HasIndex(x => new { x.TenantId, x.LocationId, x.ProductId, x.VariantId });
             item.HasIndex(x => new { x.TenantId, x.ProductId, x.VariantId });
+        });
+
+        modelBuilder.Entity<InventoryMovement>(move =>
+        {
+            move.Property(x => x.Type).HasConversion<string>().HasMaxLength(24);
+            move.Property(x => x.ReferenceType).HasConversion<string>().HasMaxLength(24);
+            // Idempotency + history lookups are by reference (order) and type.
+            move.HasIndex(x => new { x.ReferenceId, x.Type });
+            move.HasIndex(x => x.InventoryItemId);
         });
 
         modelBuilder.AddInboxStateEntity();

@@ -14,4 +14,5 @@ public record OrderConfirmed(
     IReadOnlyList<OrderLineInfo> Lines);
 
 public record OrderLineInfo(
-    Guid ProductId, string Title, int Quantity, FulfilmentType FulfilmentType, BillingMode BillingMode, long UnitPriceMinor);
+    Guid ProductId, Guid? VariantId, string Title, int Quantity,
+    FulfilmentType FulfilmentType, BillingMode BillingMode, long UnitPriceMinor);
