@@ -30,6 +30,7 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 
 builder.Services.AddScoped<ISupplierImporter, SampleDataImporter>();
 builder.Services.AddScoped<ISearchProvider, PostgresSearchProvider>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();
 
@@ -45,6 +46,7 @@ app.MapPing();
 app.MapProducts();
 app.MapAdmin();
 app.MapStorefrontAdmin();
+app.MapOffers();
 
 app.Run();
 

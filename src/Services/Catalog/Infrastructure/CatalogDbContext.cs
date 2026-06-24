@@ -18,12 +18,24 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<StorefrontNavigationItem> StorefrontNavigationItems => Set<StorefrontNavigationItem>();
     public DbSet<ProductPublication> ProductPublications => Set<ProductPublication>();
     public DbSet<ProductPublicationVariant> ProductPublicationVariants => Set<ProductPublicationVariant>();
+    public DbSet<Offer> Offers => Set<Offer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasDefaultSchema("catalog");
+
+        modelBuilder.Entity<Offer>(offer =>
+        {
+            offer.Property(o => o.SupplyCategory).HasConversion<string>().HasMaxLength(16);
+            offer.Property(o => o.FulfilmentType).HasConversion<string>().HasMaxLength(24);
+            offer.Property(o => o.PricingModel).HasConversion<string>().HasMaxLength(24);
+            offer.Property(o => o.Status).HasConversion<string>().HasMaxLength(16);
+            offer.Property(o => o.Currency).HasMaxLength(3);
+            offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
+            offer.HasIndex(o => new { o.TenantId, o.SupplierId });
+        });
 
         modelBuilder.Entity<Product>(product =>
         {

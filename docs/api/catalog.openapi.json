@@ -961,6 +961,136 @@
           }
         }
       }
+    },
+    "/admin/offers": {
+      "get": {
+        "tags": [
+          "Offers"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OfferDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Offers"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/offers/{id}": {
+      "put": {
+        "tags": [
+          "Offers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1031,7 +1161,7 @@
             ]
           },
           "fulfillmentSource": {
-            "$ref": "#/components/schemas/CatalogFulfillmentSource"
+            "$ref": "#/components/schemas/FulfilmentType"
           },
           "countryOfOrigin": {
             "type": [
@@ -1046,9 +1176,6 @@
             ]
           }
         }
-      },
-      "CatalogFulfillmentSource": {
-        "type": "integer"
       },
       "CategoryResponse": {
         "required": [
@@ -1075,6 +1202,73 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "CreateOfferRequest": {
+        "required": [
+          "tenantId",
+          "productId",
+          "variantId",
+          "supplierId",
+          "supplyCategory",
+          "fulfilmentType",
+          "priceMinor",
+          "currency",
+          "priority"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplyCategory": {
+            "$ref": "#/components/schemas/SupplyCategory"
+          },
+          "fulfilmentType": {
+            "$ref": "#/components/schemas/FulfilmentType"
+          },
+          "priceMinor": {
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "type": "string"
+          },
+          "priority": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1106,6 +1300,9 @@
             ]
           }
         }
+      },
+      "FulfilmentType": {
+        "type": "integer"
       },
       "HttpValidationProblemDetails": {
         "type": "object",
@@ -1214,6 +1411,79 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "OfferDto": {
+        "required": [
+          "id",
+          "tenantId",
+          "productId",
+          "variantId",
+          "supplierId",
+          "supplyCategory",
+          "fulfilmentType",
+          "pricingModel",
+          "priceMinor",
+          "currency",
+          "priority",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "supplierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplyCategory": {
+            "type": "string"
+          },
+          "fulfilmentType": {
+            "type": "string"
+          },
+          "pricingModel": {
+            "type": "string"
+          },
+          "priceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "priority": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
           }
         }
       },
@@ -1527,7 +1797,7 @@
             ]
           },
           "fulfillmentSource": {
-            "$ref": "#/components/schemas/CatalogFulfillmentSource"
+            "$ref": "#/components/schemas/FulfilmentType"
           },
           "countryOfOrigin": {
             "type": [
@@ -1746,6 +2016,43 @@
       "StorefrontVisibility": {
         "type": "integer"
       },
+      "SupplyCategory": {
+        "type": "integer"
+      },
+      "UpdateOfferRequest": {
+        "required": [
+          "priceMinor",
+          "priority",
+          "active"
+        ],
+        "type": "object",
+        "properties": {
+          "priceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "priority": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "active": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "VariantEditorDto": {
         "required": [
           "id",
@@ -1878,6 +2185,9 @@
     },
     {
       "name": "Admin Storefronts"
+    },
+    {
+      "name": "Offers"
     }
   ]
 }
