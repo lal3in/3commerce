@@ -32,6 +32,37 @@
         }
       }
     },
+    "/admin/jobs/runs": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "job",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JobRunDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/ledger/accounts": {
       "get": {
         "tags": [
@@ -494,6 +525,46 @@
           }
         }
       },
+      "JobRunDto": {
+        "required": [
+          "id",
+          "jobName",
+          "status",
+          "startedAt",
+          "completedAt",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "LineDto": {
         "required": [
           "accountCode",
@@ -753,6 +824,9 @@
   "tags": [
     {
       "name": "Subscriptions"
+    },
+    {
+      "name": "Jobs"
     },
     {
       "name": "Admin"

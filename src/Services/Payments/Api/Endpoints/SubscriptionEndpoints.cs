@@ -1,10 +1,30 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.Payments.Api.Endpoints;
+
+/// <summary>Scheduled-job run history (mt6_3): operator visibility into the recurring jobs.</summary>
+public static class JobRunEndpoints
+{
+    public static IEndpointRouteBuilder MapJobRuns(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/admin/jobs/runs", async (string? job, IJobRunStore store, CancellationToken ct) =>
+            {
+                var runs = await store.RecentAsync(job, 50, ct);
+                return TypedResults.Ok(runs.Select(r => new JobRunDto(
+                    r.Id, r.JobName, r.Status.ToString(), r.StartedAt, r.CompletedAt, r.Error)).ToList());
+            })
+            .WithTags("Jobs")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
+        return app;
+    }
+}
+
+public record JobRunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
 
 /// <summary>Subscriptions (mt7_3): operator visibility + renew / cancel. Renewals charge via the rail.</summary>
 public static class SubscriptionEndpoints

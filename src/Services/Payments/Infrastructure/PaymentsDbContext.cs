@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Domain.Xero;
@@ -25,10 +26,12 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<PaymentCustomer> PaymentCustomers => Set<PaymentCustomer>();
     public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<JobRun> JobRuns => Set<JobRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ConfigureJobRuns();
 
         modelBuilder.Entity<Subscription>(subscription =>
         {
