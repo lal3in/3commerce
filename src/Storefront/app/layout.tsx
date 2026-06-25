@@ -3,6 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import { organizationJsonLd, siteUrl, webSiteJsonLd } from "@/lib/seo";
+import { ThemeStyle } from "@/components/theme/ThemeStyle";
+import { mergeTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -11,9 +13,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Per-storefront theme overrides (sanitized) merge over the default; tenant config wiring is mt5_6 follow-up.
+  const theme = mergeTheme(null);
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <head>
+        <ThemeStyle theme={theme} />
+      </head>
+      <body
+        className="min-h-screen flex flex-col"
+        style={{ background: "var(--color-bg)", color: "var(--color-text)", fontFamily: "var(--font-sans)" }}
+      >
         <script
           type="application/ld+json"
           // Site-wide Organization + WebSite (with sitelinks search) JSON-LD (mt5_8).
