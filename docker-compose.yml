@@ -57,6 +57,9 @@ services:
       CONN_FULFILLMENT: Host=postgres;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
       CONN_SUPPORT: Host=postgres;Port=5432;Database=support_db;Username=support_svc;Password=support_dev
       CONN_MARKETING: Host=postgres;Port=5432;Database=marketing_db;Username=marketing_svc;Password=marketing_dev
+      CONN_PRICING: Host=postgres;Port=5432;Database=pricing_db;Username=pricing_svc;Password=pricing_dev
+      CONN_AUDIT: Host=postgres;Port=5432;Database=audit_db;Username=audit_svc;Password=audit_dev
+      CONN_WORKFLOW: Host=postgres;Port=5432;Database=workflow_db;Username=workflow_svc;Password=workflow_dev
     restart: "no"
 
   identity:
@@ -83,6 +86,15 @@ services:
   marketing:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Marketing/Api/Dockerfile }
+  pricing:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Pricing/Api/Dockerfile }
+  audit:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Audit/Api/Dockerfile }
+  workflow:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Workflow/Api/Dockerfile }
 
   notifications:
     <<: [*app, *limits]

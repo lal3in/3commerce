@@ -126,6 +126,9 @@ jobs:
           - src/Services/Support/Api/Dockerfile
           - src/Services/Entity/Api/Dockerfile
           - src/Services/Marketing/Api/Dockerfile
+          - src/Services/Pricing/Api/Dockerfile
+          - src/Services/Audit/Api/Dockerfile
+          - src/Services/Workflow/Api/Dockerfile
           - src/Admin/Dockerfile
           - src/Storefront/Dockerfile
           - src/SupplierPortal/Dockerfile
@@ -191,7 +194,7 @@ jobs:
             [identity]=src/Services/Identity/Api/Dockerfile [catalog]=src/Services/Catalog/Api/Dockerfile \
             [ordering]=src/Services/Ordering/Api/Dockerfile [payments]=src/Services/Payments/Api/Dockerfile \
             [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile \
-            [entity]=src/Services/Entity/Api/Dockerfile [marketing]=src/Services/Marketing/Api/Dockerfile \
+            [entity]=src/Services/Entity/Api/Dockerfile [marketing]=src/Services/Marketing/Api/Dockerfile [pricing]=src/Services/Pricing/Api/Dockerfile [audit]=src/Services/Audit/Api/Dockerfile [workflow]=src/Services/Workflow/Api/Dockerfile \
             [supplier-portal]=src/SupplierPortal/Dockerfile )
           for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; done
           docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .

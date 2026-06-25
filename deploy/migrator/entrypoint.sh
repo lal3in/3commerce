@@ -22,5 +22,8 @@ migrate payments    "${CONN_PAYMENTS:-}"
 migrate fulfillment "${CONN_FULFILLMENT:-}"
 migrate support     "${CONN_SUPPORT:-}"
 migrate marketing   "${CONN_MARKETING:-}"
+migrate pricing   "${CONN_PRICING:-}"
+migrate audit   "${CONN_AUDIT:-}"
+migrate workflow   "${CONN_WORKFLOW:-}"
 
 echo ">> all migrations applied"
