@@ -76,6 +76,7 @@ public class CheckoutAttempt
                 FulfilmentType = l.FulfilmentType,
                 SupplierId = l.SupplierId,
                 BillingMode = l.BillingMode,
+                BillingPeriod = l.BillingPeriod,
             }).ToList(),
         };
     }
@@ -95,6 +96,7 @@ public class CheckoutAttemptLine
     public FulfilmentType FulfilmentType { get; init; } = FulfilmentType.Unassigned;
     public Guid? SupplierId { get; init; }
     public BillingMode BillingMode { get; init; } = BillingMode.OneTime;
+    public BillingPeriod BillingPeriod { get; init; } = BillingPeriod.Once;
 }
 
 public class OrderNumberSequence

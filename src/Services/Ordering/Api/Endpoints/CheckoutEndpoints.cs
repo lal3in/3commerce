@@ -119,19 +119,25 @@ public static class CheckoutEndpoints
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
             CreatedAt = now,
-            Lines = cart.Items.Select(i => new CheckoutAttemptLine
+            Lines = cart.Items.Select(i =>
             {
-                Id = Guid.CreateVersion7(),
-                CheckoutAttemptId = orderId,
-                ProductId = i.ProductId,
-                VariantId = i.VariantId,
-                VariantSku = i.VariantSku,
-                Title = i.Title,
-                UnitPriceMinor = i.UnitPriceMinor,
-                DiscountMinor = 0,
-                Quantity = i.Quantity,
-                FulfilmentType = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId)?.FulfilmentType ?? FulfilmentType.Unassigned,
-                SupplierId = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId)?.SupplierId,
+                var offer = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId);
+                return new CheckoutAttemptLine
+                {
+                    Id = Guid.CreateVersion7(),
+                    CheckoutAttemptId = orderId,
+                    ProductId = i.ProductId,
+                    VariantId = i.VariantId,
+                    VariantSku = i.VariantSku,
+                    Title = i.Title,
+                    UnitPriceMinor = i.UnitPriceMinor,
+                    DiscountMinor = 0,
+                    Quantity = i.Quantity,
+                    FulfilmentType = offer?.FulfilmentType ?? FulfilmentType.Unassigned,
+                    SupplierId = offer?.SupplierId,
+                    BillingMode = offer?.BillingMode ?? BillingMode.OneTime,
+                    BillingPeriod = offer?.BillingPeriod ?? BillingPeriod.Once,
+                };
             }).ToList(),
         };
         db.CheckoutAttempts.Add(attempt);

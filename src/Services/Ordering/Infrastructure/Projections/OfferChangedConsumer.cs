@@ -23,6 +23,8 @@ public sealed class OfferChangedConsumer(OrderingDbContext db) : IConsumer<Offer
         copy.VariantId = m.VariantId;
         copy.SupplierId = m.SupplierId;
         copy.FulfilmentType = m.FulfilmentType;
+        copy.PricingModel = m.PricingModel;
+        copy.BillingPeriod = m.BillingPeriod;
         copy.Priority = m.Priority;
         copy.Active = m.Active;
         await db.SaveChangesAsync(context.CancellationToken);

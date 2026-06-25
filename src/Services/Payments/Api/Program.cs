@@ -29,6 +29,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<AuthorizePaymentConsumer>();
     bus.AddConsumer<ExecuteRefundConsumer>();
     bus.AddConsumer<RefundPostingConsumer>();
+    bus.AddConsumer<SubscriptionRequestedConsumer>();
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
@@ -36,6 +37,7 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITaxStrategy, FlatRateTaxStrategy>();
 builder.Services.AddScoped<PaymentEventProcessor>();
+builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
 
@@ -64,6 +66,7 @@ app.MapWebhooks();
 app.MapAdmin();
 app.MapAdminXero();
 app.MapCustomerPaymentMethods();
+app.MapSubscriptions();
 
 await ChartOfAccountsSeeder.SeedAsync(app);
 

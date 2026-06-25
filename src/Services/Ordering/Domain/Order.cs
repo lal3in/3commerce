@@ -49,6 +49,9 @@ public class OrderLine
     /// <summary>The supplier fulfilling this line (from its resolved offer) — drives dropship routing.</summary>
     public Guid? SupplierId { get; set; }
 
-    /// <summary>How this line is charged. One-time today; recurring/metered in Phase 7.</summary>
+    /// <summary>How this line is charged (Phase 7): one-time / recurring / metered.</summary>
     public BillingMode BillingMode { get; set; } = BillingMode.OneTime;
+
+    /// <summary>Charge cadence for recurring lines (Phase 7): Once / Monthly / Yearly.</summary>
+    public BillingPeriod BillingPeriod { get; set; } = BillingPeriod.Once;
 }

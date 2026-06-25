@@ -14,8 +14,18 @@ public class OfferCopy
     public Guid? VariantId { get; set; }
     public Guid SupplierId { get; set; }
     public FulfilmentType FulfilmentType { get; set; }
+    public PricingModel PricingModel { get; set; } = PricingModel.OneTime;
+    public BillingPeriod BillingPeriod { get; set; } = BillingPeriod.Once;
     public int Priority { get; set; }
     public bool Active { get; set; }
+
+    /// <summary>How this offer's line is charged (Phase 7): recurring for subscriptions, metered for usage.</summary>
+    public BillingMode BillingMode => PricingModel switch
+    {
+        PricingModel.Subscription => BillingMode.Recurring,
+        PricingModel.UsageBased => BillingMode.Metered,
+        _ => BillingMode.OneTime,
+    };
 }
 
 /// <summary>Picks the offer that fulfils a line (ADR-0028): a variant-specific offer beats a

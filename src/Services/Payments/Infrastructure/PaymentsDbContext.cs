@@ -24,10 +24,21 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<XeroAccountMapping> XeroAccountMappings => Set<XeroAccountMapping>();
     public DbSet<PaymentCustomer> PaymentCustomers => Set<PaymentCustomer>();
     public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Subscription>(subscription =>
+        {
+            subscription.Property(x => x.BillingPeriod).HasConversion<string>().HasMaxLength(12);
+            subscription.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            subscription.Property(x => x.Currency).HasMaxLength(3);
+            subscription.Property(x => x.CustomerEmail).HasMaxLength(256);
+            subscription.HasIndex(x => new { x.OrderId, x.ProductId, x.VariantId }).IsUnique();
+            subscription.HasIndex(x => new { x.TenantId, x.CustomerEmail });
+        });
 
         modelBuilder.HasDefaultSchema("payments");
 

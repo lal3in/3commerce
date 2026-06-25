@@ -1,6 +1,8 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
+using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 
 namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
@@ -54,6 +56,13 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
             new ShipToInfo(order.ShipName, order.ShipLine1, order.ShipCity, order.ShipPostcode, order.ShipCountry),
             order.Lines.Select(l => new OrderLineInfo(
                 l.ProductId, l.VariantId, l.SupplierId, l.Title, l.Quantity, l.FulfilmentType, l.BillingMode, l.UnitPriceMinor)).ToList()));
+
+        // Recurring lines set up a subscription in Payments (mt7_3); the first period was paid with the order.
+        foreach (var line in order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once))
+        {
+            await context.Publish(new SubscriptionRequested(
+                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency));
+        }
     }
 
     public async Task Consume(ConsumeContext<OrderCancelled> context)
