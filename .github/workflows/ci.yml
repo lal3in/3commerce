@@ -173,6 +173,11 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/.ghcup
+          docker image prune -af || true
+          df -h /
       - uses: azure/setup-helm@v4
         with:
           version: v3.16.2
@@ -196,9 +201,9 @@ jobs:
             [identity]=src/Services/Identity/Api/Dockerfile [catalog]=src/Services/Catalog/Api/Dockerfile \
             [ordering]=src/Services/Ordering/Api/Dockerfile [payments]=src/Services/Payments/Api/Dockerfile \
             [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile \
-            [entity]=src/Services/Entity/Api/Dockerfile [marketing]=src/Services/Marketing/Api/Dockerfile [pricing]=src/Services/Pricing/Api/Dockerfile [audit]=src/Services/Audit/Api/Dockerfile [workflow]=src/Services/Workflow/Api/Dockerfile [entitlement]=src/Services/Entitlement/Api/Dockerfile [usage]=src/Services/Usage/Api/Dockerfile \
+            [entity]=src/Services/Entity/Api/Dockerfile \
             [supplier-portal]=src/SupplierPortal/Dockerfile )
-          for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; done
+          for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; docker image rm 3commerce/$n:local || true; done
           docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
           kind load docker-image 3commerce/migrator:local --name 3c
       - name: helm install (dev) + wait
