@@ -181,12 +181,13 @@ run_live() {
   # Wait up to ~180s for the init script to create all service databases (slow/loaded CI
   # runners create them sequentially; use the loop's own count so a late-landing
   # database isn't missed by a single-shot re-count).
+  expected="$(grep -c '^CREATE DATABASE' "$ROOT/infra/postgres/init-databases.sql")"
   dbcount=0
   for _ in $(seq 1 90); do
     dbcount="$(docker exec 3commerce-postgres psql -U postgres -tc '\l' 2>/dev/null | grep -c '_db')"
-    [[ "$dbcount" == "7" ]] && break; sleep 2
+    [[ "$dbcount" == "$expected" ]] && break; sleep 2
   done
-  [[ "$dbcount" == "7" ]] && pass "L1 seven service databases" || fail "L1 seven service databases (saw '$dbcount')"
+  [[ "$dbcount" == "$expected" ]] && pass "L1 $expected service databases" || fail "L1 service databases (saw '$dbcount', expected '$expected')"
 
   stage "Applying migrations"
   for svc in Identity Catalog Entity Ordering Payments Fulfillment Support; do

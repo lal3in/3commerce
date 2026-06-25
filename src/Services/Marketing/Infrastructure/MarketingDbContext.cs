@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Marketing.Domain;
 
@@ -13,6 +14,11 @@ public sealed class MarketingDbContext(DbContextOptions<MarketingDbContext> opti
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasDefaultSchema("marketing");
+
+        // MassTransit EF outbox/inbox tables (the bus uses UseEntityFrameworkOutbox<MarketingDbContext>).
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
 
         modelBuilder.Entity<Campaign>(campaign =>
         {
