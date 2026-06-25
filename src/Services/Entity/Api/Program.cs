@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
@@ -20,6 +21,8 @@ builder.Services.AddServiceBus<EntityDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<EntityDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IAuditStore, EfAuditStore<EntityDbContext>>();
+builder.Services.AddScoped<AuditRecorder>();
 builder.Services.AddScoped<DuplicateDetectionService>();
 builder.Services.AddScoped<SupplierOnboardingService>();
 builder.Services.AddScoped<SupplierChangeRequestService>();

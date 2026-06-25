@@ -1,11 +1,13 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Entity.Domain;
 
 namespace ThreeCommerce.Entity.Infrastructure;
 
 public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) : DbContext(options)
 {
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<EntityRecord> Entities => Set<EntityRecord>();
     public DbSet<EntityProfile> EntityProfiles => Set<EntityProfile>();
     public DbSet<EntityAddress> EntityAddresses => Set<EntityAddress>();
@@ -22,6 +24,7 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasDefaultSchema("entity");
+        modelBuilder.ConfigureAudit();
 
         modelBuilder.Entity<EntityRecord>(entity =>
         {

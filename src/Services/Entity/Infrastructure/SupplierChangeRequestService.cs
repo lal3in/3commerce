@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Entity.Domain;
 
 namespace ThreeCommerce.Entity.Infrastructure;
@@ -7,8 +8,9 @@ namespace ThreeCommerce.Entity.Infrastructure;
 /// Supplier change-request lifecycle (mt2_7): the portal raises a request; a tenant admin
 /// approves or rejects it with maker-checker (the deciding principal differs from the
 /// requester, ADR-0025). Applying an approved change stays with the owning service.
+/// Maker-checker decisions are written to the local audit log (mt6_1).
 /// </summary>
-public sealed class SupplierChangeRequestService(EntityDbContext db, TimeProvider timeProvider)
+public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecorder audit, TimeProvider timeProvider)
 {
     public async Task<SupplierChangeRequest> OpenAsync(
         Guid tenantId, Guid entityId, SupplierChangeRequestType type, string summary, string? detail, Guid requestedByPrincipalId, CancellationToken cancellationToken)
@@ -35,6 +37,9 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, TimeProvide
         }
 
         request.Approve(approverPrincipalId, reason, timeProvider.GetUtcNow());
+        await audit.RecordAsync(new AuditDraft(
+            tenantId, "supplier.change_request.approved", "SupplierChangeRequest", requestId.ToString(),
+            AuditOutcome.Success, approverPrincipalId, Summary: request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -49,6 +54,9 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, TimeProvide
         }
 
         request.Reject(approverPrincipalId, reason, timeProvider.GetUtcNow());
+        await audit.RecordAsync(new AuditDraft(
+            tenantId, "supplier.change_request.rejected", "SupplierChangeRequest", requestId.ToString(),
+            AuditOutcome.Success, approverPrincipalId, Summary: request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
     }
