@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // The money journey in a real browser: add to cart → checkout → confirmation.
 test.describe("Cart & checkout", () => {
