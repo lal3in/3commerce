@@ -138,6 +138,10 @@ public static class AdminEndpoints
                 PriceMinor = v.PriceMinor,
                 Currency = string.IsNullOrWhiteSpace(v.Currency) ? defaultCurrency : v.Currency!,
                 StockQuantity = v.StockQuantity,
+                WeightGrams = v.WeightGrams,
+                LengthMm = v.LengthMm,
+                WidthMm = v.WidthMm,
+                HeightMm = v.HeightMm,
             });
         }
 
@@ -205,6 +209,10 @@ public static class AdminEndpoints
             existing.PriceMinor = v.PriceMinor;
             existing.Currency = string.IsNullOrWhiteSpace(v.Currency) ? defaultCurrency : v.Currency!;
             existing.StockQuantity = v.StockQuantity;
+            existing.WeightGrams = v.WeightGrams;
+            existing.LengthMm = v.LengthMm;
+            existing.WidthMm = v.WidthMm;
+            existing.HeightMm = v.HeightMm;
             keptIds.Add(existing.Id);
         }
 
@@ -273,7 +281,7 @@ public static class AdminEndpoints
 
     private static ProductEditorDto ToEditorDto(Product p) => new(
         p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls,
-        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList());
+        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm)).ToList());
 }
 
 public record ImportRunResponse(
@@ -293,10 +301,10 @@ public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
     Dictionary<string, string> Attributes, List<string> ImageUrls, List<VariantEditorDto> Variants);
 
-public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity);
+public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm);
 
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants);
 
-public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity);
+public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null);

@@ -16,6 +16,24 @@ public class ShippingQuoteServiceTests(Phase4Fixture fixture)
     private static readonly RateRequest Request = new(Origin, Dest, new Parcel(1000, 200, 150, 100));
 
     [Fact]
+    public async Task Quote_with_an_empty_parcel_uses_the_default_so_a_quote_always_returns()
+    {
+        using var scope = fixture.Fulfillment.Services.CreateScope();
+        var quotes = scope.ServiceProvider.GetRequiredService<ShippingQuoteService>();
+
+        var empty = new RateRequest(Origin, Dest, new Parcel(0, 0, 0, 0));
+        var withDefault = new RateRequest(Origin, Dest, new Parcel(500, 200, 150, 100));
+
+        var emptyRates = await quotes.QuoteAsync(Guid.NewGuid(), null, empty, default);
+        var defaultRates = await quotes.QuoteAsync(Guid.NewGuid(), null, withDefault, default);
+
+        Assert.NotEmpty(emptyRates);
+        // The empty parcel resolved to the built-in default (500g), so rates match.
+        Assert.Equal(defaultRates.First(r => r.Service == "standard").AmountMinor,
+            emptyRates.First(r => r.Service == "standard").AmountMinor);
+    }
+
+    [Fact]
     public async Task Quote_falls_back_to_fake_when_no_carrier_is_configured()
     {
         using var scope = fixture.Fulfillment.Services.CreateScope();

@@ -48,6 +48,7 @@ builder.Services.AddSingleton<ICarrierRateProvider, UpsRateProvider>();
 builder.Services.AddSingleton<ICarrierRateProvider, StarTrackRateProvider>();
 builder.Services.AddSingleton<ICarrierRateProvider, PackAndSendRateProvider>();
 builder.Services.AddSingleton<CarrierRegistry>();
+builder.Services.AddSingleton<ParcelResolver>();
 builder.Services.AddScoped<ShippingQuoteService>();
 
 // Dropship (mt4_4b): Fake supplier-order provider until real suppliers onboard (per-source creds).

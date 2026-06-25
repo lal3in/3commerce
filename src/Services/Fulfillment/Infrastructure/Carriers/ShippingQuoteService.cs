@@ -8,11 +8,14 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Carriers;
 /// dev/CI even before a real carrier is configured.
 /// </summary>
 public sealed class ShippingQuoteService(
-    CarrierService carriers, CarrierRegistry registry, FakeCarrierProvider fake, TimeProvider clock)
+    CarrierService carriers, CarrierRegistry registry, FakeCarrierProvider fake, ParcelResolver parcels, TimeProvider clock)
 {
     public async Task<IReadOnlyList<CarrierRate>> QuoteAsync(
         Guid tenantId, Guid? storefrontId, RateRequest request, CancellationToken ct)
     {
+        // Default-parcel fallback (mt4_11): a missing/unmapped parcel still quotes.
+        request = request with { Parcel = parcels.Resolve(request.Parcel) };
+
         var integration = await carriers.ResolveDefaultAsync(tenantId, storefrontId, ct);
         var provider = integration is null ? null : registry.Rates(integration.Carrier);
         provider ??= fake;
