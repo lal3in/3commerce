@@ -60,6 +60,7 @@ services:
       CONN_PRICING: Host=postgres;Port=5432;Database=pricing_db;Username=pricing_svc;Password=pricing_dev
       CONN_AUDIT: Host=postgres;Port=5432;Database=audit_db;Username=audit_svc;Password=audit_dev
       CONN_WORKFLOW: Host=postgres;Port=5432;Database=workflow_db;Username=workflow_svc;Password=workflow_dev
+      CONN_ENTITLEMENT: Host=postgres;Port=5432;Database=entitlement_db;Username=entitlement_svc;Password=entitlement_dev
     restart: "no"
 
   identity:
@@ -95,6 +96,9 @@ services:
   workflow:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Workflow/Api/Dockerfile }
+  entitlement:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Entitlement/Api/Dockerfile }
 
   notifications:
     <<: [*app, *limits]

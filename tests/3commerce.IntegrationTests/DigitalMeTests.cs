@@ -17,7 +17,7 @@ public class DigitalMeTests(Phase4Fixture fixture)
 
     private HttpClient Client(string? email, Guid tenant)
     {
-        var client = fixture.Fulfillment.CreateClient();
+        var client = fixture.Entitlement.CreateClient();
         client.DefaultRequestHeaders.Add(
             InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.NewGuid(), "customer", email, tenant.ToString()));
         return client;

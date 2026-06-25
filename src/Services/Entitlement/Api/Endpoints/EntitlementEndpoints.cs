@@ -1,10 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
-using ThreeCommerce.Fulfillment.Domain;
-using ThreeCommerce.Fulfillment.Infrastructure;
+using ThreeCommerce.Entitlement.Infrastructure;
+using EntitlementRecord = ThreeCommerce.Entitlement.Domain.Entitlement;
 
-namespace ThreeCommerce.Fulfillment.Api.Endpoints;
+namespace ThreeCommerce.Entitlement.Api.Endpoints;
 
 /// <summary>Customer entitlements (mt7_2): admin visibility + the customer's own "my access" (mt7_6).</summary>
 public static class EntitlementEndpoints
@@ -45,7 +45,7 @@ public static class EntitlementEndpoints
             ? tenantId
             : new Guid("00000000-0000-0000-0000-000000000001");
 
-    private static EntitlementDto ToDto(Entitlement e) =>
+    private static EntitlementDto ToDto(EntitlementRecord e) =>
         new(e.Id, e.OrderId, e.CustomerEmail, e.ProductId, e.VariantId, e.Type.ToString(), e.Status.ToString(), e.StartsAt, e.ExpiresAt);
 }
 

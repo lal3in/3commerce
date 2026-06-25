@@ -2,8 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.Entitlement.Domain;
+using ThreeCommerce.Entitlement.Infrastructure;
 using ThreeCommerce.Fulfillment.Domain;
 using ThreeCommerce.Fulfillment.Infrastructure;
+using EntitlementRecord = ThreeCommerce.Entitlement.Domain.Entitlement;
 
 namespace ThreeCommerce.IntegrationTests;
 
@@ -14,9 +17,9 @@ public class DigitalFulfilmentTests(Phase4Fixture fixture)
 {
     private static readonly ShipToInfo Ship = new("Buyer", "1 St", "Sydney", "2000", "AU");
 
-    private async Task<List<Entitlement>> EntitlementsAsync(Guid tenant, Guid orderId)
+    private async Task<List<EntitlementRecord>> EntitlementsAsync(Guid tenant, Guid orderId)
     {
-        using var scope = fixture.Fulfillment.Services.CreateScope();
+        using var scope = fixture.Entitlement.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<EntitlementService>().ListAsync(tenant, orderId, null, default);
     }
 

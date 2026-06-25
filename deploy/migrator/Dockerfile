@@ -13,7 +13,7 @@ COPY . .
 RUN dotnet restore 3commerce.sln
 RUN dotnet tool install -g dotnet-ef --version 10.0.9
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN mkdir -p /bundles && for s in Identity Catalog Entity Ordering Payments Fulfillment Support Marketing Pricing Audit Workflow; do \
+RUN mkdir -p /bundles && for s in Identity Catalog Entity Ordering Payments Fulfillment Support Marketing Pricing Audit Workflow Entitlement; do \
       l=$(echo "$s" | tr '[:upper:]' '[:lower:]'); \
       echo "== bundling $s =="; \
       dotnet ef migrations bundle \

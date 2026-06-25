@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
-using ThreeCommerce.Fulfillment.Domain;
+using EntitlementRecord = ThreeCommerce.Entitlement.Domain.Entitlement;
 
-namespace ThreeCommerce.Fulfillment.Infrastructure;
+namespace ThreeCommerce.Entitlement.Infrastructure;
 
-/// <summary>Reads customer entitlements (mt7_2). Issuance happens in FulfilmentProcessor on confirm.</summary>
-public sealed class EntitlementService(FulfillmentDbContext db)
+/// <summary>Reads customer entitlements (mt7_2). Issuance happens in OrderConfirmedConsumer on confirm.</summary>
+public sealed class EntitlementService(EntitlementDbContext db)
 {
-    public Task<List<Entitlement>> ListAsync(Guid tenantId, Guid? orderId, string? email, CancellationToken ct)
+    public Task<List<EntitlementRecord>> ListAsync(Guid tenantId, Guid? orderId, string? email, CancellationToken ct)
     {
         var query = db.Entitlements.AsNoTracking().Where(e => e.TenantId == tenantId);
         if (orderId is { } oid)

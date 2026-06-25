@@ -34,7 +34,6 @@ builder.Services.AddScoped<CarrierService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<FulfilmentProcessor>();
 builder.Services.AddScoped<OrderHoldService>();
-builder.Services.AddScoped<EntitlementService>();
 builder.Services.AddScoped<UsageService>();
 
 // Carrier adapters (mt4_4): Fake is keyless and serves all three seams; AusPost/DHL are rate
@@ -76,7 +75,6 @@ app.MapCarriers();
 app.MapShipping();
 app.MapDropship();
 app.MapOrderHolds();
-app.MapEntitlements();
 app.MapUsage();
 
 app.Run();

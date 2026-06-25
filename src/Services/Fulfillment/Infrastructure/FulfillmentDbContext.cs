@@ -17,7 +17,6 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<Domain.Dropship.SupplierAvailability> SupplierAvailabilities => Set<Domain.Dropship.SupplierAvailability>();
     public DbSet<OrderHold> OrderHolds => Set<OrderHold>();
     public DbSet<HeldOrder> HeldOrders => Set<HeldOrder>();
-    public DbSet<Entitlement> Entitlements => Set<Entitlement>();
     public DbSet<UsageBalance> UsageBalances => Set<UsageBalance>();
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
 
@@ -100,15 +99,6 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
         {
             held.Property(x => x.PayloadJson).HasColumnType("jsonb");
             held.HasIndex(x => x.OrderId).IsUnique();
-        });
-
-        modelBuilder.Entity<Entitlement>(entitlement =>
-        {
-            entitlement.Property(x => x.Type).HasConversion<string>().HasMaxLength(16);
-            entitlement.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
-            entitlement.Property(x => x.CustomerEmail).HasMaxLength(256);
-            entitlement.HasIndex(x => new { x.TenantId, x.CustomerEmail });
-            entitlement.HasIndex(x => new { x.TenantId, x.OrderId });
         });
 
         modelBuilder.Entity<UsageBalance>(balance =>

@@ -1,16 +1,15 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 
-namespace ThreeCommerce.Fulfillment.Domain;
+namespace ThreeCommerce.Entitlement.Domain;
 
 public enum EntitlementType { Subscription = 1, License = 2, Download = 3, ApiAccess = 4, ServiceAccess = 5 }
 
 public enum EntitlementStatus { Active = 1, Expired = 2, Suspended = 3, Cancelled = 4 }
 
 /// <summary>
-/// What a customer receives for a digital/service line (Phase 7 / mt7_2): access issued when the
-/// line's order confirms, instead of a shipment. Lives in Fulfillment for now (it owns the per-line
-/// fulfilment fan-out); it migrates to a dedicated Entitlement service later. Email-scoped (works for
-/// guests + registered customers).
+/// What a customer receives for a digital/service line (Phase 7 / mt7_2): access issued when the line's
+/// order confirms, instead of a shipment. Owned by the dedicated Entitlement service, which consumes
+/// OrderConfirmed and issues access. Email-scoped (works for guests + registered customers).
 /// </summary>
 public sealed class Entitlement
 {

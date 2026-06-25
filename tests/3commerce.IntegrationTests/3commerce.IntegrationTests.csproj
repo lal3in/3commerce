@@ -16,6 +16,7 @@
     <ProjectReference Include="../../src/Services/Ordering/Api/3commerce.Ordering.Api.csproj" />
     <ProjectReference Include="../../src/Services/Payments/Api/3commerce.Payments.Api.csproj" />
     <ProjectReference Include="../../src/Services/Fulfillment/Api/3commerce.Fulfillment.Api.csproj" />
+    <ProjectReference Include="../../src/Services/Entitlement/Api/3commerce.Entitlement.Api.csproj" />
     <ProjectReference Include="../../src/Services/Support/Api/3commerce.Support.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
