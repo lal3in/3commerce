@@ -42,8 +42,13 @@ builder.Services.AddScoped<PaymentEventProcessor>();
 builder.Services.AddScoped<SubscriptionService>();
 
 // Scheduled jobs (mt6_3): Quartz fires the daily Xero journal post; each run is recorded as a JobRun.
+// The scheduler is gated by Scheduling:Enabled (default on) so integration tests — which boot many
+// hosts in one process — can leave it off and avoid Quartz's process-global scheduler/logging state.
 builder.Services.AddScoped<IJobRunStore, EfJobRunStore<PaymentsDbContext>>();
-builder.Services.AddScheduledJobs(jobs => jobs.Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?"));
+if (builder.Configuration.GetValue("Scheduling:Enabled", true))
+{
+    builder.Services.AddScheduledJobs(jobs => jobs.Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?"));
+}
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
 
