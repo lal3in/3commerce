@@ -65,19 +65,6 @@ public class AuditRecorderTests
     private static AuditDraft Draft(string action) =>
         new(Tenant, action, "SupplierChangeRequest", "r1", AuditOutcome.Success, Guid.NewGuid());
 
-    private sealed class FakeAuditStore : IAuditStore
-    {
-        public readonly List<AuditEntry> Entries = [];
-
-        public Task<AuditEntry?> LastAsync(Guid tenantId, CancellationToken ct) =>
-            Task.FromResult(Entries.Where(e => e.TenantId == tenantId).OrderByDescending(e => e.Sequence).FirstOrDefault());
-
-        public void Add(AuditEntry entry) => Entries.Add(entry);
-
-        public Task<List<AuditEntry>> ChainAsync(Guid tenantId, CancellationToken ct) =>
-            Task.FromResult(Entries.Where(e => e.TenantId == tenantId).OrderBy(e => e.Sequence).ToList());
-    }
-
     [Fact]
     public async Task Recording_chains_entries_and_verifies_intact()
     {
@@ -106,4 +93,72 @@ public class AuditRecorderTests
         Assert.False(result.Intact);
         Assert.Equal(1, result.FirstBrokenSequence);
     }
+}
+
+/// <summary>mt6_2 audit coverage rules: categories, deny/sensitive shapes, PII-safety, mixed chain.</summary>
+public class SensitiveAuditTests
+{
+    private static readonly Guid Tenant = Guid.NewGuid();
+    private static readonly Guid Actor = Guid.NewGuid();
+
+    [Fact]
+    public void Denied_attempt_records_a_denied_outcome_with_the_reason()
+    {
+        var draft = AuditCategories.DeniedAttempt(
+            Tenant, Actor, "admin", "SupplierChangeRequest", "r1", "supplier.change_request.approve",
+            "A change request cannot be decided by its requester (maker-checker).");
+
+        Assert.Equal(AuditOutcome.Denied, draft.Outcome);
+        Assert.Contains("maker-checker", draft.Summary);
+    }
+
+    [Fact]
+    public void Sensitive_read_labels_the_field_and_keeps_the_reason_not_the_value()
+    {
+        var draft = AuditCategories.SensitiveRead(
+            Tenant, Actor, null, "SupplierBankAccount", "b1", "account_number", "support ticket #4821");
+
+        Assert.Equal(AuditOutcome.Success, draft.Outcome);
+        Assert.Equal("sensitive_read.account_number", draft.Action);
+        Assert.Equal("support ticket #4821", draft.Summary); // the reason, never the value
+    }
+
+    [Fact]
+    public void Field_reveal_records_who_revealed_what_and_why()
+    {
+        var draft = AuditCategories.FieldReveal(
+            Tenant, Actor, "support", "SupplierBankAccount", "b1", "bsb", "customer verification call");
+
+        Assert.Equal("field_reveal.bsb", draft.Action);
+        Assert.Equal(Actor, draft.ActorId);
+        Assert.Equal("customer verification call", draft.Summary);
+    }
+
+    [Fact]
+    public async Task Mixed_category_entries_chain_and_stay_verifiable()
+    {
+        var store = new FakeAuditStore();
+        var recorder = new AuditRecorder(store, TimeProvider.System);
+
+        await recorder.RecordAsync(AuditCategories.Mutation(Tenant, Actor, null, "SupplierChangeRequest", "r1", "supplier.change_request.approved", "BankAccount"), default);
+        await recorder.RecordAsync(AuditCategories.DeniedAttempt(Tenant, Actor, null, "SupplierChangeRequest", "r2", "supplier.change_request.approve", "maker-checker"), default);
+        await recorder.RecordAsync(AuditCategories.SensitiveRead(Tenant, Actor, null, "SupplierBankAccount", "b1", "account_number", "support ticket #4821"), default);
+
+        Assert.True((await recorder.VerifyAsync(Tenant, default)).Intact);
+        Assert.Equal(AuditOutcome.Denied, store.Entries[1].Outcome);
+    }
+}
+
+/// <summary>In-memory audit store for the framework tests (mt6_1/mt6_2).</summary>
+internal sealed class FakeAuditStore : IAuditStore
+{
+    public readonly List<AuditEntry> Entries = [];
+
+    public Task<AuditEntry?> LastAsync(Guid tenantId, CancellationToken ct) =>
+        Task.FromResult(Entries.Where(e => e.TenantId == tenantId).OrderByDescending(e => e.Sequence).FirstOrDefault());
+
+    public void Add(AuditEntry entry) => Entries.Add(entry);
+
+    public Task<List<AuditEntry>> ChainAsync(Guid tenantId, CancellationToken ct) =>
+        Task.FromResult(Entries.Where(e => e.TenantId == tenantId).OrderBy(e => e.Sequence).ToList());
 }

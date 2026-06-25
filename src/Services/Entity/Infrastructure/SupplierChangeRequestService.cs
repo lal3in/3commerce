@@ -36,10 +36,19 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             return null;
         }
 
-        request.Approve(approverPrincipalId, reason, timeProvider.GetUtcNow());
-        await audit.RecordAsync(new AuditDraft(
-            tenantId, "supplier.change_request.approved", "SupplierChangeRequest", requestId.ToString(),
-            AuditOutcome.Success, approverPrincipalId, Summary: request.Type.ToString()), cancellationToken);
+        try
+        {
+            request.Approve(approverPrincipalId, reason, timeProvider.GetUtcNow());
+        }
+        catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
+        {
+            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, "supplier.change_request.approve", ex.Message, cancellationToken);
+            throw;
+        }
+
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, approverPrincipalId, null, "SupplierChangeRequest", requestId.ToString(),
+            "supplier.change_request.approved", request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
     }
@@ -53,12 +62,29 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             return null;
         }
 
-        request.Reject(approverPrincipalId, reason, timeProvider.GetUtcNow());
-        await audit.RecordAsync(new AuditDraft(
-            tenantId, "supplier.change_request.rejected", "SupplierChangeRequest", requestId.ToString(),
-            AuditOutcome.Success, approverPrincipalId, Summary: request.Type.ToString()), cancellationToken);
+        try
+        {
+            request.Reject(approverPrincipalId, reason, timeProvider.GetUtcNow());
+        }
+        catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
+        {
+            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, "supplier.change_request.reject", ex.Message, cancellationToken);
+            throw;
+        }
+
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, approverPrincipalId, null, "SupplierChangeRequest", requestId.ToString(),
+            "supplier.change_request.rejected", request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
+    }
+
+    // Record a high-risk denied attempt (mt6_2) — e.g. a requester trying to decide their own request.
+    private async Task RecordDeniedAsync(Guid tenantId, Guid requestId, Guid actorId, string action, string reason, CancellationToken ct)
+    {
+        await audit.RecordAsync(AuditCategories.DeniedAttempt(
+            tenantId, actorId, null, "SupplierChangeRequest", requestId.ToString(), action, reason), ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private Task<SupplierChangeRequest?> LoadAsync(Guid tenantId, Guid requestId, CancellationToken cancellationToken) =>
