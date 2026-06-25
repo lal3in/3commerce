@@ -25,6 +25,7 @@ services:
   - audit
   - workflow
   - entitlement
+  - usage
 
 # Prod only: name of an externally-created Secret holding InternalAuth__PrivateKey and
 # InternalAuth__PublicKey (see deploy/helm/make-secret.sh). Empty in dev — images already

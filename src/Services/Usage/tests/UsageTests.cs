@@ -1,7 +1,7 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
-using ThreeCommerce.Fulfillment.Domain;
+using ThreeCommerce.Usage.Domain;
 
-namespace ThreeCommerce.Fulfillment.Tests;
+namespace ThreeCommerce.Usage.Tests;
 
 public class UsageTests
 {
@@ -52,8 +52,8 @@ public class UsageTests
     [Fact]
     public void Add_rejects_non_positive_quantity()
     {
-        Assert.Throws<FulfillmentRuleException>(() => Balance().Add(0, Now));
-        Assert.Throws<FulfillmentRuleException>(() => Balance().Provision(-1, false, 0, "AUD", null, Now));
+        Assert.Throws<UsageRuleException>(() => Balance().Add(0, Now));
+        Assert.Throws<UsageRuleException>(() => Balance().Provision(-1, false, 0, "AUD", null, Now));
     }
 
     // ---- mt7_5: access gate + overage billing ----

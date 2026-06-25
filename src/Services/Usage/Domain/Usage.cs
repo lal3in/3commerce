@@ -1,11 +1,14 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 
-namespace ThreeCommerce.Fulfillment.Domain;
+namespace ThreeCommerce.Usage.Domain;
+
+public sealed class UsageRuleException(string message) : Exception(message);
 
 /// <summary>
-/// A customer's metered usage balance for one meter (Phase 7 / mt7_4). <see cref="UsedQuantity"/> is
-/// maintained incrementally as records arrive, so reads are O(1) — the append-only UsageRecords are
-/// never re-summed. Provisioned with the plan's included quantity; overage is used beyond included.
+/// A customer's metered usage balance for one meter (Phase 7 / mt7_4), owned by the dedicated Usage
+/// service. <see cref="UsedQuantity"/> is maintained incrementally as records arrive, so reads are O(1)
+/// — the append-only UsageRecords are never re-summed. Provisioned with the plan's included quantity;
+/// overage is used beyond included.
 /// </summary>
 public sealed class UsageBalance
 {
@@ -52,7 +55,7 @@ public sealed class UsageBalance
     {
         if (includedQuantity < 0 || overageUnitPriceMinor < 0)
         {
-            throw new FulfillmentRuleException("Included quantity and overage price cannot be negative.");
+            throw new UsageRuleException("Included quantity and overage price cannot be negative.");
         }
 
         IncludedQuantity = includedQuantity;
@@ -75,7 +78,7 @@ public sealed class UsageBalance
     {
         if (quantity <= 0)
         {
-            throw new FulfillmentRuleException("Usage quantity must be positive.");
+            throw new UsageRuleException("Usage quantity must be positive.");
         }
 
         UsedQuantity += quantity;

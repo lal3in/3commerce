@@ -3,10 +3,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
-using ThreeCommerce.Fulfillment.Domain;
-using ThreeCommerce.Fulfillment.Infrastructure;
+using ThreeCommerce.Usage.Domain;
+using ThreeCommerce.Usage.Infrastructure;
 
-namespace ThreeCommerce.Fulfillment.Api.Endpoints;
+namespace ThreeCommerce.Usage.Api.Endpoints;
 
 /// <summary>Metered usage (mt7_4): provision an allowance, record usage, read balances.</summary>
 public static class UsageEndpoints
@@ -49,7 +49,7 @@ public static class UsageEndpoints
                 request.OverageAllowed, request.OverageUnitPriceMinor, request.Currency, request.PeriodEnd, ct);
             return TypedResults.Ok(ToDto(balance));
         }
-        catch (FulfillmentRuleException ex)
+        catch (UsageRuleException ex)
         {
             return TypedResults.BadRequest(ex.Message);
         }
@@ -71,7 +71,7 @@ public static class UsageEndpoints
                 request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.Quantity, request.ReferenceId, ct);
             return TypedResults.Ok(ToDto(balance));
         }
-        catch (FulfillmentRuleException ex)
+        catch (UsageRuleException ex)
         {
             return TypedResults.BadRequest(ex.Message);
         }

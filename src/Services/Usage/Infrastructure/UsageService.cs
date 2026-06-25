@@ -2,16 +2,16 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
-using ThreeCommerce.Fulfillment.Domain;
+using ThreeCommerce.Usage.Domain;
 
-namespace ThreeCommerce.Fulfillment.Infrastructure;
+namespace ThreeCommerce.Usage.Infrastructure;
 
 /// <summary>
 /// Metered usage (mt7_4/mt7_5): provision an allowance + overage price, record append-only usage with
 /// the balance kept incrementally (O(1) reads), gate access when overage is not allowed, and bill the
 /// unbilled overage by charging it via the rail (UsageOverageCharge → Payments).
 /// </summary>
-public sealed class UsageService(FulfillmentDbContext db, IPublishEndpoint publisher, TimeProvider clock)
+public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, TimeProvider clock)
 {
     public async Task<UsageBalance> ProvisionAsync(
         Guid tenantId, string email, MeterType meter, long includedQuantity,
@@ -37,7 +37,7 @@ public sealed class UsageService(FulfillmentDbContext db, IPublishEndpoint publi
         var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
         if (!balance.CanAccept(quantity))
         {
-            throw new FulfillmentRuleException("Usage allowance exhausted and overage is not permitted for this plan.");
+            throw new UsageRuleException("Usage allowance exhausted and overage is not permitted for this plan.");
         }
 
         balance.Add(quantity, now);
