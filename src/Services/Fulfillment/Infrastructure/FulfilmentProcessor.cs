@@ -20,9 +20,22 @@ public sealed class FulfilmentProcessor(
 {
     public async Task FulfilAsync(OrderConfirmed m, IPublishEndpoint publisher, CancellationToken ct)
     {
-        if (await db.Shipments.AnyAsync(s => s.OrderId == m.OrderId, ct))
+        // Idempotent: an order is fulfilled once. Digital-only orders create no shipments, so the
+        // entitlement check guards their redelivery too.
+        if (await db.Shipments.AnyAsync(s => s.OrderId == m.OrderId, ct)
+            || await db.Entitlements.AnyAsync(e => e.OrderId == m.OrderId, ct))
         {
             return;
+        }
+
+        // Digital/service lines (mt7_2): issue an entitlement instead of a shipment.
+        foreach (var line in m.Lines)
+        {
+            var entitlement = Entitlement.Issue(m.TenantId, m.OrderId, m.Email, line.ProductId, line.VariantId, line.FulfilmentType, time.GetUtcNow());
+            if (entitlement is not null)
+            {
+                db.Entitlements.Add(entitlement);
+            }
         }
 
         var warehouseLines = m.Lines
@@ -44,7 +57,8 @@ public sealed class FulfilmentProcessor(
                 m.TenantId, new SupplierOrderRequest(m.OrderId, bySupplier.Key, m.Email, destination, items), ct);
         }
 
-        foreach (var group in m.Lines.GroupBy(l => l.FulfilmentType))
+        // Shipments only for physical lines; digital/service lines became entitlements above.
+        foreach (var group in m.Lines.Where(l => Entitlement.TypeFor(l.FulfilmentType) is null).GroupBy(l => l.FulfilmentType))
         {
             var shipment = new Shipment
             {
