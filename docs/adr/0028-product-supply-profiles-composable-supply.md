@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted — implemented through Phase 7 (see the Phase 7 implementation note below).
 
 ## Context
 
@@ -77,3 +77,31 @@ Adopt a **composable supply model** with a first-class Offer.
 - `mt4_1` `InventoryItem` is unchanged — it becomes the **warehouse strategy** under the seam.
 - New supply/fulfilment/pricing/meter enums must stay deliberately small and composable
   (ADR principle): nature on the product, mechanism on the offer.
+
+## Phase 7 implementation note (2026-06, capability-first)
+
+Phase 7 (digital supply & billing) was delivered **capability-first**: the domain behaviour landed
+on **existing service boundaries** rather than scaffolding the three new DB-owning services the
+context above anticipates. This was a deliberate call while CI was quota-blocked — a new service's
+compose/Helm/CI/migrator wiring cannot be validated without the pipeline, whereas domain + service +
+Testcontainers integration are fully verifiable locally. The composable-supply model is unchanged; only
+the *physical packaging* of the new capabilities is deferred. Where each capability lives today:
+
+- **Pricing / price models → the Offer (Catalog).** The Offer is the price owner (`PricingModel`,
+  `PriceMinor`, `BillingPeriod`, graduated `OfferPriceTier`s, `PriceFor(qty)`). A dedicated
+  Pricing/Billing service is deferred until recurring/usage *charging* needs it — and that charging is
+  Payments territory (below). `Variant.PriceMinor` retirement is likewise deferred.
+- **Entitlements + usage metering → Fulfillment.** Fulfillment already owns the per-line confirm
+  fan-out, so a digital/service line issues an **`Entitlement`** instead of a shipment, and metered
+  usage (`UsageBalance` kept incrementally + append-only `UsageRecord`) lives beside it. The
+  dedicated Entitlement and Usage Metering services migrate out of Fulfillment when CI returns.
+- **Subscription + overage billing → Payments.** Payments owns the rail/ledger, so the
+  **`Subscription`** lifecycle (renew/cancel behind `IPaymentProvider`) and the usage **overage
+  charge** (`UsageOverageCharge` consumer) live there.
+
+Seams that make the future extraction mechanical: the cross-service triggers are already events
+(`OfferChanged` carries the price model; `SubscriptionRequested` and `UsageOverageCharge` are
+contracts), and the new aggregates are self-contained — moving them is a project move + a DbContext,
+not a redesign. Deferred refinements tracked in the plan: the dedicated services, customer-facing
+`/me/*` digital surfaces, ledger journals for recurring/overage charges (they already hit the rail),
+trials/auto-renew and period-close schedulers, and Payments→Fulfillment entitlement-status reflection.

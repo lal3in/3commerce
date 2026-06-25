@@ -49,7 +49,7 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants |
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 | GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
-| PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state |
+| PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
 
 ## Conventions (see `docs/reference/api.md`)
 
@@ -121,6 +121,20 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | POST | `/shipping/revalidate` | anon | Revalidate a selected quote before payment → `Valid` / `Expired` / `PriceChanged` / `Unavailable`; carrier fallback to Fake (mt4_6) |
 | GET | `/admin/dropship/orders?orderId=` | admin | Dropship supplier orders (Requested→Accepted→TrackingReceived) auto-forwarded on confirm (mt4_4b) |
 | GET/POST | `/admin/dropship/availability` | admin | Supplier availability feed (dropship sellability comes from the feed, not internal stock) |
+| GET | `/admin/entitlements?tenantId=&orderId=&email=` | admin | Customer entitlements (Phase 7 mt7_2): a confirmed digital/service line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess) instead of a shipment |
+| POST | `/admin/usage/provision` · `/record` · `balances/{id}/bill-overage` · GET `/balances` | admin | Metered usage (Phase 7 mt7_4/mt7_5): provision an allowance + overage price, record append-only usage (balance kept incrementally; access gated when overage is off), bill the unbilled overage via the rail (`UsageOverageCharge`) |
+
+## Payments — subscriptions (`/api/payments`)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/subscriptions?tenantId=&email=` | admin | Subscriptions (Phase 7 mt7_3): set up from a confirmed recurring line via `SubscriptionRequested` |
+| POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance; failure → PastDue/dunning) or cancel |
+
+> Phase 7 bus contracts: `OfferChanged` carries `pricing_model` + `billing_period`; Ordering publishes
+> `SubscriptionRequested` per recurring line on confirm (→ Payments); Fulfillment publishes
+> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). Capability-first homes
+> per ADR-0028's Phase 7 note — dedicated Pricing/Entitlement/Usage services deferred until CI returns.
 
 ## Support (`/api/support`)
 

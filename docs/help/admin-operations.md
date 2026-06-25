@@ -47,6 +47,30 @@ antiforgery → authentication → authorization**.
   Gateway-only, with explicit `--tenant`/`--storefront` scope (command surfaces are
   scaffolded; live calls follow once CLI auth lands).
 
+### Digital supply & billing (Phase 7)
+
+Composable supply (ADR-0028) lets one product be sold physical, digital, subscription,
+or metered — the **Offer** carries the price model, and confirmation issues the right
+artifact. These operator surfaces are HTTP today (admin app screens follow); see
+`docs/api/api_contracts_index.md` for the full contracts.
+
+- **Price models on offers** — `PUT /api/catalog/admin/offers/{id}` sets `pricing_model`
+  (`OneTime`/`Subscription`/`UsageBased`/`Tiered`), `billing_period` (`Once`/`Monthly`/
+  `Yearly`), and graduated `tiers` (`from_quantity` → `unit_price`). `PriceFor(qty)` rates
+  flat or per-tier-block; subscriptions price per period.
+- **Entitlements** (`GET /api/fulfillment/admin/entitlements`) — a confirmed digital/service
+  line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess)
+  **instead of a shipment**. Filter by tenant / order / email.
+- **Subscriptions** (`GET /api/payments/admin/subscriptions`, `POST …/{id}/renew|cancel`) —
+  a recurring line sets one up on confirm (first period paid with the order). **Renew**
+  charges the period via the payment rail and advances; a failed charge → **PastDue**
+  (dunning). **Cancel** ends it.
+- **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
+  `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
+  price, **record** append-only usage (the balance is kept incrementally; access is **gated**
+  when overage is off and the allowance is spent), then **bill-overage** to charge the
+  unbilled overage via the rail (idempotent — re-billing without new usage is a no-op).
+
 ---
 
 ## 1. Login — `/login`

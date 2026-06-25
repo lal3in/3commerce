@@ -57,6 +57,14 @@
 #       deny path; per-line RMA derives the refund server-side from the order snapshot
 #       (BL-8); Fulfillment: shipments grouped by source, idempotent
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
+#   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
+#       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/
+#       StarTrack/Pack&Send) + default-parcel fallback + revalidation, dropship auto-forward,
+#       packages/labels/tracking, manual restock, order holds (auto inventory hold → release → fulfil)
+#   A6g Integration · Phase 7 digital supply & billing: a digital line issues an entitlement (no
+#       shipment) and a mixed order ships physical + entitles digital; a recurring line sets up a
+#       subscription that renews (charge via the rail) + cancels; usage metering rolls records into
+#       balances incrementally + idempotently, gates access when overage is off, and bills overage once
 #   A7  Storefront typecheck (tsc) + production build (next build), including
 #       auth-aware checkout prefill/review, checkout +/- recalculation, and
 #       authenticated confirmation hiding guest account conversion

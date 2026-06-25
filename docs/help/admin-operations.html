@@ -70,6 +70,15 @@
           <li><strong>CLI</strong> (<code>src/Cli</code>, <code>dotnet tool</code>) — the same operations from a terminal, Gateway-only, with explicit <code>--tenant</code>/<code>--storefront</code> scope (scaffolded; live calls follow once CLI auth lands).</li>
         </ul>
 
+        <h3 id="digital-supply">Digital supply &amp; billing (Phase 7)</h3>
+        <p>Composable supply (ADR-0028) lets one product be sold physical, digital, subscription, or metered — the <strong>Offer</strong> carries the price model, and confirmation issues the right artifact. These operator surfaces are HTTP today (admin app screens follow); see <code>docs/api/api_contracts_index.md</code> for the full contracts.</p>
+        <ul>
+          <li><strong>Price models on offers</strong> — <code>PUT /api/catalog/admin/offers/{id}</code> sets <code>pricing_model</code> (OneTime/Subscription/UsageBased/Tiered), <code>billing_period</code> (Once/Monthly/Yearly), and graduated <code>tiers</code>. <code>PriceFor(qty)</code> rates flat or per-tier-block; subscriptions price per period.</li>
+          <li><strong>Entitlements</strong> (<code>GET /api/fulfillment/admin/entitlements</code>) — a confirmed digital/service line issues an <code>Entitlement</code> (Subscription/License/Download/ApiAccess/ServiceAccess) <strong>instead of a shipment</strong>.</li>
+          <li><strong>Subscriptions</strong> (<code>GET /api/payments/admin/subscriptions</code>, <code>POST …/{id}/renew|cancel</code>) — a recurring line sets one up on confirm (first period paid with the order). Renew charges the period via the rail and advances; a failed charge → <strong>PastDue</strong> (dunning); cancel ends it.</li>
+          <li><strong>Usage metering</strong> (<code>POST /api/fulfillment/admin/usage/provision|record</code>, <code>…/balances/{id}/bill-overage</code>, <code>GET …/balances</code>) — provision an allowance + overage price, record append-only usage (the balance is kept incrementally; access is <strong>gated</strong> when overage is off and the allowance is spent), then bill the unbilled overage via the rail (idempotent).</li>
+        </ul>
+
         <h2 id="login">1. Login — <code>/login</code></h2>
         <p>File: <code>Components/Pages/Login.razor</code>; handler <code>Services/LoginEndpoints.cs</code>. Uses the <code>EmptyLayout</code> (no nav). Login is a plain HTML form POST with an antiforgery token.</p>
         <p>Steps:</p>
