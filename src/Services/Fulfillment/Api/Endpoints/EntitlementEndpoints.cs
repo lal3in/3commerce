@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Fulfillment.Domain;
@@ -5,7 +6,7 @@ using ThreeCommerce.Fulfillment.Infrastructure;
 
 namespace ThreeCommerce.Fulfillment.Api.Endpoints;
 
-/// <summary>Customer entitlements (mt7_2): admin visibility of digital access issued on order confirm.</summary>
+/// <summary>Customer entitlements (mt7_2): admin visibility + the customer's own "my access" (mt7_6).</summary>
 public static class EntitlementEndpoints
 {
     public static IEndpointRouteBuilder MapEntitlements(this IEndpointRouteBuilder app)
@@ -13,7 +14,23 @@ public static class EntitlementEndpoints
         var group = app.MapGroup("/admin/entitlements").WithTags("Entitlements")
             .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         group.MapGet("/", List);
+
+        // Customer "my access" (mt7_6): scoped to the signed-in customer's tenant + email claims.
+        app.MapGet("/me/entitlements", Mine).WithTags("Entitlements")
+            .RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
+    }
+
+    private static async Task<Results<Ok<List<EntitlementDto>>, UnauthorizedHttpResult>> Mine(
+        ClaimsPrincipal user, EntitlementService entitlements, CancellationToken ct)
+    {
+        if (!CustomerClaims.TryRead(user, out var tenantId, out var email))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var list = await entitlements.ListAsync(tenantId, null, email, ct);
+        return TypedResults.Ok(list.Select(ToDto).ToList());
     }
 
     private static async Task<Ok<List<EntitlementDto>>> List(

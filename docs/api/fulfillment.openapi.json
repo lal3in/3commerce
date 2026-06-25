@@ -10,6 +10,50 @@
     }
   ],
   "paths": {
+    "/me/entitlements": {
+      "get": {
+        "tags": [
+          "Entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntitlementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/usage": {
+      "get": {
+        "tags": [
+          "Usage"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/shipments": {
       "get": {
         "tags": [
@@ -2684,6 +2728,12 @@
   },
   "tags": [
     {
+      "name": "Entitlements"
+    },
+    {
+      "name": "Usage"
+    },
+    {
       "name": "Shipments"
     },
     {
@@ -2703,12 +2753,6 @@
     },
     {
       "name": "Holds"
-    },
-    {
-      "name": "Entitlements"
-    },
-    {
-      "name": "Usage"
     }
   ]
 }

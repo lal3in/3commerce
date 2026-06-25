@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
@@ -16,7 +17,23 @@ public static class SubscriptionEndpoints
         group.MapGet("/", List);
         group.MapPost("/{id:guid}/renew", Renew);
         group.MapPost("/{id:guid}/cancel", Cancel);
+
+        // Customer "my subscriptions" (mt7_6): scoped to the signed-in customer's tenant + email claims.
+        app.MapGet("/me/subscriptions", Mine).WithTags("Subscriptions")
+            .RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
+    }
+
+    private static async Task<Results<Ok<List<SubscriptionDto>>, UnauthorizedHttpResult>> Mine(
+        ClaimsPrincipal user, SubscriptionService subscriptions, CancellationToken ct)
+    {
+        if (!CustomerClaims.TryRead(user, out var tenantId, out var email))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var list = await subscriptions.ListAsync(tenantId, email, ct);
+        return TypedResults.Ok(list.Select(ToDto).ToList());
     }
 
     private static async Task<Ok<List<SubscriptionDto>>> List(

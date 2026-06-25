@@ -238,7 +238,7 @@ public sealed class AuthService(
             .Join(db.Principals, x => x.User.PrincipalId, p => p.Id, (x, p) => new { x.Session, x.User, Principal = p })
             .Where(x => x.Session.ClaimsVersion == x.Principal.ClaimsVersion && x.Principal.Status == PrincipalStatus.Active)
             .Where(x => x.User.TenantId != null)
-            .Select(x => new SessionInfo(x.Session.Id, x.User.Id, x.User.TenantId!.Value, x.User.Role, x.Session.ExpiresAt))
+            .Select(x => new SessionInfo(x.Session.Id, x.User.Id, x.User.TenantId!.Value, x.User.Role, x.User.Email, x.Session.ExpiresAt))
             .SingleOrDefaultAsync(ct);
 
         await scope.CommitAsync(ct);

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
@@ -19,7 +20,23 @@ public static class UsageEndpoints
         group.MapPost("/record", Record);
         group.MapPost("/balances/{id:guid}/bill-overage", BillOverage);
         group.MapGet("/balances", Balances);
+
+        // Customer "my usage" (mt7_6): scoped to the signed-in customer's tenant + email claims.
+        app.MapGet("/me/usage", Mine).WithTags("Usage")
+            .RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
+    }
+
+    private static async Task<Results<Ok<List<BalanceDto>>, UnauthorizedHttpResult>> Mine(
+        ClaimsPrincipal user, UsageService usage, CancellationToken ct)
+    {
+        if (!CustomerClaims.TryRead(user, out var tenantId, out var email))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var list = await usage.ListBalancesAsync(tenantId, email, ct);
+        return TypedResults.Ok(list.Select(ToDto).ToList());
     }
 
     private static async Task<Results<Ok<BalanceDto>, BadRequest<string>>> Provision(

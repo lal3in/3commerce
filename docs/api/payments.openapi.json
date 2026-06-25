@@ -10,6 +10,28 @@
     }
   ],
   "paths": {
+    "/me/subscriptions": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriptionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/ledger/accounts": {
       "get": {
         "tags": [
@@ -730,6 +752,9 @@
   },
   "tags": [
     {
+      "name": "Subscriptions"
+    },
+    {
       "name": "Admin"
     },
     {
@@ -737,9 +762,6 @@
     },
     {
       "name": "Payment methods"
-    },
-    {
-      "name": "Subscriptions"
     }
   ]
 }
