@@ -221,6 +221,95 @@
         }
       }
     },
+    "/cart/items/{productId}/{variantId}": {
+      "put": {
+        "tags": [
+          "Cart"
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cart"
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/orders": {
       "get": {
         "tags": [
@@ -275,6 +364,70 @@
           }
         }
       }
+    },
+    "/admin/orders": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/orders/{id}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -282,12 +435,20 @@
       "AddItemRequest": {
         "required": [
           "productId",
+          "variantId",
           "quantity"
         ],
         "type": "object",
         "properties": {
           "productId": {
             "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "quantity": {
@@ -334,6 +495,8 @@
       "CartItemResponse": {
         "required": [
           "productId",
+          "variantId",
+          "variantSku",
           "slug",
           "title",
           "imageUrl",
@@ -346,6 +509,19 @@
           "productId": {
             "type": "string",
             "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "variantSku": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "slug": {
             "type": "string"
@@ -424,6 +600,23 @@
           },
           "shippingAddress": {
             "$ref": "#/components/schemas/AddressRequest"
+          },
+          "campaignRef": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "savedPaymentMethodId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "savePaymentMethod": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -432,6 +625,8 @@
           "orderId",
           "clientSecret",
           "netMinor",
+          "discountMinor",
+          "shippingMinor",
           "taxMinor",
           "grossMinor",
           "currency",
@@ -450,6 +645,22 @@
             ]
           },
           "netMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "discountMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "shippingMinor": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -491,6 +702,7 @@
           "email",
           "netMinor",
           "shippingMinor",
+          "discountMinor",
           "taxMinor",
           "grossMinor",
           "currency",
@@ -518,6 +730,14 @@
             "format": "int64"
           },
           "shippingMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "discountMinor": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -559,10 +779,14 @@
       "OrderLineResponse": {
         "required": [
           "productId",
+          "variantId",
+          "variantSku",
           "title",
           "unitPriceMinor",
+          "discountMinor",
           "quantity",
-          "fulfillmentSource"
+          "fulfilmentType",
+          "billingMode"
         ],
         "type": "object",
         "properties": {
@@ -570,10 +794,31 @@
             "type": "string",
             "format": "uuid"
           },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "variantSku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "title": {
             "type": "string"
           },
           "unitPriceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "discountMinor": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -589,7 +834,10 @@
             ],
             "format": "int32"
           },
-          "fulfillmentSource": {
+          "fulfilmentType": {
+            "type": "string"
+          },
+          "billingMode": {
             "type": "string"
           }
         }
@@ -673,6 +921,9 @@
     },
     {
       "name": "Cart"
+    },
+    {
+      "name": "Admin"
     }
   ]
 }

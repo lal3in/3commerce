@@ -1,0 +1,9 @@
+<div style="border:1px solid #e5e7eb; border-radius:6px; padding:.8rem; background:#f9fafb;">
+    <h3 style="margin-top:0;">@Title</h3>
+    <p style="color:#4b5563;">@Body</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Body { get; set; } = string.Empty;
+}

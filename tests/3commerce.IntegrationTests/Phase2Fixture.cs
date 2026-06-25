@@ -50,9 +50,21 @@ public sealed class Phase2Fixture : IAsyncLifetime
         CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
 
     /// <summary>Mints the ES256 internal-claims JWT a service expects in X-Internal-Claims.</summary>
-    public string MintInternalClaims(Guid userId, string role)
+    public string MintInternalClaims(Guid userId, string role, string? email = null, string? tenantId = null)
     {
         var now = DateTime.UtcNow;
+        var claims = new Dictionary<string, object>
+        {
+            ["sub"] = userId.ToString(),
+            ["role"] = role,
+            ["sid"] = Guid.NewGuid().ToString(),
+            ["tenant"] = tenantId ?? "00000000-0000-0000-0000-000000000001",
+        };
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            claims["email"] = email;
+        }
+
         return _jwtHandler.CreateToken(new SecurityTokenDescriptor
         {
             Issuer = "3commerce-gateway",
@@ -60,12 +72,7 @@ public sealed class Phase2Fixture : IAsyncLifetime
             IssuedAt = now,
             Expires = now.AddMinutes(5),
             SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
-            Claims = new Dictionary<string, object>
-            {
-                ["sub"] = userId.ToString(),
-                ["role"] = role,
-                ["sid"] = Guid.NewGuid().ToString(),
-            },
+            Claims = claims,
         });
     }
 

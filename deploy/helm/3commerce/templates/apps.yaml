@@ -82,6 +82,57 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: supplier-portal
+  labels:
+    app: supplier-portal
+    {{- include "3commerce.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supplier-portal
+  template:
+    metadata:
+      labels:
+        app: supplier-portal
+    spec:
+      containers:
+        - name: supplier-portal
+          image: {{ include "3commerce.image" (dict "root" . "name" "supplier-portal") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: USE_CONTAINER_CONFIG
+              value: "true"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supplier-portal
+  labels:
+    app: supplier-portal
+spec:
+  selector:
+    app: supplier-portal
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: storefront
   labels:
     app: storefront

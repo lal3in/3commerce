@@ -67,15 +67,33 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }
 
-    public string Claims(string role) => _jwt.CreateToken(new SecurityTokenDescriptor
+    public string Claims(string role) => MintInternalClaims(Guid.CreateVersion7(), role);
+
+    /// <summary>Mints the ES256 internal-claims JWT a service expects, optionally with email/tenant (mt7_6 "/me").</summary>
+    public string MintInternalClaims(Guid userId, string role, string? email = null, string? tenantId = null)
     {
-        Issuer = "3commerce-gateway",
-        Audience = "3commerce-internal",
-        IssuedAt = DateTime.UtcNow,
-        Expires = DateTime.UtcNow.AddMinutes(5),
-        SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
-        Claims = new Dictionary<string, object> { ["sub"] = Guid.CreateVersion7().ToString(), ["role"] = role },
-    });
+        var claims = new Dictionary<string, object>
+        {
+            ["sub"] = userId.ToString(),
+            ["role"] = role,
+            ["sid"] = Guid.NewGuid().ToString(),
+            ["tenant"] = tenantId ?? "00000000-0000-0000-0000-000000000001",
+        };
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            claims["email"] = email;
+        }
+
+        return _jwt.CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = "3commerce-gateway",
+            Audience = "3commerce-internal",
+            IssuedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
+            Claims = claims,
+        });
+    }
 
     /// <summary>Seeds a captured payment so the refund path has something to reverse.</summary>
     public async Task SeedSucceededPaymentAsync(Guid orderId, long grossMinor, long taxMinor)
@@ -156,6 +174,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             builder.UseSetting("Stripe:SecretKey", string.Empty);
             builder.UseSetting("Tax:FlatRate", "0.19");
+            builder.UseSetting("Scheduling:Enabled", "false");
         });
 
         using var scope = factory.Services.CreateScope();

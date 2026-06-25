@@ -1,0 +1,9 @@
+# Grafana datasource provisioning (mt6_13): the Prometheus that scrapes the collector.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

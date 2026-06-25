@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -9,8 +10,10 @@ namespace ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 public static class OtelExtensions
 {
     /// <summary>
-    /// Traces for HTTP in/out, EF, and MassTransit (message hops join the same trace).
-    /// Exports OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set, console otherwise.
+    /// Traces for HTTP in/out, EF, and MassTransit (message hops join the same trace), plus RED
+    /// metrics (request rate/duration/errors) for HTTP in/out (mt6_13). Both export OTLP when
+    /// OTEL_EXPORTER_OTLP_ENDPOINT is set; traces fall back to console otherwise. The metrics pipeline
+    /// feeds the OTel Collector → Prometheus → Grafana stack (deploy/observability).
     /// </summary>
     public static TBuilder AddServiceTelemetry<TBuilder>(this TBuilder builder, string serviceName)
         where TBuilder : IHostApplicationBuilder
@@ -33,6 +36,19 @@ public static class OtelExtensions
                 else
                 {
                     tracing.AddConsoleExporter();
+                }
+            })
+            .WithMetrics(metrics =>
+            {
+                metrics
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation();
+
+                // Metrics are ops data — only exported when a collector endpoint is configured (no
+                // console spam by default). Prod creds are launch-gated; Grafana sits behind admin auth.
+                if (useOtlp)
+                {
+                    metrics.AddOtlpExporter();
                 }
             });
 

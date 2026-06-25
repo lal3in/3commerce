@@ -6,6 +6,7 @@
 
 CREATE ROLE identity_svc    LOGIN PASSWORD 'identity_dev';
 CREATE ROLE catalog_svc     LOGIN PASSWORD 'catalog_dev';
+CREATE ROLE entity_svc      LOGIN PASSWORD 'entity_dev';
 CREATE ROLE ordering_svc    LOGIN PASSWORD 'ordering_dev';
 CREATE ROLE payments_svc    LOGIN PASSWORD 'payments_dev';
 CREATE ROLE fulfillment_svc LOGIN PASSWORD 'fulfillment_dev';
@@ -13,6 +14,7 @@ CREATE ROLE support_svc     LOGIN PASSWORD 'support_dev';
 
 CREATE DATABASE identity_db    OWNER identity_svc;
 CREATE DATABASE catalog_db     OWNER catalog_svc;
+CREATE DATABASE entity_db      OWNER entity_svc;
 CREATE DATABASE ordering_db    OWNER ordering_svc;
 CREATE DATABASE payments_db    OWNER payments_svc;
 CREATE DATABASE fulfillment_db OWNER fulfillment_svc;

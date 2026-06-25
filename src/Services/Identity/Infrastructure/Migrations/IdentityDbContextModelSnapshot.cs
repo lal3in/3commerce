@@ -206,6 +206,9 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Line1")
                         .IsRequired()
                         .HasColumnType("text");
@@ -221,14 +224,108 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("TenantId", "UserId");
+
+                    b.HasIndex("UserId", "Purpose", "IsDefault");
 
                     b.ToTable("Addresses", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.MembershipRole", b =>
+                {
+                    b.Property<Guid>("TenantMembershipId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TenantMembershipId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("MembershipRoles", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.Permission", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RiskLevel")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("Permissions", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("Roles", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.RolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PermissionKey")
+                        .HasColumnType("text");
+
+                    b.HasKey("RoleId", "PermissionKey");
+
+                    b.HasIndex("PermissionKey");
+
+                    b.ToTable("RolePermissions", "identity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.EmailToken", b =>
@@ -267,6 +364,9 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("ClaimsVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -293,6 +393,147 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.ToTable("Sessions", "identity");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.Principal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ClaimsVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsPlatformAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Principals", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.ServiceAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId")
+                        .IsUnique();
+
+                    b.HasIndex("PrincipalId");
+
+                    b.ToTable("ServiceAccounts", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HomeRegion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OwnerLegalEntityRef")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Tenants", "identity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.TenantMembership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsTenantOwner")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrincipalId");
+
+                    b.HasIndex("TenantId", "PrincipalId")
+                        .IsUnique();
+
+                    b.ToTable("TenantMemberships", "identity");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -312,6 +553,12 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("FamilyName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GivenName")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset?>("LockoutUntil")
                         .HasColumnType("timestamp with time zone");
 
@@ -319,13 +566,22 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PrincipalId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("PrincipalId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Email")
                         .IsUnique();
 
                     b.ToTable("Users", "identity");
@@ -350,6 +606,76 @@ namespace ThreeCommerce.Identity.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.MembershipRole", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Authz.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.TenantMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantMembershipId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.RolePermission", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Authz.Permission", null)
+                        .WithMany()
+                        .HasForeignKey("PermissionKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ThreeCommerce.Identity.Domain.Authz.Role", null)
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.ServiceAccount", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Principal", null)
+                        .WithMany()
+                        .HasForeignKey("PrincipalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Tenancy.TenantMembership", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Principal", null)
+                        .WithMany()
+                        .HasForeignKey("PrincipalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.User", b =>
+                {
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Principal", null)
+                        .WithMany()
+                        .HasForeignKey("PrincipalId");
+
+                    b.HasOne("ThreeCommerce.Identity.Domain.Tenancy.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Identity.Domain.Authz.Role", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Identity.Domain.User", b =>

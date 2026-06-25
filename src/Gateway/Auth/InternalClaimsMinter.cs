@@ -39,9 +39,21 @@ public sealed class InternalClaimsMinter
         _credentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
     }
 
-    public string Mint(Guid userId, string role, Guid sessionId)
+    public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId, string? email = null)
     {
         var now = DateTime.UtcNow;
+        var claims = new Dictionary<string, object>
+        {
+            ["sub"] = userId.ToString(),
+            ["role"] = role,
+            ["sid"] = sessionId.ToString(),
+            ["tenant"] = tenantId.ToString(),
+        };
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            claims["email"] = email;
+        }
+
         return _handler.CreateToken(new SecurityTokenDescriptor
         {
             Issuer = Issuer,
@@ -49,12 +61,7 @@ public sealed class InternalClaimsMinter
             IssuedAt = now,
             Expires = now + Lifetime,
             SigningCredentials = _credentials,
-            Claims = new Dictionary<string, object>
-            {
-                ["sub"] = userId.ToString(),
-                ["role"] = role,
-                ["sid"] = sessionId.ToString(),
-            },
+            Claims = claims,
         });
     }
 

@@ -18,6 +18,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+# Next standalone server.js binds to $HOSTNAME, which Docker sets to the container ID
+# (so it would listen only on the eth0 IP — loopback healthchecks then fail). Bind to all
+# interfaces so the container's own `wget http://localhost:3000/` healthcheck succeeds.
+ENV HOSTNAME=0.0.0.0
 # Run as the non-root user shipped in the node image.
 USER node
 COPY --from=build --chown=node:node /app/public ./public

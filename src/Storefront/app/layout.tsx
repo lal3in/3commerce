@@ -1,16 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import { organizationJsonLd, siteUrl, webSiteJsonLd } from "@/lib/seo";
+import { ThemeStyle } from "@/components/theme/ThemeStyle";
+import { mergeTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: { default: "3commerce", template: "%s · 3commerce" },
   description: "A from-scratch e-commerce storefront.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Per-storefront theme overrides (sanitized) merge over the default; tenant config wiring is mt5_6 follow-up.
+  const theme = mergeTheme(null);
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <head>
+        <ThemeStyle theme={theme} />
+      </head>
+      <body
+        className="min-h-screen flex flex-col"
+        style={{ background: "var(--color-bg)", color: "var(--color-text)", fontFamily: "var(--font-sans)" }}
+      >
+        <script
+          type="application/ld+json"
+          // Site-wide Organization + WebSite (with sitelinks search) JSON-LD (mt5_8).
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd(), webSiteJsonLd()]) }}
+        />
         <header className="border-b border-neutral-200">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-6">
             <Link href="/" className="text-xl font-semibold tracking-tight">
@@ -42,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500">
           3commerce — demo storefront
         </footer>
+        <ConsentBanner />
       </body>
     </html>
   );

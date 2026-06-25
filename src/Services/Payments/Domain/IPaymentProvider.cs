@@ -7,7 +7,21 @@ namespace ThreeCommerce.Payments.Domain;
 /// </summary>
 public interface IPaymentProvider
 {
-    public Task<PaymentIntentResult> CreateIntentAsync(Guid orderId, long amountMinor, string currency, string idempotencyKey, CancellationToken ct);
+    public Task<PaymentIntentResult> CreateIntentAsync(
+        Guid orderId,
+        long amountMinor,
+        string currency,
+        string idempotencyKey,
+        string? providerCustomerId,
+        string? providerPaymentMethodId,
+        bool setupFutureUsage,
+        CancellationToken ct);
+
+    public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct);
+
+    public Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct);
+
+    public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct);
 
     public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct);
 
@@ -16,6 +30,8 @@ public interface IPaymentProvider
 }
 
 public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);
+
+public record SetupIntentResult(string SetupIntentId, string ClientSecret);
 
 public record ProviderRefundResult(string RefundId, bool Succeeded);
 

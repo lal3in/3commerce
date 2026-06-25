@@ -209,9 +209,15 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Slug")
+                    b.HasIndex("TenantId", "Slug")
                         .IsUnique();
 
                     b.ToTable("Categories", "catalog");
@@ -249,6 +255,97 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ImportRuns", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Offer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BillingPeriod")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("FulfilmentType")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<long>("PriceMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PricingModel")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SupplyCategory")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VariantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SupplierId");
+
+                    b.HasIndex("TenantId", "ProductId", "VariantId");
+
+                    b.ToTable("Offers", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.OfferPriceTier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("FromQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OfferId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("UnitPriceMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OfferId");
+
+                    b.ToTable("OfferPriceTier", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.PingRecord", b =>
@@ -293,12 +390,21 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("SupplierRef")
                         .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -309,12 +415,262 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("TenantId", "CategoryId");
 
-                    b.HasIndex("Slug")
+                    b.HasIndex("TenantId", "Slug")
                         .IsUnique();
 
                     b.ToTable("Products", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductBundleComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BundleProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComponentProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ComponentVariantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BundleProductId", "ComponentProductId", "ComponentVariantId")
+                        .IsUnique();
+
+                    b.ToTable("ProductBundleComponents", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductIdentifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("Type", "Value");
+
+                    b.ToTable("ProductIdentifiers", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductPublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CountryOfOrigin")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DescriptionOverride")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int>("FulfillmentSource")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HarmonizedSystemCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SeoDescription")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<string>("SeoTitle")
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)");
+
+                    b.Property<string>("SlugOverride")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TitleOverride")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StorefrontId", "ProductId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "StorefrontId", "State");
+
+                    b.ToTable("ProductPublications", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductPublicationVariant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PublicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SkuOverride")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("VariantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Visible")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicationId", "VariantId")
+                        .IsUnique();
+
+                    b.ToTable("ProductPublicationVariants", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Storefront", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessPasswordHash")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ActivatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Visibility")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "State");
+
+                    b.ToTable("Storefronts", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.StorefrontDomain", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Canonical")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(253)
+                        .HasColumnType("character varying(253)");
+
+                    b.Property<Guid>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Host")
+                        .IsUnique();
+
+                    b.HasIndex("StorefrontId", "Canonical");
+
+                    b.ToTable("StorefrontDomains", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.StorefrontNavigationItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StorefrontId", "SortOrder");
+
+                    b.ToTable("StorefrontNavigationItems", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
@@ -323,10 +679,20 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
+
+                    b.Property<int?>("HeightMm")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LengthMm")
+                        .HasColumnType("integer");
 
                     b.Property<long>("PriceMinor")
                         .HasColumnType("bigint");
@@ -339,6 +705,12 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<int>("StockQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WeightGrams")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WidthMm")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -363,6 +735,51 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasPrincipalKey("MessageId", "ConsumerId");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.OfferPriceTier", b =>
+                {
+                    b.HasOne("ThreeCommerce.Catalog.Domain.Offer", null)
+                        .WithMany("PriceTiers")
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductBundleComponent", b =>
+                {
+                    b.HasOne("ThreeCommerce.Catalog.Domain.Product", null)
+                        .WithMany("BundleComponents")
+                        .HasForeignKey("BundleProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductIdentifier", b =>
+                {
+                    b.HasOne("ThreeCommerce.Catalog.Domain.Product", null)
+                        .WithMany("Identifiers")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductPublicationVariant", b =>
+                {
+                    b.HasOne("ThreeCommerce.Catalog.Domain.ProductPublication", null)
+                        .WithMany("Variants")
+                        .HasForeignKey("PublicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.StorefrontDomain", b =>
+                {
+                    b.HasOne("ThreeCommerce.Catalog.Domain.Storefront", null)
+                        .WithMany("Domains")
+                        .HasForeignKey("StorefrontId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
                 {
                     b.HasOne("ThreeCommerce.Catalog.Domain.Product", null)
@@ -372,9 +789,28 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Offer", b =>
+                {
+                    b.Navigation("PriceTiers");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Product", b =>
                 {
+                    b.Navigation("BundleComponents");
+
+                    b.Navigation("Identifiers");
+
                     b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductPublication", b =>
+                {
+                    b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Storefront", b =>
+                {
+                    b.Navigation("Domains");
                 });
 #pragma warning restore 612, 618
         }

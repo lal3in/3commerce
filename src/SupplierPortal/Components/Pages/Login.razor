@@ -1,0 +1,17 @@
+@page "/login"
+@layout EmptyLayout
+@inject NavigationManager Nav
+
+<div style="max-width:380px;margin:5rem auto;padding:2rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+    <h1>Supplier portal sign in</h1>
+    @if (Nav.Uri.Contains("error"))
+    {
+        <p style="color:#b91c1c;">Sign in failed. Check your credentials or supplier access.</p>
+    }
+    <form action="/auth/login" method="post">
+        <AntiforgeryToken />
+        <label>Email<br /><input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" /></label>
+        <label>Password<br /><input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" /></label>
+        <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.6rem 1rem;border-radius:4px;">Sign in</button>
+    </form>
+</div>

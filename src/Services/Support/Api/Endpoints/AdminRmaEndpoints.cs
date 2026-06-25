@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Support.Infrastructure;
 using ThreeCommerce.Support.Infrastructure.Sagas;
@@ -74,7 +75,7 @@ public static class AdminRmaEndpoints
     }
 
     private static async Task<Results<Accepted, Conflict<string>, NotFound>> ReturnReceivedAction(
-        Guid id, SupportDbContext db, IPublishEndpoint publisher, CancellationToken ct)
+        Guid id, ReturnReceivedRequest? request, SupportDbContext db, IPublishEndpoint publisher, CancellationToken ct)
     {
         var rma = await db.Rmas.AsNoTracking().SingleOrDefaultAsync(r => r.CorrelationId == id, ct);
         if (rma is null)
@@ -88,6 +89,14 @@ public static class AdminRmaEndpoints
         }
 
         await publisher.Publish(new ReturnReceived(id), ct);
+        // Manual partial restock (mt4_8): the operator chooses which returned lines go back to stock,
+        // and to which location. Fulfillment increments on-hand + records a Returned movement (RMA id = reference).
+        if (request?.Restock is { Count: > 0 } restock && request.TenantId is { } tenant)
+        {
+            await publisher.Publish(new RestockRequested(tenant, id,
+                restock.Select(r => new RestockItemInfo(r.ProductId, r.VariantId, r.LocationId, r.Quantity)).ToList()), ct);
+        }
+
         await db.SaveChangesAsync(ct);
         return TypedResults.Accepted((string?)null);
     }
@@ -95,3 +104,5 @@ public static class AdminRmaEndpoints
 
 public record ApproveRequest(bool RequireReturn);
 public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+public record ReturnReceivedRequest(Guid? TenantId, List<RestockLineRequest>? Restock);
+public record RestockLineRequest(Guid ProductId, Guid? VariantId, Guid LocationId, int Quantity);

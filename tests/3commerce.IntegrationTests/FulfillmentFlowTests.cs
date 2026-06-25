@@ -1,6 +1,8 @@
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.Fulfillment.Domain;
 using ThreeCommerce.Fulfillment.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -10,34 +12,47 @@ namespace ThreeCommerce.IntegrationTests;
 [Collection(Phase4Collection.Name)]
 public class FulfillmentFlowTests(Phase4Fixture fixture)
 {
+    private static readonly ShipToInfo Ship = new("Buyer", "1 St", "Sydney", "2000", "AU");
+
     [Fact]
     public async Task OrderConfirmed_creates_shipments_grouped_by_source()
     {
         var orderId = Guid.CreateVersion7();
+        var tenant = Guid.NewGuid();
+        var warehouseProduct = Guid.CreateVersion7();
+
+        // Stock the warehouse line so it isn't auto-held for inventory shortage (mt4_9).
+        using (var scope = fixture.Fulfillment.Services.CreateScope())
+        {
+            var inventory = scope.ServiceProvider.GetRequiredService<InventoryService>();
+            var location = await inventory.CreateLocationAsync(tenant, Guid.NewGuid(), null, "DC", LocationKind.TenantWarehouse, default);
+            await inventory.SetStockAsync(tenant, location.Id, warehouseProduct, null, 10, default);
+        }
+
         var lines = new List<OrderLineInfo>
         {
-            new(Guid.CreateVersion7(), "Item A", 1, "Unassigned", 1000),
-            new(Guid.CreateVersion7(), "Item B", 2, "Unassigned", 1500),
-            new(Guid.CreateVersion7(), "Item C", 1, "OwnWarehouse", 2000),
+            new(Guid.CreateVersion7(), null, null, "Item A", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 1000),
+            new(Guid.CreateVersion7(), null, null, "Item B", 2, FulfilmentType.Unassigned, BillingMode.OneTime, 1500),
+            new(warehouseProduct, null, null, "Item C", 1, FulfilmentType.Warehouse, BillingMode.OneTime, 2000),
         };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "buyer@example.com", 9999, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, tenant, "buyer@example.com", 9999, "EUR", Ship, lines));
 
         var shipments = await WaitForShipmentsAsync(orderId);
-        // Two distinct sources → two shipments; the Unassigned one has both its lines.
+        // Two distinct fulfilment types → two shipments; the Unassigned one has both its lines.
         Assert.Equal(2, shipments.Count);
         Assert.Contains(shipments, s => s.Source == "Unassigned" && s.LineCount == 2);
-        Assert.Contains(shipments, s => s.Source == "OwnWarehouse" && s.LineCount == 1);
+        Assert.Contains(shipments, s => s.Source == "Warehouse" && s.LineCount == 1);
     }
 
     [Fact]
     public async Task Duplicate_OrderConfirmed_does_not_duplicate_shipments()
     {
         var orderId = Guid.CreateVersion7();
-        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), "X", 1, "Unassigned", 100) };
+        var lines = new List<OrderLineInfo> { new(Guid.CreateVersion7(), null, null, "X", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 100) };
 
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));
-        await fixture.PublishAsync(new OrderConfirmed(orderId, "b@example.com", 100, "EUR", lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", Ship, lines));
+        await fixture.PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "b@example.com", 100, "EUR", Ship, lines));
 
         await Task.Delay(2000);
         var shipments = await WaitForShipmentsAsync(orderId);

@@ -33,7 +33,15 @@ public class CatalogAdminTests(Phase2Fixture fixture) : IAsyncLifetime
         using var scope = _catalog.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
         _categoryId = Guid.CreateVersion7();
-        db.Categories.Add(new Category { Id = _categoryId, Slug = $"editor-cat-{_categoryId:N}", Name = "Editor Test" });
+        // Categories are tenant-scoped (mt3_2); seed under the default tenant the admin
+        // create endpoint resolves to, so the category lookup matches.
+        db.Categories.Add(new Category
+        {
+            Id = _categoryId,
+            TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            Slug = $"editor-cat-{_categoryId:N}",
+            Name = "Editor Test",
+        });
         await db.SaveChangesAsync();
     }
 

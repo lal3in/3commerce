@@ -42,7 +42,7 @@ services:
       timeout: 3s
       retries: 12
 
-  # One-shot: applies all 6 schemas via EF bundles to the EXTERNAL Postgres, then exits.
+  # One-shot: applies all service schemas via EF bundles to the EXTERNAL Postgres, then exits.
   # Gates the app services. scripts/launch.sh ensures Postgres is healthy before this runs.
   migrate:
     build:
@@ -51,6 +51,7 @@ services:
     environment:
       CONN_IDENTITY: Host=postgres;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev
       CONN_CATALOG: Host=postgres;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev
+      CONN_ENTITY: Host=postgres;Port=5432;Database=entity_db;Username=entity_svc;Password=entity_dev
       CONN_ORDERING: Host=postgres;Port=5432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev
       CONN_PAYMENTS: Host=postgres;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev
       CONN_FULFILLMENT: Host=postgres;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
@@ -63,6 +64,9 @@ services:
   catalog:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Catalog/Api/Dockerfile }
+  entity:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Entity/Api/Dockerfile }
   ordering:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Ordering/Api/Dockerfile }
@@ -90,6 +94,7 @@ services:
     depends_on:
       identity: { condition: service_healthy }
       catalog: { condition: service_healthy }
+      entity: { condition: service_healthy }
       ordering: { condition: service_healthy }
       payments: { condition: service_healthy }
       fulfillment: { condition: service_healthy }
@@ -115,6 +120,20 @@ services:
       retries: 12
       start_period: 15s
 
+  supplier-portal:
+    <<: [*app, *limits]
+    build: { context: ., dockerfile: src/SupplierPortal/Dockerfile }
+    ports:
+      - "5300:8080"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
   storefront:
     build: { context: ., dockerfile: src/Storefront/Dockerfile }
     environment:
@@ -126,7 +145,9 @@ services:
     depends_on:
       gateway: { condition: service_healthy }
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null 2>&1 || exit 1"]
+      # 127.0.0.1 (not localhost): BusyBox wget resolves localhost to IPv6 [::1], but the
+      # Next server binds IPv4 0.0.0.0 (Dockerfile HOSTNAME) — [::1] would be refused.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 12
@@ -136,6 +157,45 @@ services:
       resources:
         limits:
           memory: 512M
+
+  # ── Observability stack (mt6_13) — opt-in: `docker compose --profile observability up`.
+  # Services push OTLP metrics+traces to the collector when OTEL_EXPORTER_OTLP_ENDPOINT=
+  # http://otel-collector:4317 is set (deploy/.env.*). Ops data only — never financial truth;
+  # keep Grafana behind admin auth / a private network (GOTCHA).
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: 3commerce-otel-collector
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: 3commerce-prometheus
+    profiles: ["observability"]
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: 3commerce-grafana
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
 # The app's default network IS the external Postgres network (docker-compose.db.yml), so
 # every app container plus the external `postgres` resolve each other by name.

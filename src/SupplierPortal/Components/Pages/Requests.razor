@@ -1,0 +1,49 @@
+@page "/requests"
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<h1>Change requests</h1>
+<p>Request supplier user/contact or bank-account changes. Bank-account data is owned by Payments and always requires approval.</p>
+
+<EditForm Model="request" OnValidSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <label>Supplier entity ID<br /><InputText @bind-Value="request.EntityId" style="width:100%;padding:.4rem;" /></label><br /><br />
+    <label>Request type<br />
+        <InputSelect @bind-Value="request.Type" style="width:100%;padding:.4rem;">
+            <option>UserAccess</option>
+            <option>ContactDetails</option>
+            <option>BankAccount</option>
+        </InputSelect>
+    </label><br /><br />
+    <label>Details<br /><InputTextArea @bind-Value="request.Details" style="width:100%;padding:.4rem;min-height:8rem;" /></label><br /><br />
+    <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">Submit request</button>
+</EditForm>
+
+@if (submitted)
+{
+    <p style="color:#047857;">Change request captured locally. Approval workflow persistence is scheduled for Phase 6.</p>
+}
+
+@code {
+    private ChangeRequest request = new();
+    private bool submitted;
+
+    private Task SubmitAsync()
+    {
+        submitted = true;
+        return Task.CompletedTask;
+    }
+
+    private sealed class ChangeRequest
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string EntityId { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Type { get; set; } = "UserAccess";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Details { get; set; } = string.Empty;
+    }
+}

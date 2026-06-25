@@ -1,0 +1,70 @@
+@page "/mission-control"
+@attribute [Authorize(Roles = "admin")]
+@inject IConfiguration Config
+
+<h1>Mission control</h1>
+<p style="color:#6b7280;">Operator console (mt6_14). All views are permission-gated (admin) and read-only;
+data comes via owning-service APIs and the Audit projection — never by reading service DBs directly.</p>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1rem;">
+
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
+        <h2 style="margin-top:0;">Message bus</h2>
+        <p style="color:#6b7280;">Live RabbitMQ management stats and a searchable event timeline from the
+        MassTransit wiretap (feeding the Audit store).</p>
+        <table style="width:100%; border-collapse:collapse;">
+            <tbody>
+                <tr><td>Queue depth</td><td style="text-align:right;">@Pending</td></tr>
+                <tr><td>Publish / deliver rate</td><td style="text-align:right;">@Pending</td></tr>
+                <tr><td>Consumers</td><td style="text-align:right;">@Pending</td></tr>
+                <tr><td>Dead-letter</td><td style="text-align:right;">@Pending</td></tr>
+            </tbody>
+        </table>
+        <p style="color:#9ca3af; font-size:.85rem;">Wiretap is never order/financial truth; payloads are
+        masked for secrets/PII.</p>
+    </section>
+
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
+        <h2 style="margin-top:0;">Service &amp; infra health</h2>
+        <table style="width:100%; border-collapse:collapse;">
+            <tbody>
+                @foreach (var service in Services)
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@service</td>
+                        <td style="text-align:right; color:#9ca3af;">heartbeat @Pending</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p style="margin-bottom:0;"><a href="@GrafanaUrl" target="_blank" rel="noopener">Open Grafana — Services (RED)</a>
+        <span style="color:#9ca3af; font-size:.85rem;">(mt6_13 metrics: rate / p95 / 5xx per service)</span></p>
+    </section>
+
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
+        <h2 style="margin-top:0;">Accounts</h2>
+        <ul>
+            <li><NavLink href="/entities">People &amp; supplier directory</NavLink></li>
+            <li><NavLink href="/ledger">Ledger / financial accounts</NavLink></li>
+            <li><NavLink href="/orders">Orders</NavLink></li>
+        </ul>
+        <p style="color:#9ca3af; font-size:.85rem;">Customer directory view is pending an Identity admin surface.</p>
+    </section>
+
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
+        <h2 style="margin-top:0;">Access control</h2>
+        <p><NavLink href="/rbac">Roles &amp; permissions</NavLink> — the dynamic RBAC console (PDP-enforced).</p>
+    </section>
+
+</div>
+
+@code {
+    // Live broker/heartbeat/wiretap wiring is the deferred adoption; the console scaffold lays out the
+    // sections and links the working surfaces (Grafana, RBAC, Ledger, Entities).
+    private const string Pending = "—";
+
+    private static readonly string[] Services =
+        ["identity", "catalog", "entity", "ordering", "payments", "fulfillment", "support"];
+
+    private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
+}

@@ -23,15 +23,38 @@ public sealed class AuthorizePaymentConsumer(
         if (existing is not null)
         {
             var existingIntent = await provider.CreateIntentAsync(
-                msg.OrderId, existing.AmountMinor, existing.Currency, msg.IdempotencyKey, context.CancellationToken);
+                msg.OrderId,
+                existing.AmountMinor,
+                existing.Currency,
+                msg.IdempotencyKey,
+                existing.ProviderCustomerId,
+                existing.ProviderPaymentMethodId,
+                setupFutureUsage: false,
+                context.CancellationToken);
             await context.RespondAsync(new AuthorizePaymentResult(
                 existing.PaymentIntentId, existingIntent.ClientSecret, existing.AmountMinor, existing.TaxMinor));
             return;
         }
 
-        var taxMinor = tax.TaxFor(msg.NetMinor, msg.Currency);
+        var taxMinor = tax.TaxFor(msg.NetMinor, msg.Currency, msg.ShipCountry);
         var grossMinor = msg.NetMinor + taxMinor;
-        var intent = await provider.CreateIntentAsync(msg.OrderId, grossMinor, msg.Currency, msg.IdempotencyKey, context.CancellationToken);
+        var customer = msg.UserId is { } userId
+            ? await db.PaymentCustomers.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", context.CancellationToken)
+            : null;
+        var savedMethod = msg.SavedPaymentMethodId is { } methodId
+            ? await db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(m => m.Id == methodId && m.UserId == msg.UserId && m.State == SavedPaymentMethodState.Active, context.CancellationToken)
+            : null;
+        var providerCustomerId = customer?.ProviderCustomerId;
+        var providerPaymentMethodId = savedMethod?.ProviderPaymentMethodId;
+        var intent = await provider.CreateIntentAsync(
+            msg.OrderId,
+            grossMinor,
+            msg.Currency,
+            msg.IdempotencyKey,
+            providerCustomerId,
+            providerPaymentMethodId,
+            msg.SavePaymentMethod && providerCustomerId is not null,
+            context.CancellationToken);
 
         db.Payments.Add(new Payment
         {
@@ -42,6 +65,9 @@ public sealed class AuthorizePaymentConsumer(
             TaxMinor = taxMinor,
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
+            ProviderCustomerId = providerCustomerId,
+            ProviderPaymentMethodId = providerPaymentMethodId,
+            SavePaymentMethodRequested = msg.SavePaymentMethod,
             CreatedAt = time.GetUtcNow(),
         });
         await db.SaveChangesAsync(context.CancellationToken);

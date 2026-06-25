@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // Account flows through the storefront (Server Actions → gateway → Identity).
 test.describe("Account", () => {

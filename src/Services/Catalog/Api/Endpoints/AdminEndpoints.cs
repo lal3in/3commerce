@@ -98,12 +98,13 @@ public static class AdminEndpoints
             return problem;
         }
 
-        if (await db.Products.AnyAsync(p => p.Slug == request.Slug, cancellationToken))
+        var tenantId = request.TenantId ?? DefaultTenantId(config);
+        if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
         }
 
-        if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, cancellationToken))
+        if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId && c.TenantId == tenantId, cancellationToken))
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -116,6 +117,7 @@ public static class AdminEndpoints
         var product = new Product
         {
             Id = Guid.CreateVersion7(),
+            TenantId = tenantId,
             Slug = request.Slug,
             Title = request.Title,
             Brand = request.Brand,
@@ -136,6 +138,10 @@ public static class AdminEndpoints
                 PriceMinor = v.PriceMinor,
                 Currency = string.IsNullOrWhiteSpace(v.Currency) ? defaultCurrency : v.Currency!,
                 StockQuantity = v.StockQuantity,
+                WeightGrams = v.WeightGrams,
+                LengthMm = v.LengthMm,
+                WidthMm = v.WidthMm,
+                HeightMm = v.HeightMm,
             });
         }
 
@@ -161,12 +167,13 @@ public static class AdminEndpoints
             return TypedResults.NotFound();
         }
 
-        if (await db.Products.AnyAsync(p => p.Slug == request.Slug && p.Id != id, cancellationToken))
+        var tenantId = request.TenantId ?? product.TenantId;
+        if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug && p.Id != id, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
         }
 
-        if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId, cancellationToken))
+        if (!await db.Categories.AnyAsync(c => c.Id == request.CategoryId && c.TenantId == tenantId, cancellationToken))
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -175,6 +182,7 @@ public static class AdminEndpoints
         }
 
         var defaultCurrency = config["Store:Currency"] ?? "EUR";
+        product.TenantId = tenantId;
         product.Slug = request.Slug;
         product.Title = request.Title;
         product.Brand = request.Brand;
@@ -201,6 +209,10 @@ public static class AdminEndpoints
             existing.PriceMinor = v.PriceMinor;
             existing.Currency = string.IsNullOrWhiteSpace(v.Currency) ? defaultCurrency : v.Currency!;
             existing.StockQuantity = v.StockQuantity;
+            existing.WeightGrams = v.WeightGrams;
+            existing.LengthMm = v.LengthMm;
+            existing.WidthMm = v.WidthMm;
+            existing.HeightMm = v.HeightMm;
             keptIds.Add(existing.Id);
         }
 
@@ -237,7 +249,8 @@ public static class AdminEndpoints
             product.Title,
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
             product.Variants.FirstOrDefault()?.Currency ?? fallbackCurrency,
-            product.ImageUrls.FirstOrDefault()), ct);
+            product.ImageUrls.FirstOrDefault(),
+            product.Variants.Select(v => new ProductVariantUpserted(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList()), ct);
 
     private static ValidationProblem? Validate(ProductWriteRequest request)
     {
@@ -261,9 +274,14 @@ public static class AdminEndpoints
         return errors.Count > 0 ? TypedResults.ValidationProblem(errors) : null;
     }
 
+    private static Guid DefaultTenantId(IConfiguration config) =>
+        Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
+            ? tenantId
+            : Guid.Parse("00000000-0000-0000-0000-000000000001");
+
     private static ProductEditorDto ToEditorDto(Product p) => new(
-        p.Id, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls,
-        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList());
+        p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls,
+        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm)).ToList());
 }
 
 public record ImportRunResponse(
@@ -280,13 +298,13 @@ public record ProductListItem(
     Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock);
 
 public record ProductEditorDto(
-    Guid Id, string Slug, string Title, string Brand, string Description, Guid CategoryId,
+    Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
     Dictionary<string, string> Attributes, List<string> ImageUrls, List<VariantEditorDto> Variants);
 
-public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity);
+public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm);
 
 public record ProductWriteRequest(
-    string Slug, string Title, string Brand, string? Description, Guid CategoryId,
+    Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants);
 
-public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity);
+public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null);

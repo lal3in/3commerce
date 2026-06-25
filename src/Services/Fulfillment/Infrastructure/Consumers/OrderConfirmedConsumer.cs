@@ -1,47 +1,35 @@
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
-using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
-using ThreeCommerce.Fulfillment.Domain;
 
 namespace ThreeCommerce.Fulfillment.Infrastructure.Consumers;
 
 /// <summary>
-/// Turns a confirmed order into shipments, one per fulfillment source (ADR-0003).
-/// Idempotent: a redelivered OrderConfirmed does not create duplicate shipments.
+/// Fulfils a confirmed order unless it is held (mt4_9). Auto-evaluates an inventory hold; if the
+/// order has any active hold it is captured (payload stored) and deferred until released, otherwise
+/// it is fulfilled (shipments + warehouse stock + dropship). Idempotent by order.
 /// </summary>
-public sealed class OrderConfirmedConsumer(FulfillmentDbContext db, TimeProvider time) : IConsumer<OrderConfirmed>
+public sealed class OrderConfirmedConsumer(FulfilmentProcessor processor, OrderHoldService holds)
+    : IConsumer<OrderConfirmed>
 {
     public async Task Consume(ConsumeContext<OrderConfirmed> context)
     {
         var m = context.Message;
-        if (await db.Shipments.AnyAsync(s => s.OrderId == m.OrderId, context.CancellationToken))
+        var ct = context.CancellationToken;
+
+        // Already captured as held → wait for release (idempotent on redelivery).
+        if (await holds.HeldOrderExistsAsync(m.OrderId, ct))
         {
             return;
         }
 
-        foreach (var group in m.Lines.GroupBy(l => l.FulfillmentSource))
+        await holds.EvaluateInventoryHoldAsync(m, ct);
+
+        if (await holds.HasActiveHoldAsync(m.TenantId, m.OrderId, ct))
         {
-            var shipment = new Shipment
-            {
-                Id = Guid.CreateVersion7(),
-                OrderId = m.OrderId,
-                FulfillmentSource = group.Key,
-                Status = ShipmentStatus.Created,
-                Email = m.Email,
-                CreatedAt = time.GetUtcNow(),
-                Lines = group.Select(l => new ShipmentLine
-                {
-                    Id = Guid.CreateVersion7(),
-                    ProductId = l.ProductId,
-                    Title = l.Title,
-                    Quantity = l.Quantity,
-                }).ToList(),
-            };
-            db.Shipments.Add(shipment);
-            await context.Publish(new ShipmentCreated(shipment.Id, m.OrderId, group.Key));
+            await holds.CaptureHeldOrderAsync(m, ct);
+            return;
         }
 
-        await db.SaveChangesAsync(context.CancellationToken);
+        await processor.FulfilAsync(m, context, ct);
     }
 }

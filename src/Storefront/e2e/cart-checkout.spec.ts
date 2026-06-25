@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // The money journey in a real browser: add to cart → checkout → confirmation.
 test.describe("Cart & checkout", () => {
@@ -22,11 +22,15 @@ test.describe("Cart & checkout", () => {
     await page.getByRole("link", { name: /checkout/i }).click();
     await expect(page).toHaveURL(/\/checkout/);
     await page.getByLabel("Email").fill(`shopper-${Date.now()}@example.com`);
-    await page.getByLabel("Full name").fill("Test Shopper");
-    await page.getByLabel("Address").fill("1 Test Street");
-    await page.getByLabel("City").fill("Berlin");
-    await page.getByLabel("Postcode").fill("10115");
-    await page.getByLabel(/country/i).fill("DE");
+    // The checkout has shipping + billing sections; scope to the shipping section by its HEADING so
+    // labels are unambiguous. (hasText: "Shipping address" also matches the billing section, which
+    // reads "Using the shipping address for card billing…", pulling in its "Billing address" select.)
+    const shipping = page.locator("section").filter({ has: page.getByRole("heading", { name: "Shipping address" }) });
+    await shipping.getByLabel("Full name").fill("Test Shopper");
+    await shipping.getByLabel("Address").fill("1 Test Street");
+    await shipping.getByLabel("City").fill("Berlin");
+    await shipping.getByLabel("Postcode").fill("10115");
+    await shipping.getByLabel(/country/i).fill("DE");
     await page.getByRole("button", { name: /place order/i }).click();
 
     // Confirmation page: pending → complete the simulated payment → confirmed.

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // Browsing flows — SSR pages rendering real catalog data through the gateway.
 test.describe("Browsing", () => {

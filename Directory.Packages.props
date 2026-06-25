@@ -14,7 +14,11 @@
     <PackageVersion Include="MassTransit" Version="$(MassTransitVersion)" />
     <PackageVersion Include="MassTransit.RabbitMQ" Version="$(MassTransitVersion)" />
     <PackageVersion Include="MassTransit.EntityFrameworkCore" Version="$(MassTransitVersion)" />
+    <!-- Ordering uses MassTransit.Quartz for saga message scheduling (its bus only). -->
     <PackageVersion Include="MassTransit.Quartz" Version="$(MassTransitVersion)" />
+    <!-- Shared scheduling (mt6_3) uses STANDALONE host-scoped DI Quartz — NOT MassTransit.Quartz, whose
+         global scheduler bus observer breaks across host create/dispose when wired into every service. -->
+    <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.1" />
     <!-- Data -->
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />

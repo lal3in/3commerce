@@ -43,6 +43,25 @@ How it fits together:
   schema** within its own database (`<service>.*`, not `public`; ADR-0022). The migration creates
   the schema (`EnsureSchema`); `__EFMigrationsHistory` stays in `public`.
 
+## Observability metrics (mt6_13)
+
+Every service exports OpenTelemetry **traces and RED metrics** (request rate / duration / errors for
+HTTP in + out) via OTLP whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set. An opt-in compose profile runs
+the backend:
+
+```bash
+# set OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317 in deploy/.env.dev, then:
+docker compose --profile observability up otel-collector prometheus grafana
+```
+
+- **OTel Collector** receives OTLP and re-exports a Prometheus scrape target.
+- **Prometheus** scrapes the collector.
+- **Grafana** (`:3001`, admin/admin by default — change `GRAFANA_ADMIN_PASSWORD`) auto-provisions the
+  Prometheus datasource and the **Services (RED)** dashboard (`deploy/observability/`).
+
+Metrics are ops data, never financial truth; keep Grafana behind admin auth / a private network. Helm
+wiring for the stack is launch-gated.
+
 ## Containerized launch (Kubernetes / Helm)
 
 The same topology is packaged as an umbrella Helm chart at **`deploy/helm/3commerce`**:

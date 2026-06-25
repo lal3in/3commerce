@@ -10,6 +10,39 @@
     }
   ],
   "paths": {
+    "/orders/{orderId}/lines": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundableOrderDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/rma": {
       "post": {
         "tags": [
@@ -32,6 +65,19 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RmaCreatedDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -299,6 +345,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReturnReceivedRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Accepted"
@@ -388,6 +450,131 @@
           }
         }
       },
+      "RefundableLineDto": {
+        "required": [
+          "productId",
+          "title",
+          "unitPriceMinor",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "unitPriceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "RefundableOrderDto": {
+        "required": [
+          "orderId",
+          "grossMinor",
+          "currency",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "grossMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundableLineDto"
+            }
+          }
+        }
+      },
+      "RestockLineRequest": {
+        "required": [
+          "productId",
+          "variantId",
+          "locationId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ReturnReceivedRequest": {
+        "required": [
+          "tenantId",
+          "restock"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "restock": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RestockLineRequest"
+            }
+          }
+        }
+      },
       "RmaCreatedDto": {
         "required": [
           "rmaId"
@@ -449,12 +636,34 @@
           }
         }
       },
+      "RmaLineSelection": {
+        "required": [
+          "productId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "maximum": 999,
+            "minimum": 1,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RmaRequest": {
         "required": [
           "orderId",
-          "email",
-          "amountMinor",
-          "reason"
+          "reason",
+          "lines"
         ],
         "type": "object",
         "properties": {
@@ -462,21 +671,17 @@
             "type": "string",
             "format": "uuid"
           },
-          "email": {
-            "type": "string"
-          },
-          "amountMinor": {
-            "maximum": 9223372036854776000,
-            "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
           "reason": {
             "type": "string"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RmaLineSelection"
+            }
           }
         }
       },
