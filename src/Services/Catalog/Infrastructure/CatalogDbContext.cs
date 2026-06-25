@@ -31,8 +31,10 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             offer.Property(o => o.SupplyCategory).HasConversion<string>().HasMaxLength(16);
             offer.Property(o => o.FulfilmentType).HasConversion<string>().HasMaxLength(24);
             offer.Property(o => o.PricingModel).HasConversion<string>().HasMaxLength(24);
+            offer.Property(o => o.BillingPeriod).HasConversion<string>().HasMaxLength(12);
             offer.Property(o => o.Status).HasConversion<string>().HasMaxLength(16);
             offer.Property(o => o.Currency).HasMaxLength(3);
+            offer.HasMany(o => o.PriceTiers).WithOne().HasForeignKey(t => t.OfferId);
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
             offer.HasIndex(o => new { o.TenantId, o.SupplierId });
         });

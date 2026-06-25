@@ -47,10 +47,12 @@ public static class OfferEndpoints
     {
         try
         {
+            var now = clock.GetUtcNow();
             var offer = Offer.Create(
                 request.TenantId ?? DefaultTenantId(config), request.ProductId, request.VariantId, request.SupplierId,
                 request.SupplyCategory, request.FulfilmentType, request.PriceMinor, request.Currency,
-                request.Priority, clock.GetUtcNow());
+                request.Priority, now);
+            offer.SetPricing(request.PricingModel, request.BillingPeriod, ToTiers(request.Tiers), now);
             db.Offers.Add(offer);
             await db.SaveChangesAsync(ct);
             await publisher.Publish(ToEvent(offer), ct);
@@ -97,6 +99,11 @@ public static class OfferEndpoints
                 }
             }
 
+            if (request.PricingModel is { } model)
+            {
+                offer.SetPricing(model, request.BillingPeriod ?? offer.BillingPeriod, ToTiers(request.Tiers), now);
+            }
+
             await db.SaveChangesAsync(ct);
             await publisher.Publish(ToEvent(offer), ct);
             return TypedResults.Ok(ToDto(offer));
@@ -107,8 +114,11 @@ public static class OfferEndpoints
         }
     }
 
+    private static IReadOnlyList<(int FromQuantity, long UnitPriceMinor)> ToTiers(List<PriceTierDto>? tiers) =>
+        tiers is null ? [] : tiers.Select(t => (t.FromQuantity, t.UnitPriceMinor)).ToList();
+
     private static OfferChanged ToEvent(Offer o) =>
-        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.Priority, o.IsActive);
+        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
@@ -117,7 +127,8 @@ public static class OfferEndpoints
 
     private static OfferDto ToDto(Offer o) =>
         new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory.ToString(),
-            o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString());
+            o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.BillingPeriod.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString(),
+            o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList());
 }
 
 public record CreateOfferRequest(
@@ -129,10 +140,17 @@ public record CreateOfferRequest(
     FulfilmentType FulfilmentType,
     [property: Range(0, long.MaxValue)] long PriceMinor,
     [property: Required, StringLength(3, MinimumLength = 3)] string Currency,
-    int Priority);
+    int Priority,
+    PricingModel PricingModel = PricingModel.OneTime,
+    BillingPeriod BillingPeriod = BillingPeriod.Once,
+    List<PriceTierDto>? Tiers = null);
 
-public record UpdateOfferRequest(long? PriceMinor, int? Priority, bool? Active);
+public record UpdateOfferRequest(
+    long? PriceMinor, int? Priority, bool? Active, PricingModel? PricingModel = null, BillingPeriod? BillingPeriod = null, List<PriceTierDto>? Tiers = null);
+
+public record PriceTierDto(int FromQuantity, long UnitPriceMinor);
 
 public record OfferDto(
     Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory,
-    string FulfilmentType, string PricingModel, long PriceMinor, string Currency, int Priority, string Status);
+    string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status,
+    List<PriceTierDto> Tiers);

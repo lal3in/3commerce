@@ -41,3 +41,11 @@ public enum PricingModel
     UsageBased = 3,
     Tiered = 4,
 }
+
+/// <summary>The cadence a price is charged at (Phase 7). One-off for one-time/usage; recurring for subscriptions.</summary>
+public enum BillingPeriod
+{
+    Once = 1,
+    Monthly = 2,
+    Yearly = 3,
+}

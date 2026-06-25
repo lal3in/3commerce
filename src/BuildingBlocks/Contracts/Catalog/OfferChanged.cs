@@ -16,5 +16,6 @@ public record OfferChanged(
     SupplyCategory SupplyCategory,
     FulfilmentType FulfilmentType,
     PricingModel PricingModel,
+    BillingPeriod BillingPeriod,
     int Priority,
     bool Active);

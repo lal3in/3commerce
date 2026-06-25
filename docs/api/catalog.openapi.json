@@ -1177,6 +1177,10 @@
           }
         }
       },
+      "BillingPeriod": {
+        "type": "integer",
+        "default": 1
+      },
       "CategoryResponse": {
         "required": [
           "id",
@@ -1269,6 +1273,21 @@
               "string"
             ],
             "format": "int32"
+          },
+          "pricingModel": {
+            "$ref": "#/components/schemas/PricingModel"
+          },
+          "billingPeriod": {
+            "$ref": "#/components/schemas/BillingPeriod"
+          },
+          "tiers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PriceTierDto"
+            }
           }
         }
       },
@@ -1424,10 +1443,12 @@
           "supplyCategory",
           "fulfilmentType",
           "pricingModel",
+          "billingPeriod",
           "priceMinor",
           "currency",
           "priority",
-          "status"
+          "status",
+          "tiers"
         ],
         "type": "object",
         "properties": {
@@ -1463,6 +1484,9 @@
           "pricingModel": {
             "type": "string"
           },
+          "billingPeriod": {
+            "type": "string"
+          },
           "priceMinor": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -1484,6 +1508,12 @@
           },
           "status": {
             "type": "string"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceTierDto"
+            }
           }
         }
       },
@@ -1498,6 +1528,35 @@
             "format": "uuid"
           }
         }
+      },
+      "PriceTierDto": {
+        "required": [
+          "fromQuantity",
+          "unitPriceMinor"
+        ],
+        "type": "object",
+        "properties": {
+          "fromQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unitPriceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "PricingModel": {
+        "type": "integer",
+        "default": 1
       },
       "ProductDetailResponse": {
         "required": [
@@ -2050,6 +2109,35 @@
               "null",
               "boolean"
             ]
+          },
+          "pricingModel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PricingModel"
+              }
+            ]
+          },
+          "billingPeriod": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingPeriod"
+              }
+            ]
+          },
+          "tiers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PriceTierDto"
+            }
           }
         }
       },

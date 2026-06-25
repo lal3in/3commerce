@@ -13,6 +13,44 @@ public class OfferTests
     private static Offer Warehouse(long price = 1000) =>
         Offer.Create(Tenant, Product, Guid.NewGuid(), Supplier, SupplyCategory.Physical, FulfilmentType.Warehouse, price, "eur", 0, Now);
 
+    private static Offer Digital(FulfilmentType type, long price) =>
+        Offer.Create(Tenant, Product, Guid.NewGuid(), Supplier, SupplyCategory.Digital, type, price, "eur", 0, Now);
+
+    [Fact]
+    public void PriceFor_flat_is_unit_price_times_quantity()
+    {
+        Assert.Equal(5000, Warehouse(1000).PriceFor(5));
+        Assert.Equal(0, Warehouse(1000).PriceFor(0));
+    }
+
+    [Fact]
+    public void Graduated_tiers_price_each_quantity_block()
+    {
+        var offer = Digital(FulfilmentType.Usage, 0);
+        offer.SetPricing(PricingModel.Tiered, BillingPeriod.Once, [(1, 100), (11, 80), (101, 60)], Now);
+
+        Assert.Equal(1000, offer.PriceFor(10));                       // 10 × 100
+        Assert.Equal((10 * 100) + (5 * 80), offer.PriceFor(15));      // 1400
+        Assert.Equal((10 * 100) + (90 * 80) + (1 * 60), offer.PriceFor(101)); // 8260
+    }
+
+    [Fact]
+    public void SetPricing_rejects_tiers_not_starting_at_one()
+    {
+        Assert.Throws<CatalogRuleException>(
+            () => Warehouse().SetPricing(PricingModel.Tiered, BillingPeriod.Once, [(2, 100)], Now));
+    }
+
+    [Fact]
+    public void Subscription_pricing_sets_the_billing_period_and_keeps_a_per_period_price()
+    {
+        var offer = Digital(FulfilmentType.Subscription, 1500);
+        offer.SetPricing(PricingModel.Subscription, BillingPeriod.Monthly, [], Now);
+        Assert.Equal(BillingPeriod.Monthly, offer.BillingPeriod);
+        Assert.Equal(PricingModel.Subscription, offer.PricingModel);
+        Assert.Equal(1500, offer.PriceFor(1));
+    }
+
     [Fact]
     public void Create_sets_defaults_and_uppercases_currency()
     {

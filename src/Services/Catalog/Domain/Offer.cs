@@ -26,9 +26,15 @@ public sealed class Offer
     public FulfilmentType FulfilmentType { get; init; }
     public PricingModel PricingModel { get; private set; } = PricingModel.OneTime;
 
-    /// <summary>Authoritative price for this offer (ADR-0028). Integer minor units.</summary>
+    /// <summary>Charge cadence (Phase 7): Once for one-time/usage, Monthly/Yearly for subscriptions.</summary>
+    public BillingPeriod BillingPeriod { get; private set; } = BillingPeriod.Once;
+
+    /// <summary>Authoritative price for this offer (ADR-0028). Integer minor units. Flat unit/period price.</summary>
     public long PriceMinor { get; private set; }
     public required string Currency { get; init; }
+
+    /// <summary>Graduated tiers for tiered/usage pricing (Phase 7). Empty = flat PriceMinor.</summary>
+    public List<OfferPriceTier> PriceTiers { get; init; } = [];
 
     /// <summary>Lower is preferred when several offers can fulfil a line.</summary>
     public int Priority { get; private set; }
@@ -106,6 +112,73 @@ public sealed class Offer
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// Set the offer's price model (Phase 7 / mt7_1): pricing model + billing cadence + optional
+    /// graduated tiers. Tiers must start at quantity 1, ascend, and carry non-negative unit prices.
+    /// </summary>
+    public void SetPricing(
+        PricingModel model, BillingPeriod period, IReadOnlyList<(int FromQuantity, long UnitPriceMinor)> tiers, DateTimeOffset now)
+    {
+        if (!Enum.IsDefined(model) || !Enum.IsDefined(period))
+        {
+            throw new CatalogRuleException("Unknown pricing model or billing period.");
+        }
+
+        var ordered = tiers.OrderBy(t => t.FromQuantity).ToList();
+        if (ordered.Count > 0)
+        {
+            if (ordered[0].FromQuantity != 1)
+            {
+                throw new CatalogRuleException("The first price tier must start at quantity 1.");
+            }
+
+            if (ordered.Select(t => t.FromQuantity).Distinct().Count() != ordered.Count
+                || ordered.Any(t => t.UnitPriceMinor < 0))
+            {
+                throw new CatalogRuleException("Price tiers must be distinct and non-negative.");
+            }
+        }
+
+        PricingModel = model;
+        BillingPeriod = period;
+        PriceTiers.Clear();
+        foreach (var tier in ordered)
+        {
+            PriceTiers.Add(new OfferPriceTier { Id = Guid.CreateVersion7(), OfferId = Id, FromQuantity = tier.FromQuantity, UnitPriceMinor = tier.UnitPriceMinor });
+        }
+
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// The charge for a quantity (Phase 7): flat <see cref="PriceMinor"/> × qty unless graduated tiers
+    /// apply, in which case each quantity block is priced at its tier's unit price. Subscription is a
+    /// per-period price (qty 1); recurring billing applies the cadence.
+    /// </summary>
+    public long PriceFor(int quantity)
+    {
+        if (quantity <= 0)
+        {
+            return 0;
+        }
+
+        if (PriceTiers.Count == 0)
+        {
+            return PriceMinor * quantity;
+        }
+
+        var tiers = PriceTiers.OrderBy(t => t.FromQuantity).ToList();
+        long total = 0;
+        for (var i = 0; i < tiers.Count && tiers[i].FromQuantity <= quantity; i++)
+        {
+            var blockEnd = i + 1 < tiers.Count ? tiers[i + 1].FromQuantity - 1 : quantity;
+            var units = Math.Min(quantity, blockEnd) - tiers[i].FromQuantity + 1;
+            total += units * tiers[i].UnitPriceMinor;
+        }
+
+        return total;
+    }
+
     public void Deactivate(DateTimeOffset now)
     {
         Status = OfferStatus.Inactive;
@@ -129,4 +202,13 @@ public sealed class Offer
         SupplyCategory.Service => type is FulfilmentType.ManualService,
         _ => false,
     };
+}
+
+/// <summary>A graduated price tier on an Offer (Phase 7): from this quantity, each unit costs UnitPriceMinor.</summary>
+public sealed class OfferPriceTier
+{
+    public Guid Id { get; init; }
+    public Guid OfferId { get; init; }
+    public int FromQuantity { get; init; }
+    public long UnitPriceMinor { get; init; }
 }
