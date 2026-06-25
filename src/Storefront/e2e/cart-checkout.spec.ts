@@ -22,9 +22,10 @@ test.describe("Cart & checkout", () => {
     await page.getByRole("link", { name: /checkout/i }).click();
     await expect(page).toHaveURL(/\/checkout/);
     await page.getByLabel("Email").fill(`shopper-${Date.now()}@example.com`);
-    // The checkout has shipping + billing sections; scope to shipping so labels are unambiguous
-    // (a bare getByLabel("Address") also matches the "Billing address" select).
-    const shipping = page.locator("section").filter({ hasText: "Shipping address" });
+    // The checkout has shipping + billing sections; scope to the shipping section by its HEADING so
+    // labels are unambiguous. (hasText: "Shipping address" also matches the billing section, which
+    // reads "Using the shipping address for card billing…", pulling in its "Billing address" select.)
+    const shipping = page.locator("section").filter({ has: page.getByRole("heading", { name: "Shipping address" }) });
     await shipping.getByLabel("Full name").fill("Test Shopper");
     await shipping.getByLabel("Address").fill("1 Test Street");
     await shipping.getByLabel("City").fill("Berlin");
