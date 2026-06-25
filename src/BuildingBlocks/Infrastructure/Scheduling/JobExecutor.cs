@@ -34,7 +34,7 @@ public sealed class EfJobRunStore<TContext>(TContext db) : IJobRunStore
 /// Failed + error) and NOT rethrown, so one bad run never tears down the scheduler — the next cron tick
 /// (or a retry) tries again.
 /// </summary>
-public sealed class JobExecutor(IJobRunStore store, TimeProvider clock, ILogger<JobExecutor> logger)
+public sealed class JobExecutor(IJobRunStore store, TimeProvider clock, ILogger<JobExecutor> logger, MassTransit.IPublishEndpoint? publisher = null)
 {
     public async Task<JobRun> ExecuteAsync(IScheduledJob job, CancellationToken ct)
     {
@@ -54,6 +54,13 @@ public sealed class JobExecutor(IJobRunStore store, TimeProvider clock, ILogger<
         }
 
         await store.SaveAsync(ct);
+
+        // Project to the central Workflow service when a publisher is wired (tests run without one).
+        if (publisher is not null)
+        {
+            await publisher.Publish(new JobRunRecorded(run.Id, run.JobName, run.Status.ToString(), run.StartedAt, run.CompletedAt, run.Error), ct);
+        }
+
         return run;
     }
 }
