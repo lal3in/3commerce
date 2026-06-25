@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import ConsentBanner from "@/components/consent/ConsentBanner";
 
 export const metadata: Metadata = {
   title: { default: "3commerce", template: "%s · 3commerce" },
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500">
           3commerce — demo storefront
         </footer>
+        <ConsentBanner />
       </body>
     </html>
   );
