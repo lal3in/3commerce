@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform services — 3commerce Operations Wiki</title><meta name="description" content="The six DB-owning services added in ADR-0030 — Marketing, Pricing, Audit, Workflow, Entitlement, Usage — what each owns, every endpoint, and the use c">
+<link rel="stylesheet" href="assets/wiki.css"></head><body>
+<div class="progress" id="progress"></div><a class="skip" href="#main">Skip to content</a>
+<div class="layout"><div class="scrim"></div>
+  <aside class="sidebar"><a class="brand" href="index.html"><span class="brand-mark">3c</span><span class="brand-name">3commerce<small>Operations Wiki</small></span></a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="services.html" class="active"><span class="idx">◆</span>Platform services</a>
+      <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">Thin frontends over a YARP gateway.<br>Money in minor units. Dev has no live Stripe/Xero.</div></aside>
+  <div class="shell"><header class="topbar"><button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Reference</b><span class="sep">/</span>Platform services</div><span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button><button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button></header>
+    <main id="main" class="content"><div class="content-inner"><p class="eyebrow">Reference · Services</p><h1>Platform services</h1><p class="lede">The six DB-owning services added in ADR-0030 — Marketing, Pricing, Audit, Workflow, Entitlement, Usage — what each owns, every endpoint, and the use cases per option. All sit behind the gateway with internal-claims auth.</p>
+        <p>Six DB-owning services added once CI was restored (ADR-0030). Each owns a Postgres database + named schema, sits behind the gateway with internal-claims auth, and uses the MassTransit EF outbox. Two were extracted out of Fulfillment (Entitlement, Usage); two are event projections (Audit, Workflow); two are standalone domains (Marketing, Pricing).</p>
+        <h2 id="marketing">Marketing <span style="opacity:.6">(<code>/api/marketing</code> · <code>:5108</code>)</span></h2>
+        <p>Campaigns and short links (mt5_1/5_3).</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET</code></td><td><code>/admin/campaigns</code></td><td>admin</td><td>List campaigns</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/campaigns</code></td><td>admin</td><td>Create (cid, name, optional window)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/campaigns/{id}/activate|pause|end</code></td><td>admin</td><td>Lifecycle transitions</td></tr>
+              <tr><td><code>GET</code></td><td><code>/admin/short-links</code></td><td>admin</td><td>List short links</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/short-links</code></td><td>admin</td><td>Create; destination host must be a registered storefront host</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>Launch a campaign with a tracking <code>cid</code> and an optional start/end window.</li>
+          <li>Pause or end a running campaign without deleting it.</li>
+          <li>Mint a short link for a campaign — rejected if the destination is not a known storefront host (anti open-redirect).</li>
+        </ul>
+        <h2 id="pricing">Pricing <span style="opacity:.6">(<code>/api/pricing</code> · <code>:5109</code>)</span></h2>
+        <p>The dedicated home for prices + graduated tiers (mt7_1). The Catalog Offer keeps a flat price (ADR-0028); this is what recurring/usage charging bills against.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET</code></td><td><code>/admin/prices</code></td><td>admin</td><td>List prices with tiers</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/prices</code></td><td>admin</td><td>Create: pricing_model + billing_period + amount + tiers</td></tr>
+              <tr><td><code>GET</code></td><td><code>/admin/prices/{id}/quote?quantity=</code></td><td>admin</td><td>Quote a charge for a quantity</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>Define a flat one-time price.</li>
+          <li>Define a subscription price with a billing period.</li>
+          <li>Define graduated tiers (first tier must start at qty 1) and quote the per-block charge for any quantity.</li>
+        </ul>
+        <h2 id="audit">Audit <span style="opacity:.6">(<code>/api/audit</code> · <code>:5110</code>)</span></h2>
+        <p>Central searchable projection of every service’s local audit entry (mt6_1). Read-only; the owning service’s hash-chained log stays authoritative. Consumes <code>AuditEntryRecorded</code>.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET</code></td><td><code>/admin/audit?tenantId=&resourceType=&resourceId=&action=&outcome=</code></td><td>admin</td><td>Cross-service audit search (latest 200)</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>Investigate who changed a supplier record across services.</li>
+          <li>Filter to denied/sensitive actions for a compliance review.</li>
+          <li>Trace a resource’s history by id.</li>
+        </ul>
+        <h2 id="workflow">Workflow <span style="opacity:.6">(<code>/api/workflow</code> · <code>:5111</code>)</span></h2>
+        <p>Central scheduled-job run history (mt6_3). Read-only projection of <code>JobRunRecorded</code>.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET</code></td><td><code>/admin/workflow/runs?job=</code></td><td>admin</td><td>Recent runs (status, timing, error)</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>Confirm the nightly Payments journal job ran and succeeded.</li>
+          <li>Find the error message from a failed scheduled run.</li>
+          <li>Filter run history to one job by name.</li>
+        </ul>
+        <h2 id="entitlement">Entitlement <span style="opacity:.6">(<code>/api/entitlement</code> · <code>:5112</code>)</span></h2>
+        <p>Digital/service-line access (mt7_2/7_6), extracted from Fulfillment. Its <code>EntitlementIssuingConsumer</code> subscribes to <code>OrderConfirmed</code> and issues access for digital lines.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET</code></td><td><code>/admin/entitlements?tenantId=&orderId=&email=</code></td><td>admin</td><td>List entitlements</td></tr>
+              <tr><td><code>GET</code></td><td><code>/me/entitlements</code></td><td>customer</td><td>The signed-in customer’s own access</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>A confirmed order with a digital download issues an entitlement (no shipment).</li>
+          <li>A customer views their own access on the storefront “my access” page.</li>
+          <li>An operator checks what access an order granted.</li>
+        </ul>
+        <h2 id="usage">Usage <span style="opacity:.6">(<code>/api/usage</code> · <code>:5113</code>)</span></h2>
+        <p>Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes <code>UsageOverageCharge</code> → Payments.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>POST</code></td><td><code>/admin/usage/provision</code></td><td>admin</td><td>Set a meter’s included allowance + overage price</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/usage/record</code></td><td>admin</td><td>Record usage (idempotent by referenceId); gated when overage disallowed</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/usage/balances/{id}/bill-overage</code></td><td>admin</td><td>Charge unbilled overage (once)</td></tr>
+              <tr><td><code>GET</code></td><td><code>/admin/usage/balances?email=</code></td><td>admin</td><td>List balances</td></tr>
+              <tr><td><code>GET</code></td><td><code>/me/usage</code></td><td>customer</td><td>The customer’s own balances</td></tr>
+        </tbody></table>
+        <p><b>Use cases</b></p><ul>
+          <li>Provision a plan with 1000 included calls and a per-unit overage price.</li>
+          <li>Record metered usage idempotently; reject usage when the allowance is exhausted and overage is off.</li>
+          <li>Bill the unbilled overage once at period end (re-billing is a no-op).</li>
+        </ul>
+        <footer class="page-nav"><a class="prev" href="deployment.html"><div class="dir">← Previous</div><div class="ttl">Deployment</div></a><a class="next" href="screens.html"><div class="dir">Next →</div><div class="ttl">UI screens</div></a></footer></div></main>
+    <aside class="toc"><div class="toc-title">On this page</div><nav></nav></aside></div></div>
+<script src="assets/wiki.js"></script></body></html>
