@@ -1,21 +1,24 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Fulfillment.Domain;
 
 namespace ThreeCommerce.Fulfillment.Infrastructure;
 
 /// <summary>
-/// Metered usage (mt7_4): provision an allowance, record append-only usage events, and keep the
-/// balance's used quantity incrementally (never re-summing records on read). One current balance per
-/// (tenant, customer, meter). Overage/billing is mt7_5.
+/// Metered usage (mt7_4/mt7_5): provision an allowance + overage price, record append-only usage with
+/// the balance kept incrementally (O(1) reads), gate access when overage is not allowed, and bill the
+/// unbilled overage by charging it via the rail (UsageOverageCharge → Payments).
 /// </summary>
-public sealed class UsageService(FulfillmentDbContext db, TimeProvider clock)
+public sealed class UsageService(FulfillmentDbContext db, IPublishEndpoint publisher, TimeProvider clock)
 {
     public async Task<UsageBalance> ProvisionAsync(
-        Guid tenantId, string email, MeterType meter, long includedQuantity, DateTimeOffset? periodEnd, CancellationToken ct)
+        Guid tenantId, string email, MeterType meter, long includedQuantity,
+        bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, CancellationToken ct)
     {
-        var balance = await CurrentBalanceAsync(tenantId, email, meter, create: true, ct);
-        balance!.Provision(includedQuantity, periodEnd, clock.GetUtcNow());
+        var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
+        balance.Provision(includedQuantity, overageAllowed, overageUnitPriceMinor, currency, periodEnd, clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
         return balance;
     }
@@ -32,6 +35,11 @@ public sealed class UsageService(FulfillmentDbContext db, TimeProvider clock)
 
         var now = clock.GetUtcNow();
         var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
+        if (!balance.CanAccept(quantity))
+        {
+            throw new FulfillmentRuleException("Usage allowance exhausted and overage is not permitted for this plan.");
+        }
+
         balance.Add(quantity, now);
         db.UsageRecords.Add(new UsageRecord
         {
@@ -45,6 +53,28 @@ public sealed class UsageService(FulfillmentDbContext db, TimeProvider clock)
             OccurredAt = now,
         });
         await db.SaveChangesAsync(ct);
+        return balance;
+    }
+
+    /// <summary>Charge the unbilled overage via the rail (mt7_5). No-op when there is nothing to bill.</summary>
+    public async Task<UsageBalance?> BillOverageAsync(Guid tenantId, Guid balanceId, CancellationToken ct)
+    {
+        var balance = await db.UsageBalances.SingleOrDefaultAsync(b => b.Id == balanceId && b.TenantId == tenantId, ct);
+        if (balance is null)
+        {
+            return null;
+        }
+
+        var chargeMinor = balance.UnbilledOverageChargeMinor;
+        if (chargeMinor > 0)
+        {
+            await publisher.Publish(new UsageOverageCharge(
+                tenantId, balance.CustomerEmail, balance.Meter, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency,
+                $"overage-{balance.Id}-{balance.OverageQuantity}"), ct);
+            balance.MarkOverageBilled(clock.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+        }
+
         return balance;
     }
 

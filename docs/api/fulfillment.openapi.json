@@ -1191,6 +1191,47 @@
         }
       }
     },
+    "/admin/usage/balances/{id}/bill-overage": {
+      "post": {
+        "tags": [
+          "Usage"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/usage/balances": {
       "get": {
         "tags": [
@@ -1384,6 +1425,10 @@
           "usedQuantity",
           "remainingQuantity",
           "overageQuantity",
+          "overageAllowed",
+          "overageUnitPriceMinor",
+          "unbilledOverageChargeMinor",
+          "currency",
           "periodStart",
           "periodEnd"
         ],
@@ -1430,6 +1475,28 @@
               "string"
             ],
             "format": "int64"
+          },
+          "overageAllowed": {
+            "type": "boolean"
+          },
+          "overageUnitPriceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "unbilledOverageChargeMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
           },
           "periodStart": {
             "type": "string",
@@ -1963,6 +2030,9 @@
           "customerEmail",
           "meter",
           "includedQuantity",
+          "overageAllowed",
+          "overageUnitPriceMinor",
+          "currency",
           "periodEnd"
         ],
         "type": "object",
@@ -1989,6 +2059,22 @@
               "string"
             ],
             "format": "int64"
+          },
+          "overageAllowed": {
+            "type": "boolean"
+          },
+          "overageUnitPriceMinor": {
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
           },
           "periodEnd": {
             "type": [

@@ -115,6 +115,7 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
         {
             balance.Property(x => x.Meter).HasConversion<string>().HasMaxLength(16);
             balance.Property(x => x.CustomerEmail).HasMaxLength(256);
+            balance.Property(x => x.Currency).HasMaxLength(3);
             balance.HasIndex(x => new { x.TenantId, x.CustomerEmail, x.Meter }).IsUnique();
         });
 

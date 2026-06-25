@@ -5,7 +5,7 @@ using ThreeCommerce.Fulfillment.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
 
-/// <summary>mt7_4: provision an allowance, record usage (idempotent + incremental), read the balance.</summary>
+/// <summary>mt7_4/mt7_5: provision, record (idempotent + incremental), gate access, bill overage.</summary>
 [Trait("Category", "Integration")]
 [Collection(Phase4Collection.Name)]
 public class UsageMeteringTests(Phase4Fixture fixture)
@@ -22,7 +22,7 @@ public class UsageMeteringTests(Phase4Fixture fixture)
         var tenant = Guid.NewGuid();
         const string email = "buyer@example.com";
 
-        await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Token, 1000, null, default));
+        await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Token, 1000, true, 1, "AUD", null, default));
         await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Token, 250, "evt-1", default));
         await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Token, 250, "evt-1", default)); // duplicate reference
         var balance = await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Token, 100, "evt-2", default));
@@ -35,15 +35,33 @@ public class UsageMeteringTests(Phase4Fixture fixture)
     }
 
     [Fact]
-    public async Task Usage_past_the_allowance_is_overage()
+    public async Task Usage_past_the_allowance_is_rejected_when_overage_not_allowed()
+    {
+        var tenant = Guid.NewGuid();
+        const string email = "capped@example.com";
+
+        await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Request, 100, false, 0, "AUD", null, default));
+        await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 80, "r-1", default));
+
+        await Assert.ThrowsAsync<FulfillmentRuleException>(
+            () => WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 50, "r-2", default)));
+    }
+
+    [Fact]
+    public async Task Overage_is_rated_billed_once_then_cleared()
     {
         var tenant = Guid.NewGuid();
         const string email = "heavy@example.com";
 
-        await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Request, 100, null, default));
-        var balance = await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 150, "r-1", default));
+        var provisioned = await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Request, 100, true, 5, "AUD", null, default));
+        await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 150, "u-1", default)); // 50 over
 
-        Assert.Equal(0, balance.RemainingQuantity);
-        Assert.Equal(50, balance.OverageQuantity);
+        var billed = await WithUsageAsync(s => s.BillOverageAsync(tenant, provisioned.Id, default));
+        Assert.Equal(50, billed!.OverageQuantity);
+        Assert.Equal(0, billed.UnbilledOverageChargeMinor); // marked billed (50 × 5 was charged)
+
+        // Re-billing without new usage is a no-op.
+        var rebilled = await WithUsageAsync(s => s.BillOverageAsync(tenant, provisioned.Id, default));
+        Assert.Equal(0, rebilled!.UnbilledOverageChargeMinor);
     }
 }

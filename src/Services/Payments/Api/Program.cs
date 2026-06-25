@@ -30,6 +30,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<ExecuteRefundConsumer>();
     bus.AddConsumer<RefundPostingConsumer>();
     bus.AddConsumer<SubscriptionRequestedConsumer>();
+    bus.AddConsumer<UsageOverageChargeConsumer>();
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

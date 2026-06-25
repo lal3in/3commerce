@@ -15,12 +15,23 @@ public sealed class UsageBalance
     public MeterType Meter { get; init; }
     public long IncludedQuantity { get; private set; }
     public long UsedQuantity { get; private set; }
+    public bool OverageAllowed { get; private set; }
+    public long OverageUnitPriceMinor { get; private set; }
+    public string Currency { get; private set; } = "AUD";
+
+    /// <summary>How much overage has already been billed — so re-billing a period doesn't double-charge (mt7_5).</summary>
+    public long BilledOverageQuantity { get; private set; }
     public DateTimeOffset PeriodStart { get; init; }
     public DateTimeOffset? PeriodEnd { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public long RemainingQuantity => Math.Max(0, IncludedQuantity - UsedQuantity);
     public long OverageQuantity => Math.Max(0, UsedQuantity - IncludedQuantity);
+    public long UnbilledOverageQuantity => Math.Max(0, OverageQuantity - BilledOverageQuantity);
+    public long UnbilledOverageChargeMinor => UnbilledOverageQuantity * OverageUnitPriceMinor;
+
+    /// <summary>Whether a quantity may be consumed: overage allowed, or it stays within the allowance (mt7_5).</summary>
+    public bool CanAccept(long quantity) => OverageAllowed || UsedQuantity + quantity <= IncludedQuantity;
 
     private UsageBalance() { }
 
@@ -35,16 +46,27 @@ public sealed class UsageBalance
             UpdatedAt = now,
         };
 
-    /// <summary>Set the plan's included allowance (mt7_4).</summary>
-    public void Provision(long includedQuantity, DateTimeOffset? periodEnd, DateTimeOffset now)
+    /// <summary>Set the plan's allowance + overage pricing (mt7_4/mt7_5).</summary>
+    public void Provision(
+        long includedQuantity, bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, DateTimeOffset now)
     {
-        if (includedQuantity < 0)
+        if (includedQuantity < 0 || overageUnitPriceMinor < 0)
         {
-            throw new FulfillmentRuleException("Included quantity cannot be negative.");
+            throw new FulfillmentRuleException("Included quantity and overage price cannot be negative.");
         }
 
         IncludedQuantity = includedQuantity;
+        OverageAllowed = overageAllowed;
+        OverageUnitPriceMinor = overageUnitPriceMinor;
+        Currency = string.IsNullOrWhiteSpace(currency) ? Currency : currency.ToUpperInvariant();
         PeriodEnd = periodEnd;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Mark the current overage as billed so it is not charged again (mt7_5).</summary>
+    public void MarkOverageBilled(DateTimeOffset now)
+    {
+        BilledOverageQuantity = OverageQuantity;
         UpdatedAt = now;
     }
 

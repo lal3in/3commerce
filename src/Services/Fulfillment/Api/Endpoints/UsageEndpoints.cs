@@ -17,6 +17,7 @@ public static class UsageEndpoints
 
         group.MapPost("/provision", Provision);
         group.MapPost("/record", Record);
+        group.MapPost("/balances/{id:guid}/bill-overage", BillOverage);
         group.MapGet("/balances", Balances);
         return app;
     }
@@ -27,13 +28,21 @@ public static class UsageEndpoints
         try
         {
             var balance = await usage.ProvisionAsync(
-                request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.IncludedQuantity, request.PeriodEnd, ct);
+                request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.IncludedQuantity,
+                request.OverageAllowed, request.OverageUnitPriceMinor, request.Currency, request.PeriodEnd, ct);
             return TypedResults.Ok(ToDto(balance));
         }
         catch (FulfillmentRuleException ex)
         {
             return TypedResults.BadRequest(ex.Message);
         }
+    }
+
+    private static async Task<Results<Ok<BalanceDto>, NotFound>> BillOverage(
+        Guid id, Guid? tenantId, UsageService usage, IConfiguration config, CancellationToken ct)
+    {
+        var balance = await usage.BillOverageAsync(tenantId ?? DefaultTenantId(config), id, ct);
+        return balance is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(balance));
     }
 
     private static async Task<Results<Ok<BalanceDto>, BadRequest<string>>> Record(
@@ -64,17 +73,20 @@ public static class UsageEndpoints
             : new Guid("00000000-0000-0000-0000-000000000001");
 
     private static BalanceDto ToDto(UsageBalance b) =>
-        new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity, b.OverageQuantity, b.PeriodStart, b.PeriodEnd);
+        new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity,
+            b.OverageQuantity, b.OverageAllowed, b.OverageUnitPriceMinor, b.UnbilledOverageChargeMinor, b.Currency, b.PeriodStart, b.PeriodEnd);
 }
 
 public record ProvisionRequest(
     Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
-    [property: Range(0, long.MaxValue)] long IncludedQuantity, DateTimeOffset? PeriodEnd);
+    [property: Range(0, long.MaxValue)] long IncludedQuantity, bool OverageAllowed,
+    [property: Range(0, long.MaxValue)] long OverageUnitPriceMinor, string Currency, DateTimeOffset? PeriodEnd);
 
 public record RecordUsageRequest(
     Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
     [property: Range(1, long.MaxValue)] long Quantity, string? ReferenceId);
 
 public record BalanceDto(
-    Guid Id, string CustomerEmail, string Meter, long IncludedQuantity, long UsedQuantity, long RemainingQuantity, long OverageQuantity,
+    Guid Id, string CustomerEmail, string Meter, long IncludedQuantity, long UsedQuantity, long RemainingQuantity,
+    long OverageQuantity, bool OverageAllowed, long OverageUnitPriceMinor, long UnbilledOverageChargeMinor, string Currency,
     DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd);
