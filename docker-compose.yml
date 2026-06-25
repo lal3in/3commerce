@@ -158,6 +158,45 @@ services:
         limits:
           memory: 512M
 
+  # ── Observability stack (mt6_13) — opt-in: `docker compose --profile observability up`.
+  # Services push OTLP metrics+traces to the collector when OTEL_EXPORTER_OTLP_ENDPOINT=
+  # http://otel-collector:4317 is set (deploy/.env.*). Ops data only — never financial truth;
+  # keep Grafana behind admin auth / a private network (GOTCHA).
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: 3commerce-otel-collector
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: 3commerce-prometheus
+    profiles: ["observability"]
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: 3commerce-grafana
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 # The app's default network IS the external Postgres network (docker-compose.db.yml), so
 # every app container plus the external `postgres` resolve each other by name.
 networks:

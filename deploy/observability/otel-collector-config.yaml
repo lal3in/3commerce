@@ -1,0 +1,26 @@
+# OTel Collector (mt6_13): receives OTLP from the services and exposes a Prometheus scrape target.
+# Traces could be fanned out here too (Jaeger/Tempo) later; metrics are the Phase 6 focus.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Keep the service.name resource attribute as a label so dashboards can break down per service.
+    resource_to_telemetry_conversion:
+      enabled: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

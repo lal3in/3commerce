@@ -1,0 +1,11 @@
+# Grafana dashboard provisioning (mt6_13): auto-loads the JSON dashboards in this folder.
+apiVersion: 1
+providers:
+  - name: 3commerce
+    folder: 3commerce
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
