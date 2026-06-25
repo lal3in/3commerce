@@ -202,7 +202,7 @@ jobs:
           docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
           kind load docker-image 3commerce/migrator:local --name 3c
       - name: helm install (dev) + wait
-        run: helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --wait --timeout 12m
+        run: helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --wait --timeout 18m
       - name: Probe gateway
         run: |
           kubectl port-forward svc/gateway 18080:8080 >/dev/null 2>&1 &
