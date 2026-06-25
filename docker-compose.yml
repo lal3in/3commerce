@@ -56,6 +56,7 @@ services:
       CONN_PAYMENTS: Host=postgres;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev
       CONN_FULFILLMENT: Host=postgres;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
       CONN_SUPPORT: Host=postgres;Port=5432;Database=support_db;Username=support_svc;Password=support_dev
+      CONN_MARKETING: Host=postgres;Port=5432;Database=marketing_db;Username=marketing_svc;Password=marketing_dev
     restart: "no"
 
   identity:
@@ -79,6 +80,9 @@ services:
   support:
     <<: [*app, *svc-deps, *svc-health, *limits]
     build: { context: ., dockerfile: src/Services/Support/Api/Dockerfile }
+  marketing:
+    <<: [*app, *svc-deps, *svc-health, *limits]
+    build: { context: ., dockerfile: src/Services/Marketing/Api/Dockerfile }
 
   notifications:
     <<: [*app, *limits]

@@ -21,5 +21,6 @@ migrate ordering    "${CONN_ORDERING:-}"
 migrate payments    "${CONN_PAYMENTS:-}"
 migrate fulfillment "${CONN_FULFILLMENT:-}"
 migrate support     "${CONN_SUPPORT:-}"
+migrate marketing   "${CONN_MARKETING:-}"
 
 echo ">> all migrations applied"

@@ -11,6 +11,7 @@ CREATE ROLE ordering_svc    LOGIN PASSWORD 'ordering_dev';
 CREATE ROLE payments_svc    LOGIN PASSWORD 'payments_dev';
 CREATE ROLE fulfillment_svc LOGIN PASSWORD 'fulfillment_dev';
 CREATE ROLE support_svc     LOGIN PASSWORD 'support_dev';
+CREATE ROLE marketing_svc   LOGIN PASSWORD 'marketing_dev';
 
 CREATE DATABASE identity_db    OWNER identity_svc;
 CREATE DATABASE catalog_db     OWNER catalog_svc;
@@ -19,6 +20,7 @@ CREATE DATABASE ordering_db    OWNER ordering_svc;
 CREATE DATABASE payments_db    OWNER payments_svc;
 CREATE DATABASE fulfillment_db OWNER fulfillment_svc;
 CREATE DATABASE support_db     OWNER support_svc;
+CREATE DATABASE marketing_db   OWNER marketing_svc;
 
 -- Extensions that must be created by a superuser, per database that needs them.
 -- (pg_trgm for catalog search arrives in Phase 2; created here so migrations need no superuser.)
