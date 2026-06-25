@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getProduct } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { breadcrumbJsonLd, productJsonLd, siteUrl } from "@/lib/seo";
 
 // ISR product page (gateway uses revalidate: 300) for SEO at catalog scale (components.md §1).
 export async function generateMetadata({
@@ -13,9 +14,24 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProduct(slug);
-  return product
-    ? { title: product.title, description: product.description }
-    : { title: "Product not found" };
+  if (!product) {
+    return { title: "Product not found", robots: { index: false } };
+  }
+
+  const url = `${siteUrl()}/products/${slug}`;
+  return {
+    title: product.title,
+    description: product.description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      title: product.title,
+      description: product.description,
+      url,
+      images: product.imageUrls.slice(0, 1),
+    },
+    twitter: { card: "summary_large_image", title: product.title, description: product.description },
+  };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -30,8 +46,23 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     : 0;
   const currency = product.variants[0]?.currency ?? process.env.STORE_CURRENCY ?? "EUR";
 
+  const url = `${siteUrl()}/products/${slug}`;
+  const jsonLd = [
+    productJsonLd(product, url),
+    breadcrumbJsonLd([
+      { name: "Home", url: siteUrl() },
+      { name: "Shop", url: `${siteUrl()}/search` },
+      { name: product.title, url },
+    ]),
+  ];
+
   return (
     <div className="grid md:grid-cols-2 gap-8">
+      <script
+        type="application/ld+json"
+        // schema.org JSON-LD for the product + breadcrumb (mt5_8).
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="aspect-square bg-neutral-100 relative rounded-lg overflow-hidden">
         {product.imageUrls[0] && (
           <Image

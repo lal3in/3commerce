@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import { organizationJsonLd, siteUrl, webSiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: { default: "3commerce", template: "%s · 3commerce" },
   description: "A from-scratch e-commerce storefront.",
 };
@@ -12,6 +14,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
+        <script
+          type="application/ld+json"
+          // Site-wide Organization + WebSite (with sitelinks search) JSON-LD (mt5_8).
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd(), webSiteJsonLd()]) }}
+        />
         <header className="border-b border-neutral-200">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-6">
             <Link href="/" className="text-xl font-semibold tracking-tight">
