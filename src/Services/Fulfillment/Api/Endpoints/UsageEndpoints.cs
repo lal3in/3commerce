@@ -1,0 +1,80 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http.HttpResults;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Fulfillment.Domain;
+using ThreeCommerce.Fulfillment.Infrastructure;
+
+namespace ThreeCommerce.Fulfillment.Api.Endpoints;
+
+/// <summary>Metered usage (mt7_4): provision an allowance, record usage, read balances.</summary>
+public static class UsageEndpoints
+{
+    public static IEndpointRouteBuilder MapUsage(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/admin/usage").WithTags("Usage")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
+
+        group.MapPost("/provision", Provision);
+        group.MapPost("/record", Record);
+        group.MapGet("/balances", Balances);
+        return app;
+    }
+
+    private static async Task<Results<Ok<BalanceDto>, BadRequest<string>>> Provision(
+        ProvisionRequest request, UsageService usage, IConfiguration config, CancellationToken ct)
+    {
+        try
+        {
+            var balance = await usage.ProvisionAsync(
+                request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.IncludedQuantity, request.PeriodEnd, ct);
+            return TypedResults.Ok(ToDto(balance));
+        }
+        catch (FulfillmentRuleException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+    }
+
+    private static async Task<Results<Ok<BalanceDto>, BadRequest<string>>> Record(
+        RecordUsageRequest request, UsageService usage, IConfiguration config, CancellationToken ct)
+    {
+        try
+        {
+            var balance = await usage.RecordAsync(
+                request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.Quantity, request.ReferenceId, ct);
+            return TypedResults.Ok(ToDto(balance));
+        }
+        catch (FulfillmentRuleException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+    }
+
+    private static async Task<Ok<List<BalanceDto>>> Balances(
+        Guid? tenantId, string? email, UsageService usage, IConfiguration config, CancellationToken ct)
+    {
+        var list = await usage.ListBalancesAsync(tenantId ?? DefaultTenantId(config), email, ct);
+        return TypedResults.Ok(list.Select(ToDto).ToList());
+    }
+
+    private static Guid DefaultTenantId(IConfiguration config) =>
+        Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
+            ? tenantId
+            : new Guid("00000000-0000-0000-0000-000000000001");
+
+    private static BalanceDto ToDto(UsageBalance b) =>
+        new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity, b.OverageQuantity, b.PeriodStart, b.PeriodEnd);
+}
+
+public record ProvisionRequest(
+    Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
+    [property: Range(0, long.MaxValue)] long IncludedQuantity, DateTimeOffset? PeriodEnd);
+
+public record RecordUsageRequest(
+    Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
+    [property: Range(1, long.MaxValue)] long Quantity, string? ReferenceId);
+
+public record BalanceDto(
+    Guid Id, string CustomerEmail, string Meter, long IncludedQuantity, long UsedQuantity, long RemainingQuantity, long OverageQuantity,
+    DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd);

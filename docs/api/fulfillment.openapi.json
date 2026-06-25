@@ -1112,6 +1112,123 @@
           }
         }
       }
+    },
+    "/admin/usage/provision": {
+      "post": {
+        "tags": [
+          "Usage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/usage/record": {
+      "post": {
+        "tags": [
+          "Usage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordUsageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/usage/balances": {
+      "get": {
+        "tags": [
+          "Usage"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1254,6 +1371,75 @@
           },
           "lastCheckedAt": {
             "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BalanceDto": {
+        "required": [
+          "id",
+          "customerEmail",
+          "meter",
+          "includedQuantity",
+          "usedQuantity",
+          "remainingQuantity",
+          "overageQuantity",
+          "periodStart",
+          "periodEnd"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "meter": {
+            "type": "string"
+          },
+          "includedQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "usedQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "remainingQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "overageQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "periodEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -1639,6 +1825,9 @@
       "LocationKind": {
         "type": "integer"
       },
+      "MeterType": {
+        "type": "integer"
+      },
       "PackageDto": {
         "required": [
           "id",
@@ -1768,6 +1957,48 @@
           }
         }
       },
+      "ProvisionRequest": {
+        "required": [
+          "tenantId",
+          "customerEmail",
+          "meter",
+          "includedQuantity",
+          "periodEnd"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "meter": {
+            "$ref": "#/components/schemas/MeterType"
+          },
+          "includedQuantity": {
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "periodEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "QuoteRequest": {
         "required": [
           "tenantId",
@@ -1867,6 +2098,47 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RecordUsageRequest": {
+        "required": [
+          "tenantId",
+          "customerEmail",
+          "meter",
+          "quantity",
+          "referenceId"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "meter": {
+            "$ref": "#/components/schemas/MeterType"
+          },
+          "quantity": {
+            "maximum": 9223372036854776000,
+            "minimum": 1,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "referenceId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2348,6 +2620,9 @@
     },
     {
       "name": "Entitlements"
+    },
+    {
+      "name": "Usage"
     }
   ]
 }

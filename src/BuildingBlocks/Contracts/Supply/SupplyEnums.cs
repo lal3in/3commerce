@@ -49,3 +49,14 @@ public enum BillingPeriod
     Monthly = 2,
     Yearly = 3,
 }
+
+/// <summary>What a usage-based product meters (Phase 7 / mt7_4).</summary>
+public enum MeterType
+{
+    Token = 1,
+    Transaction = 2,
+    Request = 3,
+    Minute = 4,
+    Seat = 5,
+    StorageGb = 6,
+}
