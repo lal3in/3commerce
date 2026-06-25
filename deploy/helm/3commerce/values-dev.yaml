@@ -4,12 +4,13 @@ environment: Development
 secret:
   name: ""
 
-# kind-deploy runs on a 2-core CI runner that cannot hold all 13 services at once (Postgres + RabbitMQ
-# saturate, readiness probes time out, migrate init-containers back off). Deploy a representative subset:
-# the core services plus one additive (marketing) and one event-consuming (entitlement) new service —
-# enough to prove the chart's per-service templating + the new-service pattern. The full set ships via
-# values.yaml / values-prod.yaml; every service image is still built (CI docker matrix) and exercised
-# end-to-end by the compose-smoke job.
+# kind-deploy runs on a 2-core CI runner. Deploying all 13 services saturates Postgres + RabbitMQ
+# (concurrent migrate init-containers thundering-herd Postgres; health probes time out), so this overlay
+# deploys the proven 7-service baseline that PR #11 deployed green — enough to prove the Helm chart, the
+# per-service migrate init-container, gateway routing, and the frontends. The new services use the
+# identical ranged template (services.yaml) + conn helper; they are validated by `helm template`, the CI
+# docker matrix (every image builds), and the full 13-service compose-smoke + browser-e2e jobs. The full
+# set ships via values.yaml / values-prod.yaml.
 services:
   - identity
   - catalog
@@ -18,5 +19,3 @@ services:
   - payments
   - fulfillment
   - support
-  - marketing
-  - entitlement
