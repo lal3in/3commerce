@@ -104,6 +104,14 @@ Payment account lifecycle data is Payments-owned: tenant defaults plus storefron
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 
+> **Inbound provider webhooks (mt6_7).** Convention: the gateway routes `/webhooks/{provider}` straight
+> to the owning service with **no prefix strip and no claims minting** (webhooks carry no session) —
+> basic routing/protection only. The **owning service verifies** the signature + replays and dedupes by
+> the provider's event id; the gateway never verifies (GOTCHA). HMAC providers use
+> `InboundWebhookVerifier` (constant-time HMAC over `"{timestamp}.{payload}"` + a ±5-min tolerance
+> against replay); `stripe → payments` is wired today, new providers add one YARP route + a verified
+> endpoint.
+
 ## Fulfillment (`/api/fulfillment`)
 
 Fulfillment owns inventory, reservations, the inventory movement ledger, carrier integrations,
