@@ -4,6 +4,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Storage;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Catalog.Api.Endpoints;
 using ThreeCommerce.Catalog.Domain;
@@ -34,6 +35,8 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 builder.Services.AddScoped<ISupplierImporter, SampleDataImporter>();
 builder.Services.AddScoped<ISearchProvider, PostgresSearchProvider>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IObjectStore>(_ => new LocalFileObjectStore(
+    builder.Configuration["Storage:RootPath"] ?? Path.Combine(builder.Environment.ContentRootPath, "object-store")));
 
 var app = builder.Build();
 
@@ -50,6 +53,7 @@ app.MapProducts();
 app.MapAdmin();
 app.MapStorefrontAdmin();
 app.MapOffers();
+app.MapCatalogImages();
 
 app.Run();
 

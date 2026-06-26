@@ -76,7 +76,8 @@ public static class AdminEndpoints
                 p.Brand,
                 p.Variants.Count,
                 p.Variants.Count > 0 ? p.Variants.Min(v => v.PriceMinor) : 0,
-                p.Variants.Sum(v => v.StockQuantity)))
+                p.Variants.Sum(v => v.StockQuantity),
+                p.ImageUrls.FirstOrDefault()))
             .ToListAsync(cancellationToken);
         return TypedResults.Ok(items);
     }
@@ -295,7 +296,7 @@ public record ImportRunResponse(
     IReadOnlyList<string> SampleRejections);
 
 public record ProductListItem(
-    Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock);
+    Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl);
 
 public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,

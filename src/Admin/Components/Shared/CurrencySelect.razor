@@ -1,0 +1,37 @@
+@namespace ThreeCommerce.Admin.Components.Shared
+
+@* Currency is always picked from the full ISO 4217 list (Currencies.All), never free-typed.
+   Usage: <CurrencySelect @bind-Value="variant.Currency" /> *@
+<select value="@Value" @onchange="OnChange" title="@Title" @attributes="Attributes">
+    <optgroup label="Common">
+        @foreach (var cc in Currencies.Common)
+        {
+            var c = _byCode.GetValueOrDefault(cc);
+            <option value="@cc">@cc — @(c?.Name)</option>
+        }
+    </optgroup>
+    <optgroup label="All currencies (ISO 4217)">
+        @foreach (var c in Currencies.All)
+        {
+            <option value="@c.Code">@c.Code — @c.Name</option>
+        }
+    </optgroup>
+</select>
+
+@code {
+    private static readonly Dictionary<string, Currencies.Currency> _byCode =
+        Currencies.All.ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Currency (ISO 4217)";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

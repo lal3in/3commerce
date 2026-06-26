@@ -55,6 +55,16 @@ public sealed class GatewayClient(IHttpClientFactory factory, AuthenticationStat
         return await client.DeleteAsync(path);
     }
 
+    public async Task<HttpResponseMessage> PostFileAsync(string path, Stream content, string fileName, string contentType)
+    {
+        var client = await ClientAsync();
+        using var form = new MultipartFormDataContent();
+        var file = new StreamContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        form.Add(file, "file", fileName);
+        return await client.PostAsync(path, form);
+    }
+
     public async Task<HttpResponseMessage> PostAsync(string path, object? body = null, string? idempotencyKey = null)
     {
         var client = await ClientAsync();

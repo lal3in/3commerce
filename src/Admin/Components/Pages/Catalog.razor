@@ -29,11 +29,12 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
+            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
             <tbody>
             @foreach (var p in _list)
             {
                 <tr style="border-top:1px solid #e5e7eb;">
+                    <td>@if (!string.IsNullOrWhiteSpace(p.ImageUrl)) { <img src="@p.ImageUrl" alt="" style="width:2.6rem; height:2.6rem; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb;" /> } else { <span style="color:#d1d5db;">—</span> }</td>
                     <td>@p.Title<br /><span style="color:#6b7280; font-size:.8rem;">@p.Slug</span></td>
                     <td>@p.Brand</td>
                     <td style="text-align:center;">@p.VariantCount</td>
@@ -81,7 +82,7 @@ else
                     <tr>
                         <td><input @bind="v.Sku" style="width:100%;" /></td>
                         <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" /></td>
-                        <td><input @bind="v.Currency" style="width:4rem;" /></td>
+                        <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
                         <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" /></td>
                         <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
                     </tr>
@@ -96,8 +97,8 @@ else
             @for (var i = 0; i < _editing.ImageUrls.Count; i++)
             {
                 var idx = i;
-                <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
-                    <input @bind="_editing.ImageUrls[idx]" style="flex:1;" />
+                <div style="display:flex; gap:.3rem; margin-bottom:.3rem; align-items:center;">
+                    <div style="flex:1;"><ImageInput Value="_editing.ImageUrls[idx]" ValueChanged="@(v => _editing.ImageUrls[idx] = v ?? string.Empty)" /></div>
                     <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" style="color:#b91c1c;">✕</button>
                 </div>
             }
@@ -227,7 +228,7 @@ else
         _error = null;
     }
 
-    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock);
+    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
 
     public sealed class ProductEditor

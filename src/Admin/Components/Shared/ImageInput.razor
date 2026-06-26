@@ -1,0 +1,79 @@
+@namespace ThreeCommerce.Admin.Components.Shared
+@inject GatewayClient Gateway
+
+@* Image input: paste a URL, OR browse a local file → it uploads to the catalog object store and the
+   returned URL is used. Shows a live thumbnail. Usage:
+   <ImageInput Value="x" ValueChanged="v => x = v" /> *@
+<div style="display:flex; gap:.4rem; align-items:center;">
+    <input value="@Value" @onchange="OnUrlChange" placeholder="https://… or upload →"
+           title="@Title" style="flex:1; padding:.3rem;" />
+    <label style="white-space:nowrap; font-size:.8rem; cursor:pointer; padding:.3rem .5rem; border:1px solid #d1d5db; border-radius:4px;">
+        📁 Browse… <InputFile OnChange="OnFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
+    </label>
+    @if (!string.IsNullOrWhiteSpace(Value))
+    {
+        <img src="@Value" alt="preview" style="height:2.4rem; width:2.4rem; object-fit:cover; border:1px solid #e5e7eb; border-radius:4px;" />
+    }
+</div>
+@if (_uploading)
+{
+    <span style="font-size:.8rem; color:#6b7280;">Uploading…</span>
+}
+@if (_error is not null)
+{
+    <span style="font-size:.8rem; color:#b91c1c;">@_error</span>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Paste an image URL, or upload a local file (PNG/JPEG/WebP/GIF, max 10 MB).";
+
+    private bool _uploading;
+    private string? _error;
+
+    private async Task OnUrlChange(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private async Task OnFile(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            using var buffer = new MemoryStream();
+            await file.OpenReadStream(10 * 1024 * 1024).CopyToAsync(buffer);
+            buffer.Position = 0;
+            var response = await Gateway.PostFileAsync("/api/catalog/admin/images", buffer, file.Name, file.ContentType);
+            if (response.IsSuccessStatusCode)
+            {
+                var uploaded = await response.Content.ReadFromJsonAsync<UploadedImageDto>();
+                Value = uploaded?.Url;
+                await ValueChanged.InvokeAsync(Value);
+            }
+            else
+            {
+                _error = $"Upload failed: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private record UploadedImageDto(string Url, string Key);
+}
