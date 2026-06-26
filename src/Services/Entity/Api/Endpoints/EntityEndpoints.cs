@@ -22,6 +22,8 @@ public static class EntityEndpoints
             .WithSummary("List tenant-scoped entity records.");
         group.MapPost("/", Create)
             .WithSummary("Create a minimal tenant-scoped entity record.");
+        group.MapPut("/{id:guid}", Update)
+            .WithSummary("Update an entity's legal/trading name.");
         group.MapPost("/{id:guid}/suppliers", StartSupplierOnboarding)
             .WithSummary("Start supplier onboarding for an entity.");
         group.MapGet("/{id:guid}/suppliers/readiness", CheckSupplierReadiness)
@@ -94,6 +96,32 @@ public static class EntityEndpoints
             return TypedResults.Created(
                 $"/entities/{entity.Id}",
                 new EntitySummaryResponse(entity.Id, entity.TenantId, entity.Type, entity.LegalName, entity.TradingName, entity.DisplayName, entity.Status, entity.CreatedAt, entity.UpdatedAt));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.LegalName)] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<EntitySummaryResponse>, NotFound, ValidationProblem>> Update(
+        Guid id,
+        UpdateEntityRequest request,
+        EntityDbContext db,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await db.Entities.SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            entity.UpdateNames(request.LegalName, request.TradingName, timeProvider.GetUtcNow());
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(new EntitySummaryResponse(
+                entity.Id, entity.TenantId, entity.Type, entity.LegalName, entity.TradingName, entity.DisplayName, entity.Status, entity.CreatedAt, entity.UpdatedAt));
         }
         catch (DomainRuleException ex)
         {
@@ -400,6 +428,10 @@ public static class EntityEndpoints
         request.DecisionReason,
         request.DecidedAt);
 }
+
+public sealed record UpdateEntityRequest(
+    [property: System.ComponentModel.DataAnnotations.Required] string LegalName,
+    string? TradingName);
 
 public sealed record CreateEntityRequest(
     [property: Required] Guid TenantId,
