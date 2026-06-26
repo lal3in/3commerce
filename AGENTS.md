@@ -209,6 +209,21 @@ The following repository rules must always be followed:
 
 - Service list = ONE source: the canonical list of DB-owning services lives in `scripts/lib/services.sh` (name:path:port). `run-all.sh`, `dev-up.sh`, and `build-images.sh` all read it. When adding/removing a service, edit it there — and also the parallel lists that are NOT yet derived from it: the CI `docker` matrix + kind-deploy `df` map (`.github/workflows/ci.yml`), `deploy/migrator/Dockerfile` bundle loop, and `infra/postgres/init-databases.sql`. `scripts/e2e-verify.sh`'s L1 DB count derives from `init-databases.sql` (copy that pattern).
 
+- Keep these in sync (maintenance triggers — update the right-hand file in the SAME change):
+
+  | When you… | Update |
+  |---|---|
+  | add/remove a DB-owning service | `scripts/lib/services.sh` (+ the non-derived lists in the rule above) — `doctor.sh`/`host-check.sh`/`dev-up.sh`/`run-all.sh` derive from it automatically |
+  | add a deploy target (VPS / cloud VM) | `scripts/lib/hosts.sh` |
+  | add infra — a new port, container, log location, or observability endpoint | `scripts/host-check.sh` (the `probe`) + `scripts/doctor.sh` if it's a health surface |
+  | change a `/health` path or readiness convention | `scripts/doctor.sh` + `scripts/host-check.sh` |
+  | a new CI failure keyword matters | `scripts/ci-logs.sh` `SIG` signatures |
+  | move/rename a Dockerfile or change image naming | `scripts/build-images.sh` `image_name()` + the CI `docker` matrix |
+  | change the storefront/admin UI (pages, buttons, flows) | re-run `e2e/screenshots.spec.ts` + `e2e-admin/screenshots.spec.ts` → refreshes `docs/help/assets/screenshots/*` for `screens.html` |
+  | add/change a service's endpoints | `docs/api/api_contracts_index.md` + `docs/help/services.html` |
+  | change `PermissionRegistry` roles/permissions | `docs/help/roles-permissions.html` |
+  | change dev bring-up or logging defaults | `docs/help/getting-started.{md,html}` + `scripts/README.md` |
+
 - New DB-owning service checklist (each item has bitten us): (1) `appsettings.json` + `Properties/launchSettings.json` with the service's DB connection, RabbitMq, InternalAuth dev key, and port (bare-run needs them — container config alone is not enough); (2) register the MassTransit outbox in `OnModelCreating` (`AddInboxStateEntity`/`AddOutboxMessageEntity`/`AddOutboxStateEntity`) or the service crash-loops at startup; (3) give each consumer a UNIQUE class name across services (the kebab queue name is derived from it — two `OrderConfirmedConsumer`s share one queue and compete); (4) add it to `scripts/lib/services.sh` + the non-derived lists above; (5) gateway route + cluster in both gateway appsettings; (6) `InitialCreate` migration. See ADR-0030.
 
 - Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.

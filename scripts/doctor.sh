@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # One-shot local-env diagnosis: infra + per-service health (manifest-driven) + recent errors from whatever
 # is down. Run this FIRST when something misbehaves locally instead of hand-tailing logs.
+# Maintain: services/ports come from lib/services.sh (auto). Add a new health or log surface here when infra changes.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh

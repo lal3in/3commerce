@@ -2,6 +2,7 @@
 # Bring up the FULL local env the light way (ADR-0009 bare-run): only Postgres + RabbitMQ in Docker,
 # everything else as host processes — so it never triggers the 13-image build that OOMs a small Docker VM.
 # Usage: scripts/dev-up.sh [--with-frontends] [--seed]
+# Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/preflight.sh

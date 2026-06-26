@@ -2,6 +2,7 @@
 # Build all container images with bounded concurrency so 13 parallel .NET builds can't OOM the Docker VM.
 # Discovers Dockerfiles (no hardcoded list) and builds PARALLEL at a time (default 2).
 # Usage: PARALLEL=2 scripts/build-images.sh
+# Maintain: image_name() must map every Dockerfile path to its compose/Helm image name.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/preflight.sh

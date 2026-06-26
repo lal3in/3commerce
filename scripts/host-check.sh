@@ -7,6 +7,7 @@
 #     target : a name from scripts/lib/hosts.sh, or 'all'. Default: local.
 #     --deep : also outbox backlog, migration drift, OOM-kill scan (slower).
 #     --logs : also pull provider-managed logs (CloudWatch/GCP/Azure) when configured in hosts.sh.
+# Maintain: add a new observable (port/container/log/endpoint) to probe(); register hosts in lib/hosts.sh.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh

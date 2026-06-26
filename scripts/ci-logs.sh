@@ -2,6 +2,7 @@
 # Triage the latest CI run for a branch/PR: its failing jobs + the error lines from each — the
 # `gh run view --job <id> --log | strip-ansi | grep <signatures> | tail` ritual, automated.
 # Usage: scripts/ci-logs.sh [branch]   (default: current branch)
+# Maintain: only touch SIG when a genuinely new failure keyword needs catching.
 set -uo pipefail
 branch="${1:-$(git branch --show-current)}"
 SIG='error|FAILED|failed to|did not complete|timed out|OOMKilled|no space|Back-off|CrashLoop|exit code|Unhealthy|context deadline|Insufficient|rpc error|Cannot connect|Conflict'

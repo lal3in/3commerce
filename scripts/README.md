@@ -17,3 +17,5 @@
 **Memory note:** the Docker VM (Colima) needs ~8+ GiB to build the images. Bare-run (`dev-up.sh`) only needs
 Docker for Postgres+RabbitMQ, so it works on a small VM. To build images, bump it first:
 `colima stop && colima start --cpu 4 --memory 12`.
+
+**Maintaining these:** `scripts/lib/services.sh` is the single service source (most scripts derive from it). For when to update each script/doc as the codebase changes, see the **maintenance-triggers table** in `AGENTS.md` (Rules).
