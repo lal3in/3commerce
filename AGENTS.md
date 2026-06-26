@@ -122,6 +122,8 @@ Run the tool first; hand-tail logs only when it points you somewhere.
 - `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
   `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
 
+Bare-run + compose-dev logs are **verbose by default** (app `Debug` + EF SQL + MassTransit), so a failure usually carries its own diagnosis — no need to reproduce with more logging. Quieten bare-run with `LOG_LEVEL=Information scripts/run-all.sh start`; compose verbosity is in `deploy/.env.dev`.
+
 Log locations:
 
 | Where | How to read it |

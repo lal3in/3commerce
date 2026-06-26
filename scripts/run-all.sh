@@ -19,15 +19,25 @@ stop_all() {
   echo "stopped"
 }
 
+# Verbose by default so a failure carries its own diagnosis (app Debug + SQL + bus + requests).
+# Dial it with: LOG_LEVEL=Information scripts/run-all.sh start  (or =Trace for everything).
+log_env() {
+  local lvl="${LOG_LEVEL:-Debug}"
+  printf '%s\n' \
+    "Logging__LogLevel__Default=$lvl" \
+    "Logging__LogLevel__Microsoft.AspNetCore=Information" \
+    "Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Information" \
+    "Logging__LogLevel__MassTransit=Debug"
+}
+
 start_all() {
+  mapfile -t LOGENV < <(log_env)
   for entry in "${APPS[@]}"; do
     name="${entry%%:*}"; rest="${entry#*:}"; path="${rest%:*}"; port="${rest##*:}"
-    if [[ -n "$port" ]]; then
-      ASPNETCORE_URLS="http://localhost:$port" dotnet run --project "$path" --no-build >"$RUN_DIR/$name.log" 2>&1 &
-    else
-      dotnet run --project "$path" --no-build >"$RUN_DIR/$name.log" 2>&1 &
-    fi
-    echo $! >"$RUN_DIR/$name.pid"; echo "started $name${port:+ (:$port)} (pid $!)"
+    local -a e=( "${LOGENV[@]}" )
+    [[ -n "$port" ]] && e+=( "ASPNETCORE_URLS=http://localhost:$port" )
+    nohup env "${e[@]}" dotnet run --project "$path" --no-build >"$RUN_DIR/$name.log" 2>&1 &
+    echo $! >"$RUN_DIR/$name.pid"; disown; echo "started $name${port:+ (:$port)} (pid $!)"
   done
 }
 

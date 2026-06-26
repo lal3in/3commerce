@@ -4,7 +4,7 @@
 |---|---|
 | `dev-up.sh [--with-frontends] [--seed]` | **Bare-run** local env (ADR-0009): Postgres+RabbitMQ in Docker, infra → migrate → all services → (frontends) as host processes. The light default — never builds images, so it can't OOM the Docker VM. |
 | `dev-down.sh` | Stops everything `dev-up.sh` started. |
-| `run-all.sh [start\|stop]` | Starts/stops just the gateway + services + workers (host `dotnet run`). Used by `dev-up.sh`. |
+| `run-all.sh [start\|stop]` | Starts/stops the gateway + services + workers (host `dotnet run`, detached via nohup). **Verbose by default** (app Debug + EF SQL + MassTransit) → logs carry their own diagnosis; quieten with `LOG_LEVEL=Information`. Used by `dev-up.sh`. |
 | `build-images.sh` | Builds **all** container images with **bounded concurrency** (`PARALLEL=2`) + a Docker-memory preflight, so 13 parallel .NET builds can't OOM the VM. |
 | `doctor.sh` | One-shot local-env diagnosis: infra + per-service `/health/ready` (manifest-driven) + recent errors from anything down. Run it first when something misbehaves. |
 | `ci-logs.sh [branch]` | The latest CI run's failing jobs + their error lines (automates the `gh run view --log \| grep` triage). |
