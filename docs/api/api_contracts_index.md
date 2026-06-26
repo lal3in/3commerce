@@ -15,6 +15,12 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | Payments | [payments.openapi.json](./payments.openapi.json) | `/api/payments` | 5104 |
 | Fulfillment | [fulfillment.openapi.json](./fulfillment.openapi.json) | `/api/fulfillment` | 5105 |
 | Support | [support.openapi.json](./support.openapi.json) | `/api/support` | 5106 |
+| Marketing | service (OpenAPI at `/openapi` in Dev) | `/api/marketing` | 5108 |
+| Pricing | service (OpenAPI at `/openapi` in Dev) | `/api/pricing` | 5109 |
+| Audit | service (OpenAPI at `/openapi` in Dev) | `/api/audit` | 5110 |
+| Workflow | service (OpenAPI at `/openapi` in Dev) | `/api/workflow` | 5111 |
+| Entitlement | service (OpenAPI at `/openapi` in Dev) | `/api/entitlement` | 5112 |
+| Usage | service (OpenAPI at `/openapi` in Dev) | `/api/usage` | 5113 |
 
 ## Identity (`/api/identity`)
 
@@ -50,6 +56,65 @@ To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Deve
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 | GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
 | PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
+
+## Marketing (`/api/marketing`)
+
+Campaigns + short links (mt5_1/5_3). Standalone service; admin auth.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/campaigns` | admin | List tenant campaigns |
+| POST | `/admin/campaigns` | admin | Create a campaign (`cid`, name, optional window) |
+| POST | `/admin/campaigns/{id}/activate\|pause\|end` | admin | Campaign lifecycle transitions |
+| GET | `/admin/short-links` | admin | List tenant short links |
+| POST | `/admin/short-links` | admin | Create a short link; destination host must be a registered storefront host (anti open-redirect) |
+
+## Pricing (`/api/pricing`)
+
+The dedicated home for prices + graduated tiers (mt7_1). The Catalog Offer keeps a flat price (ADR-0028); this is what recurring/usage charging bills against.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/prices` | admin | List tenant prices (with tiers) |
+| POST | `/admin/prices` | admin | Create a price: `pricing_model` + `billing_period` + amount + graduated `tiers` |
+| GET | `/admin/prices/{id}/quote?quantity=` | admin | Quote the charge for a quantity (flat × qty, or per-tier-block graduated) |
+
+## Audit (`/api/audit`)
+
+Central searchable projection of every service's local audit entry (mt6_1). Read-only; the owning service's hash-chained log stays authoritative. Consumes `AuditEntryRecorded`.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/audit?tenantId=&resourceType=&resourceId=&action=&outcome=` | admin | Cross-service audit search (most recent 200) |
+
+## Workflow (`/api/workflow`)
+
+Central scheduled-job run history (mt6_3). Read-only projection of `JobRunRecorded`.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/workflow/runs?job=` | admin | Recent scheduled-job runs (status, timing, error) |
+
+## Entitlement (`/api/entitlement`)
+
+Digital/service-line access (mt7_2/7_6), extracted from Fulfillment. Its `EntitlementIssuingConsumer` subscribes to `OrderConfirmed` and issues access for digital lines.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/entitlements?tenantId=&orderId=&email=` | admin | List entitlements |
+| GET | `/me/entitlements` | customer | The signed-in customer's own access (scoped to their email claim) |
+
+## Usage (`/api/usage`)
+
+Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes `UsageOverageCharge` → Payments.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/admin/usage/provision` | admin | Set a meter's included allowance + overage price |
+| POST | `/admin/usage/record` | admin | Record usage (idempotent by `referenceId`); gated when overage disallowed |
+| POST | `/admin/usage/balances/{id}/bill-overage` | admin | Charge unbilled overage via the rail (once; no-op when nothing due) |
+| GET | `/admin/usage/balances?email=` | admin | List meter balances |
+| GET | `/me/usage` | customer | The signed-in customer's own meter balances |
 
 ## Conventions (see `docs/reference/api.md`)
 

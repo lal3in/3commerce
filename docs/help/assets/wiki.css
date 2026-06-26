@@ -384,3 +384,11 @@ html[data-theme='dark'] .masthead h1 em { color: var(--brass); }
 /* fade-in on load */
 .content-inner > * { animation: rise 0.5s var(--ease) backwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+
+/* UI screenshots gallery */
+figure.shot{margin:1.6rem 0;border:1px solid var(--border,#2a2f3a);border-radius:10px;overflow:hidden;background:var(--card,#0f131a)}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{padding:.7rem 1rem;font-size:.92rem;line-height:1.5;border-top:1px solid var(--border,#2a2f3a)}
+figure.shot figcaption b{display:block;margin-bottom:.15rem}
+figure.shot figcaption .uc{color:var(--accent,#5b8def)}

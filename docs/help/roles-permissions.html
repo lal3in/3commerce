@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roles &amp; permissions — 3commerce Operations Wiki</title><meta name="description" content="Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the six built-in roles, the 24 code-defi">
+<link rel="stylesheet" href="assets/wiki.css"></head><body>
+<div class="progress" id="progress"></div><a class="skip" href="#main">Skip to content</a>
+<div class="layout"><div class="scrim"></div>
+  <aside class="sidebar"><a class="brand" href="index.html"><span class="brand-mark">3c</span><span class="brand-name">3commerce<small>Operations Wiki</small></span></a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="services.html"><span class="idx">◆</span>Platform services</a>
+      <a href="roles-permissions.html" class="active"><span class="idx">◆</span>Roles &amp; permissions</a>
+      <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">Thin frontends over a YARP gateway.<br>Money in minor units. Dev has no live Stripe/Xero.</div></aside>
+  <div class="shell"><header class="topbar"><button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Reference</b><span class="sep">/</span>Roles &amp; permissions</div><span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button><button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button></header>
+    <main id="main" class="content"><div class="content-inner"><p class="eyebrow">Reference · Authorization</p><h1>Roles &amp; permissions</h1><p class="lede">Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the six built-in roles, the 24 code-defined permissions with risk levels, and the dynamic admin-managed RBAC (ADR-0025/0026).</p>
+        <h2 id="principals">Who can sign in — principals</h2>
+        <p>Every request resolves to a <b>principal</b> in a <b>tenant</b> (ADR-0023). A person can be a principal in several tenants; a service account is a non-human principal (ADR-0026).</p>
+        <table><thead><tr><th>Principal</th><th>What it is</th><th>App</th><th>Gate</th></tr></thead><tbody>
+          <tr><td><b>Customer</b></td><td>Storefront shopper — guest or registered. Carries the <code>customer</code> role.</td><td>Storefront <code>:3000</code></td><td>CustomerPolicy</td></tr>
+          <tr><td><b>Operator</b></td><td>Back-office user in the Admin console. Carries the <code>admin</code> role claim; finer access comes from the RBAC roles below via the PDP/PEP.</td><td>Admin <code>:5200</code></td><td>AdminPolicy + PDP</td></tr>
+          <tr><td><b>Supplier</b></td><td>Supplier user in the Supplier Portal; supplier session.</td><td>Supplier Portal <code>:5300</code></td><td>Supplier session</td></tr>
+          <tr><td><b>Service account</b></td><td>Non-human principal for automation / the CLI (ADR-0026): rotatable credentials, assignable roles, revocable.</td><td>Gateway / CLI</td><td>Internal claims · explicit <code>--tenant</code></td></tr>
+          <tr><td><b>MasterGlobal</b></td><td>Cross-tenant platform operator. May override maker-checker and bypass tenant RLS (<code>app.is_platform_admin</code>) — rare, and every high-risk use is audited.</td><td>Platform scope</td><td>Audited override</td></tr>
+        </tbody></table>
+        <h2 id="pipeline">How a request is authorized</h2>
+        <ol>
+<li>The browser/CLI calls the <b>gateway</b> with the opaque <code>3c_session</code> cookie (ADR-0012); anonymous requests pass through.</li>
+<li>The gateway introspects the session with Identity → <code>(UserId, TenantId, Role, Email)</code> and mints a short-lived <b>ES256 internal-claims JWT</b> (<code>sub · role · sid · tenant · email</code>) in the <code>X-Internal-Claims</code> header.</li>
+<li>The service validates that JWT (<code>InternalClaimsAuth</code>) and applies the <b>coarse endpoint policy</b>: <code>CustomerPolicy</code> (role <code>customer</code> or <code>admin</code>) or <code>AdminPolicy</code> (role <code>admin</code>).</li>
+<li>For <b>fine-grained</b> action/field decisions, the service acts as a <b>PEP</b> and asks the Identity <b>PDP</b> (<code>PolicyDecisionService.DecideAsync</code>), which resolves the principal's effective permissions from their tenant memberships → roles → permissions and decides per action/field (ADR-0025).</li>
+</ol>
+        <h2 id="roles">Built-in roles</h2>
+        <p>Each tenant is seeded with these six built-in roles (plus the system <code>customer</code> role). Operators may edit a role's permission set or clone it into a new role; built-in roles cannot be deleted.</p>
+        <table><thead><tr><th>Role</th><th>Name</th><th>Purpose</th><th>Permissions</th></tr></thead><tbody>
+          <tr><td><code>admin</code></td><td>Administrator</td><td>Full access to the tenant.</td><td><b>All 24 permissions</b></td></tr>
+          <tr><td><code>ops</code></td><td>Operations</td><td>Orders, fulfillment, mission control.</td><td>order.view/manage · fulfillment.view/manage · mission_control.view · support.ticket.view</td></tr>
+          <tr><td><code>finance</code></td><td>Finance</td><td>Payments, refunds, ledger, audit.</td><td>payment.view · payment.refund · ledger.view · audit.view · order.view</td></tr>
+          <tr><td><code>support</code></td><td>Support</td><td>Support tickets and returns.</td><td>support.ticket.view/manage · rma.manage · order.view</td></tr>
+          <tr><td><code>merchandiser</code></td><td>Merchandiser</td><td>Catalog and product publishing.</td><td>catalog.product.view/edit/publish</td></tr>
+          <tr><td><code>customer</code></td><td>Customer</td><td>Storefront shopper.</td><td><i>none — no back-office permissions</i></td></tr>
+        </tbody></table>
+        <h2 id="permissions">Permission catalog</h2>
+        <p>The 24 permissions are <b>code-defined</b> (<code>PermissionRegistry</code>) and not operator-editable — they are persisted at startup so role mappings can reference them. Risk drives extra controls (audit, step-up).</p>
+        <h3>Platform · tenancy · authz</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>tenant.view</code></td><td>View tenant settings</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>tenant.manage</code></td><td>Create/edit/suspend tenants and storefronts</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>rbac.role.view</code></td><td>View roles and permissions</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>rbac.role.manage</code></td><td>Create/edit/clone/delete roles, assign permissions</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>user.view</code></td><td>View users and memberships</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>user.manage</code></td><td>Invite/edit/lock users; assign roles</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>serviceaccount.manage</code></td><td>Create/rotate/revoke service accounts</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>audit.view</code></td><td>View audit log</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>mission_control.view</code></td><td>View the mission-control console</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+        </tbody></table>
+        <h3>Catalog · merchandising</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>catalog.product.view</code></td><td>View products</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>catalog.product.edit</code></td><td>Create/edit products, variants, pricing</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+          <tr><td><code>catalog.product.publish</code></td><td>Publish products to storefronts</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+        </tbody></table>
+        <h3>Orders · fulfillment</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>order.view</code></td><td>View orders</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>order.manage</code></td><td>Manage orders and holds</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+          <tr><td><code>fulfillment.view</code></td><td>View inventory/shipments</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>fulfillment.manage</code></td><td>Manage inventory, carriers, shipments</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+        </tbody></table>
+        <h3>Money</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>payment.view</code></td><td>View payments</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>payment.refund</code></td><td>Issue refunds</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>ledger.view</code></td><td>View the double-entry ledger</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+        </tbody></table>
+        <h3>Suppliers</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>supplier.view</code></td><td>View suppliers</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>supplier.manage</code></td><td>Onboard/edit suppliers and payout policy</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+        </tbody></table>
+        <h3>Support</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
+          <tr><td><code>support.ticket.view</code></td><td>View support tickets</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>support.ticket.manage</code></td><td>Manage support tickets</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+          <tr><td><code>rma.manage</code></td><td>Approve/process RMAs</td><td><span style="color:#d29922;font-weight:600">Medium</span></td></tr>
+        </tbody></table>
+        <h2 id="dynamic">Dynamic RBAC + the admin screen</h2>
+        <p>Roles are <b>data</b>: a principal's effective permissions are the union across their memberships' roles. Operators manage this on the <b>Roles &amp; permissions</b> screen (and the <code>/api/identity/admin/rbac</code> API).</p>
+        <figure class="shot"><img src="assets/screenshots/admin-rbac.png" alt="Roles and permissions admin screen" loading="lazy"><figcaption><b>Roles &amp; permissions</b> The admin console screen for the dynamic RBAC. <span class="uc">Use case: grant a user the Finance role, or clone Operations into a narrower role.</span></figcaption></figure>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
+  <tr><td><code>GET</code></td><td><code>/admin/rbac/permissions</code></td><td>The permission catalog</td></tr>
+  <tr><td><code>GET · POST</code></td><td><code>/admin/rbac/roles</code></td><td>List / create roles</td></tr>
+  <tr><td><code>PUT</code></td><td><code>/admin/rbac/roles/{id}/permissions</code></td><td>Set a role's permissions</td></tr>
+  <tr><td><code>POST · DELETE</code></td><td><code>/admin/rbac/memberships/{mid}/roles/{rid}</code></td><td>Assign / remove a role on a membership</td></tr>
+  <tr><td><code>GET</code></td><td><code>/admin/rbac/principals/{pid}/effective-permissions</code></td><td>Resolve a principal's effective permissions</td></tr>
+</tbody></table>
+        <h2 id="use-cases">Use cases</h2>
+        <ul>
+<li><b>New finance hire:</b> assign the <code>finance</code> role — they can view payments, issue refunds, and read the ledger + audit, nothing else.</li>
+<li><b>Narrower ops role:</b> clone <code>ops</code> into <code>warehouse</code> and drop <code>mission_control.view</code>.</li>
+<li><b>Automation:</b> create a service account for the CLI, grant <code>catalog.product.edit</code>, and rotate its credential on a schedule.</li>
+<li><b>Emergency override:</b> a MasterGlobal operator approves a maker-checker change across tenants — the action is written to the hash-chained audit log (now searchable via the Audit service).</li>
+<li><b>Least privilege:</b> a customer principal has no back-office permissions; the storefront only ever needs <code>CustomerPolicy</code>.</li>
+</ul>
+        <footer class="page-nav"><a class="prev" href="services.html"><div class="dir">← Previous</div><div class="ttl">Platform services</div></a><a class="next" href="screens.html"><div class="dir">Next →</div><div class="ttl">UI screens</div></a></footer></div></main>
+    <aside class="toc"><div class="toc-title">On this page</div><nav></nav></aside></div></div>
+<script src="assets/wiki.js"></script></body></html>

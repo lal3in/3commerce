@@ -17,9 +17,6 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
     public DbSet<Domain.Dropship.SupplierAvailability> SupplierAvailabilities => Set<Domain.Dropship.SupplierAvailability>();
     public DbSet<OrderHold> OrderHolds => Set<OrderHold>();
     public DbSet<HeldOrder> HeldOrders => Set<HeldOrder>();
-    public DbSet<Entitlement> Entitlements => Set<Entitlement>();
-    public DbSet<UsageBalance> UsageBalances => Set<UsageBalance>();
-    public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,31 +97,6 @@ public class FulfillmentDbContext(DbContextOptions<FulfillmentDbContext> options
         {
             held.Property(x => x.PayloadJson).HasColumnType("jsonb");
             held.HasIndex(x => x.OrderId).IsUnique();
-        });
-
-        modelBuilder.Entity<Entitlement>(entitlement =>
-        {
-            entitlement.Property(x => x.Type).HasConversion<string>().HasMaxLength(16);
-            entitlement.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
-            entitlement.Property(x => x.CustomerEmail).HasMaxLength(256);
-            entitlement.HasIndex(x => new { x.TenantId, x.CustomerEmail });
-            entitlement.HasIndex(x => new { x.TenantId, x.OrderId });
-        });
-
-        modelBuilder.Entity<UsageBalance>(balance =>
-        {
-            balance.Property(x => x.Meter).HasConversion<string>().HasMaxLength(16);
-            balance.Property(x => x.CustomerEmail).HasMaxLength(256);
-            balance.Property(x => x.Currency).HasMaxLength(3);
-            balance.HasIndex(x => new { x.TenantId, x.CustomerEmail, x.Meter }).IsUnique();
-        });
-
-        modelBuilder.Entity<UsageRecord>(record =>
-        {
-            record.Property(x => x.Meter).HasConversion<string>().HasMaxLength(16);
-            record.Property(x => x.CustomerEmail).HasMaxLength(256);
-            record.HasIndex(x => new { x.TenantId, x.ReferenceId });
-            record.HasIndex(x => x.BalanceId);
         });
 
         modelBuilder.AddInboxStateEntity();

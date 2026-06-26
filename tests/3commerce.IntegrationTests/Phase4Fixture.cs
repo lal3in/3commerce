@@ -7,10 +7,12 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
+using ThreeCommerce.Entitlement.Infrastructure;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
 using ThreeCommerce.Support.Domain;
 using ThreeCommerce.Support.Infrastructure;
+using ThreeCommerce.Usage.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
 
@@ -32,6 +34,8 @@ public sealed class Phase4Fixture : IAsyncLifetime
     public WebApplicationFactory<ThreeCommerce.Support.Api.IApiMarker> Support { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Payments.Api.IApiMarker> Payments { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Fulfillment.Api.IApiMarker> Fulfillment { get; private set; } = null!;
+    public WebApplicationFactory<ThreeCommerce.Entitlement.Api.IApiMarker> Entitlement { get; private set; } = null!;
+    public WebApplicationFactory<ThreeCommerce.Usage.Api.IApiMarker> Usage { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -40,10 +44,14 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await _postgres.ExecScriptAsync("CREATE DATABASE support_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE payments_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE fulfillment_db;");
+        await _postgres.ExecScriptAsync("CREATE DATABASE entitlement_db;");
+        await _postgres.ExecScriptAsync("CREATE DATABASE usage_db;");
 
         Support = CreateFactory<ThreeCommerce.Support.Api.IApiMarker, ThreeCommerce.Support.Infrastructure.SupportDbContext>("support_db");
         Payments = CreateFactory<ThreeCommerce.Payments.Api.IApiMarker, PaymentsDbContext>("payments_db");
         Fulfillment = CreateFactory<ThreeCommerce.Fulfillment.Api.IApiMarker, ThreeCommerce.Fulfillment.Infrastructure.FulfillmentDbContext>("fulfillment_db");
+        Entitlement = CreateFactory<ThreeCommerce.Entitlement.Api.IApiMarker, EntitlementDbContext>("entitlement_db");
+        Usage = CreateFactory<ThreeCommerce.Usage.Api.IApiMarker, UsageDbContext>("usage_db");
 
         // Direct publisher (bypasses the EF bus outbox, which only delivers on SaveChanges).
         _publishBus = Bus.Factory.CreateUsingRabbitMq(cfg => cfg.Host(new Uri(RabbitMqUri)));
@@ -63,6 +71,8 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await Support.DisposeAsync();
         await Payments.DisposeAsync();
         await Fulfillment.DisposeAsync();
+        await Entitlement.DisposeAsync();
+        await Usage.DisposeAsync();
         _ecdsa.Dispose();
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }

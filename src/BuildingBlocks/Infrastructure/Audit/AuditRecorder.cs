@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
@@ -33,13 +34,23 @@ public sealed class EfAuditStore<TContext>(TContext db) : IAuditStore
 /// Records local audit entries and verifies the tenant's chain (mt6_1). Hash-chained and append-only;
 /// the entry is staged in the current unit of work so it commits with the change it describes.
 /// </summary>
-public sealed class AuditRecorder(IAuditStore store, TimeProvider clock)
+public sealed class AuditRecorder(IAuditStore store, TimeProvider clock, IPublishEndpoint? publisher = null)
 {
     public async Task<AuditEntry> RecordAsync(AuditDraft draft, CancellationToken ct)
     {
         var previous = await store.LastAsync(draft.TenantId, ct);
         var entry = AuditChain.Append(previous, draft, clock.GetUtcNow());
         store.Add(entry);
+
+        // Project to the central Audit service when a publisher is wired (the bus's EF outbox commits it
+        // atomically with the local entry). Tests construct without a publisher → no-op.
+        if (publisher is not null)
+        {
+            await publisher.Publish(new AuditEntryRecorded(
+                entry.TenantId, entry.Sequence, entry.OccurredAt, entry.ActorId, entry.ActorRole,
+                entry.Action, entry.ResourceType, entry.ResourceId, entry.Outcome.ToString(), entry.Summary, entry.Hash), ct);
+        }
+
         return entry;
     }
 

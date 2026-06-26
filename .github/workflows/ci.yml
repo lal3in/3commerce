@@ -125,6 +125,12 @@ jobs:
           - src/Services/Fulfillment/Api/Dockerfile
           - src/Services/Support/Api/Dockerfile
           - src/Services/Entity/Api/Dockerfile
+          - src/Services/Marketing/Api/Dockerfile
+          - src/Services/Pricing/Api/Dockerfile
+          - src/Services/Audit/Api/Dockerfile
+          - src/Services/Workflow/Api/Dockerfile
+          - src/Services/Entitlement/Api/Dockerfile
+          - src/Services/Usage/Api/Dockerfile
           - src/Admin/Dockerfile
           - src/Storefront/Dockerfile
           - src/SupplierPortal/Dockerfile
@@ -167,6 +173,11 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/.ghcup
+          docker image prune -af || true
+          df -h /
       - uses: azure/setup-helm@v4
         with:
           version: v3.16.2
@@ -190,12 +201,13 @@ jobs:
             [identity]=src/Services/Identity/Api/Dockerfile [catalog]=src/Services/Catalog/Api/Dockerfile \
             [ordering]=src/Services/Ordering/Api/Dockerfile [payments]=src/Services/Payments/Api/Dockerfile \
             [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile \
-            [entity]=src/Services/Entity/Api/Dockerfile [supplier-portal]=src/SupplierPortal/Dockerfile )
-          for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; done
+            [entity]=src/Services/Entity/Api/Dockerfile \
+            [supplier-portal]=src/SupplierPortal/Dockerfile )
+          for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; docker image rm 3commerce/$n:local || true; done
           docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
           kind load docker-image 3commerce/migrator:local --name 3c
       - name: helm install (dev) + wait
-        run: helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --wait --timeout 12m
+        run: helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --wait --timeout 18m
       - name: Probe gateway
         run: |
           kubectl port-forward svc/gateway 18080:8080 >/dev/null 2>&1 &

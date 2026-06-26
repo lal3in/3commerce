@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
-using ThreeCommerce.Fulfillment.Domain;
-using ThreeCommerce.Fulfillment.Infrastructure;
+using ThreeCommerce.Usage.Domain;
+using ThreeCommerce.Usage.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
 
@@ -12,7 +12,7 @@ public class UsageMeteringTests(Phase4Fixture fixture)
 {
     private async Task<T> WithUsageAsync<T>(Func<UsageService, Task<T>> work)
     {
-        using var scope = fixture.Fulfillment.Services.CreateScope();
+        using var scope = fixture.Usage.Services.CreateScope();
         return await work(scope.ServiceProvider.GetRequiredService<UsageService>());
     }
 
@@ -43,7 +43,7 @@ public class UsageMeteringTests(Phase4Fixture fixture)
         await WithUsageAsync(s => s.ProvisionAsync(tenant, email, MeterType.Request, 100, false, 0, "AUD", null, default));
         await WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 80, "r-1", default));
 
-        await Assert.ThrowsAsync<FulfillmentRuleException>(
+        await Assert.ThrowsAsync<UsageRuleException>(
             () => WithUsageAsync(s => s.RecordAsync(tenant, email, MeterType.Request, 50, "r-2", default)));
     }
 

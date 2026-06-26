@@ -32,3 +32,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0027](./0027-entity-service-master-data-boundary.md) | Entity service master-data boundary | Accepted | Entity / service boundary |
 | [0028](./0028-product-supply-profiles-composable-supply.md) | Product supply profiles (Offers) — composable supply/fulfilment/pricing/entitlement | Accepted | Catalog / supply / architecture |
 | [0029](./0029-phase-6-compliance-ops-primitives.md) | Phase 6 compliance/ops primitives — capability-first, services deferred | Accepted | Compliance / observability / architecture |
+| [0030](./0030-deferred-services-extracted.md) | Phase 5–7 deferred services extracted (Marketing/Pricing/Audit/Workflow/Entitlement/Usage) | Accepted | Services / architecture |
