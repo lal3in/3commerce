@@ -5,7 +5,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY src/Storefront/package.json src/Storefront/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app

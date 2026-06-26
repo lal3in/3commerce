@@ -11,10 +11,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY . .
-RUN --mount=type=cache,target=/root/.nuget/packages dotnet restore 3commerce.sln
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked dotnet restore 3commerce.sln
 RUN dotnet tool install -g dotnet-ef --version 10.0.9
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN --mount=type=cache,target=/root/.nuget/packages mkdir -p /bundles && for s in Identity Catalog Entity Ordering Payments Fulfillment Support Marketing Pricing Audit Workflow Entitlement Usage; do \
+RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked mkdir -p /bundles && for s in Identity Catalog Entity Ordering Payments Fulfillment Support Marketing Pricing Audit Workflow Entitlement Usage; do \
       l=$(echo "$s" | tr '[:upper:]' '[:lower:]'); \
       echo "== bundling $s =="; \
       dotnet ef migrations bundle \
