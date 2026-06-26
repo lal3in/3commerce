@@ -68,12 +68,19 @@ When PRD is needed:
 ## Commands
 
 ```bash
-# Development (infra first, then any services you need) — bare-run, ADR-0009
+# Development — bare-run, ADR-0009 (the light default; never builds images, so it can't OOM the Docker VM)
+scripts/dev-up.sh --with-frontends --seed          # ONE command: infra + migrate + all services + frontends + seed
+scripts/dev-down.sh                                 # stop everything
+# ...or piecemeal:
 docker compose -f docker-compose.infra.yml up -d   # Postgres 17 + RabbitMQ
 dotnet run --project src/Services/<Name>/Api        # per service; same for Gateway, Workers
 cd src/Storefront && npm run dev                    # Next.js storefront
 
 # Containerized launch (full stack in containers) — ADR-0021
+# Building all 13 .NET images needs a Docker VM with ~8+ GiB RAM. `docker compose up --build` builds them in
+# PARALLEL and WILL OOM a small VM (default 6 GiB Colima) and crash the daemon. Use the bounded builder below,
+# or bump the VM first: `colima stop && colima start --cpu 4 --memory 12`.
+scripts/build-images.sh                             # builds every image PARALLEL=2 at a time, with a memory preflight
 scripts/launch.sh --fresh --env dev                 # brand-new deployment (down -v + build + up)
 scripts/launch.sh --reuse --env dev                 # relaunch, keep data
 scripts/launch.sh --fresh --env prod                # rotated keys, BL-11 gate enforced
@@ -105,6 +112,32 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 ```
 
 ---
+
+## Debugging — where things log + one-shot triage
+
+Run the tool first; hand-tail logs only when it points you somewhere.
+
+- `scripts/doctor.sh` — local env in one shot: infra containers, every service's `/health/ready`
+  (manifest-driven), the frontends, and the last error lines from `.run/<svc>.log` for anything down.
+- `scripts/host-check.sh [--deep] [--logs] [target]` — full sweep of a host (containers, health, **RabbitMQ bus state**, infra logs, observability, compose, resources, Colima OOM log). Runs over local / SSH VPS / GCP (`scripts/lib/hosts.sh`), so the same diagnosis works on Hostinger/EC2/GCE/Azure; `--logs` adds CloudWatch/GCP/Azure managed logs.
+- `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
+  `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
+
+Bare-run + compose-dev logs are **verbose by default** (app `Debug` + EF SQL + MassTransit), so a failure usually carries its own diagnosis — no need to reproduce with more logging. Quieten bare-run with `LOG_LEVEL=Information scripts/run-all.sh start`; compose verbosity is in `deploy/.env.dev`.
+
+Log locations:
+
+| Where | How to read it |
+|---|---|
+| Bare-run services | `.run/<name>.log` (e.g. `.run/payments.log`) |
+| Storefront / admin | `/tmp/3c-storefront.log` · `/tmp/3c-admin.log` |
+| Containerized services | `docker compose logs <service>` |
+| CI job | `gh run view --job <id> --log` (or just `scripts/ci-logs.sh`) |
+| kind-deploy pod events | inside the **kind-deploy job log** (the "Diagnostics on failure" step) — NOT `docker logs` |
+
+Lesson from the field: **read the failing step's RAW log before tuning.** Cascading symptoms mislead —
+kind-deploy's real cause was `no space left on device`, not the probe timeouts it looked like; a
+compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match the fix to the first error.
 
 ## Project Structure
 
@@ -173,6 +206,27 @@ The following repository rules must always be followed:
 - Frontend components: when working on front-end components (Storefront or Admin UI), read `docs/reference/components.md` first and follow it.
 
 - API endpoints: when adding or changing API endpoints in any service, read `docs/reference/api.md` first and follow it.
+
+- Service list = ONE source: the canonical list of DB-owning services lives in `scripts/lib/services.sh` (name:path:port). `run-all.sh`, `dev-up.sh`, and `build-images.sh` all read it. When adding/removing a service, edit it there — and also the parallel lists that are NOT yet derived from it: the CI `docker` matrix + kind-deploy `df` map (`.github/workflows/ci.yml`), `deploy/migrator/Dockerfile` bundle loop, and `infra/postgres/init-databases.sql`. `scripts/e2e-verify.sh`'s L1 DB count derives from `init-databases.sql` (copy that pattern).
+
+- Keep these in sync (maintenance triggers — update the right-hand file in the SAME change):
+
+  | When you… | Update |
+  |---|---|
+  | add/remove a DB-owning service | `scripts/lib/services.sh` (+ the non-derived lists in the rule above) — `doctor.sh`/`host-check.sh`/`dev-up.sh`/`run-all.sh` derive from it automatically |
+  | add a deploy target (VPS / cloud VM) | `scripts/lib/hosts.sh` |
+  | add infra — a new port, container, log location, or observability endpoint | `scripts/host-check.sh` (the `probe`) + `scripts/doctor.sh` if it's a health surface |
+  | change a `/health` path or readiness convention | `scripts/doctor.sh` + `scripts/host-check.sh` |
+  | a new CI failure keyword matters | `scripts/ci-logs.sh` `SIG` signatures |
+  | move/rename a Dockerfile or change image naming | `scripts/build-images.sh` `image_name()` + the CI `docker` matrix |
+  | change the storefront/admin UI (pages, buttons, flows) | re-run `e2e/screenshots.spec.ts` + `e2e-admin/screenshots.spec.ts` → refreshes `docs/help/assets/screenshots/*` for `screens.html` |
+  | add/change a service's endpoints | `docs/api/api_contracts_index.md` + `docs/help/services.html` |
+  | change `PermissionRegistry` roles/permissions | `docs/help/roles-permissions.html` |
+  | change dev bring-up or logging defaults | `docs/help/getting-started.{md,html}` + `scripts/README.md` |
+
+- New DB-owning service checklist (each item has bitten us): (1) `appsettings.json` + `Properties/launchSettings.json` with the service's DB connection, RabbitMq, InternalAuth dev key, and port (bare-run needs them — container config alone is not enough); (2) register the MassTransit outbox in `OnModelCreating` (`AddInboxStateEntity`/`AddOutboxMessageEntity`/`AddOutboxStateEntity`) or the service crash-loops at startup; (3) give each consumer a UNIQUE class name across services (the kebab queue name is derived from it — two `OrderConfirmedConsumer`s share one queue and compete); (4) add it to `scripts/lib/services.sh` + the non-derived lists above; (5) gateway route + cluster in both gateway appsettings; (6) `InitialCreate` migration. See ADR-0030.
+
+- Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
 
 - Regression test list: whenever a test is added, removed, or renamed — a unit/integration test (`*Tests.cs`), or a live end-to-end user-journey — update `scripts/e2e-verify.sh` so it stays the complete regression command: add/adjust the matching check **and** its line in the COVERAGE CHECKLIST header comment. Automated tests belong in the `A*` group, live full-stack flows in the `L*` group. The script must continue to pass (`scripts/e2e-verify.sh` and `--live`) after the change.
 

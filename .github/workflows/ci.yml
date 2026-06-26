@@ -136,8 +136,15 @@ jobs:
           - src/SupplierPortal/Dockerfile
     steps:
       - uses: actions/checkout@v4
-      - name: Docker build
-        run: docker build -f ${{ matrix.dockerfile }} .
+      - uses: docker/setup-buildx-action@v3
+      - name: Docker build (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.dockerfile }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.dockerfile }}
 
   # Boot the real containerized stack (fresh dev) and smoke a journey through the gateway.
   compose-smoke:

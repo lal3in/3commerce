@@ -52,6 +52,7 @@
         <p class="eyebrow">Guide · 01</p>
         <h1>Getting started</h1>
         <p class="lede">Bring up the entire 3commerce stack on one machine: infrastructure → database migrations → backend services + gateway + worker → storefront → admin. There is <strong>no live Stripe or Xero</strong> in dev — payments use a fake provider and Xero a logging client.</p>
+        <div style="border:1px solid var(--border,#2a2f3a);border-radius:10px;padding:.9rem 1.1rem;margin:1.3rem 0"><b>Quick start (bare-run, recommended).</b> One command brings up infra + migrations + every service + the frontends, reusing the already-built solution — it never builds container images, so it can’t OOM a small Docker VM:<pre><code>scripts/dev-up.sh --with-frontends --seed   <span class="cmt"># stop with: scripts/dev-down.sh</span></code></pre>The manual steps below are the same thing broken out. For the <b>containerized</b> stack, build images with <code>scripts/build-images.sh</code> (bounded concurrency + a memory preflight) — a plain <code>docker compose up --build</code> builds all 13 .NET images in parallel and will OOM a 6&nbsp;GiB Colima VM.</div>
 
         <h2 id="prerequisites">Prerequisites</h2>
         <div class="table-wrap">
@@ -91,17 +92,18 @@
         <h3 id="step-1">1 · Start infrastructure (Postgres + RabbitMQ)</h3>
         <pre><code><span class="cmt">colima start                                       # if using colima</span>
 docker compose -f docker-compose.infra.yml up -d</code></pre>
-        <p>This starts Postgres 17 and RabbitMQ 4. On first run, <code>infra/postgres/init-databases.sql</code> creates the <strong>6 service databases</strong>, roles, and extensions (FTS + <code>pg_trgm</code>).</p>
+        <p>This starts Postgres 17 and RabbitMQ 4. On first run, <code>infra/postgres/init-databases.sql</code> creates the <strong>13 service databases</strong>, roles, and extensions (FTS + <code>pg_trgm</code>).</p>
 
         <h3 id="step-2">2 · Apply database migrations</h3>
         <p>Once, and again after any schema change:</p>
-        <pre><code>for s in Identity Catalog Ordering Payments Fulfillment Support; do
+        <pre><code>for s in Identity Catalog Entity Ordering Payments Fulfillment Support \
+         Marketing Pricing Audit Workflow Entitlement Usage; do
   dotnet ef database update -p src/Services/$s/Infrastructure -s src/Services/$s/Api
 done</code></pre>
 
         <h3 id="step-3">3 · Build and start the gateway + services + worker</h3>
         <pre><code>dotnet build 3commerce.sln
-scripts/run-all.sh start          <span class="cmt"># gateway, 6 services, notifications worker</span></code></pre>
+scripts/run-all.sh start          <span class="cmt"># gateway, all services, notifications worker</span></code></pre>
         <p><code>scripts/run-all.sh</code> runs each app via bare <code>dotnet run --no-build</code> in the background (ADR-0009). Logs land in <code>.run/&lt;name&gt;.log</code>, PIDs in <code>.run/&lt;name&gt;.pid</code>. Stop everything with:</p>
         <pre><code>scripts/run-all.sh stop</code></pre>
         <p>Check readiness (each service exposes <code>/health/ready</code>, <strong>internal only</strong> — not via the gateway):</p>

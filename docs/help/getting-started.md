@@ -33,13 +33,25 @@ uses a logging client.
 
 ### 1. Start infrastructure (Postgres + RabbitMQ)
 
+> **Quick start (bare-run, recommended).** One command brings up infra + migrations + every
+> service + the frontends, reusing the already-built solution — it never builds container images,
+> so it can't OOM a small Docker VM:
+>
+> ```bash
+> scripts/dev-up.sh --with-frontends --seed   # stop with: scripts/dev-down.sh
+> ```
+>
+> The manual steps below are the same thing, broken out. For the **containerized** stack, build images
+> with `scripts/build-images.sh` (bounded concurrency + memory preflight) — a plain
+> `docker compose up --build` builds all 13 .NET images in parallel and will OOM a 6 GiB Colima.
+
 ```bash
 colima start                                       # if using colima
 docker compose -f docker-compose.infra.yml up -d
 ```
 
 This starts Postgres 17 and RabbitMQ 4. On first run, `infra/postgres/init-databases.sql`
-creates the **6 service databases**, roles, and extensions (FTS + `pg_trgm`).
+creates the **13 service databases**, roles, and extensions (FTS + `pg_trgm`).
 
 ### 2. Apply database migrations (once, and after schema changes)
 
