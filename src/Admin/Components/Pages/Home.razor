@@ -1,4 +1,166 @@
 @page "/"
 @attribute [Authorize(Roles = "admin")]
-<h1>Dashboard</h1>
-<p>Welcome to the 3commerce operator console. Use the navigation to manage orders, RMAs, the ledger, and Xero sync.</p>
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">Dashboard</h1>
+    <span style="color:#6b7280; font-size:.85rem;">operator overview · live</span>
+    <span style="flex:1;"></span>
+    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">↻ Refresh</button>
+</div>
+
+@if (_loading)
+{
+    <p style="margin-top:1rem;">Loading metrics…</p>
+}
+else
+{
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-top:1.2rem;">
+        @KpiCard("Revenue", Money(_revenueMinor), "#4f46e5", $"{_orders.Count} orders")
+        @KpiCard("Orders", _orders.Count.ToString(), "#0891b2", $"{_ordersToday} today")
+        @KpiCard("Products", _productCount.ToString(), "#059669", "in catalog")
+        @KpiCard("Open RMAs", _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", $"{_rmas.Count} total")
+        @KpiCard("Ledger balance", Money(_trialBalanceMinor), _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? "balanced ✓" : "out of balance")
+    </div>
+
+    <div style="display:grid; grid-template-columns:2fr 1fr; gap:1.2rem; margin-top:1.4rem;">
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
+            <h3 style="margin:0 0 .6rem;">Revenue — last 14 days</h3>
+            @if (_revByDay.Count == 0)
+            {
+                <p style="color:#9ca3af;">No orders yet.</p>
+            }
+            else
+            {
+                <svg viewBox="0 0 580 170" style="width:100%; height:170px;">@ChartSvg()</svg>
+            }
+        </div>
+
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
+            <h3 style="margin:0 0 .6rem;">Orders by status</h3>
+            @if (_byStatus.Count == 0)
+            {
+                <p style="color:#9ca3af;">—</p>
+            }
+            else
+            {
+                @foreach (var kv in _byStatus.OrderByDescending(s => s.Value))
+                {
+                    var pct = _orders.Count > 0 ? kv.Value * 100 / _orders.Count : 0;
+                    <div style="margin-bottom:.5rem;">
+                        <div style="display:flex; justify-content:space-between; font-size:.85rem;"><span>@kv.Key</span><span style="color:#6b7280;">@kv.Value</span></div>
+                        <div style="background:#f3f4f6; border-radius:6px; height:8px; overflow:hidden;"><div style="width:@(pct)%; height:100%; background:#0891b2;"></div></div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff; margin-top:1.2rem;">
+        <h3 style="margin:0 0 .6rem;">Recent orders</h3>
+        @if (_orders.Count == 0)
+        {
+            <p style="color:#9ca3af;">No orders yet.</p>
+        }
+        else
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                <thead><tr><th style="text-align:left;">When</th><th style="text-align:left;">Order</th><th style="text-align:left;">Status</th><th style="text-align:right;">Amount</th></tr></thead>
+                <tbody>
+                @foreach (var o in _orders.OrderByDescending(o => o.CreatedAt).Take(8))
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@o.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                        <td><code style="font-size:.8rem;">@o.Id.ToString()[..8]</code></td>
+                        <td>@o.Status</td>
+                        <td style="text-align:right;">@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private List<OrderDto> _orders = [];
+    private List<RmaDto> _rmas = [];
+    private int _productCount;
+    private long _revenueMinor;
+    private long _trialBalanceMinor;
+    private int _openRmas;
+    private int _ordersToday;
+    private string _currency = "EUR";
+    private Dictionary<string, int> _byStatus = [];
+    private Dictionary<DateTime, long> _revByDay = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var ordersTask = Gateway.GetListAsync<OrderDto>("/api/ordering/admin/orders");
+        var rmasTask = Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
+        var ledgerTask = Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+        var productsTask = Gateway.GetListAsync<ProductDto>("/api/catalog/admin/products?pageSize=200");
+        await Task.WhenAll(ordersTask, rmasTask, ledgerTask, productsTask);
+
+        _orders = await ordersTask;
+        _rmas = await rmasTask;
+        var ledger = await ledgerTask;
+        _productCount = (await productsTask).Count;
+
+        _revenueMinor = _orders.Sum(o => o.GrossMinor);
+        _currency = _orders.Select(o => o.Currency).FirstOrDefault() ?? "EUR";
+        _ordersToday = _orders.Count(o => o.CreatedAt.LocalDateTime.Date == DateTime.Now.Date);
+        _openRmas = _rmas.Count(r => r.State is "Requested" or "Pending" or "Open");
+        _trialBalanceMinor = ledger.SelectMany(e => e.Lines).Sum(l => l.DebitMinor) - ledger.SelectMany(e => e.Lines).Sum(l => l.CreditMinor);
+        _byStatus = _orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
+
+        _revByDay = [];
+        for (var d = 13; d >= 0; d--)
+        {
+            var day = DateTime.Now.Date.AddDays(-d);
+            _revByDay[day] = _orders.Where(o => o.CreatedAt.LocalDateTime.Date == day).Sum(o => o.GrossMinor);
+        }
+
+        _loading = false;
+    }
+
+    private MarkupString ChartSvg()
+    {
+        if (_revByDay.Count == 0)
+        {
+            return default;
+        }
+
+        var max = Math.Max(1, _revByDay.Values.Max());
+        var parts = _revByDay.Select((kv, i) =>
+        {
+            var h = kv.Value * 130.0 / max;
+            var x = (i * 40) + 14;
+            return $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {Money(kv.Value)}</title></rect>"
+                 + $"<text x=\"{x + 13}\" y=\"158\" font-size=\"9\" text-anchor=\"middle\" fill=\"#9ca3af\">{kv.Key:dd}</text>";
+        });
+        return (MarkupString)string.Concat(parts);
+    }
+
+    private string Money(long minor) => $"{minor / 100m:N2} {_currency}";
+
+    private RenderFragment KpiCard(string label, string value, string color, string sub) => builder =>
+    {
+        builder.AddMarkupContent(0,
+            $"<div style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:1rem 1.1rem; background:#fff;\">" +
+            $"<div style=\"font-size:.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em;\">{label}</div>" +
+            $"<div style=\"font-size:1.7rem; font-weight:700; color:#111827; margin:.2rem 0;\">{value}</div>" +
+            $"<div style=\"font-size:.8rem; color:#9ca3af;\">{sub}</div></div>");
+    };
+
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+    public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+    public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
+    public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
+    public record ProductDto(Guid Id);
+}

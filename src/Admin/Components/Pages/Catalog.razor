@@ -8,7 +8,7 @@
 @if (_editing is null)
 {
     <div style="margin-bottom:1rem; display:flex; gap:.5rem;">
-        <input @bind="_search" @bind:event="oninput" placeholder="Search title or slug…" style="flex:1; padding:.4rem;" />
+        <input @bind="_search" @bind:event="oninput" placeholder="Search title or slug…" style="flex:1; padding:.4rem;" title="Filter products by title or slug." />
         <button @onclick="LoadList" style="padding:.4rem .8rem;">Search</button>
         <button @onclick="NewProduct" style="padding:.4rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">New product</button>
     </div>
@@ -29,11 +29,12 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
+            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
             <tbody>
             @foreach (var p in _list)
             {
                 <tr style="border-top:1px solid #e5e7eb;">
+                    <td>@if (!string.IsNullOrWhiteSpace(p.ImageUrl)) { <img src="@p.ImageUrl" alt="" style="width:2.6rem; height:2.6rem; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb;" /> } else { <span style="color:#d1d5db;">—</span> }</td>
                     <td>@p.Title<br /><span style="color:#6b7280; font-size:.8rem;">@p.Slug</span></td>
                     <td>@p.Brand</td>
                     <td style="text-align:center;">@p.VariantCount</td>
@@ -58,10 +59,10 @@ else
     }
 
     <div style="max-width:720px; display:flex; flex-direction:column; gap:.6rem;">
-        <label>Title <input @bind="_editing.Title" style="width:100%; padding:.4rem;" /></label>
-        <label>Slug <input @bind="_editing.Slug" style="width:100%; padding:.4rem;" /></label>
-        <label>Brand <input @bind="_editing.Brand" style="width:100%; padding:.4rem;" /></label>
-        <label>Description <textarea @bind="_editing.Description" rows="3" style="width:100%; padding:.4rem;"></textarea></label>
+        <label>Title <input @bind="_editing.Title" style="width:100%; padding:.4rem;" title="The product name customers see. Clear and specific (e.g. 'Borealis Ultra Speaker 22')." /></label>
+        <label>Slug <input @bind="_editing.Slug" style="width:100%; padding:.4rem;" title="URL-friendly identifier (lowercase, hyphens). Must be unique — it forms the storefront link." /></label>
+        <label>Brand <input @bind="_editing.Brand" style="width:100%; padding:.4rem;" title="Manufacturer or brand shown on the product." /></label>
+        <label>Description <textarea @bind="_editing.Description" rows="3" style="width:100%; padding:.4rem;" title="Customer-facing description shown on the product page. Plain text."></textarea></label>
         <label>Category <span style="color:#6b7280; font-size:.8rem;">(required — products without one are not searchable)</span>
             <select @bind="_editing.CategoryId" style="width:100%; padding:.4rem;">
                 @foreach (var c in _categories)
@@ -79,10 +80,10 @@ else
                 @foreach (var v in _editing.Variants)
                 {
                     <tr>
-                        <td><input @bind="v.Sku" style="width:100%;" /></td>
-                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" /></td>
-                        <td><input @bind="v.Currency" style="width:4rem;" /></td>
-                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" /></td>
+                        <td><input @bind="v.Sku" style="width:100%;" title="Stock-keeping unit — your unique code for this variant." /></td>
+                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Price in minor units (cents): 1999 = €19.99." /></td>
+                        <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
+                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="Units available to sell for this variant." /></td>
                         <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
                     </tr>
                 }
@@ -96,8 +97,8 @@ else
             @for (var i = 0; i < _editing.ImageUrls.Count; i++)
             {
                 var idx = i;
-                <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
-                    <input @bind="_editing.ImageUrls[idx]" style="flex:1;" />
+                <div style="display:flex; gap:.3rem; margin-bottom:.3rem; align-items:center;">
+                    <div style="flex:1;"><ImageInput Value="_editing.ImageUrls[idx]" ValueChanged="@(v => _editing.ImageUrls[idx] = v ?? string.Empty)" /></div>
                     <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" style="color:#b91c1c;">✕</button>
                 </div>
             }
@@ -109,8 +110,8 @@ else
             @foreach (var a in _attributes)
             {
                 <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
-                    <input @bind="a.Key" placeholder="key" style="width:10rem;" />
-                    <input @bind="a.Value" placeholder="value" style="flex:1;" />
+                    <input @bind="a.Key" placeholder="key" style="width:10rem;" title="Attribute name (e.g. colour, size). Used for storefront filtering." />
+                    <input @bind="a.Value" placeholder="value" style="flex:1;" title="Attribute value (e.g. black, large)." />
                     <button @onclick="() => _attributes.Remove(a)" style="color:#b91c1c;">✕</button>
                 </div>
             }
@@ -227,7 +228,7 @@ else
         _error = null;
     }
 
-    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock);
+    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
 
     public sealed class ProductEditor

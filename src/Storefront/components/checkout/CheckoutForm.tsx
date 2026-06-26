@@ -51,7 +51,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
             <input type="hidden" name="email" value={profile.email} />
           </>
         ) : (
-          <Field name="email" label="Email" type="email" autoComplete="email" required />
+          <Field name="email" label="Email" type="email" autoComplete="email" required title="We'll send your order confirmation here." />
         )}
       </section>
 
@@ -172,13 +172,13 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
 function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string }) {
   return (
     <div className="space-y-3">
-      <Field name={`${prefix}Name`} label="Full name" autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required />
-      <Field name={`${prefix}Line1`} label="Address" autoComplete="address-line1" defaultValue={defaults?.line1 ?? ""} required />
+      <Field name={`${prefix}Name`} label="Full name" autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title="Full name for delivery, as it should appear on the parcel." />
+      <Field name={`${prefix}Line1`} label="Address" autoComplete="address-line1" defaultValue={defaults?.line1 ?? ""} required title="Street address — number and street name." />
       <div className="grid grid-cols-2 gap-3">
-        <Field name={`${prefix}City`} label="City" autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required />
-        <Field name={`${prefix}Postcode`} label="Postcode" autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required />
+        <Field name={`${prefix}City`} label="City" autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title="Town or city for delivery." />
+        <Field name={`${prefix}Postcode`} label="Postcode" autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title="Postal/ZIP code — used to calculate shipping." />
       </div>
-      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required />
+      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." />
     </div>
   );
 }
@@ -212,7 +212,7 @@ function AddressSelect({ id, label, value, addresses, includeSame, onChange }: {
   );
 }
 
-function Field({ name, label, type = "text", autoComplete, maxLength, defaultValue, required = false }: {
+function Field({ name, label, type = "text", autoComplete, maxLength, defaultValue, required = false, title }: {
   name: string;
   label: string;
   type?: string;
@@ -220,6 +220,7 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
   maxLength?: number;
   defaultValue?: string;
   required?: boolean;
+  title?: string;
 }) {
   return (
     <div>
@@ -232,6 +233,7 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
         autoComplete={autoComplete}
         maxLength={maxLength}
         defaultValue={defaultValue}
+        title={title}
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
       />
     </div>

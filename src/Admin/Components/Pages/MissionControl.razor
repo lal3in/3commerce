@@ -1,70 +1,109 @@
 @page "/mission-control"
 @attribute [Authorize(Roles = "admin")]
 @inject IConfiguration Config
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
 
-<h1>Mission control</h1>
-<p style="color:#6b7280;">Operator console (mt6_14). All views are permission-gated (admin) and read-only;
-data comes via owning-service APIs and the Audit projection — never by reading service DBs directly.</p>
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">Mission control</h1>
+    <span style="color:#6b7280; font-size:.85rem;">cross-service ops · read-only</span>
+    <span style="flex:1;"></span>
+    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">↻ Refresh</button>
+</div>
+<p style="color:#6b7280;">Activity comes from the central Audit projection; jobs from the Workflow service. Data is via owning-service APIs only — never by reading service DBs directly (mt6_14).</p>
 
-<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1rem;">
-
-    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
-        <h2 style="margin-top:0;">Message bus</h2>
-        <p style="color:#6b7280;">Live RabbitMQ management stats and a searchable event timeline from the
-        MassTransit wiretap (feeding the Audit store).</p>
-        <table style="width:100%; border-collapse:collapse;">
-            <tbody>
-                <tr><td>Queue depth</td><td style="text-align:right;">@Pending</td></tr>
-                <tr><td>Publish / deliver rate</td><td style="text-align:right;">@Pending</td></tr>
-                <tr><td>Consumers</td><td style="text-align:right;">@Pending</td></tr>
-                <tr><td>Dead-letter</td><td style="text-align:right;">@Pending</td></tr>
-            </tbody>
-        </table>
-        <p style="color:#9ca3af; font-size:.85rem;">Wiretap is never order/financial truth; payloads are
-        masked for secrets/PII.</p>
-    </section>
-
-    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
-        <h2 style="margin-top:0;">Service &amp; infra health</h2>
-        <table style="width:100%; border-collapse:collapse;">
-            <tbody>
-                @foreach (var service in Services)
-                {
-                    <tr style="border-top:1px solid #f3f4f6;">
-                        <td>@service</td>
-                        <td style="text-align:right; color:#9ca3af;">heartbeat @Pending</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        <p style="margin-bottom:0;"><a href="@GrafanaUrl" target="_blank" rel="noopener">Open Grafana — Services (RED)</a>
-        <span style="color:#9ca3af; font-size:.85rem;">(mt6_13 metrics: rate / p95 / 5xx per service)</span></p>
-    </section>
-
-    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
-        <h2 style="margin-top:0;">Accounts</h2>
-        <ul>
-            <li><NavLink href="/entities">People &amp; supplier directory</NavLink></li>
-            <li><NavLink href="/ledger">Ledger / financial accounts</NavLink></li>
-            <li><NavLink href="/orders">Orders</NavLink></li>
-        </ul>
-        <p style="color:#9ca3af; font-size:.85rem;">Customer directory view is pending an Identity admin surface.</p>
-    </section>
-
-    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem;">
-        <h2 style="margin-top:0;">Access control</h2>
-        <p><NavLink href="/rbac">Roles &amp; permissions</NavLink> — the dynamic RBAC console (PDP-enforced).</p>
-    </section>
-
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:1rem; margin:1rem 0;">
+    @KpiCard("Activity (24h)", _audit.Count(a => a.OccurredAt > DateTimeOffset.UtcNow.AddDays(-1)).ToString(), "#4f46e5")
+    @KpiCard("Audit events", _audit.Count.ToString(), "#0891b2")
+    @KpiCard("Job runs", _runs.Count.ToString(), "#059669")
+    @KpiCard("Failed jobs", _runs.Count(r => r.Status is "Failed").ToString(), _runs.Any(r => r.Status is "Failed") ? "#dc2626" : "#059669")
 </div>
 
-@code {
-    // Live broker/heartbeat/wiretap wiring is the deferred adoption; the console scaffold lays out the
-    // sections and links the working surfaces (Grafana, RBAC, Ledger, Entities).
-    private const string Pending = "—";
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.2rem;">
+    <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
+        <h2 style="margin-top:0;">Activity timeline</h2>
+        @if (_audit.Count == 0)
+        {
+            <p style="color:#9ca3af;">No audit activity yet. It appears as operators act (RBAC, supplier, entity changes…).</p>
+        }
+        else
+        {
+            <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+                <thead><tr><th style="text-align:left;">When</th><th style="text-align:left;">Actor</th><th style="text-align:left;">Action</th><th>Outcome</th></tr></thead>
+                <tbody>
+                @foreach (var a in _audit.Take(12))
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@a.OccurredAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                        <td>@(a.ActorRole ?? "—")</td>
+                        <td><code style="font-size:.78rem;">@a.Action</code> <span style="color:#9ca3af;">@a.ResourceType</span></td>
+                        <td style="text-align:center; @(a.Outcome == "Success" ? "color:#047857;" : "color:#b45309;")">@a.Outcome</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
 
-    private static readonly string[] Services =
-        ["identity", "catalog", "entity", "ordering", "payments", "fulfillment", "support"];
+    <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
+        <h2 style="margin-top:0;">Scheduled jobs</h2>
+        @if (_runs.Count == 0)
+        {
+            <p style="color:#9ca3af;">No job runs recorded yet (the Payments daily-journal job reports here).</p>
+        }
+        else
+        {
+            <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+                <thead><tr><th style="text-align:left;">Job</th><th style="text-align:left;">Status</th><th style="text-align:left;">Started</th></tr></thead>
+                <tbody>
+                @foreach (var r in _runs.Take(12))
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td><code style="font-size:.78rem;">@r.JobName</code></td>
+                        <td style="@(r.Status == "Failed" ? "color:#b91c1c;" : r.Status == "Succeeded" ? "color:#047857;" : "")">@r.Status @if (r.Error is not null) { <span title="@r.Error">⚠</span> }</td>
+                        <td>@r.StartedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+</div>
+
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
+    <h2 style="margin-top:0;">Consoles</h2>
+    <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
+        <a href="@GrafanaUrl" target="_blank" rel="noopener">📊 Grafana — Services (RED metrics)</a>
+        <NavLink href="/rbac">🔐 Roles &amp; permissions</NavLink>
+        <NavLink href="/entities">🏢 Entities &amp; suppliers</NavLink>
+        <NavLink href="/ledger">📒 Ledger</NavLink>
+        <NavLink href="/orders">🧾 Orders</NavLink>
+    </div>
+</section>
+
+@code {
+    private List<AuditDto> _audit = [];
+    private List<RunDto> _runs = [];
+    private string _tenant = "00000000-0000-0000-0000-000000000001";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _audit = await Gateway.GetListAsync<AuditDto>($"/api/audit/admin/audit?tenantId={_tenant}");
+        _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
+    }
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
+
+    private RenderFragment KpiCard(string label, string value, string color) => builder =>
+    {
+        builder.AddMarkupContent(0,
+            $"<div style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:.8rem 1rem;\">" +
+            $"<div style=\"font-size:.75rem; color:#6b7280; text-transform:uppercase;\">{label}</div>" +
+            $"<div style=\"font-size:1.5rem; font-weight:700;\">{value}</div></div>");
+    };
+
+    private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
+    private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
 }

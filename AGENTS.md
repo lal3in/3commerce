@@ -17,6 +17,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 - Prefer small, incremental changes over large rewrites.
 - Always provide verification steps (tests run, commands, expected output).
 - If a task references product scope/UX/requirements: consult PRD (see below) and produce a Working Brief before coding.
+- Track execution status in the canonical tracker `.ai-shared/plans/plan_status_executions.md` AS YOU WORK (start → in_progress, finish → done) — see the Rules entry. Don't park status only in todos/TaskCreate, and never spin up a side 'followups'/'notes' doc.
 
 ---
 
@@ -227,6 +228,8 @@ The following repository rules must always be followed:
 - New DB-owning service checklist (each item has bitten us): (1) `appsettings.json` + `Properties/launchSettings.json` with the service's DB connection, RabbitMq, InternalAuth dev key, and port (bare-run needs them — container config alone is not enough); (2) register the MassTransit outbox in `OnModelCreating` (`AddInboxStateEntity`/`AddOutboxMessageEntity`/`AddOutboxStateEntity`) or the service crash-loops at startup; (3) give each consumer a UNIQUE class name across services (the kebab queue name is derived from it — two `OrderConfirmedConsumer`s share one queue and compete); (4) add it to `scripts/lib/services.sh` + the non-derived lists above; (5) gateway route + cluster in both gateway appsettings; (6) `InitialCreate` migration. See ADR-0030.
 
 - Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
+
+- Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end.
 
 - Regression test list: whenever a test is added, removed, or renamed — a unit/integration test (`*Tests.cs`), or a live end-to-end user-journey — update `scripts/e2e-verify.sh` so it stays the complete regression command: add/adjust the matching check **and** its line in the COVERAGE CHECKLIST header comment. Automated tests belong in the `A*` group, live full-stack flows in the `L*` group. The script must continue to pass (`scripts/e2e-verify.sh` and `--live`) after the change.
 

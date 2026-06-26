@@ -3,21 +3,42 @@
 @inject GatewayClient Gateway
 @rendermode InteractiveServer
 
-<h1>Catalog imports</h1>
-<button disabled="@_busy" @onclick="RunImport">Run sample importer</button>
-@if (_runs is null) { <p>Loading…</p> }
+<div style="display:flex; align-items:center; gap:1rem;">
+    <h1 style="margin:0; flex:1;">Catalog imports</h1>
+    <a href="/catalog-import-template.csv" download
+       title="Download a catalog import template (CSV) with two example products as a reference for the expected format."
+       style="display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .7rem; border:1px solid #d1d5db; border-radius:6px; text-decoration:none; color:#111827; font-size:.9rem;">
+        <span style="font-size:1.1rem;">⬇</span> Import template
+    </a>
+</div>
+
+<button disabled="@_busy" @onclick="RunImport" style="margin-top:1rem; padding:.4rem .8rem;">Run sample importer</button>
+@if (_runs is null)
+{
+    <p>Loading…</p>
+}
 else
 {
     <table style="border-collapse:collapse;width:100%;margin-top:1rem;">
-        <thead><tr><th style="text-align:left;">Importer</th><th>Read</th><th>Accepted</th><th>Rejected</th></tr></thead>
+        <thead><tr>
+            <th style="text-align:left;">Importer</th><th style="text-align:left;">Date</th>
+            <th>Read</th><th>Accepted</th><th>Rejected</th>
+        </tr></thead>
         <tbody>
         @foreach (var r in _runs)
         {
-            <tr style="border-top:1px solid #e5e7eb;"><td>@r.Importer</td><td>@r.RowsRead</td><td>@r.Accepted</td><td>@r.Rejected</td></tr>
+            <tr style="border-top:1px solid #e5e7eb;">
+                <td>@r.Importer</td>
+                <td title="@r.StartedAt.ToString("u")">@r.StartedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")@(r.CompletedAt is null ? " (running…)" : "")</td>
+                <td style="text-align:center;">@r.RowsRead</td>
+                <td style="text-align:center;">@r.Accepted</td>
+                <td style="text-align:center; @(r.Rejected > 0 ? "color:#b45309;" : "")">@r.Rejected</td>
+            </tr>
         }
         </tbody>
     </table>
 }
+
 @code {
     private List<ImportRunDto>? _runs;
     private bool _busy;

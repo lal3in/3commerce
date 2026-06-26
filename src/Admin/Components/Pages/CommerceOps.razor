@@ -13,7 +13,7 @@
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
     <h2>Tenant context</h2>
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
-        <label>Tenant ID<br /><input @bind="_tenantId" style="width:24rem; padding:.4rem;" /></label>
+        <label>Tenant ID<br /><input @bind="_tenantId" style="width:24rem; padding:.4rem;" title="The tenant (legal operator) whose commerce config you are managing (GUID)." /></label>
         <button @onclick="LoadStorefronts" style="padding:.45rem .8rem;">Load storefronts</button>
     </div>
 </section>
@@ -30,9 +30,9 @@
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
     <h2>Storefronts</h2>
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
-        <label>Name<br /><input @bind="_newStorefrontName" style="padding:.4rem;" /></label>
+        <label>Name<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="Internal name for the new storefront." /></label>
         <label>Visibility<br />
-            <select @bind="_newVisibility" style="padding:.4rem;">
+            <select @bind="_newVisibility" style="padding:.4rem;" title="Who can see the storefront: Public (live) or Private (draft).">
                 <option value="1">Private</option>
                 <option value="2">Password</option>
                 <option value="3">Invite only</option>
@@ -81,8 +81,8 @@
     <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
         <h2>Manage @_selectedStorefront.Name</h2>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
-            <label>Domain host<br /><input @bind="_domainHost" placeholder="shop.example.com" style="padding:.4rem;" /></label>
-            <label><input type="checkbox" @bind="_domainCanonical" /> Canonical</label>
+            <label>Domain host<br /><input @bind="_domainHost" placeholder="shop.example.com" style="padding:.4rem;" title="Domain to map to this storefront (host only, no https://)." /></label>
+            <label><input type="checkbox" @bind="_domainCanonical" title="The primary domain; others redirect to it (one canonical per storefront)." /> Canonical</label>
             <button @onclick="AddDomain">Add domain</button>
             <button @onclick="CheckReadiness">Check readiness</button>
         </div>
@@ -102,10 +102,10 @@
 
         <h3>Product publication</h3>
         <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:.5rem; align-items:end;">
-            <label>Product ID<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" /></label>
-            <label>SEO title<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" /></label>
+            <label>Product ID<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" title="The tenant product (GUID) to publish to this storefront." /></label>
+            <label>SEO title<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" title="Optional SEO title override for this product on this storefront." /></label>
             <label>Fulfillment<br />
-                <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;">
+                <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;" title="How this product is fulfilled on this storefront (warehouse, dropship, digital…).">
                     <option value="0">Unassigned (blocks publish)</option>
                     <option value="1">Dropship</option>
                     <option value="2">Own warehouse</option>
