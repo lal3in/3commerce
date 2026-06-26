@@ -1,10 +1,11 @@
+# syntax=docker/dockerfile:1
 # Build context must be the repo root (matches the service Dockerfiles):
 #   docker build -f src/Storefront/Dockerfile .
 # Produces a slim runner from Next.js standalone output (next.config: output "standalone").
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY src/Storefront/package.json src/Storefront/package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app
