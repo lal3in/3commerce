@@ -3,95 +3,226 @@
 @inject GatewayClient Gateway
 @rendermode InteractiveServer
 
-<h1>Roles & permissions</h1>
-<p>Platform-branded RBAC console. Role changes are enforced by the Identity/Authz PDP and re-evaluate active sessions.</p>
+<h1>Roles &amp; permissions</h1>
+<p style="color:#6b7280;">Roles are <strong>data</strong> — compose any subset of the code-defined permissions. Built-in roles are seeded per tenant; you can edit their permissions, duplicate them, or build a new role by cherry-picking. Changes are enforced by the Identity PDP and re-evaluate active sessions.</p>
 
-<label>
-    Tenant ID
-    <input @bind="tenantId" style="width:28rem;" />
-</label>
-<button @onclick="LoadAsync">Load</button>
+<div style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0 1rem;">
+    <label style="font-size:.85rem; color:#374151;">Tenant
+        <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="The tenant whose roles you are managing (GUID)." />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">Load</button>
+</div>
 
-@if (!string.IsNullOrEmpty(error))
+@if (_error is not null)
 {
-    <p style="color:#b91c1c;">@error</p>
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
 }
 
-<section style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:1rem;">
-    <div>
-        <h2>Roles</h2>
-        @if (roles.Count == 0)
+@if (_editing is null)
+{
+    <button @onclick="NewRole" style="padding:.4rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">+ New role</button>
+
+    @if (_roles.Count == 0)
+    {
+        <p style="margin-top:1rem;">No roles loaded for this tenant.</p>
+    }
+    else
+    {
+        <table style="border-collapse:collapse; width:100%; margin-top:1rem;">
+            <thead><tr>
+                <th style="text-align:left;">Role</th><th style="text-align:left;">Key</th>
+                <th>Type</th><th>Permissions</th><th></th>
+            </tr></thead>
+            <tbody>
+            @foreach (var r in _roles)
+            {
+                <tr style="border-top:1px solid #e5e7eb;">
+                    <td>@r.Name@if (!string.IsNullOrWhiteSpace(r.Description)) { <br /><span style="color:#6b7280; font-size:.8rem;">@r.Description</span> }</td>
+                    <td><code>@r.Key</code></td>
+                    <td style="text-align:center;">
+                        @if (r.IsSystem) { <span style="font-size:.75rem; background:#fee2e2; color:#b91c1c; padding:.1rem .4rem; border-radius:9px;">system</span> }
+                        else if (r.IsBuiltIn) { <span style="font-size:.75rem; background:#e0e7ff; color:#3730a3; padding:.1rem .4rem; border-radius:9px;">built-in</span> }
+                        else { <span style="font-size:.75rem; color:#6b7280;">custom</span> }
+                    </td>
+                    <td style="text-align:center;">@r.PermissionKeys.Count</td>
+                    <td style="text-align:right; white-space:nowrap;">
+                        <button @onclick="() => EditRole(r)" disabled="@r.IsSystem" title="@(r.IsSystem ? "System roles are platform-managed" : "Edit this role's permissions")" style="padding:.2rem .6rem;">Edit</button>
+                        <button @onclick="() => DuplicateRole(r)" style="padding:.2rem .6rem;" title="Create a new role pre-filled with this role's permissions">Duplicate</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+else
+{
+    <h2>@_editing.HeadingFor</h2>
+    <div style="display:flex; flex-direction:column; gap:.6rem; max-width:880px;">
+        <label>Name <input @bind="_editing.Name" style="width:100%; padding:.4rem;" title="Human-readable role name shown to operators." /></label>
+        <label>Key
+            <input @bind="_editing.Key" disabled="@(!_editing.IsNew)" style="width:100%; padding:.4rem;"
+                   title="Stable slug (lowercase, digits, hyphens). Set once at creation; can't change later." />
+            <span style="color:#6b7280; font-size:.8rem;">@(_editing.IsNew ? "lowercase, digits, hyphens" : "key is fixed after creation")</span>
+        </label>
+        <label>Description <input @bind="_editing.Description" style="width:100%; padding:.4rem;" title="Optional: what this role is for." /></label>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:.5rem 0;">Permissions <span style="color:#6b7280; font-size:.85rem;">(@_editing.Selected.Count selected)</span></h3>
+            <span style="font-size:.8rem; color:#6b7280;">Cherry-pick each permission ↓</span>
+        </div>
+
+        @foreach (var group in _grouped)
         {
-            <p>No roles loaded.</p>
-        }
-        else
-        {
-            <table>
-                <thead><tr><th>Name</th><th>Key</th><th>Permissions</th></tr></thead>
-                <tbody>
-                @foreach (var role in roles)
+            <fieldset style="border:1px solid #e5e7eb; border-radius:6px; padding:.5rem .7rem;">
+                <legend style="font-weight:600; text-transform:capitalize;">@group.Key.Replace('_', ' ')</legend>
+                @foreach (var p in group)
                 {
-                    <tr>
-                        <td>@role.Name</td>
-                        <td><code>@role.Key</code></td>
-                        <td>@role.PermissionKeys.Count</td>
-                    </tr>
+                    <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.25rem 0; cursor:pointer;">
+                        <input type="checkbox" checked="@_editing.Selected.Contains(p.Key)" @onchange="e => Toggle(p.Key, e)" style="margin-top:.2rem;" />
+                        <span>
+                            <code>@p.Key</code>
+                            <span style="@RiskStyle(p.RiskLevel); font-size:.7rem; padding:.05rem .35rem; border-radius:9px; margin-left:.3rem;">@RiskLabel(p.RiskLevel)</span>
+                            <br /><span style="color:#4b5563; font-size:.85rem;">@p.Description</span>
+                        </span>
+                    </label>
                 }
-                </tbody>
-            </table>
+            </fieldset>
         }
+
+        <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+            <button @onclick="Save" disabled="@_saving" style="padding:.4rem 1.1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? "Saving…" : "Save role")</button>
+            <button @onclick="() => _editing = null" style="padding:.4rem 1.1rem;">Cancel</button>
+        </div>
     </div>
-    <div>
-        <h2>Permission registry</h2>
-        @if (permissions.Count == 0)
-        {
-            <p>No permissions loaded.</p>
-        }
-        else
-        {
-            <table>
-                <thead><tr><th>Key</th><th>Risk</th></tr></thead>
-                <tbody>
-                @foreach (var permission in permissions)
-                {
-                    <tr>
-                        <td><code>@permission.Key</code></td>
-                        <td>@permission.RiskLevel</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        }
-    </div>
-</section>
+}
 
 @code {
-    private string tenantId = "00000000-0000-0000-0000-000000000001";
-    private string? error;
-    private List<RoleResponse> roles = [];
-    private List<PermissionResponse> permissions = [];
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string? _error;
+    private string? _status;
+    private bool _saving;
+    private List<RoleResponse> _roles = [];
+    private List<PermissionResponse> _permissions = [];
+    private List<IGrouping<string, PermissionResponse>> _grouped = [];
+    private RoleEditor? _editing;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
-        error = null;
-        if (!Guid.TryParse(tenantId, out _))
+        _error = _status = null;
+        if (!Guid.TryParse(_tenantId, out _))
         {
-            error = "Tenant ID must be a GUID.";
+            _error = "Tenant ID must be a GUID.";
             return;
         }
 
-        permissions = await Gateway.GetListAsync<PermissionResponse>("/api/identity/admin/rbac/permissions");
-        roles = await Gateway.GetListAsync<RoleResponse>($"/api/identity/admin/rbac/roles?tenantId={tenantId}");
+        _permissions = await Gateway.GetListAsync<PermissionResponse>("/api/identity/admin/rbac/permissions");
+        _grouped = _permissions.GroupBy(p => p.Key.Split('.')[0]).OrderBy(g => g.Key).ToList();
+        _roles = await Gateway.GetListAsync<RoleResponse>($"/api/identity/admin/rbac/roles?tenantId={_tenantId}");
     }
 
+    private void NewRole() => _editing = new RoleEditor { IsNew = true, Mode = "New" };
+
+    private void EditRole(RoleResponse r) => _editing = new RoleEditor
+    {
+        IsNew = false,
+        Mode = "Edit",
+        Id = r.Id,
+        Name = r.Name,
+        Key = r.Key,
+        Description = r.Description,
+        Selected = new HashSet<string>(r.PermissionKeys),
+    };
+
+    private void DuplicateRole(RoleResponse r) => _editing = new RoleEditor
+    {
+        IsNew = true,
+        Mode = "Duplicate",
+        Name = $"{r.Name} (copy)",
+        Key = $"{r.Key}-copy",
+        Description = r.Description,
+        Selected = new HashSet<string>(r.PermissionKeys),
+    };
+
+    private void Toggle(string key, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            _editing!.Selected.Add(key);
+        }
+        else
+        {
+            _editing!.Selected.Remove(key);
+        }
+    }
+
+    private async Task Save()
+    {
+        _error = _status = null;
+        _saving = true;
+        try
+        {
+            var perms = _editing!.Selected.ToList();
+            HttpResponseMessage response;
+            if (_editing.IsNew)
+            {
+                response = await Gateway.PostAsync("/api/identity/admin/rbac/roles",
+                    new { tenantId = Guid.Parse(_tenantId), key = _editing.Key, name = _editing.Name, description = _editing.Description, permissionKeys = perms });
+            }
+            else
+            {
+                response = await Gateway.PutAsync($"/api/identity/admin/rbac/roles/{_editing.Id}/permissions", new { permissionKeys = perms });
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                _status = $"Role '{_editing.Name}' saved.";
+                _editing = null;
+                await LoadAsync();
+            }
+            else
+            {
+                _error = $"Save failed: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string RiskLabel(int r) => r switch { 3 => "High", 2 => "Medium", _ => "Low" };
+
+    private static string RiskStyle(int r) => r switch
+    {
+        3 => "background:#fee2e2;color:#b91c1c;",
+        2 => "background:#fef3c7;color:#b45309;",
+        _ => "background:#dcfce7;color:#047857;",
+    };
+
     private sealed record PermissionResponse(string Key, string Description, int RiskLevel);
-    private sealed record RoleResponse(
-        Guid Id,
-        Guid? TenantId,
-        string Key,
-        string Name,
-        string? Description,
-        bool IsBuiltIn,
-        bool IsSystem,
-        IReadOnlyList<string> PermissionKeys);
+
+    private sealed record RoleResponse(Guid Id, Guid? TenantId, string Key, string Name, string? Description, bool IsBuiltIn, bool IsSystem, IReadOnlyList<string> PermissionKeys);
+
+    private sealed class RoleEditor
+    {
+        public bool IsNew { get; set; }
+        public string Mode { get; set; } = "New";
+        public Guid? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public HashSet<string> Selected { get; set; } = [];
+        public string HeadingFor => $"{Mode} role";
+    }
 }
