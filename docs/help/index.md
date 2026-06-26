@@ -51,6 +51,7 @@ Identity service via the gateway.
 | [Testing](./testing.md) | Running unit, integration (Testcontainers), and Playwright E2E (storefront + admin), the `scripts/e2e-verify.sh [--live]` regression script, and how CI runs everything. |
 | [Deployment](./deployment.md) | Current local-only deployment, Dockerfiles, configuration/secrets, and the honest state of production / k8s and the launch gates. |
 | [Platform services](./services.md) | The six new DB-owning services (Marketing, Pricing, Audit, Workflow, Entitlement, Usage) — what each owns, every endpoint, and use cases per option. |
+| [Users, roles & permissions](./roles-permissions.md) | Principal types, the gateway→claims→PDP/PEP pipeline, the six built-in roles, the 24 code-defined permissions with risk, and dynamic admin RBAC. |
 | [UI screens](./screens.md) | Live Playwright screenshots of every storefront + admin screen with its buttons and use cases. |
 | **Project analysis** | [project-analysis.html](./project-analysis.html) — detailed assessment: architecture, tech, best/worst, strengths vs drawbacks, trade-off comparisons, and the verdict (open in a browser). |
 
