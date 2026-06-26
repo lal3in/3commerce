@@ -10,8 +10,8 @@
     }
     <form action="/auth/login" method="post">
         <AntiforgeryToken />
-        <label>Email<input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0;" /></label>
-        <label>Password<input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0;" /></label>
+        <label>Email<input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="Your operator email. The admin console requires the 'admin' role." /></label>
+        <label>Password<input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="Your account password." /></label>
         <button type="submit" style="width:100%;padding:.6rem;background:#111827;color:#fff;border:0;border-radius:4px;margin-top:.5rem;">Sign in</button>
     </form>
 </div>
