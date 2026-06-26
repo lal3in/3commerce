@@ -4,6 +4,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Entity.Api.Endpoints;
 using ThreeCommerce.Entity.Infrastructure;
@@ -21,6 +22,7 @@ builder.Services.AddServiceBus<EntityDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<EntityDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddTenantContext();
 builder.Services.AddScoped<IAuditStore, EfAuditStore<EntityDbContext>>();
 builder.Services.AddScoped<AuditRecorder>();
 builder.Services.AddScoped<DuplicateDetectionService>();
@@ -38,6 +40,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseTenantScope<EntityDbContext>();
 app.MapServiceHealth();
 app.MapEntities();
 
