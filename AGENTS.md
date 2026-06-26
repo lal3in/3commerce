@@ -119,6 +119,7 @@ Run the tool first; hand-tail logs only when it points you somewhere.
 
 - `scripts/doctor.sh` — local env in one shot: infra containers, every service's `/health/ready`
   (manifest-driven), the frontends, and the last error lines from `.run/<svc>.log` for anything down.
+- `scripts/host-check.sh [--deep] [--logs] [target]` — full sweep of a host (containers, health, **RabbitMQ bus state**, infra logs, observability, compose, resources, Colima OOM log). Runs over local / SSH VPS / GCP (`scripts/lib/hosts.sh`), so the same diagnosis works on Hostinger/EC2/GCE/Azure; `--logs` adds CloudWatch/GCP/Azure managed logs.
 - `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
   `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
 
