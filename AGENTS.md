@@ -113,6 +113,29 @@ scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey
 
 ---
 
+## Debugging — where things log + one-shot triage
+
+Run the tool first; hand-tail logs only when it points you somewhere.
+
+- `scripts/doctor.sh` — local env in one shot: infra containers, every service's `/health/ready`
+  (manifest-driven), the frontends, and the last error lines from `.run/<svc>.log` for anything down.
+- `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
+  `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
+
+Log locations:
+
+| Where | How to read it |
+|---|---|
+| Bare-run services | `.run/<name>.log` (e.g. `.run/payments.log`) |
+| Storefront / admin | `/tmp/3c-storefront.log` · `/tmp/3c-admin.log` |
+| Containerized services | `docker compose logs <service>` |
+| CI job | `gh run view --job <id> --log` (or just `scripts/ci-logs.sh`) |
+| kind-deploy pod events | inside the **kind-deploy job log** (the "Diagnostics on failure" step) — NOT `docker logs` |
+
+Lesson from the field: **read the failing step's RAW log before tuning.** Cascading symptoms mislead —
+kind-deploy's real cause was `no space left on device`, not the probe timeouts it looked like; a
+compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match the fix to the first error.
+
 ## Project Structure
 
 ```
