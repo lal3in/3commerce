@@ -39,10 +39,12 @@
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
-#       /me requires claims, wrong password rejected, reset revokes sessions
+#       /me requires claims, wrong password rejected, reset revokes sessions;
+#       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests)
 #   A5b Integration · Tenant RLS: transaction-scoped SET LOCAL isolates rows, fails closed,
-#       no cross-scope leak, MasterGlobal bypass; Users FORCE-RLS proven as a non-superuser
-#       owner (tenant isolation / platform-scope introspection / fail-closed) (ADR-0024)
+#       no cross-scope leak, MasterGlobal bypass; Users + Entities FORCE-RLS proven as a
+#       non-superuser owner (tenant isolation / platform scope / fail-closed reads AND writes),
+#       via the per-request TenantScopeMiddleware (EntityRlsTests, IdentityUsersRlsTests) (ADR-0024)
 #   A6  Integration · Catalog: import ≥10k SKUs, exact search, typo fallback,
 #       filters, search + product-detail p95 < 500ms (NFR-5), hostile-input safety;
 #       admin catalog editor CRUD — create/edit variants+stock+images+attrs, slug

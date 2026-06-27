@@ -137,10 +137,10 @@
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
     <h2>Pricing, payment, payout, and Xero policy surfaces</h2>
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
-        <PolicyCard Title="Pricing & promotions" Body="SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Ordering. Admin mutation endpoints are scheduled after policy/audit wiring." />
-        <PolicyCard Title="Payment accounts" Body="Payments owns tenant defaults, storefront overrides, provider mode, readiness, live activation approval, and checkout snapshots. Use active eligible accounts only." />
-        <PolicyCard Title="Supplier payouts" Body="Payments owns masked/tokenized bank accounts, approval-protected payout instructions, payable policies, and balanced supplier payable accruals." />
-        <PolicyCard Title="Xero mappings" Body="Payments owns tenant default plus storefront/category/supplier/product mapping precedence. Xero remains downstream of ledger truth." />
+        <PolicyCard Title="Pricing & promotions" Body="SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Catalog Offers + Ordering. Per-product offers (price model + tiers) are editable via /api/catalog/admin/offers." Pending="offers admin UI pending" />
+        <PolicyCard Title="Payment accounts" Body="Payments owns tenant defaults, storefront overrides, provider mode, readiness, live activation approval, and checkout snapshots. Use active eligible accounts only." Pending="admin endpoints pending" />
+        <PolicyCard Title="Supplier payouts" Body="Payments owns masked/tokenized bank accounts, approval-protected payout instructions, payable policies, and balanced supplier payable accruals." Pending="admin endpoints pending" />
+        <PolicyCard Title="Xero mappings" Body="Payments owns tenant default plus storefront/category/supplier/product mapping precedence. Xero remains downstream of ledger truth. Sync runs + the daily journal are operable now." Link="/xero" LinkText="Open Xero sync" />
     </div>
 </section>
 
