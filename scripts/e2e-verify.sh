@@ -55,6 +55,7 @@
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
 #       duplicate webhook = one entry, refund reverses + ledger stays balanced;
 #       saga survives an Ordering-host outage mid-payment (NFR-2 chaos/BL-6);
+#       admin order cancel guard (confirmed→409 refund-instead, unknown→404);
 #       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;

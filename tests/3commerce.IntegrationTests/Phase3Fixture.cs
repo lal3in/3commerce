@@ -3,6 +3,8 @@ using MassTransit;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using ThreeCommerce.Ordering.Domain;
@@ -21,10 +23,29 @@ public sealed class Phase3Fixture : IAsyncLifetime
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17").Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4").Build();
     private readonly ECDsa _ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private readonly JsonWebTokenHandler _jwt = new();
     private IBusControl? _publishBus;
 
     public string RabbitMqUri { get; private set; } = string.Empty;
     private string PublicKeyPem => _ecdsa.ExportSubjectPublicKeyInfoPem();
+
+    /// <summary>Mints an internal-claims JWT (as the gateway would) so tests can call admin endpoints.</summary>
+    public string MintInternalClaims(Guid userId, string role) =>
+        _jwt.CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = "3commerce-gateway",
+            Audience = "3commerce-internal",
+            IssuedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddMinutes(5),
+            SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
+            Claims = new Dictionary<string, object>
+            {
+                ["sub"] = userId.ToString(),
+                ["role"] = role,
+                ["sid"] = Guid.NewGuid().ToString(),
+                ["tenant"] = "00000000-0000-0000-0000-000000000001",
+            },
+        });
 
     public WebApplicationFactory<ThreeCommerce.Ordering.Api.IApiMarker> Ordering { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Payments.Api.IApiMarker> Payments { get; private set; } = null!;

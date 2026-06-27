@@ -4,6 +4,17 @@
 @rendermode InteractiveServer
 
 <h1>Orders</h1>
+<p style="color:#6b7280;">Cancel an unpaid order (Pending/Awaiting payment), or refund a confirmed (paid) one. Refunds reverse the ledger; the order's own status stays Confirmed.</p>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
 @if (_orders is null)
 {
     <p>Loading…</p>
@@ -15,7 +26,7 @@ else if (_orders.Count == 0)
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">Order</th><th>Status</th><th>Total</th><th>Placed</th></tr></thead>
+        <thead><tr><th style="text-align:left;">Order</th><th>Status</th><th>Total</th><th>Placed</th><th>Actions</th></tr></thead>
         <tbody>
         @foreach (var o in _orders)
         {
@@ -24,6 +35,16 @@ else
                 <td>@o.Status</td>
                 <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
                 <td>@o.CreatedAt.LocalDateTime.ToString("g")</td>
+                <td>
+                    @if (o.Status is "Pending" or "AwaitingPayment")
+                    {
+                        <button @onclick="() => Cancel(o.Id)" title="Cancel this unpaid order (releases it).">@(_confirm == $"{o.Id}:cancel" ? "Confirm?" : "Cancel")</button>
+                    }
+                    else if (o.Status == "Confirmed")
+                    {
+                        <button @onclick="() => Refund(o)" title="Refund the full order total — reverses the ledger.">@(_confirm == $"{o.Id}:refund" ? "Confirm?" : "Refund")</button>
+                    }
+                </td>
             </tr>
         }
         </tbody>
@@ -32,7 +53,50 @@ else
 
 @code {
     private List<OrderDto>? _orders;
-    protected override async Task OnInitializedAsync() =>
+    private string? _status;
+    private string? _error;
+    private string? _confirm;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        _confirm = null;
         _orders = await Gateway.GetListAsync<OrderDto>("/api/ordering/admin/orders");
+    }
+
+    private async Task Cancel(Guid id)
+    {
+        if (_confirm != $"{id}:cancel") { _confirm = $"{id}:cancel"; return; }
+        _confirm = null;
+        var response = await Gateway.PostAsync($"/api/ordering/admin/orders/{id}/cancel", new { reason = "cancelled by admin" });
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Order cancelled.";
+            await LoadAsync();
+        }
+        else
+        {
+            _error = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private async Task Refund(OrderDto o)
+    {
+        if (_confirm != $"{o.Id}:refund") { _confirm = $"{o.Id}:refund"; return; }
+        _confirm = null;
+        var response = await Gateway.PostAsync("/api/payments/admin/refunds", new { orderId = o.Id, amountMinor = o.GrossMinor, reason = "refunded by admin" });
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Refund requested — the ledger will reverse.";
+            await LoadAsync();
+        }
+        else
+        {
+            _error = await response.Content.ReadAsStringAsync();
+        }
+    }
+
     public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
 }

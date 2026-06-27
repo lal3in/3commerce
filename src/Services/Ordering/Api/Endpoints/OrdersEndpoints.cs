@@ -1,7 +1,10 @@
 using System.Security.Claims;
+using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 
 namespace ThreeCommerce.Ordering.Api.Endpoints;
@@ -23,7 +26,32 @@ public static class OrdersEndpoints
             .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         admin.MapGet("/", ListAllOrders);
         admin.MapGet("/{id:guid}", GetAnyOrder);
+        admin.MapPost("/{id:guid}/cancel", CancelOrder);
         return app;
+    }
+
+    private static async Task<Results<Accepted, NotFound, Conflict<string>>> CancelOrder(
+        Guid id, CancelOrderRequest? request, OrderingDbContext db, IPublishEndpoint publisher, CancellationToken ct)
+    {
+        var order = await db.Orders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, ct);
+        if (order is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (order.Status == OrderStatus.Cancelled)
+        {
+            return TypedResults.Conflict("Order is already cancelled.");
+        }
+
+        if (order.Status == OrderStatus.Confirmed)
+        {
+            return TypedResults.Conflict("Confirmed (paid) orders can't be cancelled — issue a refund instead.");
+        }
+
+        // The OrderStatusConsumer transitions the (unpaid) order to Cancelled.
+        await publisher.Publish(new OrderCancelled(id, request?.Reason ?? "cancelled by admin"), ct);
+        return TypedResults.Accepted($"/admin/orders/{id}");
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListMyOrders(
@@ -93,3 +121,4 @@ public record OrderSummary(Guid Id, string Status, long GrossMinor, string Curre
 public record OrderLineResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
 public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
 public record OrderStatusResponse(Guid Id, string Status);
+public record CancelOrderRequest(string? Reason);
