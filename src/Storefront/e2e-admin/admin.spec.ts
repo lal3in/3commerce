@@ -35,7 +35,8 @@ test.describe("Admin console", () => {
     const row = page.locator("tr", { hasText: orderId });
     await expect(row).toBeVisible();
     await expect(row).toContainText("Requested");
-    await row.getByRole("button", { name: /approve/i }).click();
+    // "Approve & refund" specifically (the row now also offers "Approve (require return)").
+    await row.getByRole("button", { name: /approve & refund/i }).click();
 
     // The saga runs RefundRequested → refund → RefundIssued. Confirm via the API
     // (authoritative) and that the UI no longer offers Approve for that row.

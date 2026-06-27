@@ -23,8 +23,13 @@ else
                 <td>
                     @if (r.State == "Requested")
                     {
-                        <button disabled="@_busy" @onclick="() => Act(r.Id, ApproveAction)">Approve &amp; refund</button>
-                        <button disabled="@_busy" @onclick="() => Act(r.Id, DenyAction)">Deny</button>
+                        <button disabled="@_busy" @onclick="() => Approve(r.Id, false)" title="Refund now — no physical return required.">Approve &amp; refund</button>
+                        <button disabled="@_busy" @onclick="() => Approve(r.Id, true)" title="Approve, but require the item back before the refund is issued.">Approve (require return)</button>
+                        <button disabled="@_busy" @onclick="() => Post(r.Id, DenyAction, null)" title="Reject this return request.">Deny</button>
+                    }
+                    else if (r.State == "AwaitingReturn")
+                    {
+                        <button disabled="@_busy" @onclick="() => Post(r.Id, ReturnReceivedAction, _empty)" title="Mark the returned item received — this releases the refund.">Mark return received</button>
                     }
                 </td>
             </tr>
@@ -34,8 +39,9 @@ else
 }
 
 @code {
-    private const string ApproveAction = "approve";
     private const string DenyAction = "deny";
+    private const string ReturnReceivedAction = "return-received";
+    private static readonly object _empty = new();
     private List<RmaDto>? _rmas;
     private bool _busy;
 
@@ -43,10 +49,11 @@ else
 
     private async Task Refresh() => _rmas = await Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
 
-    private async Task Act(Guid id, string action)
+    private Task Approve(Guid id, bool requireReturn) => Post(id, "approve", new { requireReturn });
+
+    private async Task Post(Guid id, string action, object? body)
     {
         _busy = true; // disable buttons during the saga-triggering call (components.md §6)
-        var body = action == "approve" ? (object)new { requireReturn = false } : null;
         await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
         await Refresh();
         _busy = false;

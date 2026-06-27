@@ -20,6 +20,7 @@ public static class AdminRbacEndpoints
         group.MapGet("/roles", ListRoles);
         group.MapPost("/roles", CreateRole);
         group.MapPut("/roles/{id:guid}/permissions", SetRolePermissions);
+        group.MapDelete("/roles/{id:guid}", DeleteRole);
         group.MapPost("/memberships/{membershipId:guid}/roles/{roleId:guid}", AssignRole);
         group.MapDelete("/memberships/{membershipId:guid}/roles/{roleId:guid}", RemoveRole);
         group.MapGet("/principals/{principalId:guid}/effective-permissions", EffectivePermissions);
@@ -82,6 +83,18 @@ public static class AdminRbacEndpoints
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/admin/rbac/roles/{role.Id}", ToResponse(role));
     }
+
+    private static async Task<Results<NoContent, NotFound, Conflict<string>>> DeleteRole(
+        Guid id,
+        RbacManagementService rbac,
+        CancellationToken cancellationToken) =>
+        await rbac.DeleteRoleAsync(id, cancellationToken) switch
+        {
+            DeleteRoleResult.Deleted => TypedResults.NoContent(),
+            DeleteRoleResult.BuiltIn => TypedResults.Conflict("Built-in roles cannot be deleted."),
+            DeleteRoleResult.InUse => TypedResults.Conflict("Role is assigned to one or more members — remove those assignments first."),
+            _ => TypedResults.NotFound(),
+        };
 
     private static async Task<Results<Ok<RoleResponse>, NotFound, ValidationProblem>> SetRolePermissions(
         Guid id,
