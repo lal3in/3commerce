@@ -1,0 +1,276 @@
+@page "/supplier-payouts"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+@using System.Net.Http.Json
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">Supplier payouts</h1>
+    <span style="color:#6b7280; font-size:.85rem;">masked bank accounts · payout instructions</span>
+</div>
+<p style="color:#6b7280;">Create tokenized supplier bank accounts from your vault reference, approve or reject them, and create the active payout instruction for a supplier. Raw bank details must never be entered here.</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0; flex-wrap:wrap;">
+    <label>Tenant ID
+        <input @bind="_tenantId" title="The tenant whose supplier payout setup you are managing." style="width:23rem; display:block;" />
+    </label>
+    <label>Supplier entity ID
+        <input @bind="_supplierEntityId" title="Optional supplier entity filter; also used by the create forms." style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+</div>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
+@if (_bankAccounts is not null && _instructions is not null)
+{
+    <section style="margin-top:1rem;">
+        <h2 style="font-size:1.1rem;">Bank accounts</h2>
+        <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+            <thead>
+                <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                    <th style="padding:.4rem;">Account name</th><th>Country</th><th>Routing</th><th>Account</th><th>State</th><th>Reason</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var account in _bankAccounts)
+            {
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:.4rem;">@account.AccountName</td>
+                    <td>@account.BankCountry</td>
+                    <td><code style="font-size:.78rem;">@account.RoutingNumberMasked</code></td>
+                    <td><code style="font-size:.78rem;">@account.AccountNumberMasked</code></td>
+                    <td>@account.State</td>
+                    <td>@(account.ApprovalReason ?? "—")</td>
+                    <td style="white-space:nowrap;">
+                        @if (account.State == "PendingApproval")
+                        {
+                            <button @onclick='() => Decide(account.Id, "approve")' title="Approve this tokenized bank account.">Approve</button>
+                            <button @onclick='() => Decide(account.Id, "reject")' title="Reject this bank account." style="color:#b91c1c;">Reject</button>
+                        }
+                        @if (account.State != "Archived")
+                        {
+                            <button @onclick='() => Archive(account.Id)' title="Archive this bank account." style="color:#b91c1c;">Archive</button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        @if (_bankAccounts.Count == 0)
+        {
+            <p style="color:#9ca3af;">No supplier bank accounts found.</p>
+        }
+    </section>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:1rem; margin-top:1.5rem;">
+        <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1rem;">New bank account</h2>
+            <div style="display:flex; flex-direction:column; gap:.5rem;">
+                <label>Account name <input @bind="_newBank.AccountName" title="Masked display account holder/name from the vault/KYC system." style="width:100%;" /></label>
+                <label>Bank country <input @bind="_newBank.BankCountry" maxlength="2" title="ISO 3166-1 alpha-2 country code, e.g. AU." style="width:100%;" /></label>
+                <label>Routing masked <input @bind="_newBank.RoutingNumberMasked" title="Masked BSB/routing display value only." style="width:100%;" /></label>
+                <label>Account masked <input @bind="_newBank.AccountNumberMasked" title="Masked account display value only." style="width:100%;" /></label>
+                <label>Vault token ref <input @bind="_newBank.AccountTokenRef" title="Reference to the vaulted/tokenized account. Do not paste raw bank details." style="width:100%;" /></label>
+                <button @onclick="CreateBank" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create (Pending approval)</button>
+            </div>
+        </section>
+
+        <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1rem;">Payout instructions</h2>
+            <ul style="padding-left:1rem;">
+                @foreach (var instruction in _instructions)
+                {
+                    <li style="margin:.35rem 0;">
+                        <strong>@instruction.Cadence</strong> · bank <code>@Short(instruction.BankAccountId)</code> · @(instruction.Active ? "Active" : "Inactive")
+                        @if (instruction.Active)
+                        {
+                            <button @onclick='() => DeactivateInstruction(instruction.Id)' title="Deactivate this instruction." style="margin-left:.5rem;">Deactivate</button>
+                        }
+                    </li>
+                }
+            </ul>
+            @if (_instructions.Count == 0)
+            {
+                <p style="color:#9ca3af;">No payout instructions found.</p>
+            }
+            <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
+                <label>Approved bank account
+                    <select @bind="_newInstruction.BankAccountId" title="Only Active bank accounts can receive payout instructions." style="width:100%;">
+                        <option value="">Choose an active bank account</option>
+                        @foreach (var account in _bankAccounts.Where(a => a.State == "Active"))
+                        {
+                            <option value="@account.Id">@account.AccountName — @account.AccountNumberMasked</option>
+                        }
+                    </select>
+                </label>
+                <label>Cadence
+                    <select @bind="_newInstruction.Cadence" title="How often this supplier is paid." style="width:100%;">
+                        <option value="Manual">Manual</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Fortnightly">Fortnightly</option>
+                        <option value="Monthly">Monthly</option>
+                    </select>
+                </label>
+                <button @onclick="CreateInstruction" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create active instruction</button>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string _supplierEntityId = string.Empty;
+    private List<SupplierBankAccountDto>? _bankAccounts;
+    private List<PayoutInstructionDto>? _instructions;
+    private string? _status;
+    private string? _error;
+    private readonly NewBankAccount _newBank = new();
+    private readonly NewInstruction _newInstruction = new();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            var query = $"tenantId={Uri.EscapeDataString(_tenantId)}";
+            if (!string.IsNullOrWhiteSpace(_supplierEntityId))
+            {
+                query += $"&supplierEntityId={Uri.EscapeDataString(_supplierEntityId)}";
+            }
+
+            _bankAccounts = await Gateway.GetListAsync<SupplierBankAccountDto>($"/api/payments/admin/supplier-payouts/bank-accounts?{query}");
+            _instructions = await Gateway.GetListAsync<PayoutInstructionDto>($"/api/payments/admin/supplier-payouts/instructions?{query}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task CreateBank()
+    {
+        _error = _status = null;
+        if (!TryReadIds(out var tenant, out var supplier)) { return; }
+
+        var body = new
+        {
+            tenantId = tenant,
+            supplierEntityId = supplier,
+            accountName = _newBank.AccountName,
+            bankCountry = _newBank.BankCountry,
+            routingNumberMasked = _newBank.RoutingNumberMasked,
+            accountNumberMasked = _newBank.AccountNumberMasked,
+            accountTokenRef = _newBank.AccountTokenRef
+        };
+        var response = await Gateway.PostAsync("/api/payments/admin/supplier-payouts/bank-accounts", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Bank account created pending approval.";
+            _newBank.Reset();
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task Decide(Guid id, string action)
+    {
+        _error = _status = null;
+        var body = new { reason = _decisionReason };
+        var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/bank-accounts/{id}/{action}", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _status = $"Bank account {action}d.";
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task Archive(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/bank-accounts/{id}/archive");
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Bank account archived.";
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task CreateInstruction()
+    {
+        _error = _status = null;
+        if (!TryReadIds(out var tenant, out var supplier)) { return; }
+        if (!Guid.TryParse(_newInstruction.BankAccountId, out var bankAccountId))
+        {
+            _error = "Choose an active bank account.";
+            return;
+        }
+
+        var body = new { tenantId = tenant, supplierEntityId = supplier, bankAccountId, cadence = _newInstruction.Cadence };
+        var response = await Gateway.PostAsync("/api/payments/admin/supplier-payouts/instructions", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Payout instruction created.";
+            _newInstruction.Reset();
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task DeactivateInstruction(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/instructions/{id}/deactivate");
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Payout instruction deactivated.";
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private bool TryReadIds(out Guid tenant, out Guid supplier)
+    {
+        if (!Guid.TryParse(_tenantId, out tenant))
+        {
+            _error = "Tenant ID must be a valid GUID.";
+            supplier = default;
+            return false;
+        }
+        if (!Guid.TryParse(_supplierEntityId, out supplier))
+        {
+            _error = "Supplier entity ID must be a valid GUID.";
+            return false;
+        }
+        return true;
+    }
+
+    private const string _decisionReason = "approved by admin operator";
+    private static string Short(Guid id) => id.ToString()[..8];
+
+    private sealed class NewBankAccount
+    {
+        public string AccountName { get; set; } = string.Empty;
+        public string BankCountry { get; set; } = "AU";
+        public string RoutingNumberMasked { get; set; } = "***-***";
+        public string AccountNumberMasked { get; set; } = "******1234";
+        public string AccountTokenRef { get; set; } = string.Empty;
+        public void Reset() { AccountName = string.Empty; BankCountry = "AU"; RoutingNumberMasked = "***-***"; AccountNumberMasked = "******1234"; AccountTokenRef = string.Empty; }
+    }
+
+    private sealed class NewInstruction
+    {
+        public string BankAccountId { get; set; } = string.Empty;
+        public string Cadence { get; set; } = "Weekly";
+        public void Reset() { BankAccountId = string.Empty; Cadence = "Weekly"; }
+    }
+
+    private record SupplierBankAccountDto(Guid Id, Guid TenantId, Guid SupplierEntityId, string AccountName, string BankCountry, string RoutingNumberMasked, string AccountNumberMasked, string AccountTokenRef, string State, string? ApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? ApprovedAt);
+    private record PayoutInstructionDto(Guid Id, Guid TenantId, Guid SupplierEntityId, Guid BankAccountId, string Cadence, bool Active, DateTimeOffset CreatedAt);
+}

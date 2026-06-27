@@ -1,0 +1,157 @@
+@page "/offers"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Offers &amp; pricing</h1>
+<p style="color:#6b7280;">Manage Catalog Offers: product/variant × supplier supply profiles, fulfilment type, price model, billing period, priority, and active state.</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0; flex-wrap:wrap;">
+    <label>Tenant ID
+        <input @bind="_tenantId" title="Tenant owning these offers." style="width:23rem; display:block;" />
+    </label>
+    <label>Product ID filter
+        <input @bind="_productFilter" title="Optional product GUID filter." style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+</div>
+
+@if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+@if (_offers is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">Product</th><th>Variant</th><th>Supplier</th><th>Supply</th><th>Pricing</th><th>Price</th><th>Priority</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var offer in _offers)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;"><code>@Short(offer.ProductId)</code></td>
+                <td><code>@(offer.VariantId is null ? "—" : Short(offer.VariantId.Value))</code></td>
+                <td><code>@Short(offer.SupplierId)</code></td>
+                <td>@offer.SupplyCategory / @offer.FulfilmentType</td>
+                <td>@offer.PricingModel / @offer.BillingPeriod @TierSummary(offer)</td>
+                <td style="text-align:right;">@offer.PriceMinor @offer.Currency</td>
+                <td style="text-align:center;">@offer.Priority</td>
+                <td>@offer.Status</td>
+                <td style="white-space:nowrap;"><button @onclick="() => Edit(offer)">Edit</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_offers.Count == 0) { <p style="color:#9ca3af;">No offers found.</p> }
+
+    <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:900px; background:#fff;">
+        <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? "New offer" : "Edit offer")</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+            <label>Product ID <input @bind="_form.ProductId" disabled="@(_editingId is not null)" title="Product GUID this offer supplies." style="width:100%;" /></label>
+            <label>Variant ID <input @bind="_form.VariantId" disabled="@(_editingId is not null)" title="Optional variant GUID. Blank applies to the product." style="width:100%;" /></label>
+            <label>Supplier ID <input @bind="_form.SupplierId" disabled="@(_editingId is not null)" title="Supplier Entity GUID." style="width:100%;" /></label>
+            <label>Supply category
+                <select @bind="_form.SupplyCategory" disabled="@(_editingId is not null)" title="Physical/Digital/Service compatibility is enforced by Catalog." style="width:100%;"><option value="1">Physical</option><option value="2">Digital</option><option value="3">Service</option></select>
+            </label>
+            <label>Fulfilment type
+                <select @bind="_form.FulfilmentType" disabled="@(_editingId is not null)" title="How this offer is delivered/fulfilled." style="width:100%;"><option value="1">Dropship</option><option value="2">Warehouse</option><option value="3">DigitalDownload</option><option value="4">Subscription</option><option value="5">Usage</option><option value="6">ManualService</option></select>
+            </label>
+            <label>Price minor <input type="number" @bind="_form.PriceMinor" title="Price in minor units, e.g. 1999." style="width:100%;" /></label>
+            <label>Currency <CurrencySelect @bind-Value="_form.Currency" style="width:100%;" /></label>
+            <label>Priority <input type="number" @bind="_form.Priority" title="Lower priority is selected first." style="width:100%;" /></label>
+            <label>Pricing model
+                <select @bind="_form.PricingModel" title="Offer price model." style="width:100%;"><option value="1">OneTime</option><option value="2">Subscription</option><option value="3">UsageBased</option><option value="4">Tiered</option></select>
+            </label>
+            <label>Billing period
+                <select @bind="_form.BillingPeriod" title="Charge cadence." style="width:100%;"><option value="1">Once</option><option value="2">Monthly</option><option value="3">Yearly</option></select>
+            </label>
+            @if (_editingId is not null)
+            {
+                <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" /> Active</label>
+            }
+        </div>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>Graduated tiers</legend>
+            @foreach (var tier in _form.Tiers)
+            {
+                <div style="display:flex; gap:.4rem; margin-bottom:.35rem;">
+                    <label>From qty <input type="number" @bind="tier.FromQuantity" style="width:7rem;" /></label>
+                    <label>Unit price minor <input type="number" @bind="tier.UnitPriceMinor" style="width:10rem;" /></label>
+                    <button @onclick="() => _form.Tiers.Remove(tier)" style="color:#b91c1c;">✕</button>
+                </div>
+            }
+            <button @onclick="() => _form.Tiers.Add(new())">+ Add tier</button>
+        </fieldset>
+
+        <div style="margin-top:.8rem; display:flex; gap:.5rem;"><button @onclick="Save" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save offer</button><button @onclick="ResetForm">Clear</button></div>
+    </section>
+}
+
+@code {
+    private const string Base = "/api/catalog/admin/offers";
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string _productFilter = string.Empty;
+    private List<OfferDto>? _offers;
+    private string? _status;
+    private string? _error;
+    private Guid? _editingId;
+    private readonly OfferForm _form = new();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            var query = $"tenantId={Uri.EscapeDataString(_tenantId)}";
+            if (!string.IsNullOrWhiteSpace(_productFilter)) query += $"&productId={Uri.EscapeDataString(_productFilter)}";
+            _offers = await Gateway.GetListAsync<OfferDto>($"{Base}?{query}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Save()
+    {
+        _error = _status = null;
+        if (!Guid.TryParse(_tenantId, out var tenant)) { _error = "Tenant ID must be a valid GUID."; return; }
+        if (!Guid.TryParse(_form.ProductId, out var product)) { _error = "Product ID must be a valid GUID."; return; }
+        if (!Guid.TryParse(_form.SupplierId, out var supplier)) { _error = "Supplier ID must be a valid GUID."; return; }
+        Guid? variant = Guid.TryParse(_form.VariantId, out var parsedVariant) ? parsedVariant : null;
+        var tiers = _form.Tiers.Where(t => t.FromQuantity > 0).Select(t => new { t.FromQuantity, t.UnitPriceMinor }).ToList();
+
+        object body = _editingId is null
+            ? new { tenantId = tenant, productId = product, variantId = variant, supplierId = supplier, supplyCategory = _form.SupplyCategory, fulfilmentType = _form.FulfilmentType, priceMinor = _form.PriceMinor, currency = _form.Currency, priority = _form.Priority, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers }
+            : new { priceMinor = _form.PriceMinor, priority = _form.Priority, active = _form.Active, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers };
+        var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
+        if (response.IsSuccessStatusCode) { _status = "Offer saved."; ResetForm(); await LoadAsync(); }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private void Edit(OfferDto offer)
+    {
+        _editingId = offer.Id;
+        _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString();
+        _form.SupplyCategory = SupplyCategoryValue(offer.SupplyCategory); _form.FulfilmentType = FulfilmentTypeValue(offer.FulfilmentType); _form.PricingModel = PricingModelValue(offer.PricingModel); _form.BillingPeriod = BillingPeriodValue(offer.BillingPeriod);
+        _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active";
+        _form.Tiers.Clear(); foreach (var tier in offer.Tiers) _form.Tiers.Add(new TierForm { FromQuantity = tier.FromQuantity, UnitPriceMinor = tier.UnitPriceMinor });
+    }
+
+    private void ResetForm()
+    {
+        _editingId = null; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.Tiers.Clear();
+    }
+
+    private static int SupplyCategoryValue(string value) => value switch { "Physical" => 1, "Digital" => 2, "Service" => 3, _ => 1 };
+    private static int FulfilmentTypeValue(string value) => value switch { "Dropship" => 1, "Warehouse" => 2, "DigitalDownload" => 3, "Subscription" => 4, "Usage" => 5, "ManualService" => 6, _ => 2 };
+    private static int PricingModelValue(string value) => value switch { "OneTime" => 1, "Subscription" => 2, "UsageBased" => 3, "Tiered" => 4, _ => 1 };
+    private static int BillingPeriodValue(string value) => value switch { "Once" => 1, "Monthly" => 2, "Yearly" => 3, _ => 1 };
+    private static string Short(Guid id) => id.ToString()[..8];
+    private static string TierSummary(OfferDto offer) => offer.Tiers.Count == 0 ? string.Empty : $"({offer.Tiers.Count} tiers)";
+
+    private sealed class OfferForm { public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public List<TierForm> Tiers { get; } = []; }
+    private sealed class TierForm { public int FromQuantity { get; set; } = 1; public long UnitPriceMinor { get; set; } }
+    private record PriceTierDto(int FromQuantity, long UnitPriceMinor);
+    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers);
+}
