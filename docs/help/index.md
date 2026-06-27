@@ -35,8 +35,10 @@ Identity service via the gateway.
 > a product is sold via **Offers** `(product/variant × supplier) → supply type + price`,
 > and Fulfillment gains inventory + reservations + a movement ledger, carrier
 > integrations (Fake/AusPost/DHL + sandbox), shipping quotes (with expiry/revalidation),
-> and dropship supplier-order forwarding — all API surfaces today (`/api/fulfillment/*`,
-> `/api/catalog/admin/offers`), with operator UI to follow. See the ADRs
+> selected checkout shipping rates, and dropship supplier-order forwarding. Operator UI
+> now covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API
+> surfaces remain under `/api/fulfillment/*`, `/api/catalog/admin/offers`, and
+> `/api/payments/admin/*`. See the ADRs
 > (`docs/adr/0023`–`0028`) and the phase plans under `.ai-shared/plans/`. The
 > page-by-page guides below still describe the single-tenant MVP flows; the new
 > operator surfaces are summarized in [Admin operations](./admin-operations.md).

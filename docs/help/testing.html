@@ -119,7 +119,7 @@ npm run test:e2e:headed              <span class="cmt"># headed (debugging)</spa
         <h3 id="storefront-specs">Storefront specs (<code>e2e/</code>)</h3>
         <ul>
           <li><strong><code>browse.spec.ts</code></strong> — home shows featured + categories; search is typo-tolerant (<code>?q=hedphones</code> still returns headphones); header search navigates to results; product detail renders price/variants/add-to-cart.</li>
-          <li><strong><code>cart-checkout.spec.ts</code></strong> — add to cart and see it listed; <strong>full guest checkout end to end</strong> (fill the form → place order → confirmation → <strong>Complete test payment</strong> → "Thank you / order confirmed"); empty-cart state.</li>
+          <li><strong><code>cart-checkout.spec.ts</code></strong> — add to cart and see it listed; <strong>full guest checkout end to end</strong> (fill address → get/select shipping rate → authorize/place order → confirmation → <strong>Complete test payment</strong> → "Thank you / order confirmed"); empty-cart state.</li>
           <li><strong><code>auth.spec.ts</code></strong> — unauth <code>/account</code> redirects to login; register → log in → reach account; wrong password shows an error.</li>
         </ul>
 

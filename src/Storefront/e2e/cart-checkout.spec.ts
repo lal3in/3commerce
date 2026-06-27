@@ -31,7 +31,9 @@ test.describe("Cart & checkout", () => {
     await shipping.getByLabel("City").fill("Berlin");
     await shipping.getByLabel("Postcode").fill("10115");
     await shipping.getByLabel(/country/i).fill("DE");
-    await page.getByRole("button", { name: /place order/i }).click();
+    await page.getByRole("button", { name: /get shipping rates/i }).click();
+    await expect(page.getByText(/standard/i)).toBeVisible();
+    await page.getByRole("button", { name: /authorize & place order/i }).click();
 
     // Confirmation page: pending → complete the simulated payment → confirmed.
     await expect(page).toHaveURL(/\/checkout\/confirmation/);

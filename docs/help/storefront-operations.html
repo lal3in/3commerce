@@ -129,10 +129,12 @@
         <p>File: <code>app/checkout/page.tsx</code> + <code>components/checkout/CheckoutForm.tsx</code>. Guest checkout — email + shipping only, no account required (ADR-0013). If the cart is empty the page redirects to <code>/cart</code>.</p>
         <p>Steps:</p>
         <ol>
-          <li>The page shows an order summary (subtotal + item count, "+ shipping and tax, shown after you place the order").</li>
+          <li>The page shows an order summary (subtotal + item count) and tells the shopper to choose a shipping rate before authorization.</li>
           <li>Fill the form: <strong>Email</strong>, <strong>Full name</strong>, <strong>Address</strong>, <strong>City</strong>, <strong>Postcode</strong>, <strong>Country (2-letter)</strong> — all required.</li>
-          <li>Click <strong>Place order</strong> (button shows "Placing order…" while pending).</li>
-          <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email and shipping address (cart cookie forwarded).</li>
+          <li>Click <strong>Get shipping rates</strong>. The <code>quoteCheckoutShipping</code> Server Action calls <code>/api/fulfillment/shipping/quote</code> through the gateway with a default dev parcel and warehouse origin. The returned Fake/sandbox carrier rates are rendered as radio options.</li>
+          <li>Select a shipping method. The selected service, amount in minor units, and quote expiry are posted with checkout.</li>
+          <li>Click <strong>Authorize &amp; place order</strong> (button shows "Authorizing…" while pending).</li>
+          <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email, shipping address, and selected shipping quote (cart cookie forwarded). Ordering validates the selected amount/expiry and persists the shipping amount into the order totals.</li>
           <li>On success it redirects to <code>/checkout/confirmation?order=&lt;orderId&gt;</code>. On failure the form shows: "Checkout failed. Please review your cart and details."</li>
         </ol>
         <p>The backend creates the order, starts the checkout saga, and (in dev) issues a <strong>fake</strong> payment intent. The page does <strong>not</strong> collect card details — payment is completed on the confirmation page.</p>
@@ -185,10 +187,7 @@
           <li>The page calls <code>getProfile()</code> → <code>GET /api/identity/me</code>. If there is no valid session it <strong>redirects to <code>/login</code></strong> (the unauth case returns HTTP 307).</li>
           <li>Otherwise it shows <strong>Email</strong> and <strong>Email verified (Yes / Pending)</strong>, plus a <strong>Log out</strong> button.</li>
         </ol>
-        <div class="callout note">
-          <span class="mark">i</span>
-          <p><strong>Accurate state:</strong> the account page does <strong>not</strong> yet show order history or saved addresses — it literally says "Order history and addresses appear here as later phases land." (The Identity service does support saved addresses via <code>POST /api/identity/me/addresses</code>, but no storefront page surfaces them.)</p>
-        </div>
+        <p>The signed-in account page shows the customer profile, saved address book, saved cards, and order history. Each order row links to <code>/orders/&lt;id&gt;/support</code> for support/RMA requests.</p>
 
         <h2 id="order-support">10. Order support — <code>/orders/[id]/support</code></h2>
         <p>Files: <code>app/orders/[id]/support/page.tsx</code> + <code>components/support/SupportForms.tsx</code>. The page renders two forms for a given order id (and shows a green "Your request was submitted…" banner when arriving with <code>?submitted=1</code>).</p>
@@ -221,7 +220,8 @@
             <tbody>
               <tr><td><code>addToCart</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/cart/items</code></td><td>Relays <code>3c_cart</code> cookie; revalidates <code>/cart</code>.</td></tr>
               <tr><td><code>removeFromCart</code> (<code>cart-actions.ts</code>)</td><td><code>DELETE /api/ordering/cart/items/&lt;id&gt;</code></td><td>Revalidates <code>/cart</code>.</td></tr>
-              <tr><td><code>submitCheckout</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/checkout</code></td><td>Redirects to confirmation.</td></tr>
+              <tr><td><code>quoteCheckoutShipping</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/fulfillment/shipping/quote</code></td><td>Fetches checkout shipping rates before authorization.</td></tr>
+              <tr><td><code>submitCheckout</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/checkout</code></td><td>Posts selected shipping quote + address; redirects to confirmation.</td></tr>
               <tr><td><code>login</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/login</code></td><td>Forwards <code>3c_session</code> cookie; redirects to <code>/account</code>.</td></tr>
               <tr><td><code>register</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/register</code></td><td>Redirects to <code>/login?registered=1</code>.</td></tr>
               <tr><td><code>logout</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/logout</code></td><td>Deletes cookie; redirects to <code>/</code>.</td></tr>

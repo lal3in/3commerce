@@ -117,15 +117,22 @@ cart is empty the page redirects to `/cart`.
 
 Steps:
 
-1. The page shows an order summary (subtotal + item count, "+ shipping and tax,
-   shown after you place the order").
+1. The page shows an order summary (subtotal + item count) and tells the shopper
+   to choose a shipping rate before authorization.
 2. Fill the form: **Email**, **Full name**, **Address**, **City**, **Postcode**,
    **Country (2-letter)** — all required.
-3. Click **Place order** (button shows "Placing order…" while pending).
-4. The `submitCheckout` Server Action (`lib/cart-actions.ts`) `POST`s to
-   `/api/ordering/checkout` with the email and shipping address (cart cookie
-   forwarded).
-5. On success it redirects to `/checkout/confirmation?order=<orderId>`.
+3. Click **Get shipping rates**. The `quoteCheckoutShipping` Server Action calls
+   `/api/fulfillment/shipping/quote` through the gateway with a default dev parcel
+   and warehouse origin. The returned Fake/sandbox carrier rates are rendered as
+   radio options.
+4. Select a shipping method. The selected service, amount in minor units, and
+   quote expiry are posted with checkout.
+5. Click **Authorize & place order** (button shows "Authorizing…" while pending).
+6. The `submitCheckout` Server Action (`lib/cart-actions.ts`) `POST`s to
+   `/api/ordering/checkout` with the email, shipping address, and selected shipping
+   quote (cart cookie forwarded). Ordering validates the selected amount/expiry and
+   persists the shipping amount into the order totals.
+7. On success it redirects to `/checkout/confirmation?order=<orderId>`.
    On failure the form shows: "Checkout failed. Please review your cart and details."
 
 The backend creates the order, starts the checkout saga, and (in dev) issues a
@@ -207,10 +214,9 @@ File: `app/account/page.tsx`. Dynamic, cookie-dependent, never cached.
 2. Otherwise it shows **Email** and **Email verified (Yes / Pending)**, plus a
    **Log out** button.
 
-> **Accurate state:** the account page does **not** yet show order history or saved
-> addresses — it literally says "Order history and addresses appear here as later
-> phases land." (The Identity service does support saved addresses via
-> `POST /api/identity/me/addresses`, but no storefront page surfaces them.)
+The signed-in account page shows the customer profile, saved address book,
+saved cards, and order history. Each order row links to `/orders/<id>/support`
+for support/RMA requests.
 
 ---
 
@@ -256,7 +262,8 @@ the same refund path used everywhere, balancing the double-entry ledger.
 |---------------|-------|-------|
 | `addToCart` (`cart-actions.ts`) | `POST /api/ordering/cart/items` | Relays `3c_cart` cookie; revalidates `/cart`. |
 | `removeFromCart` (`cart-actions.ts`) | `DELETE /api/ordering/cart/items/<id>` | Revalidates `/cart`. |
-| `submitCheckout` (`cart-actions.ts`) | `POST /api/ordering/checkout` | Redirects to confirmation. |
+| `quoteCheckoutShipping` (`cart-actions.ts`) | `POST /api/fulfillment/shipping/quote` | Fetches checkout shipping rates before authorization. |
+| `submitCheckout` (`cart-actions.ts`) | `POST /api/ordering/checkout` | Posts selected shipping quote + address; redirects to confirmation. |
 | `login` (`auth-actions.ts`) | `POST /api/identity/login` | Forwards `3c_session` cookie; redirects to `/account`. |
 | `register` (`auth-actions.ts`) | `POST /api/identity/register` | Redirects to `/login?registered=1`. |
 | `logout` (`auth-actions.ts`) | `POST /api/identity/logout` | Deletes cookie; redirects to `/`. |

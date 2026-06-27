@@ -90,8 +90,9 @@ npm run test:e2e:headed              # headed (debugging)
   (`?q=hedphones` still returns headphones); header search navigates to results;
   product detail renders price/variants/add-to-cart.
 - **`cart-checkout.spec.ts`** — add to cart and see it listed; **full guest checkout
-  end to end** (fill the form → place order → confirmation → **Complete test
-  payment** → "Thank you / order confirmed"); empty-cart state.
+  end to end** (fill address → get/select shipping rate → authorize/place order →
+  confirmation → **Complete test payment** → "Thank you / order confirmed");
+  empty-cart state.
 - **`auth.spec.ts`** — unauth `/account` redirects to login; register → log in →
   reach account; wrong password shows an error.
 
