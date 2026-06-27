@@ -1,0 +1,133 @@
+@page "/users"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+@using System.Net.Http.Json
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">Operator users</h1>
+    <span style="color:#6b7280; font-size:.85rem;">master admin · reset passwords &amp; change emails</span>
+</div>
+<p style="color:#6b7280;">Manage the accounts that sign in to a tenant. Resetting issues a one-time temporary password to read out; changing an email forces re-verification.</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
+    <label>Tenant ID
+        <input @bind="_tenantId" title="The tenant whose users you are managing." style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load users</button>
+</div>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
+@if (_users is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">Email</th><th>Role</th><th>Verified</th><th>Created</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var u in _users)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@u.Email</td>
+                <td><code style="font-size:.8rem;">@u.Role</code></td>
+                <td style="text-align:center;">@(u.EmailVerified ? "✓" : "—")</td>
+                <td>@u.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
+                <td>
+                    <button @onclick="() => ResetPassword(u.Id)" title="Issue a one-time temporary password." style="margin-right:.4rem;">Reset password</button>
+                    <button @onclick="() => ToggleEmail(u.Id)" title="Change this user's sign-in email.">Change email</button>
+                    @if (_resetFor == u.Id && _tempPassword is not null)
+                    {
+                        <div style="margin-top:.4rem; padding:.4rem .6rem; background:#fef9c3; border:1px solid #fde047; border-radius:6px;">
+                            Temporary password (read out once): <code style="user-select:all; font-weight:700;">@_tempPassword</code>
+                        </div>
+                    }
+                    @if (_emailFor == u.Id)
+                    {
+                        <div style="margin-top:.4rem; display:flex; gap:.4rem; align-items:center;">
+                            <input @bind="_newEmail" placeholder="new@email.com" title="The new sign-in email (must be unique in the tenant)." />
+                            <button @onclick="() => ChangeEmail(u.Id)">Save</button>
+                            <button @onclick="() => _emailFor = null">Cancel</button>
+                        </div>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_users.Count == 0)
+    {
+        <p style="color:#9ca3af;">No users in this tenant yet.</p>
+    }
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private List<AdminUserDto>? _users;
+    private string? _error;
+    private string? _status;
+    private Guid? _resetFor;
+    private string? _tempPassword;
+    private Guid? _emailFor;
+    private string _newEmail = string.Empty;
+
+    private async Task LoadAsync()
+    {
+        _error = _status = _tempPassword = null;
+        _resetFor = _emailFor = null;
+        try
+        {
+            _users = await Gateway.GetListAsync<AdminUserDto>($"/api/identity/admin/users?tenantId={Uri.EscapeDataString(_tenantId)}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task ResetPassword(Guid id)
+    {
+        _error = _status = _tempPassword = null;
+        _emailFor = null;
+        var response = await Gateway.PostAsync($"/api/identity/admin/users/{id}/reset-password?tenantId={Uri.EscapeDataString(_tenantId)}");
+        if (response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadFromJsonAsync<ResetPasswordResponse>();
+            _resetFor = id;
+            _tempPassword = body?.TemporaryPassword;
+        }
+        else { _error = $"Reset failed ({(int)response.StatusCode})."; }
+    }
+
+    private void ToggleEmail(Guid id)
+    {
+        _emailFor = _emailFor == id ? null : id;
+        _newEmail = string.Empty;
+        _tempPassword = null;
+    }
+
+    private async Task ChangeEmail(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.PutAsync($"/api/identity/admin/users/{id}/email?tenantId={Uri.EscapeDataString(_tenantId)}", new { email = _newEmail });
+        if (response.IsSuccessStatusCode)
+        {
+            _emailFor = null;
+            _status = "Email changed — the user must re-verify.";
+            await LoadAsync();
+        }
+        else
+        {
+            _error = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private record AdminUserDto(Guid Id, string Email, string Role, bool EmailVerified, string? GivenName, string? FamilyName, DateTimeOffset CreatedAt);
+    private record ResetPasswordResponse(string TemporaryPassword);
+}
