@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { submitCheckout, updateCartQuantity, type CheckoutState } from "@/lib/cart-actions";
+import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
 import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 
@@ -17,9 +17,29 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoting, startQuote] = useTransition();
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
   const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
+
+  const quoteShipping = (form: HTMLFormElement) => {
+    startQuote(async () => {
+      setQuoteError(null);
+      const result = await quoteCheckoutShipping(new FormData(form));
+      if (result.error) {
+        setShippingRates([]);
+        setSelectedRate(null);
+        setQuoteError(result.error);
+        return;
+      }
+      const rates = result.rates ?? [];
+      setShippingRates(rates);
+      setSelectedRate(rates[0] ?? null);
+    });
+  };
 
   return (
     <form action={action} className="space-y-6">
@@ -38,7 +58,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
         </ul>
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
           <Row label="Subtotal" value={formatMoney(cart.subtotalMinor, cart.currency)} />
-          <Row label="Shipping" value="Calculated after authorization" muted />
+          <Row label="Shipping" value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : "Choose a rate below"} muted={!selectedRate} />
           <Row label="Tax" value="Calculated after authorization" muted />
         </div>
       </section>
@@ -68,6 +88,44 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
           />
         )}
         <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} />
+      </section>
+
+      <section className="rounded-md border border-neutral-200 p-4 space-y-3">
+        <h2 className="font-medium">Shipping method</h2>
+        <button
+          type="button"
+          disabled={quoting}
+          onClick={(event) => quoteShipping(event.currentTarget.form!)}
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:opacity-50"
+        >
+          {quoting ? "Getting rates…" : "Get shipping rates"}
+        </button>
+        {quoteError && <p className="text-sm text-red-700">{quoteError}</p>}
+        {shippingRates.length > 0 && (
+          <div className="space-y-2">
+            {shippingRates.map((rate) => (
+              <label key={`${rate.carrier}:${rate.service}`} className="flex items-center justify-between gap-3 rounded border border-neutral-200 p-3 text-sm">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="shippingRateChoice"
+                    checked={selectedRate?.service === rate.service && selectedRate.carrier === rate.carrier}
+                    onChange={() => setSelectedRate(rate)}
+                  />
+                  <span>{rate.serviceName} · {rate.estimatedDays} day{rate.estimatedDays === 1 ? "" : "s"}</span>
+                </span>
+                <span>{formatMoney(rate.amountMinor, rate.currency)}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {selectedRate && (
+          <>
+            <input type="hidden" name="selectedShippingService" value={selectedRate.service} />
+            <input type="hidden" name="selectedShippingAmountMinor" value={selectedRate.amountMinor} />
+            <input type="hidden" name="selectedShippingExpiresAt" value={selectedRate.expiresAt} />
+          </>
+        )}
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">

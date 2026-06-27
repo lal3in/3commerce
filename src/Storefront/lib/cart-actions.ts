@@ -57,6 +57,34 @@ export async function removeFromCart(productId: string, variantId?: string | nul
 }
 
 export type CheckoutState = { error?: string };
+export type ShippingRate = { carrier: string; service: string; serviceName: string; amountMinor: number; currency: string; estimatedDays: number; expiresAt: string };
+
+export async function quoteCheckoutShipping(formData: FormData): Promise<{ rates?: ShippingRate[]; error?: string }> {
+  const destination = {
+    name: String(formData.get("shippingName") || "Checkout"),
+    line1: String(formData.get("shippingLine1") || ""),
+    city: String(formData.get("shippingCity") || ""),
+    postcode: String(formData.get("shippingPostcode") || ""),
+    country: String(formData.get("shippingCountry") || ""),
+  };
+  if (!destination.line1 || !destination.city || !destination.postcode || destination.country.length !== 2) {
+    return { error: "Enter a complete shipping address before getting rates." };
+  }
+
+  const response = await fetch(`${GATEWAY_URL}/api/fulfillment/shipping/quote`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      destination,
+      origin: { name: "3commerce warehouse", line1: "1 Warehouse Way", city: "Sydney", postcode: "2000", country: "AU" },
+      parcel: { weightGrams: 500, lengthMm: 200, widthMm: 150, heightMm: 100 },
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) return { error: "Could not retrieve shipping rates. Try again." };
+  const body = (await response.json()) as { rates: Omit<ShippingRate, "expiresAt">[]; expiresAt: string };
+  return { rates: body.rates.map((rate) => ({ ...rate, expiresAt: body.expiresAt })) };
+}
 
 export async function submitCheckout(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {
   const headers = await cartHeaders();
@@ -75,6 +103,9 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
       postcode: String(formData.get("shippingPostcode") || formData.get("postcode") || ""),
       country: String(formData.get("shippingCountry") || formData.get("country") || ""),
     },
+    selectedShippingService: String(formData.get("selectedShippingService") || "") || null,
+    selectedShippingAmountMinor: Number(formData.get("selectedShippingAmountMinor") || "") || null,
+    selectedShippingExpiresAt: String(formData.get("selectedShippingExpiresAt") || "") || null,
   };
   const response = await fetch(`${GATEWAY_URL}/api/ordering/checkout`, {
     method: "POST",

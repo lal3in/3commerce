@@ -67,8 +67,9 @@
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
 #       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/
-#       StarTrack/Pack&Send) + default-parcel fallback + revalidation, dropship auto-forward,
-#       packages/labels/tracking, manual restock, order holds (auto inventory hold → release → fulfil)
+#       StarTrack/Pack&Send) + default-parcel fallback + selected checkout shipping amount,
+#       revalidation, dropship auto-forward, packages/labels/tracking, manual restock,
+#       order holds (auto inventory hold → release → fulfil)
 #   A6g Integration · Phase 7 digital supply & billing: a digital line issues an entitlement (no
 #       shipment) and a mixed order ships physical + entitles digital; a recurring line sets up a
 #       subscription that renews (charge via the rail) + cancels; usage metering rolls records into

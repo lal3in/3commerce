@@ -62,13 +62,30 @@ public static class CheckoutEndpoints
         var currency = cart.Items[0].Currency;
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
         var discountMinor = 0L;
-        var netMinor = subtotal - discountMinor + FlatShippingMinor;
+        var shippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
+        if (shippingMinor < 0)
+        {
+            return TypedResults.BadRequest("Selected shipping amount cannot be negative.");
+        }
+
+        if (request.SelectedShippingAmountMinor is not null &&
+            (string.IsNullOrWhiteSpace(request.SelectedShippingService) || request.SelectedShippingExpiresAt is null))
+        {
+            return TypedResults.BadRequest("Selected shipping requires a service and expiry.");
+        }
+
+        if (request.SelectedShippingExpiresAt is { } expiresAt && expiresAt <= time.GetUtcNow())
+        {
+            return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
+        }
+
+        var netMinor = subtotal - discountMinor + shippingMinor;
 
         if (priceChanged)
         {
             await db.SaveChangesAsync(ct);
             return TypedResults.Conflict(new CheckoutResponse(
-                Guid.Empty, null, subtotal, discountMinor, FlatShippingMinor, 0, netMinor, currency, "Prices changed; review your cart."));
+                Guid.Empty, null, subtotal, discountMinor, shippingMinor, 0, netMinor, currency, "Prices changed; review your cart."));
         }
 
         var orderId = Guid.CreateVersion7();
@@ -106,7 +123,7 @@ public static class CheckoutEndpoints
             Email = request.Email,
             Status = CheckoutAttemptStatus.AwaitingPayment,
             NetMinor = subtotal,
-            ShippingMinor = FlatShippingMinor,
+            ShippingMinor = shippingMinor,
             DiscountMinor = discountMinor,
             TaxMinor = intent.TaxMinor,
             GrossMinor = intent.GrossMinor,
@@ -148,7 +165,7 @@ public static class CheckoutEndpoints
         await db.SaveChangesAsync(ct);
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
-            orderId, intent.ClientSecret, subtotal, discountMinor, FlatShippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
+            orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -167,6 +184,9 @@ public record CheckoutRequest(
     [property: Required] AddressRequest ShippingAddress,
     string? CampaignRef = null,
     Guid? SavedPaymentMethodId = null,
-    bool SavePaymentMethod = false);
+    bool SavePaymentMethod = false,
+    string? SelectedShippingService = null,
+    long? SelectedShippingAmountMinor = null,
+    DateTimeOffset? SelectedShippingExpiresAt = null);
 
 public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);

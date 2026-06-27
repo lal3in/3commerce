@@ -17,13 +17,22 @@ namespace ThreeCommerce.IntegrationTests;
 [Collection(Phase3Collection.Name)]
 public class MoneyFlowTests(Phase3Fixture fixture)
 {
-    private sealed record CheckoutResponseDto(Guid OrderId, string ClientSecret, long NetMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
+    private sealed record CheckoutResponseDto(Guid OrderId, string ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
     private sealed record StatusDto(Guid Id, string Status);
 
     private static object Checkout() => new
     {
         email = "buyer@example.com",
         shippingAddress = new { name = "B", line1 = "1 St", city = "Berlin", postcode = "10115", country = "DE" },
+    };
+
+    private static object CheckoutWithShipping(long amountMinor) => new
+    {
+        email = "buyer@example.com",
+        shippingAddress = new { name = "B", line1 = "1 St", city = "Berlin", postcode = "10115", country = "DE" },
+        selectedShippingService = "fake-standard",
+        selectedShippingAmountMinor = amountMinor,
+        selectedShippingExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30),
     };
 
     [Fact]
@@ -52,6 +61,20 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
 
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Checkout_uses_the_selected_shipping_quote_amount()
+    {
+        var productId = await fixture.SeedProductAsync(10_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(1_234))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(1_234, order.ShippingMinor);
+        Assert.Equal(11_234, order.GrossMinor);
     }
 
     [Fact]

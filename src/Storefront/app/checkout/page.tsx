@@ -23,7 +23,7 @@ export default async function CheckoutPage() {
           <span>Subtotal ({cart.items.length} item{cart.items.length === 1 ? "" : "s"})</span>
           <span>{formatMoney(cart.subtotalMinor, cart.currency)}</span>
         </div>
-        <p className="mt-1 text-neutral-500">+ shipping and tax, shown after you place the order.</p>
+        <p className="mt-1 text-neutral-500">Choose a shipping rate before authorization; tax is shown after payment authorization.</p>
       </div>
       <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} />
     </div>
