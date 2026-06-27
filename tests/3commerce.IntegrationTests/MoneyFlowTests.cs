@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -94,6 +95,36 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         await WaitForRefundAsync(order.OrderId);
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Admin_cannot_cancel_a_confirmed_order_and_must_refund_instead()
+    {
+        var productId = await fixture.SeedProductAsync(5_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        using var admin = AdminOrderingClient();
+        var response = await admin.PostAsJsonAsync($"/admin/orders/{order.OrderId}/cancel", new { reason = "test" });
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_cancelling_an_unknown_order_is_not_found()
+    {
+        using var admin = AdminOrderingClient();
+        var response = await admin.PostAsJsonAsync($"/admin/orders/{Guid.NewGuid()}/cancel", new { reason = "test" });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private System.Net.Http.HttpClient AdminOrderingClient()
+    {
+        var client = fixture.Ordering.CreateClient();
+        client.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.CreateVersion7(), "admin"));
+        return client;
     }
 
     [Fact]
