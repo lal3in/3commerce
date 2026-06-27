@@ -38,8 +38,22 @@ antiforgery → authentication → authorization**.
   clonable. Changes are enforced by the Identity/Authz **PDP** and re-evaluate
   active sessions (ADR-0025).
 - **Commerce ops** (`/commerce-ops`, `Components/Pages/CommerceOps.razor`) —
-  storefront lifecycle, domains, and product-publication operations, plus
-  payment/pricing policy summaries (Phase 3: storefront/catalog/pricing/payments).
+  storefront lifecycle, domains, and product-publication operations, plus links into
+  the now-actionable payment/pricing setup pages.
+- **Offers & pricing** (`/offers`, `Components/Pages/Offers.razor`) — Catalog Offer
+  CRUD for `(product/variant × supplier)` supply profiles: supply category,
+  fulfilment type, price, pricing model, billing period, tiers, priority, and active
+  state.
+- **Payment accounts** (`/payment-accounts`, `Components/Pages/PaymentAccounts.razor`) —
+  Payments-owned tenant/storefront payment accounts: create Draft accounts, submit,
+  readiness-gated activate, suspend, and archive.
+- **Supplier payouts** (`/supplier-payouts`, `Components/Pages/SupplierPayouts.razor`) —
+  tokenized/masked supplier bank account setup (approve/reject/archive) and active
+  payout instructions. Raw bank details are never entered; only vault token refs and
+  masked display values are stored.
+- **Xero mappings** (`/xero-mappings`, `Components/Pages/XeroMappings.razor`) —
+  ledger-account to Xero-account mapping CRUD with tenant-default, storefront,
+  category, supplier, and product override precedence.
 - **Supplier Portal** (separate app, `:5300`) — suppliers sign in to view
   readiness, upload stock feeds, and raise user/contact/bank **change requests**
   that operators approve here.
@@ -54,10 +68,12 @@ or metered — the **Offer** carries the price model, and confirmation issues th
 artifact. These operator surfaces are HTTP today (admin app screens follow); see
 `docs/api/api_contracts_index.md` for the full contracts.
 
-- **Price models on offers** — `PUT /api/catalog/admin/offers/{id}` sets `pricing_model`
-  (`OneTime`/`Subscription`/`UsageBased`/`Tiered`), `billing_period` (`Once`/`Monthly`/
-  `Yearly`), and graduated `tiers` (`from_quantity` → `unit_price`). `PriceFor(qty)` rates
-  flat or per-tier-block; subscriptions price per period.
+- **Price models on offers** — the `/offers` admin page uses `POST/PUT
+  /api/catalog/admin/offers[/{id}]` to create/update supply profiles and set
+  `pricing_model` (`OneTime`/`Subscription`/`UsageBased`/`Tiered`), `billing_period`
+  (`Once`/`Monthly`/`Yearly`), and graduated `tiers` (`from_quantity` →
+  `unit_price`). `PriceFor(qty)` rates flat or per-tier-block; subscriptions price
+  per period.
 - **Entitlements** (`GET /api/fulfillment/admin/entitlements`) — a confirmed digital/service
   line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess)
   **instead of a shipment**. Filter by tenant / order / email.
@@ -110,17 +126,20 @@ local cookie, and returns to `/login`.
 File: `Components/Pages/Home.razor`. `[Authorize(Roles = "admin")]`. A landing page:
 "Welcome to the 3commerce operator console. Use the navigation to manage orders,
 RMAs, the ledger, and Xero sync." The left nav (`MainLayout.razor`) links to
-Dashboard, Orders, RMA queue, Ledger, Xero sync, Imports, plus **Log out**.
+Dashboard, Catalog, Offers & pricing, Orders, RMA queue, Ledger, Xero sync,
+Xero mappings, Imports, Roles & permissions, Operator users, Entities & suppliers,
+Commerce ops, Payment accounts, Supplier payouts, Mission control, plus **Log out**.
 
 ---
 
 ## 3. Orders — `/orders`
 
-File: `Components/Pages/Orders.razor`. **Placeholder/accurate state:** this screen
-is currently informational only — it explains that per-order detail (payment state,
-per-line fulfillment, tickets) is added "as those read endpoints land," and points
-operators to the Ledger and RMA queue for money operations. **No order list or
-order detail is rendered yet.**
+File: `Components/Pages/Orders.razor`. Lists orders from
+`GET /api/ordering/admin/orders` with **Order**, **Status**, **Total**, **Placed**,
+and actions. Operators can cancel unpaid/pending orders via
+`POST /api/ordering/admin/orders/<id>/cancel`; confirmed orders show a **Refund**
+action that calls the Payments admin refund path, preserving the single refund
+saga/ledger reversal.
 
 ---
 
@@ -219,8 +238,12 @@ Steps:
 | RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:false}`) · `.../deny` |
 | Ledger | `GET /api/payments/admin/ledger/entries` | — |
 | Xero sync | `GET /api/payments/admin/xero/sync-runs` | `POST /api/payments/admin/xero/sync/<date>` |
+| Xero mappings | `GET /api/payments/admin/xero/mappings?tenantId=...` | `POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]` |
 | Imports | `GET /api/catalog/admin/import-runs` | `POST /api/catalog/admin/import-runs` |
-| Orders | — (placeholder) | — |
+| Offers & pricing | `GET /api/catalog/admin/offers?tenantId=...` | `POST/PUT /api/catalog/admin/offers[/{id}]` |
+| Payment accounts | `GET /api/payments/admin/payment-accounts?tenantId=...` | `POST /api/payments/admin/payment-accounts` + lifecycle `submit/activate/suspend/archive` |
+| Supplier payouts | `GET /api/payments/admin/supplier-payouts/bank-accounts|instructions?tenantId=...` | bank-account `approve/reject/archive`; instruction create/deactivate |
+| Orders | `GET /api/ordering/admin/orders` | cancel unpaid orders; refund confirmed orders via Payments refund path |
 | Login | — | `POST /auth/login` → gateway `POST /api/identity/login` + admin-probe |
 
 Money-affecting POSTs send an `Idempotency-Key` header (RMA approve/deny) so

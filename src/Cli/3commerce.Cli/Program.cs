@@ -122,8 +122,8 @@ static int HandlePayment(string[] args, CliOptions options)
     var sub = args.FirstOrDefault();
     return sub switch
     {
-        "accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/payment-accounts (planned Admin API)", options),
-        "activate" => TenantScopedPlaceholder("POST /api/payments/admin/payment-accounts/<id>/activate (planned Admin API)", options),
+        "accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/payment-accounts", options),
+        "activate" => TenantScopedPlaceholder("POST /api/payments/admin/payment-accounts/<id>/activate", options),
         _ => Unknown($"payment {sub}"),
     };
 }
@@ -133,10 +133,10 @@ static int HandlePayout(string[] args, CliOptions options)
     var sub = args.FirstOrDefault();
     return sub switch
     {
-        "bank-accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/bank-accounts (planned Admin API)", options),
-        "approve-bank" => RequireReason(TenantScopedPlaceholder("POST /api/payments/admin/supplier-bank-accounts/<id>/approve (planned Admin API)", options), options),
-        "instructions" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/payout-instructions (planned Admin API)", options),
-        "policies" => TenantScopedPlaceholder("GET/POST /api/payments/admin/suppliers/<supplier>/payable-policies (planned Admin API)", options),
+        "bank-accounts" => TenantScopedPlaceholder("GET/POST /api/payments/admin/supplier-payouts/bank-accounts", options),
+        "approve-bank" => RequireReason(TenantScopedPlaceholder("POST /api/payments/admin/supplier-payouts/bank-accounts/<id>/approve", options), options),
+        "instructions" => TenantScopedPlaceholder("GET/POST /api/payments/admin/supplier-payouts/instructions", options),
+        "policies" => TenantScopedPlaceholder("GET/POST /api/payments/admin/supplier-payouts/policies (not implemented)", options),
         _ => Unknown($"payout {sub}"),
     };
 }
@@ -146,7 +146,7 @@ static int HandleXero(string[] args, CliOptions options)
     var sub = args.FirstOrDefault();
     return sub switch
     {
-        "mappings" => TenantScopedPlaceholder("GET/POST /api/payments/admin/xero/mappings (planned Admin API)", options),
+        "mappings" => TenantScopedPlaceholder("GET/POST/PUT/DELETE /api/payments/admin/xero/mappings", options),
         "sync" => TenantScopedPlaceholder("POST /api/payments/admin/xero/sync/<date>", options),
         _ => Unknown($"xero {sub}"),
     };

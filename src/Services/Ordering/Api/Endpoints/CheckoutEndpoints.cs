@@ -12,7 +12,7 @@ namespace ThreeCommerce.Ordering.Api.Endpoints;
 
 public static class CheckoutEndpoints
 {
-    /// <summary>Flat shipping for v1 (ADR-0015: no carrier rates yet). Minor units.</summary>
+    /// <summary>Fallback shipping for clients that have not selected a Fulfillment quote yet. Minor units.</summary>
     private const long FlatShippingMinor = 499;
 
     public static IEndpointRouteBuilder MapCheckout(this IEndpointRouteBuilder app)

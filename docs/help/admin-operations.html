@@ -68,7 +68,11 @@
         <ul>
           <li><strong>Entities &amp; suppliers</strong> (<code>/entities</code>) — list/create tenant party records, start supplier onboarding, and work the <strong>supplier change-request approval queue</strong> (approve/reject with maker-checker: the deciding operator must differ from the requester; a reason is required to reject). Backed by the <strong>Entity</strong> service.</li>
           <li><strong>Roles &amp; permissions</strong> (<code>/rbac</code>) — the dynamic RBAC console: the code-defined permission registry and the tenant's roles (seeded admin/ops/finance/support/merchandiser/customer), editable and clonable. Enforced by the Identity/Authz <strong>PDP</strong>; changes re-evaluate active sessions (ADR-0025).</li>
-          <li><strong>Commerce ops</strong> (<code>/commerce-ops</code>) — storefront lifecycle, domains, and product-publication operations, plus payment/pricing policy summaries (Phase 3).</li>
+          <li><strong>Commerce ops</strong> (<code>/commerce-ops</code>) — storefront lifecycle, domains, and product-publication operations, plus links into the now-actionable payment/pricing setup pages.</li>
+          <li><strong>Offers &amp; pricing</strong> (<code>/offers</code>) — Catalog Offer CRUD for <code>(product/variant × supplier)</code> supply profiles: supply category, fulfilment type, price, pricing model, billing period, tiers, priority, and active state.</li>
+          <li><strong>Payment accounts</strong> (<code>/payment-accounts</code>) — Payments-owned tenant/storefront payment accounts: create Draft accounts, submit, readiness-gated activate, suspend, and archive.</li>
+          <li><strong>Supplier payouts</strong> (<code>/supplier-payouts</code>) — tokenized/masked supplier bank account setup (approve/reject/archive) and active payout instructions. Raw bank details are never entered; only vault token refs and masked display values are stored.</li>
+          <li><strong>Xero mappings</strong> (<code>/xero-mappings</code>) — ledger-account to Xero-account mapping CRUD with tenant-default, storefront, category, supplier, and product override precedence.</li>
           <li><strong>Supplier Portal</strong> (separate app, <code>:5300</code>) — suppliers view readiness, upload stock feeds, and raise change requests that operators approve here.</li>
           <li><strong>CLI</strong> (<code>src/Cli</code>, <code>dotnet tool</code>) — the same operations from a terminal, Gateway-only, with explicit <code>--tenant</code>/<code>--storefront</code> scope (scaffolded; live calls follow once CLI auth lands).</li>
         </ul>
@@ -76,7 +80,7 @@
         <h3 id="digital-supply">Digital supply &amp; billing (Phase 7)</h3>
         <p>Composable supply (ADR-0028) lets one product be sold physical, digital, subscription, or metered — the <strong>Offer</strong> carries the price model, and confirmation issues the right artifact. These operator surfaces are HTTP today (admin app screens follow); see <code>docs/api/api_contracts_index.md</code> for the full contracts.</p>
         <ul>
-          <li><strong>Price models on offers</strong> — <code>PUT /api/catalog/admin/offers/{id}</code> sets <code>pricing_model</code> (OneTime/Subscription/UsageBased/Tiered), <code>billing_period</code> (Once/Monthly/Yearly), and graduated <code>tiers</code>. <code>PriceFor(qty)</code> rates flat or per-tier-block; subscriptions price per period.</li>
+          <li><strong>Price models on offers</strong> — the <code>/offers</code> admin page uses <code>POST/PUT /api/catalog/admin/offers[/{id}]</code> to create/update supply profiles and set <code>pricing_model</code> (OneTime/Subscription/UsageBased/Tiered), <code>billing_period</code> (Once/Monthly/Yearly), and graduated <code>tiers</code>. <code>PriceFor(qty)</code> rates flat or per-tier-block; subscriptions price per period.</li>
           <li><strong>Entitlements</strong> (<code>GET /api/fulfillment/admin/entitlements</code>) — a confirmed digital/service line issues an <code>Entitlement</code> (Subscription/License/Download/ApiAccess/ServiceAccess) <strong>instead of a shipment</strong>.</li>
           <li><strong>Subscriptions</strong> (<code>GET /api/payments/admin/subscriptions</code>, <code>POST …/{id}/renew|cancel</code>) — a recurring line sets one up on confirm (first period paid with the order). Renew charges the period via the rail and advances; a failed charge → <strong>PastDue</strong> (dunning); cancel ends it.</li>
           <li><strong>Usage metering</strong> (<code>POST /api/fulfillment/admin/usage/provision|record</code>, <code>…/balances/{id}/bill-overage</code>, <code>GET …/balances</code>) — provision an allowance + overage price, record append-only usage (the balance is kept incrementally; access is <strong>gated</strong> when overage is off and the allowance is spent), then bill the unbilled overage via the rail (idempotent).</li>
@@ -105,10 +109,10 @@
         <p>On error the login page shows: "Invalid credentials or not an admin account." <strong>Log out</strong> (the button in the main nav) posts to <code>/auth/logout</code>, signs out of the local cookie, and returns to <code>/login</code>.</p>
 
         <h2 id="dashboard">2. Dashboard — <code>/</code></h2>
-        <p>File: <code>Components/Pages/Home.razor</code>. <code>[Authorize(Roles = "admin")]</code>. A landing page: "Welcome to the 3commerce operator console. Use the navigation to manage orders, RMAs, the ledger, and Xero sync." The left nav (<code>MainLayout.razor</code>) links to Dashboard, Orders, RMA queue, Ledger, Xero sync, Imports, plus <strong>Log out</strong>.</p>
+        <p>File: <code>Components/Pages/Home.razor</code>. <code>[Authorize(Roles = "admin")]</code>. A landing page: "Welcome to the 3commerce operator console. Use the navigation to manage orders, RMAs, the ledger, and Xero sync." The left nav (<code>MainLayout.razor</code>) links to Dashboard, Catalog, Offers &amp; pricing, Orders, RMA queue, Ledger, Xero sync, Xero mappings, Imports, Roles &amp; permissions, Operator users, Entities &amp; suppliers, Commerce ops, Payment accounts, Supplier payouts, Mission control, plus <strong>Log out</strong>.</p>
 
         <h2 id="orders">3. Orders — <code>/orders</code></h2>
-        <p>File: <code>Components/Pages/Orders.razor</code>. <strong>Placeholder/accurate state:</strong> this screen is currently informational only — it explains that per-order detail (payment state, per-line fulfillment, tickets) is added "as those read endpoints land," and points operators to the Ledger and RMA queue for money operations. <strong>No order list or order detail is rendered yet.</strong></p>
+        <p>File: <code>Components/Pages/Orders.razor</code>. Lists orders from <code>GET /api/ordering/admin/orders</code> with <strong>Order</strong>, <strong>Status</strong>, <strong>Total</strong>, <strong>Placed</strong>, and actions. Operators can cancel unpaid/pending orders via <code>POST /api/ordering/admin/orders/&lt;id&gt;/cancel</code>; confirmed orders show a <strong>Refund</strong> action that calls the Payments admin refund path, preserving the single refund saga/ledger reversal.</p>
 
         <h2 id="rma-queue">4. RMA queue — <code>/rmas</code> (operator approve → refund)</h2>
         <p>File: <code>Components/Pages/RmaQueue.razor</code>. <code>InteractiveServer</code> render mode. This is the key operator money flow.</p>
@@ -171,8 +175,12 @@
               <tr><td>RMA queue</td><td><code>GET /api/support/admin/rmas</code></td><td><code>POST /api/support/admin/rmas/&lt;id&gt;/approve</code> (<code>{requireReturn:false}</code>) · <code>.../deny</code></td></tr>
               <tr><td>Ledger</td><td><code>GET /api/payments/admin/ledger/entries</code></td><td>—</td></tr>
               <tr><td>Xero sync</td><td><code>GET /api/payments/admin/xero/sync-runs</code></td><td><code>POST /api/payments/admin/xero/sync/&lt;date&gt;</code></td></tr>
+              <tr><td>Xero mappings</td><td><code>GET /api/payments/admin/xero/mappings?tenantId=...</code></td><td><code>POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]</code></td></tr>
               <tr><td>Imports</td><td><code>GET /api/catalog/admin/import-runs</code></td><td><code>POST /api/catalog/admin/import-runs</code></td></tr>
-              <tr><td>Orders</td><td>— (placeholder)</td><td>—</td></tr>
+              <tr><td>Offers &amp; pricing</td><td><code>GET /api/catalog/admin/offers?tenantId=...</code></td><td><code>POST/PUT /api/catalog/admin/offers[/{id}]</code></td></tr>
+              <tr><td>Payment accounts</td><td><code>GET /api/payments/admin/payment-accounts?tenantId=...</code></td><td><code>POST /api/payments/admin/payment-accounts</code> + lifecycle <code>submit/activate/suspend/archive</code></td></tr>
+              <tr><td>Supplier payouts</td><td><code>GET /api/payments/admin/supplier-payouts/bank-accounts|instructions?tenantId=...</code></td><td>bank-account <code>approve/reject/archive</code>; instruction create/deactivate</td></tr>
+              <tr><td>Orders</td><td><code>GET /api/ordering/admin/orders</code></td><td>cancel unpaid orders; refund confirmed orders via Payments refund path</td></tr>
               <tr><td>Login</td><td>—</td><td><code>POST /auth/login</code> → gateway <code>POST /api/identity/login</code> + admin-probe</td></tr>
             </tbody>
           </table>
