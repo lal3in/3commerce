@@ -52,6 +52,7 @@
                     <td style="text-align:right; white-space:nowrap;">
                         <button @onclick="() => EditRole(r)" disabled="@r.IsSystem" title="@(r.IsSystem ? "System roles are platform-managed" : "Edit this role's permissions")" style="padding:.2rem .6rem;">Edit</button>
                         <button @onclick="() => DuplicateRole(r)" style="padding:.2rem .6rem;" title="Create a new role pre-filled with this role's permissions">Duplicate</button>
+                        <button @onclick="() => DeleteRole(r)" disabled="@(r.IsBuiltIn || r.IsSystem)" title="@(r.IsBuiltIn || r.IsSystem ? "Built-in/system roles cannot be deleted" : "Delete this custom role")" style="padding:.2rem .6rem; color:#b91c1c;">@(_confirmingDelete == r.Id ? "Confirm?" : "Delete")</button>
                     </td>
                 </tr>
             }
@@ -110,6 +111,7 @@ else
     private List<PermissionResponse> _permissions = [];
     private List<IGrouping<string, PermissionResponse>> _grouped = [];
     private RoleEditor? _editing;
+    private Guid? _confirmingDelete;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -149,6 +151,28 @@ else
         Description = r.Description,
         Selected = new HashSet<string>(r.PermissionKeys),
     };
+
+    private async Task DeleteRole(RoleResponse r)
+    {
+        _error = _status = null;
+        if (_confirmingDelete != r.Id)
+        {
+            _confirmingDelete = r.Id; // first click arms the confirm
+            return;
+        }
+
+        _confirmingDelete = null;
+        var response = await Gateway.DeleteAsync($"/api/identity/admin/rbac/roles/{r.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            _status = $"Deleted role '{r.Name}'.";
+            await LoadAsync();
+        }
+        else
+        {
+            _error = await response.Content.ReadAsStringAsync();
+        }
+    }
 
     private void Toggle(string key, ChangeEventArgs e)
     {

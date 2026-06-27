@@ -20,6 +20,7 @@ public static class AdminRbacEndpoints
         group.MapGet("/roles", ListRoles);
         group.MapPost("/roles", CreateRole);
         group.MapPut("/roles/{id:guid}/permissions", SetRolePermissions);
+        group.MapDelete("/roles/{id:guid}", DeleteRole);
         group.MapPost("/memberships/{membershipId:guid}/roles/{roleId:guid}", AssignRole);
         group.MapDelete("/memberships/{membershipId:guid}/roles/{roleId:guid}", RemoveRole);
         group.MapGet("/principals/{principalId:guid}/effective-permissions", EffectivePermissions);
@@ -81,6 +82,33 @@ public static class AdminRbacEndpoints
         db.Roles.Add(role);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/admin/rbac/roles/{role.Id}", ToResponse(role));
+    }
+
+    private static async Task<Results<NoContent, NotFound, Conflict<string>>> DeleteRole(
+        Guid id,
+        IdentityDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var role = await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (role is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (role.IsBuiltIn)
+        {
+            return TypedResults.Conflict("Built-in roles cannot be deleted.");
+        }
+
+        var assignments = await db.MembershipRoles.CountAsync(mr => mr.RoleId == id, cancellationToken);
+        if (assignments > 0)
+        {
+            return TypedResults.Conflict($"Role is assigned to {assignments} member(s) — remove those assignments first.");
+        }
+
+        db.Roles.Remove(role);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<RoleResponse>, NotFound, ValidationProblem>> SetRolePermissions(
