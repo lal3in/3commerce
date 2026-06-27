@@ -50,6 +50,30 @@ public sealed class RbacManagementService(IdentityDbContext db)
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>Deletes a custom role. Refuses built-in roles and roles still assigned to members.</summary>
+    public async Task<DeleteRoleResult> DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        var role = await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.Id == roleId, cancellationToken);
+        if (role is null)
+        {
+            return DeleteRoleResult.NotFound;
+        }
+
+        if (role.IsBuiltIn)
+        {
+            return DeleteRoleResult.BuiltIn;
+        }
+
+        if (await db.MembershipRoles.AnyAsync(mr => mr.RoleId == roleId, cancellationToken))
+        {
+            return DeleteRoleResult.InUse;
+        }
+
+        db.Roles.Remove(role);
+        await db.SaveChangesAsync(cancellationToken);
+        return DeleteRoleResult.Deleted;
+    }
+
     private async Task InvalidatePrincipalsForRoleAsync(Guid roleId, CancellationToken cancellationToken)
     {
         var principalIds = await db.MembershipRoles
@@ -85,4 +109,12 @@ public sealed class RbacManagementService(IdentityDbContext db)
             principal.ClaimsVersion++;
         }
     }
+}
+
+public enum DeleteRoleResult
+{
+    Deleted,
+    NotFound,
+    BuiltIn,
+    InUse,
 }

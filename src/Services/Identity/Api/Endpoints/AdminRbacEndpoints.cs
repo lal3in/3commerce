@@ -86,30 +86,15 @@ public static class AdminRbacEndpoints
 
     private static async Task<Results<NoContent, NotFound, Conflict<string>>> DeleteRole(
         Guid id,
-        IdentityDbContext db,
-        CancellationToken cancellationToken)
-    {
-        var role = await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
-        if (role is null)
+        RbacManagementService rbac,
+        CancellationToken cancellationToken) =>
+        await rbac.DeleteRoleAsync(id, cancellationToken) switch
         {
-            return TypedResults.NotFound();
-        }
-
-        if (role.IsBuiltIn)
-        {
-            return TypedResults.Conflict("Built-in roles cannot be deleted.");
-        }
-
-        var assignments = await db.MembershipRoles.CountAsync(mr => mr.RoleId == id, cancellationToken);
-        if (assignments > 0)
-        {
-            return TypedResults.Conflict($"Role is assigned to {assignments} member(s) — remove those assignments first.");
-        }
-
-        db.Roles.Remove(role);
-        await db.SaveChangesAsync(cancellationToken);
-        return TypedResults.NoContent();
-    }
+            DeleteRoleResult.Deleted => TypedResults.NoContent(),
+            DeleteRoleResult.BuiltIn => TypedResults.Conflict("Built-in roles cannot be deleted."),
+            DeleteRoleResult.InUse => TypedResults.Conflict("Role is assigned to one or more members — remove those assignments first."),
+            _ => TypedResults.NotFound(),
+        };
 
     private static async Task<Results<Ok<RoleResponse>, NotFound, ValidationProblem>> SetRolePermissions(
         Guid id,
