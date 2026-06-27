@@ -162,10 +162,15 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
+| GET/POST | `/admin/payment-accounts` | admin | Tenant/storefront payment account lifecycle setup; readiness-gated activation |
+| GET/POST | `/admin/supplier-payouts/bank-accounts` | admin | Tokenized/masked supplier bank accounts; approve/reject/archive lifecycle |
+| GET/POST | `/admin/supplier-payouts/instructions` | admin | Active payout instruction routing per supplier; creating one deactivates prior active instructions |
+| POST | `/admin/supplier-payouts/bank-accounts/{id}/approve\|reject\|archive` · `/instructions/{id}/deactivate` | admin | Supplier payout setup lifecycle actions |
+| GET/POST/PUT/DELETE | `/admin/xero/mappings[/{id}]` | admin | Xero account mapping CRUD with tenant/storefront/category/supplier/product precedence |
 | GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
 | POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
 
-Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals. Xero mappings are model-ready with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution. Admin HTTP surface for managing these accounts is scheduled after RBAC field-level permissions are enforced.
+Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals; the admin API accepts only token refs and masked values, never raw bank details. Xero mappings are Payments-owned with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution and an admin CRUD surface.
 
 > `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 

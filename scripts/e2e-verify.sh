@@ -36,6 +36,8 @@
 #       payout instruction routing, supplier payable policy, balanced payable accrual,
 #       and Xero tenant/storefront/category/supplier/product mapping precedence;
 #       admin payment-account lifecycle endpoints (Draft→submit→activate, Live readiness guard — PaymentAccountAdminTests);
+#       admin supplier-payout setup endpoints (masked bank account approval + payout instruction — SupplierPayoutAdminTests);
+#       admin Xero mapping CRUD endpoints (XeroMappingAdminTests);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency

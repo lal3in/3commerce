@@ -73,6 +73,16 @@ public class SupplierBankAccount
             throw new SupplierPayableRuleException("Payout instructions require an approved active bank account.");
         }
     }
+
+    public void Archive()
+    {
+        if (State == SupplierBankAccountState.Archived)
+        {
+            throw new SupplierPayableRuleException("Bank account is already archived.");
+        }
+
+        State = SupplierBankAccountState.Archived;
+    }
 }
 
 public class PayoutInstruction

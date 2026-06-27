@@ -1,0 +1,108 @@
+@page "/xero-mappings"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+
+<h1>Xero mappings</h1>
+<p style="color:#6b7280;">Map ledger account codes to Xero account codes with tenant default, storefront, category, supplier, or product precedence.</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
+    <label>Tenant ID
+        <input @bind="_tenantId" title="The tenant whose Xero mappings you are managing." style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+</div>
+
+@if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+@if (_mappings is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">Ledger</th><th>Xero</th><th>Scope</th><th>Target</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody>
+        @foreach (var mapping in _mappings)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:.4rem;"><code>@mapping.LedgerAccountCode</code></td><td><code>@mapping.XeroAccountCode</code></td><td>@mapping.Scope</td><td>@Target(mapping)</td><td>@(mapping.Active ? "Yes" : "No")</td><td><button @onclick="() => Edit(mapping)">Edit</button> <button @onclick="() => Delete(mapping.Id)" style="color:#b91c1c;">Delete</button></td></tr>
+        }
+        </tbody>
+    </table>
+    @if (_mappings.Count == 0) { <p style="color:#9ca3af;">No Xero mappings yet.</p> }
+
+    <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:680px; background:#fff;">
+        <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? "New mapping" : "Edit mapping")</h2>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
+            <label>Ledger account <input @bind="_form.LedgerAccountCode" title="Payments ledger account code, e.g. revenue.sales." style="width:100%;" /></label>
+            <label>Xero account <input @bind="_form.XeroAccountCode" title="Xero account code." style="width:100%;" /></label>
+            <label>Scope
+                <select @bind="_form.Scope" title="More specific scopes win over tenant defaults." style="width:100%;">
+                    <option>TenantDefault</option><option>Storefront</option><option>Category</option><option>Supplier</option><option>Product</option>
+                </select>
+            </label>
+            <label>Target ID <input @bind="_form.TargetId" title="Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default." style="width:100%;" /></label>
+            <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" /> Active</label>
+        </div>
+        <div style="margin-top:.8rem; display:flex; gap:.5rem;">
+            <button @onclick="Save" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save mapping</button>
+            <button @onclick="ResetForm">Clear</button>
+        </div>
+    </section>
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private List<XeroAccountMappingDto>? _mappings;
+    private string? _status;
+    private string? _error;
+    private Guid? _editingId;
+    private readonly MappingForm _form = new();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try { _mappings = await Gateway.GetListAsync<XeroAccountMappingDto>($"/api/payments/admin/xero/mappings?tenantId={Uri.EscapeDataString(_tenantId)}"); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Save()
+    {
+        _error = _status = null;
+        if (!Guid.TryParse(_tenantId, out var tenant)) { _error = "Tenant ID must be a valid GUID."; return; }
+        Guid? target = Guid.TryParse(_form.TargetId, out var parsed) ? parsed : null;
+        var body = new { tenantId = tenant, scope = _form.Scope, storefrontId = _form.Scope == "Storefront" ? target : null, categoryId = _form.Scope == "Category" ? target : null, supplierEntityId = _form.Scope == "Supplier" ? target : null, productId = _form.Scope == "Product" ? target : null, ledgerAccountCode = _form.LedgerAccountCode, xeroAccountCode = _form.XeroAccountCode, active = _form.Active };
+        var response = _editingId is null
+            ? await Gateway.PostAsync("/api/payments/admin/xero/mappings", body)
+            : await Gateway.PutAsync($"/api/payments/admin/xero/mappings/{_editingId}", body);
+        if (response.IsSuccessStatusCode) { _status = "Xero mapping saved."; ResetForm(); await LoadAsync(); }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task Delete(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.DeleteAsync($"/api/payments/admin/xero/mappings/{id}");
+        if (response.IsSuccessStatusCode) { _status = "Xero mapping deleted."; await LoadAsync(); }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private void Edit(XeroAccountMappingDto mapping)
+    {
+        _editingId = mapping.Id;
+        _form.Scope = mapping.Scope;
+        _form.LedgerAccountCode = mapping.LedgerAccountCode;
+        _form.XeroAccountCode = mapping.XeroAccountCode;
+        _form.Active = mapping.Active;
+        _form.TargetId = (mapping.StorefrontId ?? mapping.CategoryId ?? mapping.SupplierEntityId ?? mapping.ProductId)?.ToString() ?? string.Empty;
+    }
+
+    private void ResetForm()
+    {
+        _editingId = null;
+        _form.Scope = "TenantDefault"; _form.TargetId = string.Empty; _form.LedgerAccountCode = string.Empty; _form.XeroAccountCode = string.Empty; _form.Active = true;
+    }
+
+    private static string Target(XeroAccountMappingDto m) => (m.StorefrontId ?? m.CategoryId ?? m.SupplierEntityId ?? m.ProductId)?.ToString() ?? "—";
+
+    private sealed class MappingForm { public string Scope { get; set; } = "TenantDefault"; public string TargetId { get; set; } = string.Empty; public string LedgerAccountCode { get; set; } = string.Empty; public string XeroAccountCode { get; set; } = string.Empty; public bool Active { get; set; } = true; }
+    private record XeroAccountMappingDto(Guid Id, Guid TenantId, string Scope, Guid? StorefrontId, Guid? CategoryId, Guid? SupplierEntityId, Guid? ProductId, string LedgerAccountCode, string XeroAccountCode, bool Active);
+}

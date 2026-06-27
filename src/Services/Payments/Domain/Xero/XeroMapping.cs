@@ -13,14 +13,14 @@ public class XeroAccountMapping
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
-    public XeroMappingScope Scope { get; init; }
-    public Guid? StorefrontId { get; init; }
-    public Guid? CategoryId { get; init; }
-    public Guid? SupplierEntityId { get; init; }
-    public Guid? ProductId { get; init; }
-    public required string LedgerAccountCode { get; init; }
-    public required string XeroAccountCode { get; init; }
-    public bool Active { get; init; } = true;
+    public XeroMappingScope Scope { get; set; }
+    public Guid? StorefrontId { get; set; }
+    public Guid? CategoryId { get; set; }
+    public Guid? SupplierEntityId { get; set; }
+    public Guid? ProductId { get; set; }
+    public required string LedgerAccountCode { get; set; }
+    public required string XeroAccountCode { get; set; }
+    public bool Active { get; set; } = true;
 
     public bool Matches(XeroMappingContext context, string ledgerAccountCode) =>
         Active && TenantId == context.TenantId && LedgerAccountCode == ledgerAccountCode && Scope switch
