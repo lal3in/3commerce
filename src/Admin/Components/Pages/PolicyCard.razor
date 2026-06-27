@@ -1,9 +1,24 @@
-<div style="border:1px solid #e5e7eb; border-radius:6px; padding:.8rem; background:#f9fafb;">
+<div style="border:1px solid #e5e7eb; border-radius:6px; padding:.8rem; background:#f9fafb; display:flex; flex-direction:column;">
     <h3 style="margin-top:0;">@Title</h3>
-    <p style="color:#4b5563;">@Body</p>
+    <p style="color:#4b5563; flex:1;">@Body</p>
+    @if (!string.IsNullOrEmpty(Link))
+    {
+        <a href="@Link" style="font-size:.85rem; font-weight:600;">@LinkText →</a>
+    }
+    else if (!string.IsNullOrEmpty(Pending))
+    {
+        <span style="font-size:.8rem; color:#b45309; background:#fef3c7; padding:.15rem .5rem; border-radius:9px; align-self:flex-start;">@Pending</span>
+    }
 </div>
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Body { get; set; } = string.Empty;
+
+    /// <summary>Optional: a working admin page that manages this surface (renders an action link).</summary>
+    [Parameter] public string? Link { get; set; }
+    [Parameter] public string LinkText { get; set; } = "Manage";
+
+    /// <summary>Optional: a short badge when the surface still needs backend endpoints.</summary>
+    [Parameter] public string? Pending { get; set; }
 }
