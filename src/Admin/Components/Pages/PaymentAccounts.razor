@@ -1,0 +1,150 @@
+@page "/payment-accounts"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode InteractiveServer
+@using System.Net.Http.Json
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">Payment accounts</h1>
+    <span style="color:#6b7280; font-size:.85rem;">tenant &amp; storefront accounts · lifecycle</span>
+</div>
+<p style="color:#6b7280;">Create an account (Draft), submit it for approval, then activate it (a Live account needs an external account reference). Suspend or archive as needed. Only active accounts are eligible at checkout.</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
+    <label>Tenant ID
+        <input @bind="_tenantId" title="The tenant whose payment accounts you are managing." style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+</div>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
+@if (_accounts is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">Name</th><th>Provider</th><th>Mode</th><th>State</th><th>Default</th><th>Ext. ref</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var a in _accounts)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@a.Name</td>
+                <td>@a.Provider</td>
+                <td>@a.Mode</td>
+                <td>@StateBadge(a.State)</td>
+                <td style="text-align:center;">@(a.IsDefaultForTenant ? "★" : "")</td>
+                <td><code style="font-size:.78rem;">@(a.ExternalAccountRef ?? "—")</code></td>
+                <td style="white-space:nowrap;">
+                    @if (a.State == "Draft")
+                    {
+                        <button @onclick='() => Act(a.Id, "submit")' title="Submit for approval.">Submit</button>
+                    }
+                    @if (a.State is "PendingApproval" or "Suspended")
+                    {
+                        <button @onclick='() => Act(a.Id, "activate")' title="Activate (checks readiness).">Activate</button>
+                    }
+                    @if (a.State == "Active")
+                    {
+                        <button @onclick='() => Act(a.Id, "suspend")' title="Suspend this account.">Suspend</button>
+                    }
+                    @if (a.State != "Archived")
+                    {
+                        <button @onclick='() => Act(a.Id, "archive")' title="Archive this account." style="color:#b91c1c;">Archive</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_accounts.Count == 0)
+    {
+        <p style="color:#9ca3af;">No payment accounts for this tenant yet.</p>
+    }
+
+    <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
+        <h2 style="margin-top:0; font-size:1.1rem;">New payment account</h2>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+            <label>Name <input @bind="_new.Name" title="A label for this account." style="width:100%;" /></label>
+            <label>Provider <input @bind="_new.Provider" title="Payment provider, e.g. stripe." style="width:100%;" /></label>
+            <label>Mode
+                <select @bind="_new.Mode" title="Test for sandbox, Live for real charges." style="width:100%;">
+                    <option value="Test">Test</option>
+                    <option value="Live">Live</option>
+                </select>
+            </label>
+            <label>External account ref <input @bind="_new.ExternalAccountRef" title="Provider account id — required to activate a Live account." style="width:100%;" /></label>
+            <label style="display:flex; gap:.4rem; align-items:center;">
+                <input type="checkbox" @bind="_new.IsDefaultForTenant" title="Use as the tenant default." /> Default for tenant
+            </label>
+            <button @onclick="Create" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create (Draft)</button>
+        </div>
+    </section>
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private List<PaymentAccountDto>? _accounts;
+    private string? _status;
+    private string? _error;
+    private readonly NewAccount _new = new();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            _accounts = await Gateway.GetListAsync<PaymentAccountDto>($"/api/payments/admin/payment-accounts?tenantId={Uri.EscapeDataString(_tenantId)}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Create()
+    {
+        _error = _status = null;
+        var body = new { tenantId = Guid.Parse(_tenantId), name = _new.Name, provider = _new.Provider, mode = _new.Mode, isDefaultForTenant = _new.IsDefaultForTenant, externalAccountRef = string.IsNullOrWhiteSpace(_new.ExternalAccountRef) ? null : _new.ExternalAccountRef };
+        var response = await Gateway.PostAsync("/api/payments/admin/payment-accounts", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Account created (Draft).";
+            _new.Reset();
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private async Task Act(Guid id, string action)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/payments/admin/payment-accounts/{id}/{action}");
+        if (response.IsSuccessStatusCode)
+        {
+            _status = $"Account {action}d.";
+            await LoadAsync();
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private static string StateBadge(string state) => state;
+
+    private sealed class NewAccount
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Provider { get; set; } = "stripe";
+        public string Mode { get; set; } = "Test";
+        public string? ExternalAccountRef { get; set; }
+        public bool IsDefaultForTenant { get; set; }
+        public void Reset() { Name = string.Empty; Provider = "stripe"; Mode = "Test"; ExternalAccountRef = null; IsDefaultForTenant = false; }
+    }
+
+    private record PaymentAccountDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Provider, string Mode, string State, bool IsDefaultForTenant, string? ExternalAccountRef, DateTimeOffset CreatedAt);
+}

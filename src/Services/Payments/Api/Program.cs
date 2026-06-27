@@ -76,6 +76,7 @@ app.MapServiceHealth();
 app.MapWebhooks();
 app.MapAdmin();
 app.MapAdminXero();
+app.MapPaymentAccounts();
 app.MapCustomerPaymentMethods();
 app.MapSubscriptions();
 app.MapJobRuns();
