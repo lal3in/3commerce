@@ -140,7 +140,7 @@ scripts/e2e-verify.sh --live-only</code></pre>
           <table>
             <thead><tr><th>Checks</th><th>What</th></tr></thead>
             <tbody>
-              <tr><td>L1–L4</td><td>Infra (6 DBs) + service health + gateway routing (ping-pong to worker; internal health blocked)</td></tr>
+              <tr><td>L1–L4</td><td>Infra (13 DBs) + service health + gateway routing (ping-pong to worker; internal health blocked)</td></tr>
               <tr><td>L5–L8</td><td>Auth lifecycle: register no-enumeration, verify-email, login cookie, <code>/me</code> 200/401, add address</td></tr>
               <tr><td>L9–L13</td><td>Catalog RBAC, import, exact + <strong>typo</strong> + filtered search, search p95 &lt; 500 ms, logout, password reset</td></tr>
               <tr><td>L14</td><td>Storefront SSR: home/search/product render; <code>/account</code> redirects (307)</td></tr>

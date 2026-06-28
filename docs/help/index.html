@@ -52,7 +52,7 @@
         <div class="masthead">
           <p class="eyebrow">3commerce · Operations Wiki</p>
           <h1>Running the platform,<br>accurate to the code.</h1>
-          <p class="lede">A step-by-step guide to operating the customer <strong>Storefront</strong> and the internal <strong>Admin</strong> console — the two thin frontends that sit over a single YARP gateway and six C# microservices.</p>
+          <p class="lede">A step-by-step guide to operating the customer <strong>Storefront</strong>, internal <strong>Admin</strong> console, Supplier Portal, CLI, and the gateway-backed services that sit behind a single YARP gateway.</p>
         </div>
 
         <div class="statline">
@@ -72,7 +72,7 @@
               <tr><td><strong>Storefront</strong></td><td>Next.js 15 · React 19 · Tailwind</td><td><code>:3000</code></td><td>YARP gateway only (<code>:8080</code>)</td><td>Customers — browse, buy as guest, account, support</td></tr>
               <tr><td><strong>Admin</strong></td><td>Blazor Server (.NET 10)</td><td><code>:5200</code></td><td>Gateway only, <code>admin</code> role</td><td>Operators — orders, RMAs, ledger, Xero, imports, entities &amp; suppliers, roles &amp; permissions, commerce ops</td></tr>
               <tr><td><strong>Supplier Portal</strong></td><td>Blazor Server (.NET 10)</td><td><code>:5300</code></td><td>Gateway only, supplier session</td><td>Suppliers — readiness, stock feeds, change requests</td></tr>
-              <tr><td><strong>Gateway</strong></td><td>YARP</td><td><code>:8080</code></td><td>The 7 backend services</td><td>Single public origin — session validation, internal claims</td></tr>
+              <tr><td><strong>Gateway</strong></td><td>YARP</td><td><code>:8080</code></td><td>The 13 DB-owning backend services</td><td>Single public origin — session validation, internal claims</td></tr>
               <tr><td><strong>CLI</strong></td><td>.NET global tool (<code>src/Cli</code>)</td><td>—</td><td>Gateway only</td><td>Operators/automation — Gateway-only, explicit <code>--tenant</code> scope</td></tr>
             </tbody>
           </table>
@@ -80,12 +80,12 @@
 
         <div class="callout note">
           <span class="mark">i</span>
-          <p>Backend, for context: seven microservices (Identity, Catalog, <strong>Entity</strong>, Ordering, Payments, Fulfillment, Support) + gateway + a Notifications worker, over RabbitMQ/MassTransit, each owning a Postgres database. In dev there is <strong>no live Stripe or Xero</strong> — a <code>FakePaymentProvider</code> and a <code>LoggingXeroClient</code> stand in.</p>
+          <p>Backend, for context: 13 DB-owning C# services — Identity, Catalog, Ordering, Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow, Entitlement, and Usage — plus the gateway and a Notifications worker. Services communicate over RabbitMQ/MassTransit and own separate Postgres databases/schemas. In dev there is <strong>no live Stripe or Xero</strong> — a <code>FakePaymentProvider</code> and a <code>LoggingXeroClient</code> stand in.</p>
         </div>
 
         <div class="callout note">
           <span class="mark">i</span>
-          <p><strong>Platform expansion (in progress, <code>feat/mt-phase1-foundation</code>).</strong> The platform is being made <strong>multi-tenant</strong> (a tenant = one legal business; PostgreSQL row-level security + a central PDP/PEP with dynamic admin-defined RBAC), adding an <strong>Entity</strong> master-data service, a generic <strong>Supplier Portal</strong>, an installable <strong>CLI</strong>, and richer Catalog/Ordering/Payments (storefront lifecycle, product publication, pricing/promotions, payment accounts, supplier payables, Xero mappings). <strong>Phase 4</strong> adds <strong>composable supply</strong> (ADR-0028): products are sold via <strong>Offers</strong> <code>(product/variant × supplier) → supply type + price</code>, and Fulfillment gains inventory + reservations + a movement ledger, carrier integrations (Fake/AusPost/DHL + sandbox), shipping quotes (with expiry/revalidation), selected checkout shipping rates, and dropship supplier-order forwarding. Operator UI now covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API surfaces remain under <code>/api/fulfillment/*</code>, <code>/api/catalog/admin/offers</code>, and <code>/api/payments/admin/*</code>. See ADRs <code>0023</code>–<code>0028</code> and the phase plans under <code>.ai-shared/plans/</code>. The page-by-page guides below still describe the single-tenant MVP flows; the new operator surfaces are summarized in Admin operations.</p>
+          <p><strong>Platform expansion.</strong> The codebase now includes the multi-tenant platform foundation (a tenant = one legal business; PostgreSQL row-level security + central PDP/PEP with dynamic admin-defined RBAC), the <strong>Entity</strong> master-data service, Supplier Portal, CLI, and the six ADR-0030 services (Marketing, Pricing, Audit, Workflow, Entitlement, Usage). <strong>Composable supply</strong> (ADR-0028) sells products via <strong>Offers</strong> <code>(product/variant × supplier) → supply type + price</code>; Fulfillment owns inventory/reservations, a movement ledger, carrier quotes (Fake/AusPost/DHL sandbox), selected checkout shipping rates, and dropship supplier-order forwarding. Operator UI covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API surfaces remain under <code>/api/fulfillment/*</code>, <code>/api/catalog/admin/offers</code>, and <code>/api/payments/admin/*</code>. See ADRs <code>0023</code>–<code>0030</code> and the phase plans under <code>.ai-shared/plans/</code>.</p>
         </div>
 
         <h2 id="contents">Start reading</h2>
@@ -131,7 +131,7 @@
         <h2 id="conventions">Conventions used here</h2>
         <ul>
           <li><strong>Money</strong> is always integer <strong>minor units</strong> (cents) plus an ISO 4217 code, formatted through <code>lib/money.ts</code> — never divide by 100 in a page.</li>
-          <li><strong>URLs/ports</strong> are local dev defaults: gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>, services <code>:5101</code>–<code>:5106</code>.</li>
+          <li><strong>URLs/ports</strong> are local dev defaults: gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>, supplier portal <code>:5300</code>, services <code>:5101</code>–<code>:5113</code>.</li>
           <li><strong>Paths</strong> are relative to the repository root.</li>
         </ul>
 

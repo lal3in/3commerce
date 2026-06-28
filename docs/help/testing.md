@@ -124,7 +124,7 @@ the services + worker, the storefront (production build), and the admin DLL, the
 
 | Checks | What |
 |--------|------|
-| L1–L4 | Infra (6 DBs) + service health + gateway routing (ping-pong to worker; internal health blocked) |
+| L1–L4 | Infra (13 DBs) + service health + gateway routing (ping-pong to worker; internal health blocked) |
 | L5–L8 | Auth lifecycle: register no-enumeration, verify-email, login cookie, `/me` 200/401, add address |
 | L9–L13 | Catalog RBAC, import, exact + **typo** + filtered search, search p95 < 500 ms, logout, password reset |
 | L14 | Storefront SSR: home/search/product render; `/account` redirects (307) |
