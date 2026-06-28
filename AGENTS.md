@@ -153,8 +153,8 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md
 ├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
-├── infra/postgres/                # init-databases.sql (6 DBs + roles + extensions)
-├── scripts/run-all.sh             # start/stop gateway + services + worker locally
+├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
+├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
 ├── 3commerce.sln                  # all 27 projects; Directory.Build.props / Directory.Packages.props (CPM)
 ├── src/
@@ -171,6 +171,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── Admin/                     # Blazor Server operator console (:5200)
 │   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
 │   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)
+├── tools/script-console/          # Python/Tkinter local GUI for scripts + host/service status
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
 ```
 

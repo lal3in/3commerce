@@ -39,7 +39,8 @@ uses a logging client.
 > so it can't OOM a small Docker VM:
 >
 > ```bash
-> scripts/dev-up.sh --with-frontends --seed   # stop with: scripts/dev-down.sh
+> scripts/dev-up.sh --with-frontends --seed        # catalog only; stop with: scripts/dev-down.sh
+> scripts/dev-up.sh --with-frontends --dummy-data  # optional broad demo data
 > ```
 >
 > The manual steps below are the same thing, broken out. For the **containerized** stack, build images
@@ -150,6 +151,13 @@ containers instead — as a repeatable, deployable launch — use:
 scripts/launch.sh --fresh --env dev     # brand-new deployment (build + up)
 scripts/launch.sh --reuse --env dev     # relaunch, keep data
 ```
+
+Data choices for bare-run dev:
+
+- no flag / `--data empty` — leave databases as they are after migrations.
+- `--seed` / `--data catalog` — current behavior: trigger the Catalog sample importer.
+- `--dummy-data` / `--data dummy` — run `scripts/dev-dummy-data.sh --profile full`, which uses gateway APIs to create broad demo data across services where public/admin APIs exist.
+- `--data mirror-prod` — reserved for a future sanitized production mirror; it intentionally fails today rather than pulling production data.
 
 This brings up all 18 app images + Postgres + RabbitMQ via `docker-compose.yml`, applies
 migrations with an EF-bundle migrator, and exposes the same ports (gateway `:8080`,

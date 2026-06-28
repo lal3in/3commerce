@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bring up the FULL local env the light way (ADR-0009 bare-run): only Postgres + RabbitMQ in Docker,
 # everything else as host processes — so it never triggers the 13-image build that OOMs a small Docker VM.
-# Usage: scripts/dev-up.sh [--with-frontends] [--seed]
+# Usage: scripts/dev-up.sh [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|dummy|mirror-prod]
 # Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,8 +10,16 @@ source scripts/lib/services.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
-WITH_FRONTENDS=0; SEED=0
-for a in "$@"; do case "$a" in --with-frontends) WITH_FRONTENDS=1;; --seed) SEED=1;; esac; done
+WITH_FRONTENDS=0; SEED=0; DATA_PROFILE="empty"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --with-frontends) WITH_FRONTENDS=1; shift ;;
+    --seed) SEED=1; DATA_PROFILE="catalog"; shift ;;
+    --dummy-data) DATA_PROFILE="dummy"; shift ;;
+    --data) DATA_PROFILE="$2"; shift 2 ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
 
 require_docker
 echo "== 1/4 infra (Postgres + RabbitMQ) =="
@@ -43,9 +51,23 @@ for entry in "${SERVICES[@]}"; do
 done
 echo "  gateway      $(curl -s -o /dev/null -w '%{http_code}' -m 4 http://localhost:8080/health 2>/dev/null)"
 
-if (( SEED )); then
-  j=$(mktemp)
-  curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
-  curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
-fi
+case "$DATA_PROFILE" in
+  empty)
+    ;;
+  catalog)
+    j=$(mktemp)
+    curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
+    curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
+    ;;
+  dummy|full)
+    scripts/dev-dummy-data.sh --profile full
+    ;;
+  mirror-prod)
+    scripts/dev-dummy-data.sh --profile mirror-prod
+    ;;
+  *)
+    echo "Unknown data profile '$DATA_PROFILE' (empty|catalog|dummy|mirror-prod)" >&2
+    exit 2
+    ;;
+esac
 echo "Up. Stop with: scripts/dev-down.sh"
