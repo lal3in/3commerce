@@ -17,7 +17,7 @@
 
 ## GUI helper
 
-`tools/script-console/script_console.py` is a stdlib Python/Tkinter GUI that discovers every `scripts/*.sh` file, provides a Run button for each one, streams output, and shows Docker/container/image, service-health, package-version, and host-stat status. Run it from the repo root with:
+`tools/script-console/script_console.py` is a stdlib Python/Tkinter GUI that discovers every `scripts/*.sh` file, orders scripts by normal workflow purpose, explains each script in plain language next to its Run button, streams output, and shows Docker/container/image, service-health, package-version, and host-stat status. Each row has **View/Edit .sh** so the operator can visually inspect or update the exact shell file before running it. Run it from the repo root with:
 
 ```bash
 python3 tools/script-console/script_console.py
