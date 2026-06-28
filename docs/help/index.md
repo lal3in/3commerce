@@ -1,8 +1,8 @@
 # 3commerce Help Wiki
 
 This wiki documents how to **run and operate the 3commerce frontends** — the
-customer-facing **Storefront** and the internal **Admin** console — step by step
-and accurate to the code.
+customer-facing **Storefront**, internal **Admin** console, Supplier Portal,
+CLI, and the gateway-backed services — step by step and accurate to the code.
 
 ## What the apps are
 
@@ -11,7 +11,7 @@ and accurate to the code.
 | **Storefront** | Next.js 15 (App Router, SSR/ISR) + React 19 + Tailwind | `:3000` | YARP gateway only (`:8080`) | Customers (browse, buy as guest, account, support) |
 | **Admin** | Blazor Server (.NET 10) | `:5200` | YARP gateway only (`:8080`), `admin` role required | Operators (orders, RMAs, ledger, Xero, imports, **entities & suppliers, roles & permissions, commerce ops**) |
 | **Supplier Portal** | Blazor Server (.NET 10) | `:5300` | YARP gateway only (`:8080`), supplier session | Suppliers (readiness, stock feeds, change requests) |
-| **Gateway** | YARP | `:8080` | The 7 backend services | Single public origin; session validation, internal claims |
+| **Gateway** | YARP | `:8080` | The 13 DB-owning backend services | Single public origin; session validation, internal claims |
 | **CLI** | .NET global tool (`src/Cli`) | — | YARP gateway only | Operators/automation (Gateway-only, explicit `--tenant` scope) |
 
 Both frontends are thin: they **only** reach the backend through the gateway and
@@ -20,28 +20,25 @@ hold no database access. The Storefront mutates state through **Server Actions**
 `GatewayClient`. Authentication is an opaque `3c_session` cookie issued by the
 Identity service via the gateway.
 
-> Backend, for context: 7 C# microservices (Identity, Catalog, **Entity**,
-> Ordering, Payments, Fulfillment, Support) + gateway + a Notifications worker, over
-> RabbitMQ/MassTransit, each owning a Postgres database. In dev there is **no live
-> Stripe or Xero** — a `FakePaymentProvider` and a `LoggingXeroClient` stand in.
+> Backend, for context: 13 DB-owning C# services — Identity, Catalog, Ordering,
+> Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow,
+> Entitlement, and Usage — plus the gateway and a Notifications worker. Services
+> communicate over RabbitMQ/MassTransit and own separate Postgres databases/schemas.
+> In dev there is **no live Stripe or Xero** — a `FakePaymentProvider` and a
+> `LoggingXeroClient` stand in.
 
-> **Platform expansion (in progress, `feat/mt-phase1-foundation`).** The platform is
-> being made **multi-tenant** (a tenant = one legal business; PostgreSQL row-level
-> security + a central PDP/PEP with dynamic admin-defined RBAC), adding an **Entity**
-> master-data service, a generic **Supplier Portal**, an installable **CLI**, and
-> richer Catalog/Ordering/Payments (storefront lifecycle, product publication,
-> pricing/promotions, payment accounts, supplier payables, Xero mappings).
-> **Phase 4 (shipping/inventory/fulfilment)** adds **composable supply** (ADR-0028):
-> a product is sold via **Offers** `(product/variant × supplier) → supply type + price`,
-> and Fulfillment gains inventory + reservations + a movement ledger, carrier
-> integrations (Fake/AusPost/DHL + sandbox), shipping quotes (with expiry/revalidation),
+> **Platform expansion.** The codebase now includes the multi-tenant platform
+> foundation (a tenant = one legal business; PostgreSQL row-level security + central
+> PDP/PEP with dynamic admin-defined RBAC), the **Entity** master-data service,
+> Supplier Portal, CLI, and the six ADR-0030 services (Marketing, Pricing, Audit,
+> Workflow, Entitlement, Usage). **Composable supply** (ADR-0028) sells products via
+> **Offers** `(product/variant × supplier) → supply type + price`; Fulfillment owns
+> inventory/reservations, movement ledger, carrier quotes (Fake/AusPost/DHL sandbox),
 > selected checkout shipping rates, and dropship supplier-order forwarding. Operator UI
-> now covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API
+> covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API
 > surfaces remain under `/api/fulfillment/*`, `/api/catalog/admin/offers`, and
-> `/api/payments/admin/*`. See the ADRs
-> (`docs/adr/0023`–`0028`) and the phase plans under `.ai-shared/plans/`. The
-> page-by-page guides below still describe the single-tenant MVP flows; the new
-> operator surfaces are summarized in [Admin operations](./admin-operations.md).
+> `/api/payments/admin/*`. See ADRs `0023`–`0030` and the phase plans under
+> `.ai-shared/plans/`.
 
 ## Table of contents
 
@@ -63,6 +60,6 @@ Identity service via the gateway.
   The Storefront formats it through `src/Storefront/lib/money.ts`; never divide by
   100 in a page.
 - **URLs/ports** are the local dev defaults: gateway `:8080`, storefront `:3000`,
-  admin `:5200`, backend services `:5101`–`:5106`.
+  admin `:5200`, supplier portal `:5300`, backend services `:5101`–`:5113`.
 - File paths are relative to the repo root
   (`/Users/lehn/Documents/Git-Roots/3commerce`).

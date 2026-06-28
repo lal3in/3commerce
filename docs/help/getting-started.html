@@ -51,7 +51,7 @@
       <div class="content-inner">
         <p class="eyebrow">Guide · 01</p>
         <h1>Getting started</h1>
-        <p class="lede">Bring up the entire 3commerce stack on one machine: infrastructure → database migrations → backend services + gateway + worker → storefront → admin. There is <strong>no live Stripe or Xero</strong> in dev — payments use a fake provider and Xero a logging client.</p>
+        <p class="lede">Bring up the entire 3commerce stack on one machine: infrastructure → database migrations → backend services + gateway + worker → storefront → admin → supplier portal. There is <strong>no live Stripe or Xero</strong> in dev — payments use a fake provider and Xero a logging client.</p>
         <div style="border:1px solid var(--border,#2a2f3a);border-radius:10px;padding:.9rem 1.1rem;margin:1.3rem 0"><b>Quick start (bare-run, recommended).</b> One command brings up infra + migrations + every service + the frontends, reusing the already-built solution — it never builds container images, so it can’t OOM a small Docker VM:<pre><code>scripts/dev-up.sh --with-frontends --seed   <span class="cmt"># stop with: scripts/dev-down.sh</span></code></pre>The manual steps below are the same thing broken out. For the <b>containerized</b> stack, build images with <code>scripts/build-images.sh</code> (bounded concurrency + a memory preflight) — a plain <code>docker compose up --build</code> builds all 13 .NET images in parallel and will OOM a 6&nbsp;GiB Colima VM.</div>
 
         <h2 id="prerequisites">Prerequisites</h2>
@@ -73,9 +73,10 @@
             <thead><tr><th>Component</th><th>Port</th></tr></thead>
             <tbody>
               <tr><td>Gateway (YARP, public origin)</td><td><code>8080</code></td></tr>
-              <tr><td>Identity / Catalog / Ordering / Payments / Fulfillment / Support</td><td><code>5101</code> / <code>5102</code> / <code>5103</code> / <code>5104</code> / <code>5105</code> / <code>5106</code></td></tr>
+              <tr><td>Backend services</td><td><code>5101</code>–<code>5113</code> (Identity, Catalog, Ordering, Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow, Entitlement, Usage)</td></tr>
               <tr><td>Storefront (Next.js)</td><td><code>3000</code></td></tr>
               <tr><td>Admin (Blazor Server)</td><td><code>5200</code></td></tr>
+              <tr><td>Supplier Portal (Blazor Server)</td><td><code>5300</code></td></tr>
               <tr><td>Postgres</td><td><code>5432</code></td></tr>
               <tr><td>RabbitMQ AMQP / management UI</td><td><code>5672</code> / <code>15672</code> (guest/guest)</td></tr>
             </tbody>
@@ -96,18 +97,18 @@ docker compose -f docker-compose.infra.yml up -d</code></pre>
 
         <h3 id="step-2">2 · Apply database migrations</h3>
         <p>Once, and again after any schema change:</p>
-        <pre><code>for s in Identity Catalog Entity Ordering Payments Fulfillment Support \
+        <pre><code>for s in Identity Catalog Ordering Payments Fulfillment Support Entity \
          Marketing Pricing Audit Workflow Entitlement Usage; do
   dotnet ef database update -p src/Services/$s/Infrastructure -s src/Services/$s/Api
 done</code></pre>
 
-        <h3 id="step-3">3 · Build and start the gateway + services + worker</h3>
+        <h3 id="step-3">3 · Build and start the gateway + 13 services + worker</h3>
         <pre><code>dotnet build 3commerce.sln
 scripts/run-all.sh start          <span class="cmt"># gateway, all services, notifications worker</span></code></pre>
         <p><code>scripts/run-all.sh</code> runs each app via bare <code>dotnet run --no-build</code> in the background (ADR-0009). Logs land in <code>.run/&lt;name&gt;.log</code>, PIDs in <code>.run/&lt;name&gt;.pid</code>. Stop everything with:</p>
         <pre><code>scripts/run-all.sh stop</code></pre>
         <p>Check readiness (each service exposes <code>/health/ready</code>, <strong>internal only</strong> — not via the gateway):</p>
-        <pre><code>for p in 5101 5102 5103 5104 5105 5106; do curl -fsS localhost:$p/health/ready; done</code></pre>
+        <pre><code>for p in {5101..5113}; do curl -fsS localhost:$p/health/ready; done</code></pre>
 
         <h3 id="step-4">4 · Start the storefront (<code>:3000</code>)</h3>
         <p>Dev mode (hot reload):</p>
@@ -124,7 +125,11 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         <pre><code>ASPNETCORE_URLS="http://localhost:5200" dotnet run --project src/Admin</code></pre>
         <p>(The live verification script runs the built DLL directly with <code>ASPNETCORE_ENVIRONMENT=Development</code> to bind <code>:5200</code>.) The admin reads <code>Gateway:BaseUrl</code> (default <code>http://localhost:8080</code>).</p>
 
-        <h3 id="step-6">6 · Log in and seed the catalog</h3>
+        <h3 id="step-6">6 · Start the supplier portal (<code>:5300</code>, optional)</h3>
+        <pre><code>ASPNETCORE_URLS="http://localhost:5300" dotnet run --project src/SupplierPortal</code></pre>
+        <p>The supplier portal also reads <code>Gateway:BaseUrl</code> and stays gateway-only.</p>
+
+        <h3 id="step-7">7 · Log in and seed the catalog</h3>
         <p>The dev admin account is seeded:</p>
         <ul>
           <li><strong>Email:</strong> <code>admin@3commerce.local</code></li>
@@ -139,11 +144,11 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         <p>The steps above are the <strong>bare-run</strong> dev loop (ADR-0009). To run the whole stack in containers instead — as a repeatable, deployable launch — use:</p>
         <pre><code>scripts/launch.sh --fresh --env dev     <span class="cmt"># brand-new deployment (build + up)</span>
 scripts/launch.sh --reuse --env dev     <span class="cmt"># relaunch, keep data</span></code></pre>
-        <p>This brings up all 10 app images + Postgres + RabbitMQ via <code>docker-compose.yml</code>, applies migrations with an EF-bundle migrator, and exposes the same ports (gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>). The catalog comes up empty — seed it via the admin Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in <a class="inline" href="deployment.html">Deployment</a>.</p>
+        <p>This brings up all 18 app images + Postgres + RabbitMQ via <code>docker-compose.yml</code>, applies migrations with an EF-bundle migrator, and exposes the same ports (gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>, supplier portal <code>:5300</code>). The catalog comes up empty — seed it via the admin Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in <a class="inline" href="deployment.html">Deployment</a>.</p>
 
         <h2 id="teardown">Teardown</h2>
         <pre><code>scripts/run-all.sh stop                                   <span class="cmt"># services + worker</span>
-pkill -f 'next-server|npm run start|3commerce.Admin'      <span class="cmt"># storefront + admin</span>
+pkill -f 'next-server|npm run start|3commerce.Admin|3commerce.SupplierPortal'      <span class="cmt"># storefront + admin + supplier portal</span>
 docker compose -f docker-compose.infra.yml down           <span class="cmt"># infra (omit to keep data)</span></code></pre>
 
         <footer class="page-nav">

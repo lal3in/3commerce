@@ -2,7 +2,7 @@
 
 **Two ways to run the stack:** the **bare-run** inner-loop dev path (ADR-0009 —
 `dotnet run` per service, containers for infra only) and the **containerized launch**
-(ADR-0021 — all 10 app images + infra via `docker-compose.yml`, graduating to a Helm
+(ADR-0021 — all 18 app images + infra via `docker-compose.yml`, graduating to a Helm
 chart validated against a `kind` cluster in CI). What is still deferred behind explicit
 launch gates: **live Stripe/Xero, a real `ITaxStrategy`, an external pen test, and a real
 cloud cluster** (the Helm chart is kind/CI-proven, not yet wired to a managed k8s).
@@ -22,13 +22,13 @@ scripts/launch.sh [--fresh|--reuse] [--env dev|prod]
 | `--env dev` | committed dev ES256 keys, admin auto-seeded (default). |
 | `--env prod` | mint a fresh keypair, inject it, and **enforce the BL-11 secret gate** (`DevSecretGuard` refuses the committed dev key outside `Development`). |
 
-Endpoints once up: gateway `:8080`, storefront `:3000`, admin `:5200`. The catalog is
+Endpoints once up: gateway `:8080`, storefront `:3000`, admin `:5200`, supplier portal `:5300`. The catalog is
 **not** auto-seeded — after a fresh launch, log into the admin **Imports** screen (or
 `POST /api/catalog/admin/import-runs` with an admin session) to load the sample SKUs.
 
 How it fits together:
 
-- **`docker-compose.yml`** runs the 10 app images + `rabbitmq`; Postgres is a separate external instance
+- **`docker-compose.yml`** runs the 18 app images + `rabbitmq`; Postgres is a separate external instance
   (`docker-compose.db.yml`, its own volume) that `launch.sh` starts first and the app connects to, with healthchecks, `depends_on` conditions (services wait for Postgres/RabbitMQ
   healthy **and** the migrator completed), and memory limits.
 - **Config** is injected as a hybrid: committed `appsettings.Container.json` per app for host
@@ -75,20 +75,20 @@ deploy/helm/make-secret.sh | kubectl apply -f -
 helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-prod.yaml
 ```
 
-The chart templates Postgres (init-SQL ConfigMap + `emptyDir`), RabbitMQ, the 6 services
+The chart templates Postgres (init-SQL ConfigMap + `emptyDir`), RabbitMQ, the 13 DB-owning services
 (each with a per-service EF-bundle **initContainer** that migrates its own DB), the gateway
-(+ optional Ingress), the worker, admin, and storefront. Image name == k8s `Service` name ==
+(+ optional Ingress), the worker, admin, storefront, and supplier portal. Image name == k8s `Service` name ==
 container hostname, so the **same `appsettings.Container.json` serves both compose and k8s**.
 CI's `kind-deploy` job builds the images, loads them into a `kind` cluster, `helm install
 --wait`s, and probes the gateway — so the chart can't silently rot.
 
 ## Dockerfiles
 
-All **10** runnable apps have a Dockerfile, built in CI's `docker` matrix
+All **18** runnable apps have a Dockerfile, built in CI's `docker` matrix
 (`.github/workflows/ci.yml`) and run together by the compose/Helm paths above:
 
-- `src/Gateway/Dockerfile`, `src/Workers/Notifications/Dockerfile`, `src/Admin/Dockerfile`
-- `src/Services/{Identity,Catalog,Ordering,Payments,Fulfillment,Support}/Api/Dockerfile`
+- `src/Gateway/Dockerfile`, `src/Workers/Notifications/Dockerfile`, `src/Admin/Dockerfile`, `src/SupplierPortal/Dockerfile`
+- `src/Services/{Identity,Catalog,Ordering,Payments,Fulfillment,Support,Entity,Marketing,Pricing,Audit,Workflow,Entitlement,Usage}/Api/Dockerfile`
 - `src/Storefront/Dockerfile` (Next.js `output: "standalone"`, non-root)
 - plus `deploy/migrator/Dockerfile` (the schema migrator)
 
@@ -105,7 +105,7 @@ The fast inner loop is unchanged — see [Getting started](./getting-started.md)
 
 1. `docker compose -f docker-compose.infra.yml up -d` — Postgres 17 + RabbitMQ 4.
 2. `dotnet ef database update` per service — migrations.
-3. `scripts/run-all.sh start` — gateway + 6 services + Notifications worker (bare `dotnet run`).
+3. `scripts/run-all.sh start` — gateway + 13 DB-owning services + Notifications worker (bare `dotnet run`).
 4. Storefront `npm run build && GATEWAY_URL=http://localhost:8080 npm run start` (`:3000`).
 5. Admin `dotnet run --project src/Admin` (`:5200`).
 
@@ -147,7 +147,7 @@ Engineering-complete; these are **business/operational**, not code:
 1. **Company registration** — blocks live **Stripe** keys, a real **Xero** org, a real
    `ITaxStrategy` (tax presence), payout currency, and privacy policy/imprint.
 2. **Supplier contract** — blocks the real catalog feed and the dropship-vs-warehouse
-   decision (modelled today by the per-line `FulfillmentSource`).
+   decision (modelled today by per-offer/per-line supply and fulfilment types).
 3. **External security review** — see `docs/security/asvs-l1-audit.md`.
 4. **Real cloud cluster** — the Helm chart is `kind`/CI-proven; a managed k8s target, plus
    prod DB/RabbitMQ credential rotation and a secrets store, are the next rung (ADR-0021).

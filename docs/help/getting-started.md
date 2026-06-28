@@ -1,7 +1,7 @@
 # Getting started — running the full stack locally
 
 This brings up the entire 3commerce stack on one machine: infrastructure →
-database migrations → backend services + gateway + worker → storefront → admin.
+database migrations → backend services + gateway + worker → storefront → admin → supplier portal.
 There is **no live Stripe or Xero** in dev; payments use a fake provider and Xero
 uses a logging client.
 
@@ -19,9 +19,10 @@ uses a logging client.
 | Component | Port |
 |-----------|------|
 | Gateway (YARP, public origin) | `8080` |
-| Identity / Catalog / Ordering / Payments / Fulfillment / Support | `5101` / `5102` / `5103` / `5104` / `5105` / `5106` |
+| Backend services | `5101`–`5113` (Identity, Catalog, Ordering, Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow, Entitlement, Usage) |
 | Storefront (Next.js) | `3000` |
 | Admin (Blazor Server) | `5200` |
+| Supplier Portal (Blazor Server) | `5300` |
 | Postgres | `5432` |
 | RabbitMQ AMQP / management UI | `5672` / `15672` (guest/guest) |
 
@@ -56,16 +57,16 @@ creates the **13 service databases**, roles, and extensions (FTS + `pg_trgm`).
 ### 2. Apply database migrations (once, and after schema changes)
 
 ```bash
-for s in Identity Catalog Ordering Payments Fulfillment Support; do
+for s in Identity Catalog Ordering Payments Fulfillment Support Entity Marketing Pricing Audit Workflow Entitlement Usage; do
   dotnet ef database update -p src/Services/$s/Infrastructure -s src/Services/$s/Api
 done
 ```
 
-### 3. Build, then start the gateway + 6 services + Notifications worker
+### 3. Build, then start the gateway + 13 services + Notifications worker
 
 ```bash
 dotnet build 3commerce.sln
-scripts/run-all.sh start          # starts gateway, 6 services, notifications worker
+scripts/run-all.sh start          # starts gateway, 13 services, notifications worker
 ```
 
 `scripts/run-all.sh` runs each app via bare `dotnet run --no-build` in the
@@ -80,7 +81,7 @@ Check readiness (each service exposes `/health/ready`, **internal only** — not
 the gateway):
 
 ```bash
-for p in 5101 5102 5103 5104 5105 5106; do curl -fsS localhost:$p/health/ready; done
+for p in {5101..5113}; do curl -fsS localhost:$p/health/ready; done
 ```
 
 ### 4. Start the storefront (`:3000`)
@@ -114,7 +115,15 @@ ASPNETCORE_URLS="http://localhost:5200" dotnet run --project src/Admin
 `ASPNETCORE_ENVIRONMENT=Development` to bind `:5200`.) The admin reads
 `Gateway:BaseUrl` (default `http://localhost:8080`).
 
-### 6. Log in and seed the catalog
+### 6. Start the supplier portal (`:5300`, optional)
+
+```bash
+ASPNETCORE_URLS="http://localhost:5300" dotnet run --project src/SupplierPortal
+```
+
+The supplier portal also reads `Gateway:BaseUrl` and stays gateway-only.
+
+### 7. Log in and seed the catalog
 
 The dev admin account is seeded:
 
@@ -142,9 +151,9 @@ scripts/launch.sh --fresh --env dev     # brand-new deployment (build + up)
 scripts/launch.sh --reuse --env dev     # relaunch, keep data
 ```
 
-This brings up all 10 app images + Postgres + RabbitMQ via `docker-compose.yml`, applies
+This brings up all 18 app images + Postgres + RabbitMQ via `docker-compose.yml`, applies
 migrations with an EF-bundle migrator, and exposes the same ports (gateway `:8080`,
-storefront `:3000`, admin `:5200`). The catalog comes up empty — seed it via the admin
+storefront `:3000`, admin `:5200`, supplier portal `:5300`). The catalog comes up empty — seed it via the admin
 Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in
 [Deployment](./deployment.md).
 
@@ -152,6 +161,6 @@ Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in
 
 ```bash
 scripts/run-all.sh stop                                   # services + worker
-pkill -f 'next-server|npm run start|3commerce.Admin'      # storefront + admin
+pkill -f 'next-server|npm run start|3commerce.Admin|3commerce.SupplierPortal'      # storefront + admin + supplier portal
 docker compose -f docker-compose.infra.yml down           # infra (omit to keep data)
 ```

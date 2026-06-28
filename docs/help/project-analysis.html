@@ -49,14 +49,14 @@
 
     <main id="main" class="content">
       <div class="content-inner">
-        <p class="eyebrow">Reference · Honest assessment · as of 2026-06-17</p>
+        <p class="eyebrow">Reference · Honest assessment · as of 2026-06-28</p>
         <h1>3commerce — Project analysis &amp; honest assessment</h1>
-        <p class="lede">A from-scratch, distributed e-commerce platform built deliberately as both a <strong>learning vehicle</strong> and a <strong>launchable business</strong> — six .NET&nbsp;10 microservices, an event-driven money core, and a two-language frontend estate. This is a full re-audit: every requirement re-walked against the current code after the post-MVP backlog (BL-1&hellip;BL-11) and the new containerized launch track landed.</p>
+        <p class="lede">A from-scratch, distributed e-commerce platform built deliberately as both a <strong>learning vehicle</strong> and a <strong>launchable business</strong> — 13 DB-owning .NET&nbsp;10 services, an event-driven money core, and a multi-frontend estate. This is a full re-audit: every requirement re-walked against the current code after the post-MVP backlog (BL-1&hellip;BL-11) and the new containerized launch track landed.</p>
 
         <div class="statline">
           <div class="stat"><div class="n">A</div><div class="l">Conformance grade</div></div>
           <div class="stat"><div class="n">21</div><div class="l">Requirements assessed</div></div>
-          <div class="stat"><div class="n">6</div><div class="l">Microservices · .NET 10</div></div>
+          <div class="stat"><div class="n">13</div><div class="l">DB services · .NET 10</div></div>
           <div class="stat"><div class="n">PRD↔code</div><div class="l">Evidence-led</div></div>
         </div>
 
@@ -65,14 +65,14 @@
 
         <h3 id="shape-of-the-system">The shape of the system</h3>
         <ul>
-          <li><strong>Backend:</strong> 6 C# services — Identity, Catalog, Ordering, Payments, Fulfillment, Support — each owning its own PostgreSQL database.</li>
+          <li><strong>Backend:</strong> 13 DB-owning C# services — Identity, Catalog, Ordering, Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow, Entitlement, Usage — each owning its own PostgreSQL database/schema.</li>
           <li><strong>Messaging:</strong> async via MassTransit + RabbitMQ, with an EF transactional <strong>outbox</strong> and <strong>saga state machines</strong> (checkout, RMA).</li>
           <li><strong>Edge:</strong> a YARP gateway as the single public origin; an opaque <code>3c_session</code> cookie is exchanged for an internal ES256 claims JWT minted gateway-side.</li>
           <li><strong>Money:</strong> an append-only <strong>double-entry ledger</strong> with DB-enforced balance and append-only triggers; <code>IPaymentProvider</code> (real Stripe + <code>FakePaymentProvider</code>); a single server-derived <code>RefundRequested</code> refund path.</li>
-          <li><strong>Frontends:</strong> a Next.js&nbsp;15 SSR storefront (<code>:3000</code>) and a Blazor Server admin console (<code>:5200</code>), both thin and gateway-only.</li>
+          <li><strong>Frontends/tools:</strong> a Next.js&nbsp;15 SSR storefront (<code>:3000</code>), Blazor Server admin console (<code>:5200</code>), Blazor Supplier Portal (<code>:5300</code>), and a .NET CLI — all gateway-only.</li>
           <li><strong>Launch:</strong> a dual model — bare <code>dotnet run</code> for the inner loop, plus a full <code>docker-compose.yml</code> stack and a Helm umbrella chart, wrapped by <code>scripts/launch.sh</code> (<code>--fresh</code>/<code>--reuse</code> × <code>--env dev</code>/<code>prod</code>).</li>
-          <li><strong>Assurance:</strong> ~14 unit + ~36 integration (Testcontainers) + 13 Playwright E2E tests, an <code>e2e-verify.sh</code> regression script, and a green multi-job CI matrix (incl. compose-smoke + kind-deploy).</li>
-          <li><strong>Docs:</strong> a 16-section PRD, 21 ADRs, OpenAPI specs, an ASVS L1 audit, an MVP runbook, and the <a class="inline" href="index.html">operator wiki</a> this page belongs to.</li>
+          <li><strong>Assurance:</strong> unit, integration (Testcontainers), and Playwright E2E suites, an <code>e2e-verify.sh</code> regression script, and a green multi-job CI matrix (incl. browser-e2e, compose-smoke, and kind-deploy).</li>
+          <li><strong>Docs:</strong> a 16-section PRD, 30 ADRs, OpenAPI specs, an ASVS L1 audit, an MVP runbook, and the <a class="inline" href="index.html">operator wiki</a> this page belongs to.</li>
         </ul>
         <p>Operator-facing docs for these components live in the <a class="inline" href="index.html">help wiki</a> (getting-started, storefront, admin, testing, deployment).</p>
 
@@ -110,21 +110,21 @@
         <p>The most significant change since the last audit is operational. <code>ADR-0021</code> adds a <strong>dual launch model</strong> on top of the bare-run inner loop, so the whole estate can be brought up the way it would actually deploy.</p>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Compose &rarr; Helm/k8s, fresh or reuse, dev or prod —</strong> A hardened <code>docker-compose.yml</code> runs all 10 app images + infra on one network (healthchecks, <code>depends_on</code>, resource limits, env-files), wrapped by <code>scripts/launch.sh [--fresh|--reuse] [--env dev|prod]</code>. The same topology is packaged as a Helm umbrella chart (<code>deploy/helm/3commerce</code>) and validated against a <code>kind</code> cluster in CI. Migrations run as a one-shot <code>migrate</code> image of framework-dependent EF bundles (<code>deploy/migrator</code>) with design-time <code>DbContext</code> factories — decoupled from app boot and secrets. <code>--fresh</code> drops the <code>pgdata</code> volume so init-SQL and migrations re-run; <code>--env prod</code> mints a fresh ES256 keypair and enforces the BL-11 secret gate.</p>
+          <p><strong>★ Compose &rarr; Helm/k8s, fresh or reuse, dev or prod —</strong> A hardened <code>docker-compose.yml</code> runs all 18 app images + infra on one network (healthchecks, <code>depends_on</code>, resource limits, env-files), wrapped by <code>scripts/launch.sh [--fresh|--reuse] [--env dev|prod]</code>. The same topology is packaged as a Helm umbrella chart (<code>deploy/helm/3commerce</code>) and validated against a <code>kind</code> cluster in CI. Migrations run as a one-shot <code>migrate</code> image of framework-dependent EF bundles (<code>deploy/migrator</code>) with design-time <code>DbContext</code> factories — decoupled from app boot and secrets. <code>--fresh</code> drops the <code>pgdata</code> volume so init-SQL and migrations re-run; <code>--env prod</code> mints a fresh ES256 keypair and enforces the BL-11 secret gate.</p>
         </div>
-        <p>This closes the loop the prior audit flagged as "app tier not containerized / k8s deferred": both frontends now have Dockerfiles, the full stack composes, and a chart deploys. What remains deferred is genuinely external (below), not plumbing.</p>
+        <p>This closes the loop the prior audit flagged as "app tier not containerized / k8s deferred": the frontend app tier now has Dockerfiles, the full stack composes, and a chart deploys. What remains deferred is genuinely external (below), not plumbing.</p>
 
         <h2 id="architecture-analysis">Architecture analysis</h2>
 
         <h3 id="microservices-choice">Microservices — chosen knowingly against the safer default</h3>
-        <p>The most consequential decision is also the most debatable: 3commerce is <strong>6 microservices from day one</strong> (<code>ADR-0005</code>/<code>ADR-0006</code>), even though the conventional advice for a solo builder is "modular monolith first, extract services later." This was a <em>deliberate</em> choice driven by the learning goal, and it should be judged as such.</p>
+        <p>The most consequential decision is also the most debatable: 3commerce started as <strong>6 microservices from day one</strong> and has expanded to <strong>13 DB-owning services</strong> (<code>ADR-0005</code>/<code>ADR-0006</code>), even though the conventional advice for a solo builder is "modular monolith first, extract services later." This was a <em>deliberate</em> choice driven by the learning goal, and it should be judged as such.</p>
         <div class="callout good">
           <span class="mark">+</span>
           <p><strong>What it buys —</strong> Real distributed-systems practice: capability seams, independent schemas, async contracts, saga orchestration, and the operational reality of a message bus — exactly the things you cannot learn from a monolith.</p>
         </div>
         <div class="callout warn">
           <span class="mark">!</span>
-          <p><strong>What it costs —</strong> Ten deployables, six DBs, a bus, and a gateway to run for what an MVP could ship as one process. The operational surface is larger than the feature set strictly needs — though it is now fully containerized and chart-deployable, so the cost is paid in run-cost and complexity rather than in missing plumbing.</p>
+          <p><strong>What it costs —</strong> Eighteen runnable app images, 13 service databases, a bus, and a gateway to run for what an MVP could ship as one process. The operational surface is larger than the feature set strictly needs — though it is now fully containerized and chart-deployable, so the cost is paid in run-cost and complexity rather than in missing plumbing.</p>
         </div>
         <p>The honest verdict: for a <em>learning-first</em> project the split is defensible and well executed (clean DB-per-service isolation, event-fed read models, zero out-of-scope creep). For a <em>business-first</em> MVP it is over-engineered — but the project never pretended otherwise.</p>
 
@@ -183,11 +183,11 @@
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Test depth &amp; green CI —</strong> ~14 unit + ~36 integration (against real Postgres/RabbitMQ) + 13 Playwright E2E across both frontends, an <code>e2e-verify.sh</code> regression script, and a green build/integration/browser/docker + compose-smoke + kind-deploy CI matrix. The new chaos and single-trace tests close the prior "wired but unmeasured" gaps.</p>
+          <p><strong>★ Test depth &amp; green CI —</strong> unit + integration suites (against real Postgres/RabbitMQ) + Playwright E2E across the frontends, an <code>e2e-verify.sh</code> regression script, and a green build/integration/browser/docker + compose-smoke + kind-deploy CI matrix. The new chaos and single-trace tests close the prior "wired but unmeasured" gaps.</p>
         </div>
         <div class="callout good">
           <span class="mark">+</span>
-          <p><strong>★ Documentation rigor —</strong> 16-section PRD, 21 ADRs, OpenAPI specs, an ASVS L1 security audit, a runbook, and a secrets/rotation doc. The <em>reasoning</em> behind every major decision is written down — which is precisely what makes an honest conformance re-audit possible in the first place.</p>
+          <p><strong>★ Documentation rigor —</strong> 16-section PRD, 30 ADRs, OpenAPI specs, an ASVS L1 security audit, a runbook, and a secrets/rotation doc. The <em>reasoning</em> behind every major decision is written down — which is precisely what makes an honest conformance re-audit possible in the first place.</p>
         </div>
 
         <h2 id="remaining-gates">What's still open (launch gates, not engine flaws)</h2>
@@ -233,7 +233,7 @@
         <h3 id="microservices-vs-monolith">Microservices vs modular monolith (for a solo dev)</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Dimension</th><th>6 microservices (chosen)</th><th>Modular monolith (the default advice)</th></tr></thead>
+            <thead><tr><th>Dimension</th><th>13-service architecture (chosen)</th><th>Modular monolith (the default advice)</th></tr></thead>
             <tbody>
               <tr><td>Learning value</td><td>High — real sagas, bus, DB-per-service.</td><td>Lower — distributed concerns are simulated, not lived.</td></tr>
               <tr><td>Time to MVP</td><td>Slower — more moving parts to build &amp; wire.</td><td>Faster — one deployable, one DB.</td></tr>
@@ -257,10 +257,10 @@
           </table>
         </div>
 
-        <h3 id="two-frontends-vs-one">Next.js + Blazor vs a single frontend</h3>
+        <h3 id="two-frontends-vs-one">Next.js + Blazor app tier vs a single frontend stack</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Dimension</th><th>Two frontends (chosen)</th><th>One frontend</th></tr></thead>
+            <thead><tr><th>Dimension</th><th>Next.js + Blazor app tier (chosen)</th><th>One frontend stack</th></tr></thead>
             <tbody>
               <tr><td>Storefront SEO/SSR</td><td>Excellent (Next.js SSR/ISR).</td><td>Depends which one you pick.</td></tr>
               <tr><td>Admin build speed</td><td>Fast C# CRUD in Blazor (now a full catalog editor).</td><td>Re-implement in TS, or lose SSR.</td></tr>
@@ -282,7 +282,7 @@
 
         <div class="callout note">
           <span class="mark">i</span>
-          <p>Part of the <a class="inline" href="index.html">3commerce help wiki</a> · companion pages: <a class="inline" href="getting-started.html">Getting started</a> · <a class="inline" href="storefront-operations.html">Storefront</a> · <a class="inline" href="admin-operations.html">Admin</a> · <a class="inline" href="testing.html">Testing</a> · <a class="inline" href="deployment.html">Deployment</a>. Assessment is a full evidence-based PRD-vs-code re-audit (grade A, 21 requirements, as of 2026-06-17). Source paths referenced throughout live under the repository root; key decisions are recorded in <code>docs/adr/</code> and <code>docs/prd/</code>.</p>
+          <p>Part of the <a class="inline" href="index.html">3commerce help wiki</a> · companion pages: <a class="inline" href="getting-started.html">Getting started</a> · <a class="inline" href="storefront-operations.html">Storefront</a> · <a class="inline" href="admin-operations.html">Admin</a> · <a class="inline" href="testing.html">Testing</a> · <a class="inline" href="deployment.html">Deployment</a>. Assessment is a full evidence-based PRD-vs-code re-audit (grade A, 21 requirements, refreshed 2026-06-28 for the multi-tenant/platform services and aui/mt4 tails). Source paths referenced throughout live under the repository root; key decisions are recorded in <code>docs/adr/</code> and <code>docs/prd/</code>.</p>
         </div>
 
         <footer class="page-nav">

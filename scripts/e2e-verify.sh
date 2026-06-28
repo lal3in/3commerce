@@ -89,7 +89,7 @@
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
 # in-process integration tests do not):
-#   L1  Infra healthy: Postgres (6 service DBs) + RabbitMQ
+#   L1  Infra healthy: Postgres (all service DBs from init-databases.sql) + RabbitMQ
 #   L2  All six services report /health/ready
 #   L3  Ping-pong spine flows through the gateway to the Notifications worker
 #   L4  Gateway blocks internal health routes (/api/*/health* → 404)

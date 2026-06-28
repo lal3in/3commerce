@@ -51,7 +51,7 @@
       <div class="content-inner">
         <p class="eyebrow">Guide · 05</p>
         <h1>Deployment</h1>
-        <p class="lede">Two ways to run the stack: the <strong>bare-run</strong> inner-loop dev path (ADR-0009 — <code>dotnet run</code> per service, containers for infra only) and the <strong>containerized launch</strong> (ADR-0021 — all 10 app images + infra via <code>docker-compose.yml</code>, graduating to a Helm chart validated against a <code>kind</code> cluster in CI). Still deferred behind explicit launch gates: <strong>live Stripe/Xero, a real <code>ITaxStrategy</code>, an external pen test, and a real cloud cluster</strong>.</p>
+        <p class="lede">Two ways to run the stack: the <strong>bare-run</strong> inner-loop dev path (ADR-0009 — <code>dotnet run</code> per service, containers for infra only) and the <strong>containerized launch</strong> (ADR-0021 — all 18 app images + infra via <code>docker-compose.yml</code>, graduating to a Helm chart validated against a <code>kind</code> cluster in CI). Still deferred behind explicit launch gates: <strong>live Stripe/Xero, a real <code>ITaxStrategy</code>, an external pen test, and a real cloud cluster</strong>.</p>
 
         <h2 id="containerized-launch-compose">Containerized launch (compose)</h2>
         <p>One command brings the whole stack up in containers, repeatably:</p>
@@ -67,10 +67,10 @@
             </tbody>
           </table>
         </div>
-        <p>Endpoints once up: gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>. The catalog is <strong>not</strong> auto-seeded — after a fresh launch, log into the admin <strong>Imports</strong> screen (or <code>POST /api/catalog/admin/import-runs</code> with an admin session) to load the sample SKUs.</p>
+        <p>Endpoints once up: gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>, supplier portal <code>:5300</code>. The catalog is <strong>not</strong> auto-seeded — after a fresh launch, log into the admin <strong>Imports</strong> screen (or <code>POST /api/catalog/admin/import-runs</code> with an admin session) to load the sample SKUs.</p>
         <p>How it fits together:</p>
         <ul>
-          <li><strong><code>docker-compose.yml</code></strong> runs the 10 app images + <code>postgres</code> + <code>rabbitmq</code> on one internal network, with healthchecks, <code>depends_on</code> conditions (services wait for Postgres/RabbitMQ healthy <strong>and</strong> the migrator completed), and memory limits.</li>
+          <li><strong><code>docker-compose.yml</code></strong> runs the 18 app images + <code>postgres</code> + <code>rabbitmq</code> on one internal network, with healthchecks, <code>depends_on</code> conditions (services wait for Postgres/RabbitMQ healthy <strong>and</strong> the migrator completed), and memory limits.</li>
           <li><strong>Config</strong> is injected as a hybrid: committed <code>appsettings.Container.json</code> per app for host wiring (<code>Host=postgres</code>, <code>amqp@rabbitmq</code>, YARP destinations → service names on <code>:8080</code>, admin → <code>gateway:8080</code>), loaded by <code>USE_CONTAINER_CONFIG=true</code> — <strong>decoupled from <code>ASPNETCORE_ENVIRONMENT</code></strong> so the dev/prod env (secret gate + admin seeder) stays orthogonal. Secrets/env-mode come from <code>deploy/.env.&lt;env&gt;</code> (+ a prod overlay for the keys).</li>
           <li><strong>Migrations</strong> run via <code>deploy/migrator</code> — a one-shot image that builds a framework-dependent <strong>EF migration bundle</strong> per DB-owning service and applies them before the services start. Design-time <code>DbContext</code> factories let the bundles build the context without the app host.</li>
           <li><strong>Schema:</strong> each service's tables (domain + MassTransit outbox/inbox/saga) live in a <strong>named schema</strong> within its own database (<code>&lt;service&gt;.*</code>, not <code>public</code>; ADR-0022). The migration creates the schema (<code>EnsureSchema</code>); <code>__EFMigrationsHistory</code> stays in <code>public</code>.</li>
@@ -84,13 +84,13 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev
 <span class="cmt"># prod (BL-11 gate enforced): create the Secret first</span>
 deploy/helm/make-secret.sh | kubectl apply -f -
 helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-prod.yaml</code></pre>
-        <p>The chart templates Postgres (init-SQL ConfigMap + <code>emptyDir</code>), RabbitMQ, the 6 services (each with a per-service EF-bundle <strong>initContainer</strong> that migrates its own DB), the gateway (+ optional Ingress), the worker, admin, and storefront. Image name == k8s <code>Service</code> name == container hostname, so the <strong>same <code>appsettings.Container.json</code> serves both compose and k8s</strong>. CI's <code>kind-deploy</code> job builds the images, loads them into a <code>kind</code> cluster, <code>helm install --wait</code>s, and probes the gateway — so the chart can't silently rot.</p>
+        <p>The chart templates Postgres (init-SQL ConfigMap + <code>emptyDir</code>), RabbitMQ, the 13 DB-owning services (each with a per-service EF-bundle <strong>initContainer</strong> that migrates its own DB), the gateway (+ optional Ingress), the worker, admin, storefront, and supplier portal. Image name == k8s <code>Service</code> name == container hostname, so the <strong>same <code>appsettings.Container.json</code> serves both compose and k8s</strong>. CI's <code>kind-deploy</code> job builds the images, loads them into a <code>kind</code> cluster, <code>helm install --wait</code>s, and probes the gateway — so the chart can't silently rot.</p>
 
         <h2 id="dockerfiles">Dockerfiles</h2>
-        <p>All <strong>10</strong> runnable apps have a Dockerfile, built in CI's <code>docker</code> matrix (<code>.github/workflows/ci.yml</code>) and run together by the compose/Helm paths above:</p>
+        <p>All <strong>18</strong> runnable apps have a Dockerfile, built in CI's <code>docker</code> matrix (<code>.github/workflows/ci.yml</code>) and run together by the compose/Helm paths above:</p>
         <ul>
-          <li><code>src/Gateway/Dockerfile</code>, <code>src/Workers/Notifications/Dockerfile</code>, <code>src/Admin/Dockerfile</code></li>
-          <li><code>src/Services/{Identity,Catalog,Ordering,Payments,Fulfillment,Support}/Api/Dockerfile</code></li>
+          <li><code>src/Gateway/Dockerfile</code>, <code>src/Workers/Notifications/Dockerfile</code>, <code>src/Admin/Dockerfile</code>, <code>src/SupplierPortal/Dockerfile</code></li>
+          <li><code>src/Services/{Identity,Catalog,Ordering,Payments,Fulfillment,Support,Entity,Marketing,Pricing,Audit,Workflow,Entitlement,Usage}/Api/Dockerfile</code></li>
           <li><code>src/Storefront/Dockerfile</code> (Next.js <code>output: "standalone"</code>, non-root)</li>
           <li>plus <code>deploy/migrator/Dockerfile</code> (the schema migrator)</li>
         </ul>
@@ -102,7 +102,7 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-pro
         <ol>
           <li><code>docker compose -f docker-compose.infra.yml up -d</code> — Postgres 17 + RabbitMQ 4.</li>
           <li><code>dotnet ef database update</code> per service — migrations.</li>
-          <li><code>scripts/run-all.sh start</code> — gateway + 6 services + Notifications worker (bare <code>dotnet run</code>).</li>
+          <li><code>scripts/run-all.sh start</code> — gateway + 13 DB-owning services + Notifications worker (bare <code>dotnet run</code>).</li>
           <li>Storefront <code>npm run build &amp;&amp; GATEWAY_URL=http://localhost:8080 npm run start</code> (<code>:3000</code>).</li>
           <li>Admin <code>dotnet run --project src/Admin</code> (<code>:5200</code>).</li>
         </ol>
@@ -152,7 +152,7 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-pro
         <p>Engineering-complete; these are <strong>business/operational</strong>, not code:</p>
         <ol>
           <li><strong>Company registration</strong> — blocks live <strong>Stripe</strong> keys, a real <strong>Xero</strong> org, a real <code>ITaxStrategy</code> (tax presence), payout currency, and privacy policy/imprint.</li>
-          <li><strong>Supplier contract</strong> — blocks the real catalog feed and the dropship-vs-warehouse decision (modelled today by the per-line <code>FulfillmentSource</code>).</li>
+          <li><strong>Supplier contract</strong> — blocks the real catalog feed and the dropship-vs-warehouse decision (modelled today by per-offer/per-line supply and fulfilment types).</li>
           <li><strong>External security review</strong> — see <code>docs/security/asvs-l1-audit.md</code>.</li>
           <li><strong>Real cloud cluster</strong> — the Helm chart is <code>kind</code>/CI-proven; a managed k8s target, plus prod DB/RabbitMQ credential rotation and a secrets store, are the next rung (ADR-0021).</li>
         </ol>
