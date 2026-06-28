@@ -4,8 +4,9 @@
 Run from the repo root:
     python3 tools/script-console/script_console.py
 
-No third-party packages are required. The GUI discovers scripts/*.sh dynamically and
-runs each in its own subprocess, streaming output into the log panel.
+No third-party packages are required. The GUI lists scripts in a human workflow
+order, explains what each script does, can run/stop them, and lets an operator
+view or edit the .sh file before running it.
 """
 from __future__ import annotations
 
@@ -19,11 +20,34 @@ import sys
 import threading
 import time
 import tkinter as tk
+from dataclasses import dataclass
 from pathlib import Path
 from tkinter import ttk, messagebox
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = ROOT / "scripts"
+
+
+@dataclass(frozen=True)
+class ScriptInfo:
+    name: str
+    purpose: str
+    description: str
+
+
+SCRIPT_ORDER: list[ScriptInfo] = [
+    ScriptInfo("doctor.sh", "Check first", "Quick health check for local infra, services, gateway, and recent errors."),
+    ScriptInfo("dev-up.sh", "Start dev", "Starts local Postgres/RabbitMQ, migrates DBs, runs services, and optionally starts frontends or data profiles."),
+    ScriptInfo("dev-dummy-data.sh", "Load demo data", "Seeds a running dev stack through gateway APIs with catalog, demo users, and optional operator data."),
+    ScriptInfo("run-all.sh", "Services only", "Starts or stops the gateway, DB-owning services, and workers as local dotnet processes."),
+    ScriptInfo("build-images.sh", "Build containers", "Builds all container images with bounded concurrency to avoid Docker VM OOMs."),
+    ScriptInfo("launch.sh", "Container launch", "Runs the full compose stack in dev/prod mode with fresh or reused data."),
+    ScriptInfo("e2e-verify.sh", "Regression", "Runs the automated regression suite; --live also boots the stack and runs live flows."),
+    ScriptInfo("host-check.sh", "Deep diagnostics", "Checks containers, service health, RabbitMQ, logs, resources, and optional remote hosts."),
+    ScriptInfo("ci-logs.sh", "CI triage", "Fetches the latest GitHub Actions failures and extracts useful error lines."),
+    ScriptInfo("rotate-secrets.sh", "Secrets", "Generates fresh internal-auth keys and seed-admin password values for prod-like launch."),
+    ScriptInfo("dev-down.sh", "Stop dev", "Stops local services/frontends and tears down the bare-run dev environment."),
+]
 
 
 def run_text(command: list[str], timeout: int = 8) -> str:
@@ -48,16 +72,35 @@ class ScriptConsole(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("3commerce Script Console")
-        self.geometry("1220x820")
+        self.geometry("1420x900")
         self.queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.running: dict[str, subprocess.Popen[str]] = {}
+        self.loaded_script: Path | None = None
 
         self.args_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Ready")
+        self.editor_label_var = tk.StringVar(value="No script loaded")
 
         self._build_ui()
         self._poll_queue()
         self.refresh_status()
+
+    def _script_infos(self) -> list[ScriptInfo]:
+        known = {info.name: info for info in SCRIPT_ORDER}
+        ordered = [info for info in SCRIPT_ORDER if (SCRIPTS_DIR / info.name).exists()]
+        for script in sorted(SCRIPTS_DIR.glob("*.sh")):
+            if script.name not in known:
+                ordered.append(ScriptInfo(script.name, "Other", self._description_from_file(script)))
+        return ordered
+
+    def _description_from_file(self, script: Path) -> str:
+        for line in script.read_text(encoding="utf-8", errors="replace").splitlines()[1:10]:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                text = stripped.lstrip("#").strip()
+                if text and not text.lower().startswith("usage:"):
+                    return text
+        return "Repository shell script. Open it in the editor to inspect the exact actions."
 
     def _build_ui(self) -> None:
         root = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -65,11 +108,12 @@ class ScriptConsole(tk.Tk):
 
         left = ttk.Frame(root, padding=8)
         right = ttk.Frame(root, padding=8)
-        root.add(left, weight=1)
-        root.add(right, weight=2)
+        root.add(left, weight=2)
+        root.add(right, weight=3)
 
-        ttk.Label(left, text="scripts/*.sh", font=("TkDefaultFont", 14, "bold")).pack(anchor=tk.W)
-        ttk.Label(left, text="Optional args for the next run:").pack(anchor=tk.W, pady=(8, 0))
+        ttk.Label(left, text="Script workflow", font=("TkDefaultFont", 14, "bold")).pack(anchor=tk.W)
+        ttk.Label(left, text="Scripts are ordered by the usual human workflow: check → start → seed → build/launch → verify → diagnose → stop.", wraplength=470).pack(anchor=tk.W, pady=(2, 8))
+        ttk.Label(left, text="Optional args for the next run:").pack(anchor=tk.W, pady=(4, 0))
         ttk.Entry(left, textvariable=self.args_var).pack(fill=tk.X, pady=(0, 8))
 
         canvas = tk.Canvas(left, highlightthickness=0)
@@ -81,11 +125,8 @@ class ScriptConsole(tk.Tk):
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        for script in sorted(SCRIPTS_DIR.glob("*.sh")):
-            row = ttk.Frame(buttons)
-            row.pack(fill=tk.X, pady=2)
-            ttk.Button(row, text=f"Run {script.name}", command=lambda s=script: self.run_script(s)).pack(side=tk.LEFT, fill=tk.X, expand=True)
-            ttk.Button(row, text="Stop", command=lambda s=script: self.stop_script(s.name)).pack(side=tk.RIGHT, padx=(6, 0))
+        for index, info in enumerate(self._script_infos(), start=1):
+            self._add_script_row(buttons, index, info)
 
         top = ttk.Frame(right)
         top.pack(fill=tk.X)
@@ -98,13 +139,58 @@ class ScriptConsole(tk.Tk):
 
         status_frame = ttk.Frame(notebook)
         log_frame = ttk.Frame(notebook)
+        editor_frame = ttk.Frame(notebook)
         notebook.add(status_frame, text="Status")
         notebook.add(log_frame, text="Output")
+        notebook.add(editor_frame, text="Script editor")
 
         self.status = tk.Text(status_frame, wrap=tk.WORD, height=20)
         self.status.pack(fill=tk.BOTH, expand=True)
         self.log = tk.Text(log_frame, wrap=tk.WORD, height=20)
         self.log.pack(fill=tk.BOTH, expand=True)
+
+        editor_top = ttk.Frame(editor_frame)
+        editor_top.pack(fill=tk.X)
+        ttk.Label(editor_top, textvariable=self.editor_label_var).pack(side=tk.LEFT)
+        ttk.Button(editor_top, text="Save script", command=self.save_loaded_script).pack(side=tk.RIGHT)
+        ttk.Button(editor_top, text="Reload", command=self.reload_loaded_script).pack(side=tk.RIGHT, padx=6)
+        self.editor = tk.Text(editor_frame, wrap=tk.NONE, undo=True)
+        self.editor.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
+
+    def _add_script_row(self, parent: ttk.Frame, index: int, info: ScriptInfo) -> None:
+        script = SCRIPTS_DIR / info.name
+        frame = ttk.LabelFrame(parent, text=f"{index}. {info.purpose}: {info.name}", padding=8)
+        frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(frame, text=info.description, wraplength=450).pack(anchor=tk.W, fill=tk.X)
+        row = ttk.Frame(frame)
+        row.pack(fill=tk.X, pady=(6, 0))
+        ttk.Button(row, text="Run", command=lambda s=script: self.run_script(s)).pack(side=tk.LEFT)
+        ttk.Button(row, text="Stop", command=lambda s=script: self.stop_script(s.name)).pack(side=tk.LEFT, padx=6)
+        ttk.Button(row, text="View/Edit .sh", command=lambda s=script: self.load_script(s)).pack(side=tk.LEFT)
+
+    def load_script(self, script: Path) -> None:
+        self.loaded_script = script
+        self.editor_label_var.set(f"Editing {script.relative_to(ROOT)}")
+        self.editor.delete("1.0", tk.END)
+        self.editor.insert("1.0", script.read_text(encoding="utf-8", errors="replace"))
+        self._log("system", f"loaded {script.relative_to(ROOT)} into editor\n")
+
+    def reload_loaded_script(self) -> None:
+        if self.loaded_script is None:
+            messagebox.showinfo("No script loaded", "Click 'View/Edit .sh' next to a script first.")
+            return
+        self.load_script(self.loaded_script)
+
+    def save_loaded_script(self) -> None:
+        if self.loaded_script is None:
+            messagebox.showinfo("No script loaded", "Click 'View/Edit .sh' next to a script first.")
+            return
+        if not messagebox.askyesno("Save script", f"Overwrite {self.loaded_script.relative_to(ROOT)}?"):
+            return
+        self.loaded_script.write_text(self.editor.get("1.0", tk.END).rstrip() + "\n", encoding="utf-8")
+        self.loaded_script.chmod(self.loaded_script.stat().st_mode | 0o111)
+        self._log("system", f"saved {self.loaded_script.relative_to(ROOT)}\n")
 
     def run_script(self, script: Path) -> None:
         if script.name in self.running:
@@ -113,7 +199,7 @@ class ScriptConsole(tk.Tk):
 
         args = shlex.split(self.args_var.get().strip()) if self.args_var.get().strip() else []
         command = [str(script), *args]
-        self._log("system", f"$ {' '.join(command)}\n")
+        self._log("system", f"$ {' '.join(shlex.quote(part) for part in command)}\n")
         try:
             proc = subprocess.Popen(
                 command,
@@ -181,10 +267,9 @@ class ScriptConsole(tk.Tk):
         cpu = os.cpu_count() or "unknown"
         uname = platform.platform()
         disk = shutil.disk_usage(ROOT)
-        mem = ""
         if sys.platform == "darwin":
-            mem = run_text(["vm_stat"], timeout=3).splitlines()[0:8]
-            mem = "\n".join(mem)
+            mem_lines = run_text(["vm_stat"], timeout=3).splitlines()[0:8]
+            mem = "\n".join(mem_lines)
         else:
             mem = run_text(["free", "-h"], timeout=3)
         return f"platform: {uname}\npython: {platform.python_version()}\ncpu count: {cpu}\nrepo disk free: {disk.free // (1024**3)} GiB / {disk.total // (1024**3)} GiB\n{mem}"
