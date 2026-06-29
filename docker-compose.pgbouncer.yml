@@ -1,0 +1,98 @@
+# Optional PgBouncer runtime pooling overlay (ADR-0032).
+# Usage:
+#   docker compose -f docker-compose.db.yml -f docker-compose.pgbouncer.yml --profile pgbouncer up -d postgres pgbouncer
+#   docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml --profile pgbouncer up -d
+#
+# EF migration bundles in docker-compose.yml intentionally keep direct Host=postgres
+# connections. This overlay routes only long-running app services through PgBouncer.
+
+x-pgbouncer-deps: &pgbouncer-deps
+  pgbouncer:
+    condition: service_healthy
+
+services:
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: 3commerce-pgbouncer
+    profiles: ["pgbouncer"]
+    volumes:
+      - ./deploy/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./deploy/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "6432:6432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  identity:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=identity_db;Username=identity_svc;Password=identity_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  catalog:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev;Include Error Detail=true
+    depends_on:
+      <<: *pgbouncer-deps
+  entity:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=entity_db;Username=entity_svc;Password=entity_dev;Include Error Detail=true
+    depends_on:
+      <<: *pgbouncer-deps
+  ordering:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  payments:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=payments_db;Username=payments_svc;Password=payments_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  fulfillment:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  support:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=support_db;Username=support_svc;Password=support_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  marketing:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=marketing_db;Username=marketing_svc;Password=marketing_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  pricing:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=pricing_db;Username=pricing_svc;Password=pricing_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  audit:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=audit_db;Username=audit_svc;Password=audit_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  workflow:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=workflow_db;Username=workflow_svc;Password=workflow_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  entitlement:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=entitlement_db;Username=entitlement_svc;Password=entitlement_dev
+    depends_on:
+      <<: *pgbouncer-deps
+  usage:
+    environment:
+      ConnectionStrings__Database: Host=pgbouncer;Port=6432;Database=usage_db;Username=usage_svc;Password=usage_dev
+    depends_on:
+      <<: *pgbouncer-deps
+
+networks:
+  default:
+    name: 3commerce-data
+    external: true

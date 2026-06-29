@@ -33,3 +33,6 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0028](./0028-product-supply-profiles-composable-supply.md) | Product supply profiles (Offers) — composable supply/fulfilment/pricing/entitlement | Accepted | Catalog / supply / architecture |
 | [0029](./0029-phase-6-compliance-ops-primitives.md) | Phase 6 compliance/ops primitives — capability-first, services deferred | Accepted | Compliance / observability / architecture |
 | [0030](./0030-deferred-services-extracted.md) | Phase 5–7 deferred services extracted (Marketing/Pricing/Audit/Workflow/Entitlement/Usage) | Accepted | Services / architecture |
+| [0031](./0031-yarp-production-hardening.md) | YARP production hardening | Accepted | Edge / security / operations |
+| [0032](./0032-pgbouncer-connection-pooling.md) | PgBouncer connection pooling before broad app scale-out | Accepted | Data / operations |
+| [0033](./0033-postgres-index-audit-evidence-first.md) | PostgreSQL index changes require measured query evidence | Accepted | Data / performance |

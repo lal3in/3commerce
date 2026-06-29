@@ -43,6 +43,25 @@ How it fits together:
   schema** within its own database (`<service>.*`, not `public`; ADR-0022). The migration creates
   the schema (`EnsureSchema`); `__EFMigrationsHistory` stays in `public`.
 
+## Optional PgBouncer runtime pooling (ADR-0032)
+
+PgBouncer is available as an **optional** runtime connection-pooling overlay before scaling service replicas broadly. It is for long-running app traffic only; EF migration bundles intentionally keep direct `Host=postgres` connections.
+
+```bash
+# Bare-run/dev infra path: expose PgBouncer on localhost:6432 for host-run services.
+docker compose -f docker-compose.infra.yml -f docker-compose.infra.pgbouncer.yml --profile pgbouncer up -d
+
+# Containerized app path: start/reset the external Postgres first as usual.
+docker compose -f docker-compose.db.yml up -d postgres
+
+# Then launch the app stack with runtime services routed through PgBouncer.
+docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml --profile pgbouncer up -d
+```
+
+The app overlay starts `pgbouncer` on the private `3commerce-data` network and exposes it on local `:6432` for diagnostics. It overrides each DB-owning app service's `ConnectionStrings__Database` to `Host=pgbouncer;Port=6432;...` while leaving the one-shot `migrate` service direct-to-Postgres. The infra overlay exposes the same pooler for host-run services that opt into `Host=localhost;Port=6432`. The committed PgBouncer config is dev/local only and uses the existing development database passwords on the private Docker network; production must use managed secrets/TLS/SASL-equivalent controls appropriate to the target platform.
+
+RLS remains transaction-scoped. If PgBouncer is enabled, validate tenant/RLS paths with the integration suite before raising replicas.
+
 ## Observability metrics (mt6_13)
 
 Every service exports OpenTelemetry **traces and RED metrics** (request rate / duration / errors for
@@ -108,6 +127,19 @@ The fast inner loop is unchanged — see [Getting started](./getting-started.md)
 3. `scripts/run-all.sh start` — gateway + 13 DB-owning services + Notifications worker (bare `dotnet run`).
 4. Storefront `npm run build && GATEWAY_URL=http://localhost:8080 npm run start` (`:3000`).
 5. Admin `dotnet run --project src/Admin` (`:5200`).
+
+## PostgreSQL index-audit workflow (ADR-0033)
+
+Index changes are evidence-first. Before adding a partial, expression, composite, GIN/GiST, or trigram index, capture `EXPLAIN (ANALYZE, BUFFERS)` evidence against seeded or representative data:
+
+```bash
+scripts/dev-up.sh --with-frontends --data dummy
+scripts/postgres-index-audit.sh --list
+scripts/postgres-index-audit.sh catalog-search
+scripts/postgres-index-audit.sh > /tmp/3commerce-index-audit.txt
+```
+
+Each proposed index should cite the endpoint/query path, row counts, before plan, proposed DDL, after plan, and write-path impact. Index migrations stay inside the owning service and its named schema; no cross-service database reads are introduced.
 
 ## Configuration & secrets
 

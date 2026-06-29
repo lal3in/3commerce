@@ -8,7 +8,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 > **Status:** MVP on dev/test rails (Phases 1–4), **conformance grade A−→A** (16 Met / 4 Partial / 0 Missing of 21 FR/NFR — see `docs/reviews/prd-vs-implementation.md`). All six services, gateway, Next.js storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (single refund path), and Xero summary journals (logging client; real OAuth a future swap). Tests: **11 unit + 27 integration + 13 Playwright browser E2E** (storefront + admin), green in CI; `scripts/e2e-verify.sh --live` covers **L1–L20**.
 >
-> **Post-MVP work done (`.ai-shared/plans/plan_status_executions.md`):** backlog BL-1..BL-11 complete — FR-7 guest→account, FR-12 admin catalog CRUD, real admin Orders / storefront account screens, NFR-2/5/7 now asserted by tests, per-line server-derived RMA, configurable `Store:Currency`, app-tier Dockerfiles, and the BL-11 dev-secret launch gate. **Containerized launch (ADR-0021):** `scripts/launch.sh [--fresh|--reuse] [--env dev|prod]` runs the full stack via `docker-compose.yml` (EF-bundle migrator), and a Helm chart (`deploy/helm/3commerce`) is `kind`/CI-validated. **Still deferred (launch gates):** live Stripe/Xero, real `ITaxStrategy`, external pen test, a managed cloud cluster — `docs/prd/3commerce/15-appendix.md`. Frontend wiki (HTML — open `docs/help/index.html`); analysis: `docs/help/project-analysis.html`.
+> **Post-MVP work done (`.ai-shared/plans/plan_status_executions.md`):** backlog BL-1..BL-11 complete — FR-7 guest→account, FR-12 admin catalog CRUD, real admin Orders / storefront account screens, NFR-2/5/7 now asserted by tests, per-line server-derived RMA, configurable `Store:Currency`, app-tier Dockerfiles, and the BL-11 dev-secret launch gate. **Containerized launch (ADR-0021):** `scripts/launch.sh [--fresh|--reuse] [--env dev|prod]` runs the full stack via `docker-compose.yml` (EF-bundle migrator), and a Helm chart (`deploy/helm/3commerce`) is `kind`/CI-validated. Optional PgBouncer runtime pooling is available via `docker-compose.pgbouncer.yml` + `deploy/pgbouncer/` (ADR-0032). **Still deferred (launch gates):** live Stripe/Xero, real `ITaxStrategy`, external pen test, a managed cloud cluster — `docs/prd/3commerce/15-appendix.md`. Frontend wiki (HTML — open `docs/help/index.html`); analysis: `docs/help/project-analysis.html`.
 
 ---
 
@@ -153,7 +153,10 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md
 ├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
+├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
+├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
+├── deploy/pgbouncer/              # PgBouncer dev/local config + user list
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
 ├── 3commerce.sln                  # all 27 projects; Directory.Build.props / Directory.Packages.props (CPM)

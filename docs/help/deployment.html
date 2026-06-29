@@ -76,6 +76,19 @@
           <li><strong>Schema:</strong> each service's tables (domain + MassTransit outbox/inbox/saga) live in a <strong>named schema</strong> within its own database (<code>&lt;service&gt;.*</code>, not <code>public</code>; ADR-0022). The migration creates the schema (<code>EnsureSchema</code>); <code>__EFMigrationsHistory</code> stays in <code>public</code>.</li>
         </ul>
 
+        <h2 id="optional-pgbouncer-runtime-pooling-adr-0032">Optional PgBouncer runtime pooling (ADR-0032)</h2>
+        <p>PgBouncer is available as an <strong>optional</strong> runtime connection-pooling overlay before scaling service replicas broadly. It is for long-running app traffic only; EF migration bundles intentionally keep direct <code>Host=postgres</code> connections.</p>
+        <pre><code><span class="cmt"># Bare-run/dev infra path: expose PgBouncer on localhost:6432 for host-run services.</span>
+docker compose -f docker-compose.infra.yml -f docker-compose.infra.pgbouncer.yml --profile pgbouncer up -d
+
+<span class="cmt"># Containerized app path: start/reset the external Postgres first as usual.</span>
+docker compose -f docker-compose.db.yml up -d postgres
+
+<span class="cmt"># Then launch the app stack with runtime services routed through PgBouncer.</span>
+docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml --profile pgbouncer up -d</code></pre>
+        <p>The app overlay starts <code>pgbouncer</code> on the private <code>3commerce-data</code> network and exposes it on local <code>:6432</code> for diagnostics. It overrides each DB-owning app service's <code>ConnectionStrings__Database</code> to <code>Host=pgbouncer;Port=6432;...</code> while leaving the one-shot <code>migrate</code> service direct-to-Postgres. The infra overlay exposes the same pooler for host-run services that opt into <code>Host=localhost;Port=6432</code>. The committed PgBouncer config is dev/local only and uses the existing development database passwords on the private Docker network; production must use managed secrets/TLS/SASL-equivalent controls appropriate to the target platform.</p>
+        <p>RLS remains transaction-scoped. If PgBouncer is enabled, validate tenant/RLS paths with the integration suite before raising replicas.</p>
+
         <h2 id="containerized-launch-kubernetes">Containerized launch (Kubernetes / Helm)</h2>
         <p>The same topology is packaged as an umbrella Helm chart at <strong><code>deploy/helm/3commerce</code></strong>:</p>
         <pre><code><span class="cmt"># dev (committed keys baked into the images)</span>
@@ -106,6 +119,14 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-pro
           <li>Storefront <code>npm run build &amp;&amp; GATEWAY_URL=http://localhost:8080 npm run start</code> (<code>:3000</code>).</li>
           <li>Admin <code>dotnet run --project src/Admin</code> (<code>:5200</code>).</li>
         </ol>
+
+        <h2 id="postgresql-index-audit-workflow-adr-0033">PostgreSQL index-audit workflow (ADR-0033)</h2>
+        <p>Index changes are evidence-first. Before adding a partial, expression, composite, GIN/GiST, or trigram index, capture <code>EXPLAIN (ANALYZE, BUFFERS)</code> evidence against seeded or representative data:</p>
+        <pre><code>scripts/dev-up.sh --with-frontends --data dummy
+scripts/postgres-index-audit.sh --list
+scripts/postgres-index-audit.sh catalog-search
+scripts/postgres-index-audit.sh &gt; /tmp/3commerce-index-audit.txt</code></pre>
+        <p>Each proposed index should cite the endpoint/query path, row counts, before plan, proposed DDL, after plan, and write-path impact. Index migrations stay inside the owning service and its named schema; no cross-service database reads are introduced.</p>
 
         <h2 id="configuration-secrets">Configuration &amp; secrets</h2>
         <p>Dev defaults below; production values are launch-gated or injected per env.</p>

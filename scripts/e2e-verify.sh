@@ -38,6 +38,7 @@
 #       admin payment-account lifecycle endpoints (Draft→submit→activate, Live readiness guard — PaymentAccountAdminTests);
 #       admin supplier-payout setup endpoints (masked bank account approval + payout instruction — SupplierPayoutAdminTests);
 #       admin Xero mapping CRUD endpoints (XeroMappingAdminTests);
+#       gateway production YARP config conventions + internal health-route block (GatewayConfigTests);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
