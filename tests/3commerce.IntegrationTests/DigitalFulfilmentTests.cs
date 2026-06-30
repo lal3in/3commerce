@@ -66,6 +66,29 @@ public class DigitalFulfilmentTests(Phase4Fixture fixture)
     }
 
     [Fact]
+    public async Task Non_physical_matrix_lines_issue_the_expected_entitlements_and_no_shipments()
+    {
+        var tenant = Guid.NewGuid();
+        var orderId = Guid.CreateVersion7();
+        var lines = new List<OrderLineInfo>
+        {
+            new(Guid.NewGuid(), null, null, "E-book", 1, FulfilmentType.DigitalDownload, BillingMode.OneTime, 1200),
+            new(Guid.NewGuid(), null, null, "Monthly plan", 1, FulfilmentType.Subscription, BillingMode.Recurring, 990),
+            new(Guid.NewGuid(), null, null, "API meter", 3, FulfilmentType.Usage, BillingMode.Metered, 0),
+            new(Guid.NewGuid(), null, null, "Setup service", 1, FulfilmentType.ManualService, BillingMode.OneTime, 7500),
+        };
+
+        await fixture.PublishAsync(new OrderConfirmed(orderId, tenant, "matrix@example.com", 9690, "EUR", Ship, lines));
+
+        var entitlements = await PollAsync(() => EntitlementsAsync(tenant, orderId), e => e.Count == 4, "Matrix entitlements were not issued.");
+        Assert.Contains(entitlements, e => e.Type == EntitlementType.Download);
+        Assert.Contains(entitlements, e => e.Type == EntitlementType.Subscription);
+        Assert.Contains(entitlements, e => e.Type == EntitlementType.ApiAccess);
+        Assert.Contains(entitlements, e => e.Type == EntitlementType.ServiceAccess);
+        Assert.False(await HasShipmentAsync(orderId));
+    }
+
+    [Fact]
     public async Task Mixed_order_ships_physical_and_entitles_digital()
     {
         var tenant = Guid.NewGuid();

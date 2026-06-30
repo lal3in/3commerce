@@ -39,8 +39,9 @@ uses a logging client.
 > so it can't OOM a small Docker VM:
 >
 > ```bash
-> scripts/dev-up.sh --with-frontends --seed        # catalog only; stop with: scripts/dev-down.sh
-> scripts/dev-up.sh --with-frontends --dummy-data  # optional broad demo data
+> scripts/dev-up.sh --with-frontends --seed             # catalog only; stop with: scripts/dev-down.sh
+> scripts/dev-up.sh --with-frontends --data smoke       # fast deterministic fixture manifest
+> scripts/dev-up.sh --with-frontends --dummy-data       # broad demo data (--data full)
 > ```
 >
 > The manual steps below are the same thing, broken out. For the **containerized** stack, build images
@@ -156,7 +157,9 @@ Data choices for bare-run dev:
 
 - no flag / `--data empty` — leave databases as they are after migrations.
 - `--seed` / `--data catalog` — current behavior: trigger the Catalog sample importer.
-- `--dummy-data` / `--data dummy` — run `scripts/dev-dummy-data.sh --profile full`, which uses gateway APIs to create broad demo data across services where public/admin APIs exist.
+- `--data smoke` — run `scripts/dev-dummy-data.sh --profile smoke` for the fast deterministic fixture manifest used by Playwright.
+- `--dummy-data` / `--data dummy` / `--data full` — run `scripts/dev-dummy-data.sh --profile full`, which uses gateway APIs to create broad demo data, scenario products/offers, and representative historical flows where public/admin APIs exist.
+- `--data exhaustive` — run the slower state-rich hook for local/nightly validation as it grows.
 - `--data mirror-prod` — reserved for a future sanitized production mirror; it intentionally fails today rather than pulling production data.
 
 This brings up all 18 app images + Postgres + RabbitMQ via `docker-compose.yml`, applies

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bring up the FULL local env the light way (ADR-0009 bare-run): only Postgres + RabbitMQ in Docker,
 # everything else as host processes — so it never triggers the 13-image build that OOMs a small Docker VM.
-# Usage: scripts/dev-up.sh [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|dummy|mirror-prod]
+# Usage: scripts/dev-up.sh [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|smoke|dummy|full|exhaustive|mirror-prod]
 # Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -40,7 +40,8 @@ if (( WITH_FRONTENDS )); then
   echo "== frontends =="
   ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 npm run dev >/tmp/3c-storefront.log 2>&1 & )
   ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >/tmp/3c-admin.log 2>&1 & )
-  echo "  storefront :3000 + admin :5200 starting"
+  ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >/tmp/3c-supplier-portal.log 2>&1 & )
+  echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"
 fi
 
 echo "== 4/4 health =="
@@ -59,14 +60,20 @@ case "$DATA_PROFILE" in
     curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
     curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
     ;;
+  smoke)
+    scripts/dev-dummy-data.sh --profile smoke
+    ;;
   dummy|full)
     scripts/dev-dummy-data.sh --profile full
+    ;;
+  exhaustive)
+    scripts/dev-dummy-data.sh --profile exhaustive
     ;;
   mirror-prod)
     scripts/dev-dummy-data.sh --profile mirror-prod
     ;;
   *)
-    echo "Unknown data profile '$DATA_PROFILE' (empty|catalog|dummy|mirror-prod)" >&2
+    echo "Unknown data profile '$DATA_PROFILE' (empty|catalog|smoke|dummy|full|exhaustive|mirror-prod)" >&2
     exit 2
     ;;
 esac

@@ -2,7 +2,7 @@
 
 Three layers: .NET **unit/contract** tests, .NET **integration** tests
 (Testcontainers, Docker required), and **Playwright E2E** in a real browser
-(storefront + admin). `scripts/e2e-verify.sh` ties them into one regression
+(storefront + admin + supplier portal). `scripts/e2e-verify.sh` ties them into one regression
 command, and `.github/workflows/ci.yml` runs them in CI.
 
 ## Quick reference
@@ -14,7 +14,8 @@ dotnet test 3commerce.sln --filter Category!=Integration
 # Integration (Testcontainers — Docker/colima must be running)
 dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
-# Storefront + admin E2E (needs the stack up: storefront :3000, admin :5200, gateway :8080)
+# Storefront + admin + supplier portal E2E
+# needs the stack up: storefront :3000, admin :5200, supplier :5300, gateway :8080
 cd src/Storefront && npm run test:e2e
 
 # Full regression (automated suites only)
@@ -63,17 +64,18 @@ business invariants end-to-end *in process* (no gateway/browser). From the
 
 In CI this is the separate **integration** job.
 
-## 3. Playwright E2E (storefront + admin)
+## 3. Playwright E2E (storefront + admin + supplier portal)
 
-Config: `src/Storefront/playwright.config.ts` — two projects driven by Chromium
+Config: `src/Storefront/playwright.config.ts` — three projects driven by Chromium
 against a **running stack**:
 
 | Project | Dir | Base URL (env) |
 |---------|-----|----------------|
 | `storefront` | `src/Storefront/e2e` | `STOREFRONT_URL` (`http://localhost:3000`) |
 | `admin` | `src/Storefront/e2e-admin` | `ADMIN_URL` (`http://localhost:5200`) |
+| `supplier` | `src/Storefront/e2e-supplier` | `SUPPLIER_URL` (`http://localhost:5300`) |
 
-Both also read `GATEWAY_URL` (`http://localhost:8080`) for API seeding/assertions.
+The suites also read `GATEWAY_URL` (`http://localhost:8080`) for API seeding/assertions where needed.
 
 ```bash
 cd src/Storefront
@@ -81,6 +83,8 @@ npm install                          # first time
 npx playwright install chromium      # first time
 npm run test:e2e                     # both projects
 npm run test:e2e -- --project=storefront   # just the storefront
+npm run test:e2e -- --project=admin        # just the admin console
+npm run test:e2e -- --project=supplier     # just the supplier portal
 npm run test:e2e:headed              # headed (debugging)
 ```
 
@@ -89,6 +93,11 @@ npm run test:e2e:headed              # headed (debugging)
 - **`browse.spec.ts`** — home shows featured + categories; search is typo-tolerant
   (`?q=hedphones` still returns headphones); header search navigates to results;
   product detail renders price/variants/add-to-cart.
+- **`catalog-product-types.spec.ts`** — when `.run/dev-dummy-data/fixtures.json` exists,
+  verifies deterministic scenario product PDPs across physical, dropship, variant,
+  digital, subscription, usage, and manual-service products, plus private/unpublished
+  search negative coverage. Run `scripts/dev-dummy-data.sh --profile full` against a
+  live stack to generate the fixture manifest.
 - **`cart-checkout.spec.ts`** — add to cart and see it listed; **full guest checkout
   end to end** (fill address → get/select shipping rate → authorize/place order →
   confirmation → **Complete test payment** → "Thank you / order confirmed");
@@ -101,9 +110,17 @@ npm run test:e2e:headed              # headed (debugging)
 - **`admin.spec.ts`** — unauth redirects to `/login`; login reaches the dashboard
   and every nav page renders; **operator approves an RMA and the refund completes**
   (`RefundIssued`) with a balanced ledger reversal.
+- **`operations.spec.ts`** — broad operator-surface render checks for Catalog,
+  Offers, Orders, Commerce Ops, Payment Accounts, Supplier Payouts, Xero Mappings,
+  Mission Control, plus RMA action availability for a requested RMA.
 - **`helpers.ts`** — `loginAsAdmin` (real Blazor form + antiforgery),
   `seedPaidOrderWithRma` (seeds a paid order + open RMA via the gateway so the UI
   test can focus on approve → refund), and `rmaState`.
+
+### Supplier specs (`e2e-supplier/`)
+
+- **`supplier.spec.ts`** — unauthenticated redirect to supplier sign-in, login,
+  readiness check, stock-feed request, and supplier change-request submission.
 
 ## 4. `scripts/e2e-verify.sh` — the regression command
 
@@ -120,7 +137,7 @@ clean · A3 unit/contract · A4–A6 integration · A6b/c/d ledger/money/RMA/ful
 A6e Xero builder · A7 storefront `tsc` + `next build` · A8 vulnerable-package scan.
 
 **Live group (L1–L20, `--live`):** boots infra, applies migrations, builds, starts
-the services + worker, the storefront (production build), and the admin DLL, then:
+the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL, then:
 
 | Checks | What |
 |--------|------|
@@ -129,7 +146,7 @@ the services + worker, the storefront (production build), and the admin DLL, the
 | L9–L13 | Catalog RBAC, import, exact + **typo** + filtered search, search p95 < 500 ms, logout, password reset |
 | L14 | Storefront SSR: home/search/product render; `/account` redirects (307) |
 | L15–L19 | Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal |
-| L20 | **Storefront + Admin Playwright E2E** in a real browser (the specs above) |
+| L20 | **Storefront + Admin + Supplier Playwright E2E** in a real browser (the specs above) |
 
 It prints a pass/fail summary and exits non-zero on any failure. The
 `mvp-walkthrough.md` runbook is the manual equivalent of the L-flows.

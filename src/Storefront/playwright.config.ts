@@ -6,6 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
 //   npm run test:e2e -- --project=storefront  (just the storefront)
 const STOREFRONT = process.env.STOREFRONT_URL ?? "http://localhost:3000";
 const ADMIN = process.env.ADMIN_URL ?? "http://localhost:5200";
+const SUPPLIER = process.env.SUPPLIER_URL ?? "http://localhost:5300";
 
 export default defineConfig({
   timeout: 60_000,
@@ -25,6 +26,11 @@ export default defineConfig({
       name: "admin",
       testDir: "./e2e-admin",
       use: { ...devices["Desktop Chrome"], baseURL: ADMIN },
+    },
+    {
+      name: "supplier",
+      testDir: "./e2e-supplier",
+      use: { ...devices["Desktop Chrome"], baseURL: SUPPLIER },
     },
   ],
 });

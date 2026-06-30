@@ -74,7 +74,9 @@
 #       revalidation, dropship auto-forward, packages/labels/tracking, manual restock,
 #       order holds (auto inventory hold → release → fulfil)
 #   A6g Integration · Phase 7 digital supply & billing: a digital line issues an entitlement (no
-#       shipment) and a mixed order ships physical + entitles digital; a recurring line sets up a
+#       shipment), the non-physical product matrix (download/subscription/usage/manual-service)
+#       maps to expected entitlements without shipments, and a mixed order ships physical + entitles
+#       digital; a recurring line sets up a
 #       subscription that renews (charge via the rail) + cancels; usage metering rolls records into
 #       balances incrementally + idempotently, gates access when overage is off, and bills overage once
 #   A6h Unit · Phase 6 compliance/ops primitives (ADR-0029) — run per filter:
@@ -112,8 +114,11 @@
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
 #   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
-#       cart + full guest checkout (test payment), account flows; admin login, page
-#       rendering, and operator RMA approve → refund → RefundIssued + ledger reversal
+#       fixture-manifest catalog scenario products (when seeded), cart + full guest checkout
+#       (test payment), account flows; admin login, broad operations page rendering
+#       (catalog/offers/orders/commerce ops/payments/payouts/Xero/mission control),
+#       RMA action availability, supplier portal readiness/stock/change-request flows,
+#       and operator RMA approve → refund → RefundIssued + ledger reversal
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -216,19 +221,25 @@ run_live() {
   local ok=1; for p in 5101 5102 5103 5104 5105 5106 5107; do wait_health "$p" || ok=0; done
   [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
-  stage "Booting storefront + admin"
+  stage "Booting storefront + admin + supplier portal"
   ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
-  # Run the managed DLL directly (no apphost — the solution build doesn't always emit one in CI).
+  # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
     ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >/tmp/3c-admin.log 2>&1 & )
   else
     echo "  WARNING: admin DLL not found at $admin_dll — admin E2E will be skipped"
   fi
+  local supplier_dll="$ROOT/src/SupplierPortal/bin/Debug/net10.0/3commerce.SupplierPortal.dll"
+  if [[ -f "$supplier_dll" ]]; then
+    ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >/tmp/3c-supplier-portal.log 2>&1 & )
+  else
+    echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
+  fi
 
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
-    "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; sleep 4; grep -a 'PONG received' '$ROOT/.run/notifications.log' | tail -1"
+    "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if grep -aq 'PONG received' '$ROOT/.run/notifications.log'; then grep -a 'PONG received' '$ROOT/.run/notifications.log' | tail -1; exit 0; fi; sleep 1; done; exit 1"
   check "L4 gateway blocks internal health" "404" bash -c \
     "curl -s -o /dev/null -w '%{http_code}' $GATEWAY/api/ordering/health/ready"
 
@@ -327,7 +338,8 @@ run_live() {
   stage "L20  Storefront + Admin E2E (Playwright, real browser)"
   if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
     wait_http "http://localhost:5200/login" || true  # ensure admin is up
-    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
+    wait_http "http://localhost:5300/login" || true  # ensure supplier portal is up
+    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" SUPPLIER_URL="http://localhost:5300" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
       pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
     else
       fail "L20 E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8

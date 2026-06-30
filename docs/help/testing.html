@@ -51,7 +51,7 @@
       <div class="content-inner">
         <p class="eyebrow">Guide · 04</p>
         <h1>Testing</h1>
-        <p class="lede">Three layers: .NET <strong>unit/contract</strong> tests, .NET <strong>integration</strong> tests (Testcontainers, Docker required), and <strong>Playwright E2E</strong> in a real browser (storefront + admin). <code>scripts/e2e-verify.sh</code> ties them into one regression command, and <code>.github/workflows/ci.yml</code> runs them in CI.</p>
+        <p class="lede">Three layers: .NET <strong>unit/contract</strong> tests, .NET <strong>integration</strong> tests (Testcontainers, Docker required), and <strong>Playwright E2E</strong> in a real browser (storefront + admin + supplier portal). <code>scripts/e2e-verify.sh</code> ties them into one regression command, and <code>.github/workflows/ci.yml</code> runs them in CI.</p>
 
         <h2 id="quick-reference">Quick reference</h2>
         <pre><code><span class="cmt"># Unit + contract (fast, no Docker)</span>
@@ -60,7 +60,7 @@ dotnet test 3commerce.sln --filter Category!=Integration
 <span class="cmt"># Integration (Testcontainers — Docker/colima must be running)</span>
 dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
-<span class="cmt"># Storefront + admin E2E (needs the stack up: storefront :3000, admin :5200, gateway :8080)</span>
+<span class="cmt"># Storefront + admin + supplier E2E (needs storefront :3000, admin :5200, supplier :5300, gateway :8080)</span>
 cd src/Storefront &amp;&amp; npm run test:e2e
 
 <span class="cmt"># Full regression (automated suites only)</span>
@@ -97,14 +97,15 @@ scripts/e2e-verify.sh --live</code></pre>
         </div>
         <p>In CI this is the separate <strong>integration</strong> job.</p>
 
-        <h2 id="playwright-e2e">3. Playwright E2E (storefront + admin)</h2>
-        <p>Config: <code>src/Storefront/playwright.config.ts</code> — two projects driven by Chromium against a <strong>running stack</strong>:</p>
+        <h2 id="playwright-e2e">3. Playwright E2E (storefront + admin + supplier portal)</h2>
+        <p>Config: <code>src/Storefront/playwright.config.ts</code> — three projects driven by Chromium against a <strong>running stack</strong>:</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Project</th><th>Dir</th><th>Base URL (env)</th></tr></thead>
             <tbody>
               <tr><td><code>storefront</code></td><td><code>src/Storefront/e2e</code></td><td><code>STOREFRONT_URL</code> (<code>http://localhost:3000</code>)</td></tr>
               <tr><td><code>admin</code></td><td><code>src/Storefront/e2e-admin</code></td><td><code>ADMIN_URL</code> (<code>http://localhost:5200</code>)</td></tr>
+              <tr><td><code>supplier</code></td><td><code>src/Storefront/e2e-supplier</code></td><td><code>SUPPLIER_URL</code> (<code>http://localhost:5300</code>)</td></tr>
             </tbody>
           </table>
         </div>
@@ -135,7 +136,7 @@ npm run test:e2e:headed              <span class="cmt"># headed (debugging)</spa
 scripts/e2e-verify.sh --live     <span class="cmt"># ALSO boot the stack and run live flows (L1–L20)</span>
 scripts/e2e-verify.sh --live-only</code></pre>
         <p><strong>Automated group (A1–A8):</strong> A1 build with 0 warnings · A2 <code>dotnet format</code> clean · A3 unit/contract · A4–A6 integration · A6b/c/d ledger/money/RMA/fulfillment · A6e Xero builder · A7 storefront <code>tsc</code> + <code>next build</code> · A8 vulnerable-package scan.</p>
-        <p><strong>Live group (L1–L20, <code>--live</code>):</strong> boots infra, applies migrations, builds, starts the services + worker, the storefront (production build), and the admin DLL, then:</p>
+        <p><strong>Live group (L1–L20, <code>--live</code>):</strong> boots infra, applies migrations, builds, starts the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL, then:</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Checks</th><th>What</th></tr></thead>
@@ -145,7 +146,7 @@ scripts/e2e-verify.sh --live-only</code></pre>
               <tr><td>L9–L13</td><td>Catalog RBAC, import, exact + <strong>typo</strong> + filtered search, search p95 &lt; 500 ms, logout, password reset</td></tr>
               <tr><td>L14</td><td>Storefront SSR: home/search/product render; <code>/account</code> redirects (307)</td></tr>
               <tr><td>L15–L19</td><td>Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal</td></tr>
-              <tr><td>L20</td><td><strong>Storefront + Admin Playwright E2E</strong> in a real browser (the specs above)</td></tr>
+              <tr><td>L20</td><td><strong>Storefront + Admin + Supplier Playwright E2E</strong> in a real browser (the specs above)</td></tr>
             </tbody>
           </table>
         </div>
