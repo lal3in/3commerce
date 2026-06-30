@@ -62,6 +62,20 @@ The app overlay starts `pgbouncer` on the private `3commerce-data` network and e
 
 RLS remains transaction-scoped. If PgBouncer is enabled, validate tenant/RLS paths with the integration suite before raising replicas.
 
+## Optional Kafka stream lane (ADR-0034)
+
+Kafka is available as an **optional** durable stream lane for committed facts, replay, analytics, and audit projection. RabbitMQ/MassTransit remains the operational bus for commands, sagas, retries, and checkout/RMA workflows.
+
+```bash
+# Bare-run/dev infra path: Postgres + RabbitMQ + optional Kafka/Kafka UI.
+docker compose -f docker-compose.infra.yml -f docker-compose.infra.kafka.yml --profile kafka up -d
+
+# Full container app path: include the optional Kafka profile.
+docker compose --profile kafka up -d
+```
+
+Local Kafka uses a single-node KRaft broker on `:9092`; Kafka UI is exposed on `:8088`. In Helm, production should normally use managed Kafka by setting `kafka.enabled=true`, `kafka.deploy=false`, and `kafka.externalBootstrapServers`; TLS/SASL values can be supplied through `kafka.securityProtocol`, `kafka.saslMechanism`, and `kafka.saslSecret.name`. In-cluster `kafka.deploy=true` is for dev/kind only.
+
 ## Observability metrics (mt6_13)
 
 Every service exports OpenTelemetry **traces and RED metrics** (request rate / duration / errors for

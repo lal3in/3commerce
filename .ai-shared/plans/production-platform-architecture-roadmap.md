@@ -1,7 +1,7 @@
 # Production Platform Architecture Roadmap Plan
 
 Last Modified Date-Time: 2026-06-28
-Status: Planned
+Status: Completed
 Branch when executing: `main` or feature branch `feat/production-platform-roadmap`
 
 ## Goal
@@ -16,7 +16,7 @@ Create an implementation-ready roadmap for the production platform architecture 
 6. Design a future **tenant shard map** before implementing sharding.
 7. Defer **Kong** unless public API-management becomes a product requirement.
 
-This plan is documentation and sequencing only. It does not implement code.
+This roadmap has been completed through tracker tasks `pplat_1`–`pplat_7`; the Kafka durable stream lane was implemented through the production-grade messaging sub-plan.
 
 ## Non-goals
 

@@ -46,3 +46,17 @@ postgres:
 
 rabbitmq:
   image: rabbitmq:4-management
+
+kafka:
+  enabled: false         # enables EventStreaming config for apps; core workflows do not depend on Kafka
+  deploy: false          # dev/kind only. Production should prefer managed Kafka and externalBootstrapServers.
+  image: bitnami/kafka:3.9
+  externalBootstrapServers: ""
+  bootstrapServers: kafka:9092
+  ui:
+    enabled: false       # dev/kind only; exposes kafka-ui service in-cluster
+    image: provectuslabs/kafka-ui:v0.7.2
+  securityProtocol: ""  # e.g. SASL_SSL for managed Kafka
+  saslMechanism: ""     # e.g. PLAIN or SCRAM-SHA-512
+  saslSecret:
+    name: ""            # optional Secret with SaslUsername/SaslPassword keys

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Quartz;
 
@@ -41,19 +42,53 @@ public static class SchedulingExtensions
     /// trigger, and every fire is recorded as a <see cref="JobRun"/> by the executor. Quartz resolves the
     /// job in a per-execution DI scope, so jobs may use scoped services (DbContext etc.).
     /// </summary>
-    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, Action<ScheduledJobs> configure)
+    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, Action<ScheduledJobs> configure) =>
+        services.AddScheduledJobs(null, configure);
+
+    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, IConfiguration? configuration, Action<ScheduledJobs> configure)
     {
         var registrar = new ScheduledJobs(services);
         configure(registrar);
         services.AddScoped<JobExecutor>();
 
+        var options = configuration?.GetSection(QuartzSchedulerOptions.SectionName).Get<QuartzSchedulerOptions>() ?? new QuartzSchedulerOptions();
+        services.Configure<QuartzSchedulerOptions>(configuration?.GetSection(QuartzSchedulerOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(QuartzSchedulerOptions.SectionName));
+
         services.AddQuartz(quartz =>
         {
+            quartz.SchedulerName = options.SchedulerName;
+            quartz.SchedulerId = options.InstanceId;
+            quartz.MisfireThreshold = TimeSpan.FromSeconds(options.MisfireThresholdSeconds);
+
+            if (options.PersistentStoreEnabled)
+            {
+                if (string.IsNullOrWhiteSpace(options.ConnectionString))
+                    throw new InvalidOperationException("Quartz persistent store requires Quartz:ConnectionString.");
+
+                quartz.UsePersistentStore(store =>
+                {
+                    store.UseProperties = true;
+                    store.UsePostgres(postgres =>
+                    {
+                        postgres.ConnectionString = options.ConnectionString;
+                        postgres.TablePrefix = options.TablePrefix;
+                    });
+                    store.UseClustering(cluster =>
+                    {
+                        cluster.CheckinInterval = TimeSpan.FromSeconds(options.ClusterCheckinIntervalSeconds);
+                        cluster.CheckinMisfireThreshold = TimeSpan.FromSeconds(options.ClusterCheckinMisfireThresholdSeconds);
+                    });
+                });
+            }
+
             foreach (var (name, cron) in registrar.Registered)
             {
                 var key = new JobKey(name);
                 quartz.AddJob<QuartzScheduledJobAdapter>(key, job => job.StoreDurably());
-                quartz.AddTrigger(trigger => trigger.ForJob(key).WithIdentity($"{name}-trigger").WithCronSchedule(cron));
+                quartz.AddTrigger(trigger => trigger
+                    .ForJob(key)
+                    .WithIdentity($"{name}-trigger")
+                    .WithCronSchedule(cron, cronOptions => cronOptions.WithMisfireHandlingInstructionDoNothing()));
             }
         });
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);

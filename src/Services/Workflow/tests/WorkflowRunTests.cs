@@ -11,4 +11,5 @@ public class WorkflowRunTests
         Assert.Equal("daily-journal", run.JobName);
         Assert.Equal("Succeeded", run.Status);
     }
+
 }

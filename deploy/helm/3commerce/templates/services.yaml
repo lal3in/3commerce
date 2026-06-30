@@ -45,6 +45,30 @@ spec:
                   name: {{ $.Values.secret.name }}
                   key: InternalAuth__PublicKey
             {{- end }}
+            - name: EventStreaming__Enabled
+              value: {{ $.Values.kafka.enabled | quote }}
+            - name: EventStreaming__BootstrapServers
+              value: {{ default $.Values.kafka.bootstrapServers $.Values.kafka.externalBootstrapServers | quote }}
+            {{- if $.Values.kafka.securityProtocol }}
+            - name: EventStreaming__SecurityProtocol
+              value: {{ $.Values.kafka.securityProtocol | quote }}
+            {{- end }}
+            {{- if $.Values.kafka.saslMechanism }}
+            - name: EventStreaming__SaslMechanism
+              value: {{ $.Values.kafka.saslMechanism | quote }}
+            {{- end }}
+            {{- if $.Values.kafka.saslSecret.name }}
+            - name: EventStreaming__SaslUsername
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.kafka.saslSecret.name }}
+                  key: SaslUsername
+            - name: EventStreaming__SaslPassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.kafka.saslSecret.name }}
+                  key: SaslPassword
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /health/ready

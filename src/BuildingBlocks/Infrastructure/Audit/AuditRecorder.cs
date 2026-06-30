@@ -1,5 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Streams;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Streams;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 
@@ -34,7 +36,7 @@ public sealed class EfAuditStore<TContext>(TContext db) : IAuditStore
 /// Records local audit entries and verifies the tenant's chain (mt6_1). Hash-chained and append-only;
 /// the entry is staged in the current unit of work so it commits with the change it describes.
 /// </summary>
-public sealed class AuditRecorder(IAuditStore store, TimeProvider clock, IPublishEndpoint? publisher = null)
+public sealed class AuditRecorder(IAuditStore store, TimeProvider clock, IPublishEndpoint? publisher = null, StreamOutboxStager? streamOutbox = null)
 {
     public async Task<AuditEntry> RecordAsync(AuditDraft draft, CancellationToken ct)
     {
@@ -49,6 +51,33 @@ public sealed class AuditRecorder(IAuditStore store, TimeProvider clock, IPublis
             await publisher.Publish(new AuditEntryRecorded(
                 entry.TenantId, entry.Sequence, entry.OccurredAt, entry.ActorId, entry.ActorRole,
                 entry.Action, entry.ResourceType, entry.ResourceId, entry.Outcome.ToString(), entry.Summary, entry.Hash), ct);
+        }
+
+        if (streamOutbox is not null)
+        {
+            var payload = new AuditEntryStreamPayload(
+                entry.Sequence,
+                entry.OccurredAt,
+                entry.ActorId,
+                entry.ActorRole,
+                entry.Action,
+                entry.ResourceType,
+                entry.ResourceId,
+                entry.Outcome.ToString(),
+                entry.Summary,
+                entry.Hash);
+            var envelope = StreamEventEnvelope<AuditEntryStreamPayload>.Create(
+                Guid.CreateVersion7(),
+                "AuditEntryRecorded",
+                1,
+                entry.OccurredAt,
+                "audit",
+                entry.TenantId,
+                entry.Id.ToString(),
+                StreamPartitionKeys.Tenant(entry.TenantId),
+                StreamPrivacyClass.Internal,
+                payload);
+            await streamOutbox.StageAsync(StreamTopics.AuditEntries, envelope, cancellationToken: ct);
         }
 
         return entry;

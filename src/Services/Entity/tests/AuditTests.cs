@@ -1,4 +1,7 @@
+using System.Text.Json;
+using ThreeCommerce.BuildingBlocks.Contracts.Streams;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Streams;
 
 namespace ThreeCommerce.Entity.Tests;
 
@@ -92,6 +95,35 @@ public class AuditRecorderTests
         var result = await recorder.VerifyAsync(Tenant, default);
         Assert.False(result.Intact);
         Assert.Equal(1, result.FirstBrokenSequence);
+    }
+
+    [Fact]
+    public async Task Recording_can_stage_redacted_audit_fact_to_stream_outbox()
+    {
+        var auditStore = new FakeAuditStore();
+        var outboxStore = new InMemoryStreamOutboxStore();
+        var recorder = new AuditRecorder(auditStore, TimeProvider.System, streamOutbox: new StreamOutboxStager(outboxStore));
+
+        var entry = await recorder.RecordAsync(new AuditDraft(
+            Tenant,
+            "field_reveal.account_number",
+            "SupplierBankAccount",
+            "bank-account-1",
+            AuditOutcome.Success,
+            Guid.CreateVersion7(),
+            "support",
+            "support ticket #4821"), default);
+
+        var message = Assert.Single(outboxStore.Messages);
+        var envelope = JsonSerializer.Deserialize<StreamEventEnvelope<AuditEntryStreamPayload>>(message.PayloadJson, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(envelope);
+        Assert.Equal(StreamTopics.AuditEntries, message.Topic);
+        Assert.Equal(StreamPrivacyClass.Internal, envelope.PrivacyClass);
+        Assert.Equal(StreamPartitionKeys.Tenant(Tenant), message.Key);
+        Assert.Equal(entry.Hash, envelope.Payload.Hash);
+        Assert.Equal("support ticket #4821", envelope.Payload.Summary);
+        Assert.DoesNotContain("123456", message.PayloadJson);
+        Assert.DoesNotContain("account_number=", message.PayloadJson);
     }
 }
 

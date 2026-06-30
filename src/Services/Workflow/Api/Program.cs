@@ -3,6 +3,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Workflow.Api.Endpoints;
 using ThreeCommerce.Workflow.Infrastructure;
@@ -20,6 +21,7 @@ builder.Services.AddServiceBus<WorkflowDbContext>(builder.Configuration, bus => 
 builder.Services.AddServiceHealth<WorkflowDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScheduledJobs(builder.Configuration, _ => { });
 
 var app = builder.Build();
 app.UseApiProblemDetails();

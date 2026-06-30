@@ -36,3 +36,7 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0031](./0031-yarp-production-hardening.md) | YARP production hardening | Accepted | Edge / security / operations |
 | [0032](./0032-pgbouncer-connection-pooling.md) | PgBouncer connection pooling before broad app scale-out | Accepted | Data / operations |
 | [0033](./0033-postgres-index-audit-evidence-first.md) | PostgreSQL index changes require measured query evidence | Accepted | Data / performance |
+| [0034](./0034-two-lane-messaging-event-streaming.md) | Two-lane messaging — RabbitMQ operational bus plus Kafka durable event stream | Accepted | Messaging / event streaming |
+| [0035](./0035-logical-replication-cdc-boundaries.md) | Logical replication / CDC boundaries | Accepted | Data / integration / operations |
+| [0036](./0036-tenant-shard-map-design.md) | Tenant shard-map design | Accepted | Multi-tenancy / data / scale |
+| [0037](./0037-kong-api-management-gate.md) | Kong API-management gate | Accepted | Edge / API management |

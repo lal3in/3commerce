@@ -11,6 +11,7 @@
     <PackageReference Include="Testcontainers.RabbitMq" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/BuildingBlocks/Infrastructure/3commerce.BuildingBlocks.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Services/Identity/Api/3commerce.Identity.Api.csproj" />
     <ProjectReference Include="../../src/Services/Catalog/Api/3commerce.Catalog.Api.csproj" />
     <ProjectReference Include="../../src/Services/Ordering/Api/3commerce.Ordering.Api.csproj" />

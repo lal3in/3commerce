@@ -39,6 +39,8 @@
 #       admin supplier-payout setup endpoints (masked bank account approval + payout instruction — SupplierPayoutAdminTests);
 #       admin Xero mapping CRUD endpoints (XeroMappingAdminTests);
 #       gateway production YARP config conventions + internal health-route block (GatewayConfigTests);
+#       Kafka stream envelope/topic/fake-producer/consumer/outbox-relay/domain-fact/privacy/replay/resilience contract guards (ContractTests, ADR-0034);
+#       Quartz persistent scheduler config guards (ContractTests, msg_11);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
@@ -76,7 +78,7 @@
 #       subscription that renews (charge via the rail) + cancels; usage metering rolls records into
 #       balances incrementally + idempotently, gates access when overage is off, and bills overage once
 #   A6h Unit · Phase 6 compliance/ops primitives (ADR-0029) — run per filter:
-#       Audit (hash-chain append/verify/tamper) · SensitiveAudit (coverage taxonomy + denied attempt) ·
+#       Audit (hash-chain append/verify/tamper + stream-outbox audit fact staging) · SensitiveAudit (coverage taxonomy + denied attempt) ·
 #       ApprovalWorkflow (maker-checker/service-acct/MasterGlobal/expiry) · WebhookDelivery (HMAC sign,
 #       anti-SSRF, retry backoff, dispatcher) · ProviderWebhook (inbound verify + replay window) ·
 #       Export (CSV RFC4180, signed expiring download, GDPR redaction) · Storage (object-store round-trip,

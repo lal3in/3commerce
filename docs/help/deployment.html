@@ -89,6 +89,15 @@ docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml --profile p
         <p>The app overlay starts <code>pgbouncer</code> on the private <code>3commerce-data</code> network and exposes it on local <code>:6432</code> for diagnostics. It overrides each DB-owning app service's <code>ConnectionStrings__Database</code> to <code>Host=pgbouncer;Port=6432;...</code> while leaving the one-shot <code>migrate</code> service direct-to-Postgres. The infra overlay exposes the same pooler for host-run services that opt into <code>Host=localhost;Port=6432</code>. The committed PgBouncer config is dev/local only and uses the existing development database passwords on the private Docker network; production must use managed secrets/TLS/SASL-equivalent controls appropriate to the target platform.</p>
         <p>RLS remains transaction-scoped. If PgBouncer is enabled, validate tenant/RLS paths with the integration suite before raising replicas.</p>
 
+        <h2 id="optional-kafka-stream-lane-adr-0034">Optional Kafka stream lane (ADR-0034)</h2>
+        <p>Kafka is available as an <strong>optional</strong> durable stream lane for committed facts, replay, analytics, and audit projection. RabbitMQ/MassTransit remains the operational bus for commands, sagas, retries, and checkout/RMA workflows.</p>
+        <pre><code><span class="cmt"># Bare-run/dev infra path: Postgres + RabbitMQ + optional Kafka/Kafka UI.</span>
+docker compose -f docker-compose.infra.yml -f docker-compose.infra.kafka.yml --profile kafka up -d
+
+<span class="cmt"># Full container app path: include the optional Kafka profile.</span>
+docker compose --profile kafka up -d</code></pre>
+        <p>Local Kafka uses a single-node KRaft broker on <code>:9092</code>; Kafka UI is exposed on <code>:8088</code>. In Helm, production should normally use managed Kafka by setting <code>kafka.enabled=true</code>, <code>kafka.deploy=false</code>, and <code>kafka.externalBootstrapServers</code>; TLS/SASL values can be supplied through <code>kafka.securityProtocol</code>, <code>kafka.saslMechanism</code>, and <code>kafka.saslSecret.name</code>. In-cluster <code>kafka.deploy=true</code> is for dev/kind only.</p>
+
         <h2 id="containerized-launch-kubernetes">Containerized launch (Kubernetes / Helm)</h2>
         <p>The same topology is packaged as an umbrella Helm chart at <strong><code>deploy/helm/3commerce</code></strong>:</p>
         <pre><code><span class="cmt"># dev (committed keys baked into the images)</span>

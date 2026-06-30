@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Streams;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 
@@ -42,7 +43,8 @@ public static class OtelExtensions
             {
                 metrics
                     .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddMeter(StreamMetrics.MeterName);
 
                 // Metrics are ops data — only exported when a collector endpoint is configured (no
                 // console spam by default). Prod creds are launch-gated; Grafana sits behind admin auth.

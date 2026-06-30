@@ -4,3 +4,7 @@
 environment: Production
 secret:
   name: 3commerce-secrets
+kafka:
+  enabled: false
+  deploy: false
+  externalBootstrapServers: ""

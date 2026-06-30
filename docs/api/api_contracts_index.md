@@ -6,6 +6,8 @@ and exported here; regenerate after endpoint changes (repo Rules in `AGENTS.md`)
 
 To regenerate: run the service and `curl localhost:<port>/openapi/v1.json` (Development only).
 
+Kafka event-stream contracts are documented separately in [event-streams.md](./event-streams.md). Message scheduling policy is documented in [message-scheduling.md](./message-scheduling.md). RabbitMQ/MassTransit remains the operational command/saga bus; Kafka carries committed facts only (ADR-0034).
+
 | Service | Contract | Gateway prefix | Source port |
 |---------|----------|----------------|-------------|
 | Identity | [identity.openapi.json](./identity.openapi.json) | `/api/identity` | 5101 |

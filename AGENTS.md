@@ -151,9 +151,10 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── api/                       # API contract files + api_contracts_index.md
 │   ├── reference/                 # working guidelines: components.md, api.md
 │   ├── security/                  # asvs-l1-audit.md
-│   └── runbooks/                  # mvp-walkthrough.md
+│   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks
 ├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
 ├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
+├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
 ├── deploy/pgbouncer/              # PgBouncer dev/local config + user list
@@ -299,8 +300,8 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 | `docs/prd/3commerce/04-mvp-scope.md` | Authoritative in/out-of-scope checklist |
 | `docs/prd/3commerce/06-architecture.md` | Service boundaries, messaging rules, repo layout target |
 | `docs/prd/3commerce/15-appendix.md` | Decision log (what was rejected and why) + launch blockers |
-| `docker-compose.infra.yml` | Local Postgres + RabbitMQ (planned) |
-| `src/BuildingBlocks/Contracts/` | Message contracts — version additively, never break consumers (planned) |
+| `docker-compose.infra.yml` | Local Postgres + RabbitMQ (planned); add `docker-compose.infra.kafka.yml --profile kafka` for optional Kafka dev diagnostics |
+| `src/BuildingBlocks/Contracts/` | Message contracts + stream envelope/fact contracts — version additively, never break consumers |
 | `scripts/e2e-verify.sh` | Full regression command (automated + `--live` user journeys); keep current per the test-list rule |
 | `.envrc` | direnv env vars (secrets stay in `.envrc.local`/user-secrets, git-ignored) |
 
