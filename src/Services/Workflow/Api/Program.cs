@@ -21,6 +21,7 @@ builder.Services.AddServiceBus<WorkflowDbContext>(builder.Configuration, bus => 
 builder.Services.AddServiceHealth<WorkflowDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<IJobRunStore, EfJobRunStore<WorkflowDbContext>>();
 builder.Services.AddScheduledJobs(builder.Configuration, _ => { });
 
 var app = builder.Build();
