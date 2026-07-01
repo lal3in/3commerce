@@ -23,6 +23,7 @@
 #       policy engine + PDP resolver, contract equality, DevSecretGuard refuses the
 #       committed dev key outside Development — BL-11; Entity domain skeleton invariants;
 #       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
+#       Catalog Storefront lifecycle plus public URL/currency/tax config invariants;
 #       Catalog Publication readiness/SEO/fulfillment-source invariants;
 #       Ordering Pricing engine: supplier/selling price inputs, tax-mode seam,
 #       fixed/percent/product/category/storefront/bundle/free-shipping promotions,
