@@ -57,6 +57,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         modelBuilder.Entity<Order>(o =>
         {
             o.Property(x => x.Currency).HasMaxLength(3);
+            o.Property(x => x.PaymentOption).HasMaxLength(40);
+            o.Property(x => x.PaymentInstrumentSummary).HasMaxLength(120);
+            o.Property(x => x.PaymentProvider).HasMaxLength(40);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
@@ -65,6 +68,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         {
             attempt.Property(x => x.Currency).HasMaxLength(3);
             attempt.Property(x => x.PaymentIntentId).HasMaxLength(200);
+            attempt.Property(x => x.PaymentOption).HasMaxLength(40);
+            attempt.Property(x => x.PaymentInstrumentSummary).HasMaxLength(120);
+            attempt.Property(x => x.PaymentProvider).HasMaxLength(40);
             attempt.Property(x => x.CampaignRef).HasMaxLength(120);
             attempt.HasIndex(x => new { x.StorefrontId, x.Status });
             attempt.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.CheckoutAttemptId);

@@ -24,6 +24,9 @@ public class CheckoutAttempt
     public long GrossMinor { get; init; }
     public required string Currency { get; init; }
     public required string PaymentIntentId { get; init; }
+    public string PaymentOption { get; init; } = "CreditCard";
+    public string? PaymentInstrumentSummary { get; init; }
+    public string PaymentProvider { get; init; } = "Stripe";
     public string? CampaignRef { get; init; }
     public required string ShipName { get; init; }
     public required string ShipLine1 { get; init; }
@@ -56,6 +59,9 @@ public class CheckoutAttempt
             GrossMinor = GrossMinor,
             Currency = Currency,
             PaymentIntentId = PaymentIntentId,
+            PaymentOption = PaymentOption,
+            PaymentInstrumentSummary = PaymentInstrumentSummary,
+            PaymentProvider = PaymentProvider,
             ShipName = ShipName,
             ShipLine1 = ShipLine1,
             ShipCity = ShipCity,

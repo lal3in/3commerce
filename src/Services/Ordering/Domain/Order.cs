@@ -22,6 +22,9 @@ public class Order
     public long GrossMinor { get; set; }
     public required string Currency { get; set; }
     public string? PaymentIntentId { get; set; }
+    public string PaymentOption { get; set; } = "CreditCard";
+    public string? PaymentInstrumentSummary { get; set; }
+    public string PaymentProvider { get; set; } = "Stripe";
     public required string ShipName { get; set; }
     public required string ShipLine1 { get; set; }
     public required string ShipCity { get; set; }
