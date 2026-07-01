@@ -55,6 +55,29 @@ public class StorefrontLifecycleTests
     }
 
     [Fact]
+    public void StorefrontLifecycle_configures_public_url_currency_and_tax_regime()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "AU store", DateTimeOffset.UtcNow);
+
+        storefront.ConfigureCommerce("HTTP://localhost:3000/au/products", "aud", StorefrontTaxRegime.AuGst, 1000, DateTimeOffset.UtcNow);
+
+        Assert.Equal("HTTP://localhost:3000/au/products", storefront.PublicUrl);
+        Assert.Equal("AUD", storefront.Currency);
+        Assert.Equal(StorefrontTaxRegime.AuGst, storefront.TaxRegime);
+        Assert.Equal(1000, storefront.TaxRateBasisPoints);
+    }
+
+    [Fact]
+    public void StorefrontLifecycle_can_pause_a_draft_or_preview_storefront()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "EUR store", DateTimeOffset.UtcNow);
+
+        storefront.Pause(DateTimeOffset.UtcNow);
+
+        Assert.Equal(StorefrontState.Paused, storefront.State);
+    }
+
+    [Fact]
     public void StorefrontLifecycle_paused_blocks_checkout_but_can_preview()
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);

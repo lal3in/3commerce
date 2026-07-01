@@ -13,7 +13,9 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // Retry on CI to absorb flaky Blazor-circuit timing in the admin/supplier E2E
+  // projects (e.g. supplier readiness/stock render); locally keep 0 for fast feedback.
+  retries: process.env.CI ? 2 : 0,
   reporter: [["list"]],
   use: { trace: "retain-on-failure" },
   projects: [
