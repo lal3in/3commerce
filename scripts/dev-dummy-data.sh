@@ -473,7 +473,7 @@ seed_smoke() {
   api "customer-profile" PUT "/api/identity/me" "$CUSTOMER_JAR" \
     '{"givenName":"Demo","familyName":"Customer"}' "allow_4xx" >/dev/null
   api "customer-address-shipping" POST "/api/identity/me/addresses" "$CUSTOMER_JAR" \
-    '{"label":"Demo Home","purpose":"Both","line1":"42 Example Street","line2":"Unit 3","city":"Melbourne","region":"VIC","postalCode":"3000","countryCode":"AU","isDefault":true}' "allow_4xx" >/dev/null
+    '{"purpose":3,"isDefault":true,"name":"Demo Home","line1":"42 Example Street","line2":"Unit 3","city":"Melbourne","postcode":"3000","country":"AU"}' "allow_4xx" >/dev/null
 
   manifest_set "customers.demo.email" "$(json_string "$email")"
   manifest_set "customers.demo.password" "$(json_string "$password")"
