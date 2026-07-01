@@ -147,7 +147,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET/POST/PUT/DELETE | `/cart[/items[/{productId}[/{variantId}]]]` | anon/session (cookie-keyed) | Variant-aware cart keyed by product + variant; qty 0 removes; merges into the user cart on login |
-| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, accepts an optional selected shipping quote (`selectedShippingService`, amount minor, expiry), passes ship-country to the tax seam, optionally uses/saves a saved payment method for signed-in users, snapshots subtotal/discount/shipping/tax/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
+| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, accepts an optional selected shipping quote (`selectedShippingService`, amount minor, expiry), accepts a payment option snapshot (`paymentOption`: Stripe/CreditCard/ApplePay/GooglePay/PayPal + masked `paymentInstrumentSummary`), passes ship-country to the tax seam, optionally uses/saves a saved payment method for signed-in users only, snapshots subtotal/discount/shipping/tax/payment/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 

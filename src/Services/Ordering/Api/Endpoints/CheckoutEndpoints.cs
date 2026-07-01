@@ -88,6 +88,9 @@ public static class CheckoutEndpoints
                 Guid.Empty, null, subtotal, discountMinor, shippingMinor, 0, netMinor, currency, "Prices changed; review your cart."));
         }
 
+        var paymentOption = NormalizePaymentOption(request.PaymentOption);
+        var paymentInstrumentSummary = PaymentInstrumentSummary(paymentOption, request.PaymentInstrumentSummary);
+
         var orderId = Guid.CreateVersion7();
         var idempotencyKey = orderId.ToString();
 
@@ -129,6 +132,9 @@ public static class CheckoutEndpoints
             GrossMinor = intent.GrossMinor,
             Currency = currency,
             PaymentIntentId = intent.PaymentIntentId,
+            PaymentOption = paymentOption,
+            PaymentInstrumentSummary = paymentInstrumentSummary,
+            PaymentProvider = "Stripe",
             CampaignRef = request.CampaignRef,
             ShipName = request.ShippingAddress.Name,
             ShipLine1 = request.ShippingAddress.Line1,
@@ -170,6 +176,22 @@ public static class CheckoutEndpoints
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
+
+    private static string NormalizePaymentOption(string? option)
+    {
+        var normalized = (option ?? "CreditCard").Trim();
+        return normalized switch
+        {
+            "Stripe" or "CreditCard" or "ApplePay" or "GooglePay" or "PayPal" => normalized,
+            _ => "CreditCard",
+        };
+    }
+
+    private static string? PaymentInstrumentSummary(string option, string? summary)
+    {
+        var value = string.IsNullOrWhiteSpace(summary) ? option : summary.Trim();
+        return value.Length <= 120 ? value : value[..120];
+    }
 }
 
 public record AddressRequest(
@@ -185,6 +207,8 @@ public record CheckoutRequest(
     string? CampaignRef = null,
     Guid? SavedPaymentMethodId = null,
     bool SavePaymentMethod = false,
+    string? PaymentOption = null,
+    string? PaymentInstrumentSummary = null,
     string? SelectedShippingService = null,
     long? SelectedShippingAmountMinor = null,
     DateTimeOffset? SelectedShippingExpiresAt = null);
