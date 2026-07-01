@@ -34,6 +34,8 @@
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="$(OtelVersion)" />
     <!-- Web -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <!-- Pin transitive Microsoft.OpenApi off the vulnerable 2.0.0 (GHSA-v5pm-xwqc-g5wc / NU1903); 2.9.0 is same-major, API-compatible. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
     <!-- Payments (ADR-0014) -->
     <PackageVersion Include="Stripe.net" Version="48.4.0" />
     <!-- Auth (ADR-0012: vetted crypto only) -->
