@@ -488,9 +488,10 @@ seed_full() {
   seed_smoke
   echo "== full best-effort operator data =="
 
-  local entity_json entity_id supplier_id location_json location_id carrier_json carrier_id product_json product_id variant_id variant_json
+  local entity_json entity_id supplier_id location_json location_id carrier_json carrier_id product_json product_id variant_id variant_json price_product_id
+  # Enums bind as numbers (System.Text.Json default): EntityType.Company=2, EntityRoleKind.Supplier=2.
   entity_json=$(api "entity-create-supplier" POST "/api/entity/entities" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"type\":\"Organization\",\"legalName\":\"Demo Supplier Pty Ltd\",\"tradingName\":\"Demo Supplier\",\"roles\":[\"Supplier\"]}" "allow_4xx")
+    "{\"tenantId\":\"$TENANT_ID\",\"type\":2,\"legalName\":\"Demo Supplier Pty Ltd\",\"tradingName\":\"Demo Supplier\",\"roles\":[2]}" "allow_4xx")
   entity_id=$(printf '%s' "$entity_json" | json_get id)
   if [[ -n "$entity_id" ]]; then
     api "entity-supplier-start" POST "/api/entity/entities/$entity_id/suppliers" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
@@ -506,8 +507,24 @@ seed_full() {
 
   api "marketing-campaign" POST "/api/marketing/admin/campaigns" "$ADMIN_JAR" \
     '{"tenantId":"00000000-0000-0000-0000-000000000001","code":"DEMO10","name":"Demo launch campaign","startsAt":null,"endsAt":null}' "allow_4xx" >/dev/null
-  api "pricing-price" POST "/api/pricing/admin/prices" "$ADMIN_JAR" \
-    '{"tenantId":"00000000-0000-0000-0000-000000000001","name":"Demo monthly tiered price","pricingModel":"Tiered","billingPeriod":"Monthly","currency":"EUR","amountMinor":1999,"tiers":[{"upToQuantity":10,"unitAmountMinor":1999},{"upToQuantity":100,"unitAmountMinor":1499}]}' "allow_4xx" >/dev/null
+  # CreatePriceRequest requires a ProductId; attach the demo price to the first imported catalog
+  # product. Enums bind as numbers (PricingModel.Tiered=4, BillingPeriod.Monthly=2); tier fields are
+  # FromQuantity/UnitPriceMinor.
+  local price_products
+  price_products=$(api "pricing-product-lookup" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")
+  # Read the id inline: json_get returns empty here (its heredoc consumes python stdin, so
+  # json.load reads nothing) — tracked separately; this step must not depend on it.
+  price_product_id=$(printf '%s' "$price_products" | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin); print(d[0]["id"] if isinstance(d, list) and d else "")
+except Exception:
+    print("")')
+  if [[ -n "$price_product_id" ]]; then
+    api "pricing-price" POST "/api/pricing/admin/prices" "$ADMIN_JAR" \
+      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$price_product_id\",\"amountMinor\":1999,\"currency\":\"EUR\",\"pricingModel\":4,\"billingPeriod\":2,\"tiers\":[{\"fromQuantity\":1,\"unitPriceMinor\":1999},{\"fromQuantity\":10,\"unitPriceMinor\":1499}]}" "allow_4xx" >/dev/null
+  else
+    manifest_append "warnings" "$(json_string "pricing-price skipped: no catalog product id available")"
+  fi
 
   upsert_demo_storefront "demoAu" "Demo AU Store" "http://localhost:3000/au" "AUD" 1 1000
   upsert_demo_storefront "demoEu" "Demo EU Store" "http://localhost:3000/eu" "EUR" 2 2000
@@ -521,12 +538,12 @@ seed_full() {
     "{\"tenantId\":\"$TENANT_ID\",\"ledgerAccountCode\":\"revenue.sales\",\"xeroAccountCode\":\"200\",\"scope\":\"TenantDefault\",\"storefrontId\":null,\"categoryId\":null,\"supplierId\":null,\"productId\":null}" "allow_4xx" >/dev/null
 
   location_json=$(api "fulfillment-location" POST "/api/fulfillment/admin/inventory/locations" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"name\":\"Demo warehouse\",\"kind\":\"Warehouse\",\"entityId\":\"$supplier_id\",\"addressId\":null}" "allow_4xx")
+    "{\"tenantId\":\"$TENANT_ID\",\"name\":\"Demo warehouse\",\"kind\":1,\"entityId\":\"$supplier_id\",\"addressId\":null}" "allow_4xx")
   location_id=$(printf '%s' "$location_json" | json_get id)
   [[ -n "$location_id" ]] && manifest_set "fulfillment.locations.demoWarehouse.id" "$(json_string "$location_id")"
 
   carrier_json=$(api "fulfillment-carrier" POST "/api/fulfillment/admin/carriers" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"carrier\":\"Fake\",\"credentialRef\":null}" "allow_4xx")
+    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"carrier\":1,\"credentialRef\":null}" "allow_4xx")
   carrier_id=$(printf '%s' "$carrier_json" | json_get id)
   if [[ -n "$carrier_id" ]]; then
     api "fulfillment-carrier-activate" POST "/api/fulfillment/admin/carriers/$carrier_id/activate?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
