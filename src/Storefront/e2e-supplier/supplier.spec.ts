@@ -4,9 +4,10 @@ const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";
 const SUPPLIER_ENTITY_ID = "00000000-0000-0000-0000-000000000001";
 
-async function fillBlazorField(locator: Locator, value: string) {
+async function setBlazorInput(locator: Locator, value: string) {
   await locator.fill(value);
-  await locator.evaluate((element) => element.dispatchEvent(new Event("change", { bubbles: true })));
+  // Notify Blazor's @bind so the InteractiveServer model updates (no-op until the circuit is live).
+  await locator.dispatchEvent("change");
 }
 
 test.describe("Supplier portal", () => {
@@ -26,21 +27,29 @@ test.describe("Supplier portal", () => {
     await expect(page.getByText(/view your supplier readiness/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /check readiness/i })).toBeVisible();
 
+    // Stock feed and change-request forms are @rendermode InteractiveServer EditForms:
+    // @bind-Value and OnValidSubmit only take effect once the Blazor Server circuit is
+    // connected. Drive fill + submit + confirmation as one retrying unit so an interaction
+    // that lands before the circuit is live self-corrects instead of flaking the run.
     await page.goto("/stock");
     await expect(page.getByRole("heading", { name: /stock feeds/i })).toBeVisible();
-    const stockInputs = page.getByRole("textbox");
-    await fillBlazorField(stockInputs.nth(0), SUPPLIER_ENTITY_ID);
-    await fillBlazorField(stockInputs.nth(1), "s3://demo-supplier/stock-feed.csv");
-    await fillBlazorField(stockInputs.nth(2), "Playwright supplier stock-feed request");
-    await page.getByRole("button", { name: /submit stock feed request/i }).click();
-    await expect(page.getByText(/stock feed request captured locally/i)).toBeVisible();
+    await expect(async () => {
+      const stockInputs = page.getByRole("textbox");
+      await setBlazorInput(stockInputs.nth(0), SUPPLIER_ENTITY_ID);
+      await setBlazorInput(stockInputs.nth(1), "s3://demo-supplier/stock-feed.csv");
+      await setBlazorInput(stockInputs.nth(2), "Playwright supplier stock-feed request");
+      await page.getByRole("button", { name: /submit stock feed request/i }).click();
+      await expect(page.getByText(/stock feed request captured locally/i)).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
 
     await page.goto("/requests");
     await expect(page.getByRole("heading", { name: /change requests/i })).toBeVisible();
-    await fillBlazorField(page.getByRole("textbox", { name: /supplier entity id/i }), SUPPLIER_ENTITY_ID);
-    await page.getByLabel(/request type/i).selectOption("BankAccount");
-    await fillBlazorField(page.getByRole("textbox", { name: "Details" }), "Rotate payout account after approval.");
-    await page.getByRole("button", { name: /^submit request$/i }).click();
-    await expect(page.getByText(/change request captured locally/i)).toBeVisible();
+    await expect(async () => {
+      await setBlazorInput(page.getByRole("textbox", { name: /supplier entity id/i }), SUPPLIER_ENTITY_ID);
+      await page.getByLabel(/request type/i).selectOption("BankAccount");
+      await setBlazorInput(page.getByRole("textbox", { name: "Details" }), "Rotate payout account after approval.");
+      await page.getByRole("button", { name: /^submit request$/i }).click();
+      await expect(page.getByText(/change request captured locally/i)).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
   });
 });
