@@ -203,6 +203,37 @@ api_noauth() {
   api "$name" "$method" "$path" "$jar" "$data" "$expectation"
 }
 
+upsert_demo_storefront() {
+  local key="$1" name="$2" public_url="$3" currency="$4" tax_regime="$5" tax_bps="$6"
+  local body result storefront_id existing
+  body="{\"tenantId\":\"$TENANT_ID\",\"name\":\"$name\",\"visibility\":4,\"publicUrl\":\"$public_url\",\"currency\":\"$currency\",\"taxRegime\":$tax_regime,\"taxRateBasisPoints\":$tax_bps}"
+  result=$(api "catalog-storefront-$key" POST "/api/catalog/admin/storefronts" "$ADMIN_JAR" "$body" "allow_4xx")
+  storefront_id=$(printf '%s' "$result" | json_get id)
+  if [[ -z "$storefront_id" ]]; then
+    existing=$(api "catalog-storefront-$key-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+    storefront_id=$(python3 - "$name" "$existing" <<'PY'
+import json, sys
+name, raw = sys.argv[1:]
+try:
+    data = json.loads(raw)
+    for item in data:
+        if item.get('name') == name:
+            print(item.get('id', ''))
+            break
+except Exception:
+    pass
+PY
+)
+    if [[ -n "$storefront_id" ]]; then
+      api "catalog-storefront-$key-update" PUT "/api/catalog/admin/storefronts/$storefront_id" "$ADMIN_JAR" \
+        "{\"name\":\"$name\",\"visibility\":4,\"accessPasswordHash\":null,\"publicUrl\":\"$public_url\",\"currency\":\"$currency\",\"taxRegime\":$tax_regime,\"taxRateBasisPoints\":$tax_bps}" "allow_4xx" >/dev/null
+    fi
+  fi
+  if [[ -n "$storefront_id" ]]; then
+    manifest_set "storefronts.$key.id" "$(json_string "$storefront_id")"
+  fi
+}
+
 
 scenario_product_json() {
   local code="$1" category_id="$2"
@@ -477,6 +508,10 @@ seed_full() {
     '{"tenantId":"00000000-0000-0000-0000-000000000001","code":"DEMO10","name":"Demo launch campaign","startsAt":null,"endsAt":null}' "allow_4xx" >/dev/null
   api "pricing-price" POST "/api/pricing/admin/prices" "$ADMIN_JAR" \
     '{"tenantId":"00000000-0000-0000-0000-000000000001","name":"Demo monthly tiered price","pricingModel":"Tiered","billingPeriod":"Monthly","currency":"EUR","amountMinor":1999,"tiers":[{"upToQuantity":10,"unitAmountMinor":1999},{"upToQuantity":100,"unitAmountMinor":1499}]}' "allow_4xx" >/dev/null
+
+  upsert_demo_storefront "demoAu" "Demo AU Store" "http://localhost:3000/au" "AUD" 1 1000
+  upsert_demo_storefront "demoEu" "Demo EU Store" "http://localhost:3000/eu" "EUR" 2 2000
+  upsert_demo_storefront "demoUs" "Demo US Store" "http://localhost:3000/us" "USD" 3 825
 
   api "payment-account" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"provider\":\"Stripe\",\"providerMode\":\"Test\",\"displayName\":\"Demo Stripe test account\",\"countryCode\":\"AU\",\"currency\":\"EUR\"}" "allow_4xx" >/dev/null

@@ -18,6 +18,7 @@ public static class StorefrontEndpoints
 
         group.MapGet("/", List);
         group.MapPost("/", Create);
+        group.MapPut("/{id:guid}", Update);
         group.MapPost("/{id:guid}/domains", AddDomain);
         group.MapGet("/{id:guid}/readiness", Readiness);
         group.MapPost("/{id:guid}/preview", Preview);
@@ -61,9 +62,45 @@ public static class StorefrontEndpoints
         {
             var storefront = Storefront.Create(request.TenantId, request.Name, time.GetUtcNow());
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
+            storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Created($"/admin/storefronts/{storefront.Id}", ToResponse(storefront));
+        }
+        catch (CatalogRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Name)] = [ex.Message] });
+        }
+    }
+
+
+    private static async Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem, Conflict<string>>> Update(
+        Guid id,
+        UpdateStorefrontRequest request,
+        CatalogDbContext db,
+        TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var storefront = await db.Storefronts.Include(s => s.Domains).SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (storefront is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (!string.Equals(storefront.Name, request.Name.Trim(), StringComparison.Ordinal) &&
+            await db.Storefronts.AnyAsync(s => s.TenantId == storefront.TenantId && s.Name == request.Name.Trim(), cancellationToken))
+        {
+            return TypedResults.Conflict($"Storefront '{request.Name}' already exists for this tenant.");
+        }
+
+        try
+        {
+            var now = time.GetUtcNow();
+            storefront.Rename(request.Name, now);
+            storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
+            storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
         {
@@ -256,6 +293,10 @@ public static class StorefrontEndpoints
         storefront.Name,
         storefront.State,
         storefront.Visibility,
+        storefront.PublicUrl,
+        storefront.Currency,
+        storefront.TaxRegime,
+        storefront.TaxRateBasisPoints,
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -266,7 +307,20 @@ public sealed record CreateStorefrontRequest(
     [property: Required] Guid TenantId,
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
     StorefrontVisibility Visibility,
-    string? AccessPasswordHash);
+    string? AccessPasswordHash,
+    string? PublicUrl = null,
+    string? Currency = "EUR",
+    StorefrontTaxRegime TaxRegime = StorefrontTaxRegime.None,
+    int TaxRateBasisPoints = 0);
+
+public sealed record UpdateStorefrontRequest(
+    [property: Required, StringLength(120, MinimumLength = 2)] string Name,
+    StorefrontVisibility Visibility,
+    string? AccessPasswordHash,
+    string? PublicUrl,
+    [property: Required, StringLength(3, MinimumLength = 3)] string Currency,
+    StorefrontTaxRegime TaxRegime,
+    int TaxRateBasisPoints);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -278,6 +332,10 @@ public sealed record StorefrontResponse(
     string Name,
     StorefrontState State,
     StorefrontVisibility Visibility,
+    string PublicUrl,
+    string Currency,
+    StorefrontTaxRegime TaxRegime,
+    int TaxRateBasisPoints,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,

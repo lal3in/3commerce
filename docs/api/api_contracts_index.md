@@ -24,6 +24,8 @@ Kafka event-stream contracts are documented separately in [event-streams.md](./e
 | Entitlement | service (OpenAPI at `/openapi` in Dev) | `/api/entitlement` | 5112 |
 | Usage | service (OpenAPI at `/openapi` in Dev) | `/api/usage` | 5113 |
 
+Note: Catalog admin storefront contracts include per-storefront public URL, currency, and tax regime/rate configuration for multi-storefront tenant operations.
+
 ## Identity (`/api/identity`)
 
 | Method | Path | Auth | Purpose |

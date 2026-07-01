@@ -8,6 +8,10 @@ public sealed class Storefront
     public StorefrontState State { get; private set; } = StorefrontState.Draft;
     public StorefrontVisibility Visibility { get; private set; } = StorefrontVisibility.Private;
     public string? AccessPasswordHash { get; private set; }
+    public string PublicUrl { get; private set; } = string.Empty;
+    public string Currency { get; private set; } = "EUR";
+    public StorefrontTaxRegime TaxRegime { get; private set; } = StorefrontTaxRegime.None;
+    public int TaxRateBasisPoints { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
@@ -32,6 +36,25 @@ public sealed class Storefront
             CreatedAt = now,
             UpdatedAt = now,
         };
+    }
+
+    public void ConfigureCommerce(string publicUrl, string currency, StorefrontTaxRegime taxRegime, int taxRateBasisPoints, DateTimeOffset now)
+    {
+        PublicUrl = NormalizePublicUrl(publicUrl);
+        Currency = NormalizeCurrency(currency);
+        if (!Enum.IsDefined(taxRegime))
+        {
+            throw new CatalogRuleException($"Unknown storefront tax regime '{taxRegime}'.");
+        }
+
+        if (taxRateBasisPoints is < 0 or > 10000)
+        {
+            throw new CatalogRuleException("Tax rate basis points must be between 0 and 10000.");
+        }
+
+        TaxRegime = taxRegime;
+        TaxRateBasisPoints = taxRegime == StorefrontTaxRegime.None ? 0 : taxRateBasisPoints;
+        UpdatedAt = now;
     }
 
     public void Rename(string name, DateTimeOffset now)
@@ -130,7 +153,7 @@ public sealed class Storefront
 
     public void Pause(DateTimeOffset now)
     {
-        EnsureState(StorefrontState.Active);
+        EnsureState(StorefrontState.Draft, StorefrontState.Preview, StorefrontState.Active);
         State = StorefrontState.Paused;
         UpdatedAt = now;
     }
@@ -175,6 +198,42 @@ public sealed class Storefront
 
         return value;
     }
+
+    private static string NormalizePublicUrl(string publicUrl)
+    {
+        var value = publicUrl.Trim();
+        if (value.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            throw new CatalogRuleException("Storefront public URL must be an absolute http(s) URL.");
+        }
+
+        return value.TrimEnd('/');
+    }
+
+    private static string NormalizeCurrency(string currency)
+    {
+        var value = currency.Trim().ToUpperInvariant();
+        if (value.Length != 3 || value.Any(c => c is < 'A' or > 'Z'))
+        {
+            throw new CatalogRuleException("Currency must be a 3-letter ISO currency code.");
+        }
+
+        return value;
+    }
+}
+
+public enum StorefrontTaxRegime
+{
+    None = 0,
+    AuGst = 1,
+    EuVat = 2,
+    UsSalesTax = 3,
+    Other = 99,
 }
 
 public sealed class StorefrontDomain

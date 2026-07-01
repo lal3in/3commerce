@@ -1091,6 +1091,69 @@
           }
         }
       }
+    },
+    "/admin/storefronts/{id}": {
+      "put": {
+        "tags": [
+          "Admin Storefronts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStorefrontRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorefrontResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1317,6 +1380,27 @@
               "null",
               "string"
             ]
+          },
+          "publicUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxRegime": {
+            "$ref": "#/components/schemas/StorefrontTaxRegime"
+          },
+          "taxRateBasisPoints": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -2022,6 +2106,10 @@
           "name",
           "state",
           "visibility",
+          "publicUrl",
+          "currency",
+          "taxRegime",
+          "taxRateBasisPoints",
           "domains",
           "createdAt",
           "updatedAt",
@@ -2066,6 +2154,19 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "publicUrl": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "taxRegime": {
+            "$ref": "#/components/schemas/StorefrontTaxRegime"
+          },
+          "taxRateBasisPoints": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -2328,6 +2429,55 @@
               "integer",
               "string"
             ],
+            "format": "int32"
+          }
+        }
+      },
+      "StorefrontTaxRegime": {
+        "type": "integer"
+      },
+      "UpdateStorefrontRequest": {
+        "required": [
+          "name",
+          "visibility",
+          "accessPasswordHash",
+          "publicUrl",
+          "currency",
+          "taxRegime",
+          "taxRateBasisPoints"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/StorefrontVisibility"
+          },
+          "accessPasswordHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publicUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "type": "string"
+          },
+          "taxRegime": {
+            "$ref": "#/components/schemas/StorefrontTaxRegime"
+          },
+          "taxRateBasisPoints": {
+            "type": "integer",
             "format": "int32"
           }
         }
