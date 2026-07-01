@@ -31,6 +31,18 @@
     <h2>Storefronts</h2>
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
         <label>Name<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="Internal name for the new storefront." /></label>
+        <label>Public URL<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="Public storefront URL used in customer-facing links." /></label>
+        <label>Currency<br /><input @bind="_newCurrency" maxlength="3" style="width:5rem; padding:.4rem;" title="ISO 4217 currency for this storefront." /></label>
+        <label>Tax regime<br />
+            <select @bind="_newTaxRegime" style="padding:.4rem;" title="Region tax rule used for estimates and checkout display.">
+                <option value="0">None</option>
+                <option value="1">AU GST</option>
+                <option value="2">EU VAT</option>
+                <option value="3">US sales tax</option>
+                <option value="99">Other</option>
+            </select>
+        </label>
+        <label>Tax bps<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="Tax rate in basis points, e.g. 1000 = 10%." /></label>
         <label>Visibility<br />
             <select @bind="_newVisibility" style="padding:.4rem;" title="Who can see the storefront: Public (live) or Private (draft).">
                 <option value="1">Private</option>
@@ -53,12 +65,15 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">Name</th><th>State</th><th>Visibility</th><th>Domains</th><th></th></tr></thead>
+            <thead><tr><th style="text-align:left;">Name</th><th>URL</th><th>Currency</th><th>Tax</th><th>State</th><th>Visibility</th><th>Domains</th><th></th></tr></thead>
             <tbody>
             @foreach (var s in _storefronts)
             {
                 <tr style="border-top:1px solid #e5e7eb;">
                     <td>@s.Name<br /><span style="color:#6b7280; font-size:.8rem;">@s.Id</span></td>
+                    <td>@(string.IsNullOrWhiteSpace(s.PublicUrl) ? "—" : s.PublicUrl)</td>
+                    <td style="text-align:center;">@s.Currency</td>
+                    <td style="text-align:center;">@TaxLabel(s)</td>
                     <td style="text-align:center;">@s.State</td>
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
@@ -80,6 +95,23 @@
 {
     <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
         <h2>Manage @_selectedStorefront.Name</h2>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; align-items:end; margin-bottom:1rem;">
+            <label>Name<br /><input @bind="_editName" style="padding:.4rem;" /></label>
+            <label>Public URL<br /><input @bind="_editPublicUrl" style="padding:.4rem;" /></label>
+            <label>Currency<br /><input @bind="_editCurrency" maxlength="3" style="padding:.4rem;" /></label>
+            <label>Tax regime<br />
+                <select @bind="_editTaxRegime" style="padding:.4rem;">
+                    <option value="0">None</option>
+                    <option value="1">AU GST</option>
+                    <option value="2">EU VAT</option>
+                    <option value="3">US sales tax</option>
+                    <option value="99">Other</option>
+                </select>
+            </label>
+            <label>Tax bps<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" /></label>
+            <label>Visibility<br /><select @bind="_editVisibility" style="padding:.4rem;"><option value="1">Private</option><option value="2">Password</option><option value="3">Invite only</option><option value="4">Public</option></select></label>
+            <button @onclick="UpdateStorefront">Save storefront settings</button>
+        </div>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
             <label>Domain host<br /><input @bind="_domainHost" placeholder="shop.example.com" style="padding:.4rem;" title="Domain to map to this storefront (host only, no https://)." /></label>
             <label><input type="checkbox" @bind="_domainCanonical" title="The primary domain; others redirect to it (one canonical per storefront)." /> Canonical</label>
@@ -148,6 +180,10 @@
     private string _tenantId = "00000000-0000-0000-0000-000000000001";
     private string _newStorefrontName = string.Empty;
     private int _newVisibility = 1;
+    private string _newPublicUrl = "http://localhost:3000/au";
+    private string _newCurrency = "AUD";
+    private int _newTaxRegime = 1;
+    private int _newTaxRateBasisPoints = 1000;
     private List<StorefrontDto>? _storefronts;
     private StorefrontDto? _selectedStorefront;
     private string? _status;
@@ -159,6 +195,12 @@
     private string? _seoTitle;
     private int _fulfillmentSource;
     private ReadinessDto? _publicationReadiness;
+    private string _editName = string.Empty;
+    private string _editPublicUrl = string.Empty;
+    private string _editCurrency = "EUR";
+    private int _editTaxRegime;
+    private int _editTaxRateBasisPoints;
+    private int _editVisibility = 1;
 
     private async Task LoadStorefronts()
     {
@@ -169,8 +211,12 @@
     private async Task CreateStorefront()
     {
         _error = null;
-        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility });
-        await HandleMutation(response, "Storefront created.");
+        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints });
+        var created = await HandleMutation(response, "Storefront created.");
+        if (created)
+        {
+            ResetCreateStorefrontForm();
+        }
         await LoadStorefronts();
     }
 
@@ -179,6 +225,21 @@
         _selectedStorefront = storefront;
         _readiness = null;
         _publicationReadiness = null;
+        _editName = storefront.Name;
+        _editPublicUrl = storefront.PublicUrl;
+        _editCurrency = storefront.Currency;
+        _editTaxRegime = storefront.TaxRegime;
+        _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
+        _editVisibility = storefront.Visibility;
+    }
+
+    private async Task UpdateStorefront()
+    {
+        if (_selectedStorefront is null) return;
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
+        await HandleMutation(response, "Storefront settings updated.");
+        await LoadStorefronts();
+        _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == _selectedStorefront.Id);
     }
 
     private async Task Transition(Guid id, string transition)
@@ -186,6 +247,10 @@
         var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{id}/{transition}");
         await HandleMutation(response, $"Storefront {transition} requested.");
         await LoadStorefronts();
+        if (_selectedStorefront?.Id == id)
+        {
+            _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == id);
+        }
     }
 
     private async Task AddDomain()
@@ -231,20 +296,33 @@
         await HandleMutation(response, message);
     }
 
-    private async Task HandleMutation(HttpResponseMessage response, string success)
+    private async Task<bool> HandleMutation(HttpResponseMessage response, string success)
     {
         if (response.IsSuccessStatusCode)
         {
             _status = success;
             _error = null;
-            return;
+            return true;
         }
 
         _status = null;
         _error = $"Request failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}";
+        return false;
     }
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, List<StorefrontDomainDto> Domains);
+    private void ResetCreateStorefrontForm()
+    {
+        _newStorefrontName = string.Empty;
+        _newPublicUrl = string.Empty;
+        _newCurrency = "AUD";
+        _newTaxRegime = 1;
+        _newTaxRateBasisPoints = 1000;
+        _newVisibility = 1;
+    }
+
+    private static string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? "None" : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
+
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
 }
