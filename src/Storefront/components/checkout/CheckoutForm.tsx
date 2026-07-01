@@ -13,6 +13,14 @@ interface CheckoutFormProps {
   paymentMethods: SavedPaymentMethodDto[];
 }
 
+const PAYMENT_OPTIONS = [
+  { value: "CreditCard", label: "Credit card", icon: <CardIcon /> },
+  { value: "Stripe", label: "Stripe Payment Element", icon: <StripeIcon /> },
+  { value: "ApplePay", label: "Apple Pay", icon: <ApplePayIcon /> },
+  { value: "GooglePay", label: "Google Pay", icon: <GooglePayIcon /> },
+  { value: "PayPal", label: "PayPal", icon: <PayPalIcon /> },
+];
+
 export function CheckoutForm({ cart, profile, addresses, paymentMethods }: CheckoutFormProps) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -20,10 +28,15 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [paymentOption, setPaymentOption] = useState("CreditCard");
   const [quoting, startQuote] = useTransition();
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
   const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
+  const shippingCountry = shipping?.country ?? "";
+  const [manualShippingCountry, setManualShippingCountry] = useState(shippingCountry);
+  const activeShippingCountry = (shipping?.country ?? manualShippingCountry).toUpperCase();
+  const estimatedTaxMinor = estimateTax(cart.subtotalMinor + (selectedRate?.amountMinor ?? 0), cart.currency, activeShippingCountry);
 
   const quoteShipping = (form: HTMLFormElement) => {
     startQuote(async () => {
@@ -59,7 +72,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
           <Row label="Subtotal" value={formatMoney(cart.subtotalMinor, cart.currency)} />
           <Row label="Shipping" value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : "Choose a rate below"} muted={!selectedRate} />
-          <Row label="Tax" value="Calculated after authorization" muted />
+          <Row label="Tax" value={formatMoney(estimatedTaxMinor, cart.currency)} muted={estimatedTaxMinor === 0} />
         </div>
       </section>
 
@@ -87,7 +100,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
             onChange={setShippingId}
           />
         )}
-        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} />
+        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} setManualShippingCountry={setManualShippingCountry} />
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -130,7 +143,33 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
         <h2 className="font-medium">Payment</h2>
-        {profile && paymentMethods.length > 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Payment options">
+          {PAYMENT_OPTIONS.map((option) => {
+            const selected = paymentOption === option.value;
+            return (
+              <label
+                key={option.value}
+                title={option.label}
+                aria-label={option.label}
+                className={selected
+                  ? "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border-2 border-neutral-900 bg-white px-3 shadow-sm"
+                  : "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border border-neutral-200 bg-white px-3 hover:border-neutral-400"}
+              >
+                <input
+                  type="radio"
+                  name="paymentOption"
+                  value={option.value}
+                  defaultChecked={option.value === "CreditCard"}
+                  onChange={() => setPaymentOption(option.value)}
+                  className="sr-only"
+                />
+                {option.icon}
+                <span className="sr-only">{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        {profile && paymentMethods.length > 0 && paymentOption === "CreditCard" && (
           <label htmlFor="savedPaymentMethodId" className="block text-sm font-medium">
             Saved card
             <select
@@ -149,14 +188,23 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
             </select>
           </label>
         )}
-        {profile && (
+        {paymentOption === "CreditCard" && (
+          <div className="space-y-3 rounded-md bg-neutral-50 p-3">
+            <Field name="paymentCardNumber" label="Card number" autoComplete="cc-number" title="Provider-hosted card entry in production; this dev field records only a masked summary." />
+            <div className="grid grid-cols-2 gap-3">
+              <Field name="paymentExpiry" label="Expiry" autoComplete="cc-exp" title="Expiry is used only by the provider in production." />
+              <Field name="paymentCvv" label="CVV" autoComplete="cc-csc" title="CVV is provider-hosted in production and never stored." />
+            </div>
+          </div>
+        )}
+        {profile && paymentOption === "CreditCard" && (
           <label className="flex items-center gap-2 text-sm text-neutral-700">
             <input name="savePaymentMethod" type="checkbox" className="h-4 w-4" />
             Save this new card for one-click checkout later
           </label>
         )}
-        {!profile && <p className="text-sm text-neutral-500">Guests pay once. Sign in to save cards for future purchases.</p>}
-        <p className="text-xs text-neutral-500">Apple Pay, Google Pay, and card entry are handled by the provider Payment Element; card numbers never touch 3commerce servers.</p>
+        {!profile && <p className="text-sm text-neutral-500">Guests can choose a payment option, but payment methods are not saved to an account. The order keeps the selected method and masked payment summary for audit, tracking, and notifications.</p>}
+        <p className="text-xs text-neutral-500">Stripe, Apple Pay, Google Pay, PayPal, and card entry are handled by provider-hosted payment surfaces in production; raw payment credentials must not be stored by 3commerce.</p>
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -169,7 +217,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
           includeSame
           onChange={setBillingId}
         />
-        {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} />}
+        {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} setManualShippingCountry={setManualShippingCountry} />}
         {billingId === "same" && <p className="text-sm text-neutral-500">Using the shipping address for card billing/AVS.</p>}
       </section>
 
@@ -227,7 +275,7 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
   );
 }
 
-function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string }) {
+function AddressFields({ prefix, defaults, fallbackName, setManualShippingCountry }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string; setManualShippingCountry: (value: string) => void }) {
   return (
     <div className="space-y-3">
       <Field name={`${prefix}Name`} label="Full name" autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title="Full name for delivery, as it should appear on the parcel." />
@@ -236,7 +284,7 @@ function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" 
         <Field name={`${prefix}City`} label="City" autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title="Town or city for delivery." />
         <Field name={`${prefix}Postcode`} label="Postcode" autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title="Postal/ZIP code — used to calculate shipping." />
       </div>
-      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." />
+      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." onChange={prefix === "shipping" ? (value) => setManualShippingCountry(value) : undefined} />
     </div>
   );
 }
@@ -270,7 +318,7 @@ function AddressSelect({ id, label, value, addresses, includeSame, onChange }: {
   );
 }
 
-function Field({ name, label, type = "text", autoComplete, maxLength, defaultValue, required = false, title }: {
+function Field({ name, label, type = "text", autoComplete, maxLength, defaultValue, required = false, title, onChange }: {
   name: string;
   label: string;
   type?: string;
@@ -279,6 +327,7 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
   defaultValue?: string;
   required?: boolean;
   title?: string;
+  onChange?: (value: string) => void;
 }) {
   return (
     <div>
@@ -292,6 +341,7 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
         maxLength={maxLength}
         defaultValue={defaultValue}
         title={title}
+        onChange={onChange ? (event) => onChange(event.currentTarget.value) : undefined}
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
       />
     </div>
@@ -315,3 +365,62 @@ function defaultAddress(addresses: AddressDto[], purpose: "Billing" | "Shipping"
 function canUse(address: AddressDto, purpose: "Billing" | "Shipping") {
   return address.purpose === "Both" || address.purpose === purpose;
 }
+
+function CardIcon() {
+  return (
+    <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
+      <rect x="1" y="4" width="72" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
+      <rect x="8" y="10" width="18" height="4" rx="1" fill="#94a3b8" />
+      <rect x="8" y="17" width="32" height="3" rx="1.5" fill="#64748b" />
+      <circle cx="55" cy="16" r="5" fill="#ef4444" opacity=".9" />
+      <circle cx="61" cy="16" r="5" fill="#f59e0b" opacity=".85" />
+    </svg>
+  );
+}
+
+function StripeIcon() {
+  return (
+    <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
+      <rect width="74" height="28" rx="5" fill="#635bff" />
+      <text x="37" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="14" fontWeight="700" fill="white">stripe</text>
+    </svg>
+  );
+}
+
+function ApplePayIcon() {
+  return (
+    <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
+      <rect width="74" height="28" rx="5" fill="#000" />
+      <text x="37" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="13" fontWeight="700" fill="white"> Pay</text>
+    </svg>
+  );
+}
+
+function GooglePayIcon() {
+  return (
+    <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
+      <rect width="74" height="28" rx="5" fill="#fff" stroke="#dadce0" />
+      <text x="17" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="15" fontWeight="700" fill="#4285f4">G</text>
+      <text x="43" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="13" fontWeight="700" fill="#202124">Pay</text>
+    </svg>
+  );
+}
+
+function PayPalIcon() {
+  return (
+    <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
+      <rect width="74" height="28" rx="5" fill="#ffc439" />
+      <text x="37" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="13" fontWeight="700" fill="#003087">PayPal</text>
+    </svg>
+  );
+}
+
+function estimateTax(netMinor: number, currency: string, shipCountry: string) {
+  if (netMinor <= 0) return 0;
+  if (currency === "AUD" && shipCountry === "AU") return Math.round(netMinor * 0.1);
+  if (currency === "EUR" && EU_VAT_COUNTRIES.has(shipCountry)) return Math.round(netMinor * 0.2);
+  if (currency === "USD" && shipCountry === "US") return Math.round(netMinor * 0.0825);
+  return 0;
+}
+
+const EU_VAT_COUNTRIES = new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]);

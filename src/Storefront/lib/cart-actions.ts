@@ -92,10 +92,14 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
   const profile = profileResponse.ok ? ((await profileResponse.json()) as { email: string }) : null;
   const email = profile?.email ?? String(formData.get("email") ?? "");
   const savedPaymentMethodId = String(formData.get("savedPaymentMethodId") ?? "");
+  const paymentOption = String(formData.get("paymentOption") || "CreditCard");
+  const cardNumber = String(formData.get("paymentCardNumber") || "").replace(/\D/g, "");
   const body = {
     email,
     savedPaymentMethodId: savedPaymentMethodId && savedPaymentMethodId !== "new" ? savedPaymentMethodId : null,
-    savePaymentMethod: formData.get("savePaymentMethod") === "on",
+    savePaymentMethod: Boolean(profile) && formData.get("savePaymentMethod") === "on",
+    paymentOption,
+    paymentInstrumentSummary: paymentSummary(paymentOption, cardNumber),
     shippingAddress: {
       name: String(formData.get("shippingName") || formData.get("name") || ""),
       line1: String(formData.get("shippingLine1") || formData.get("line1") || ""),
@@ -124,6 +128,13 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     cookieStore.set("3c_guest_email", body.email, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
   }
   redirect(`/checkout/confirmation?order=${result.orderId}`);
+}
+
+function paymentSummary(paymentOption: string, cardNumber: string) {
+  if (paymentOption === "CreditCard" && cardNumber.length >= 4) {
+    return `Credit card ending ${cardNumber.slice(-4)}`;
+  }
+  return paymentOption;
 }
 
 export type ConvertState = { error?: string; ok?: boolean };
