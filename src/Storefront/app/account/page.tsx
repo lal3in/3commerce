@@ -3,19 +3,21 @@ import Link from "next/link";
 import { getAddresses, getProfile, getMyOrders, getSavedPaymentMethods } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { logout } from "@/lib/auth-actions";
+import { AddressForms } from "@/components/account/AccountForms";
+import { CardEntryForm } from "@/components/account/CardEntryForm";
 
 export const metadata = { title: "Account" };
 
 // Dynamic, cookie-dependent page — never cached (components.md §1 rendering table).
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ address?: string; card?: string }> }) {
   const profile = await getProfile();
   if (!profile) {
     redirect("/login");
   }
-  const [orders, addresses, paymentMethods] = await Promise.all([getMyOrders(), getAddresses(), getSavedPaymentMethods()]);
+  const [orders, addresses, paymentMethods, status] = await Promise.all([getMyOrders(), getAddresses(), getSavedPaymentMethods(), searchParams]);
 
   return (
-    <div className="max-w-md">
+    <div className="max-w-2xl">
       <h1 className="text-xl font-semibold mb-4">Your account</h1>
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between border-b border-neutral-100 py-2">
@@ -33,21 +35,7 @@ export default async function AccountPage() {
       </dl>
 
       <h2 className="mt-8 text-lg font-semibold">Address book</h2>
-      {addresses.length === 0 ? (
-        <p className="mt-2 text-sm text-neutral-500">No saved addresses yet.</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-neutral-100 text-sm">
-          {addresses.map((address) => (
-            <li key={address.id} className="py-2">
-              <div className="flex justify-between">
-                <span className="font-medium">{address.name}</span>
-                <span className="text-neutral-500">{address.purpose}{address.isDefault ? " · default" : ""}</span>
-              </div>
-              <p className="text-neutral-500">{address.line1}, {address.city} {address.postcode}, {address.country}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AddressForms addresses={addresses} addressStatus={status.address} />
 
       <h2 className="mt-8 text-lg font-semibold">Saved cards</h2>
       {paymentMethods.length === 0 ? (
@@ -55,13 +43,32 @@ export default async function AccountPage() {
       ) : (
         <ul className="mt-2 divide-y divide-neutral-100 text-sm">
           {paymentMethods.map((method) => (
-            <li key={method.id} className="flex justify-between py-2">
-              <span>{method.brand.toUpperCase()} ending {method.last4}</span>
-              <span className="text-neutral-500">{method.expMonth}/{method.expYear}{method.isDefault ? " · default" : ""}</span>
+            <li key={method.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+              <div>
+                <span>{method.brand.toUpperCase()} ending {method.last4}</span>
+                <span className="ml-2 text-neutral-500">{method.expMonth}/{method.expYear}{method.isDefault ? " · default" : ""}</span>
+              </div>
+              <div className="flex gap-2">
+                {!method.isDefault && (
+                  <form action={`/account/payment-method/${method.id}`} method="post">
+                    <button type="submit" name="action" value="make-default" className="rounded-md border border-neutral-300 px-3 py-1 text-xs">
+                      Make default
+                    </button>
+                  </form>
+                )}
+                {!method.isDefault && (
+                  <form action={`/account/payment-method/${method.id}`} method="post">
+                    <button type="submit" name="action" value="delete" className="rounded-md border border-red-300 px-3 py-1 text-xs text-red-700">
+                      Delete
+                    </button>
+                  </form>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       )}
+      <CardEntryForm email={profile.email} cardStatus={status.card} />
 
       <h2 className="mt-8 text-lg font-semibold">Order history</h2>
       {orders.length === 0 ? (

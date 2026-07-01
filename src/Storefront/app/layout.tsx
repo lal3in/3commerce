@@ -26,8 +26,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <script
           type="application/ld+json"
-          // Site-wide Organization + WebSite (with sitelinks search) JSON-LD (mt5_8).
-          dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationJsonLd(), webSiteJsonLd()]) }}
+          // Site-wide Organization JSON-LD (mt5_8). Emit one object per script for validators/extensions.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }}
+        />
+        <script
+          type="application/ld+json"
+          // Site-wide WebSite + SearchAction JSON-LD (mt5_8).
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd()) }}
         />
         <header className="border-b border-neutral-200">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between gap-6">
