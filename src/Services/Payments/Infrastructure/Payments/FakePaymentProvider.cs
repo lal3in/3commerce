@@ -33,8 +33,17 @@ public sealed class FakePaymentProvider : IPaymentProvider
         return Task.FromResult(new SetupIntentResult(id, $"{id}_secret_test"));
     }
 
-    public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) =>
-        Task.FromResult(new SavedPaymentMethodDetails(providerPaymentMethodId, "visa", "4242", 12, DateTimeOffset.UtcNow.Year + 3));
+    public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct)
+    {
+        var parts = providerPaymentMethodId.Split('_', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var brand = parts.Length >= 3 ? parts[2] : "visa";
+        var last4 = parts.Length >= 4 && parts[3].Length == 4 ? parts[3] : "4242";
+        var expiry = parts.Length >= 5 ? parts[4] : "1229";
+        var expMonth = int.TryParse(expiry[..Math.Min(2, expiry.Length)], out var month) && month is >= 1 and <= 12 ? month : 12;
+        var yearToken = expiry.Length >= 4 ? expiry.Substring(2, 2) : "29";
+        var expYear = int.TryParse(yearToken, out var year) ? 2000 + year : DateTimeOffset.UtcNow.Year + 3;
+        return Task.FromResult(new SavedPaymentMethodDetails(providerPaymentMethodId, brand, last4, expMonth, expYear));
+    }
 
     public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) =>
         Task.FromResult(new ProviderRefundResult($"re_fake_{Guid.CreateVersion7():N}", Succeeded: true));

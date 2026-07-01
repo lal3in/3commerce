@@ -96,9 +96,11 @@ export type ProfileDto = {
   emailVerified: boolean;
 };
 
+export type AddressPurpose = "Billing" | "Shipping" | "Both";
+
 export type AddressDto = {
   id: string;
-  purpose: "Billing" | "Shipping" | "Both";
+  purpose: AddressPurpose;
   isDefault: boolean;
   name: string;
   line1: string;
@@ -115,7 +117,15 @@ export async function getProfile(): Promise<ProfileDto | null> {
 
 export async function getAddresses(): Promise<AddressDto[]> {
   const response = await gatewayFetch(`/api/identity/me/addresses`, { cache: "no-store" });
-  return response.ok ? ((await response.json()) as AddressDto[]) : [];
+  if (!response.ok) return [];
+  const addresses = (await response.json()) as Array<Omit<AddressDto, "purpose"> & { purpose: AddressPurpose | number }>;
+  return addresses.map((address) => ({ ...address, purpose: normalizeAddressPurpose(address.purpose) }));
+}
+
+function normalizeAddressPurpose(purpose: AddressPurpose | number): AddressPurpose {
+  if (purpose === 1 || purpose === "Billing") return "Billing";
+  if (purpose === 2 || purpose === "Shipping") return "Shipping";
+  return "Both";
 }
 
 export { GATEWAY_URL };
