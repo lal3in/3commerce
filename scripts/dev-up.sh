@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Bring up the FULL local env the light way (ADR-0009 bare-run): only Postgres + RabbitMQ in Docker,
 # everything else as host processes — so it never triggers the 13-image build that OOMs a small Docker VM.
-# Usage: scripts/dev-up.sh [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|smoke|dummy|full|exhaustive|mirror-prod]
+# Usage: scripts/dev-up.sh [--fresh] [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|smoke|dummy|full|exhaustive|mirror-prod]
+#   --fresh  Wipe the local DB volume first (dev-down --clean), so you always get a truly clean start:
+#            empty Postgres -> latest migrations -> fresh seed, on latest-built code. Use it whenever
+#            state has drifted (e.g. a demo run mutated data) or you just want a guaranteed-clean env.
 # Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,9 +13,10 @@ source scripts/lib/services.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
-WITH_FRONTENDS=0; SEED=0; DATA_PROFILE="empty"
+WITH_FRONTENDS=0; SEED=0; DATA_PROFILE="empty"; FRESH=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --fresh) FRESH=1; shift ;;
     --with-frontends) WITH_FRONTENDS=1; shift ;;
     --seed) SEED=1; DATA_PROFILE="catalog"; shift ;;
     --dummy-data) DATA_PROFILE="dummy"; shift ;;
@@ -22,6 +26,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_docker
+
+if (( FRESH )); then
+  # Truly clean start: stop anything running and DROP the Postgres data volume so the DB is recreated
+  # empty (init-databases.sql reruns) — otherwise stale/mutated data survives across restarts because
+  # `docker compose down` (without -v) keeps the named volume.
+  echo "== 0/4 fresh: wiping local stack + DB volume =="
+  scripts/dev-down.sh --clean >/dev/null 2>&1 || true
+fi
+
 echo "== 1/4 infra (Postgres + RabbitMQ) =="
 docker compose -f docker-compose.infra.yml up -d
 for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
