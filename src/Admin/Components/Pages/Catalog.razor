@@ -81,10 +81,24 @@ else
                 {
                     <tr>
                         <td><input @bind="v.Sku" style="width:100%;" title="Stock-keeping unit — your unique code for this variant." /></td>
-                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Price in minor units (cents): 1999 = €19.99." /></td>
+                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Base price in minor units (cents): 1999 = €19.99. Fallback when no per-currency price is set." /></td>
                         <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
                         <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="Units available to sell for this variant." /></td>
                         <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="padding:.2rem .4rem .8rem 1.5rem; background:#f9fafb;">
+                            <span style="font-size:.8rem; color:#6b7280;">Per-currency prices (tenant-set, no FX — a storefront hides this product if its currency has no price here):</span>
+                            @foreach (var pr in v.Prices)
+                            {
+                                <span style="display:inline-flex; gap:.2rem; align-items:center; margin-left:.5rem;">
+                                    <CurrencySelect @bind-Value="pr.Currency" style="width:8rem;padding:.15rem;" />
+                                    <input type="number" @bind="pr.PriceMinor" style="width:6rem;" title="Price in minor units for this currency." />
+                                    <button @onclick="() => v.Prices.Remove(pr)" style="color:#b91c1c;" title="Remove this currency price.">✕</button>
+                                </span>
+                            }
+                            <button @onclick="() => v.Prices.Add(new CurrencyPrice())" style="margin-left:.5rem;">+ currency price</button>
+                        </td>
                     </tr>
                 }
                 </tbody>
@@ -251,6 +265,13 @@ else
         public long PriceMinor { get; set; }
         public string Currency { get; set; } = "EUR";
         public int StockQuantity { get; set; }
+        public List<CurrencyPrice> Prices { get; set; } = [];
+    }
+
+    public sealed class CurrencyPrice
+    {
+        public string Currency { get; set; } = "EUR";
+        public long PriceMinor { get; set; }
     }
 
     private sealed class KeyValueRow

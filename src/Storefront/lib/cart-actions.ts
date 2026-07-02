@@ -25,11 +25,11 @@ async function relayCartCookie(response: Response): Promise<void> {
   }
 }
 
-export async function addToCart(productId: string, variantId?: string, quantity = 1): Promise<void> {
+export async function addToCart(productId: string, variantId?: string, quantity = 1, currency?: string): Promise<void> {
   const response = await fetch(`${GATEWAY_URL}/api/ordering/cart/items`, {
     method: "POST",
     headers: await cartHeaders(),
-    body: JSON.stringify({ productId, variantId, quantity: Math.max(1, quantity) }),
+    body: JSON.stringify({ productId, variantId, quantity: Math.max(1, quantity), currency }),
   });
   await relayCartCookie(response);
   revalidatePath("/cart");

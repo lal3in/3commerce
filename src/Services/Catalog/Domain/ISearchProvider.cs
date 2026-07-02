@@ -14,7 +14,9 @@ public record SearchQuery(
     string? CategorySlug,
     IReadOnlyDictionary<string, string> AttributeFilters,
     int Page,
-    int PageSize);
+    int PageSize,
+    // When set, prices are returned in this currency and products with no tenant-set price in it are hidden.
+    string? Currency = null);
 
 public record ProductHit(
     Guid Id,

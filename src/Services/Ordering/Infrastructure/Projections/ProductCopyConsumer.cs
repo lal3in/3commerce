@@ -11,7 +11,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
     public async Task Consume(ConsumeContext<ProductUpserted> context)
     {
         var m = context.Message;
-        var copy = await db.ProductCopies.Include(p => p.Variants)
+        var copy = await db.ProductCopies.Include(p => p.Variants).ThenInclude(v => v.Prices)
             .SingleOrDefaultAsync(p => p.ProductId == m.ProductId, context.CancellationToken);
         if (copy is null)
         {
@@ -58,6 +58,28 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
             existing.PriceMinor = variant.PriceMinor;
             existing.Currency = variant.Currency;
             existing.StockQuantity = variant.StockQuantity;
+
+            // Reconcile per-currency prices (tenant-authored; drives storefront-currency cart/checkout).
+            var keptCurrencies = new HashSet<string>();
+            foreach (var pr in variant.Prices ?? [])
+            {
+                var cur = pr.Currency.Trim().ToUpperInvariant();
+                var ep = existing.Prices.FirstOrDefault(p => p.Currency == cur);
+                if (ep is null)
+                {
+                    ep = new ProductVariantCopyPrice { Id = Guid.CreateVersion7(), VariantId = existing.VariantId, Currency = cur, PriceMinor = pr.PriceMinor };
+                    existing.Prices.Add(ep);
+                    db.ProductVariantCopyPrices.Add(ep);
+                }
+                else
+                {
+                    ep.PriceMinor = pr.PriceMinor;
+                }
+
+                keptCurrencies.Add(cur);
+            }
+
+            db.ProductVariantCopyPrices.RemoveRange(existing.Prices.Where(p => !keptCurrencies.Contains(p.Currency)));
             kept.Add(variant.VariantId);
         }
 

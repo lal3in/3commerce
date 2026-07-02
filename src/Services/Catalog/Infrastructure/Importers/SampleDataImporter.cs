@@ -55,7 +55,7 @@ public sealed class SampleDataImporter(
         await db.SaveChangesAsync(ct);
 
         var categories = await EnsureCategoriesAsync(ct);
-        var existingBySlug = await db.Products.Include(p => p.Variants)
+        var existingBySlug = await db.Products.Include(p => p.Variants).ThenInclude(v => v.Prices)
             .Where(p => p.TenantId == _tenantId)
             .ToDictionaryAsync(p => p.Slug, ct);
 
@@ -125,7 +125,13 @@ public sealed class SampleDataImporter(
                 existing.UpdatedAt = DateTimeOffset.UtcNow;
                 for (var v = 0; v < existing.Variants.Count; v++)
                 {
-                    existing.Variants[v].PriceMinor = basePrice + v * 500;
+                    var vv = existing.Variants[v];
+                    vv.PriceMinor = basePrice + v * 500;
+                    vv.Prices.Clear();
+                    foreach (var pr in DemoPrices(vv.Id, vv.PriceMinor))
+                    {
+                        vv.Prices.Add(pr);
+                    }
                 }
 
                 await PublishUpsertedAsync(existing, ct);
@@ -149,7 +155,7 @@ public sealed class SampleDataImporter(
                 };
                 for (var v = 0; v < variantCount; v++)
                 {
-                    product.Variants.Add(new Variant
+                    var variant = new Variant
                     {
                         Id = Guid.CreateVersion7(),
                         ProductId = product.Id,
@@ -157,7 +163,13 @@ public sealed class SampleDataImporter(
                         PriceMinor = basePrice + v * 500,
                         Currency = _currency,
                         StockQuantity = rng.Next(0, 200),
-                    });
+                    };
+                    foreach (var pr in DemoPrices(variant.Id, variant.PriceMinor))
+                    {
+                        variant.Prices.Add(pr);
+                    }
+
+                    product.Variants.Add(variant);
                 }
 
                 db.Products.Add(product);
@@ -193,7 +205,22 @@ public sealed class SampleDataImporter(
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
             product.Variants.FirstOrDefault()?.Currency ?? _currency,
             product.ImageUrls.FirstOrDefault(),
-            product.Variants.Select(v => new ProductVariantUpserted(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList()), ct);
+            product.Variants.Select(v => new ProductVariantUpserted(
+                v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity,
+                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList()), ct);
+
+    // Demo per-currency prices for seed data only (NOT runtime FX): the tenant would set these
+    // explicitly in the admin. Derived once from the base (EUR) so AU/US demo storefronts have prices.
+    private static readonly (string Currency, double Factor)[] DemoCurrencies = [("EUR", 1.0), ("AUD", 1.65), ("USD", 1.08)];
+
+    private static IEnumerable<VariantPrice> DemoPrices(Guid variantId, long baseMinor) =>
+        DemoCurrencies.Select(c => new VariantPrice
+        {
+            Id = Guid.CreateVersion7(),
+            VariantId = variantId,
+            Currency = c.Currency,
+            PriceMinor = (long)Math.Round(baseMinor * c.Factor),
+        });
 
     private async Task<List<Category>> EnsureCategoriesAsync(CancellationToken ct)
     {

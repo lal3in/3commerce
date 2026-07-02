@@ -26,9 +26,9 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
     notFound();
   }
 
-  const [config, featured, categories] = await Promise.all([
-    getStorefrontConfig({ slug }),
-    searchProducts({ pageSize: 8 }),
+  const config = await getStorefrontConfig({ slug });
+  const [featured, categories] = await Promise.all([
+    searchProducts({ pageSize: 8, currency: config?.currency }),
     listCategories(),
   ]);
 

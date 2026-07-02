@@ -57,11 +57,14 @@ export async function searchProducts(params: {
   attrs?: string;
   page?: number;
   pageSize?: number;
+  // When set, prices come back in this currency and products with no tenant-set price in it are hidden.
+  currency?: string;
 }): Promise<SearchResult> {
   const query = new URLSearchParams();
   if (params.q) query.set("q", params.q);
   if (params.category) query.set("category", params.category);
   if (params.attrs) query.set("attrs", params.attrs);
+  if (params.currency) query.set("currency", params.currency);
   query.set("page", String(params.page ?? 1));
   query.set("pageSize", String(params.pageSize ?? 24));
 
@@ -76,9 +79,10 @@ export async function searchProducts(params: {
   return { hits, total };
 }
 
-export async function getProduct(slug: string): Promise<ProductDetail | null> {
-  // Product pages are cacheable/ISR-friendly; revalidate periodically.
-  const response = await gatewayFetch(`/api/catalog/products/${encodeURIComponent(slug)}`, {
+export async function getProduct(slug: string, currency?: string): Promise<ProductDetail | null> {
+  // Product pages are cacheable/ISR-friendly; revalidate periodically. Currency-specific when set.
+  const query = currency ? `?currency=${encodeURIComponent(currency)}` : "";
+  const response = await gatewayFetch(`/api/catalog/products/${encodeURIComponent(slug)}${query}`, {
     next: { revalidate: 300 },
   });
   return response.ok ? ((await response.json()) as ProductDetail) : null;

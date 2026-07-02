@@ -25,25 +25,39 @@ public static class ProductsEndpoints
         string? q,
         string? category,
         string? attrs,
+        string? currency = null,
         int page = 1,
         int pageSize = 24,
         CancellationToken cancellationToken = default)
     {
         var filters = ParseAttributeFilters(attrs);
         var result = await search.SearchAsync(
-            new SearchQuery(q, category, filters, page, pageSize), cancellationToken);
+            new SearchQuery(q, category, filters, page, pageSize, currency), cancellationToken);
 
         httpContext.Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
         return TypedResults.Ok(result.Hits.ToList());
     }
 
     private static async Task<Results<Ok<ProductDetailResponse>, NotFound>> GetBySlug(
-        string slug, CatalogDbContext db, CancellationToken cancellationToken)
+        string slug, CatalogDbContext db, string? currency, CancellationToken cancellationToken)
     {
         var product = await db.Products.AsNoTracking()
-            .Include(p => p.Variants)
+            .Include(p => p.Variants).ThenInclude(v => v.Prices)
             .SingleOrDefaultAsync(p => p.Slug == slug, cancellationToken);
         if (product is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var cur = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
+        var variants = product.Variants
+            .Select(v => (v, price: VariantPriceIn(v, cur)))
+            .Where(x => x.price is not null)
+            .Select(x => new VariantResponse(x.v.Id, x.v.Sku, x.price!.Value, cur ?? x.v.Currency, x.v.StockQuantity > 0))
+            .ToList();
+
+        // Hidden on a storefront whose currency the tenant priced no variant in.
+        if (cur is not null && variants.Count == 0)
         {
             return TypedResults.NotFound();
         }
@@ -61,9 +75,25 @@ public static class ProductsEndpoints
             category?.Name,
             product.Attributes,
             product.ImageUrls,
-            product.Variants
-                .Select(v => new VariantResponse(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity > 0))
-                .ToList()));
+            variants));
+    }
+
+    // Variant price in the requested currency: VariantPrice override, else base price when base currency
+    // matches, else null (not sold in that currency). Null currency = base price (single-currency callers).
+    private static long? VariantPriceIn(Variant v, string? currency)
+    {
+        if (currency is null)
+        {
+            return v.PriceMinor;
+        }
+
+        var match = v.Prices.FirstOrDefault(p => p.Currency == currency);
+        if (match is not null)
+        {
+            return match.PriceMinor;
+        }
+
+        return string.Equals(v.Currency, currency, StringComparison.OrdinalIgnoreCase) ? v.PriceMinor : null;
     }
 
     private static async Task<Ok<List<CategoryResponse>>> ListCategories(
