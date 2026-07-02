@@ -1,7 +1,7 @@
 @page "/rmas"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>RMA queue</h1>
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }

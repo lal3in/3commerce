@@ -1,7 +1,7 @@
 @page "/xero-mappings"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Xero mappings</h1>
 <p style="color:#6b7280;">Map ledger account codes to Xero account codes with tenant default, storefront, category, supplier, or product precedence.</p>

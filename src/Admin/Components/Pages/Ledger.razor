@@ -1,6 +1,6 @@
 @page "/ledger"
 @attribute [Authorize(Roles = "admin")]
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 @inject GatewayClient Gateway
 
 <h1>Ledger</h1>

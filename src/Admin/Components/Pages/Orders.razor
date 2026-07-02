@@ -1,7 +1,7 @@
 @page "/orders"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Orders</h1>
 <p style="color:#6b7280;">Cancel an unpaid order (Pending/Awaiting payment), or refund a confirmed (paid) one. Refunds reverse the ledger; the order's own status stays Confirmed.</p>

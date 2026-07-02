@@ -1,7 +1,7 @@
 @page "/"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
     <h1 style="margin:0;">Dashboard</h1>
