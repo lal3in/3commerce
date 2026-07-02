@@ -357,3 +357,25 @@ Plan Path: `.ai-shared/plans/storefront-currency-tax-and-admin-fixes.md`
 | scta_17 | Importer + dev seed multi-currency prices | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AUD/EUR/USD demo |
 | scta_18 | Storefront tax lib + CheckoutForm config-driven display | PR5 tax | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded estimateTax |
 | scta_19 | Server-charged tax matches storefront regime/rate | PR5 tax | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | ITaxStrategy/Pricing storefront-aware |
+
+## Plan: Project review remediation — correctness, routing, hardening, and debt
+
+Last Modified Date-Time: 2026-07-03
+
+Plan Path: `.ai-shared/plans/project-review-remediation.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+| ------- | --------- | ----- | ------ | --------- | -------- |
+| rev_1 | Mixed-currency cart guard (409 on add; checkout assert) | P1 money-path (PR A) | planned | .ai-shared/plans/project-review-remediation.md | F1: cart can mix AUD+EUR; checkout sums blind on items[0].Currency |
+| rev_2 | Single tax owner — remove Payments ITaxStrategy application | P1 money-path (PR A) | planned | .ai-shared/plans/project-review-remediation.md | F2: double-tax if Tax:HomeCountry set; bus-contract sweep in same PR |
+| rev_3 | Regenerate catalog/ordering OpenAPI + contract index | P1 coverage (PR B) | planned | .ai-shared/plans/project-review-remediation.md | F4: specs stale since #27/#29; PRs #39-41 endpoints missing |
+| rev_4 | Unit+integration tests for per-currency pricing + storefront tax | P1 coverage (PR B) | planned | .ai-shared/plans/project-review-remediation.md | F3: zero automated coverage of VariantPrice/StorefrontTaxCopy today |
+| rev_5 | Host→storefront context on all shopper routes (headers + currency) | P2 routing (PR C) | planned | .ai-shared/plans/project-review-remediation.md | F5: gateway DomainResolutionMiddleware exists; UI never passes currency; StorefrontId mis-attributed |
+| rev_6 | Per-regime tax display (AU/EU inclusive) + A$/US$ symbols | P2 routing (PR D) | planned | .ai-shared/plans/project-review-remediation.md | F6: charge-math changes gated on rev_10 ADR; labels can ship first |
+| rev_7 | Enum-binding policy + bad-body 400s platform-wide | P3 hardening (PR E) | planned | .ai-shared/plans/project-review-remediation.md | F7: 5th recurrence of enum-as-string 500 class |
+| rev_8 | RLS expansion (Identity Addresses, entity.* tables) + posture ADR | P3 hardening (PR F) | planned | .ai-shared/plans/project-review-remediation.md | F8: mt1_4/aui_9 follow-ups; app-filter posture recorded |
+| rev_9 | MasterGlobal platform-scope gate for cross-tenant admin users | P3 hardening (PR F) | planned | .ai-shared/plans/project-review-remediation.md | F8/aui_8 note: foreign tenantId currently honored for tenant admins |
+| rev_10 | ADR: per-currency price ownership (Variant vs Offer, incl/excl entry) | P4 architecture (PR G) | planned | .ai-shared/plans/project-review-remediation.md | F9: reconciles ADR-0028 + mt7_1 retire-Variant.PriceMinor follow-up |
+| rev_11 | Fix json_get (heredoc-stdin) + unmasked string-enum seed payloads | P5 hygiene (PR H) | planned | .ai-shared/plans/project-review-remediation.md | F10: manifest ids empty → scenario matrix degrades |
+| rev_12 | Playwright e2e: /au currency + GST line; admin price-row editing | P5 hygiene (PR H) | planned | .ai-shared/plans/project-review-remediation.md | F3/F11 |
+| rev_13 | Triage documented deferrals into dated decisions | P6 backlog | planned | .ai-shared/plans/project-review-remediation.md | F12: mt1_6/mt5_5/mt5_7/mt6_7/mt6_10/mt6_14 + creds swaps + pen test |
