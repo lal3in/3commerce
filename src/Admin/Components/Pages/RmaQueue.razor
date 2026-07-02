@@ -4,6 +4,8 @@
 @rendermode InteractiveServer
 
 <h1>RMA queue</h1>
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
 @if (_rmas is null)
 {
     <p>Loading…</p>
@@ -44,6 +46,8 @@ else
     private static readonly object _empty = new();
     private List<RmaDto>? _rmas;
     private bool _busy;
+    private string? _error;
+    private string? _status;
 
     protected override Task OnInitializedAsync() => Refresh();
 
@@ -53,8 +57,11 @@ else
 
     private async Task Post(Guid id, string action, object? body)
     {
+        _error = _status = null;
         _busy = true; // disable buttons during the saga-triggering call (components.md §6)
-        await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
+        var response = await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
+        if (response.IsSuccessStatusCode) { _status = $"RMA {action} ok."; }
+        else { _error = $"RMA {action} failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}"; }
         await Refresh();
         _busy = false;
     }

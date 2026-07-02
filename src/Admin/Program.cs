@@ -47,9 +47,9 @@ app.Use(async (context, next) =>
 
 app.UseMiddleware<IpAllowlistMiddleware>(); // network posture, before auth
 app.UseStaticFiles();
-app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 
 app.MapLoginEndpoints();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();

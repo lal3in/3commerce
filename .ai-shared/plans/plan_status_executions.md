@@ -338,12 +338,12 @@ Plan Path: `.ai-shared/plans/storefront-currency-tax-and-admin-fixes.md`
 
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 | ------- | --------- | ----- | ------ | --------- | -------- |
-| scta_1 | PaymentAccounts create: send numeric PaymentProviderMode (fix 500) | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | enum-as-string 500 |
-| scta_2 | Entities supplier lifecycle: send required body (fix suspend 500) | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | empty-body 500 |
-| scta_3 | Surface API errors on every admin action button | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | reuse HandleMutation/_error pattern |
-| scta_4 | Program.cs middleware order Auth→Authz→Antiforgery | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | |
-| scta_5 | Ledger @rendermode + favicon 404 | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | minor |
-| scta_6 | e2e-admin admin-actions.spec (click + assert feedback) | PR1 admin correctness | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | regression guard |
+| scta_1 | PaymentAccounts create: send numeric PaymentProviderMode (fix 500) | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | enum-as-string 500 |
+| scta_2 | Entities supplier lifecycle: send required body (fix suspend 500) | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | empty-body 500 |
+| scta_3 | Surface API errors on every admin action button | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | reuse HandleMutation/_error pattern |
+| scta_4 | Program.cs middleware order Auth→Authz→Antiforgery | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | |
+| scta_5 | Ledger @rendermode + favicon 404 | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | minor |
+| scta_6 | e2e-admin admin-actions.spec (click + assert feedback) | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | regression guard |
 | scta_7 | Disable prerender on interactive admin pages (pre-circuit UX) | PR2 admin UX | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | InteractiveServerRenderMode(prerender:false) |
 | scta_8 | Public Catalog storefront-config read endpoint (by-slug/host) | PR3 storefront config | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | anon, active-only, minimal DTO |
 | scta_9 | Storefront lib/storefront.ts + [storefront] uses real config | PR3 storefront config | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded labels |

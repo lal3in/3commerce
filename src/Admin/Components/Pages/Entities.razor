@@ -32,6 +32,7 @@ else
     <section style="display:grid; grid-template-columns:1.3fr 1fr; gap:2rem;">
         <div>
             <h2>Entities</h2>
+            <label style="font-size:.85rem; display:block; margin-bottom:.5rem;">Suspend reason <input @bind="_suspendReason" style="width:100%; padding:.3rem;" title="Recorded when suspending a supplier (min 8 characters)." /></label>
             @if (_entities.Count == 0) { <p style="color:#9ca3af;">No entities loaded.</p> }
             else
             {
@@ -108,13 +109,15 @@ else
     private string _newTradingName = string.Empty;
     private int _newType = 2;
     private string _decisionReason = string.Empty;
+    private string _suspendReason = "Suspended by operator via admin.";
     private EntityEditor? _editing;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
-        _error = _info = null;
+        // NB: does not clear _error/_info — mutation handlers set their result right before
+        // calling LoadAsync to refresh, and clearing here would wipe that feedback.
         if (!Guid.TryParse(_tenantId, out _))
         {
             _error = "Tenant ID must be a GUID.";
@@ -178,7 +181,22 @@ else
     private async Task Supplier(Guid entityId, string action)
     {
         _error = _info = null;
-        var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/{action}");
+        // The suspend endpoint requires a SuspendSupplierRequest body (Reason, 8-500 chars);
+        // the other transitions take no body. Sending an empty body to suspend 500s.
+        object? body = null;
+        if (action.EndsWith("suspend", StringComparison.Ordinal))
+        {
+            var reason = string.IsNullOrWhiteSpace(_suspendReason) ? "Suspended by operator via admin." : _suspendReason.Trim();
+            if (reason.Length < 8)
+            {
+                _error = "Suspend reason must be at least 8 characters.";
+                return;
+            }
+
+            body = new { reason };
+        }
+
+        var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/{action}", body);
         if (response.IsSuccessStatusCode) { _info = $"Supplier '{action.Split('/').Last()}' ok."; }
         else { _error = $"Action failed: {await response.Content.ReadAsStringAsync()}"; }
         await LoadAsync();
