@@ -109,8 +109,11 @@ public class Variant
     public string? Barcode { get; set; }
     /// <summary>Integer minor units (AGENTS.md invariant) — never floating point.</summary>
     public long PriceMinor { get; set; }
-    /// <summary>ISO 4217. Single configured store currency in v1 (ADR-0015).</summary>
+    /// <summary>ISO 4217. Base/default currency + fallback; per-currency prices live in <see cref="Prices"/>.</summary>
     public required string Currency { get; set; }
+
+    /// <summary>Tenant-authored explicit prices per currency (no FX). Empty = only the base <see cref="PriceMinor"/>.</summary>
+    public ICollection<VariantPrice> Prices { get; } = new List<VariantPrice>();
 
     /// <summary>
     /// Read model only (ADR-0028): availability is owned by Fulfillment and projected here via

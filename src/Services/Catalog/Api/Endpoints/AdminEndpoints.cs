@@ -85,7 +85,7 @@ public static class AdminEndpoints
     private static async Task<Results<Ok<ProductEditorDto>, NotFound>> GetProduct(
         Guid id, CatalogDbContext db, CancellationToken cancellationToken)
     {
-        var product = await db.Products.AsNoTracking().Include(p => p.Variants)
+        var product = await db.Products.AsNoTracking().Include(p => p.Variants).ThenInclude(v => v.Prices)
             .SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
         return product is null ? TypedResults.NotFound() : TypedResults.Ok(ToEditorDto(product));
     }
@@ -131,7 +131,7 @@ public static class AdminEndpoints
         };
         foreach (var v in request.Variants)
         {
-            product.Variants.Add(new Variant
+            var variant = new Variant
             {
                 Id = Guid.CreateVersion7(),
                 ProductId = product.Id,
@@ -143,7 +143,13 @@ public static class AdminEndpoints
                 LengthMm = v.LengthMm,
                 WidthMm = v.WidthMm,
                 HeightMm = v.HeightMm,
-            });
+            };
+            foreach (var (cur, price) in NormalizePrices(v.Prices))
+            {
+                variant.Prices.Add(new VariantPrice { Id = Guid.CreateVersion7(), VariantId = variant.Id, Currency = cur, PriceMinor = price });
+            }
+
+            product.Variants.Add(variant);
         }
 
         db.Products.Add(product);
@@ -161,7 +167,7 @@ public static class AdminEndpoints
             return problem;
         }
 
-        var product = await db.Products.Include(p => p.Variants)
+        var product = await db.Products.Include(p => p.Variants).ThenInclude(v => v.Prices)
             .SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
         {
@@ -214,6 +220,30 @@ public static class AdminEndpoints
             existing.LengthMm = v.LengthMm;
             existing.WidthMm = v.WidthMm;
             existing.HeightMm = v.HeightMm;
+
+            // Reconcile per-currency prices for this variant.
+            var keptCurrencies = new HashSet<string>();
+            foreach (var (cur, price) in NormalizePrices(v.Prices))
+            {
+                var ep = existing.Prices.FirstOrDefault(x => x.Currency == cur);
+                if (ep is null)
+                {
+                    existing.Prices.Add(new VariantPrice { Id = Guid.CreateVersion7(), VariantId = existing.Id, Currency = cur, PriceMinor = price });
+                }
+                else
+                {
+                    ep.PriceMinor = price;
+                }
+
+                keptCurrencies.Add(cur);
+            }
+
+            foreach (var rp in existing.Prices.Where(x => !keptCurrencies.Contains(x.Currency)).ToList())
+            {
+                existing.Prices.Remove(rp);
+                db.Remove(rp);
+            }
+
             keptIds.Add(existing.Id);
         }
 
@@ -251,7 +281,28 @@ public static class AdminEndpoints
             product.Variants.Count > 0 ? product.Variants.Min(v => v.PriceMinor) : 0,
             product.Variants.FirstOrDefault()?.Currency ?? fallbackCurrency,
             product.ImageUrls.FirstOrDefault(),
-            product.Variants.Select(v => new ProductVariantUpserted(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity)).ToList()), ct);
+            product.Variants.Select(v => new ProductVariantUpserted(
+                v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity,
+                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList()), ct);
+
+    // Normalize tenant-entered per-currency prices: 3-letter upper ISO, last write wins per currency, drop blanks.
+    private static IEnumerable<(string Currency, long PriceMinor)> NormalizePrices(List<CurrencyPriceDto>? prices)
+    {
+        if (prices is null)
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<string>();
+        foreach (var p in prices)
+        {
+            var cur = (p.Currency ?? string.Empty).Trim().ToUpperInvariant();
+            if (cur.Length == 3 && p.PriceMinor >= 0 && seen.Add(cur))
+            {
+                yield return (cur, p.PriceMinor);
+            }
+        }
+    }
 
     private static ValidationProblem? Validate(ProductWriteRequest request)
     {
@@ -282,7 +333,8 @@ public static class AdminEndpoints
 
     private static ProductEditorDto ToEditorDto(Product p) => new(
         p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls,
-        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm)).ToList());
+        p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
+            v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList());
 }
 
 public record ImportRunResponse(
@@ -302,10 +354,13 @@ public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
     Dictionary<string, string> Attributes, List<string> ImageUrls, List<VariantEditorDto> Variants);
 
-public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm);
+public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, List<CurrencyPriceDto> Prices);
+
+// Tenant-authored explicit price per currency (no FX).
+public record CurrencyPriceDto(string Currency, long PriceMinor);
 
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants);
 
-public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null);
+public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, List<CurrencyPriceDto>? Prices = null);

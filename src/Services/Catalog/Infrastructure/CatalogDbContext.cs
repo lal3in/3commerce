@@ -8,6 +8,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
 {
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Variant> Variants => Set<Variant>();
+    public DbSet<VariantPrice> VariantPrices => Set<VariantPrice>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
     public DbSet<PingRecord> Pings => Set<PingRecord>();
@@ -57,6 +58,13 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             variant.HasIndex(v => v.Sku).IsUnique();
             variant.Property(v => v.Currency).HasMaxLength(3);
             variant.Property(v => v.Barcode).HasMaxLength(80);
+            variant.HasMany(v => v.Prices).WithOne().HasForeignKey(p => p.VariantId);
+        });
+
+        modelBuilder.Entity<VariantPrice>(price =>
+        {
+            price.Property(p => p.Currency).HasMaxLength(3);
+            price.HasIndex(p => new { p.VariantId, p.Currency }).IsUnique();
         });
 
         modelBuilder.Entity<Category>(category =>
