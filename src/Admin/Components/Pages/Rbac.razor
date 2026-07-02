@@ -1,7 +1,7 @@
 @page "/rbac"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Roles &amp; permissions</h1>
 <p style="color:#6b7280;">Roles are <strong>data</strong> — compose any subset of the code-defined permissions. Built-in roles are seeded per tenant; you can edit their permissions, duplicate them, or build a new role by cherry-picking. Changes are enforced by the Identity PDP and re-evaluate active sessions.</p>

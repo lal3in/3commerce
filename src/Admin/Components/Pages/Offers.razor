@@ -1,7 +1,7 @@
 @page "/offers"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Offers &amp; pricing</h1>
 <p style="color:#6b7280;">Manage Catalog Offers: product/variant × supplier supply profiles, fulfilment type, price model, billing period, priority, and active state.</p>
