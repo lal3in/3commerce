@@ -78,8 +78,8 @@
             <label>Provider <input @bind="_new.Provider" title="Payment provider, e.g. stripe." style="width:100%;" /></label>
             <label>Mode
                 <select @bind="_new.Mode" title="Test for sandbox, Live for real charges." style="width:100%;">
-                    <option value="Test">Test</option>
-                    <option value="Live">Live</option>
+                    <option value="1">Test</option>
+                    <option value="2">Live</option>
                 </select>
             </label>
             <label>External account ref <input @bind="_new.ExternalAccountRef" title="Provider account id — required to activate a Live account." style="width:100%;" /></label>
@@ -115,9 +115,9 @@
         var response = await Gateway.PostAsync("/api/payments/admin/payment-accounts", body);
         if (response.IsSuccessStatusCode)
         {
-            _status = "Account created (Draft).";
             _new.Reset();
-            await LoadAsync();
+            await LoadAsync(); // clears _status/_error, so set the confirmation AFTER the reload
+            _status = "Account created (Draft).";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -128,8 +128,8 @@
         var response = await Gateway.PostAsync($"/api/payments/admin/payment-accounts/{id}/{action}");
         if (response.IsSuccessStatusCode)
         {
-            _status = $"Account {action}d.";
             await LoadAsync();
+            _status = $"Account {action}d.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -140,10 +140,11 @@
     {
         public string Name { get; set; } = string.Empty;
         public string Provider { get; set; } = "stripe";
-        public string Mode { get; set; } = "Test";
+        // PaymentProviderMode enum binds as a number over JSON (Test=1, Live=2).
+        public int Mode { get; set; } = 1;
         public string? ExternalAccountRef { get; set; }
         public bool IsDefaultForTenant { get; set; }
-        public void Reset() { Name = string.Empty; Provider = "stripe"; Mode = "Test"; ExternalAccountRef = null; IsDefaultForTenant = false; }
+        public void Reset() { Name = string.Empty; Provider = "stripe"; Mode = 1; ExternalAccountRef = null; IsDefaultForTenant = false; }
     }
 
     private record PaymentAccountDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Provider, string Mode, string State, bool IsDefaultForTenant, string? ExternalAccountRef, DateTimeOffset CreatedAt);

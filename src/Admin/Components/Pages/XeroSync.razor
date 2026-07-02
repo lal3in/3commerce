@@ -5,6 +5,8 @@
 
 <h1>Xero sync</h1>
 <button disabled="@_busy" @onclick="RunYesterday">Post yesterday's summary</button>
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
 @if (_runs is null) { <p>Loading…</p> }
 else
 {
@@ -21,13 +23,18 @@ else
 @code {
     private List<SyncRunDto>? _runs;
     private bool _busy;
+    private string? _error;
+    private string? _status;
     protected override Task OnInitializedAsync() => Refresh();
     private async Task Refresh() => _runs = await Gateway.GetListAsync<SyncRunDto>("/api/payments/admin/xero/sync-runs");
     private async Task RunYesterday()
     {
+        _error = _status = null;
         _busy = true;
         var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)).ToString("yyyy-MM-dd");
-        await Gateway.PostAsync($"/api/payments/admin/xero/sync/{date}");
+        var response = await Gateway.PostAsync($"/api/payments/admin/xero/sync/{date}");
+        if (response.IsSuccessStatusCode) { _status = $"Posted summary for {date}."; }
+        else { _error = $"Post failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}"; }
         await Refresh();
         _busy = false;
     }

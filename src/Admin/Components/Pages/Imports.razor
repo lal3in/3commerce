@@ -13,6 +13,8 @@
 </div>
 
 <button disabled="@_busy" @onclick="RunImport" style="margin-top:1rem; padding:.4rem .8rem;">Run sample importer</button>
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
 @if (_runs is null)
 {
     <p>Loading…</p>
@@ -42,12 +44,17 @@ else
 @code {
     private List<ImportRunDto>? _runs;
     private bool _busy;
+    private string? _error;
+    private string? _status;
     protected override Task OnInitializedAsync() => Refresh();
     private async Task Refresh() => _runs = await Gateway.GetListAsync<ImportRunDto>("/api/catalog/admin/import-runs");
     private async Task RunImport()
     {
+        _error = _status = null;
         _busy = true;
-        await Gateway.PostAsync("/api/catalog/admin/import-runs");
+        var response = await Gateway.PostAsync("/api/catalog/admin/import-runs");
+        if (response.IsSuccessStatusCode) { _status = "Import run started."; }
+        else { _error = $"Import failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}"; }
         await Refresh();
         _busy = false;
     }
