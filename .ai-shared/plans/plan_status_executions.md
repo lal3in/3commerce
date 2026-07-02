@@ -345,8 +345,8 @@ Plan Path: `.ai-shared/plans/storefront-currency-tax-and-admin-fixes.md`
 | scta_5 | Ledger @rendermode + favicon 404 | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | minor |
 | scta_6 | e2e-admin admin-actions.spec (click + assert feedback) | PR1 admin correctness | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | regression guard |
 | scta_7 | Disable prerender on interactive admin pages (pre-circuit UX) | PR2 admin UX | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AdminRenderModes.InteractiveServerNoPrerender on 16 pages; e2e create now first-try (553ms) |
-| scta_8 | Public Catalog storefront-config read endpoint (by-slug/host) | PR3 storefront config | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | anon, active-only, minimal DTO |
-| scta_9 | Storefront lib/storefront.ts + [storefront] uses real config | PR3 storefront config | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded labels |
+| scta_8 | Public Catalog storefront-config read endpoint (by-slug/host) | PR3 storefront config | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | anon, active-only, minimal DTO |
+| scta_9 | Storefront lib/storefront.ts + [storefront] uses real config | PR3 storefront config | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded labels |
 | scta_10 | VariantPrice entity + mapping + Catalog migration | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | unique (VariantId,Currency) |
 | scta_11 | ProductUpserted carries per-currency prices + publish | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | shared contract — update all consumers |
 | scta_12 | Ordering ProductCopy per-currency projection + migration | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | |

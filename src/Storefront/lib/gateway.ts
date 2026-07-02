@@ -89,6 +89,42 @@ export async function listCategories(): Promise<Category[]> {
   return response.ok ? ((await response.json()) as Category[]) : [];
 }
 
+export type StorefrontTaxRegime = "None" | "AuGst" | "EuVat" | "UsSalesTax" | "Other";
+
+export type StorefrontConfig = {
+  name: string;
+  publicUrl: string;
+  currency: string;
+  taxRegime: StorefrontTaxRegime;
+  taxRateBasisPoints: number;
+};
+
+// Enum ordinals from Catalog StorefrontTaxRegime (System.Text.Json serializes enums as numbers).
+const STOREFRONT_TAX_REGIME: Record<number, StorefrontTaxRegime> = {
+  0: "None",
+  1: "AuGst",
+  2: "EuVat",
+  3: "UsSalesTax",
+  99: "Other",
+};
+
+// Resolve the active storefront's shopper-facing config (currency + tax) by canonical host
+// (production) or PublicUrl path slug (local /{slug} demo). Returns null when no live storefront matches.
+export async function getStorefrontConfig(params: { slug?: string; host?: string }): Promise<StorefrontConfig | null> {
+  const query = new URLSearchParams();
+  if (params.host) query.set("host", params.host);
+  if (params.slug) query.set("slug", params.slug);
+  if ([...query.keys()].length === 0) return null;
+
+  const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
+  if (!response.ok) return null;
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime"> & { taxRegime: StorefrontTaxRegime | number };
+  return {
+    ...raw,
+    taxRegime: typeof raw.taxRegime === "number" ? (STOREFRONT_TAX_REGIME[raw.taxRegime] ?? "Other") : raw.taxRegime,
+  };
+}
+
 export type ProfileDto = {
   email: string;
   givenName: string | null;

@@ -231,6 +231,10 @@ PY
   fi
   if [[ -n "$storefront_id" ]]; then
     manifest_set "storefronts.$key.id" "$(json_string "$storefront_id")"
+    # Draft -> Preview so the public storefront-config endpoint (Active/Preview only) resolves it.
+    # (Activate needs a canonical domain, which path-slug demo stores sharing one host can't have.)
+    # allow_4xx: on re-runs the store is already Preview and the transition is a no-op 4xx.
+    api "catalog-storefront-$key-preview" POST "/api/catalog/admin/storefronts/$storefront_id/preview" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
   fi
 }
 
