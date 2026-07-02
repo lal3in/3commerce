@@ -1,7 +1,7 @@
 @page "/entities"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Entities &amp; suppliers</h1>
 <p style="color:#6b7280;">Tenant-scoped party master data + supplier onboarding. The change-request queue is <strong>maker-checker</strong>: a sensitive supplier change (bank account, contact, access) is <em>requested</em> by one operator and must be <em>approved by a different one</em> — separation of duties, with the decision audited.</p>

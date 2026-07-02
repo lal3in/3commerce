@@ -1,7 +1,7 @@
 @page "/commerce-ops"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
-@rendermode InteractiveServer
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>Storefront commerce operations</h1>
 <p style="color:#4b5563; max-width:900px;">
