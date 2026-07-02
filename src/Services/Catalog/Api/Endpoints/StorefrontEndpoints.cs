@@ -125,8 +125,8 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             db.Storefronts.Add(storefront);
+            await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await db.SaveChangesAsync(cancellationToken);
-            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Created($"/admin/storefronts/{storefront.Id}", ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
@@ -162,8 +162,8 @@ public static class StorefrontEndpoints
             storefront.Rename(request.Name, now);
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
+            await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await db.SaveChangesAsync(cancellationToken);
-            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
@@ -240,8 +240,8 @@ public static class StorefrontEndpoints
         try
         {
             transition(storefront);
+            await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await db.SaveChangesAsync(cancellationToken);
-            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
