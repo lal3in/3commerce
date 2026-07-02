@@ -11,6 +11,8 @@ interface CheckoutFormProps {
   profile: ProfileDto | null;
   addresses: AddressDto[];
   paymentMethods: SavedPaymentMethodDto[];
+  // This storefront's configured tax rate in basis points (1000 = 10%); drives the tax line.
+  taxRateBasisPoints: number;
 }
 
 const PAYMENT_OPTIONS = [
@@ -21,7 +23,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", label: "PayPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints }: CheckoutFormProps) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
@@ -33,10 +35,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
   const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
-  const shippingCountry = shipping?.country ?? "";
-  const [manualShippingCountry, setManualShippingCountry] = useState(shippingCountry);
-  const activeShippingCountry = (shipping?.country ?? manualShippingCountry).toUpperCase();
-  const estimatedTaxMinor = estimateTax(cart.subtotalMinor + (selectedRate?.amountMinor ?? 0), cart.currency, activeShippingCountry);
+  // Tax from the storefront's configured rate (matches what Ordering charges); exclusive on goods + shipping.
+  const estimatedTaxMinor = Math.round((cart.subtotalMinor + (selectedRate?.amountMinor ?? 0)) * taxRateBasisPoints / 10000);
 
   const quoteShipping = (form: HTMLFormElement) => {
     startQuote(async () => {
@@ -100,7 +100,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
             onChange={setShippingId}
           />
         )}
-        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} setManualShippingCountry={setManualShippingCountry} />
+        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} />
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -217,7 +217,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods }: Check
           includeSame
           onChange={setBillingId}
         />
-        {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} setManualShippingCountry={setManualShippingCountry} />}
+        {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} />}
         {billingId === "same" && <p className="text-sm text-neutral-500">Using the shipping address for card billing/AVS.</p>}
       </section>
 
@@ -275,7 +275,7 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
   );
 }
 
-function AddressFields({ prefix, defaults, fallbackName, setManualShippingCountry }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string; setManualShippingCountry: (value: string) => void }) {
+function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string }) {
   return (
     <div className="space-y-3">
       <Field name={`${prefix}Name`} label="Full name" autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title="Full name for delivery, as it should appear on the parcel." />
@@ -284,7 +284,7 @@ function AddressFields({ prefix, defaults, fallbackName, setManualShippingCountr
         <Field name={`${prefix}City`} label="City" autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title="Town or city for delivery." />
         <Field name={`${prefix}Postcode`} label="Postcode" autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title="Postal/ZIP code — used to calculate shipping." />
       </div>
-      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." onChange={prefix === "shipping" ? (value) => setManualShippingCountry(value) : undefined} />
+      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." />
     </div>
   );
 }
@@ -414,13 +414,3 @@ function PayPalIcon() {
     </svg>
   );
 }
-
-function estimateTax(netMinor: number, currency: string, shipCountry: string) {
-  if (netMinor <= 0) return 0;
-  if (currency === "AUD" && shipCountry === "AU") return Math.round(netMinor * 0.1);
-  if (currency === "EUR" && EU_VAT_COUNTRIES.has(shipCountry)) return Math.round(netMinor * 0.2);
-  if (currency === "USD" && shipCountry === "US") return Math.round(netMinor * 0.0825);
-  return 0;
-}
-
-const EU_VAT_COUNTRIES = new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]);

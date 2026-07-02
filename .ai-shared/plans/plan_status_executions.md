@@ -355,5 +355,5 @@ Plan Path: `.ai-shared/plans/storefront-currency-tax-and-admin-fixes.md`
 | scta_15 | Storefront displays storefront-currency price (hide-when-missing) | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | grid/card/PDP/cart |
 | scta_16 | Checkout/cart price + revalidate in storefront currency | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | CheckoutEndpoints |
 | scta_17 | Importer + dev seed multi-currency prices | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AUD/EUR/USD demo |
-| scta_18 | Storefront tax lib + CheckoutForm config-driven display | PR5 tax | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded estimateTax |
-| scta_19 | Server-charged tax matches storefront regime/rate | PR5 tax | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | ITaxStrategy/Pricing storefront-aware |
+| scta_18 | Storefront tax lib + CheckoutForm config-driven display | PR5 tax | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded estimateTax |
+| scta_19 | Server-charged tax matches storefront regime/rate | PR5 tax | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | ITaxStrategy/Pricing storefront-aware |

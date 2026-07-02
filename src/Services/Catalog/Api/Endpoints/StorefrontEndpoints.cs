@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
@@ -40,10 +42,11 @@ public static class StorefrontEndpoints
     private static async Task<Results<Ok<PublicStorefrontResponse>, NotFound>> GetPublicConfig(
         string? host,
         string? slug,
+        string? currency,
         CatalogDbContext db,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(slug))
+        if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(slug) && string.IsNullOrWhiteSpace(currency))
         {
             return TypedResults.NotFound();
         }
@@ -65,6 +68,12 @@ public static class StorefrontEndpoints
         {
             var s = slug.Trim();
             storefront = candidates.FirstOrDefault(x => string.Equals(PublicUrlSlug(x.PublicUrl), s, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (storefront is null && !string.IsNullOrWhiteSpace(currency))
+        {
+            var c = currency.Trim();
+            storefront = candidates.FirstOrDefault(x => string.Equals(x.Currency, c, StringComparison.OrdinalIgnoreCase));
         }
 
         return storefront is null
@@ -101,6 +110,7 @@ public static class StorefrontEndpoints
     private static async Task<Results<Created<StorefrontResponse>, ValidationProblem, Conflict<string>>> Create(
         CreateStorefrontRequest request,
         CatalogDbContext db,
+        IPublishEndpoint publisher,
         TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -116,6 +126,7 @@ public static class StorefrontEndpoints
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await db.SaveChangesAsync(cancellationToken);
+            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Created($"/admin/storefronts/{storefront.Id}", ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
@@ -129,6 +140,7 @@ public static class StorefrontEndpoints
         Guid id,
         UpdateStorefrontRequest request,
         CatalogDbContext db,
+        IPublishEndpoint publisher,
         TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -151,6 +163,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             await db.SaveChangesAsync(cancellationToken);
+            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
@@ -199,21 +212,22 @@ public static class StorefrontEndpoints
         return TypedResults.Ok(new StorefrontReadinessResponse(result.IsReady, result.MissingRequirements));
     }
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Preview(Guid id, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, s => s.MoveToPreview(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Preview(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, db, publisher, s => s.MoveToPreview(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(Guid id, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, s => s.Activate(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, db, publisher, s => s.Activate(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Pause(Guid id, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, s => s.Pause(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Pause(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, db, publisher, s => s.Pause(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Archive(Guid id, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, s => s.Archive(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Archive(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, db, publisher, s => s.Archive(time.GetUtcNow()), cancellationToken);
 
     private static async Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Transition(
         Guid id,
         CatalogDbContext db,
+        IPublishEndpoint publisher,
         Action<Storefront> transition,
         CancellationToken cancellationToken)
     {
@@ -227,6 +241,7 @@ public static class StorefrontEndpoints
         {
             transition(storefront);
             await db.SaveChangesAsync(cancellationToken);
+            await PublishConfigAsync(publisher, storefront, cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
         catch (CatalogRuleException ex)
@@ -234,6 +249,12 @@ public static class StorefrontEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["state"] = [ex.Message] });
         }
     }
+
+    // Project the storefront's shopper-facing config to other services (ADR-0008), e.g. Ordering's tax.
+    private static Task PublishConfigAsync(IPublishEndpoint publisher, Storefront s, CancellationToken ct) =>
+        publisher.Publish(new StorefrontConfigChanged(
+            s.Id, s.TenantId, s.Name, s.Currency, s.TaxRateBasisPoints,
+            s.State is StorefrontState.Active or StorefrontState.Preview), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
