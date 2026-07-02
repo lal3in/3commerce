@@ -347,13 +347,13 @@ Plan Path: `.ai-shared/plans/storefront-currency-tax-and-admin-fixes.md`
 | scta_7 | Disable prerender on interactive admin pages (pre-circuit UX) | PR2 admin UX | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AdminRenderModes.InteractiveServerNoPrerender on 16 pages; e2e create now first-try (553ms) |
 | scta_8 | Public Catalog storefront-config read endpoint (by-slug/host) | PR3 storefront config | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | anon, active-only, minimal DTO |
 | scta_9 | Storefront lib/storefront.ts + [storefront] uses real config | PR3 storefront config | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded labels |
-| scta_10 | VariantPrice entity + mapping + Catalog migration | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | unique (VariantId,Currency) |
-| scta_11 | ProductUpserted carries per-currency prices + publish | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | shared contract — update all consumers |
-| scta_12 | Ordering ProductCopy per-currency projection + migration | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | |
-| scta_13 | Public catalog API prices by ?currency + hide-when-missing | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | Search + GetBySlug + ISearchProvider |
-| scta_14 | Admin product editor: per-currency price rows | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | reuse CurrencySelect |
-| scta_15 | Storefront displays storefront-currency price (hide-when-missing) | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | grid/card/PDP/cart |
-| scta_16 | Checkout/cart price + revalidate in storefront currency | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | CheckoutEndpoints |
-| scta_17 | Importer + dev seed multi-currency prices | PR4 per-currency pricing | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AUD/EUR/USD demo |
+| scta_10 | VariantPrice entity + mapping + Catalog migration | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | unique (VariantId,Currency) |
+| scta_11 | ProductUpserted carries per-currency prices + publish | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | shared contract — update all consumers |
+| scta_12 | Ordering ProductCopy per-currency projection + migration | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | |
+| scta_13 | Public catalog API prices by ?currency + hide-when-missing | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | Search + GetBySlug + ISearchProvider |
+| scta_14 | Admin product editor: per-currency price rows | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | reuse CurrencySelect |
+| scta_15 | Storefront displays storefront-currency price (hide-when-missing) | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | grid/card/PDP/cart |
+| scta_16 | Checkout/cart price + revalidate in storefront currency | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | CheckoutEndpoints |
+| scta_17 | Importer + dev seed multi-currency prices | PR4 per-currency pricing | done | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | AUD/EUR/USD demo |
 | scta_18 | Storefront tax lib + CheckoutForm config-driven display | PR5 tax | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | replaces hardcoded estimateTax |
 | scta_19 | Server-charged tax matches storefront regime/rate | PR5 tax | planned | .ai-shared/plans/storefront-currency-tax-and-admin-fixes.md | ITaxStrategy/Pricing storefront-aware |

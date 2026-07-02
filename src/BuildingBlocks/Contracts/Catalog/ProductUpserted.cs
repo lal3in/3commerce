@@ -18,4 +18,9 @@ public record ProductVariantUpserted(
     string Sku,
     long PriceMinor,
     string Currency,
-    int StockQuantity);
+    int StockQuantity,
+    // Tenant-authored explicit prices per currency (no FX). Optional/back-compatible: null or empty
+    // means only the base PriceMinor/Currency applies. Consumers price by the storefront currency.
+    IReadOnlyList<VariantCurrencyPrice>? Prices = null);
+
+public record VariantCurrencyPrice(string Currency, long PriceMinor);

@@ -27,4 +27,29 @@ public class ProductVariantCopy
     public long PriceMinor { get; set; }
     public required string Currency { get; set; }
     public int StockQuantity { get; set; }
+
+    /// <summary>Tenant-authored explicit prices per currency (projected from ProductUpserted). Empty = only the base price.</summary>
+    public List<ProductVariantCopyPrice> Prices { get; init; } = [];
+
+    /// <summary>The price to charge in <paramref name="currency"/>, or null if the tenant set none (product hidden there).</summary>
+    public long? PriceInCurrency(string currency)
+    {
+        var cur = currency.Trim().ToUpperInvariant();
+        var match = Prices.FirstOrDefault(p => p.Currency == cur);
+        if (match is not null)
+        {
+            return match.PriceMinor;
+        }
+
+        // Fall back to the base price only when it is already in the requested currency.
+        return string.Equals(Currency, cur, StringComparison.OrdinalIgnoreCase) ? PriceMinor : null;
+    }
+}
+
+public class ProductVariantCopyPrice
+{
+    public Guid Id { get; init; }
+    public Guid VariantId { get; init; }
+    public required string Currency { get; set; }
+    public long PriceMinor { get; set; }
 }

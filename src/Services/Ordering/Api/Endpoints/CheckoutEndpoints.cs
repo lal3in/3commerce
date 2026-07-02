@@ -49,9 +49,10 @@ public static class CheckoutEndpoints
         foreach (var item in cart.Items)
         {
             var current = item.VariantId is { } variantId
-                ? await db.ProductVariantCopies.FindAsync([variantId], ct)
+                ? await db.ProductVariantCopies.Include(v => v.Prices).FirstOrDefaultAsync(v => v.VariantId == variantId, ct)
                 : null;
-            var currentPrice = current?.PriceMinor ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
+            // Revalidate against the tenant's current price in the cart item's currency (per-currency pricing).
+            var currentPrice = current?.PriceInCurrency(item.Currency) ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
             if (currentPrice is { } price && price != item.UnitPriceMinor)
             {
                 item.UnitPriceMinor = price;

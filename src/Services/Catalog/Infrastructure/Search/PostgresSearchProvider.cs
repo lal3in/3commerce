@@ -25,7 +25,7 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
                 $"p.search_vector @@ websearch_to_tsquery('english', @q){whereSql}",
                 "ts_rank(p.search_vector, websearch_to_tsquery('english', @q)) DESC",
                 parameters.Append(new NpgsqlParameter("q", query.Text)).ToArray(),
-                page, pageSize, ct);
+                page, pageSize, query.Currency, ct);
 
             if (fts.TotalCount > 0)
             {
@@ -37,14 +37,14 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
                 $"similarity(p.\"Title\", @q) > 0.25{whereSql}",
                 "similarity(p.\"Title\", @q) DESC",
                 parameters.Append(new NpgsqlParameter("q", query.Text)).ToArray(),
-                page, pageSize, ct);
+                page, pageSize, query.Currency, ct);
         }
 
         return await RunAsync(
             $"TRUE{whereSql}",
             "p.\"CreatedAt\" DESC",
             parameters.ToArray(),
-            page, pageSize, ct);
+            page, pageSize, query.Currency, ct);
     }
 
     private (string WhereSql, IEnumerable<NpgsqlParameter> Parameters) BuildFilters(SearchQuery query)
@@ -71,7 +71,7 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
     }
 
     private async Task<SearchResult> RunAsync(
-        string whereSql, string orderSql, NpgsqlParameter[] parameters, int page, int pageSize, CancellationToken ct)
+        string whereSql, string orderSql, NpgsqlParameter[] parameters, int page, int pageSize, string? currency, CancellationToken ct)
     {
         // Schema-qualify table names: the model uses a named schema (HasDefaultSchema), so this
         // raw SQL must qualify too (pg_trgm/FTS functions stay in public, found via search_path).
@@ -81,9 +81,22 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
             JOIN {s}."Categories" c ON c."Id" = p."CategoryId"
             """;
 
-        var countSql = $"""SELECT count(*)::int AS "Value" {fromSql} WHERE {whereSql}""";
+        // Per-currency pricing: a variant's price in @cur is its VariantPrice override, else the base
+        // price when the base currency matches (so existing single-currency products stay visible on
+        // their own currency). A product with no variant priced in @cur is hidden (hideFilter).
+        var cur = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
+        var priceExpr = cur is null
+            ? $"""(SELECT min(v."PriceMinor") FROM {s}."Variants" v WHERE v."ProductId" = p."Id")"""
+            : $"""(SELECT min(COALESCE((SELECT vp."PriceMinor" FROM {s}."VariantPrices" vp WHERE vp."VariantId" = v."Id" AND vp."Currency" = @cur), CASE WHEN v."Currency" = @cur THEN v."PriceMinor" END)) FROM {s}."Variants" v WHERE v."ProductId" = p."Id")""";
+        var currencyExpr = cur is null
+            ? $"""(SELECT min(v."Currency")  FROM {s}."Variants" v WHERE v."ProductId" = p."Id")"""
+            : "@cur";
+        var hideFilter = cur is null ? string.Empty : $" AND {priceExpr} IS NOT NULL";
+        var allParams = cur is null ? parameters : parameters.Append(new NpgsqlParameter("cur", cur)).ToArray();
+
+        var countSql = $"""SELECT count(*)::int AS "Value" {fromSql} WHERE {whereSql}{hideFilter}""";
         var total = (await db.Database
-            .SqlQueryRaw<int>(countSql, parameters.Select(Clone).ToArray())
+            .SqlQueryRaw<int>(countSql, allParams.Select(Clone).ToArray())
             .ToListAsync(ct)).Single();
 
         if (total == 0)
@@ -93,21 +106,21 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
 
         var hitsSql = $"""
             SELECT p."Id", p."Slug", p."Title", p."Brand",
-                   (SELECT min(v."PriceMinor") FROM {s}."Variants" v WHERE v."ProductId" = p."Id") AS "MinPriceMinor",
-                   (SELECT min(v."Currency")  FROM {s}."Variants" v WHERE v."ProductId" = p."Id") AS "Currency",
+                   {priceExpr} AS "MinPriceMinor",
+                   {currencyExpr} AS "Currency",
                    (p."ImageUrls" ->> 0) AS "ImageUrl"
             {fromSql}
-            WHERE {whereSql}
+            WHERE {whereSql}{hideFilter}
             ORDER BY {orderSql}
             LIMIT {pageSize} OFFSET {(page - 1) * pageSize}
             """;
 
         var rows = await db.Database
-            .SqlQueryRaw<HitRow>(hitsSql, parameters.Select(Clone).ToArray())
+            .SqlQueryRaw<HitRow>(hitsSql, allParams.Select(Clone).ToArray())
             .ToListAsync(ct);
 
         var hits = rows
-            .Select(r => new ProductHit(r.Id, r.Slug, r.Title, r.Brand, r.MinPriceMinor, r.Currency ?? "EUR", r.ImageUrl))
+            .Select(r => new ProductHit(r.Id, r.Slug, r.Title, r.Brand, r.MinPriceMinor, r.Currency ?? cur ?? "EUR", r.ImageUrl))
             .ToList();
 
         return new SearchResult(hits, total);

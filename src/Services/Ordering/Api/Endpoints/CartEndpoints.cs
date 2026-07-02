@@ -59,7 +59,7 @@ public static class CartEndpoints
     private static async Task<Results<Ok<CartResponse>, NotFound<string>>> AddItem(
         AddItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
-        var product = await db.ProductCopies.Include(p => p.Variants).SingleOrDefaultAsync(p => p.ProductId == request.ProductId, ct);
+        var product = await db.ProductCopies.Include(p => p.Variants).ThenInclude(v => v.Prices).SingleOrDefaultAsync(p => p.ProductId == request.ProductId, ct);
         if (product is null)
         {
             return TypedResults.NotFound("Unknown product.");
@@ -69,6 +69,15 @@ public static class CartEndpoints
         if (selected is null)
         {
             return TypedResults.NotFound("Unknown variant.");
+        }
+
+        // Price in the storefront's currency (tenant-authored per-currency price); if the tenant set
+        // no price for this currency the product is not sold there — reject rather than mis-price.
+        var currency = string.IsNullOrWhiteSpace(request.Currency) ? selected.Currency : request.Currency!.Trim().ToUpperInvariant();
+        var unitPrice = selected.PriceInCurrency(currency);
+        if (unitPrice is null)
+        {
+            return TypedResults.NotFound($"This product is not available in {currency}.");
         }
 
         var key = EnsureCartKey(http);
@@ -86,8 +95,8 @@ public static class CartEndpoints
                 Slug = product.Slug,
                 Title = product.Title,
                 ImageUrl = product.ImageUrl,
-                UnitPriceMinor = selected.PriceMinor,
-                Currency = selected.Currency,
+                UnitPriceMinor = unitPrice.Value,
+                Currency = currency,
                 Quantity = request.Quantity,
             };
             cart.Items.Add(newItem);
@@ -185,7 +194,7 @@ public static class CartEndpoints
     }
 }
 
-public record AddItemRequest([property: Required] Guid ProductId, Guid? VariantId, [property: Range(1, 99)] int Quantity);
+public record AddItemRequest([property: Required] Guid ProductId, Guid? VariantId, [property: Range(1, 99)] int Quantity, string? Currency = null);
 public record UpdateItemRequest([property: Range(0, 99)] int Quantity);
 public record CartItemResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Slug, string Title, string? ImageUrl, long UnitPriceMinor, string Currency, int Quantity);
 public record CartResponse(Guid CartId, List<CartItemResponse> Items, long SubtotalMinor, string Currency);
