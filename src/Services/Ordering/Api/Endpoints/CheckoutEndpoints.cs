@@ -80,13 +80,22 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
         }
 
-        var netMinor = subtotal - discountMinor + shippingMinor;
+        // Storefront tax (ADR-0008): rate is projected from Catalog via StorefrontConfigChanged and
+        // resolved by the cart's currency. Exclusive-add on goods + shipping so displayed == charged.
+        var taxBps = await db.StorefrontTaxCopies
+            .Where(t => t.IsLive && t.Currency == currency)
+            .OrderByDescending(t => t.TaxRateBasisPoints)
+            .Select(t => (int?)t.TaxRateBasisPoints)
+            .FirstOrDefaultAsync(ct) ?? 0;
+        var preTaxMinor = subtotal - discountMinor + shippingMinor;
+        var taxMinor = (long)Math.Round(preTaxMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
+        var netMinor = preTaxMinor + taxMinor;
 
         if (priceChanged)
         {
             await db.SaveChangesAsync(ct);
             return TypedResults.Conflict(new CheckoutResponse(
-                Guid.Empty, null, subtotal, discountMinor, shippingMinor, 0, netMinor, currency, "Prices changed; review your cart."));
+                Guid.Empty, null, subtotal, discountMinor, shippingMinor, taxMinor, netMinor, currency, "Prices changed; review your cart."));
         }
 
         var paymentOption = NormalizePaymentOption(request.PaymentOption);
@@ -129,7 +138,8 @@ public static class CheckoutEndpoints
             NetMinor = subtotal,
             ShippingMinor = shippingMinor,
             DiscountMinor = discountMinor,
-            TaxMinor = intent.TaxMinor,
+            // Ordering owns storefront tax (ADR-0008 projection); Payments' flat-rate seam is unused here.
+            TaxMinor = taxMinor,
             GrossMinor = intent.GrossMinor,
             Currency = currency,
             PaymentIntentId = intent.PaymentIntentId,
@@ -172,7 +182,7 @@ public static class CheckoutEndpoints
         await db.SaveChangesAsync(ct);
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
-            orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, intent.TaxMinor, intent.GrossMinor, currency, null));
+            orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, taxMinor, intent.GrossMinor, currency, null));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>

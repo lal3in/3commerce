@@ -10,6 +10,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<ProductCopy> ProductCopies => Set<ProductCopy>();
     public DbSet<ProductVariantCopy> ProductVariantCopies => Set<ProductVariantCopy>();
     public DbSet<ProductVariantCopyPrice> ProductVariantCopyPrices => Set<ProductVariantCopyPrice>();
+    public DbSet<StorefrontTaxCopy> StorefrontTaxCopies => Set<StorefrontTaxCopy>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
@@ -53,6 +54,13 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             price.HasKey(p => p.Id);
             price.Property(p => p.Currency).HasMaxLength(3);
             price.HasIndex(p => new { p.VariantId, p.Currency }).IsUnique();
+        });
+
+        modelBuilder.Entity<StorefrontTaxCopy>(tax =>
+        {
+            tax.HasKey(t => t.StorefrontId);
+            tax.Property(t => t.Currency).HasMaxLength(3);
+            tax.HasIndex(t => new { t.Currency, t.IsLive });
         });
 
         modelBuilder.Entity<Cart>(c =>

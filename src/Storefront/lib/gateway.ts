@@ -114,10 +114,11 @@ const STOREFRONT_TAX_REGIME: Record<number, StorefrontTaxRegime> = {
 
 // Resolve the active storefront's shopper-facing config (currency + tax) by canonical host
 // (production) or PublicUrl path slug (local /{slug} demo). Returns null when no live storefront matches.
-export async function getStorefrontConfig(params: { slug?: string; host?: string }): Promise<StorefrontConfig | null> {
+export async function getStorefrontConfig(params: { slug?: string; host?: string; currency?: string }): Promise<StorefrontConfig | null> {
   const query = new URLSearchParams();
   if (params.host) query.set("host", params.host);
   if (params.slug) query.set("slug", params.slug);
+  if (params.currency) query.set("currency", params.currency);
   if ([...query.keys()].length === 0) return null;
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
