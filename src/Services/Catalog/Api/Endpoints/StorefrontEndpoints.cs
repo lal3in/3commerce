@@ -30,7 +30,58 @@ public static class StorefrontEndpoints
         group.MapPost("/{id:guid}/products/{productId:guid}/publish", PublishProduct);
         group.MapPost("/{id:guid}/products/{productId:guid}/unpublish", UnpublishProduct);
 
+        // Public (anon): the storefront app resolves its active storefront's currency/tax config
+        // by canonical domain host (production) or by the PublicUrl path slug (local /{slug} demo).
+        app.MapGroup("/storefronts").WithTags("Storefronts").MapGet("/public", GetPublicConfig);
+
         return app;
+    }
+
+    private static async Task<Results<Ok<PublicStorefrontResponse>, NotFound>> GetPublicConfig(
+        string? host,
+        string? slug,
+        CatalogDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(slug))
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Only live-ish storefronts expose a public config; never Draft/Paused/Archived.
+        var candidates = await db.Storefronts.AsNoTracking()
+            .Include(s => s.Domains)
+            .Where(s => s.State == StorefrontState.Active || s.State == StorefrontState.Preview)
+            .ToListAsync(cancellationToken);
+
+        Storefront? storefront = null;
+        if (!string.IsNullOrWhiteSpace(host))
+        {
+            var h = host.Trim();
+            storefront = candidates.FirstOrDefault(s => s.Domains.Any(d => string.Equals(d.Host, h, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (storefront is null && !string.IsNullOrWhiteSpace(slug))
+        {
+            var s = slug.Trim();
+            storefront = candidates.FirstOrDefault(x => string.Equals(PublicUrlSlug(x.PublicUrl), s, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return storefront is null
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(new PublicStorefrontResponse(storefront.Name, storefront.PublicUrl, storefront.Currency, storefront.TaxRegime, storefront.TaxRateBasisPoints));
+    }
+
+    // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
+    private static string PublicUrlSlug(string publicUrl)
+    {
+        if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var uri))
+        {
+            return string.Empty;
+        }
+
+        var path = uri.AbsolutePath.Trim('/');
+        return path.Length == 0 ? string.Empty : path.Split('/')[^1];
     }
 
     private static async Task<Ok<List<StorefrontResponse>>> List(
@@ -342,6 +393,9 @@ public sealed record StorefrontResponse(
     DateTimeOffset? ActivatedAt);
 
 public sealed record StorefrontDomainResponse(Guid Id, string Host, bool Canonical);
+
+// Minimal, anon-safe public view of a storefront's shopper-facing config (currency + tax).
+public sealed record PublicStorefrontResponse(string Name, string PublicUrl, string Currency, StorefrontTaxRegime TaxRegime, int TaxRateBasisPoints);
 
 public sealed record StorefrontReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
 
