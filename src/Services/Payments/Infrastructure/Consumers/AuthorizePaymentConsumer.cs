@@ -6,14 +6,15 @@ using ThreeCommerce.Payments.Domain;
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
 /// <summary>
-/// Request/response: prices tax, creates the payment intent, persists a pending Payment,
+/// Request/response: creates the payment intent for the order gross, persists a pending Payment,
 /// and returns the client secret. Idempotent on OrderId so a retried request reuses the
-/// existing intent rather than creating a second.
+/// existing intent rather than creating a second. Tax is owned by Ordering (storefront-configured,
+/// projected via StorefrontConfigChanged) and is already inside NetMinor — Payments charges it
+/// verbatim and must never apply a second tax on top.
 /// </summary>
 public sealed class AuthorizePaymentConsumer(
     PaymentsDbContext db,
     IPaymentProvider provider,
-    ITaxStrategy tax,
     TimeProvider time) : IConsumer<AuthorizePayment>
 {
     public async Task Consume(ConsumeContext<AuthorizePayment> context)
@@ -36,8 +37,7 @@ public sealed class AuthorizePaymentConsumer(
             return;
         }
 
-        var taxMinor = tax.TaxFor(msg.NetMinor, msg.Currency, msg.ShipCountry);
-        var grossMinor = msg.NetMinor + taxMinor;
+        var grossMinor = msg.NetMinor;
         var customer = msg.UserId is { } userId
             ? await db.PaymentCustomers.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", context.CancellationToken)
             : null;
@@ -62,7 +62,7 @@ public sealed class AuthorizePaymentConsumer(
             OrderId = msg.OrderId,
             PaymentIntentId = intent.PaymentIntentId,
             AmountMinor = grossMinor,
-            TaxMinor = taxMinor,
+            TaxMinor = 0, // tax lives on the Ordering attempt/order, not the payment
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
             ProviderCustomerId = providerCustomerId,
@@ -72,6 +72,6 @@ public sealed class AuthorizePaymentConsumer(
         });
         await db.SaveChangesAsync(context.CancellationToken);
 
-        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret, grossMinor, taxMinor));
+        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret, grossMinor, TaxMinor: 0));
     }
 }

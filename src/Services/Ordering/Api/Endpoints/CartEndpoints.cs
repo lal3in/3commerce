@@ -56,7 +56,7 @@ public static class CartEndpoints
         return TypedResults.Ok(ToResponse(cart));
     }
 
-    private static async Task<Results<Ok<CartResponse>, NotFound<string>>> AddItem(
+    private static async Task<Results<Ok<CartResponse>, NotFound<string>, Conflict<string>>> AddItem(
         AddItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
         var product = await db.ProductCopies.Include(p => p.Variants).ThenInclude(v => v.Prices).SingleOrDefaultAsync(p => p.ProductId == request.ProductId, ct);
@@ -82,6 +82,15 @@ public static class CartEndpoints
 
         var key = EnsureCartKey(http);
         var cart = await carts.GetOrCreateAsync(UserId(http.User), key, ct);
+
+        // A cart is single-currency: checkout prices, revalidates, and charges in one currency, so a
+        // mixed cart would sum unlike units into a wrong total. Reject rather than mix.
+        var cartCurrency = cart.Items.FirstOrDefault()?.Currency;
+        if (cartCurrency is not null && !string.Equals(cartCurrency, currency, StringComparison.OrdinalIgnoreCase))
+        {
+            return TypedResults.Conflict($"Cart is in {cartCurrency}; empty it to shop in {currency}.");
+        }
+
         var item = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId && i.VariantId == selected.VariantId);
         if (item is null)
         {

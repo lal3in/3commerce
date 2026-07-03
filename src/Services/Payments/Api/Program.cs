@@ -37,7 +37,6 @@ builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddScoped<ITaxStrategy, FlatRateTaxStrategy>();
 builder.Services.AddScoped<PaymentEventProcessor>();
 builder.Services.AddScoped<SubscriptionService>();
 

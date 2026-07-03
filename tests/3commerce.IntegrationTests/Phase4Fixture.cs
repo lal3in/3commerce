@@ -183,7 +183,6 @@ public sealed class Phase4Fixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:RabbitMq", RabbitMqUri);
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             builder.UseSetting("Stripe:SecretKey", string.Empty);
-            builder.UseSetting("Tax:FlatRate", "0.19");
             builder.UseSetting("Scheduling:Enabled", "false");
         });
 

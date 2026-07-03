@@ -61,6 +61,13 @@ public static class CheckoutEndpoints
         }
 
         var currency = cart.Items[0].Currency;
+        // Carts are single-currency (guarded at add + merge); reject legacy/mixed data instead of
+        // summing unlike units into a wrong charge.
+        if (cart.Items.Any(i => !string.Equals(i.Currency, currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
+        }
+
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
         var discountMinor = 0L;
         var shippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
