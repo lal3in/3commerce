@@ -259,6 +259,7 @@ The following repository rules must always be followed:
 
 ### Domain invariants (non-negotiable)
 - Money = integer minor units + ISO 4217 code; never floating point.
+- **Enums cross HTTP as NUMBERS** (System.Text.Json minimal-API default; all existing clients — admin Blazor DTOs, storefront normalizers, seeds — expect numeric). Clients must send the numeric member value (e.g. `PaymentProviderMode.Test = 1`), never the name string. Do NOT add `JsonStringEnumConverter` globally: it flips response payloads to strings and breaks every int-typed client DTO. Malformed bodies (wrong enum shape, bad JSON) return **400 problem-details naming the parameter** via the shared `UseApiProblemDetails` (`BadHttpRequestException` → its status), never a 500 — pinned by `PaymentAccountAdminTests.Malformed_body_is_a_400_problem_not_a_500`.
 - Every ledger transaction balances (Σ debits = Σ credits) — DB-constraint enforced.
 - Order line items carry a typed `FulfilmentType` (`Unassigned` allowed) + `BillingMode` + resolved `SupplierId` (ADR-0028) — one shared supply vocabulary in `BuildingBlocks.Contracts.Supply`, not the old per-service `FulfillmentSource` enum.
 - Stock has a single owner: Fulfillment `InventoryItem`. Catalog `Variant.StockQuantity` is a read-model projection (`InventoryAvailabilityChanged`), never edited directly (ADR-0028).
