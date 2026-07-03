@@ -37,4 +37,22 @@ test.describe("Admin actions give feedback", () => {
       await expect(page.getByText(/import run started|import failed/i)).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 20_000 });
   });
+
+  test("price-entry fields carry the ADR-0038 tax-convention note (per-currency editor)", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/catalog");
+    await expect(page.getByRole("heading", { name: /^catalog$/i })).toBeVisible();
+
+    await expect(async () => {
+      await page.getByRole("button", { name: /new product/i }).click();
+      await expect(page.getByRole("heading", { name: /new product/i })).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+
+    // The operator-visibility contract (ADR-0038): the per-currency note is on-screen, and the
+    // base-price input's tooltip states the inclusive/exclusive convention.
+    await expect(page.getByText(/on AU GST \/ EU VAT storefronts the price INCLUDES tax/i)).toBeVisible();
+    const basePrice = page.locator('input[title*="ADR-0038"]').first();
+    await expect(basePrice).toBeVisible();
+    await expect(page.getByRole("button", { name: /\+ currency price/i })).toBeVisible();
+  });
 });
