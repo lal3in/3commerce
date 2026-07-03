@@ -54,4 +54,20 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
         var activate = await admin.PostAsync($"/admin/payment-accounts/{created.Id}/activate", null);
         Assert.Equal(HttpStatusCode.Conflict, activate.StatusCode);
     }
+
+    [Fact]
+    public async Task Malformed_body_is_a_400_problem_not_a_500()
+    {
+        using var admin = Admin();
+
+        // Enums bind as numbers on this platform (AGENTS.md); a string value must be a clear
+        // client error naming the parameter — this class of mistake used to surface as a 500
+        // (review finding F7 / rev_7).
+        var response = await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = Guid.NewGuid(), name = "Bad", provider = "stripe", mode = "Test", isDefaultForTenant = false });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadAsStringAsync();
+        Assert.Contains("request body", problem, StringComparison.OrdinalIgnoreCase);
+    }
 }
