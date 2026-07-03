@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Identity.Infrastructure;
@@ -19,19 +20,36 @@ public static class AdminUsersEndpoints
         return app;
     }
 
-    private static async Task<Ok<List<AdminUserDto>>> List(Guid tenantId, AdminUserService service, CancellationToken ct) =>
-        TypedResults.Ok(await service.ListAsync(tenantId, ct));
+    // Cross-tenant guard (rev_9): a tenant admin may only manage users in THEIR OWN tenant; other
+    // tenants require the platform-scope master role. Without this, any tenant admin could reset
+    // another tenant's passwords by passing a foreign tenantId.
 
-    private static async Task<Results<Ok<ResetPasswordResponse>, NotFound>> ResetPassword(
-        Guid id, Guid tenantId, AdminUserService service, CancellationToken ct)
+    private static async Task<Results<Ok<List<AdminUserDto>>, ForbidHttpResult>> List(
+        Guid tenantId, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct) =>
+        !InternalClaimsAuth.CanActForTenant(principal, tenantId)
+            ? TypedResults.Forbid()
+            : TypedResults.Ok(await service.ListAsync(tenantId, ct));
+
+    private static async Task<Results<Ok<ResetPasswordResponse>, NotFound, ForbidHttpResult>> ResetPassword(
+        Guid id, Guid tenantId, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct)
     {
+        if (!InternalClaimsAuth.CanActForTenant(principal, tenantId))
+        {
+            return TypedResults.Forbid();
+        }
+
         var temporary = await service.ResetPasswordAsync(tenantId, id, ct);
         return temporary is null ? TypedResults.NotFound() : TypedResults.Ok(new ResetPasswordResponse(temporary));
     }
 
-    private static async Task<Results<NoContent, BadRequest<string>>> ChangeEmail(
-        Guid id, Guid tenantId, ChangeEmailRequest request, AdminUserService service, CancellationToken ct)
+    private static async Task<Results<NoContent, BadRequest<string>, ForbidHttpResult>> ChangeEmail(
+        Guid id, Guid tenantId, ChangeEmailRequest request, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct)
     {
+        if (!InternalClaimsAuth.CanActForTenant(principal, tenantId))
+        {
+            return TypedResults.Forbid();
+        }
+
         if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
         {
             return TypedResults.BadRequest("A valid email is required.");
