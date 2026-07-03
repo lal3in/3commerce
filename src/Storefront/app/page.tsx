@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { listCategories, searchProducts } from "@/lib/gateway";
+import { resolveStorefront } from "@/lib/storefront-context";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 
 // Server Component, SSR: featured products + categories fetched on the server (components.md §1).
 export default async function HomePage() {
+  const storefront = await resolveStorefront();
   const [featured, categories] = await Promise.all([
-    searchProducts({ pageSize: 8 }),
+    searchProducts({ pageSize: 8, currency: storefront?.currency }),
     listCategories(),
   ]);
 

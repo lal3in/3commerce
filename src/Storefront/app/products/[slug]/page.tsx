@@ -2,6 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct } from "@/lib/gateway";
+import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { breadcrumbJsonLd, productJsonLd, siteUrl } from "@/lib/seo";
@@ -36,7 +37,11 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  // Storefront-scoped: variants priced in the active storefront's currency; a product the tenant
+  // hasn't priced there is 404 (hidden). No context → base-currency behavior (fetch stays ISR-cached
+  // per currency URL; the page render itself is dynamic once cookies are read).
+  const storefront = await resolveStorefront();
+  const product = await getProduct(slug, storefront?.currency);
   if (!product) {
     notFound();
   }
@@ -108,7 +113,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </dl>
         )}
 
-        <AddToCartButton productId={product.id} variants={product.variants} />
+        <AddToCartButton productId={product.id} variants={product.variants} currency={storefront?.currency} />
       </div>
     </div>
   );

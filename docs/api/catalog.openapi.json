@@ -2226,6 +2226,8 @@
       },
       "PublicStorefrontResponse": {
         "required": [
+          "id",
+          "tenantId",
           "name",
           "publicUrl",
           "currency",
@@ -2234,6 +2236,14 @@
         ],
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "name": {
             "type": "string"
           },

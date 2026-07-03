@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { GATEWAY_URL } from "./gateway";
+import { resolveStorefront } from "./storefront-context";
 
 async function cartHeaders(): Promise<HeadersInit> {
   const store = await cookies();
@@ -111,9 +112,18 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     selectedShippingAmountMinor: Number(formData.get("selectedShippingAmountMinor") || "") || null,
     selectedShippingExpiresAt: String(formData.get("selectedShippingExpiresAt") || "") || null,
   };
+  // Attribute the order to the active storefront (rev_5): Ordering reads these headers into
+  // CheckoutAttempt.TenantId/StorefrontId; without them it falls back to the default tenant.
+  const storefront = await resolveStorefront();
+  const checkoutHeaders: Record<string, string> = { ...(headers as Record<string, string>) };
+  if (storefront) {
+    checkoutHeaders["X-3C-Tenant-Id"] = storefront.tenantId;
+    checkoutHeaders["X-3C-Storefront-Id"] = storefront.id;
+  }
+
   const response = await fetch(`${GATEWAY_URL}/api/ordering/checkout`, {
     method: "POST",
-    headers,
+    headers: checkoutHeaders,
     body: JSON.stringify(body),
   });
   if (!response.ok) {

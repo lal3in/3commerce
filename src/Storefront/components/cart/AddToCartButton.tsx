@@ -16,9 +16,11 @@ interface VariantOption {
 interface AddToCartButtonProps {
   productId: string;
   variants: VariantOption[];
+  // Active storefront currency — the cart line is priced in it (tenant per-currency price).
+  currency?: string;
 }
 
-export function AddToCartButton({ productId, variants }: AddToCartButtonProps) {
+export function AddToCartButton({ productId, variants, currency }: AddToCartButtonProps) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [pending, start] = useTransition();
@@ -72,7 +74,7 @@ export function AddToCartButton({ productId, variants }: AddToCartButtonProps) {
         disabled={pending || !selected?.inStock}
         onClick={() =>
           start(async () => {
-            await addToCart(productId, selected?.id, quantity);
+            await addToCart(productId, selected?.id, quantity, currency);
             router.push("/cart");
           })
         }
