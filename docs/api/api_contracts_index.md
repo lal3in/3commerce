@@ -44,12 +44,13 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/products?q=&category=&attrs=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header |
-| GET | `/products/{slug}` | anon | Product detail with variants |
+| GET | `/products?q=&category=&attrs=&currency=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header. `currency` returns tenant-set per-currency prices and HIDES products with no price in that currency |
+| GET | `/products/{slug}?currency=` | anon | Product detail with variants; with `currency`, variants are priced in it and a product with no price in that currency is 404 (hidden) |
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
 | GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create |
+| GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (name, publicUrl, currency, taxRegime, taxRateBasisPoints) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
 | POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
 | GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
 | POST | `/admin/storefronts/{id}/preview|activate|pause|archive` | admin | Storefront lifecycle transitions |
@@ -148,8 +149,8 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET/POST/PUT/DELETE | `/cart[/items[/{productId}[/{variantId}]]]` | anon/session (cookie-keyed) | Variant-aware cart keyed by product + variant; qty 0 removes; merges into the user cart on login |
-| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, accepts an optional selected shipping quote (`selectedShippingService`, amount minor, expiry), accepts a payment option snapshot (`paymentOption`: Stripe/CreditCard/ApplePay/GooglePay/PayPal + masked `paymentInstrumentSummary`), passes ship-country to the tax seam, optionally uses/saves a saved payment method for signed-in users only, snapshots subtotal/discount/shipping/tax/payment/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
+| GET/POST/PUT/DELETE | `/cart[/items[/{productId}[/{variantId}]]]` | anon/session (cookie-keyed) | Variant-aware cart keyed by product + variant; qty 0 removes; merges into the user cart on login (cross-currency lines are re-priced into the user cart currency, or dropped if unpriced). Add accepts `currency` (tenant per-currency price; 404 if unpriced). A cart is SINGLE-currency: adding a second currency returns 409 |
+| POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, accepts an optional selected shipping quote (`selectedShippingService`, amount minor, expiry), accepts a payment option snapshot (`paymentOption`: Stripe/CreditCard/ApplePay/GooglePay/PayPal + masked `paymentInstrumentSummary`), charges the storefront-configured tax resolved by the cart currency (Ordering-owned via the StorefrontTaxCopy projection; Payments charges the tax-inclusive net verbatim — no second tax), rejects mixed-currency carts (400), optionally uses/saves a saved payment method for signed-in users only, snapshots subtotal/discount/shipping/tax/payment/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 
