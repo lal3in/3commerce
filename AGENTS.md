@@ -259,6 +259,7 @@ The following repository rules must always be followed:
 
 ### Domain invariants (non-negotiable)
 - Money = integer minor units + ISO 4217 code; never floating point.
+- **Prices are FINAL shelf prices per currency (ADR-0038)**: on tax-inclusive regimes (AU GST, EU VAT) the tenant-entered price CONTAINS the tax (checkout extracts `amount × bps/(10000+bps)` informationally and charges the listed amount); on exclusive regimes (US sales tax) checkout ADDS `amount × bps/10000`. Every admin price-entry field must carry a tooltip stating this.
 - **Enums cross HTTP as NUMBERS** (System.Text.Json minimal-API default; all existing clients — admin Blazor DTOs, storefront normalizers, seeds — expect numeric). Clients must send the numeric member value (e.g. `PaymentProviderMode.Test = 1`), never the name string. Do NOT add `JsonStringEnumConverter` globally: it flips response payloads to strings and breaks every int-typed client DTO. Malformed bodies (wrong enum shape, bad JSON) return **400 problem-details naming the parameter** via the shared `UseApiProblemDetails` (`BadHttpRequestException` → its status), never a 500 — pinned by `PaymentAccountAdminTests.Malformed_body_is_a_400_problem_not_a_500`.
 - Every ledger transaction balances (Σ debits = Σ credits) — DB-constraint enforced.
 - Order line items carry a typed `FulfilmentType` (`Unassigned` allowed) + `BillingMode` + resolved `SupplierId` (ADR-0028) — one shared supply vocabulary in `BuildingBlocks.Contracts.Supply`, not the old per-service `FulfillmentSource` enum.

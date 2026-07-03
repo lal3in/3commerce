@@ -15,4 +15,11 @@ public class StorefrontTaxCopy
 
     /// <summary>Active/Preview storefronts only participate in checkout tax resolution.</summary>
     public bool IsLive { get; set; }
+
+    /// <summary>
+    /// ADR-0038: inclusive regimes (AU GST / EU VAT) — the tenant's shelf price already CONTAINS
+    /// the tax; checkout extracts it informationally and charges the listed amount. Exclusive
+    /// regimes (US sales tax) add it on top.
+    /// </summary>
+    public bool TaxInclusive { get; set; }
 }

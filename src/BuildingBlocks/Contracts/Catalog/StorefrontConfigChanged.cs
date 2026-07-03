@@ -11,4 +11,7 @@ public record StorefrontConfigChanged(
     string Name,
     string Currency,
     int TaxRateBasisPoints,
-    bool IsLive);
+    bool IsLive,
+    // ADR-0038: inclusive regimes (AuGst/EuVat) — the tenant's shelf price already CONTAINS the tax
+    // (checkout extracts it informationally); exclusive regimes add it. Optional → back-compatible.
+    bool TaxInclusive = false);

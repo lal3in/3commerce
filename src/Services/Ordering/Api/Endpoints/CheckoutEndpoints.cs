@@ -87,16 +87,28 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
         }
 
-        // Storefront tax (ADR-0008): rate is projected from Catalog via StorefrontConfigChanged and
-        // resolved by the cart's currency. Exclusive-add on goods + shipping so displayed == charged.
-        var taxBps = await db.StorefrontTaxCopies
+        // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
+        // the cart's currency. Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already
+        // CONTAIN the tax — the shopper pays exactly the listed amount and the contained portion is
+        // reported informationally. Exclusive regimes (US sales tax): tax is added on goods + shipping.
+        var taxConfig = await db.StorefrontTaxCopies
             .Where(t => t.IsLive && t.Currency == currency)
             .OrderByDescending(t => t.TaxRateBasisPoints)
-            .Select(t => (int?)t.TaxRateBasisPoints)
-            .FirstOrDefaultAsync(ct) ?? 0;
-        var preTaxMinor = subtotal - discountMinor + shippingMinor;
-        var taxMinor = (long)Math.Round(preTaxMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
-        var netMinor = preTaxMinor + taxMinor;
+            .Select(t => new { t.TaxRateBasisPoints, t.TaxInclusive })
+            .FirstOrDefaultAsync(ct);
+        var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
+        var baseMinor = subtotal - discountMinor + shippingMinor;
+        long taxMinor, netMinor;
+        if (taxConfig?.TaxInclusive == true)
+        {
+            taxMinor = (long)Math.Round(baseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
+            netMinor = baseMinor; // listed price IS the charge
+        }
+        else
+        {
+            taxMinor = (long)Math.Round(baseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
+            netMinor = baseMinor + taxMinor;
+        }
 
         if (priceChanged)
         {

@@ -34,7 +34,7 @@
         <label>Public URL<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="Public storefront URL used in customer-facing links." /></label>
         <label>Currency<br /><input @bind="_newCurrency" maxlength="3" style="width:5rem; padding:.4rem;" title="ISO 4217 currency for this storefront." /></label>
         <label>Tax regime<br />
-            <select @bind="_newTaxRegime" style="padding:.4rem;" title="Region tax rule used for estimates and checkout display.">
+            <select @bind="_newTaxRegime" style="padding:.4rem;" title="Region tax rule. AU GST / EU VAT are tax-INCLUSIVE: shelf prices already contain the tax (shoppers pay the listed price; tax shown informationally). US sales tax is ADDED at checkout on top of listed prices (ADR-0038).">
                 <option value="0">None</option>
                 <option value="1">AU GST</option>
                 <option value="2">EU VAT</option>
@@ -42,7 +42,7 @@
                 <option value="99">Other</option>
             </select>
         </label>
-        <label>Tax bps<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="Tax rate in basis points, e.g. 1000 = 10%." /></label>
+        <label>Tax bps<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="Tax rate in basis points, e.g. 1000 = 10%. For AU GST / EU VAT this is the rate CONTAINED in shelf prices; for US it is ADDED at checkout (ADR-0038)." /></label>
         <label>Visibility<br />
             <select @bind="_newVisibility" style="padding:.4rem;" title="Who can see the storefront: Public (live) or Private (draft).">
                 <option value="1">Private</option>
