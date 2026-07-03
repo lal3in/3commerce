@@ -22,6 +22,7 @@ public class EntityRlsTests : IAsyncLifetime
     private static readonly Guid TenantA = Guid.NewGuid();
     private static readonly Guid TenantB = Guid.NewGuid();
     private Guid _entityAId;
+    private Guid _onboardingId;
     private string _appConnectionString = null!;
 
     public async Task InitializeAsync()
@@ -47,22 +48,35 @@ public class EntityRlsTests : IAsyncLifetime
         await using var db = NewContext();
         await db.Database.EnsureCreatedAsync(); // entity_app owns the schema/tables
 
-        // EnsureCreated doesn't run migrations — apply the same policy InitialEntitySchema does.
-        await db.Database.ExecuteSqlRawAsync("""
-            ALTER TABLE entity."Entities" ENABLE ROW LEVEL SECURITY;
-            ALTER TABLE entity."Entities" FORCE ROW LEVEL SECURITY;
-            CREATE POLICY "TenantIsolation_Entities" ON entity."Entities"
-                USING (current_setting('app.is_platform_admin', true) = 'true'
-                    OR "TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid)
-                WITH CHECK (current_setting('app.is_platform_admin', true) = 'true'
-                    OR "TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid);
-            """);
+        // EnsureCreated doesn't run migrations — apply the same policies InitialEntitySchema /
+        // FixEntityRlsNullifGuard / EntityTenantTablesRls (rev_8) do, for every TenantId table.
+        foreach (var table in new[]
+                 {
+                     "Entities", "EntityRelationships", "DuplicateWarnings", "SupplierOnboardings",
+                     "SupplierChangeRequests", "CustomerEntityLinks",
+                 })
+        {
+#pragma warning disable EF1002 // table names come from the compile-time constant array above, not input
+            await db.Database.ExecuteSqlRawAsync($"""
+                ALTER TABLE entity."{table}" ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE entity."{table}" FORCE ROW LEVEL SECURITY;
+                CREATE POLICY "TenantIsolation_{table}" ON entity."{table}"
+                    USING (current_setting('app.is_platform_admin', true) = 'true'
+                        OR "TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid)
+                    WITH CHECK (current_setting('app.is_platform_admin', true) = 'true'
+                        OR "TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid);
+                """);
+#pragma warning restore EF1002
+        }
 
         var entity = EntityRecord.Create(TenantA, EntityType.Company, "RLS Co", null, DateTimeOffset.UtcNow, []);
         _entityAId = entity.Id;
+        var onboarding = SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow);
+        _onboardingId = onboarding.Id;
         await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA), async () =>
         {
             db.Entities.Add(entity);
+            db.SupplierOnboardings.Add(onboarding);
             await db.SaveChangesAsync();
         });
     }
@@ -108,6 +122,26 @@ public class EntityRlsTests : IAsyncLifetime
     {
         await using var db = NewContext();
         db.Entities.Add(EntityRecord.Create(TenantA, EntityType.Company, "No Scope Co", null, DateTimeOffset.UtcNow, []));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Supplier_onboarding_is_tenant_isolated_too()
+    {
+        await using var db = NewContext();
+        Assert.True(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA),
+            () => db.SupplierOnboardings.AsNoTracking().AnyAsync(o => o.Id == _onboardingId)));
+        Assert.False(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantB),
+            () => db.SupplierOnboardings.AsNoTracking().AnyAsync(o => o.Id == _onboardingId)));
+    }
+
+    [Fact]
+    public async Task No_scope_supplier_onboarding_write_is_rejected()
+    {
+        await using var db = NewContext();
+        var entity = await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA),
+            () => db.Entities.AsNoTracking().FirstAsync(e => e.Id == _entityAId));
+        db.SupplierOnboardings.Add(SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 }

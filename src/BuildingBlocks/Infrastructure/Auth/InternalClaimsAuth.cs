@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
@@ -20,6 +21,18 @@ public static class InternalClaimsAuth
 
     public const string CustomerPolicy = "Customer";
     public const string AdminPolicy = "Admin";
+
+    /// <summary>Platform-scope operator role: may act across tenants. No user carries it yet by default.</summary>
+    public const string MasterRole = "master";
+
+    /// <summary>
+    /// Cross-tenant guard for admin surfaces that take an explicit tenantId (aui_8 note / rev_9):
+    /// a tenant admin may only act on THEIR OWN tenant (the "tenant" claim the gateway minted);
+    /// acting on another tenant requires the platform-scope <see cref="MasterRole"/>.
+    /// </summary>
+    public static bool CanActForTenant(ClaimsPrincipal principal, Guid tenantId) =>
+        principal.IsInRole(MasterRole)
+        || (Guid.TryParse(principal.FindFirstValue("tenant"), out var own) && own == tenantId);
 
     public static IServiceCollection AddInternalClaimsAuth(
         this IServiceCollection services, IConfiguration configuration, IHostEnvironment? environment = null)
@@ -62,8 +75,8 @@ public static class InternalClaimsAuth
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy(CustomerPolicy, policy => policy.RequireRole("customer", "admin"));
-            options.AddPolicy(AdminPolicy, policy => policy.RequireRole("admin"));
+            options.AddPolicy(CustomerPolicy, policy => policy.RequireRole("customer", "admin", MasterRole));
+            options.AddPolicy(AdminPolicy, policy => policy.RequireRole("admin", MasterRole));
         });
 
         return services;

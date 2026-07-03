@@ -57,3 +57,28 @@ closed even when application code is wrong.
   reset-request; **platform scope** for the cross-tenant, secret-keyed introspect/verify/
   confirm-reset paths). A non-superuser test (`IdentityUsersRlsTests`) proves this end to end,
   since superuser-connected tests and the anonymous CI smoke jobs would not catch an RLS break.
+
+## Addendum (2026-07-04, review remediation rev_8): coverage expansion + app-level-filter posture
+
+**RLS coverage now:** Identity `Users` and `Addresses` (the Addresses policy has shipped since
+`AddressTenantScope` — the mt1_4 note calling it deferred was stale; the actually-missing piece was
+the dedicated non-superuser test, now `IdentityAddressesRlsTests`); every tenant-scoped Entity
+table with a `TenantId` column (`Entities` since aui_9, plus `EntityRelationships`,
+`DuplicateWarnings`, `SupplierOnboardings`, `SupplierChangeRequests`, `CustomerEntityLinks` via
+`EntityTenantTablesRls`). Children keyed only by their RLS'd parent (`EntityProfiles`,
+`EntityAddresses`, `EntityIdentifiers`, `EntityContactMethods`) carry no `TenantId` and are
+deliberately un-policied — isolation is transitive through the parent.
+
+**Recorded posture — app-level filtering elsewhere.** Catalog, Ordering, Payments, Fulfillment, and
+Support intentionally rely on application-level tenant filtering (queries carry `TenantId`
+predicates; admin surfaces are gateway-authenticated), NOT database RLS. Rationale: these services'
+write paths are dominated by bus consumers and sagas that run outside a per-request tenant scope,
+so FORCE RLS would require scoping every consumer transaction for marginal benefit while their
+data is commerce state rather than direct PII (the PII-bearing stores — Identity, Entity — are the
+RLS'd ones). Revisit trigger: any of these services gaining direct-PII tables, or tenant-facing
+self-service query surfaces that bypass the gateway's tenant claims.
+
+**Cross-tenant admin authorization** is a separate layer: admin endpoints taking an explicit
+`tenantId` must verify it against the caller's `tenant` claim unless the caller holds the
+platform-scope `master` role (`InternalClaimsAuth.CanActForTenant`, first applied to the
+master-admin user endpoints — rev_9).
