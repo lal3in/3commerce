@@ -96,6 +96,9 @@ export async function listCategories(): Promise<Category[]> {
 export type StorefrontTaxRegime = "None" | "AuGst" | "EuVat" | "UsSalesTax" | "Other";
 
 export type StorefrontConfig = {
+  // Non-secret identifiers forwarded at checkout for order attribution (X-3C-* headers).
+  id: string;
+  tenantId: string;
   name: string;
   publicUrl: string;
   currency: string;

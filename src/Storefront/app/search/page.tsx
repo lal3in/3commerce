@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { searchProducts } from "@/lib/gateway";
+import { resolveStorefront } from "@/lib/storefront-context";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 
 // URL is the state for search/filters/pagination (components.md §4): shareable + crawlable.
@@ -12,10 +13,12 @@ export default async function SearchPage({
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 24;
 
+  const storefront = await resolveStorefront();
   const { hits, total } = await searchProducts({
     q: params.q,
     category: params.category,
     attrs: params.attrs,
+    currency: storefront?.currency,
     page,
     pageSize,
   });

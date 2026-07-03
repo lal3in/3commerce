@@ -115,5 +115,28 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         Assert.Equal(order.NetMinor + order.ShippingMinor + order.TaxMinor, order.GrossMinor);
     }
 
+    [Fact]
+    public async Task Checkout_attributes_the_order_to_the_storefront_from_headers()
+    {
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var productId = await fixture.SeedProductAsync(1_000, "EUR");
+
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Tenant-Id", tenantId.ToString());
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        checkout.EnsureSuccessStatusCode();
+        var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        var attempt = await db.CheckoutAttempts.SingleAsync(a => a.Id == order.OrderId);
+        Assert.Equal(storefrontId, attempt.StorefrontId);
+        Assert.Equal(tenantId, attempt.TenantId);
+    }
+
     private static readonly Guid AudStorefrontId = Guid.Parse("aaaaaaaa-0000-0000-0000-0000000000a1");
 }

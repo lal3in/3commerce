@@ -78,7 +78,7 @@ public static class StorefrontEndpoints
 
         return storefront is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new PublicStorefrontResponse(storefront.Name, storefront.PublicUrl, storefront.Currency, storefront.TaxRegime, storefront.TaxRateBasisPoints));
+            : TypedResults.Ok(new PublicStorefrontResponse(storefront.Id, storefront.TenantId, storefront.Name, storefront.PublicUrl, storefront.Currency, storefront.TaxRegime, storefront.TaxRateBasisPoints));
     }
 
     // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
@@ -416,7 +416,8 @@ public sealed record StorefrontResponse(
 public sealed record StorefrontDomainResponse(Guid Id, string Host, bool Canonical);
 
 // Minimal, anon-safe public view of a storefront's shopper-facing config (currency + tax).
-public sealed record PublicStorefrontResponse(string Name, string PublicUrl, string Currency, StorefrontTaxRegime TaxRegime, int TaxRateBasisPoints);
+// Id/TenantId are non-secret identifiers the storefront forwards at checkout for order attribution.
+public sealed record PublicStorefrontResponse(Guid Id, Guid TenantId, string Name, string PublicUrl, string Currency, StorefrontTaxRegime TaxRegime, int TaxRateBasisPoints);
 
 public sealed record StorefrontReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
 
