@@ -81,19 +81,19 @@ else
                 {
                     <tr>
                         <td><input @bind="v.Sku" style="width:100%;" title="Stock-keeping unit — your unique code for this variant." /></td>
-                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Base price in minor units (cents): 1999 = €19.99. Fallback when no per-currency price is set." /></td>
+                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Base price in minor units (cents): 1999 = €19.99. Fallback when no per-currency price is set. Enter the FINAL shelf price: AU GST / EU VAT storefront prices INCLUDE tax; US storefront prices EXCLUDE it (tax added at checkout) — ADR-0038." /></td>
                         <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
                         <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="Units available to sell for this variant." /></td>
                         <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="padding:.2rem .4rem .8rem 1.5rem; background:#f9fafb;">
-                            <span style="font-size:.8rem; color:#6b7280;">Per-currency prices (tenant-set, no FX — a storefront hides this product if its currency has no price here):</span>
+                            <span style="font-size:.8rem; color:#6b7280;">Per-currency prices (tenant-set, no FX — a storefront hides this product if its currency has no price here). Enter the FINAL shelf price for each currency: on AU GST / EU VAT storefronts the price INCLUDES tax, on US storefronts tax is ADDED at checkout (ADR-0038).</span>
                             @foreach (var pr in v.Prices)
                             {
                                 <span style="display:inline-flex; gap:.2rem; align-items:center; margin-left:.5rem;">
                                     <CurrencySelect @bind-Value="pr.Currency" style="width:8rem;padding:.15rem;" />
-                                    <input type="number" @bind="pr.PriceMinor" style="width:6rem;" title="Price in minor units for this currency." />
+                                    <input type="number" @bind="pr.PriceMinor" style="width:6rem;" title="FINAL shelf price in minor units for this currency: includes tax on AU GST / EU VAT storefronts; excludes tax (added at checkout) on US storefronts — ADR-0038." />
                                     <button @onclick="() => v.Prices.Remove(pr)" style="color:#b91c1c;" title="Remove this currency price.">✕</button>
                                 </span>
                             }

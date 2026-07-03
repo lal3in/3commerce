@@ -20,6 +20,7 @@ public sealed class StorefrontConfigConsumer(OrderingDbContext db) : IConsumer<S
                 Currency = m.Currency,
                 TaxRateBasisPoints = m.TaxRateBasisPoints,
                 IsLive = m.IsLive,
+                TaxInclusive = m.TaxInclusive,
             };
             db.StorefrontTaxCopies.Add(copy);
         }
@@ -29,6 +30,7 @@ public sealed class StorefrontConfigConsumer(OrderingDbContext db) : IConsumer<S
             copy.Currency = m.Currency;
             copy.TaxRateBasisPoints = m.TaxRateBasisPoints;
             copy.IsLive = m.IsLive;
+            copy.TaxInclusive = m.TaxInclusive;
         }
 
         await db.SaveChangesAsync(context.CancellationToken);

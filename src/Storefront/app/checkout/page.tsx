@@ -20,6 +20,8 @@ export default async function CheckoutPage() {
   }
 
   const taxRateBasisPoints = taxSource?.taxRateBasisPoints ?? 0;
+  // ADR-0038: AU GST / EU VAT shelf prices already include tax; US adds it at checkout.
+  const taxInclusive = taxSource?.taxRegime === "AuGst" || taxSource?.taxRegime === "EuVat";
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -29,9 +31,9 @@ export default async function CheckoutPage() {
           <span>Subtotal ({cart.items.length} item{cart.items.length === 1 ? "" : "s"})</span>
           <span>{formatMoney(cart.subtotalMinor, cart.currency)}</span>
         </div>
-        <p className="mt-1 text-neutral-500">Choose a shipping rate before authorization; tax is calculated from this storefront&apos;s configured rate.</p>
+        <p className="mt-1 text-neutral-500">Choose a shipping rate before authorization; tax follows this storefront&apos;s regime — included in AU/EU prices, added at checkout for US.</p>
       </div>
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} />
     </div>
   );
 }

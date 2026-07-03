@@ -75,43 +75,72 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         Assert.Equal(HttpStatusCode.BadRequest, checkout.StatusCode);
     }
 
-    [Fact]
-    public async Task Checkout_charges_the_storefront_tax_once_with_ordering_as_the_owner()
+    private async Task SeedTaxCopyAsync(Guid storefrontId, string currency, int bps, bool inclusive)
     {
-        using (var scope = fixture.Ordering.Services.CreateScope())
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        var copy = await db.StorefrontTaxCopies.FindAsync(storefrontId);
+        if (copy is null)
         {
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.StorefrontTaxCopies.FindAsync(AudStorefrontId) is null)
+            db.StorefrontTaxCopies.Add(new StorefrontTaxCopy
             {
-                db.StorefrontTaxCopies.Add(new StorefrontTaxCopy
-                {
-                    StorefrontId = AudStorefrontId,
-                    TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-                    Currency = "AUD",
-                    TaxRateBasisPoints = 1_000, // AU GST 10%
-                    IsLive = true,
-                });
-                await db.SaveChangesAsync();
-            }
+                StorefrontId = storefrontId,
+                TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Currency = currency,
+                TaxRateBasisPoints = bps,
+                IsLive = true,
+                TaxInclusive = inclusive,
+            });
         }
+        else
+        {
+            copy.TaxRateBasisPoints = bps;
+            copy.IsLive = true;
+            copy.TaxInclusive = inclusive;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Inclusive_regime_charges_the_listed_price_and_reports_the_contained_tax()
+    {
+        // AU GST is tax-INCLUSIVE (ADR-0038): the shopper pays exactly the listed amounts.
+        await SeedTaxCopyAsync(AudStorefrontId, "AUD", 1_000, inclusive: true);
 
         var productId = await fixture.SeedProductAsync(10_000, "AUD");
         using var shopper = fixture.Ordering.CreateClient();
-        var add = await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
-        add.EnsureSuccessStatusCode();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
 
         var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
         checkout.EnsureSuccessStatusCode();
         var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
 
-        // Ordering computes tax on goods + shipping: round((10000 + 499) * 10%) = 1050.
         Assert.Equal("AUD", order.Currency);
         Assert.Equal(10_000, order.NetMinor);
         Assert.Equal(499, order.ShippingMinor);
-        Assert.Equal(1_050, order.TaxMinor);
+        // Contained GST: round((10000+499) × 1000 / 11000) = 954 — informational, NOT added.
+        Assert.Equal(954, order.TaxMinor);
+        // The shopper pays exactly goods + shipping; Payments charges it verbatim (rev_2).
+        Assert.Equal(order.NetMinor + order.ShippingMinor, order.GrossMinor);
+    }
 
-        // Gross is exactly net + shipping + Ordering's tax — pins that Payments charges the
-        // tax-inclusive amount verbatim and never applies a second tax (rev_2).
+    [Fact]
+    public async Task Exclusive_regime_adds_the_tax_on_top()
+    {
+        // US sales tax is exclusive (ADR-0038): added on goods + shipping at checkout.
+        await SeedTaxCopyAsync(UsdStorefrontId, "USD", 825, inclusive: false);
+
+        var productId = await fixture.SeedProductAsync(10_000, "USD");
+        using var shopper = fixture.Ordering.CreateClient();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        checkout.EnsureSuccessStatusCode();
+        var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        // Added tax: round((10000+499) × 8.25%) = 866; gross = base + tax.
+        Assert.Equal(866, order.TaxMinor);
         Assert.Equal(order.NetMinor + order.ShippingMinor + order.TaxMinor, order.GrossMinor);
     }
 
@@ -139,4 +168,5 @@ public class CartCurrencyTests(Phase3Fixture fixture)
     }
 
     private static readonly Guid AudStorefrontId = Guid.Parse("aaaaaaaa-0000-0000-0000-0000000000a1");
+    private static readonly Guid UsdStorefrontId = Guid.Parse("aaaaaaaa-0000-0000-0000-0000000000b2");
 }

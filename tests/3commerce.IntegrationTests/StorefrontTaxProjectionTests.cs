@@ -20,13 +20,13 @@ public class StorefrontTaxProjectionTests(Phase3Fixture fixture)
         var storefrontId = Guid.CreateVersion7();
         var tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        await PublishAsync(new StorefrontConfigChanged(storefrontId, tenantId, "NZ Store", "NZD", 1_500, IsLive: true));
-        var created = await WaitForCopyAsync(storefrontId, c => c.TaxRateBasisPoints == 1_500 && c.IsLive);
+        await PublishAsync(new StorefrontConfigChanged(storefrontId, tenantId, "NZ Store", "NZD", 1_500, IsLive: true, TaxInclusive: true));
+        var created = await WaitForCopyAsync(storefrontId, c => c.TaxRateBasisPoints == 1_500 && c.IsLive && c.TaxInclusive);
         Assert.Equal("NZD", created.Currency);
 
         // Update: rate change + taken offline → same row updated, not duplicated.
-        await PublishAsync(new StorefrontConfigChanged(storefrontId, tenantId, "NZ Store", "NZD", 1_250, IsLive: false));
-        var updated = await WaitForCopyAsync(storefrontId, c => c.TaxRateBasisPoints == 1_250 && !c.IsLive);
+        await PublishAsync(new StorefrontConfigChanged(storefrontId, tenantId, "NZ Store", "NZD", 1_250, IsLive: false, TaxInclusive: false));
+        var updated = await WaitForCopyAsync(storefrontId, c => c.TaxRateBasisPoints == 1_250 && !c.IsLive && !c.TaxInclusive);
         Assert.Equal("NZD", updated.Currency);
     }
 

@@ -13,6 +13,9 @@ interface CheckoutFormProps {
   paymentMethods: SavedPaymentMethodDto[];
   // This storefront's configured tax rate in basis points (1000 = 10%); drives the tax line.
   taxRateBasisPoints: number;
+  // ADR-0038: inclusive regimes (AU GST / EU VAT) — prices already contain the tax; it is shown
+  // informationally and NOT added to the total. Exclusive regimes add it.
+  taxInclusive: boolean;
 }
 
 const PAYMENT_OPTIONS = [
@@ -23,7 +26,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", label: "PayPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive }: CheckoutFormProps) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
@@ -35,8 +38,12 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
   const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
-  // Tax from the storefront's configured rate (matches what Ordering charges); exclusive on goods + shipping.
-  const estimatedTaxMinor = Math.round((cart.subtotalMinor + (selectedRate?.amountMinor ?? 0)) * taxRateBasisPoints / 10000);
+  // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
+  // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
+  const taxBaseMinor = cart.subtotalMinor + (selectedRate?.amountMinor ?? 0);
+  const estimatedTaxMinor = taxInclusive
+    ? Math.round(taxBaseMinor * taxRateBasisPoints / (10000 + taxRateBasisPoints))
+    : Math.round(taxBaseMinor * taxRateBasisPoints / 10000);
 
   const quoteShipping = (form: HTMLFormElement) => {
     startQuote(async () => {
@@ -72,7 +79,11 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
           <Row label="Subtotal" value={formatMoney(cart.subtotalMinor, cart.currency)} />
           <Row label="Shipping" value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : "Choose a rate below"} muted={!selectedRate} />
-          <Row label="Tax" value={formatMoney(estimatedTaxMinor, cart.currency)} muted={estimatedTaxMinor === 0} />
+          <Row
+            label={taxInclusive ? `Includes tax (${(taxRateBasisPoints / 100).toFixed(taxRateBasisPoints % 100 === 0 ? 0 : 2)}%)` : "Tax (added)"}
+            value={formatMoney(estimatedTaxMinor, cart.currency)}
+            muted={estimatedTaxMinor === 0 || taxInclusive}
+          />
         </div>
       </section>
 
