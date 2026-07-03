@@ -127,10 +127,20 @@ public sealed class SampleDataImporter(
                 {
                     var vv = existing.Variants[v];
                     vv.PriceMinor = basePrice + v * 500;
-                    vv.Prices.Clear();
+                    // Reconcile in place (update matching currency rows, add missing) — Clear()+re-add
+                    // churned ~30k delete/insert pairs per re-import and blew up with
+                    // DbUpdateConcurrencyException, making the importer non-idempotent (rev_11).
                     foreach (var pr in DemoPrices(vv.Id, vv.PriceMinor))
                     {
-                        vv.Prices.Add(pr);
+                        var row = vv.Prices.FirstOrDefault(p => p.Currency == pr.Currency);
+                        if (row is null)
+                        {
+                            vv.Prices.Add(pr);
+                        }
+                        else
+                        {
+                            row.PriceMinor = pr.PriceMinor;
+                        }
                     }
                 }
 

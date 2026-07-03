@@ -135,13 +135,16 @@ PY
 json_string() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"; }
 
 json_get() {
-  python3 - "$1" <<'PY'
+  # NB: the program must go via -c, NOT a heredoc — `python3 - <<EOF` makes the heredoc python's
+  # stdin, so json.load(sys.stdin) would read nothing and every lookup silently returned empty
+  # (manifest ids were never captured; scenario seeding degraded). Review finding F10 / rev_11.
+  python3 -c '
 import json, sys
 path = sys.argv[1]
 try:
     data = json.load(sys.stdin)
     cur = data
-    for part in path.split('.'):
+    for part in path.split("."):
         if not part:
             continue
         if isinstance(cur, list):
@@ -151,7 +154,7 @@ try:
     print(cur)
 except Exception:
     pass
-PY
+' "$1"
 }
 
 record() {
@@ -286,14 +289,19 @@ meta = {
     "inactive-unpublished-private": ("Physical", "Warehouse", "OneTime", "Once", 2199, []),
 }
 supply, fulfilment, pricing, period, price, tiers = meta[code]
-print(json.dumps({"tenantId": tenant_id, "productId": product_id, "variantId": variant_id or None, "supplierId": supplier_id, "supplyCategory": supply, "fulfilmentType": fulfilment, "priceMinor": price, "currency": "EUR", "priority": 10, "pricingModel": pricing, "billingPeriod": period, "tiers": tiers}))
+# Enums bind as NUMBERS over HTTP (AGENTS.md invariant).
+SUPPLY = {"Physical": 1, "Digital": 2, "Service": 3}
+FULFIL = {"Unassigned": 0, "Dropship": 1, "Warehouse": 2, "DigitalDownload": 3, "Subscription": 4, "Usage": 5, "ManualService": 6}
+PRICING = {"OneTime": 1, "Subscription": 2, "UsageBased": 3, "Tiered": 4}
+PERIOD = {"Once": 1, "Monthly": 2, "Yearly": 3}
+print(json.dumps({"tenantId": tenant_id, "productId": product_id, "variantId": variant_id or None, "supplierId": supplier_id, "supplyCategory": SUPPLY[supply], "fulfilmentType": FULFIL[fulfilment], "priceMinor": price, "currency": "EUR", "priority": 10, "pricingModel": PRICING[pricing], "billingPeriod": PERIOD[period], "tiers": tiers}))
 PY
 }
 
 seed_scenario_matrix() {
   local supplier_id="$1" location_id="$2"
   echo "== product/supply/billing scenario matrix =="
-  local categories category_id product_search product_id product_body product_json variant_id offer_json offer_body offer_id stock_qty availability_status
+  local categories category_id product_search product_id product_body product_json existing_editor variant_id offer_json offer_body offer_id stock_qty availability_status
   categories=$(api "catalog-categories" GET "/api/catalog/categories" "$ADMIN_JAR" "" "expect_2xx")
   category_id=$(printf '%s' "$categories" | json_get '0.id')
   if [[ -z "$category_id" ]]; then
@@ -307,6 +315,15 @@ seed_scenario_matrix() {
     product_search=$(api "scenario-$code-lookup" GET "/api/catalog/admin/products?q=e2e-scenario-$code&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")
     product_id=$(printf '%s' "$product_search" | json_get '0.id')
     if [[ -n "$product_id" ]]; then
+      existing_editor=$(api "scenario-$code-get-existing" GET "/api/catalog/admin/products/$product_id" "$ADMIN_JAR" "" "allow_4xx")
+      product_json=$(python3 -c '
+import json, sys
+payload, existing = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+by_sku = {v.get("sku"): v.get("id") for v in existing.get("variants", [])}
+for v in payload.get("variants", []):
+    v["id"] = by_sku.get(v.get("sku"))
+print(json.dumps(payload))
+' "$product_json" "$existing_editor")
       product_body=$(api "scenario-$code-update" PUT "/api/catalog/admin/products/$product_id" "$ADMIN_JAR" "$product_json" "allow_4xx")
     else
       product_body=$(api "scenario-$code-create" POST "/api/catalog/admin/products" "$ADMIN_JAR" "$product_json" "allow_4xx")
@@ -324,12 +341,12 @@ seed_scenario_matrix() {
     fi
     manifest_set "products.$code.id" "$(json_string "$product_id")"
     manifest_set "products.$code.slug" "$(json_string "e2e-scenario-$code")"
-    [[ -n "$variant_id" ]] && manifest_set "products.$code.variantId" "$(json_string "$variant_id")"
+    if [[ -n "$variant_id" ]]; then manifest_set "products.$code.variantId" "$(json_string "$variant_id")"; fi
 
     offer_json=$(scenario_offer_json "$code" "$product_id" "$variant_id" "$supplier_id")
     offer_body=$(api "scenario-$code-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" "$offer_json" "allow_4xx")
     offer_id=$(printf '%s' "$offer_body" | json_get id)
-    [[ -n "$offer_id" ]] && manifest_set "offers.$code.id" "$(json_string "$offer_id")"
+    if [[ -n "$offer_id" ]]; then manifest_set "offers.$code.id" "$(json_string "$offer_id")"; fi
 
     case "$code" in
       physical-warehouse-flat|physical-multi-variant-tiered|bundle-mixed-physical) stock_qty=25 ;;
@@ -340,9 +357,9 @@ seed_scenario_matrix() {
       api "scenario-$code-stock" POST "/api/fulfillment/admin/inventory/stock" "$ADMIN_JAR" "{\"tenantId\":\"$TENANT_ID\",\"locationId\":\"$location_id\",\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"onHand\":$stock_qty}" "allow_4xx" >/dev/null
       manifest_set "fulfillment.stock.$code.onHand" "$stock_qty"
     fi
-    availability_status="Available"
-    [[ "$code" == "inactive-unpublished-private" ]] && availability_status="OutOfStock"
-    api "scenario-$code-availability" POST "/api/fulfillment/admin/dropship/availability" "$ADMIN_JAR" "{\"tenantId\":\"$TENANT_ID\",\"supplierId\":\"$supplier_id\",\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"status\":\"$availability_status\",\"externalQuantity\":$stock_qty,\"supplierSku\":\"SUP-$code\"}" "allow_4xx" >/dev/null
+    availability_status=1  # SupplierStockStatus.Available
+    [[ "$code" == "inactive-unpublished-private" ]] && availability_status=2  # SupplierStockStatus.OutOfStock
+    api "scenario-$code-availability" POST "/api/fulfillment/admin/dropship/availability" "$ADMIN_JAR" "{\"tenantId\":\"$TENANT_ID\",\"supplierId\":\"$supplier_id\",\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"status\":$availability_status,\"externalQuantity\":$stock_qty,\"supplierSku\":\"SUP-$code\"}" "allow_4xx" >/dev/null
   done
 }
 
@@ -398,10 +415,10 @@ checkout_scenario() {
     status=$(printf '%s' "$status_body" | json_get status)
     [[ "$status" == "Confirmed" ]] && break
   done
-  [[ -n "$status" ]] && manifest_set "orders.$code.status" "$(json_string "$status")"
+  if [[ -n "$status" ]]; then manifest_set "orders.$code.status" "$(json_string "$status")"; fi
 
   ticket_body=$(api "history-$code-ticket" POST "/api/support/tickets" "$jar" \
-    "{\"orderId\":\"$order_id\",\"email\":\"$customer_email\",\"reason\":\"Other\",\"message\":\"Demo support thread for $code\"}" "allow_4xx")
+    "{\"orderId\":\"$order_id\",\"email\":\"$customer_email\",\"reason\":4,\"message\":\"Demo support thread for $code\"}" "allow_4xx")
   ticket_id=$(printf '%s' "$ticket_body" | json_get id)
   if [[ -n "$ticket_id" ]]; then
     manifest_set "support.tickets.$code.id" "$(json_string "$ticket_id")"
@@ -431,14 +448,16 @@ checkout_scenario() {
     if [[ -n "$package_id" ]]; then
       manifest_set "fulfillment.packages.$code.id" "$(json_string "$package_id")"
       api "history-$code-label" POST "/api/fulfillment/admin/packages/$package_id/label" "$ADMIN_JAR" \
-        "{\"tenantId\":\"$TENANT_ID\",\"carrier\":\"Fake\"}" "allow_4xx" >/dev/null
+        "{\"tenantId\":\"$TENANT_ID\",\"carrier\":1}" "allow_4xx" >/dev/null
       api "history-$code-tracking-refresh" POST "/api/fulfillment/admin/packages/$package_id/tracking/refresh?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     fi
   fi
 
   subs=$(api "history-$code-subscriptions" GET "/api/payments/admin/subscriptions?tenantId=$TENANT_ID&email=$customer_email" "$ADMIN_JAR" "" "allow_4xx")
   sub_id=$(printf '%s' "$subs" | json_get '0.id')
-  [[ -n "$sub_id" ]] && manifest_set "subscriptions.$code.id" "$(json_string "$sub_id")"
+  if [[ -n "$sub_id" ]]; then
+    manifest_set "subscriptions.$code.id" "$(json_string "$sub_id")"
+  fi
 }
 
 seed_historical_flows() {
@@ -501,7 +520,7 @@ seed_full() {
     api "entity-supplier-start" POST "/api/entity/entities/$entity_id/suppliers" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-duplicate-scan" POST "/api/entity/entities/$entity_id/duplicate-warnings/scan" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-change-request" POST "/api/entity/entities/$entity_id/suppliers/change-requests?tenantId=$TENANT_ID" "$ADMIN_JAR" \
-      '{"type":"Contact","summary":"Demo supplier contact update","detail":"Seeded by scripts/dev-dummy-data.sh"}' "allow_4xx" >/dev/null
+      '{"type":2,"summary":"Demo supplier contact update","detail":"Seeded by scripts/dev-dummy-data.sh"}' "allow_4xx" >/dev/null
     supplier_id="$entity_id"
     manifest_set "entities.demoSupplier.id" "$(json_string "$entity_id")"
   else
@@ -509,8 +528,13 @@ seed_full() {
     manifest_append "warnings" "$(json_string "entity-create-supplier did not return an id; using fallback supplier id")"
   fi
 
-  api "marketing-campaign" POST "/api/marketing/admin/campaigns" "$ADMIN_JAR" \
-    '{"tenantId":"00000000-0000-0000-0000-000000000001","code":"DEMO10","name":"Demo launch campaign","startsAt":null,"endsAt":null}' "allow_4xx" >/dev/null
+  # Idempotent: (TenantId, Cid) is unique — only create the demo campaign when absent.
+  local campaigns
+  campaigns=$(api "marketing-campaign-list" GET "/api/marketing/admin/campaigns?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  if ! printf '%s' "$campaigns" | grep -qi '"cid":"demo10"'; then
+    api "marketing-campaign" POST "/api/marketing/admin/campaigns" "$ADMIN_JAR" \
+      '{"tenantId":"00000000-0000-0000-0000-000000000001","cid":"DEMO10","name":"Demo launch campaign","startsAt":null,"endsAt":null}' "allow_4xx" >/dev/null
+  fi
   # CreatePriceRequest requires a ProductId; attach the demo price to the first imported catalog
   # product. Enums bind as numbers (PricingModel.Tiered=4, BillingPeriod.Monthly=2); tier fields are
   # FromQuantity/UnitPriceMinor.
@@ -535,16 +559,16 @@ except Exception:
   upsert_demo_storefront "demoUs" "Demo US Store" "http://localhost:3000/us" "USD" 3 825
 
   api "payment-account" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"provider\":\"Stripe\",\"providerMode\":\"Test\",\"displayName\":\"Demo Stripe test account\",\"countryCode\":\"AU\",\"currency\":\"EUR\"}" "allow_4xx" >/dev/null
+    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"name\":\"Demo Stripe test account\",\"provider\":\"stripe\",\"mode\":1,\"isDefaultForTenant\":true,\"externalAccountRef\":null}" "allow_4xx" >/dev/null
   api "supplier-bank" POST "/api/payments/admin/supplier-payouts/bank-accounts" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"supplierId\":\"$supplier_id\",\"provider\":\"Manual\",\"tokenRef\":\"vault_demo_supplier_bank\",\"maskedAccount\":\"****1234\",\"accountName\":\"Demo Supplier Pty Ltd\",\"countryCode\":\"AU\",\"currency\":\"EUR\"}" "allow_4xx" >/dev/null
+    "{\"tenantId\":\"$TENANT_ID\",\"supplierEntityId\":\"$supplier_id\",\"accountName\":\"Demo Supplier Pty Ltd\",\"bankCountry\":\"AU\",\"routingNumberMasked\":\"***123\",\"accountNumberMasked\":\"****1234\",\"accountTokenRef\":\"vault_demo_supplier_bank\"}" "allow_4xx" >/dev/null
   api "xero-mapping" POST "/api/payments/admin/xero/mappings" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"ledgerAccountCode\":\"revenue.sales\",\"xeroAccountCode\":\"200\",\"scope\":\"TenantDefault\",\"storefrontId\":null,\"categoryId\":null,\"supplierId\":null,\"productId\":null}" "allow_4xx" >/dev/null
 
   location_json=$(api "fulfillment-location" POST "/api/fulfillment/admin/inventory/locations" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"name\":\"Demo warehouse\",\"kind\":1,\"entityId\":\"$supplier_id\",\"addressId\":null}" "allow_4xx")
   location_id=$(printf '%s' "$location_json" | json_get id)
-  [[ -n "$location_id" ]] && manifest_set "fulfillment.locations.demoWarehouse.id" "$(json_string "$location_id")"
+  if [[ -n "$location_id" ]]; then manifest_set "fulfillment.locations.demoWarehouse.id" "$(json_string "$location_id")"; fi
 
   carrier_json=$(api "fulfillment-carrier" POST "/api/fulfillment/admin/carriers" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"carrier\":1,\"credentialRef\":null}" "allow_4xx")
@@ -556,9 +580,9 @@ except Exception:
   fi
 
   api "usage-provision" POST "/api/usage/admin/usage/provision" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"email\":\"usage.demo@example.test\",\"meterCode\":\"api-calls\",\"includedQuantity\":1000,\"overageAllowed\":true,\"overageUnitPriceMinor\":5,\"currency\":\"EUR\"}" "allow_4xx" >/dev/null
+    "{\"tenantId\":\"$TENANT_ID\",\"customerEmail\":\"usage.demo@example.test\",\"meter\":3,\"includedQuantity\":1000,\"overageAllowed\":true,\"overageUnitPriceMinor\":5,\"currency\":\"EUR\",\"periodEnd\":null}" "allow_4xx" >/dev/null
   api "usage-record" POST "/api/usage/admin/usage/record" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"email\":\"usage.demo@example.test\",\"meterCode\":\"api-calls\",\"quantity\":42,\"referenceId\":\"dev-dummy-$RUN_ID\"}" "allow_4xx" >/dev/null
+    "{\"tenantId\":\"$TENANT_ID\",\"customerEmail\":\"usage.demo@example.test\",\"meter\":3,\"quantity\":42,\"referenceId\":\"dev-dummy-$RUN_ID\"}" "allow_4xx" >/dev/null
   manifest_set "usage.demo.email" '"usage.demo@example.test"'
   manifest_set "usage.demo.meterCode" '"api-calls"'
 
@@ -574,9 +598,9 @@ except Exception:
   if [[ -n "$product_id" ]]; then
     if [[ -n "$variant_id" ]]; then variant_json="\"$variant_id\""; else variant_json="null"; fi
     api "catalog-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
-      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":\"Physical\",\"fulfilmentType\":\"Dropship\",\"billingMode\":\"OneTime\",\"priceMinor\":2499,\"currency\":\"EUR\",\"priority\":10,\"isActive\":true}" "allow_4xx" >/dev/null
+      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
     manifest_set "products.importedSample.id" "$(json_string "$product_id")"
-    [[ -n "$variant_id" ]] && manifest_set "products.importedSample.variantId" "$(json_string "$variant_id")"
+    if [[ -n "$variant_id" ]]; then manifest_set "products.importedSample.variantId" "$(json_string "$variant_id")"; fi
   fi
 }
 
