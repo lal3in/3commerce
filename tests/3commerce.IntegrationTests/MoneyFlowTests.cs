@@ -50,8 +50,8 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
 
         // Net is items-only (shipping is a separate field): net = 2×10000 = 20000; shipping 499.
-        // Tax defaults to 0 — no home regime configured (ADR-0015 / ITaxStrategy), exports
-        // zero-rated (ADR-0016); gross = 20000 + 499 + 0 = 20499.
+        // Tax is 0 — Ordering owns tax and no live StorefrontTaxCopy matches this cart's currency
+        // (Payments never applies its own tax); gross = 20000 + 499 + 0 = 20499.
         Assert.Equal(20_000, order.NetMinor);
         Assert.Equal(0, order.TaxMinor);
         Assert.Equal(20_499, order.GrossMinor);

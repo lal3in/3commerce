@@ -366,8 +366,8 @@ Plan Path: `.ai-shared/plans/project-review-remediation.md`
 
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 | ------- | --------- | ----- | ------ | --------- | -------- |
-| rev_1 | Mixed-currency cart guard (409 on add; checkout assert) | P1 money-path (PR A) | planned | .ai-shared/plans/project-review-remediation.md | F1: cart can mix AUD+EUR; checkout sums blind on items[0].Currency |
-| rev_2 | Single tax owner — remove Payments ITaxStrategy application | P1 money-path (PR A) | planned | .ai-shared/plans/project-review-remediation.md | F2: double-tax if Tax:HomeCountry set; bus-contract sweep in same PR |
+| rev_1 | Mixed-currency cart guard (409 on add; checkout assert) | P1 money-path (PR A) | done | .ai-shared/plans/project-review-remediation.md | AddItem 409 on currency mismatch; checkout 400 on legacy mixed data; merge-on-login re-prices anon lines into the user cart currency (drops unpriced). 3 pinning integration tests. |
+| rev_2 | Single tax owner — remove Payments ITaxStrategy application | P1 money-path (PR A) | done | .ai-shared/plans/project-review-remediation.md | AuthorizePaymentConsumer charges NetMinor verbatim (TaxMinor 0); ITaxStrategy/FlatRateTaxStrategy deleted + DI/fixture settings removed; contract shape unchanged (no bus break). Gross==net+shipping+tax pinned by test. |
 | rev_3 | Regenerate catalog/ordering OpenAPI + contract index | P1 coverage (PR B) | planned | .ai-shared/plans/project-review-remediation.md | F4: specs stale since #27/#29; PRs #39-41 endpoints missing |
 | rev_4 | Unit+integration tests for per-currency pricing + storefront tax | P1 coverage (PR B) | planned | .ai-shared/plans/project-review-remediation.md | F3: zero automated coverage of VariantPrice/StorefrontTaxCopy today |
 | rev_5 | Host→storefront context on all shopper routes (headers + currency) | P2 routing (PR C) | planned | .ai-shared/plans/project-review-remediation.md | F5: gateway DomainResolutionMiddleware exists; UI never passes currency; StorefrontId mis-attributed |
