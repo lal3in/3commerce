@@ -80,6 +80,13 @@ Campaigns + short links (mt5_1/5_3). Standalone service; admin auth.
 | POST | `/admin/short-links` | admin | Create a short link; destination host must be a registered storefront host (anti open-redirect) |
 | POST | `/events` | anon | Analytics batch collector (def_4): ≤50 events, deduped per tenant by client event id (retry-safe), payment-shaped payload keys sanitized, coarse IP only (/24 / /48). Consent is enforced at the storefront batcher; the storefront proxies via `/api/analytics/events` with `X-3C-Tenant-Id` |
 | GET | `/admin/analytics/events?tenantId=&take=` | admin | Most recent stored events (sanitized payload JSON, coarse IP) |
+| GET/POST | `/admin/content?tenantId=` | admin | Publishable content (def_5/mt5_7): list; create (version 1 draft). Numeric `PublishStatus` (Draft 1 / Scheduled 2 / Published 3) |
+| GET | `/admin/content/{id}?tenantId=` | admin | Detail incl. draft payload + version list |
+| PUT | `/admin/content/{id}/draft` | admin | Save a new draft version (history retained; clears any schedule) |
+| POST | `/admin/content/{id}/publish\|schedule\|rollback` | admin | Publish now; schedule a future publish (≤60s sweep latency via the `scheduled-publish` Quartz job); point live back to an existing version |
+| POST | `/admin/content/{id}/preview-token` | admin | Mint a signed expiring preview link (SignedDownload HMAC over contentId:version; `Publishing:PreviewSecret`) |
+| GET | `/content/{key}?tenantId=` | anon | Published payload by key (storefront rendering) |
+| GET | `/content/preview/{id}/{version}?token=` | anon | Signed draft preview — storefront renders it read-only + noindex at `/preview/{id}/{version}` |
 
 ## Pricing (`/api/pricing`)
 

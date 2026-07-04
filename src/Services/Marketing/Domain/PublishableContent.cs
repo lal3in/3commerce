@@ -38,6 +38,25 @@ public sealed class PublishableContent
 
     private PublishableContent() { }
 
+    /// <summary>Reconstructs the aggregate from persisted state (def_5) — no rules run, no timestamps touched.</summary>
+    public static PublishableContent Rehydrate(
+        Guid id, Guid tenantId, string key, PublishStatus status, int draftVersion, int? publishedVersion,
+        DateTimeOffset? scheduledAt, DateTimeOffset createdAt, DateTimeOffset updatedAt, IReadOnlyDictionary<int, string> versions)
+    {
+        var content = new PublishableContent { Id = id, TenantId = tenantId, Key = key, CreatedAt = createdAt };
+        content.Status = status;
+        content.DraftVersion = draftVersion;
+        content.PublishedVersion = publishedVersion;
+        content.ScheduledAt = scheduledAt;
+        content.UpdatedAt = updatedAt;
+        foreach (var (version, payload) in versions)
+        {
+            content._versions[version] = payload;
+        }
+
+        return content;
+    }
+
     public static PublishableContent Create(Guid tenantId, string key, string payload, DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(key))

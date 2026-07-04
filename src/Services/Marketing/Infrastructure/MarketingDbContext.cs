@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.Marketing.Domain;
 
 namespace ThreeCommerce.Marketing.Infrastructure;
@@ -9,6 +10,8 @@ public sealed class MarketingDbContext(DbContextOptions<MarketingDbContext> opti
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<ShortLink> ShortLinks => Set<ShortLink>();
     public DbSet<AnalyticsEventRecord> AnalyticsEvents => Set<AnalyticsEventRecord>();
+    public DbSet<ContentRecord> Contents => Set<ContentRecord>();
+    public DbSet<JobRun> JobRuns => Set<JobRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +31,23 @@ public sealed class MarketingDbContext(DbContextOptions<MarketingDbContext> opti
             campaign.Property(c => c.Name).HasMaxLength(200);
             campaign.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
             campaign.HasIndex(c => new { c.TenantId, c.Cid }).IsUnique();
+        });
+
+        // Publishing persistence (def_5): aggregate scalars + append-only version rows; JobRuns for the sweep.
+        modelBuilder.ConfigureJobRuns();
+        modelBuilder.Entity<ContentRecord>(content =>
+        {
+            content.ToTable("Contents");
+            content.Property(c => c.Key).HasMaxLength(128);
+            content.HasIndex(c => new { c.TenantId, c.Key }).IsUnique();
+            content.HasIndex(c => new { c.Status, c.ScheduledAt });
+            content.HasMany(c => c.Versions).WithOne().HasForeignKey(v => v.ContentRecordId);
+        });
+
+        modelBuilder.Entity<ContentVersionRecord>(version =>
+        {
+            version.ToTable("ContentVersions");
+            version.HasIndex(v => new { v.ContentRecordId, v.Version }).IsUnique();
         });
 
         // Append-only event store (def_4): dedupe key is the client-generated event id per tenant.
