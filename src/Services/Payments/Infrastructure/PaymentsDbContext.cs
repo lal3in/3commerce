@@ -27,6 +27,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
+    public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,15 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         });
 
         modelBuilder.Entity<WebhookInboxEntry>().HasKey(x => x.EventId);
+
+        // Signing-secret registry (def_2): platform-scoped (webhooks carry no tenant); resolution
+        // filters Provider+Active, newest first.
+        modelBuilder.Entity<WebhookSecret>(ws =>
+        {
+            ws.Property(s => s.Provider).HasMaxLength(32);
+            ws.Property(s => s.Label).HasMaxLength(128);
+            ws.HasIndex(s => new { s.Provider, s.Active });
+        });
         modelBuilder.Entity<IdempotencyRecord>().HasKey(x => x.Key);
         modelBuilder.Entity<SyncRun>(s =>
         {

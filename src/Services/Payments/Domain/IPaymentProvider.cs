@@ -25,8 +25,12 @@ public interface IPaymentProvider
 
     public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct);
 
-    /// <summary>Verifies signature and parses; returns null if it cannot be trusted/parsed.</summary>
-    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader);
+    /// <summary>
+    /// Verifies signature and parses; returns null if it cannot be trusted/parsed.
+    /// <paramref name="secrets"/> are the active signing secrets, newest first (def_2 registry with
+    /// config fallback) — verification accepts ANY of them so rotation never drops webhooks.
+    /// </summary>
+    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets);
 }
 
 public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);

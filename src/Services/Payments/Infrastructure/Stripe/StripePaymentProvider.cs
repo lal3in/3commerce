@@ -11,7 +11,6 @@ namespace ThreeCommerce.Payments.Infrastructure.Stripe;
 /// </summary>
 public sealed class StripePaymentProvider : IPaymentProvider
 {
-    private readonly string _webhookSecret;
     private readonly PaymentIntentService _intents = new();
     private readonly RefundService _refunds = new();
     private readonly CustomerService _customers = new();
@@ -22,7 +21,6 @@ public sealed class StripePaymentProvider : IPaymentProvider
     {
         StripeConfiguration.ApiKey = configuration["Stripe:SecretKey"]
             ?? throw new InvalidOperationException("Stripe:SecretKey is not configured.");
-        _webhookSecret = configuration["Stripe:WebhookSecret"] ?? string.Empty;
     }
 
     public async Task<PaymentIntentResult> CreateIntentAsync(
@@ -102,16 +100,27 @@ public sealed class StripePaymentProvider : IPaymentProvider
         return new ProviderRefundResult(refund.Id, refund.Status is "succeeded" or "pending");
     }
 
-    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader)
+    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets)
     {
-        Event stripeEvent;
-        try
+        // Rotation-safe: any active secret verifies (def_2). throwOnApiVersionMismatch off — the
+        // signature is the trust boundary; an SDK/api-version skew must not silently drop payments.
+        Event? stripeEvent = null;
+        foreach (var secret in secrets)
         {
-            stripeEvent = EventUtility.ConstructEvent(payload, signatureHeader, _webhookSecret);
+            try
+            {
+                stripeEvent = EventUtility.ConstructEvent(payload, signatureHeader, secret, throwOnApiVersionMismatch: false);
+                break;
+            }
+            catch (StripeException)
+            {
+                // try the next active secret
+            }
         }
-        catch (StripeException)
+
+        if (stripeEvent is null)
         {
-            return null; // bad signature
+            return null; // bad signature (or no secret configured)
         }
 
         if (stripeEvent.Data.Object is not PaymentIntent intent)

@@ -19,13 +19,14 @@ public static class WebhookEndpoints
     }
 
     private static async Task<Results<Ok, BadRequest>> StripeWebhook(
-        HttpContext http, IPaymentProvider provider, PaymentEventProcessor processor, CancellationToken ct)
+        HttpContext http, IPaymentProvider provider, WebhookSecretService secrets, PaymentEventProcessor processor, CancellationToken ct)
     {
         using var reader = new StreamReader(http.Request.Body);
         var payload = await reader.ReadToEndAsync(ct);
         var signature = http.Request.Headers["Stripe-Signature"].ToString();
 
-        var ev = provider.ParseWebhook(payload, signature);
+        // Registry secrets (newest first) with config fallback (def_2) — rotation-safe verification.
+        var ev = provider.ParseWebhook(payload, signature, await secrets.GetActiveSecretsAsync("stripe", ct));
         if (ev is null)
         {
             return TypedResults.BadRequest();
