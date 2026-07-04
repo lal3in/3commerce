@@ -23,6 +23,13 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpClient("gateway", c =>
     c.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:8080"));
 builder.Services.AddScoped<GatewayClient>();
+// Mission-control live bus stats (def_6): RabbitMQ management API, read-only + best-effort.
+builder.Services.AddHttpClient("rabbitmq-mgmt", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["MessageBus:ManagementUrl"] ?? "http://localhost:15672");
+    c.Timeout = TimeSpan.FromSeconds(5);
+});
+builder.Services.AddScoped<BusStatsService>();
 builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
