@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "admin")]
 @inject IConfiguration Config
 @inject GatewayClient Gateway
+@inject BusStatsService BusStats
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
@@ -71,6 +72,55 @@
 </div>
 
 <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
+    <h2 style="margin-top:0;">Message bus <span style="color:#6b7280; font-size:.75rem; font-weight:400;">live · RabbitMQ management API · read-only</span></h2>
+    @if (_bus is null)
+    {
+        <p style="color:#9ca3af;">Management API unreachable (config <code>MessageBus:ManagementUrl</code>, dev default <code>http://localhost:15672</code>). Queue stats appear when the broker's management plugin is up.</p>
+    }
+    else
+    {
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1rem;">
+            @KpiCard("Queues", _bus.Queues.ToString(), "#4f46e5")
+            @KpiCard("Consumers", _bus.Consumers.ToString(), "#0891b2")
+            @KpiCard("Ready", _bus.Ready.ToString(), _bus.Ready > 0 ? "#b45309" : "#059669")
+            @KpiCard("Unacked", _bus.Unacked.ToString(), "#059669")
+            @KpiCard("Dead-lettered", _bus.DeadLettered.ToString(), _bus.DeadLettered > 0 ? "#dc2626" : "#059669")
+        </div>
+        @if (_bus.DeadLetterQueues.Count > 0)
+        {
+            <p style="color:#b91c1c; font-weight:600;">⚠ Dead-letter queues holding messages — these consumers are failing:</p>
+            <table style="width:100%; border-collapse:collapse; font-size:.85rem; margin-bottom:1rem;">
+                <thead><tr><th style="text-align:left;">Queue</th><th>Ready</th><th>Unacked</th></tr></thead>
+                <tbody>
+                @foreach (var q in _bus.DeadLetterQueues)
+                {
+                    <tr style="border-top:1px solid #fee2e2;"><td><code style="font-size:.78rem;">@q.Name</code></td><td style="text-align:center;">@q.Ready</td><td style="text-align:center;">@q.Unacked</td></tr>
+                }
+                </tbody>
+            </table>
+        }
+        <details>
+            <summary style="cursor:pointer; color:#6b7280;">Busiest queues (top 10 by depth, then publish rate)</summary>
+            <table style="width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem;">
+                <thead><tr><th style="text-align:left;">Queue</th><th>Ready</th><th>Unacked</th><th>Consumers</th><th>Publish/s</th></tr></thead>
+                <tbody>
+                @foreach (var q in _bus.TopQueues)
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td><code style="font-size:.78rem;">@q.Name</code></td>
+                        <td style="text-align:center;">@q.Ready</td>
+                        <td style="text-align:center;">@q.Unacked</td>
+                        <td style="text-align:center;">@q.Consumers</td>
+                        <td style="text-align:center;">@q.PublishRate.ToString("0.0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </details>
+    }
+</section>
+
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
     <h2 style="margin-top:0;">Consoles</h2>
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
         <a href="@GrafanaUrl" target="_blank" rel="noopener">📊 Grafana — Services (RED metrics)</a>
@@ -84,6 +134,7 @@
 @code {
     private List<AuditDto> _audit = [];
     private List<RunDto> _runs = [];
+    private BusStatsService.BusSnapshot? _bus;
     private string _tenant = "00000000-0000-0000-0000-000000000001";
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -92,6 +143,7 @@
     {
         _audit = await Gateway.GetListAsync<AuditDto>($"/api/audit/admin/audit?tenantId={_tenant}");
         _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
+        _bus = await BusStats.GetSnapshotAsync();
     }
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";

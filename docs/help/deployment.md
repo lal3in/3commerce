@@ -95,6 +95,12 @@ docker compose --profile observability up otel-collector prometheus grafana
 Metrics are ops data, never financial truth; keep Grafana behind admin auth / a private network. Helm
 wiring for the stack is launch-gated.
 
+**Mission-control bus stats (def_6):** the Admin console's Message Bus section reads the RabbitMQ
+management API directly (read-only). Configure `MessageBus:ManagementUrl` (dev default
+`http://localhost:15672`) and `MessageBus:ManagementUser`/`ManagementPassword` (dev default
+guest/guest — set real credentials in any deployed environment). Unreachable management API degrades
+to a hint, never an error. MassTransit `*_error` / `*_skipped` queues surface as the dead-letter table.
+
 ## Containerized launch (Kubernetes / Helm)
 
 The same topology is packaged as an umbrella Helm chart at **`deploy/helm/3commerce`**:
