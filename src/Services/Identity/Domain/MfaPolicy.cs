@@ -31,6 +31,12 @@ public sealed record MfaPolicy(MfaRequirement PlatformMinimum, MfaRequirement Te
 }
 
 /// <summary>
+/// DI carrier for the configured platform floor (`Mfa:PlatformMinimum`, numeric per the wire rule).
+/// Combined with the tenant's policy at every evaluation site via <see cref="MfaPolicy"/>.
+/// </summary>
+public sealed record MfaPlatformPolicy(MfaRequirement Minimum);
+
+/// <summary>
 /// Step-up authentication for high-risk actions (mt6_10): even with a valid session, a sensitive action
 /// (approvals, secret reveals, payout changes) requires a recent strong re-auth. The action handler
 /// checks the principal's last strong-auth timestamp against a freshness window.

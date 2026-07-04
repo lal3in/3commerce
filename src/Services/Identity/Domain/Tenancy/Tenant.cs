@@ -28,6 +28,12 @@ public class Tenant
 
     public DateTimeOffset CreatedAt { get; init; }
 
+    /// <summary>
+    /// Tenant MFA policy (mt6_10): combined with the platform minimum via <see cref="MfaPolicy"/>,
+    /// so a tenant can only strengthen, never weaken, the platform floor.
+    /// </summary>
+    public MfaRequirement MfaPolicy { get; set; } = MfaRequirement.Disabled;
+
     public bool IsActive => Status == TenantStatus.Active;
 }
 

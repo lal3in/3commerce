@@ -1,0 +1,161 @@
+@page "/security"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>Security</h1>
+<p style="color:#6b7280;">Two-factor authentication for your operator account, and this tenant's MFA policy.</p>
+
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+<section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;">
+    <h2 style="margin-top:0;font-size:1.05rem;">Your second factor (TOTP)</h2>
+    @if (_mfa is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_mfa.Enrolled)
+    {
+        <p>✅ MFA is <strong>enabled</strong> on this account. Every sign-in asks for an authenticator code (recovery codes work too).</p>
+    }
+    else
+    {
+        @if (_mfa.Required)
+        {
+            <p style="color:#b45309;">⚠️ The effective MFA policy <strong>requires</strong> a second factor for this account — enroll now.</p>
+        }
+        @if (_enrollStart is null)
+        {
+            <button @onclick="BeginEnroll" disabled="@_busy" style="padding:.4rem .8rem;"
+                    title="Generates a TOTP secret. Add it to an authenticator app (manual entry), then confirm with a code.">
+                Enable MFA
+            </button>
+        }
+        else
+        {
+            <p>Add this secret to your authenticator app (manual entry / time-based):</p>
+            <p><code style="background:#f3f4f6;padding:.3rem .5rem;border-radius:4px;word-break:break-all;">@_enrollStart.SecretBase32</code></p>
+            <p style="color:#6b7280;font-size:.85rem;word-break:break-all;">or use the URI: <code>@_enrollStart.OtpauthUri</code></p>
+            <label>Code from the app
+                <input @bind="_confirmCode" inputmode="numeric" autocomplete="one-time-code" style="width:10rem;padding:.4rem;margin-left:.5rem;"
+                       title="The current 6-digit code shown by your authenticator — proves the secret was captured." />
+            </label>
+            <button @onclick="ConfirmEnroll" disabled="@_busy" style="padding:.4rem .8rem;margin-left:.5rem;">Confirm</button>
+        }
+        @if (_recoveryCodes is not null)
+        {
+            <div style="background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:.8rem;margin-top:.8rem;">
+                <strong>Recovery codes — store them now, they are not shown again:</strong>
+                <ul style="margin:.5rem 0 0;">
+                    @foreach (var recoveryCode in _recoveryCodes) { <li><code>@recoveryCode</code></li> }
+                </ul>
+            </div>
+        }
+    }
+</section>
+
+<section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;margin-top:1rem;">
+    <h2 style="margin-top:0;font-size:1.05rem;">Tenant MFA policy</h2>
+    @if (_policy is null)
+    {
+        <p>Loading…</p>
+    }
+    else
+    {
+        <p style="color:#6b7280;font-size:.9rem;">
+            Platform minimum: <strong>@Describe(_policy.PlatformMinimum)</strong> · Effective: <strong>@Describe(_policy.Effective)</strong>.
+            A tenant policy can only strengthen the platform floor. Note: users are only challenged once enrolled —
+            "required" prompts unenrolled users to enroll, it never locks them out.
+        </p>
+        <select @bind="_selectedPolicy" title="How strongly MFA is required for this tenant's users. 'Privileged' targets admin accounts.">
+            <option value="0">Disabled — no one is prompted</option>
+            <option value="1">Optional — enrolled users are challenged</option>
+            <option value="2">Required for privileged (admin) accounts</option>
+            <option value="3">Required for all users</option>
+        </select>
+        <button @onclick="SavePolicy" disabled="@_busy" style="padding:.4rem .8rem;margin-left:.5rem;">Save policy</button>
+    }
+</section>
+
+@code {
+    private MfaStatusDto? _mfa;
+    private MfaPolicyDto? _policy;
+    private EnrollStartDto? _enrollStart;
+    private List<string>? _recoveryCodes;
+    private string _confirmCode = "";
+    private int _selectedPolicy;
+    private bool _busy;
+    private string? _error;
+    private string? _status;
+
+    protected override async Task OnInitializedAsync() => await RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        _mfa = await Gateway.GetAsync<MfaStatusDto>("/api/identity/mfa/status");
+        _policy = await Gateway.GetAsync<MfaPolicyDto>("/api/identity/mfa/policy");
+        _selectedPolicy = _policy is null ? 0 : (int)_policy.TenantPolicy;
+    }
+
+    private async Task BeginEnroll()
+    {
+        _busy = true; _error = null; _status = null;
+        var response = await Gateway.PostAsync("/api/identity/mfa/enroll/begin");
+        _enrollStart = response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<EnrollStartDto>()
+            : null;
+        if (_enrollStart is null) { _error = "Could not start enrollment."; }
+        _busy = false;
+    }
+
+    private async Task ConfirmEnroll()
+    {
+        _busy = true; _error = null; _status = null;
+        var response = await Gateway.PostAsync("/api/identity/mfa/enroll/confirm", new { code = _confirmCode.Trim() });
+        if (response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadFromJsonAsync<RecoveryCodesDto>();
+            _recoveryCodes = body?.RecoveryCodes ?? [];
+            _status = "MFA enabled. Your next sign-in will ask for a code.";
+            _enrollStart = null;
+            _mfa = await Gateway.GetAsync<MfaStatusDto>("/api/identity/mfa/status");
+        }
+        else
+        {
+            _error = "Code not accepted — check the authenticator and try again.";
+        }
+
+        _busy = false;
+    }
+
+    private async Task SavePolicy()
+    {
+        _busy = true; _error = null; _status = null;
+        var response = await Gateway.PutAsync("/api/identity/mfa/policy", new { policy = _selectedPolicy });
+        if (response.IsSuccessStatusCode)
+        {
+            _policy = await response.Content.ReadFromJsonAsync<MfaPolicyDto>();
+            _status = "Policy saved.";
+        }
+        else
+        {
+            _error = "Could not save the policy.";
+        }
+
+        _busy = false;
+    }
+
+    private static string Describe(int value) => value switch
+    {
+        1 => "Optional",
+        2 => "Required for privileged",
+        3 => "Required for all",
+        _ => "Disabled",
+    };
+
+    private sealed record MfaStatusDto(bool Enrolled, bool Pending, bool Required);
+    private sealed record MfaPolicyDto(int PlatformMinimum, int TenantPolicy, int Effective);
+    private sealed record EnrollStartDto(string SecretBase32, string OtpauthUri);
+    private sealed record RecoveryCodesDto(string Message, List<string> RecoveryCodes);
+}

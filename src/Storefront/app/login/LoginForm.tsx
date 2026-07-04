@@ -41,6 +41,21 @@ export function LoginForm() {
           className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
         />
       </div>
+      {state.mfaRequired && (
+        <div>
+          <label htmlFor="mfaCode" className="block text-sm font-medium">
+            Authenticator code
+          </label>
+          <input
+            id="mfaCode"
+            name="mfaCode"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          />
+        </div>
+      )}
       <button
         type="submit"
         disabled={pending}

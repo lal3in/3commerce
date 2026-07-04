@@ -25,6 +25,8 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
+// Platform MFA floor (mt6_10): numeric MfaRequirement, default Disabled; tenants can only strengthen it.
+builder.Services.AddSingleton(new MfaPlatformPolicy((MfaRequirement)builder.Configuration.GetValue("Mfa:PlatformMinimum", 0)));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<AdminUserService>();
 builder.Services.AddScoped<IdentityBootstrapper>();
@@ -42,6 +44,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
 app.MapAuth();
+app.MapMfa();
 app.MapProfile();
 app.MapIntrospection();
 app.MapAuthz();

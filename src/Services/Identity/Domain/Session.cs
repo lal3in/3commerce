@@ -16,5 +16,15 @@ public class Session
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
 
+    /// <summary>
+    /// True between password success and MFA challenge success (mt6_10). A pending session
+    /// introspects as unauthorized — the gateway mints no claims — so the ONLY thing it can do
+    /// is complete the challenge (or log out).
+    /// </summary>
+    public bool MfaPending { get; set; }
+
+    /// <summary>Last strong (second-factor) verification — the StepUp freshness anchor and `auth_time` claim.</summary>
+    public DateTimeOffset? StrongAuthAt { get; set; }
+
     public bool IsActive(DateTimeOffset now) => RevokedAt is null && ExpiresAt > now;
 }

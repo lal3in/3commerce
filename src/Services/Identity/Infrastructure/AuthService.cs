@@ -19,6 +19,7 @@ public sealed class AuthService(
     IPublishEndpoint publisher,
     TimeProvider time,
     IdentityBootstrapper bootstrapper,
+    MfaPlatformPolicy platformMfa,
     ILogger<AuthService> logger) : IAuthService
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
@@ -125,6 +126,12 @@ public sealed class AuthService(
             ct);
         await bootstrapper.AssignRoleAsync(membership, user.Role, ct);
 
+        // A confirmed factor is ALWAYS challenged (voluntary enrollment included); the policy only
+        // governs whether unenrolled users are told to enroll (mt6_10 GOTCHA: required-but-unenrolled
+        // logs in with a nag, never a block — the bootstrap admin must not be lockable-out before
+        // a factor exists).
+        var mfaPending = await db.MfaEnrollments.AnyAsync(e => e.UserId == user.Id && e.ConfirmedAt != null, ct);
+
         var rawToken = OpaqueToken.Generate();
         var session = new Session
         {
@@ -134,12 +141,13 @@ public sealed class AuthService(
             TokenHash = OpaqueToken.HashOf(rawToken),
             CreatedAt = now,
             ExpiresAt = now + SessionLifetime,
+            MfaPending = mfaPending,
         };
         db.Sessions.Add(session);
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
 
-        return new LoginResult(rawToken, user.Id, user.Role, session.ExpiresAt);
+        return new LoginResult(rawToken, user.Id, user.Role, session.ExpiresAt, mfaPending);
     }
 
     public async Task LogoutAsync(string rawSessionToken, CancellationToken ct)
@@ -233,16 +241,204 @@ public sealed class AuthService(
         // scope and the Users RLS policy permits the join (ADR-0024).
         await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
         var result = await db.Sessions
-            .Where(s => s.TokenHash == hash && s.RevokedAt == null && s.ExpiresAt > now)
+            // MFA-pending sessions hold no claims anywhere on the platform (mt6_10) — the challenge
+            // endpoint resolves the raw cookie itself, exactly like Logout.
+            .Where(s => s.TokenHash == hash && s.RevokedAt == null && s.ExpiresAt > now && !s.MfaPending)
             .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { Session = s, User = u })
             .Join(db.Principals, x => x.User.PrincipalId, p => p.Id, (x, p) => new { x.Session, x.User, Principal = p })
             .Where(x => x.Session.ClaimsVersion == x.Principal.ClaimsVersion && x.Principal.Status == PrincipalStatus.Active)
             .Where(x => x.User.TenantId != null)
-            .Select(x => new SessionInfo(x.Session.Id, x.User.Id, x.User.TenantId!.Value, x.User.Role, x.User.Email, x.Session.ExpiresAt))
+            .Select(x => new SessionInfo(
+                x.Session.Id, x.User.Id, x.User.TenantId!.Value, x.User.Role, x.User.Email, x.Session.ExpiresAt,
+                x.Session.StrongAuthAt, x.Session.StrongAuthAt != null ? "pwd otp" : "pwd"))
             .SingleOrDefaultAsync(ct);
 
         await scope.CommitAsync(ct);
         return result;
+    }
+
+    public async Task<MfaStatus?> GetMfaStatusAsync(string rawSessionToken, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
+        var resolved = await ResolveSessionAsync(rawSessionToken, includePending: true, ct);
+        if (resolved is null)
+        {
+            return null;
+        }
+
+        var (session, user) = resolved.Value;
+
+        var enrolled = await db.MfaEnrollments.AnyAsync(e => e.UserId == user.Id && e.ConfirmedAt != null, ct);
+        var tenantPolicy = user.TenantId is { } tenantId
+            ? await db.Tenants.Where(t => t.Id == tenantId).Select(t => t.MfaPolicy).SingleAsync(ct)
+            : MfaRequirement.Disabled;
+        var required = new MfaPolicy(platformMfa.Minimum, tenantPolicy).RequiresMfa(user.Role == Roles.Admin);
+        await scope.CommitAsync(ct);
+        return new MfaStatus(enrolled, session.MfaPending, required);
+    }
+
+    public async Task<MfaEnrollmentStart?> BeginMfaEnrollmentAsync(string rawSessionToken, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
+        var resolved = await ResolveSessionAsync(rawSessionToken, includePending: false, ct);
+        if (resolved is null)
+        {
+            return null;
+        }
+
+        var user = resolved.Value.User;
+
+        var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id, ct);
+        if (enrollment?.IsConfirmed == true)
+        {
+            // Resetting a confirmed factor from a mere session would be an account-takeover lever;
+            // that path is a deliberate support/recovery flow, not this endpoint.
+            return null;
+        }
+
+        var secret = Totp.GenerateSecret();
+        if (enrollment is null)
+        {
+            db.MfaEnrollments.Add(new MfaEnrollment
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = user.Id,
+                SecretBase32 = secret,
+                CreatedAt = time.GetUtcNow(),
+            });
+        }
+        else
+        {
+            enrollment.SecretBase32 = secret;
+        }
+
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return new MfaEnrollmentStart(secret, Totp.OtpauthUri("3commerce", user.Email, secret));
+    }
+
+    public async Task<IReadOnlyList<string>?> ConfirmMfaEnrollmentAsync(string rawSessionToken, string code, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
+        var resolved = await ResolveSessionAsync(rawSessionToken, includePending: false, ct);
+        var now = time.GetUtcNow();
+        if (resolved is null)
+        {
+            return null;
+        }
+
+        var (session, user) = resolved.Value;
+
+        var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id && e.ConfirmedAt == null, ct);
+        if (enrollment is null || !Totp.Verify(enrollment.SecretBase32, code, now))
+        {
+            return null;
+        }
+
+        var recoveryCodes = Enumerable.Range(0, 8)
+            .Select(_ => Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(5)))
+            .ToList();
+        enrollment.ConfirmedAt = now;
+        enrollment.RecoveryCodeHashes = recoveryCodes.Select(OpaqueToken.HashOf).ToList();
+        session.StrongAuthAt = now; // possession just proven
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return recoveryCodes;
+    }
+
+    public async Task<bool> CompleteMfaChallengeAsync(string rawSessionToken, string code, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
+        var resolved = await ResolveSessionAsync(rawSessionToken, includePending: true, ct);
+        var now = time.GetUtcNow();
+        if (resolved is null || !resolved.Value.Session.MfaPending)
+        {
+            return false;
+        }
+
+        var (session, user) = resolved.Value;
+
+        // Wrong codes feed the same counter/lockout as wrong passwords — a pending session is
+        // not an unthrottled TOTP oracle.
+        if (user.LockoutUntil is { } until && until > now)
+        {
+            return false;
+        }
+
+        var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id && e.ConfirmedAt != null, ct);
+        if (enrollment is null)
+        {
+            return false;
+        }
+
+        var codeHash = OpaqueToken.HashOf(code);
+        var isRecovery = enrollment.RecoveryCodeHashes.Contains(codeHash);
+        if (!isRecovery && !Totp.Verify(enrollment.SecretBase32, code, now))
+        {
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= LockoutThreshold)
+            {
+                var minutes = Math.Min(Math.Pow(2, user.FailedLoginCount - LockoutThreshold), MaxLockout.TotalMinutes);
+                user.LockoutUntil = now.AddMinutes(minutes);
+            }
+
+            await db.SaveChangesAsync(ct);
+            await scope.CommitAsync(ct);
+            return false;
+        }
+
+        if (isRecovery)
+        {
+            enrollment.RecoveryCodeHashes.Remove(codeHash); // one-time use
+        }
+
+        user.FailedLoginCount = 0;
+        user.LockoutUntil = null;
+        session.MfaPending = false;
+        session.StrongAuthAt = now;
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> StepUpAsync(string rawSessionToken, string code, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.Platform(), ct);
+        var resolved = await ResolveSessionAsync(rawSessionToken, includePending: false, ct);
+        var now = time.GetUtcNow();
+        if (resolved is null)
+        {
+            return false;
+        }
+
+        var (session, user) = resolved.Value;
+
+        var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id && e.ConfirmedAt != null, ct);
+        if (enrollment is null || !Totp.Verify(enrollment.SecretBase32, code, now))
+        {
+            return false;
+        }
+
+        session.StrongAuthAt = now;
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return true;
+    }
+
+    /// <summary>Live session + user by raw token; <paramref name="includePending"/> admits MFA-pending sessions.</summary>
+    private async Task<(Session Session, User User)?> ResolveSessionAsync(string rawSessionToken, bool includePending, CancellationToken ct)
+    {
+        var hash = OpaqueToken.HashOf(rawSessionToken);
+        var now = time.GetUtcNow();
+        var session = await db.Sessions.SingleOrDefaultAsync(
+            s => s.TokenHash == hash && s.RevokedAt == null && s.ExpiresAt > now, ct);
+        if (session is null || (session.MfaPending && !includePending))
+        {
+            return null;
+        }
+
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == session.UserId, ct);
+        return user is null ? null : (session, user);
     }
 
     private string CreateEmailToken(Guid userId, EmailTokenPurpose purpose, TimeSpan lifetime, DateTimeOffset now)

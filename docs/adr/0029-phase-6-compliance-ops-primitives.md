@@ -31,7 +31,7 @@ project move, not a redesign. Where each capability lives today:
 | Inbound webhooks | `…Webhooks.InboundWebhookVerifier` + gateway route convention | stripe→payments | `ProviderWebhook` |
 | Import/export | `…Export` — CsvExport/SignedDownload/Redaction | (job pending) | `Export` |
 | Object storage | `…Storage` — IObjectStore/LocalFileObjectStore/UploadPolicy/ImageVariant | (catalog images pending) | `Storage` |
-| MFA / step-up | `Identity.Domain.MfaPolicy/StepUp` | (login enforcement pending) | `MfaPolicy` |
+| MFA / step-up | `Identity.Domain.MfaPolicy/StepUp/Totp` | Identity login challenge + `/mfa/*` (def_1, 2026-07-04) | `MfaPolicy` |
 | Region / retention | `…Governance` — TenantRegion/RetentionPolicy | (sweep pending) | `Region` |
 | Observability metrics | `…Observability.AddServiceTelemetry` + deploy/observability stack | all services | (build) |
 
