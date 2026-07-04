@@ -78,6 +78,8 @@ Campaigns + short links (mt5_1/5_3). Standalone service; admin auth.
 | POST | `/admin/campaigns/{id}/activate\|pause\|end` | admin | Campaign lifecycle transitions |
 | GET | `/admin/short-links` | admin | List tenant short links |
 | POST | `/admin/short-links` | admin | Create a short link; destination host must be a registered storefront host (anti open-redirect) |
+| POST | `/events` | anon | Analytics batch collector (def_4): ≤50 events, deduped per tenant by client event id (retry-safe), payment-shaped payload keys sanitized, coarse IP only (/24 / /48). Consent is enforced at the storefront batcher; the storefront proxies via `/api/analytics/events` with `X-3C-Tenant-Id` |
+| GET | `/admin/analytics/events?tenantId=&take=` | admin | Most recent stored events (sanitized payload JSON, coarse IP) |
 
 ## Pricing (`/api/pricing`)
 

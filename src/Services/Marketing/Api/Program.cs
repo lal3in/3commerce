@@ -34,6 +34,7 @@ app.UseAuthorization();
 app.MapServiceHealth();
 app.MapCampaigns();
 app.MapShortLinks();
+app.MapAnalytics();
 
 app.Run();
 
