@@ -21,6 +21,7 @@
     <ProjectReference Include="../../src/Services/Usage/Api/3commerce.Usage.Api.csproj" />
     <ProjectReference Include="../../src/Services/Support/Api/3commerce.Support.Api.csproj" />
     <ProjectReference Include="../../src/Services/Entity/Api/3commerce.Entity.Api.csproj" />
+    <ProjectReference Include="../../src/Services/Marketing/Api/3commerce.Marketing.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
