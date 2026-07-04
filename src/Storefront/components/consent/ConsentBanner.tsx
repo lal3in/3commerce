@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { consentDecided, readConsent, writeConsent } from "@/lib/consent";
 import { clearFirstPartyIds } from "@/lib/visitor";
@@ -46,9 +47,9 @@ export default function ConsentBanner() {
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} /> Marketing
             </label>
-            <a href="/privacy" className="text-neutral-500 underline">
+            <Link href="/privacy" className="text-neutral-500 underline">
               Privacy settings
-            </a>
+            </Link>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">

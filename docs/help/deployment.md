@@ -95,6 +95,10 @@ docker compose --profile observability up otel-collector prometheus grafana
 Metrics are ops data, never financial truth; keep Grafana behind admin auth / a private network. Helm
 wiring for the stack is launch-gated.
 
+**Publishing preview links (def_5):** signed with `Publishing:PreviewSecret` (Marketing service; dev
+default `dev-preview-secret`) — set a real secret in any deployed environment. The `scheduled-publish`
+Quartz job sweeps due scheduled publishes every minute (disable with `Scheduling:Enabled=false`).
+
 **Mission-control bus stats (def_6):** the Admin console's Message Bus section reads the RabbitMQ
 management API directly (read-only). Configure `MessageBus:ManagementUrl` (dev default
 `http://localhost:15672`) and `MessageBus:ManagementUser`/`ManagementPassword` (dev default
