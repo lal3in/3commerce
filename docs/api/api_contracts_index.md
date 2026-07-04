@@ -177,6 +177,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET/POST | `/admin/supplier-payouts/instructions` | admin | Active payout instruction routing per supplier; creating one deactivates prior active instructions |
 | POST | `/admin/supplier-payouts/bank-accounts/{id}/approve\|reject\|archive` · `/instructions/{id}/deactivate` | admin | Supplier payout setup lifecycle actions |
 | GET/POST/PUT/DELETE | `/admin/xero/mappings[/{id}]` | admin | Xero account mapping CRUD with tenant/storefront/category/supplier/product precedence |
+| GET/POST | `/admin/webhook-secrets` · POST `/{id}/deactivate` | admin | Provider webhook signing-secret registry (def_2): write-only (responses always masked), rotation-safe — verification tries every active secret newest-first, then the `Stripe:WebhookSecret` config fallback |
 | GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
 | POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
 

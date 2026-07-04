@@ -38,6 +38,7 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<PaymentEventProcessor>();
+builder.Services.AddScoped<WebhookSecretService>();
 builder.Services.AddScoped<SubscriptionService>();
 
 // Scheduled jobs (mt6_3): Quartz fires the daily Xero journal post; each run is recorded as a JobRun.
@@ -73,6 +74,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
 app.MapWebhooks();
+app.MapWebhookSecretAdmin();
 app.MapAdmin();
 app.MapAdminXero();
 app.MapXeroMappings();

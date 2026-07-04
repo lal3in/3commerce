@@ -78,9 +78,61 @@
     }
 </section>
 
+<section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;margin-top:1rem;">
+    <h2 style="margin-top:0;font-size:1.05rem;">Webhook signing secrets</h2>
+    <p style="color:#6b7280;font-size:.9rem;">
+        Provider webhook secrets (e.g. Stripe's <code>whsec_…</code>). Values are stored server-side and only ever
+        shown masked. To rotate: add the new secret (both verify), switch the provider, then deactivate the old one.
+    </p>
+    @if (_secrets is null)
+    {
+        <p>Loading…</p>
+    }
+    else
+    {
+        <table style="border-collapse:collapse;width:100%;font-size:.9rem;">
+            <thead><tr style="text-align:left;color:#6b7280;"><th>Provider</th><th>Secret</th><th>Label</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var s in _secrets)
+            {
+                <tr style="border-top:1px solid #f3f4f6;">
+                    <td>@s.Provider</td>
+                    <td><code>@s.Masked</code></td>
+                    <td>@s.Label</td>
+                    <td>@(s.Active ? "active" : "deactivated")</td>
+                    <td>
+                        @if (s.Active)
+                        {
+                            <button @onclick="() => DeactivateSecret(s.Id)" disabled="@_busy" style="padding:.2rem .5rem;"
+                                    title="Stop accepting webhooks signed with this secret. Do this only after the provider has cut over to a newer one.">
+                                Deactivate
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
+            <select @bind="_newSecretProvider" title="The provider whose webhook this secret signs — matches the /webhooks/{provider} route.">
+                <option value="stripe">stripe</option>
+            </select>
+            <input @bind="_newSecretValue" placeholder="whsec_…" style="flex:1;min-width:12rem;padding:.4rem;"
+                   title="Paste the signing secret from the provider dashboard. It is never displayed again." />
+            <input @bind="_newSecretLabel" placeholder="label (optional)" style="width:10rem;padding:.4rem;"
+                   title="Operator note, e.g. 'live key 2026-07'." />
+            <button @onclick="AddSecret" disabled="@_busy" style="padding:.4rem .8rem;">Add secret</button>
+        </div>
+    }
+</section>
+
 @code {
     private MfaStatusDto? _mfa;
     private MfaPolicyDto? _policy;
+    private List<WebhookSecretDto>? _secrets;
+    private string _newSecretProvider = "stripe";
+    private string _newSecretValue = "";
+    private string _newSecretLabel = "";
     private EnrollStartDto? _enrollStart;
     private List<string>? _recoveryCodes;
     private string _confirmCode = "";
@@ -96,6 +148,43 @@
         _mfa = await Gateway.GetAsync<MfaStatusDto>("/api/identity/mfa/status");
         _policy = await Gateway.GetAsync<MfaPolicyDto>("/api/identity/mfa/policy");
         _selectedPolicy = _policy is null ? 0 : (int)_policy.TenantPolicy;
+        _secrets = await Gateway.GetListAsync<WebhookSecretDto>("/api/payments/admin/webhook-secrets");
+    }
+
+    private async Task AddSecret()
+    {
+        _busy = true; _error = null; _status = null;
+        var response = await Gateway.PostAsync("/api/payments/admin/webhook-secrets",
+            new { provider = _newSecretProvider, secret = _newSecretValue, label = _newSecretLabel });
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Secret registered.";
+            _newSecretValue = ""; _newSecretLabel = "";
+            _secrets = await Gateway.GetListAsync<WebhookSecretDto>("/api/payments/admin/webhook-secrets");
+        }
+        else
+        {
+            _error = "Could not register the secret.";
+        }
+
+        _busy = false;
+    }
+
+    private async Task DeactivateSecret(Guid id)
+    {
+        _busy = true; _error = null; _status = null;
+        var response = await Gateway.PostAsync($"/api/payments/admin/webhook-secrets/{id}/deactivate");
+        if (response.IsSuccessStatusCode)
+        {
+            _status = "Secret deactivated.";
+            _secrets = await Gateway.GetListAsync<WebhookSecretDto>("/api/payments/admin/webhook-secrets");
+        }
+        else
+        {
+            _error = "Could not deactivate the secret.";
+        }
+
+        _busy = false;
     }
 
     private async Task BeginEnroll()
@@ -158,4 +247,5 @@
     private sealed record MfaPolicyDto(int PlatformMinimum, int TenantPolicy, int Effective);
     private sealed record EnrollStartDto(string SecretBase32, string OtpauthUri);
     private sealed record RecoveryCodesDto(string Message, List<string> RecoveryCodes);
+    private sealed record WebhookSecretDto(Guid Id, string Provider, string Masked, string? Label, bool Active, DateTimeOffset CreatedAt, DateTimeOffset? DeactivatedAt);
 }

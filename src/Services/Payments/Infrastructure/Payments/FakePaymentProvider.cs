@@ -49,7 +49,7 @@ public sealed class FakePaymentProvider : IPaymentProvider
         Task.FromResult(new ProviderRefundResult($"re_fake_{Guid.CreateVersion7():N}", Succeeded: true));
 
     // Real webhooks come from Stripe; the fake path uses the dev simulate endpoint instead.
-    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader) => null;
+    public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
 
     /// <summary>Deterministic fake fee (2.9% + 30 minor units) so the ledger fee line is exercised.</summary>
     public static long FakeFee(long grossMinor) => (long)Math.Round(grossMinor * 0.029) + 30;
