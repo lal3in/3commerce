@@ -39,7 +39,8 @@ public sealed class InternalClaimsMinter
         _credentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
     }
 
-    public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId, string? email = null)
+    public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId, string? email = null,
+        string? amr = null, DateTimeOffset? authTime = null)
     {
         var now = DateTime.UtcNow;
         var claims = new Dictionary<string, object>
@@ -52,6 +53,18 @@ public sealed class InternalClaimsMinter
         if (!string.IsNullOrWhiteSpace(email))
         {
             claims["email"] = email;
+        }
+
+        // MFA posture (mt6_10): amr "pwd"/"pwd otp"; auth_time = last strong verification, the
+        // freshness anchor services compare against StepUp windows.
+        if (!string.IsNullOrWhiteSpace(amr))
+        {
+            claims["amr"] = amr;
+        }
+
+        if (authTime is { } strongAuthAt)
+        {
+            claims["auth_time"] = strongAuthAt.ToUnixTimeSeconds();
         }
 
         return _handler.CreateToken(new SecurityTokenDescriptor

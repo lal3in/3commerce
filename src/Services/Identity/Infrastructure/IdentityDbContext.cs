@@ -12,6 +12,7 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<EmailToken> EmailTokens => Set<EmailToken>();
+    public DbSet<MfaEnrollment> MfaEnrollments => Set<MfaEnrollment>();
 
     // Multi-tenant foundation (ADR-0023/0025/0026).
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -56,6 +57,13 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
         modelBuilder.Entity<EmailToken>(token =>
         {
             token.HasIndex(t => t.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<MfaEnrollment>(mfa =>
+        {
+            // One factor per user; keyed by UserId (no TenantId — isolation is transitive via Users).
+            mfa.HasIndex(m => m.UserId).IsUnique();
+            mfa.HasOne<User>().WithMany().HasForeignKey(m => m.UserId);
         });
 
         modelBuilder.Entity<Tenant>(tenant =>

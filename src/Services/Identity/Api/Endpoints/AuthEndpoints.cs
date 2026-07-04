@@ -44,7 +44,7 @@ public static class AuthEndpoints
             new MessageResponse("Account created. Verify your email and your order will appear in your history."));
     }
 
-    private static async Task<Results<Ok<MessageResponse>, UnauthorizedHttpResult>> Login(
+    private static async Task<Results<Ok<LoginResponse>, UnauthorizedHttpResult>> Login(
         LoginRequest request, IAuthService auth, HttpContext httpContext, CancellationToken cancellationToken)
     {
         var result = await auth.LoginAsync(request.Email, request.Password, cancellationToken);
@@ -53,6 +53,8 @@ public static class AuthEndpoints
             return TypedResults.Unauthorized();
         }
 
+        // Set even when MFA-pending: the pending session introspects to nothing (no claims anywhere),
+        // and the same cookie is what POST /mfa/challenge completes.
         httpContext.Response.Cookies.Append(SessionCookieName, result.RawSessionToken, new CookieOptions
         {
             HttpOnly = true,
@@ -62,7 +64,9 @@ public static class AuthEndpoints
             Path = "/",
         });
 
-        return TypedResults.Ok(new MessageResponse("Logged in."));
+        return TypedResults.Ok(result.MfaPending
+            ? new LoginResponse("Enter your authenticator code to finish signing in.", MfaRequired: true)
+            : new LoginResponse("Logged in.", MfaRequired: false));
     }
 
     private static async Task<NoContent> Logout(
@@ -121,3 +125,6 @@ public record ResetConfirmRequest(
     [property: Required, MinLength(10), MaxLength(256)] string NewPassword);
 
 public record MessageResponse(string Message);
+
+/// <summary>MfaRequired: password accepted but the session is pending POST /mfa/challenge.</summary>
+public record LoginResponse(string Message, bool MfaRequired);

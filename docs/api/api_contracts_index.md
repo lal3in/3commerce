@@ -37,8 +37,13 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
 | GET/PUT | `/me` | session | Customer shopping profile with optional `givenName` / `familyName` |
 | GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
+| GET | `/mfa/status` | cookie | `{enrolled, pending, required}` for the session's account (mt6_10) |
+| POST | `/mfa/enroll/begin` · `/mfa/enroll/confirm` | cookie | TOTP enrollment: begin returns secret + otpauth URI; confirm proves possession and returns the one-time recovery codes. A confirmed factor cannot be reset here (support flow) |
+| POST | `/mfa/challenge` | cookie (pending) | Completes an MFA-pending login with a TOTP or recovery code. `POST /login` returns `{mfaRequired:true}` and a pending session that introspects to nothing until this passes |
+| POST | `/mfa/step-up` | cookie | Re-verifies the factor; refreshes the `auth_time` freshness anchor for sensitive actions |
+| GET/PUT | `/mfa/policy` | admin | Tenant MFA policy (numeric `MfaRequirement`); effective = max(platform floor `Mfa:PlatformMinimum`, tenant) |
 
-> `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly.
+> `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly. MFA-pending sessions introspect 401, so they hold no claims anywhere; internal-claims JWTs carry `amr` (`pwd` / `pwd otp`) and `auth_time` once a factor is verified.
 
 ## Catalog (`/api/catalog`)
 

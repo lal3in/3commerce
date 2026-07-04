@@ -64,7 +64,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 1. ⬜ External penetration test / review (launch gate, PRD Appendix B).
 2. ⬜ Breached-password check (HIBP) at registration/reset.
 3. ⚠️ Rotate all dev secrets; move to a secret manager for any deployed environment.
-4. ⬜ MFA for admin accounts (PRD §13).
+4. ✅ MFA for admin accounts (PRD §13) — TOTP enrollment + login challenge + step-up shipped 2026-07-04 (def_1); pending sessions carry no claims. Remaining: operators actually enroll (operational launch gate, PRD Appendix B).
 5. ⚠️ "New device/login" security notifications.
 
 No **critical** open findings in the current pre-launch scope. Re-run this audit after any auth change.

@@ -29,6 +29,7 @@
 
 1. **Company registration** — country unknown → blocks Stripe live keys, Xero production org, real tax strategy, payout currency, privacy policy/imprint.
 2. **Supplier contract** — blocks real catalog data and forces the dropship-vs-warehouse decision.
+3. **Operator MFA enrollment** — the TOTP capability shipped 2026-07-04 (def_1: enrollment + login challenge + step-up; Admin → Security). The remaining gate is operational: every operator account enrolls, and the tenant policy is set to *Required for privileged*, before real tenants.
 
 ## C. Key external dependencies
 

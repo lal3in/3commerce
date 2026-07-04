@@ -30,7 +30,9 @@ public sealed class SessionAuthMiddleware(
             var session = await ResolveSessionAsync(rawToken, context.RequestAborted);
             if (session is not null)
             {
-                context.Request.Headers[ClaimsHeader] = minter.Mint(session.UserId, session.Role, session.SessionId, session.TenantId, session.Email);
+                context.Request.Headers[ClaimsHeader] = minter.Mint(
+                    session.UserId, session.Role, session.SessionId, session.TenantId, session.Email,
+                    session.Amr, session.StrongAuthAt);
             }
         }
 
@@ -77,5 +79,7 @@ public sealed class SessionAuthMiddleware(
         }
     }
 
-    private sealed record IntrospectedSession(Guid SessionId, Guid UserId, Guid TenantId, string Role, string Email, DateTimeOffset ExpiresAt);
+    private sealed record IntrospectedSession(
+        Guid SessionId, Guid UserId, Guid TenantId, string Role, string Email, DateTimeOffset ExpiresAt,
+        DateTimeOffset? StrongAuthAt = null, string? Amr = null);
 }
