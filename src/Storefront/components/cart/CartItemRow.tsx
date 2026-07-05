@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useTransition } from "react";
 import type { CartItemDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { removeFromCart, updateCartQuantity } from "@/lib/cart-actions";
+import { SafeImage } from "@/components/SafeImage";
 
 export function CartItemRow({ item }: { item: CartItemDto }) {
   const [pending, start] = useTransition();
@@ -22,7 +22,7 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
   return (
     <li className="flex items-center gap-4 py-4">
       <div className="w-16 h-16 bg-neutral-100 relative rounded overflow-hidden shrink-0">
-        {item.imageUrl && <Image src={item.imageUrl} alt={item.title} fill sizes="64px" className="object-cover" />}
+        {item.imageUrl && <SafeImage src={item.imageUrl} alt={item.title} fill sizes="64px" className="object-cover" />}
       </div>
       <div className="flex-1">
         <p className="text-sm font-medium">{item.title}</p>

@@ -1,10 +1,10 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
+import { SafeImage } from "@/components/SafeImage";
 import { breadcrumbJsonLd, productJsonLd, siteUrl } from "@/lib/seo";
 
 // ISR product page (gateway uses revalidate: 300) for SEO at catalog scale (components.md §1).
@@ -70,7 +70,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       />
       <div className="aspect-square bg-neutral-100 relative rounded-lg overflow-hidden">
         {product.imageUrls[0] && (
-          <Image
+          <SafeImage
             src={product.imageUrls[0]}
             alt={product.title}
             fill
