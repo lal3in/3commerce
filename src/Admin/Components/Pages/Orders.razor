@@ -73,8 +73,8 @@ else
         var response = await Gateway.PostAsync($"/api/ordering/admin/orders/{id}/cancel", new { reason = "cancelled by admin" });
         if (response.IsSuccessStatusCode)
         {
-            _status = "Order cancelled.";
             await LoadAsync();
+            _status = "Order cancelled."; // after LoadAsync — it clears _status on refresh
         }
         else
         {
@@ -86,11 +86,12 @@ else
     {
         if (_confirm != $"{o.Id}:refund") { _confirm = $"{o.Id}:refund"; return; }
         _confirm = null;
-        var response = await Gateway.PostAsync("/api/payments/admin/refunds", new { orderId = o.Id, amountMinor = o.GrossMinor, reason = "refunded by admin" });
+        // Deterministic key per order so a retried refund of the same order is idempotent (endpoint requires it).
+        var response = await Gateway.PostAsync("/api/payments/admin/refunds", new { orderId = o.Id, amountMinor = o.GrossMinor, reason = "refunded by admin" }, idempotencyKey: $"refund-{o.Id}");
         if (response.IsSuccessStatusCode)
         {
-            _status = "Refund requested — the ledger will reverse.";
             await LoadAsync();
+            _status = "Refund requested — the ledger will reverse."; // after LoadAsync — it clears _status on refresh
         }
         else
         {
