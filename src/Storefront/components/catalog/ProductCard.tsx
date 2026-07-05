@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ProductHit } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
+import { SafeImage } from "@/components/SafeImage";
 
 // Server Component (default): no interactivity, just renders props (components.md §1).
 export function ProductCard({ product }: { product: ProductHit }) {
@@ -12,7 +12,7 @@ export function ProductCard({ product }: { product: ProductHit }) {
     >
       <div className="aspect-square bg-neutral-100 relative">
         {product.imageUrl && (
-          <Image
+          <SafeImage
             src={product.imageUrl}
             alt={product.title}
             fill
