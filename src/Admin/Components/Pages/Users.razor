@@ -119,8 +119,8 @@
         if (response.IsSuccessStatusCode)
         {
             _emailFor = null;
+            await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
             _status = "Email changed — the user must re-verify.";
-            await LoadAsync();
         }
         else
         {

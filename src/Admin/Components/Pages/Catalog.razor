@@ -112,7 +112,7 @@ else
             {
                 var idx = i;
                 <div style="display:flex; gap:.3rem; margin-bottom:.3rem; align-items:center;">
-                    <div style="flex:1;"><ImageInput Value="_editing.ImageUrls[idx]" ValueChanged="@(v => _editing.ImageUrls[idx] = v ?? string.Empty)" /></div>
+                    <div style="flex:1;"><ImageInput Value="@_editing.ImageUrls[idx]" ValueChanged="@(v => _editing.ImageUrls[idx] = v ?? string.Empty)" /></div>
                     <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" style="color:#b91c1c;">✕</button>
                 </div>
             }

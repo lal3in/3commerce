@@ -170,9 +170,9 @@
         var response = await Gateway.PostAsync("/api/payments/admin/supplier-payouts/bank-accounts", body);
         if (response.IsSuccessStatusCode)
         {
-            _status = "Bank account created pending approval.";
             _newBank.Reset();
-            await LoadAsync();
+            await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+            _status = "Bank account created pending approval.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -184,8 +184,8 @@
         var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/bank-accounts/{id}/{action}", body);
         if (response.IsSuccessStatusCode)
         {
-            _status = $"Bank account {action}d.";
-            await LoadAsync();
+            await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+            _status = $"Bank account {(action == "approve" ? "approved" : "rejected")}.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -196,8 +196,8 @@
         var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/bank-accounts/{id}/archive");
         if (response.IsSuccessStatusCode)
         {
-            _status = "Bank account archived.";
             await LoadAsync();
+            _status = "Bank account archived.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -216,9 +216,9 @@
         var response = await Gateway.PostAsync("/api/payments/admin/supplier-payouts/instructions", body);
         if (response.IsSuccessStatusCode)
         {
-            _status = "Payout instruction created.";
             _newInstruction.Reset();
             await LoadAsync();
+            _status = "Payout instruction created.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
@@ -229,8 +229,8 @@
         var response = await Gateway.PostAsync($"/api/payments/admin/supplier-payouts/instructions/{id}/deactivate");
         if (response.IsSuccessStatusCode)
         {
-            _status = "Payout instruction deactivated.";
             await LoadAsync();
+            _status = "Payout instruction deactivated.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }

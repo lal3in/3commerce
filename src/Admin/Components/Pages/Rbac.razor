@@ -165,8 +165,8 @@ else
         var response = await Gateway.DeleteAsync($"/api/identity/admin/rbac/roles/{r.Id}");
         if (response.IsSuccessStatusCode)
         {
+            await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
             _status = $"Deleted role '{r.Name}'.";
-            await LoadAsync();
         }
         else
         {
@@ -206,9 +206,10 @@ else
 
             if (response.IsSuccessStatusCode)
             {
-                _status = $"Role '{_editing.Name}' saved.";
+                var savedName = _editing.Name;
                 _editing = null;
-                await LoadAsync();
+                await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+                _status = $"Role '{savedName}' saved.";
             }
             else
             {
