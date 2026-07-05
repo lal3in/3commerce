@@ -102,6 +102,10 @@ public static class OfferEndpoints
             if (request.PricingModel is { } model)
             {
                 offer.SetPricing(model, request.BillingPeriod ?? offer.BillingPeriod, ToTiers(request.Tiers), now);
+                // SetPricing creates fresh client-keyed tiers on the TRACKED offer's nav; DetectChanges
+                // would infer them Modified (UPDATE → 0 rows → DbUpdateConcurrencyException). Tiers aren't
+                // loaded here, so every tier in the collection is new — add them through the context.
+                db.AddRange(offer.PriceTiers);
             }
 
             await db.SaveChangesAsync(ct);

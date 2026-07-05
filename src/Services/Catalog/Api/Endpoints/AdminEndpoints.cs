@@ -210,6 +210,10 @@ public static class AdminEndpoints
             {
                 existing = new Variant { Id = Guid.CreateVersion7(), ProductId = product.Id, Sku = v.Sku, Currency = defaultCurrency };
                 product.Variants.Add(existing);
+                // A new client-keyed child added via a TRACKED parent's nav is inferred Modified by
+                // DetectChanges (UPDATE → 0 rows → DbUpdateConcurrencyException); add it through the
+                // context so EF marks it Added.
+                db.Variants.Add(existing);
             }
 
             existing.Sku = v.Sku;
@@ -228,7 +232,9 @@ public static class AdminEndpoints
                 var ep = existing.Prices.FirstOrDefault(x => x.Currency == cur);
                 if (ep is null)
                 {
-                    existing.Prices.Add(new VariantPrice { Id = Guid.CreateVersion7(), VariantId = existing.Id, Currency = cur, PriceMinor = price });
+                    var newPrice = new VariantPrice { Id = Guid.CreateVersion7(), VariantId = existing.Id, Currency = cur, PriceMinor = price };
+                    existing.Prices.Add(newPrice);
+                    db.VariantPrices.Add(newPrice); // force Added; a tracked-parent nav Add is inferred Modified
                 }
                 else
                 {
