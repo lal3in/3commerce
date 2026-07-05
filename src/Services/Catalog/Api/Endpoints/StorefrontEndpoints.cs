@@ -187,7 +187,11 @@ public static class StorefrontEndpoints
 
         try
         {
-            storefront.AddDomain(request.Host, request.Canonical, time.GetUtcNow());
+            var newDomain = storefront.AddDomain(request.Host, request.Canonical, time.GetUtcNow());
+            // A new client-keyed child added via a TRACKED parent's nav is inferred Modified by
+            // DetectChanges (Guid PK is store-generated) → EF issues an UPDATE that affects 0 rows →
+            // DbUpdateConcurrencyException. Add it through the context directly so it's marked Added.
+            db.StorefrontDomains.Add(newDomain);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
