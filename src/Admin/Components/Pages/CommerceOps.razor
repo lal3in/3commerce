@@ -212,12 +212,12 @@
     {
         _error = null;
         var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints });
-        var created = await HandleMutation(response, "Storefront created.");
-        if (created)
+        // LoadStorefronts clears _error, so refresh FIRST then report the outcome (D3: errors were being wiped).
+        await LoadStorefronts();
+        if (await HandleMutation(response, "Storefront created."))
         {
             ResetCreateStorefrontForm();
         }
-        await LoadStorefronts();
     }
 
     private void SelectStorefront(StorefrontDto storefront)
@@ -236,29 +236,33 @@
     private async Task UpdateStorefront()
     {
         if (_selectedStorefront is null) return;
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
-        await HandleMutation(response, "Storefront settings updated.");
+        var selectedId = _selectedStorefront.Id;
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
         await LoadStorefronts();
-        _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == _selectedStorefront.Id);
+        _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == selectedId);
+        await HandleMutation(response, "Storefront settings updated.");
     }
 
     private async Task Transition(Guid id, string transition)
     {
         var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{id}/{transition}");
-        await HandleMutation(response, $"Storefront {transition} requested.");
+        // Refresh FIRST — LoadStorefronts clears _error, so a failed transition (e.g. Activate on a
+        // not-ready storefront) must set its feedback AFTER the reload or it would be swallowed (D3).
         await LoadStorefronts();
         if (_selectedStorefront?.Id == id)
         {
             _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == id);
         }
+        await HandleMutation(response, $"Storefront {transition} requested.");
     }
 
     private async Task AddDomain()
     {
         if (_selectedStorefront is null) return;
         var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/domains", new { host = _domainHost, canonical = _domainCanonical });
-        await HandleMutation(response, "Domain added.");
+        // Refresh FIRST — LoadStorefronts clears _error, so a failed add (server error) is set AFTER (D3).
         await LoadStorefronts();
+        await HandleMutation(response, "Domain added.");
     }
 
     private async Task CheckReadiness()
@@ -306,7 +310,7 @@
         }
 
         _status = null;
-        _error = $"Request failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}";
+        _error = $"Request failed ({(int)response.StatusCode}): {await GatewayError.ReadAsync(response)}";
         return false;
     }
 

@@ -125,7 +125,7 @@
             ? new { tenantId = tenant, productId = product, variantId = variant, supplierId = supplier, supplyCategory = _form.SupplyCategory, fulfilmentType = _form.FulfilmentType, priceMinor = _form.PriceMinor, currency = _form.Currency, priority = _form.Priority, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers }
             : new { priceMinor = _form.PriceMinor, priority = _form.Priority, active = _form.Active, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers };
         var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
-        if (response.IsSuccessStatusCode) { _status = "Offer saved."; ResetForm(); await LoadAsync(); }
+        if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = "Offer saved."; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
 

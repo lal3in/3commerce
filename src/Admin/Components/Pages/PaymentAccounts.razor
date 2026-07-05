@@ -129,7 +129,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = $"Account {action}d.";
+            _status = $"Account {action switch { "submit" => "submitted", "activate" => "activated", "suspend" => "suspended", "archive" => "archived", _ => action + "d" }}.";
         }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }

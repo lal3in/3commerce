@@ -146,7 +146,7 @@ else
             }
             else
             {
-                _error = $"Update failed: {await response.Content.ReadAsStringAsync()}";
+                _error = $"Update failed: {await GatewayError.ReadAsync(response)}";
             }
         }
         finally
@@ -198,7 +198,7 @@ else
 
         var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/{action}", body);
         if (response.IsSuccessStatusCode) { _info = $"Supplier '{action.Split('/').Last()}' ok."; }
-        else { _error = $"Action failed: {await response.Content.ReadAsStringAsync()}"; }
+        else { _error = $"Action failed: {await GatewayError.ReadAsync(response)}"; }
         await LoadAsync();
     }
 
@@ -221,7 +221,7 @@ else
         }
         else
         {
-            _error = $"{decision} failed: {await response.Content.ReadAsStringAsync()}";
+            _error = $"{decision} failed: {await GatewayError.ReadAsync(response)}";
         }
     }
 

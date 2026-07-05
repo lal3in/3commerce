@@ -73,7 +73,7 @@
         var response = _editingId is null
             ? await Gateway.PostAsync("/api/payments/admin/xero/mappings", body)
             : await Gateway.PutAsync($"/api/payments/admin/xero/mappings/{_editingId}", body);
-        if (response.IsSuccessStatusCode) { _status = "Xero mapping saved."; ResetForm(); await LoadAsync(); }
+        if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = "Xero mapping saved."; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
 
@@ -81,7 +81,7 @@
     {
         _error = _status = null;
         var response = await Gateway.DeleteAsync($"/api/payments/admin/xero/mappings/{id}");
-        if (response.IsSuccessStatusCode) { _status = "Xero mapping deleted."; await LoadAsync(); }
+        if (response.IsSuccessStatusCode) { await LoadAsync(); _status = "Xero mapping deleted."; }
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
 
