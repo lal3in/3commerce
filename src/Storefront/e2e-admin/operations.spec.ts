@@ -24,6 +24,26 @@ test.describe("Admin operations surfaces", () => {
     });
   }
 
+  test("refunding a confirmed order succeeds and renders the result", async ({ page, request }) => {
+    const { orderId } = await seedPaidOrderWithRma(request);
+
+    await page.goto("/orders");
+    const row = page.locator("tr", { hasText: orderId });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("Confirmed");
+
+    // Two-click confirm: first arms the button, second sends the refund.
+    const action = row.getByRole("button");
+    await action.click();
+    await expect(action).toHaveText(/confirm\?/i);
+    await action.click();
+
+    // Regression: the refund used to 400 ("Idempotency-Key header is required.") and, once
+    // fixed, the success status was wiped by the follow-up reload. Both must now be gone.
+    await expect(page.getByText(/refund requested/i)).toBeVisible();
+    await expect(page.getByText(/idempotency-key/i)).toHaveCount(0);
+  });
+
   test("RMA queue exposes both immediate-refund and require-return actions for requested RMAs", async ({ page, request }) => {
     const { orderId } = await seedPaidOrderWithRma(request);
 
