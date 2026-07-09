@@ -23,7 +23,8 @@ test.describe("Account", () => {
     await page.getByRole("button", { name: /log in/i }).click();
 
     await expect(page).toHaveURL(/\/account/);
-    await expect(page.getByText(email)).toBeVisible();
+    // The email renders twice for unverified accounts (profile + verify-email notice) — strict mode needs first().
+    await expect(page.getByText(email).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /log out/i })).toBeVisible();
   });
 
