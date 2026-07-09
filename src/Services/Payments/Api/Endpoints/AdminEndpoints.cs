@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Infrastructure;
 
@@ -49,7 +51,8 @@ public static class AdminEndpoints
     /// ExecuteRefundConsumer acts on (same path the Phase-4 RMA will use). Idempotency-Key required.
     /// </summary>
     private static async Task<Results<Accepted<RefundResponse>, BadRequest<string>>> RequestRefund(
-        RefundRequest request, HttpContext http, IPublishEndpoint publisher, PaymentsDbContext db, CancellationToken ct)
+        RefundRequest request, HttpContext http, IPublishEndpoint publisher, PaymentsDbContext db,
+        IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
         var key = http.Request.Headers["Idempotency-Key"].ToString();
         if (string.IsNullOrEmpty(key))
@@ -80,10 +83,19 @@ public static class AdminEndpoints
             CreatedAt = DateTimeOffset.UtcNow,
         });
         await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin"), ct);
+        // Refund requests carry no tenant, so the entry lands under the configured default tenant —
+        // the same default the Audit search (and Mission Control) falls back to.
+        await audit.RecordAsync(user.Mutation(
+            DefaultTenantId(config), "Refund", refundId.ToString(), "payments.refund.request", request.Reason), ct);
         // The bus outbox only delivers on SaveChanges; this also commits the idempotency record.
         await db.SaveChangesAsync(ct);
         return TypedResults.Accepted((string?)null, response);
     }
+
+    private static Guid DefaultTenantId(IConfiguration config) =>
+        Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
+            ? tenantId
+            : new Guid("00000000-0000-0000-0000-000000000001");
 }
 
 public record AccountDto(string Code, string Name, string Type);

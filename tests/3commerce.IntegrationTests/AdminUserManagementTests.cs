@@ -61,7 +61,7 @@ public class AdminUserManagementTests : IAsyncLifetime
     private IdentityDbContext NewContext() =>
         new(new DbContextOptionsBuilder<IdentityDbContext>().UseNpgsql(_cs).Options);
 
-    private static AdminUserService Service(IdentityDbContext db) => new(db, new FakeHasher());
+    private static AdminUserService Service(IdentityDbContext db) => new(db, new FakeHasher(), new NoOpAuditRecorder());
 
     [Fact]
     public async Task Lists_users_in_the_tenant()
@@ -75,7 +75,7 @@ public class AdminUserManagementTests : IAsyncLifetime
     public async Task Reset_password_issues_temp_changes_hash_and_clears_lockout()
     {
         await using var db = NewContext();
-        var temp = await Service(db).ResetPasswordAsync(Tenant, _userId, default);
+        var temp = await Service(db).ResetPasswordAsync(Tenant, _userId, null, null, default);
         Assert.False(string.IsNullOrWhiteSpace(temp));
 
         await using var verify = NewContext();
@@ -88,7 +88,7 @@ public class AdminUserManagementTests : IAsyncLifetime
     public async Task Change_email_normalises_and_forces_reverification()
     {
         await using var db = NewContext();
-        Assert.True(await Service(db).ChangeEmailAsync(Tenant, _userId, "  New@Example.test ", default));
+        Assert.True(await Service(db).ChangeEmailAsync(Tenant, _userId, "  New@Example.test ", null, null, default));
 
         await using var verify = NewContext();
         var user = await verify.Users.AsNoTracking().SingleAsync(u => u.Id == _userId);
@@ -100,12 +100,18 @@ public class AdminUserManagementTests : IAsyncLifetime
     public async Task Reset_unknown_user_returns_null()
     {
         await using var db = NewContext();
-        Assert.Null(await Service(db).ResetPasswordAsync(Tenant, Guid.NewGuid(), default));
+        Assert.Null(await Service(db).ResetPasswordAsync(Tenant, Guid.NewGuid(), null, null, default));
     }
 
     private sealed class FakeHasher : IPasswordHasher
     {
         public string Hash(string password) => $"H:{password}";
         public bool Verify(string password, string encodedHash) => encodedHash == $"H:{password}";
+    }
+
+    // No bus in this unit-style integration test — audit recording is a no-op here.
+    private sealed class NoOpAuditRecorder : ThreeCommerce.BuildingBlocks.Infrastructure.Audit.IAuditRecorder
+    {
+        public Task RecordAsync(ThreeCommerce.BuildingBlocks.Infrastructure.Audit.AuditDraft draft, CancellationToken ct) => Task.CompletedTask;
     }
 }

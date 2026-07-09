@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
@@ -46,6 +47,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
 
 builder.Services.AddServiceHealth<OrderingDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
+builder.Services.AddAuditRecorder("ordering");
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CartService>();
 

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
 
@@ -13,7 +14,7 @@ namespace ThreeCommerce.Identity.Infrastructure;
 /// NOTE: gated by the admin role + an explicit tenantId today. True cross-tenant *global master* control
 /// should additionally require MasterGlobal (platform scope) — tracked as a follow-up.
 /// </summary>
-public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher)
+public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher, IAuditRecorder audit)
 {
     public async Task<List<AdminUserDto>> ListAsync(Guid tenantId, CancellationToken ct)
     {
@@ -28,7 +29,7 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
     }
 
     /// <summary>Sets a fresh temporary password and returns it (shown once to the operator). Clears lockout.</summary>
-    public async Task<string?> ResetPasswordAsync(Guid tenantId, Guid userId, CancellationToken ct)
+    public async Task<string?> ResetPasswordAsync(Guid tenantId, Guid userId, Guid? actorId, string? actorRole, CancellationToken ct)
     {
         await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenantId), ct);
         var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, ct);
@@ -40,13 +41,16 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
         var temporary = GenerateTemporaryPassword();
         user.PasswordHash = passwordHasher.Hash(temporary);
         user.FailedLoginCount = 0;
+        // Records who reset whose password — never the password itself (mt6_2 PII-safety).
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, actorId, actorRole, "User", userId.ToString(), "identity.user.reset_password"), ct);
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
         return temporary;
     }
 
     /// <summary>Changes the user's email and marks it unverified (a fresh verification must follow).</summary>
-    public async Task<bool> ChangeEmailAsync(Guid tenantId, Guid userId, string newEmail, CancellationToken ct)
+    public async Task<bool> ChangeEmailAsync(Guid tenantId, Guid userId, string newEmail, Guid? actorId, string? actorRole, CancellationToken ct)
     {
         var normalized = newEmail.Trim().ToLowerInvariant();
         await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenantId), ct);
@@ -65,6 +69,8 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
 
         user.Email = normalized;
         user.EmailVerified = false;
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, actorId, actorRole, "User", userId.ToString(), "identity.user.change_email"), ct);
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
         return true;

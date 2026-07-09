@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
@@ -24,14 +26,14 @@ public static class PaymentAccountAdminEndpoints
         group.MapPut("/{id:guid}", Update);
         group.MapPost("/{id:guid}/make-default", MakeDefault);
         group.MapGet("/{id:guid}/readiness", Readiness);
-        group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, CancellationToken ct) =>
-            Transition(id, db, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, CancellationToken ct) =>
-            Transition(id, db, a => a.Activate(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, CancellationToken ct) =>
-            Transition(id, db, a => a.Suspend(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/archive", (Guid id, PaymentsDbContext db, CancellationToken ct) =>
-            Transition(id, db, a => a.Archive(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "submit", db, audit, user, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "activate", db, audit, user, a => a.Activate(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "suspend", db, audit, user, a => a.Suspend(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/archive", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "archive", db, audit, user, a => a.Archive(DateTimeOffset.UtcNow), ct));
         return app;
     }
 
@@ -46,18 +48,20 @@ public static class PaymentAccountAdminEndpoints
     }
 
     private static async Task<Created<PaymentAccountDto>> Create(
-        CreatePaymentAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+        CreatePaymentAccountRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var account = PaymentAccount.Create(
             request.TenantId, request.StorefrontId, request.Name, request.Provider, request.Mode,
             request.IsDefaultForTenant, request.ExternalAccountRef, DateTimeOffset.UtcNow);
         db.PaymentAccounts.Add(account);
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "PaymentAccount", account.Id.ToString(), "payments.payment_account.create", account.Name), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/admin/payment-accounts/{account.Id}", ToDto(account));
     }
 
     private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> Update(
-        Guid id, UpdatePaymentAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+        Guid id, UpdatePaymentAccountRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var account = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (account is null)
@@ -74,6 +78,8 @@ public static class PaymentAccountAdminEndpoints
             return TypedResults.Conflict(ex.Message);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "PaymentAccount", account.Id.ToString(), "payments.payment_account.update", account.Name), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(account));
     }
@@ -81,7 +87,7 @@ public static class PaymentAccountAdminEndpoints
     // Makes one account the tenant default and unsets every sibling in a single tenant-scoped
     // transaction (one SaveChanges = one DB transaction), so a tenant never has two defaults.
     private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> MakeDefault(
-        Guid id, PaymentsDbContext db, CancellationToken ct)
+        Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var target = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (target is null)
@@ -107,6 +113,8 @@ public static class PaymentAccountAdminEndpoints
             sibling.ClearDefault(now);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            target.TenantId, "PaymentAccount", target.Id.ToString(), "payments.payment_account.make_default", target.Name), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(target));
     }
@@ -119,7 +127,8 @@ public static class PaymentAccountAdminEndpoints
     }
 
     private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> Transition(
-        Guid id, PaymentsDbContext db, Action<PaymentAccount> action, CancellationToken ct)
+        Guid id, string transition, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user,
+        Action<PaymentAccount> action, CancellationToken ct)
     {
         var account = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (account is null)
@@ -136,6 +145,8 @@ public static class PaymentAccountAdminEndpoints
             return TypedResults.Conflict(ex.Message);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "PaymentAccount", account.Id.ToString(), $"payments.payment_account.{transition}", account.Name), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(account));
     }

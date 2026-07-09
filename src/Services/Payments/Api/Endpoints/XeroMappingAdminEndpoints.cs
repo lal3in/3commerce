@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain.Xero;
 using ThreeCommerce.Payments.Infrastructure;
@@ -32,7 +34,7 @@ public static class XeroMappingAdminEndpoints
     }
 
     private static async Task<Results<Created<XeroAccountMappingDto>, BadRequest<string>>> Create(
-        UpsertXeroAccountMappingRequest request, PaymentsDbContext db, CancellationToken ct)
+        UpsertXeroAccountMappingRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         if (!Enum.IsDefined(request.Scope))
         {
@@ -53,12 +55,15 @@ public static class XeroMappingAdminEndpoints
             Active = request.Active,
         };
         db.XeroAccountMappings.Add(mapping);
+        await audit.RecordAsync(user.Mutation(
+            mapping.TenantId, "XeroAccountMapping", mapping.Id.ToString(), "payments.xero_mapping.upsert",
+            $"{mapping.LedgerAccountCode}→{mapping.XeroAccountCode}"), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/admin/xero/mappings/{mapping.Id}", ToDto(mapping));
     }
 
     private static async Task<Results<Ok<XeroAccountMappingDto>, NotFound, BadRequest<string>>> Update(
-        Guid id, UpsertXeroAccountMappingRequest request, PaymentsDbContext db, CancellationToken ct)
+        Guid id, UpsertXeroAccountMappingRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         if (!Enum.IsDefined(request.Scope))
         {
@@ -79,11 +84,15 @@ public static class XeroMappingAdminEndpoints
         mapping.LedgerAccountCode = request.LedgerAccountCode.Trim();
         mapping.XeroAccountCode = request.XeroAccountCode.Trim();
         mapping.Active = request.Active;
+        await audit.RecordAsync(user.Mutation(
+            mapping.TenantId, "XeroAccountMapping", mapping.Id.ToString(), "payments.xero_mapping.upsert",
+            $"{mapping.LedgerAccountCode}→{mapping.XeroAccountCode}"), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(mapping));
     }
 
-    private static async Task<Results<NoContent, NotFound>> Delete(Guid id, PaymentsDbContext db, CancellationToken ct)
+    private static async Task<Results<NoContent, NotFound>> Delete(
+        Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var mapping = await db.XeroAccountMappings.SingleOrDefaultAsync(m => m.Id == id, ct);
         if (mapping is null)
@@ -92,6 +101,9 @@ public static class XeroMappingAdminEndpoints
         }
 
         db.XeroAccountMappings.Remove(mapping);
+        await audit.RecordAsync(user.Mutation(
+            mapping.TenantId, "XeroAccountMapping", mapping.Id.ToString(), "payments.xero_mapping.delete",
+            $"{mapping.LedgerAccountCode}→{mapping.XeroAccountCode}"), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.NoContent();
     }

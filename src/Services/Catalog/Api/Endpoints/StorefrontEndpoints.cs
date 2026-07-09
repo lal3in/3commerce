@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -111,6 +113,8 @@ public static class StorefrontEndpoints
         CreateStorefrontRequest request,
         CatalogDbContext db,
         IPublishEndpoint publisher,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -126,6 +130,8 @@ public static class StorefrontEndpoints
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
+            await audit.RecordAsync(user.Mutation(
+                storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.create", storefront.Name), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Created($"/admin/storefronts/{storefront.Id}", ToResponse(storefront));
         }
@@ -141,6 +147,8 @@ public static class StorefrontEndpoints
         UpdateStorefrontRequest request,
         CatalogDbContext db,
         IPublishEndpoint publisher,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -163,6 +171,8 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
+            await audit.RecordAsync(user.Mutation(
+                storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
@@ -176,6 +186,8 @@ public static class StorefrontEndpoints
         Guid id,
         AddStorefrontDomainRequest request,
         CatalogDbContext db,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -192,6 +204,8 @@ public static class StorefrontEndpoints
             // DetectChanges (Guid PK is store-generated) → EF issues an UPDATE that affects 0 rows →
             // DbUpdateConcurrencyException. Add it through the context directly so it's marked Added.
             db.StorefrontDomains.Add(newDomain);
+            await audit.RecordAsync(user.Mutation(
+                storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.domain_add", request.Host), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
@@ -216,22 +230,25 @@ public static class StorefrontEndpoints
         return TypedResults.Ok(new StorefrontReadinessResponse(result.IsReady, result.MissingRequirements));
     }
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Preview(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, publisher, s => s.MoveToPreview(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Preview(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, "preview", db, publisher, audit, user, s => s.MoveToPreview(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, publisher, s => s.Activate(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, "activate", db, publisher, audit, user, s => s.Activate(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Pause(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, publisher, s => s.Pause(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Pause(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, "pause", db, publisher, audit, user, s => s.Pause(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Archive(Guid id, CatalogDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, db, publisher, s => s.Archive(time.GetUtcNow()), cancellationToken);
+    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Archive(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        Transition(id, "archive", db, publisher, audit, user, s => s.Archive(time.GetUtcNow()), cancellationToken);
 
     private static async Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Transition(
         Guid id,
+        string transitionName,
         CatalogDbContext db,
         IPublishEndpoint publisher,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         Action<Storefront> transition,
         CancellationToken cancellationToken)
     {
@@ -245,6 +262,8 @@ public static class StorefrontEndpoints
         {
             transition(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
+            await audit.RecordAsync(user.Mutation(
+                storefront.TenantId, "Storefront", storefront.Id.ToString(), $"catalog.storefront.{transitionName}", storefront.Name), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(ToResponse(storefront));
         }
@@ -314,17 +333,20 @@ public static class StorefrontEndpoints
     }
 
     private static Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> PublishProduct(
-        Guid id, Guid productId, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        ProductTransition(id, productId, db, (publication, product) => publication.Publish(product, time.GetUtcNow()), cancellationToken);
+        Guid id, Guid productId, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        ProductTransition(id, productId, "publish", db, audit, user, (publication, product) => publication.Publish(product, time.GetUtcNow()), cancellationToken);
 
     private static Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> UnpublishProduct(
-        Guid id, Guid productId, CatalogDbContext db, TimeProvider time, CancellationToken cancellationToken) =>
-        ProductTransition(id, productId, db, (publication, _) => publication.Unpublish(time.GetUtcNow()), cancellationToken);
+        Guid id, Guid productId, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        ProductTransition(id, productId, "unpublish", db, audit, user, (publication, _) => publication.Unpublish(time.GetUtcNow()), cancellationToken);
 
     private static async Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> ProductTransition(
         Guid storefrontId,
         Guid productId,
+        string transitionName,
         CatalogDbContext db,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         Action<ProductPublication, Product> transition,
         CancellationToken cancellationToken)
     {
@@ -339,6 +361,8 @@ public static class StorefrontEndpoints
         try
         {
             transition(publication, product);
+            await audit.RecordAsync(user.Mutation(
+                publication.TenantId, "ProductPublication", publication.Id.ToString(), $"catalog.product.{transitionName}", product.Title), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(ToPublicationResponse(publication));
         }

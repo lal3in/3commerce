@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
@@ -31,6 +32,7 @@ builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
 });
 builder.Services.AddServiceHealth<SupportDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
+builder.Services.AddAuditRecorder("support");
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
@@ -22,6 +23,7 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
 builder.Services.AddServiceBus<IdentityDbContext>(builder.Configuration);
 builder.Services.AddServiceHealth<IdentityDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
+builder.Services.AddAuditRecorder("identity");
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();

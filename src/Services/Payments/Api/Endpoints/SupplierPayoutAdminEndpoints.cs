@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
@@ -50,13 +52,15 @@ public static class SupplierPayoutAdminEndpoints
     }
 
     private static async Task<Created<SupplierBankAccountDto>> CreateBankAccount(
-        CreateSupplierBankAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+        CreateSupplierBankAccountRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var account = SupplierBankAccount.Create(
             request.TenantId, request.SupplierEntityId, request.AccountName, request.BankCountry,
             request.RoutingNumberMasked, request.AccountNumberMasked, request.AccountTokenRef, DateTimeOffset.UtcNow);
 
         db.SupplierBankAccounts.Add(account);
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "SupplierBankAccount", account.Id.ToString(), "payments.supplier_bank_account.create", account.AccountName), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/admin/supplier-payouts/bank-accounts/{account.Id}", ToDto(account));
     }
@@ -65,7 +69,7 @@ public static class SupplierPayoutAdminEndpoints
     // identity (country/masked routing/masked account/token) resets an approved account to
     // PendingApproval (domain rule), so a re-keyed account is always re-verified before it can pay out.
     private static async Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> UpdateBankAccount(
-        Guid id, UpdateSupplierBankAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+        Guid id, UpdateSupplierBankAccountRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var account = await db.SupplierBankAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (account is null)
@@ -84,24 +88,27 @@ public static class SupplierPayoutAdminEndpoints
             return TypedResults.Conflict(ex.Message);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "SupplierBankAccount", account.Id.ToString(), "payments.supplier_bank_account.update", account.AccountName), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(account));
     }
 
     private static Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> ApproveBankAccount(
-        Guid id, PayoutDecisionRequest request, PaymentsDbContext db, CancellationToken ct) =>
-        TransitionBankAccount(id, db, a => a.Approve(request.Reason, DateTimeOffset.UtcNow), ct);
+        Guid id, PayoutDecisionRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+        TransitionBankAccount(id, "approve", db, audit, user, a => a.Approve(request.Reason, DateTimeOffset.UtcNow), ct);
 
     private static Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> RejectBankAccount(
-        Guid id, PayoutDecisionRequest request, PaymentsDbContext db, CancellationToken ct) =>
-        TransitionBankAccount(id, db, a => a.Reject(request.Reason), ct);
+        Guid id, PayoutDecisionRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+        TransitionBankAccount(id, "reject", db, audit, user, a => a.Reject(request.Reason), ct);
 
     private static Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> ArchiveBankAccount(
-        Guid id, PaymentsDbContext db, CancellationToken ct) =>
-        TransitionBankAccount(id, db, a => a.Archive(), ct);
+        Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+        TransitionBankAccount(id, "archive", db, audit, user, a => a.Archive(), ct);
 
     private static async Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> TransitionBankAccount(
-        Guid id, PaymentsDbContext db, Action<SupplierBankAccount> action, CancellationToken ct)
+        Guid id, string transition, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user,
+        Action<SupplierBankAccount> action, CancellationToken ct)
     {
         var account = await db.SupplierBankAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (account is null)
@@ -118,6 +125,8 @@ public static class SupplierPayoutAdminEndpoints
             return TypedResults.Conflict(ex.Message);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            account.TenantId, "SupplierBankAccount", account.Id.ToString(), $"payments.supplier_bank_account.{transition}", account.AccountName), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(account));
     }
@@ -139,7 +148,7 @@ public static class SupplierPayoutAdminEndpoints
     }
 
     private static async Task<Results<Created<PayoutInstructionDto>, NotFound, Conflict<string>>> CreateInstruction(
-        CreatePayoutInstructionRequest request, PaymentsDbContext db, CancellationToken ct)
+        CreatePayoutInstructionRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var bankAccount = await db.SupplierBankAccounts.SingleOrDefaultAsync(a =>
             a.Id == request.BankAccountId && a.TenantId == request.TenantId && a.SupplierEntityId == request.SupplierEntityId, ct);
@@ -165,6 +174,8 @@ public static class SupplierPayoutAdminEndpoints
 
             var created = PayoutInstruction.Create(bankAccount, cadence, DateTimeOffset.UtcNow);
             db.PayoutInstructions.Add(created);
+            await audit.RecordAsync(user.Mutation(
+                created.TenantId, "PayoutInstruction", created.Id.ToString(), "payments.payout_instruction.create", created.Cadence.ToString()), ct);
             await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/admin/supplier-payouts/instructions/{created.Id}", ToDto(created));
         }
@@ -177,7 +188,7 @@ public static class SupplierPayoutAdminEndpoints
     // Modify an existing instruction's schedule (cadence) and/or the bank account it routes to. The
     // target bank account must be Active (same guard as create); the enum arrives numeric on the wire.
     private static async Task<Results<Ok<PayoutInstructionDto>, NotFound, Conflict<string>>> UpdateInstruction(
-        Guid id, UpdatePayoutInstructionRequest request, PaymentsDbContext db, CancellationToken ct)
+        Guid id, UpdatePayoutInstructionRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         if (!Enum.IsDefined(request.Cadence))
         {
@@ -207,12 +218,14 @@ public static class SupplierPayoutAdminEndpoints
             return TypedResults.Conflict(ex.Message);
         }
 
+        await audit.RecordAsync(user.Mutation(
+            instruction.TenantId, "PayoutInstruction", instruction.Id.ToString(), "payments.payout_instruction.update", instruction.Cadence.ToString()), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(instruction));
     }
 
     private static async Task<Results<Ok<PayoutInstructionDto>, NotFound>> DeactivateInstruction(
-        Guid id, PaymentsDbContext db, CancellationToken ct)
+        Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var instruction = await db.PayoutInstructions.SingleOrDefaultAsync(i => i.Id == id, ct);
         if (instruction is null)
@@ -221,6 +234,8 @@ public static class SupplierPayoutAdminEndpoints
         }
 
         instruction.Deactivate();
+        await audit.RecordAsync(user.Mutation(
+            instruction.TenantId, "PayoutInstruction", instruction.Id.ToString(), "payments.payout_instruction.deactivate"), ct);
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(ToDto(instruction));
     }

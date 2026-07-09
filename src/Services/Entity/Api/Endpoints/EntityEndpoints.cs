@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Entity;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Entity.Domain;
 using ThreeCommerce.Entity.Infrastructure;
@@ -82,6 +83,8 @@ public static class EntityEndpoints
         CreateEntityRequest request,
         EntityDbContext db,
         IPublishEndpoint publish,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -91,6 +94,8 @@ public static class EntityEndpoints
             var entity = EntityRecord.Create(request.TenantId, request.Type, request.LegalName, request.TradingName, now, request.Roles ?? []);
             db.Entities.Add(entity);
             await publish.Publish(new EntityRecordCreated(entity.Id, entity.TenantId, entity.DisplayName, now), cancellationToken);
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.entity.create", entity.DisplayName), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
 
             return TypedResults.Created(
@@ -107,6 +112,8 @@ public static class EntityEndpoints
         Guid id,
         UpdateEntityRequest request,
         EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -119,6 +126,8 @@ public static class EntityEndpoints
         try
         {
             entity.UpdateNames(request.LegalName, request.TradingName, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.entity.update", entity.DisplayName), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(new EntitySummaryResponse(
                 entity.Id, entity.TenantId, entity.Type, entity.LegalName, entity.TradingName, entity.DisplayName, entity.Status, entity.CreatedAt, entity.UpdatedAt));
@@ -150,11 +159,16 @@ public static class EntityEndpoints
     private static async Task<Results<Ok<SupplierOnboardingResponse>, ValidationProblem>> SubmitSupplierVerification(
         Guid id,
         SupplierOnboardingService suppliers,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(ToResponse(await suppliers.SubmitForVerificationAsync(id, cancellationToken)));
+            var onboarding = await suppliers.SubmitForVerificationAsync(id, cancellationToken);
+            await RecordSupplierAuditAsync(db, audit, user, onboarding, "entity.supplier.submit_verification", cancellationToken);
+            return TypedResults.Ok(ToResponse(onboarding));
         }
         catch (DomainRuleException ex)
         {
@@ -165,11 +179,16 @@ public static class EntityEndpoints
     private static async Task<Results<Ok<SupplierOnboardingResponse>, ValidationProblem>> MarkSupplierVerificationComplete(
         Guid id,
         SupplierOnboardingService suppliers,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(ToResponse(await suppliers.MarkVerificationCompleteAsync(id, cancellationToken)));
+            var onboarding = await suppliers.MarkVerificationCompleteAsync(id, cancellationToken);
+            await RecordSupplierAuditAsync(db, audit, user, onboarding, "entity.supplier.verify", cancellationToken);
+            return TypedResults.Ok(ToResponse(onboarding));
         }
         catch (DomainRuleException ex)
         {
@@ -180,11 +199,16 @@ public static class EntityEndpoints
     private static async Task<Results<Ok<SupplierOnboardingResponse>, ValidationProblem>> ActivateSupplier(
         Guid id,
         SupplierOnboardingService suppliers,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(ToResponse(await suppliers.ActivateAsync(id, cancellationToken)));
+            var onboarding = await suppliers.ActivateAsync(id, cancellationToken);
+            await RecordSupplierAuditAsync(db, audit, user, onboarding, "entity.supplier.activate", cancellationToken);
+            return TypedResults.Ok(ToResponse(onboarding));
         }
         catch (DomainRuleException ex)
         {
@@ -196,11 +220,16 @@ public static class EntityEndpoints
         Guid id,
         SuspendSupplierRequest request,
         SupplierOnboardingService suppliers,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(ToResponse(await suppliers.SuspendAsync(id, request.Reason, cancellationToken)));
+            var onboarding = await suppliers.SuspendAsync(id, request.Reason, cancellationToken);
+            await RecordSupplierAuditAsync(db, audit, user, onboarding, "entity.supplier.suspend", cancellationToken, request.Reason);
+            return TypedResults.Ok(ToResponse(onboarding));
         }
         catch (DomainRuleException ex)
         {
@@ -211,10 +240,25 @@ public static class EntityEndpoints
     private static async Task<Ok<SupplierOnboardingResponse>> ArchiveSupplier(
         Guid id,
         SupplierOnboardingService suppliers,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         var onboarding = await suppliers.ArchiveAsync(id, cancellationToken);
+        await RecordSupplierAuditAsync(db, audit, user, onboarding, "entity.supplier.archive", cancellationToken);
         return TypedResults.Ok(ToResponse(onboarding));
+    }
+
+    // The onboarding service commits the transition itself, so the local hash-chained entry is staged
+    // afterwards and committed with its own SaveChanges. The audit write never breaks the mutation.
+    private static async Task RecordSupplierAuditAsync(
+        EntityDbContext db, AuditRecorder audit, ClaimsPrincipal user, SupplierOnboarding onboarding,
+        string action, CancellationToken ct, string? summary = null)
+    {
+        await audit.RecordAsync(user.Mutation(
+            onboarding.TenantId, "SupplierOnboarding", onboarding.EntityId.ToString(), action, summary), ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private static async Task<Ok<List<DuplicateWarningResponse>>> ScanDuplicates(
@@ -246,6 +290,8 @@ public static class EntityEndpoints
     private static async Task<Results<NoContent, NotFound>> Archive(
         Guid id,
         EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -256,6 +302,8 @@ public static class EntityEndpoints
         }
 
         entity.Archive(timeProvider.GetUtcNow());
+        await audit.RecordAsync(user.Mutation(
+            entity.TenantId, "Entity", entity.Id.ToString(), "entity.entity.archive", entity.DisplayName), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
     }
