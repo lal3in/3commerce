@@ -23,7 +23,15 @@ else
                 <td>@r.State</td>
                 <td>@r.Reason</td>
                 <td>
-                    @if (r.State == "Requested")
+                    @if (_acted.ContainsKey(r.Id))
+                    {
+                        // A state-changing action was accepted for this RMA; its saga transition is
+                        // eventually consistent, so the row's State may still read stale for a moment.
+                        // Suppress the buttons until the next reload catches up — this is what prevents
+                        // a double-click landing a 409 ("RMA is 'RefundPending', not awaiting a return").
+                        <span style="color:#6b7280;">Updating… <button disabled="@_busy" @onclick="Refresh">Refresh</button></span>
+                    }
+                    else if (r.State == "Requested")
                     {
                         <button disabled="@_busy" @onclick="() => Approve(r.Id, false)" title="Refund now — no physical return required.">Approve &amp; refund</button>
                         <button disabled="@_busy" @onclick="() => Approve(r.Id, true)" title="Approve, but require the item back before the refund is issued.">Approve (require return)</button>
@@ -48,10 +56,27 @@ else
     private bool _busy;
     private string? _error;
     private string? _status;
+    // RMAs whose accepted action hasn't shown up in the read model yet (saga transitions are
+    // eventually consistent). Maps RMA id → the state it showed when the action was accepted;
+    // buttons stay suppressed until a reload observes a DIFFERENT state (the transition landed).
+    private readonly Dictionary<Guid, string> _acted = [];
 
     protected override Task OnInitializedAsync() => Refresh();
 
-    private async Task Refresh() => _rmas = await Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
+    private async Task Refresh()
+    {
+        var rmas = await Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
+        foreach (var (id, stateAtAction) in _acted)
+        {
+            var current = rmas.FirstOrDefault(r => r.Id == id);
+            if (current is null || current.State != stateAtAction)
+            {
+                _acted.Remove(id);
+            }
+        }
+
+        _rmas = rmas;
+    }
 
     private Task Approve(Guid id, bool requireReturn) => Post(id, "approve", new { requireReturn });
 
@@ -60,8 +85,24 @@ else
         _error = _status = null;
         _busy = true; // disable buttons during the saga-triggering call (components.md §6)
         var response = await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
-        if (response.IsSuccessStatusCode) { _status = $"RMA {action} ok."; }
-        else { _error = $"RMA {action} failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}"; }
+        if (response.IsSuccessStatusCode)
+        {
+            _status = $"RMA {action} accepted.";
+            // The saga applies the transition asynchronously; suppress this row's buttons until
+            // the list shows it in a new state.
+            var stateAtAction = _rmas?.FirstOrDefault(r => r.Id == id)?.State;
+            if (stateAtAction is not null)
+            {
+                _acted[id] = stateAtAction;
+            }
+        }
+        else
+        {
+            // Surface the server's own message (e.g. "RMA is 'RefundPending', not awaiting a return.")
+            // and refresh below so the row shows its true state instead of the stale one.
+            _error = $"RMA {action} failed ({(int)response.StatusCode}): {await GatewayError.ReadAsync(response)}";
+        }
+
         await Refresh();
         _busy = false;
     }

@@ -36,7 +36,7 @@
             <label>Xero account <input @bind="_form.XeroAccountCode" title="Xero account code." style="width:100%;" /></label>
             <label>Scope
                 <select @bind="_form.Scope" title="More specific scopes win over tenant defaults." style="width:100%;">
-                    <option>TenantDefault</option><option>Storefront</option><option>Category</option><option>Supplier</option><option>Product</option>
+                    <option value="1">TenantDefault</option><option value="2">Storefront</option><option value="3">Category</option><option value="4">Supplier</option><option value="5">Product</option>
                 </select>
             </label>
             <label>Target ID <input @bind="_form.TargetId" title="Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default." style="width:100%;" /></label>
@@ -69,12 +69,14 @@
         _error = _status = null;
         if (!Guid.TryParse(_tenantId, out var tenant)) { _error = "Tenant ID must be a valid GUID."; return; }
         Guid? target = Guid.TryParse(_form.TargetId, out var parsed) ? parsed : null;
-        var body = new { tenantId = tenant, scope = _form.Scope, storefrontId = _form.Scope == "Storefront" ? target : null, categoryId = _form.Scope == "Category" ? target : null, supplierEntityId = _form.Scope == "Supplier" ? target : null, productId = _form.Scope == "Product" ? target : null, ledgerAccountCode = _form.LedgerAccountCode, xeroAccountCode = _form.XeroAccountCode, active = _form.Active };
+        // Enums cross HTTP as NUMBERS (platform invariant): send the numeric XeroMappingScope value,
+        // and route the target GUID to the field the scope selects.
+        var body = new { tenantId = tenant, scope = _form.Scope, storefrontId = _form.Scope == StorefrontScope ? target : null, categoryId = _form.Scope == CategoryScope ? target : null, supplierEntityId = _form.Scope == SupplierScope ? target : null, productId = _form.Scope == ProductScope ? target : null, ledgerAccountCode = _form.LedgerAccountCode, xeroAccountCode = _form.XeroAccountCode, active = _form.Active };
         var response = _editingId is null
             ? await Gateway.PostAsync("/api/payments/admin/xero/mappings", body)
             : await Gateway.PutAsync($"/api/payments/admin/xero/mappings/{_editingId}", body);
         if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = "Xero mapping saved."; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-        else { _error = await response.Content.ReadAsStringAsync(); }
+        else { _error = await GatewayError.ReadAsync(response); }
     }
 
     private async Task Delete(Guid id)
@@ -82,13 +84,20 @@
         _error = _status = null;
         var response = await Gateway.DeleteAsync($"/api/payments/admin/xero/mappings/{id}");
         if (response.IsSuccessStatusCode) { await LoadAsync(); _status = "Xero mapping deleted."; }
-        else { _error = await response.Content.ReadAsStringAsync(); }
+        else { _error = await GatewayError.ReadAsync(response); }
     }
+
+    // XeroMappingScope numeric values (Payments domain enum) — enums are numeric on the wire.
+    private const int TenantDefaultScope = 1;
+    private const int StorefrontScope = 2;
+    private const int CategoryScope = 3;
+    private const int SupplierScope = 4;
+    private const int ProductScope = 5;
 
     private void Edit(XeroAccountMappingDto mapping)
     {
         _editingId = mapping.Id;
-        _form.Scope = mapping.Scope;
+        _form.Scope = ScopeValue(mapping.Scope);
         _form.LedgerAccountCode = mapping.LedgerAccountCode;
         _form.XeroAccountCode = mapping.XeroAccountCode;
         _form.Active = mapping.Active;
@@ -98,11 +107,21 @@
     private void ResetForm()
     {
         _editingId = null;
-        _form.Scope = "TenantDefault"; _form.TargetId = string.Empty; _form.LedgerAccountCode = string.Empty; _form.XeroAccountCode = string.Empty; _form.Active = true;
+        _form.Scope = TenantDefaultScope; _form.TargetId = string.Empty; _form.LedgerAccountCode = string.Empty; _form.XeroAccountCode = string.Empty; _form.Active = true;
     }
 
     private static string Target(XeroAccountMappingDto m) => (m.StorefrontId ?? m.CategoryId ?? m.SupplierEntityId ?? m.ProductId)?.ToString() ?? "—";
 
-    private sealed class MappingForm { public string Scope { get; set; } = "TenantDefault"; public string TargetId { get; set; } = string.Empty; public string LedgerAccountCode { get; set; } = string.Empty; public string XeroAccountCode { get; set; } = string.Empty; public bool Active { get; set; } = true; }
+    // The response DTO carries the scope's enum NAME (e.g. "Storefront"); map it back to the numeric form value.
+    private static int ScopeValue(string scope) => scope switch
+    {
+        "Storefront" => StorefrontScope,
+        "Category" => CategoryScope,
+        "Supplier" => SupplierScope,
+        "Product" => ProductScope,
+        _ => TenantDefaultScope,
+    };
+
+    private sealed class MappingForm { public int Scope { get; set; } = TenantDefaultScope; public string TargetId { get; set; } = string.Empty; public string LedgerAccountCode { get; set; } = string.Empty; public string XeroAccountCode { get; set; } = string.Empty; public bool Active { get; set; } = true; }
     private record XeroAccountMappingDto(Guid Id, Guid TenantId, string Scope, Guid? StorefrontId, Guid? CategoryId, Guid? SupplierEntityId, Guid? ProductId, string LedgerAccountCode, string XeroAccountCode, bool Active);
 }

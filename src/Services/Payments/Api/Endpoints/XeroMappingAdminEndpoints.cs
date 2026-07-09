@@ -34,16 +34,16 @@ public static class XeroMappingAdminEndpoints
     private static async Task<Results<Created<XeroAccountMappingDto>, BadRequest<string>>> Create(
         UpsertXeroAccountMappingRequest request, PaymentsDbContext db, CancellationToken ct)
     {
-        if (!TryReadScope(request.Scope, out var scope, out var error))
+        if (!Enum.IsDefined(request.Scope))
         {
-            return TypedResults.BadRequest(error);
+            return TypedResults.BadRequest("Unsupported Xero mapping scope.");
         }
 
         var mapping = new XeroAccountMapping
         {
             Id = Guid.CreateVersion7(),
             TenantId = request.TenantId,
-            Scope = scope,
+            Scope = request.Scope,
             StorefrontId = request.StorefrontId,
             CategoryId = request.CategoryId,
             SupplierEntityId = request.SupplierEntityId,
@@ -60,9 +60,9 @@ public static class XeroMappingAdminEndpoints
     private static async Task<Results<Ok<XeroAccountMappingDto>, NotFound, BadRequest<string>>> Update(
         Guid id, UpsertXeroAccountMappingRequest request, PaymentsDbContext db, CancellationToken ct)
     {
-        if (!TryReadScope(request.Scope, out var scope, out var error))
+        if (!Enum.IsDefined(request.Scope))
         {
-            return TypedResults.BadRequest(error);
+            return TypedResults.BadRequest("Unsupported Xero mapping scope.");
         }
 
         var mapping = await db.XeroAccountMappings.SingleOrDefaultAsync(m => m.Id == id, ct);
@@ -71,7 +71,7 @@ public static class XeroMappingAdminEndpoints
             return TypedResults.NotFound();
         }
 
-        mapping.Scope = scope;
+        mapping.Scope = request.Scope;
         mapping.StorefrontId = request.StorefrontId;
         mapping.CategoryId = request.CategoryId;
         mapping.SupplierEntityId = request.SupplierEntityId;
@@ -96,18 +96,6 @@ public static class XeroMappingAdminEndpoints
         return TypedResults.NoContent();
     }
 
-    private static bool TryReadScope(string value, out XeroMappingScope scope, out string error)
-    {
-        if (Enum.TryParse(value, ignoreCase: true, out scope))
-        {
-            error = string.Empty;
-            return true;
-        }
-
-        error = "Unsupported Xero mapping scope.";
-        return false;
-    }
-
     private static XeroAccountMappingDto ToDto(XeroAccountMapping m) => new(
         m.Id, m.TenantId, m.Scope.ToString(), m.StorefrontId, m.CategoryId, m.SupplierEntityId,
         m.ProductId, m.LedgerAccountCode, m.XeroAccountCode, m.Active);
@@ -115,7 +103,7 @@ public static class XeroMappingAdminEndpoints
 
 public record UpsertXeroAccountMappingRequest(
     [property: Required] Guid TenantId,
-    [property: Required] string Scope,
+    XeroMappingScope Scope,
     Guid? StorefrontId,
     Guid? CategoryId,
     Guid? SupplierEntityId,
