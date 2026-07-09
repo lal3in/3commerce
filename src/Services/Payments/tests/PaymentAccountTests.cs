@@ -61,16 +61,14 @@ public class PaymentAccountTests
         Assert.Equal(storefrontId, snapshot.StorefrontId);
     }
 
-    private static PaymentAccount NewAccount(PaymentProviderMode mode, string? externalRef, Guid? storefrontId = null) => new()
-    {
-        Id = Guid.CreateVersion7(),
-        TenantId = Guid.CreateVersion7(),
-        StorefrontId = storefrontId,
-        Name = "Stripe test",
-        Provider = "stripe",
-        Mode = mode,
-        IsDefaultForTenant = storefrontId is null,
-        ExternalAccountRef = externalRef,
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+    private static PaymentAccount NewAccount(PaymentProviderMode mode, string? externalRef, Guid? storefrontId = null) =>
+        PaymentAccount.Create(
+            tenantId: Guid.CreateVersion7(),
+            storefrontId: storefrontId,
+            name: "Stripe test",
+            provider: "stripe",
+            mode: mode,
+            isDefaultForTenant: storefrontId is null,
+            externalAccountRef: externalRef,
+            now: DateTimeOffset.UtcNow);
 }

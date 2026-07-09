@@ -182,8 +182,12 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
 | GET/POST | `/admin/payment-accounts` | admin | Tenant/storefront payment account lifecycle setup; readiness-gated activation |
+| PUT | `/admin/payment-accounts/{id}` | admin | Edit mutable account fields (name/provider/mode/external ref); provider+mode are locked while the account is Active (suspend first); archived accounts are immutable |
+| POST | `/admin/payment-accounts/{id}/make-default` | admin | Make this account the tenant default and unset every sibling in one tenant-scoped transaction (exactly one default); archived accounts rejected (409) |
 | GET/POST | `/admin/supplier-payouts/bank-accounts` | admin | Tokenized/masked supplier bank accounts; approve/reject/archive lifecycle |
+| PUT | `/admin/supplier-payouts/bank-accounts/{id}` | admin | Edit masked/label fields (token refs + masked values only — never raw bank details); changing the banking identity (country/masked numbers/vault token) resets an approved account to PendingApproval for re-approval |
 | GET/POST | `/admin/supplier-payouts/instructions` | admin | Active payout instruction routing per supplier; creating one deactivates prior active instructions |
+| PUT | `/admin/supplier-payouts/instructions/{id}` | admin | Change an instruction's cadence (numeric enum) and/or re-point it to another bank account; target account must be Active for the same tenant+supplier |
 | POST | `/admin/supplier-payouts/bank-accounts/{id}/approve\|reject\|archive` · `/instructions/{id}/deactivate` | admin | Supplier payout setup lifecycle actions |
 | GET/POST/PUT/DELETE | `/admin/xero/mappings[/{id}]` | admin | Xero account mapping CRUD with tenant/storefront/category/supplier/product precedence |
 | GET/POST | `/admin/webhook-secrets` · POST `/{id}/deactivate` | admin | Provider webhook signing-secret registry (def_2): write-only (responses always masked), rotation-safe — verification tries every active secret newest-first, then the `Stripe:WebhookSecret` config fallback |

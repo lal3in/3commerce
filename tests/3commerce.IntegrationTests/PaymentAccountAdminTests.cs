@@ -56,6 +56,90 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     }
 
     [Fact]
+    public async Task Edit_round_trips_mutable_fields()
+    {
+        var tenant = Guid.NewGuid();
+        using var admin = Admin();
+
+        var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, name = "Old name", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+
+        var updated = await (await admin.PutAsJsonAsync($"/admin/payment-accounts/{created!.Id}",
+            new { name = "New name", provider = "adyen", mode = 2, externalAccountRef = "acct_live_1" }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+
+        Assert.Equal("New name", updated!.Name);
+        Assert.Equal("adyen", updated.Provider);
+        Assert.Equal("Live", updated.Mode);
+        Assert.Equal("acct_live_1", updated.ExternalAccountRef);
+
+        var listed = Assert.Single((await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}"))!);
+        Assert.Equal("New name", listed.Name);
+        Assert.Equal("adyen", listed.Provider);
+    }
+
+    [Fact]
+    public async Task Active_account_cannot_change_provider_or_mode_but_can_rename()
+    {
+        var tenant = Guid.NewGuid();
+        using var admin = Admin();
+
+        var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, name = "Main", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        (await admin.PostAsync($"/admin/payment-accounts/{created!.Id}/submit", null)).EnsureSuccessStatusCode();
+        (await admin.PostAsync($"/admin/payment-accounts/{created.Id}/activate", null)).EnsureSuccessStatusCode();
+
+        var providerChange = await admin.PutAsJsonAsync($"/admin/payment-accounts/{created.Id}",
+            new { name = "Main", provider = "adyen", mode = 1, externalAccountRef = (string?)null });
+        Assert.Equal(HttpStatusCode.Conflict, providerChange.StatusCode);
+
+        var rename = await (await admin.PutAsJsonAsync($"/admin/payment-accounts/{created.Id}",
+            new { name = "Renamed while active", provider = "stripe", mode = 1, externalAccountRef = (string?)null }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        Assert.Equal("Renamed while active", rename!.Name);
+        Assert.Equal("Active", rename.State);
+    }
+
+    [Fact]
+    public async Task Make_default_flips_exactly_one_account_on_and_the_rest_off()
+    {
+        var tenant = Guid.NewGuid();
+        using var admin = Admin();
+
+        var first = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, name = "First", provider = "stripe", mode = 1, isDefaultForTenant = true }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        var second = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, name = "Second", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+
+        var made = await (await admin.PostAsync($"/admin/payment-accounts/{second!.Id}/make-default", null))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        Assert.True(made!.IsDefaultForTenant);
+
+        var list = await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}");
+        Assert.True(Assert.Single(list!, a => a.IsDefaultForTenant).Id == second.Id);
+        Assert.False(Assert.Single(list!, a => a.Id == first!.Id).IsDefaultForTenant);
+    }
+
+    [Fact]
+    public async Task Archived_account_cannot_become_default()
+    {
+        var tenant = Guid.NewGuid();
+        using var admin = Admin();
+
+        var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, name = "Doomed", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        (await admin.PostAsync($"/admin/payment-accounts/{created!.Id}/archive", null)).EnsureSuccessStatusCode();
+
+        var response = await admin.PostAsync($"/admin/payment-accounts/{created.Id}/make-default", null);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Malformed_body_is_a_400_problem_not_a_500()
     {
         using var admin = Admin();
