@@ -71,8 +71,15 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <CardEntryForm email={profile.email} cardStatus={status.card} />
 
       <h2 className="mt-8 text-lg font-semibold">Order history</h2>
+      {/* FR-7: guest orders only attach to a VERIFIED email — be honest while it's pending. */}
+      {!profile.emailVerified && (
+        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Verify your email address ({profile.email}) using the link we sent you — orders you
+          placed as a guest with that email will appear here once it&apos;s verified.
+        </p>
+      )}
       {orders.length === 0 ? (
-        <p className="mt-2 text-sm text-neutral-500">No orders yet.</p>
+        !profile.emailVerified ? null : <p className="mt-2 text-sm text-neutral-500">No orders yet.</p>
       ) : (
         <ul className="mt-2 divide-y divide-neutral-100 text-sm">
           {orders.map((o) => (

@@ -27,6 +27,7 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
             }
 
             order.Status = OrderStatus.Confirmed;
+            await AttachVerifiedOwnerAsync(order, context.CancellationToken);
             await db.SaveChangesAsync(context.CancellationToken);
         }
         else
@@ -47,6 +48,7 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
 
             order = attempt.ToOrder(sequence.ReserveNext(), DateTimeOffset.UtcNow);
             attempt.Status = CheckoutAttemptStatus.Confirmed;
+            await AttachVerifiedOwnerAsync(order, context.CancellationToken);
             db.Orders.Add(order);
             await db.SaveChangesAsync(context.CancellationToken);
         }
@@ -62,6 +64,28 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
         {
             await context.Publish(new SubscriptionRequested(
                 order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency));
+        }
+    }
+
+    /// <summary>
+    /// FR-7 (both directions): a guest order confirming AFTER the shopper already verified an
+    /// account with that email attaches at creation — the EmailVerified sweep in
+    /// <see cref="GuestOrderAttachConsumer"/> only catches orders that existed at that moment.
+    /// Only ever fills a missing owner; never overwrites an authenticated checkout's UserId,
+    /// and only from a VERIFIED email (the copy row is written on EmailVerified alone).
+    /// </summary>
+    private async Task AttachVerifiedOwnerAsync(Order order, CancellationToken ct)
+    {
+        if (order.UserId is not null)
+        {
+            return;
+        }
+
+        var email = order.Email.Trim().ToLowerInvariant();
+        var verified = await db.VerifiedCustomerCopies.SingleOrDefaultAsync(c => c.Email == email, ct);
+        if (verified is not null)
+        {
+            order.UserId = verified.UserId;
         }
     }
 
