@@ -23,15 +23,84 @@ public class SupplierBankAccount
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid SupplierEntityId { get; init; }
-    public required string AccountName { get; init; }
-    public required string BankCountry { get; init; }
-    public required string RoutingNumberMasked { get; init; }
-    public required string AccountNumberMasked { get; init; }
-    public required string AccountTokenRef { get; init; }
+    public string AccountName { get; private set; } = string.Empty;
+    public string BankCountry { get; private set; } = string.Empty;
+    public string RoutingNumberMasked { get; private set; } = string.Empty;
+    public string AccountNumberMasked { get; private set; } = string.Empty;
+    public string AccountTokenRef { get; private set; } = string.Empty;
     public SupplierBankAccountState State { get; private set; } = SupplierBankAccountState.PendingApproval;
     public string? ApprovalReason { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? ApprovedAt { get; private set; }
+
+    /// <summary>
+    /// Creates a pending-approval bank account from masked display values plus a vault token reference.
+    /// Raw bank details never enter this service; the setters are private so the only post-creation
+    /// change path is <see cref="UpdateDetails"/> (which re-triggers approval on identity changes).
+    /// </summary>
+    public static SupplierBankAccount Create(
+        Guid tenantId,
+        Guid supplierEntityId,
+        string accountName,
+        string bankCountry,
+        string routingNumberMasked,
+        string accountNumberMasked,
+        string accountTokenRef,
+        DateTimeOffset now) => new()
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = tenantId,
+            SupplierEntityId = supplierEntityId,
+            AccountName = accountName.Trim(),
+            BankCountry = bankCountry.Trim().ToUpperInvariant(),
+            RoutingNumberMasked = routingNumberMasked.Trim(),
+            AccountNumberMasked = accountNumberMasked.Trim(),
+            AccountTokenRef = accountTokenRef.Trim(),
+            CreatedAt = now,
+        };
+
+    /// <summary>
+    /// Edits masked/label fields. The account name is a cosmetic label; changing the banking identity
+    /// (country, masked routing/account, or vault token) means a different underlying account, so an
+    /// approved or rejected account is reset to PendingApproval and must be re-approved. Archived
+    /// accounts are immutable. Raw bank details are never accepted or stored.
+    /// </summary>
+    public void UpdateDetails(string accountName, string bankCountry, string routingNumberMasked, string accountNumberMasked, string accountTokenRef)
+    {
+        if (State == SupplierBankAccountState.Archived)
+        {
+            throw new SupplierPayableRuleException("Archived bank accounts cannot be edited.");
+        }
+
+        if (string.IsNullOrWhiteSpace(accountName))
+        {
+            throw new SupplierPayableRuleException("Bank account name is required.");
+        }
+
+        var normalizedCountry = bankCountry.Trim().ToUpperInvariant();
+        var normalizedRouting = routingNumberMasked.Trim();
+        var normalizedAccount = accountNumberMasked.Trim();
+        var normalizedToken = accountTokenRef.Trim();
+
+        var identityChanged =
+            !string.Equals(BankCountry, normalizedCountry, StringComparison.Ordinal) ||
+            !string.Equals(RoutingNumberMasked, normalizedRouting, StringComparison.Ordinal) ||
+            !string.Equals(AccountNumberMasked, normalizedAccount, StringComparison.Ordinal) ||
+            !string.Equals(AccountTokenRef, normalizedToken, StringComparison.Ordinal);
+
+        AccountName = accountName.Trim();
+        BankCountry = normalizedCountry;
+        RoutingNumberMasked = normalizedRouting;
+        AccountNumberMasked = normalizedAccount;
+        AccountTokenRef = normalizedToken;
+
+        if (identityChanged && State is SupplierBankAccountState.Active or SupplierBankAccountState.Rejected)
+        {
+            State = SupplierBankAccountState.PendingApproval;
+            ApprovalReason = null;
+            ApprovedAt = null;
+        }
+    }
 
     public void Approve(string reason, DateTimeOffset now)
     {
@@ -90,8 +159,8 @@ public class PayoutInstruction
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid SupplierEntityId { get; init; }
-    public Guid BankAccountId { get; init; }
-    public PayoutCadence Cadence { get; init; }
+    public Guid BankAccountId { get; private set; }
+    public PayoutCadence Cadence { get; private set; }
     public bool Active { get; private set; } = true;
     public DateTimeOffset CreatedAt { get; init; }
 
@@ -107,6 +176,24 @@ public class PayoutInstruction
             Cadence = cadence,
             CreatedAt = now,
         };
+    }
+
+    /// <summary>
+    /// Re-points the instruction at a (possibly different) bank account and/or changes its cadence
+    /// (schedule). The target bank account must be Active — the same guard as creation — so a payout
+    /// instruction can never route to an unapproved account. Deactivated instructions can be re-edited;
+    /// this does not, by itself, reactivate them.
+    /// </summary>
+    public void Update(SupplierBankAccount bankAccount, PayoutCadence cadence)
+    {
+        bankAccount.EnsureActive();
+        if (bankAccount.TenantId != TenantId || bankAccount.SupplierEntityId != SupplierEntityId)
+        {
+            throw new SupplierPayableRuleException("Payout instruction bank account must belong to the same tenant and supplier.");
+        }
+
+        BankAccountId = bankAccount.Id;
+        Cadence = cadence;
     }
 
     public void Deactivate() => Active = false;

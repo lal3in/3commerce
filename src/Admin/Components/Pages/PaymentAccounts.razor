@@ -45,6 +45,14 @@
                 <td style="text-align:center;">@(a.IsDefaultForTenant ? "★" : "")</td>
                 <td><code style="font-size:.78rem;">@(a.ExternalAccountRef ?? "—")</code></td>
                 <td style="white-space:nowrap;">
+                    @if (a.State != "Archived")
+                    {
+                        <button @onclick="() => StartEdit(a)" title="Edit this account's details.">Edit</button>
+                    }
+                    @if (a.State != "Archived" && !a.IsDefaultForTenant)
+                    {
+                        <button @onclick="() => MakeDefault(a.Id)" title="Make this the tenant default account (unsets the current default).">Make default</button>
+                    }
                     @if (a.State == "Draft")
                     {
                         <button @onclick='() => Act(a.Id, "submit")' title="Submit for approval.">Submit</button>
@@ -69,6 +77,28 @@
     @if (_accounts.Count == 0)
     {
         <p style="color:#9ca3af;">No payment accounts for this tenant yet.</p>
+    }
+
+    @if (_edit is not null)
+    {
+        <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
+            <h2 style="margin-top:0; font-size:1.1rem;">Edit payment account</h2>
+            <div style="display:flex; flex-direction:column; gap:.5rem;">
+                <label>Name <input @bind="_edit.Name" title="A label for this account." style="width:100%;" /></label>
+                <label>Provider <input @bind="_edit.Provider" disabled="@_edit.IsActive" title="@(_edit.IsActive ? "Provider cannot change on an active account — suspend it first." : "Payment provider, e.g. stripe.")" style="width:100%;" /></label>
+                <label>Mode
+                    <select @bind="_edit.Mode" disabled="@_edit.IsActive" title="@(_edit.IsActive ? "Mode cannot change on an active account — suspend it first." : "Test for sandbox, Live for real charges.")" style="width:100%;">
+                        <option value="1">Test</option>
+                        <option value="2">Live</option>
+                    </select>
+                </label>
+                <label>External account ref <input @bind="_edit.ExternalAccountRef" title="Provider account id — required to activate a Live account." style="width:100%;" /></label>
+                <div style="display:flex; gap:.5rem;">
+                    <button @onclick="SaveEdit" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save</button>
+                    <button @onclick="() => _edit = null" style="padding:.45rem .9rem;">Cancel</button>
+                </div>
+            </div>
+        </section>
     }
 
     <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
@@ -97,6 +127,7 @@
     private string? _status;
     private string? _error;
     private readonly NewAccount _new = new();
+    private EditAccount? _edit;
 
     private async Task LoadAsync()
     {
@@ -119,7 +150,44 @@
             await LoadAsync(); // clears _status/_error, so set the confirmation AFTER the reload
             _status = "Account created (Draft).";
         }
-        else { _error = await response.Content.ReadAsStringAsync(); }
+        else { _error = await ErrorText(response); }
+    }
+
+    private void StartEdit(PaymentAccountDto a) => _edit = new EditAccount
+    {
+        Id = a.Id,
+        Name = a.Name,
+        Provider = a.Provider,
+        Mode = a.Mode == "Live" ? 2 : 1,
+        ExternalAccountRef = a.ExternalAccountRef,
+        IsActive = a.State == "Active",
+    };
+
+    private async Task SaveEdit()
+    {
+        if (_edit is null) { return; }
+        _error = _status = null;
+        var body = new { name = _edit.Name, provider = _edit.Provider, mode = _edit.Mode, externalAccountRef = string.IsNullOrWhiteSpace(_edit.ExternalAccountRef) ? null : _edit.ExternalAccountRef };
+        var response = await Gateway.PutAsync($"/api/payments/admin/payment-accounts/{_edit.Id}", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _edit = null;
+            await LoadAsync(); // clears _status/_error, so set the confirmation AFTER the reload
+            _status = "Account updated.";
+        }
+        else { _error = await ErrorText(response); }
+    }
+
+    private async Task MakeDefault(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/payments/admin/payment-accounts/{id}/make-default");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = "Account is now the tenant default.";
+        }
+        else { _error = await ErrorText(response); }
     }
 
     private async Task Act(Guid id, string action)
@@ -131,7 +199,16 @@
             await LoadAsync();
             _status = $"Account {action switch { "submit" => "submitted", "activate" => "activated", "suspend" => "suspended", "archive" => "archived", _ => action + "d" }}.";
         }
-        else { _error = await response.Content.ReadAsStringAsync(); }
+        else { _error = await ErrorText(response); }
+    }
+
+    // Empty failure bodies (e.g. a bare 404) used to render as an invisible error; always include the status code.
+    private static async Task<string> ErrorText(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(body)
+            ? $"Request failed ({(int)response.StatusCode} {response.StatusCode})."
+            : $"({(int)response.StatusCode}) {body}";
     }
 
     private static string StateBadge(string state) => state;
@@ -145,6 +222,17 @@
         public string? ExternalAccountRef { get; set; }
         public bool IsDefaultForTenant { get; set; }
         public void Reset() { Name = string.Empty; Provider = "stripe"; Mode = 1; ExternalAccountRef = null; IsDefaultForTenant = false; }
+    }
+
+    private sealed class EditAccount
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Provider { get; set; } = string.Empty;
+        // PaymentProviderMode enum binds as a number over JSON (Test=1, Live=2).
+        public int Mode { get; set; } = 1;
+        public string? ExternalAccountRef { get; set; }
+        public bool IsActive { get; set; }
     }
 
     private record PaymentAccountDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Provider, string Mode, string State, bool IsDefaultForTenant, string? ExternalAccountRef, DateTimeOffset CreatedAt);

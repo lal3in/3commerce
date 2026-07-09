@@ -21,6 +21,8 @@ public static class PaymentAccountAdminEndpoints
 
         group.MapGet("/", List);
         group.MapPost("/", Create);
+        group.MapPut("/{id:guid}", Update);
+        group.MapPost("/{id:guid}/make-default", MakeDefault);
         group.MapGet("/{id:guid}/readiness", Readiness);
         group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, CancellationToken ct) =>
             Transition(id, db, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
@@ -46,22 +48,67 @@ public static class PaymentAccountAdminEndpoints
     private static async Task<Created<PaymentAccountDto>> Create(
         CreatePaymentAccountRequest request, PaymentsDbContext db, CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
-        var account = new PaymentAccount
-        {
-            Id = Guid.CreateVersion7(),
-            TenantId = request.TenantId,
-            StorefrontId = request.StorefrontId,
-            Name = request.Name,
-            Provider = request.Provider,
-            Mode = request.Mode,
-            IsDefaultForTenant = request.IsDefaultForTenant,
-            ExternalAccountRef = request.ExternalAccountRef,
-            CreatedAt = now,
-        };
+        var account = PaymentAccount.Create(
+            request.TenantId, request.StorefrontId, request.Name, request.Provider, request.Mode,
+            request.IsDefaultForTenant, request.ExternalAccountRef, DateTimeOffset.UtcNow);
         db.PaymentAccounts.Add(account);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/admin/payment-accounts/{account.Id}", ToDto(account));
+    }
+
+    private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> Update(
+        Guid id, UpdatePaymentAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+    {
+        var account = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            account.UpdateDetails(request.Name, request.Provider, request.Mode, request.ExternalAccountRef, DateTimeOffset.UtcNow);
+        }
+        catch (PaymentAccountRuleException ex)
+        {
+            return TypedResults.Conflict(ex.Message);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(account));
+    }
+
+    // Makes one account the tenant default and unsets every sibling in a single tenant-scoped
+    // transaction (one SaveChanges = one DB transaction), so a tenant never has two defaults.
+    private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> MakeDefault(
+        Guid id, PaymentsDbContext db, CancellationToken ct)
+    {
+        var target = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (target is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        try
+        {
+            target.SetAsDefault(now);
+        }
+        catch (PaymentAccountRuleException ex)
+        {
+            return TypedResults.Conflict(ex.Message);
+        }
+
+        var siblings = await db.PaymentAccounts
+            .Where(a => a.TenantId == target.TenantId && a.Id != target.Id && a.IsDefaultForTenant)
+            .ToListAsync(ct);
+        foreach (var sibling in siblings)
+        {
+            sibling.ClearDefault(now);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(target));
     }
 
     private static async Task<Results<Ok<PaymentAccountReadiness>, NotFound>> Readiness(
@@ -105,6 +152,12 @@ public record CreatePaymentAccountRequest(
     [property: Required] string Provider,
     PaymentProviderMode Mode,
     bool IsDefaultForTenant,
+    string? ExternalAccountRef);
+
+public record UpdatePaymentAccountRequest(
+    [property: Required] string Name,
+    [property: Required] string Provider,
+    PaymentProviderMode Mode,
     string? ExternalAccountRef);
 
 public record PaymentAccountDto(

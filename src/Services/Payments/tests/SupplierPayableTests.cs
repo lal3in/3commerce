@@ -68,18 +68,16 @@ public class SupplierPayableTests
         Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.LiabilitySupplierPayable && l.CreditMinor == 8_000);
     }
 
-    private static SupplierBankAccount NewBankAccount() => new()
-    {
-        Id = Guid.CreateVersion7(),
-        TenantId = Guid.CreateVersion7(),
-        SupplierEntityId = Guid.CreateVersion7(),
-        AccountName = "Supplier Pty Ltd",
-        BankCountry = "AU",
-        RoutingNumberMasked = "***-123",
-        AccountNumberMasked = "******789",
-        AccountTokenRef = "vault:supplier-bank:123",
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+    private static SupplierBankAccount NewBankAccount() =>
+        SupplierBankAccount.Create(
+            tenantId: Guid.CreateVersion7(),
+            supplierEntityId: Guid.CreateVersion7(),
+            accountName: "Supplier Pty Ltd",
+            bankCountry: "AU",
+            routingNumberMasked: "***-123",
+            accountNumberMasked: "******789",
+            accountTokenRef: "vault:supplier-bank:123",
+            now: DateTimeOffset.UtcNow);
 
     private static SupplierPayablePolicy NewPolicy(int commissionBps)
     {

@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5998/"
+      "url": "http://localhost:5931/"
     }
   ],
   "paths": {
@@ -520,6 +520,102 @@
         }
       }
     },
+    "/admin/payment-accounts/{id}": {
+      "put": {
+        "tags": [
+          "Admin Payment Accounts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentAccountDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/payment-accounts/{id}/make-default": {
+      "post": {
+        "tags": [
+          "Admin Payment Accounts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentAccountDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/payment-accounts/{id}/readiness": {
       "get": {
         "tags": [
@@ -793,6 +889,59 @@
         }
       }
     },
+    "/admin/supplier-payouts/bank-accounts/{id}": {
+      "put": {
+        "tags": [
+          "Admin Supplier Payouts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSupplierBankAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplierBankAccountDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/supplier-payouts/bank-accounts/{id}/approve": {
       "post": {
         "tags": [
@@ -999,6 +1148,59 @@
         "responses": {
           "201": {
             "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayoutInstructionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/supplier-payouts/instructions/{id}": {
+      "put": {
+        "tags": [
+          "Admin Supplier Payouts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePayoutInstructionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -1644,6 +1846,9 @@
       "PaymentProviderMode": {
         "type": "integer"
       },
+      "PayoutCadence": {
+        "type": "integer"
+      },
       "PayoutDecisionRequest": {
         "required": [
           "reason"
@@ -1983,6 +2188,80 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "UpdatePaymentAccountRequest": {
+        "required": [
+          "name",
+          "provider",
+          "mode",
+          "externalAccountRef"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/PaymentProviderMode"
+          },
+          "externalAccountRef": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UpdatePayoutInstructionRequest": {
+        "required": [
+          "cadence",
+          "bankAccountId"
+        ],
+        "type": "object",
+        "properties": {
+          "cadence": {
+            "$ref": "#/components/schemas/PayoutCadence"
+          },
+          "bankAccountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "UpdateSupplierBankAccountRequest": {
+        "required": [
+          "accountName",
+          "bankCountry",
+          "routingNumberMasked",
+          "accountNumberMasked",
+          "accountTokenRef"
+        ],
+        "type": "object",
+        "properties": {
+          "accountName": {
+            "type": "string"
+          },
+          "bankCountry": {
+            "maxLength": 2,
+            "minLength": 2,
+            "type": "string"
+          },
+          "routingNumberMasked": {
+            "type": "string"
+          },
+          "accountNumberMasked": {
+            "type": "string"
+          },
+          "accountTokenRef": {
+            "type": "string"
           }
         }
       },

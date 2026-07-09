@@ -21,12 +21,14 @@ public static class SupplierPayoutAdminEndpoints
 
         group.MapGet("/bank-accounts", ListBankAccounts);
         group.MapPost("/bank-accounts", CreateBankAccount);
+        group.MapPut("/bank-accounts/{id:guid}", UpdateBankAccount);
         group.MapPost("/bank-accounts/{id:guid}/approve", ApproveBankAccount);
         group.MapPost("/bank-accounts/{id:guid}/reject", RejectBankAccount);
         group.MapPost("/bank-accounts/{id:guid}/archive", ArchiveBankAccount);
 
         group.MapGet("/instructions", ListInstructions);
         group.MapPost("/instructions", CreateInstruction);
+        group.MapPut("/instructions/{id:guid}", UpdateInstruction);
         group.MapPost("/instructions/{id:guid}/deactivate", DeactivateInstruction);
         return app;
     }
@@ -50,22 +52,40 @@ public static class SupplierPayoutAdminEndpoints
     private static async Task<Created<SupplierBankAccountDto>> CreateBankAccount(
         CreateSupplierBankAccountRequest request, PaymentsDbContext db, CancellationToken ct)
     {
-        var account = new SupplierBankAccount
-        {
-            Id = Guid.CreateVersion7(),
-            TenantId = request.TenantId,
-            SupplierEntityId = request.SupplierEntityId,
-            AccountName = request.AccountName.Trim(),
-            BankCountry = request.BankCountry.Trim().ToUpperInvariant(),
-            RoutingNumberMasked = request.RoutingNumberMasked.Trim(),
-            AccountNumberMasked = request.AccountNumberMasked.Trim(),
-            AccountTokenRef = request.AccountTokenRef.Trim(),
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
+        var account = SupplierBankAccount.Create(
+            request.TenantId, request.SupplierEntityId, request.AccountName, request.BankCountry,
+            request.RoutingNumberMasked, request.AccountNumberMasked, request.AccountTokenRef, DateTimeOffset.UtcNow);
 
         db.SupplierBankAccounts.Add(account);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/admin/supplier-payouts/bank-accounts/{account.Id}", ToDto(account));
+    }
+
+    // Edits label/masked fields only — raw bank details never enter this service. Changing the banking
+    // identity (country/masked routing/masked account/token) resets an approved account to
+    // PendingApproval (domain rule), so a re-keyed account is always re-verified before it can pay out.
+    private static async Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> UpdateBankAccount(
+        Guid id, UpdateSupplierBankAccountRequest request, PaymentsDbContext db, CancellationToken ct)
+    {
+        var account = await db.SupplierBankAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            account.UpdateDetails(
+                request.AccountName, request.BankCountry, request.RoutingNumberMasked,
+                request.AccountNumberMasked, request.AccountTokenRef);
+        }
+        catch (SupplierPayableRuleException ex)
+        {
+            return TypedResults.Conflict(ex.Message);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(account));
     }
 
     private static Task<Results<Ok<SupplierBankAccountDto>, NotFound, Conflict<string>>> ApproveBankAccount(
@@ -154,6 +174,43 @@ public static class SupplierPayoutAdminEndpoints
         }
     }
 
+    // Modify an existing instruction's schedule (cadence) and/or the bank account it routes to. The
+    // target bank account must be Active (same guard as create); the enum arrives numeric on the wire.
+    private static async Task<Results<Ok<PayoutInstructionDto>, NotFound, Conflict<string>>> UpdateInstruction(
+        Guid id, UpdatePayoutInstructionRequest request, PaymentsDbContext db, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(request.Cadence))
+        {
+            return TypedResults.Conflict("Unsupported payout cadence.");
+        }
+
+        var instruction = await db.PayoutInstructions.SingleOrDefaultAsync(i => i.Id == id, ct);
+        if (instruction is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var bankAccountId = request.BankAccountId ?? instruction.BankAccountId;
+        var bankAccount = await db.SupplierBankAccounts.SingleOrDefaultAsync(a =>
+            a.Id == bankAccountId && a.TenantId == instruction.TenantId && a.SupplierEntityId == instruction.SupplierEntityId, ct);
+        if (bankAccount is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            instruction.Update(bankAccount, request.Cadence);
+        }
+        catch (SupplierPayableRuleException ex)
+        {
+            return TypedResults.Conflict(ex.Message);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(instruction));
+    }
+
     private static async Task<Results<Ok<PayoutInstructionDto>, NotFound>> DeactivateInstruction(
         Guid id, PaymentsDbContext db, CancellationToken ct)
     {
@@ -185,6 +242,13 @@ public record CreateSupplierBankAccountRequest(
     [property: Required] string AccountNumberMasked,
     [property: Required] string AccountTokenRef);
 
+public record UpdateSupplierBankAccountRequest(
+    [property: Required] string AccountName,
+    [property: Required, StringLength(2, MinimumLength = 2)] string BankCountry,
+    [property: Required] string RoutingNumberMasked,
+    [property: Required] string AccountNumberMasked,
+    [property: Required] string AccountTokenRef);
+
 public record PayoutDecisionRequest([property: Required] string Reason);
 
 public record CreatePayoutInstructionRequest(
@@ -192,6 +256,10 @@ public record CreatePayoutInstructionRequest(
     [property: Required] Guid SupplierEntityId,
     [property: Required] Guid BankAccountId,
     [property: Required] string Cadence);
+
+public record UpdatePayoutInstructionRequest(
+    PayoutCadence Cadence,
+    Guid? BankAccountId);
 
 public record SupplierBankAccountDto(
     Guid Id, Guid TenantId, Guid SupplierEntityId, string AccountName, string BankCountry,

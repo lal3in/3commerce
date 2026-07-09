@@ -20,15 +20,98 @@ public class PaymentAccount
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
     public Guid? StorefrontId { get; init; }
-    public required string Name { get; init; }
-    public required string Provider { get; init; }
-    public PaymentProviderMode Mode { get; init; }
+    public string Name { get; private set; } = string.Empty;
+    public string Provider { get; private set; } = string.Empty;
+    public PaymentProviderMode Mode { get; private set; }
     public PaymentAccountState State { get; private set; } = PaymentAccountState.Draft;
-    public bool IsDefaultForTenant { get; init; }
-    public string? ExternalAccountRef { get; init; }
+    public bool IsDefaultForTenant { get; private set; }
+    public string? ExternalAccountRef { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
+
+    /// <summary>
+    /// Creates a Draft payment account. The mutable descriptor fields have private setters so the only
+    /// ways to change them post-creation are the domain methods below (edit, make-default, lifecycle).
+    /// </summary>
+    public static PaymentAccount Create(
+        Guid tenantId,
+        Guid? storefrontId,
+        string name,
+        string provider,
+        PaymentProviderMode mode,
+        bool isDefaultForTenant,
+        string? externalAccountRef,
+        DateTimeOffset now) => new()
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = tenantId,
+            StorefrontId = storefrontId,
+            Name = name.Trim(),
+            Provider = provider.Trim(),
+            Mode = mode,
+            IsDefaultForTenant = isDefaultForTenant,
+            ExternalAccountRef = string.IsNullOrWhiteSpace(externalAccountRef) ? null : externalAccountRef.Trim(),
+            CreatedAt = now,
+        };
+
+    /// <summary>
+    /// Edits the mutable descriptor fields. Name is always editable (unless archived); provider and mode
+    /// are integration-defining, so they may only change while the account is not yet Active (suspend an
+    /// Active account first). Archived accounts are immutable.
+    /// </summary>
+    public void UpdateDetails(string name, string provider, PaymentProviderMode mode, string? externalAccountRef, DateTimeOffset now)
+    {
+        if (State == PaymentAccountState.Archived)
+        {
+            throw new PaymentAccountRuleException("Archived payment accounts cannot be edited.");
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new PaymentAccountRuleException("Payment account name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            throw new PaymentAccountRuleException("Payment account provider is required.");
+        }
+
+        if (State == PaymentAccountState.Active && (provider.Trim() != Provider || mode != Mode))
+        {
+            throw new PaymentAccountRuleException("Provider and mode cannot change on an active payment account; suspend it first.");
+        }
+
+        Name = name.Trim();
+        Provider = provider.Trim();
+        Mode = mode;
+        ExternalAccountRef = string.IsNullOrWhiteSpace(externalAccountRef) ? null : externalAccountRef.Trim();
+        UpdatedAt = now;
+    }
+
+    /// <summary>Marks this account as the tenant default. Archived accounts cannot become default.</summary>
+    public void SetAsDefault(DateTimeOffset now)
+    {
+        if (State == PaymentAccountState.Archived)
+        {
+            throw new PaymentAccountRuleException("Archived payment accounts cannot be made the tenant default.");
+        }
+
+        IsDefaultForTenant = true;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Clears the tenant-default flag (used when another account becomes default).</summary>
+    public void ClearDefault(DateTimeOffset now)
+    {
+        if (!IsDefaultForTenant)
+        {
+            return;
+        }
+
+        IsDefaultForTenant = false;
+        UpdatedAt = now;
+    }
 
     public PaymentAccountReadiness CheckReadiness()
     {
