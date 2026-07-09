@@ -25,6 +25,16 @@
 @if (_error is not null)
 {
     <p style="color:#b91c1c;">@_error</p>
+    @if (_transitionReadiness is not null && !_transitionReadiness.IsReady)
+    {
+        <p style="color:#b91c1c; margin:.1rem 0;">This storefront is not ready to go live yet:</p>
+        <ul style="color:#b91c1c; margin:.1rem 0;">
+            @foreach (var missing in _transitionReadiness.MissingRequirements)
+            {
+                <li>@missing</li>
+            }
+        </ul>
+    }
 }
 
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
@@ -191,6 +201,11 @@
     private string _domainHost = string.Empty;
     private bool _domainCanonical = true;
     private ReadinessDto? _readiness;
+
+    // Readiness checklist shown under the error banner when a preview/activate transition is
+    // refused — the ProblemDetails title alone ("One or more validation errors occurred.")
+    // doesn't tell the operator WHAT the storefront is missing.
+    private ReadinessDto? _transitionReadiness;
     private string _assignProductId = string.Empty;
     private string? _seoTitle;
     private int _fulfillmentSource;
@@ -205,6 +220,7 @@
     private async Task LoadStorefronts()
     {
         _error = null;
+        _transitionReadiness = null;
         _storefronts = await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Uri.EscapeDataString(_tenantId)}");
     }
 
@@ -237,10 +253,28 @@
     {
         if (_selectedStorefront is null) return;
         var selectedId = _selectedStorefront.Id;
+        // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
+        // visibility/taxRegime already serialize as numeric enum values here.
         var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
         await LoadStorefronts();
-        _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == selectedId);
-        await HandleMutation(response, "Storefront settings updated.");
+        if (await HandleMutation(response, "Storefront settings updated."))
+        {
+            // On success, close the manage form. Leaving it open re-showed the saved storefront and
+            // could later display THIS storefront's values when managing a different one (stale form).
+            CloseManageForm();
+        }
+        else
+        {
+            // Keep the form open on failure so the operator can correct and retry.
+            _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == selectedId);
+        }
+    }
+
+    private void CloseManageForm()
+    {
+        _selectedStorefront = null;
+        _readiness = null;
+        _publicationReadiness = null;
     }
 
     private async Task Transition(Guid id, string transition)
@@ -253,7 +287,13 @@
         {
             _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == id);
         }
-        await HandleMutation(response, $"Storefront {transition} requested.");
+
+        if (!await HandleMutation(response, $"Storefront {transition} requested.")
+            && transition is "preview" or "activate")
+        {
+            // Show the concrete readiness blockers (e.g. "one canonical domain") next to the error.
+            _transitionReadiness = await Gateway.GetAsync<ReadinessDto>($"/api/catalog/admin/storefronts/{id}/readiness");
+        }
     }
 
     private async Task AddDomain()
@@ -302,6 +342,7 @@
 
     private async Task<bool> HandleMutation(HttpResponseMessage response, string success)
     {
+        _transitionReadiness = null; // only a failed preview/activate re-populates it (right after this call)
         if (response.IsSuccessStatusCode)
         {
             _status = success;

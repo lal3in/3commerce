@@ -1,5 +1,6 @@
 @page "/entities"
 @attribute [Authorize(Roles = "admin")]
+@using System.Text.Json
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
@@ -46,9 +47,11 @@ else
                             <td style="text-align:center;">@TypeName(e.Type)</td>
                             <td style="text-align:center;">@StatusName(e.Status)</td>
                             <td style="text-align:right; white-space:nowrap;">
-                                <button @onclick='() => Supplier(e.Id, "suppliers")' style="font-size:.75rem;" title="Begin supplier onboarding">Onboard</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/activate")' style="font-size:.75rem;" title="Activate a verified supplier">Activate</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/suspend")' style="font-size:.75rem;" title="Suspend an active supplier">Suspend</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers")' style="font-size:.75rem;" title="Begin supplier onboarding (state: Draft)">Onboard</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/submit-verification")' style="font-size:.75rem;" title="Submit a Draft supplier for verification (requires a verified ABN/ACN, an email contact, and a current address on the entity)">Verify</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/verification-complete")' style="font-size:.75rem;" title="Mark verification complete (state: Pending verification → Pending approval)">Verified</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/activate")' style="font-size:.75rem;" title="Activate a supplier whose verification is complete (state must be Pending approval)">Activate</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/suspend")' style="font-size:.75rem;" title="Suspend an ACTIVE supplier — the reason on the left is recorded (8–500 chars)">Suspend</button>
                                 <button @onclick='() => Supplier(e.Id, "suppliers/archive")' style="font-size:.75rem; color:#b91c1c;" title="Archive the supplier">Archive</button>
                             </td>
                         </tr>
@@ -73,7 +76,7 @@ else
 
         <div>
             <h2>Pending supplier change requests</h2>
-            <label style="font-size:.85rem;">Decision reason <input @bind="_decisionReason" style="width:100%; padding:.3rem;" placeholder="Reason (required to reject)" title="Recorded with the decision; required when rejecting." /></label>
+            <label style="font-size:.85rem;">Decision reason <input @bind="_decisionReason" style="width:100%; padding:.3rem;" placeholder="Reason (8–500 chars, required to reject)" title="Recorded with the decision; optional for approve, required (8–500 characters) when rejecting." /></label>
             @if (_requests.Count == 0) { <p style="color:#9ca3af; margin-top:.5rem;">No pending change requests.</p> }
             else
             {
@@ -87,9 +90,14 @@ else
                         <div style="font-size:.9rem; margin:.2rem 0;">@r.Summary</div>
                         @if (!string.IsNullOrWhiteSpace(r.Detail)) { <div style="font-size:.82rem; color:#4b5563;">@r.Detail</div> }
                         <div style="font-size:.75rem; color:#9ca3af;">requested by @r.RequestedByPrincipalId.ToString()[..8]</div>
+                        @{ var mine = _myPrincipalId is not null && r.RequestedByPrincipalId == _myPrincipalId; }
+                        @if (mine)
+                        {
+                            <div style="font-size:.78rem; color:#92400e; margin-top:.3rem;">You raised this request — a different admin must decide it (maker-checker).</div>
+                        }
                         <div style="margin-top:.4rem; display:flex; gap:.4rem;">
-                            <button @onclick='() => DecideAsync(r.Id, "approve")' style="padding:.25rem .7rem; background:#047857; color:#fff; border:0; border-radius:4px;">Approve</button>
-                            <button @onclick='() => DecideAsync(r.Id, "reject")' style="padding:.25rem .7rem; background:#b91c1c; color:#fff; border:0; border-radius:4px;">Reject</button>
+                            <button @onclick='() => DecideAsync(r.Id, "approve")' disabled="@mine" title="@(mine ? "Maker-checker: the requester cannot approve their own request." : "Approve this change request.")" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#047857"); color:#fff; border:0; border-radius:4px;">Approve</button>
+                            <button @onclick='() => DecideAsync(r.Id, "reject")' disabled="@mine" title="@(mine ? "Maker-checker: the requester cannot reject their own request." : "Reject this change request — the decision reason above is required (8–500 chars).")" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#b91c1c"); color:#fff; border:0; border-radius:4px;">Reject</button>
                         </div>
                     </div>
                 }
@@ -111,8 +119,16 @@ else
     private string _decisionReason = string.Empty;
     private string _suspendReason = "Suspended by operator via admin.";
     private EntityEditor? _editing;
+    private Guid? _myPrincipalId;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // Who am I? Needed to pre-empt maker-checker: the requester of a change request
+        // cannot also decide it, so their own requests render with disabled decision buttons.
+        var me = await Gateway.GetAsync<MeResponse>("/api/identity/me");
+        _myPrincipalId = me?.Id;
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -198,30 +214,74 @@ else
 
         var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/{action}", body);
         if (response.IsSuccessStatusCode) { _info = $"Supplier '{action.Split('/').Last()}' ok."; }
-        else { _error = $"Action failed: {await GatewayError.ReadAsync(response)}"; }
+        else { _error = $"Action failed: {await ReadFailureAsync(response)}"; }
         await LoadAsync();
+    }
+
+    // Unwrap a ValidationProblem's `errors` values (the actual reason, e.g. "Only active suppliers
+    // can be suspended.") — the envelope's generic title makes by-design refusals look like dead buttons.
+    private static async Task<string> ReadFailureAsync(HttpResponseMessage response)
+    {
+        var raw = await response.Content.ReadAsStringAsync();
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("errors", out var errors)
+                && errors.ValueKind == JsonValueKind.Object)
+            {
+                var messages = errors.EnumerateObject()
+                    .Where(p => p.Value.ValueKind == JsonValueKind.Array)
+                    .SelectMany(p => p.Value.EnumerateArray())
+                    .Where(v => v.ValueKind == JsonValueKind.String)
+                    .Select(v => v.GetString()!)
+                    .Where(m => !string.IsNullOrWhiteSpace(m))
+                    .ToList();
+                if (messages.Count > 0)
+                {
+                    return string.Join(" ", messages);
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Not JSON — fall through to the shared humanizer.
+        }
+
+        return GatewayError.Humanize(raw);
     }
 
     private async Task DecideAsync(Guid requestId, string decision)
     {
         _error = _info = null;
-        if (decision == "reject" && string.IsNullOrWhiteSpace(_decisionReason))
+        var reason = string.IsNullOrWhiteSpace(_decisionReason) ? null : _decisionReason.Trim();
+
+        // The reject contract (RejectSupplierChangeRequestBody) requires a Reason of 8–500 chars;
+        // approve takes an optional reason. Validate up-front so the operator gets a local hint
+        // instead of a 400 from the service.
+        if (decision == "reject" && (reason is null || reason.Length < 8))
         {
-            _error = "A reason is required to reject.";
+            _error = "Rejecting requires a decision reason of at least 8 characters.";
+            return;
+        }
+
+        if (reason is { Length: > 500 })
+        {
+            _error = "The decision reason must be at most 500 characters.";
             return;
         }
 
         var response = await Gateway.PostAsync($"/api/entity/entities/suppliers/change-requests/{requestId}/{decision}?tenantId={_tenantId}",
-            new { reason = string.IsNullOrWhiteSpace(_decisionReason) ? null : _decisionReason });
+            new { reason });
         if (response.IsSuccessStatusCode)
         {
-            _info = $"Request {decision}d.";
+            _info = decision == "approve" ? "Request approved." : "Request rejected.";
             _decisionReason = string.Empty;
             await LoadAsync();
         }
         else
         {
-            _error = $"{decision} failed: {await GatewayError.ReadAsync(response)}";
+            _error = $"{decision} failed: {await ReadFailureAsync(response)}";
         }
     }
 
@@ -230,6 +290,7 @@ else
     private static string ChangeTypeName(int t) => t switch { 1 => "User access", 2 => "Contact", 3 => "Bank account", _ => $"Type {t}" };
 
     private sealed record EntitySummary(Guid Id, Guid TenantId, int Type, string LegalName, string? TradingName, string DisplayName, int Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+    private sealed record MeResponse(Guid Id, string Email);
     private sealed record ChangeRequest(Guid Id, Guid TenantId, Guid EntityId, int Type, string Summary, string? Detail, int Status, Guid RequestedByPrincipalId, DateTimeOffset CreatedAt, Guid? DecidedByPrincipalId, string? DecisionReason, DateTimeOffset? DecidedAt);
 
     private sealed class EntityEditor
