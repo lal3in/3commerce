@@ -114,6 +114,24 @@ public sealed class Phase3Fixture : IAsyncLifetime
         return (await db.Orders.AsNoTracking().SingleAsync(o => o.Id == orderId)).UserId;
     }
 
+    /// <summary>Whether the Order row has materialized (the saga's owner creates it on confirmation).</summary>
+    public async Task<bool> OrderExistsAsync(Guid orderId)
+    {
+        using var scope = Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        return await db.Orders.AsNoTracking().AnyAsync(o => o.Id == orderId);
+    }
+
+    /// <summary>The user recorded for a verified email in Ordering's read copy (FR-7), if any.</summary>
+    public async Task<Guid?> VerifiedCustomerUserIdAsync(string email)
+    {
+        using var scope = Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        var copy = await db.VerifiedCustomerCopies.AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Email == email.ToLowerInvariant());
+        return copy?.UserId;
+    }
+
     public async Task DisposeAsync()
     {
         if (_publishBus is not null)

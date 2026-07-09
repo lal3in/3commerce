@@ -20,6 +20,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
+    public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -96,6 +97,12 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         modelBuilder.Entity<OrderNumberSequence>(sequence =>
         {
             sequence.HasKey(x => x.StorefrontId);
+        });
+
+        modelBuilder.Entity<VerifiedCustomerCopy>(copy =>
+        {
+            copy.HasKey(x => x.Email);
+            copy.Property(x => x.Email).HasMaxLength(320);
         });
 
         // Saga state persistence (MassTransit EF saga repository).
