@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Domain.Authz;
@@ -53,6 +55,8 @@ public static class AdminRbacEndpoints
     private static async Task<Results<Created<RoleResponse>, Conflict<string>, ValidationProblem>> CreateRole(
         CreateRoleRequest request,
         IdentityDbContext db,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         if (await db.Roles.AnyAsync(r => r.TenantId == request.TenantId && r.Key == request.Key, cancellationToken))
@@ -80,6 +84,8 @@ public static class AdminRbacEndpoints
         };
         RbacRules.SetPermissions(role, request.PermissionKeys ?? []);
         db.Roles.Add(role);
+        await audit.RecordAsync(user.Mutation(
+            request.TenantId, "Role", role.Id.ToString(), "identity.role.create", role.Key), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/admin/rbac/roles/{role.Id}", ToResponse(role));
     }

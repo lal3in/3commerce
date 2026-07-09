@@ -100,7 +100,7 @@ The dedicated home for prices + graduated tiers (mt7_1). The Catalog Offer keeps
 
 ## Audit (`/api/audit`)
 
-Central searchable projection of every service's local audit entry (mt6_1). Read-only; the owning service's hash-chained log stays authoritative. Consumes `AuditEntryRecorded`.
+Central searchable projection of every service's local audit entry (mt6_1). Read-only; the owning service's hash-chained log stays authoritative. Consumes `AuditEntryRecorded` (deduped per tenant by the entry's content hash). Producers (mr_8): Catalog (storefront create/update/lifecycle/domain-add, product create/update/delete/publish/unpublish, offer create/update), Payments (payment-account create/update/lifecycle/make-default, supplier-payout bank-account + instruction mutations, xero mapping upsert/delete, admin refund request), Entity (entity create/update/archive, supplier onboarding transitions, change-request approve/reject via the local hash chain), Identity (role create, user password reset/email change — field names only, never values), Support (RMA approve/deny/return-received), Ordering (admin order cancel) — all emit `AuditEntryRecorded` in the same unit of work as the mutation (bus outbox), which feeds the Mission Control activity timeline.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|

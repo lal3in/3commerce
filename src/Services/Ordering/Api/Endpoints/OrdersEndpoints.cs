@@ -3,6 +3,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -31,7 +32,8 @@ public static class OrdersEndpoints
     }
 
     private static async Task<Results<Accepted, NotFound, Conflict<string>>> CancelOrder(
-        Guid id, CancelOrderRequest? request, OrderingDbContext db, IPublishEndpoint publisher, CancellationToken ct)
+        Guid id, CancelOrderRequest? request, OrderingDbContext db, IPublishEndpoint publisher,
+        IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var order = await db.Orders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, ct);
         if (order is null)
@@ -50,7 +52,11 @@ public static class OrdersEndpoints
         }
 
         // The OrderStatusConsumer transitions the (unpaid) order to Cancelled.
-        await publisher.Publish(new OrderCancelled(id, request?.Reason ?? "cancelled by admin"), ct);
+        var reason = request?.Reason ?? "cancelled by admin";
+        await publisher.Publish(new OrderCancelled(id, reason), ct);
+        await audit.RecordAsync(user.Mutation(
+            order.TenantId, "Order", order.Id.ToString(), "ordering.order.cancel", reason), ct);
+        await db.SaveChangesAsync(ct); // flush the bus outbox (OrderCancelled + AuditEntryRecorded)
         return TypedResults.Accepted($"/admin/orders/{id}");
     }
 

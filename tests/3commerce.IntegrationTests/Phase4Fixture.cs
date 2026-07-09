@@ -37,6 +37,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
     public WebApplicationFactory<ThreeCommerce.Entitlement.Api.IApiMarker> Entitlement { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Usage.Api.IApiMarker> Usage { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Marketing.Api.IApiMarker> Marketing { get; private set; } = null!;
+    public WebApplicationFactory<ThreeCommerce.Audit.Api.IApiMarker> Audit { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -48,6 +49,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await _postgres.ExecScriptAsync("CREATE DATABASE entitlement_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE usage_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE marketing_db;");
+        await _postgres.ExecScriptAsync("CREATE DATABASE audit_db;");
 
         Support = CreateFactory<ThreeCommerce.Support.Api.IApiMarker, ThreeCommerce.Support.Infrastructure.SupportDbContext>("support_db");
         Payments = CreateFactory<ThreeCommerce.Payments.Api.IApiMarker, PaymentsDbContext>("payments_db");
@@ -55,6 +57,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         Entitlement = CreateFactory<ThreeCommerce.Entitlement.Api.IApiMarker, EntitlementDbContext>("entitlement_db");
         Usage = CreateFactory<ThreeCommerce.Usage.Api.IApiMarker, UsageDbContext>("usage_db");
         Marketing = CreateFactory<ThreeCommerce.Marketing.Api.IApiMarker, ThreeCommerce.Marketing.Infrastructure.MarketingDbContext>("marketing_db");
+        Audit = CreateFactory<ThreeCommerce.Audit.Api.IApiMarker, ThreeCommerce.Audit.Infrastructure.AuditDbContext>("audit_db");
 
         // Direct publisher (bypasses the EF bus outbox, which only delivers on SaveChanges).
         _publishBus = Bus.Factory.CreateUsingRabbitMq(cfg => cfg.Host(new Uri(RabbitMqUri)));
@@ -76,6 +79,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await Fulfillment.DisposeAsync();
         await Entitlement.DisposeAsync();
         await Usage.DisposeAsync();
+        await Audit.DisposeAsync();
         _ecdsa.Dispose();
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }

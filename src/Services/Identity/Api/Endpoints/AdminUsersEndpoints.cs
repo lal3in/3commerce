@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Identity.Infrastructure;
 
@@ -38,7 +39,8 @@ public static class AdminUsersEndpoints
             return TypedResults.Forbid();
         }
 
-        var temporary = await service.ResetPasswordAsync(tenantId, id, ct);
+        var (actorId, actorRole) = principal.AuditActor();
+        var temporary = await service.ResetPasswordAsync(tenantId, id, actorId, actorRole, ct);
         return temporary is null ? TypedResults.NotFound() : TypedResults.Ok(new ResetPasswordResponse(temporary));
     }
 
@@ -55,7 +57,8 @@ public static class AdminUsersEndpoints
             return TypedResults.BadRequest("A valid email is required.");
         }
 
-        return await service.ChangeEmailAsync(tenantId, id, request.Email, ct)
+        var (actorId, actorRole) = principal.AuditActor();
+        return await service.ChangeEmailAsync(tenantId, id, request.Email, actorId, actorRole, ct)
             ? TypedResults.NoContent()
             : TypedResults.BadRequest("Could not change email (user not found, or the email is already in use in this tenant).");
     }

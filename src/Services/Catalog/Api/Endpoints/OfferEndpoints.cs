@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -43,7 +45,7 @@ public static class OfferEndpoints
 
     private static async Task<Results<Created<OfferDto>, BadRequest<string>>> Create(
         CreateOfferRequest request, CatalogDbContext db, IConfiguration config, TimeProvider clock,
-        IPublishEndpoint publisher, CancellationToken ct)
+        IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         try
         {
@@ -54,6 +56,8 @@ public static class OfferEndpoints
                 request.Priority, now);
             offer.SetPricing(request.PricingModel, request.BillingPeriod, ToTiers(request.Tiers), now);
             db.Offers.Add(offer);
+            await audit.RecordAsync(user.Mutation(
+                offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.create", offer.ProductId.ToString()), ct);
             await db.SaveChangesAsync(ct);
             await publisher.Publish(ToEvent(offer), ct);
             return TypedResults.Created($"/admin/offers/{offer.Id}", ToDto(offer));
@@ -66,7 +70,7 @@ public static class OfferEndpoints
 
     private static async Task<Results<Ok<OfferDto>, NotFound, BadRequest<string>>> Update(
         Guid id, UpdateOfferRequest request, CatalogDbContext db, TimeProvider clock,
-        IPublishEndpoint publisher, CancellationToken ct)
+        IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var offer = await db.Offers.SingleOrDefaultAsync(o => o.Id == id, ct);
         if (offer is null)
@@ -108,6 +112,8 @@ public static class OfferEndpoints
                 db.AddRange(offer.PriceTiers);
             }
 
+            await audit.RecordAsync(user.Mutation(
+                offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.update", offer.ProductId.ToString()), ct);
             await db.SaveChangesAsync(ct);
             await publisher.Publish(ToEvent(offer), ct);
             return TypedResults.Ok(ToDto(offer));

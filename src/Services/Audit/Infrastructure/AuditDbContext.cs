@@ -27,7 +27,10 @@ public sealed class AuditDbContext(DbContextOptions<AuditDbContext> options) : D
             entry.Property(e => e.Outcome).HasMaxLength(16);
             entry.Property(e => e.Summary).HasMaxLength(512);
             entry.Property(e => e.Hash).HasMaxLength(80);
-            entry.HasIndex(e => new { e.TenantId, e.Sequence }).IsUnique();
+            // Idempotency key: the entry's content hash. NOT (TenantId, Sequence) — sequence is the
+            // producer's local chain position, which restarts per service (and is always 1 for
+            // publish-only producers), so distinct entries from different services would collide.
+            entry.HasIndex(e => new { e.TenantId, e.Hash }).IsUnique();
             entry.HasIndex(e => new { e.TenantId, e.ResourceType, e.ResourceId });
         });
     }

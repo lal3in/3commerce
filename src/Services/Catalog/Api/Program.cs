@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
@@ -31,6 +32,7 @@ builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration, bus =>
 });
 builder.Services.AddServiceHealth<CatalogDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
+builder.Services.AddAuditRecorder("catalog");
 
 builder.Services.AddScoped<ISupplierImporter, SampleDataImporter>();
 builder.Services.AddScoped<ISearchProvider, PostgresSearchProvider>();

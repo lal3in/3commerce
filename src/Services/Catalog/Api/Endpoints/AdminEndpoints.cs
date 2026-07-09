@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -91,7 +93,7 @@ public static class AdminEndpoints
     }
 
     private static async Task<Results<Created<ProductEditorDto>, Conflict<string>, ValidationProblem>> CreateProduct(
-        ProductWriteRequest request, CatalogDbContext db, IPublishEndpoint publisher,
+        ProductWriteRequest request, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user,
         IConfiguration config, TimeProvider time, CancellationToken cancellationToken)
     {
         if (Validate(request) is { } problem)
@@ -154,12 +156,14 @@ public static class AdminEndpoints
 
         db.Products.Add(product);
         await PublishUpsertedAsync(publisher, product, defaultCurrency, cancellationToken);
+        await audit.RecordAsync(user.Mutation(
+            product.TenantId, "Product", product.Id.ToString(), "catalog.product.create", product.Title), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/admin/products/{product.Id}", ToEditorDto(product));
     }
 
     private static async Task<Results<Ok<ProductEditorDto>, NotFound, Conflict<string>, ValidationProblem>> UpdateProduct(
-        Guid id, ProductWriteRequest request, CatalogDbContext db, IPublishEndpoint publisher,
+        Guid id, ProductWriteRequest request, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user,
         IConfiguration config, TimeProvider time, CancellationToken cancellationToken)
     {
         if (Validate(request) is { } problem)
@@ -261,12 +265,14 @@ public static class AdminEndpoints
         }
 
         await PublishUpsertedAsync(publisher, product, defaultCurrency, cancellationToken);
+        await audit.RecordAsync(user.Mutation(
+            product.TenantId, "Product", product.Id.ToString(), "catalog.product.update", product.Title), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Ok(ToEditorDto(product));
     }
 
     private static async Task<Results<NoContent, NotFound>> DeleteProduct(
-        Guid id, CatalogDbContext db, CancellationToken cancellationToken)
+        Guid id, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
         var product = await db.Products.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
@@ -275,6 +281,8 @@ public static class AdminEndpoints
         }
 
         db.Products.Remove(product);
+        await audit.RecordAsync(user.Mutation(
+            product.TenantId, "Product", product.Id.ToString(), "catalog.product.delete", product.Title), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.NoContent();
     }
