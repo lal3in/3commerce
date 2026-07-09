@@ -28,7 +28,7 @@ public class XeroMappingAdminTests(Phase4Fixture fixture)
         var created = await (await admin.PostAsJsonAsync("/admin/xero/mappings", new
         {
             tenantId = tenant,
-            scope = "TenantDefault",
+            scope = 1, // TenantDefault — enums are numeric on the wire (the string form is what this PR removes)
             ledgerAccountCode = Accounts.RevenueSales,
             xeroAccountCode = "200",
             active = true
@@ -38,7 +38,7 @@ public class XeroMappingAdminTests(Phase4Fixture fixture)
         var updated = await (await admin.PutAsJsonAsync($"/admin/xero/mappings/{created.Id}", new
         {
             tenantId = tenant,
-            scope = "TenantDefault",
+            scope = 1, // TenantDefault — enums are numeric on the wire (the string form is what this PR removes)
             ledgerAccountCode = Accounts.RevenueSales,
             xeroAccountCode = "201",
             active = true
