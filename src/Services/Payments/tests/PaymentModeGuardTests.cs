@@ -43,4 +43,30 @@ public class PaymentModeGuardTests
         PaymentModeGuard.EnsureProductionSafe(
             PaymentTestSupport.Config(("Payments:Mode", "Production")), PaymentTestSupport.Env(Environments.Production));
     }
+
+    // pay_3: the TEST-ONLY mock-payment email path must be impossible to configure into ANY deployed
+    // environment, regardless of casing or which non-Development environment name is used.
+
+    [Fact]
+    public void Refuses_LocalMock_case_insensitively()
+    {
+        Assert.Throws<InvalidOperationException>(() => PaymentModeGuard.EnsureProductionSafe(
+            PaymentTestSupport.Config(("Payments:Mode", "localmock")), PaymentTestSupport.Env(Environments.Production)));
+    }
+
+    [Fact]
+    public void Refuses_AllowMockEmail_in_staging_too()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => PaymentModeGuard.EnsureProductionSafe(
+            PaymentTestSupport.Config(("Payments:AllowMockEmail", "true")), PaymentTestSupport.Env(Environments.Staging)));
+        Assert.Contains("AllowMockEmail", ex.Message);
+    }
+
+    [Fact]
+    public void Allows_production_with_AllowMockEmail_explicitly_false()
+    {
+        PaymentModeGuard.EnsureProductionSafe(
+            PaymentTestSupport.Config(("Payments:Mode", "Production"), ("Payments:AllowMockEmail", "false")),
+            PaymentTestSupport.Env(Environments.Production));
+    }
 }
