@@ -68,7 +68,17 @@ builder.Services.AddScoped<PaymentModeResolver>();
 builder.Services.AddScoped<PaymentSecretResolver>();
 builder.Services.AddScoped<IPaymentProviderRegistry, PaymentProviderRegistry>();
 builder.Services.AddScoped<IIdempotencyGuard, IdempotencyGuard>();
-builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>(); // ProviderKey "mock" (LocalMock; pay_3 layers MockEmailPaymentProvider)
+
+// pay_3 (ADR-0039): the LocalMock adapter is MockEmailPaymentProvider — it simulates the six
+// MockScenario outcomes and, on every authorize/refund, publishes a TEST-ONLY MockPaymentCaptured
+// event (redacted payload) that the Notifications worker renders as a "TEST ONLY / MOCK PAYMENT"
+// email to Payments:MockEmailTo. In Sandbox the registry wraps the real adapter to also emit it;
+// Production never emits it (PaymentModeGuard refuses the mock/email config at boot, above). Scoped
+// so the capture publish rides the consumer's transactional outbox. FakePaymentProvider stays as
+// the deterministic core it composes.
+builder.Services.AddScoped<IMockPaymentCapture, MockPaymentCapture>();
+builder.Services.AddScoped<IPaymentProvider, MockEmailPaymentProvider>(); // ProviderKey "mock"
+
 builder.Services.AddSingleton<IPaymentProvider, StripePaymentProvider>(); // ProviderKey "stripe"
 
 // pay_4 PSP adapters (ADR-0039): sandbox-ready skeletons behind the same seam, self-registered by
