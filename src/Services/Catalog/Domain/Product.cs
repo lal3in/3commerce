@@ -19,6 +19,13 @@ public class Product
 
     /// <summary>Nature of the product (ADR-0028) — not the fulfilment mechanism (that lives on the Offer).</summary>
     public ProductType ProductType { get; set; } = ProductType.Physical;
+
+    /// <summary>
+    /// Lifecycle gate for public discovery. An Inactive product stays in the admin catalog
+    /// (editable, importable) but is hidden from the public search and product-detail endpoints.
+    /// Public endpoints must only serve Active products; admin endpoints stay unfiltered.
+    /// </summary>
+    public ProductStatus Status { get; set; } = ProductStatus.Active;
     public Dictionary<string, string> Attributes { get; set; } = [];
     public List<string> ImageUrls { get; set; } = [];
     public string? SupplierRef { get; set; }
@@ -335,4 +342,11 @@ public enum ProductType
     Digital = 2,
     Service = 3,
     Bundle = 4,
+}
+
+/// <summary>Publication lifecycle gate honoured by the public catalog endpoints. Active is the default.</summary>
+public enum ProductStatus
+{
+    Active = 1,
+    Inactive = 2,
 }

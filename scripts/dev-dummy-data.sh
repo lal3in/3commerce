@@ -265,7 +265,10 @@ variant_payload = []
 for i in range(variants):
     suffix = chr(ord('A') + i)
     variant_payload.append({"id": None, "sku": f"E2E-{code.upper()}-{suffix}", "priceMinor": price + (i * 500), "currency": "EUR", "stockQuantity": stock, "weightGrams": 500 + (i * 100) if product_type in ("Physical", "Bundle") else 0, "lengthMm": 200, "widthMm": 150, "heightMm": 100})
-payload = {"tenantId": tenant_id, "slug": f"e2e-scenario-{code}", "title": f"E2E Scenario {code}", "brand": "3commerce QA", "description": f"Deterministic QA scenario product for {code}.", "categoryId": category_id, "attributes": {"scenarioCode": code, "productType": product_type, "supplyCategory": supply, "fulfilmentType": fulfilment, "pricingModel": pricing, "billingMode": billing, "qaSeed": "true"}, "imageUrls": [f"https://placehold.co/800x600?text={code}"], "variants": variant_payload}
+# ProductStatus enum binds as a NUMBER over HTTP (AGENTS.md invariant): 1=Active, 2=Inactive.
+# The inactive-unpublished-private fixture must NOT be publicly discoverable, so seed it Inactive.
+status = 2 if code == "inactive-unpublished-private" else 1
+payload = {"tenantId": tenant_id, "slug": f"e2e-scenario-{code}", "title": f"E2E Scenario {code}", "brand": "3commerce QA", "description": f"Deterministic QA scenario product for {code}.", "categoryId": category_id, "status": status, "attributes": {"scenarioCode": code, "productType": product_type, "supplyCategory": supply, "fulfilmentType": fulfilment, "pricingModel": pricing, "billingMode": billing, "qaSeed": "true"}, "imageUrls": [f"https://placehold.co/800x600?text={code}"], "variants": variant_payload}
 print(json.dumps(payload))
 PY
 }

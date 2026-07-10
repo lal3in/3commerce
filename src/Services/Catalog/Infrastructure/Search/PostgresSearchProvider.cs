@@ -49,7 +49,9 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
 
     private (string WhereSql, IEnumerable<NpgsqlParameter> Parameters) BuildFilters(SearchQuery query)
     {
-        var sql = string.Empty;
+        // Public discovery gate: only Active products are searchable. Inactive products stay in the
+        // admin catalog (ListProducts/GetProduct are unfiltered) but never leak into public search.
+        var sql = $" AND p.\"Status\" = {(int)ProductStatus.Active}";
         var parameters = new List<NpgsqlParameter>();
 
         if (!string.IsNullOrWhiteSpace(query.CategorySlug))
