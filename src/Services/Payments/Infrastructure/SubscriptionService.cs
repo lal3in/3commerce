@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure;
 
 /// <summary>
 /// Subscription lifecycle (mt7_3): set up at confirmation (the first period was paid with the order),
-/// renew by charging the period via IPaymentProvider, mark past-due on failure, cancel. Fake-first.
+/// renew by charging the period via the resolved payment provider, mark past-due on failure, cancel.
 /// </summary>
-public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProvider provider, TimeProvider clock)
+public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRegistry registry, PaymentModeResolver modeResolver, TimeProvider clock)
 {
     public async Task<Subscription> StartAsync(SubscriptionRequested m, CancellationToken ct)
     {
@@ -37,10 +38,13 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProvider p
         var now = clock.GetUtcNow();
         try
         {
-            // Charge the renewal period via the rail (Fake returns an intent deterministically).
-            await provider.CreateIntentAsync(
-                subscription.OrderId, subscription.PriceMinor, subscription.Currency,
-                $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", null, null, false, ct);
+            // Charge the renewal period via the rail (the mock returns an intent deterministically).
+            var account = modeResolver.DefaultAccountForHost();
+            await registry.Resolve(account).AuthorizeAsync(
+                new PaymentRequest(
+                    subscription.OrderId, subscription.PriceMinor, subscription.Currency,
+                    $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account),
+                ct);
             subscription.Renew(now);
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
