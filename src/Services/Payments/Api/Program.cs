@@ -13,8 +13,10 @@ using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Xero;
 using ThreeCommerce.Payments.Infrastructure;
 using ThreeCommerce.Payments.Infrastructure.Consumers;
-using ThreeCommerce.Payments.Infrastructure.Payments;
-using ThreeCommerce.Payments.Infrastructure.Stripe;
+using ThreeCommerce.Payments.Infrastructure.Idempotency;
+using ThreeCommerce.Payments.Infrastructure.Providers;
+using ThreeCommerce.Payments.Infrastructure.Providers.Mock;
+using ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 using ThreeCommerce.Payments.Infrastructure.Xero;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,15 +56,18 @@ if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
 
-// Payment provider: real Stripe when keys are set, deterministic fake otherwise (ADR-0015).
-if (!string.IsNullOrEmpty(builder.Configuration["Stripe:SecretKey"]))
-{
-    builder.Services.AddSingleton<IPaymentProvider, StripePaymentProvider>();
-}
-else
-{
-    builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
-}
+// Payment providers (ADR-0039): a keyed registry + 3-mode gate replaces the startup singleton.
+// Adapters self-register as IPaymentProvider by lowercase ProviderKey; the registry resolves by
+// account provider and applies the LocalMock|Sandbox|Production gate (fail-closed). The boot guard
+// refuses a non-Development host that is mis-configured onto the mock/email path.
+PaymentModeGuard.EnsureProductionSafe(builder.Configuration, builder.Environment);
+builder.Services.AddScoped<PaymentModeResolver>();
+builder.Services.AddScoped<PaymentSecretResolver>();
+builder.Services.AddScoped<IPaymentProviderRegistry, PaymentProviderRegistry>();
+builder.Services.AddScoped<IIdempotencyGuard, IdempotencyGuard>();
+builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>(); // ProviderKey "mock" (LocalMock; pay_3 layers MockEmailPaymentProvider)
+builder.Services.AddSingleton<IPaymentProvider, StripePaymentProvider>(); // ProviderKey "stripe"
+// pay_4: AddSingleton<IPaymentProvider, PolarPaymentProvider>(); PayPal; Afterpay …
 
 var app = builder.Build();
 

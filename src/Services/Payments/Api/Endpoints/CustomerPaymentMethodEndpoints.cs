@@ -44,10 +44,11 @@ public static class CustomerPaymentMethodEndpoints
         SetupIntentRequest request,
         ClaimsPrincipal principal,
         PaymentsDbContext db,
-        IPaymentProvider provider,
+        IPaymentProviderRegistry registry,
         TimeProvider time,
         CancellationToken ct)
     {
+        var provider = registry.ResolveDefault();
         var customer = await GetOrCreateCustomerAsync(principal, request.Email, db, provider, time, ct);
         var intent = await provider.CreateSetupIntentAsync(customer.ProviderCustomerId, ct);
         return TypedResults.Ok(new SetupIntentDto(intent.SetupIntentId, intent.ClientSecret));
@@ -57,10 +58,11 @@ public static class CustomerPaymentMethodEndpoints
         SavePaymentMethodRequest request,
         ClaimsPrincipal principal,
         PaymentsDbContext db,
-        IPaymentProvider provider,
+        IPaymentProviderRegistry registry,
         TimeProvider time,
         CancellationToken ct)
     {
+        var provider = registry.ResolveDefault();
         var customer = await GetOrCreateCustomerAsync(principal, request.Email, db, provider, time, ct);
         var details = await provider.GetPaymentMethodAsync(request.ProviderPaymentMethodId, ct);
         var now = time.GetUtcNow();

@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
-using ThreeCommerce.Payments.Infrastructure.Stripe;
+using ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 
 namespace ThreeCommerce.Payments.Tests;
 

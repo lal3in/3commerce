@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
@@ -14,26 +15,31 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 /// </summary>
 public sealed class AuthorizePaymentConsumer(
     PaymentsDbContext db,
-    IPaymentProvider provider,
+    IPaymentProviderRegistry registry,
+    PaymentModeResolver modeResolver,
     TimeProvider time) : IConsumer<AuthorizePayment>
 {
     public async Task Consume(ConsumeContext<AuthorizePayment> context)
     {
         var msg = context.Message;
+        var account = modeResolver.DefaultAccountForHost();
+        var provider = registry.Resolve(account);
         var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         if (existing is not null)
         {
-            var existingIntent = await provider.CreateIntentAsync(
-                msg.OrderId,
-                existing.AmountMinor,
-                existing.Currency,
-                msg.IdempotencyKey,
-                existing.ProviderCustomerId,
-                existing.ProviderPaymentMethodId,
-                setupFutureUsage: false,
+            var existingIntent = await provider.AuthorizeAsync(
+                new PaymentRequest(
+                    msg.OrderId,
+                    existing.AmountMinor,
+                    existing.Currency,
+                    msg.IdempotencyKey,
+                    PaymentMethodKind.Card,
+                    account,
+                    existing.ProviderCustomerId,
+                    existing.ProviderPaymentMethodId),
                 context.CancellationToken);
             await context.RespondAsync(new AuthorizePaymentResult(
-                existing.PaymentIntentId, existingIntent.ClientSecret, existing.AmountMinor, existing.TaxMinor));
+                existing.PaymentIntentId, existingIntent.ClientSecret ?? string.Empty, existing.AmountMinor, existing.TaxMinor));
             return;
         }
 
@@ -46,14 +52,17 @@ public sealed class AuthorizePaymentConsumer(
             : null;
         var providerCustomerId = customer?.ProviderCustomerId;
         var providerPaymentMethodId = savedMethod?.ProviderPaymentMethodId;
-        var intent = await provider.CreateIntentAsync(
-            msg.OrderId,
-            grossMinor,
-            msg.Currency,
-            msg.IdempotencyKey,
-            providerCustomerId,
-            providerPaymentMethodId,
-            msg.SavePaymentMethod && providerCustomerId is not null,
+        var intent = await provider.AuthorizeAsync(
+            new PaymentRequest(
+                msg.OrderId,
+                grossMinor,
+                msg.Currency,
+                msg.IdempotencyKey,
+                PaymentMethodKind.Card,
+                account,
+                providerCustomerId,
+                providerPaymentMethodId,
+                SetupFutureUsage: msg.SavePaymentMethod && providerCustomerId is not null),
             context.CancellationToken);
 
         db.Payments.Add(new Payment
@@ -72,6 +81,6 @@ public sealed class AuthorizePaymentConsumer(
         });
         await db.SaveChangesAsync(context.CancellationToken);
 
-        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret, grossMinor, TaxMinor: 0));
+        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret ?? string.Empty, grossMinor, TaxMinor: 0));
     }
 }

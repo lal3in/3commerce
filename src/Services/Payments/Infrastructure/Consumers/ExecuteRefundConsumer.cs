@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
+using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
@@ -13,7 +14,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 /// </summary>
 public sealed class ExecuteRefundConsumer(
     PaymentsDbContext db,
-    IPaymentProvider provider,
+    IPaymentProviderRegistry registry,
     TimeProvider time,
     ILogger<ExecuteRefundConsumer> logger) : IConsumer<RefundRequested>
 {
@@ -39,6 +40,7 @@ public sealed class ExecuteRefundConsumer(
             return;
         }
 
+        var provider = registry.ResolveDefault();
         var result = await provider.RefundAsync(payment.PaymentIntentId, msg.AmountMinor, msg.RefundId.ToString(), context.CancellationToken);
         if (!result.Succeeded)
         {

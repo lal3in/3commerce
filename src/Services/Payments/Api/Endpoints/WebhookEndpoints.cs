@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
-using ThreeCommerce.Payments.Infrastructure.Payments;
+using ThreeCommerce.Payments.Infrastructure.Providers.Mock;
 
 namespace ThreeCommerce.Payments.Api.Endpoints;
 
@@ -19,13 +19,15 @@ public static class WebhookEndpoints
     }
 
     private static async Task<Results<Ok, BadRequest>> StripeWebhook(
-        HttpContext http, IPaymentProvider provider, WebhookSecretService secrets, PaymentEventProcessor processor, CancellationToken ct)
+        HttpContext http, IPaymentProviderRegistry registry, WebhookSecretService secrets, PaymentEventProcessor processor, CancellationToken ct)
     {
         using var reader = new StreamReader(http.Request.Body);
         var payload = await reader.ReadToEndAsync(ct);
         var signature = http.Request.Headers["Stripe-Signature"].ToString();
 
+        // Resolve the Stripe adapter by key (pay_4 generalizes the route to /webhooks/{provider}).
         // Registry secrets (newest first) with config fallback (def_2) — rotation-safe verification.
+        var provider = registry.ResolveByKey("stripe");
         var ev = provider.ParseWebhook(payload, signature, await secrets.GetActiveSecretsAsync("stripe", ct));
         if (ev is null)
         {

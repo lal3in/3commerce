@@ -2,60 +2,69 @@ using Microsoft.Extensions.Configuration;
 using Stripe;
 using ThreeCommerce.Payments.Domain;
 
-namespace ThreeCommerce.Payments.Infrastructure.Stripe;
+namespace ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 
 /// <summary>
-/// Real Stripe adapter (test mode). Card data never touches us — the client confirms with
-/// the Payment Element using the returned client secret (SAQ-A). The webhook is the single
-/// trusted source of payment outcome.
+/// Real Stripe adapter. Card data never touches us — the client confirms with the Payment Element
+/// using the returned client secret (SAQ-A). The webhook is the single trusted source of payment
+/// outcome. Resolved through <see cref="IPaymentProviderRegistry"/> by <see cref="ProviderKey"/>.
+/// The secret key is read lazily (on first API call, not construction) so the adapter can live in
+/// DI alongside the mock adapter without a key present in LocalMock/dev.
 /// </summary>
 public sealed class StripePaymentProvider : IPaymentProvider
 {
+    private readonly IConfiguration _configuration;
     private readonly PaymentIntentService _intents = new();
     private readonly RefundService _refunds = new();
     private readonly CustomerService _customers = new();
     private readonly SetupIntentService _setupIntents = new();
     private readonly PaymentMethodService _paymentMethods = new();
 
-    public StripePaymentProvider(IConfiguration configuration)
-    {
-        StripeConfiguration.ApiKey = configuration["Stripe:SecretKey"]
-            ?? throw new InvalidOperationException("Stripe:SecretKey is not configured.");
-    }
+    public StripePaymentProvider(IConfiguration configuration) => _configuration = configuration;
 
-    public async Task<PaymentIntentResult> CreateIntentAsync(
-        Guid orderId,
-        long amountMinor,
-        string currency,
-        string idempotencyKey,
-        string? providerCustomerId,
-        string? providerPaymentMethodId,
-        bool setupFutureUsage,
-        CancellationToken ct)
+    public string ProviderKey => "stripe";
+
+    /// <summary>Sets the process-wide Stripe key on first use; refuses (typed) if it is not configured.</summary>
+    private void EnsureApiKey() =>
+        StripeConfiguration.ApiKey = _configuration["Stripe:SecretKey"] is { Length: > 0 } key
+            ? key
+            : throw new PaymentConfigurationException("Stripe:SecretKey is not configured.");
+
+    public async Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct)
     {
+        EnsureApiKey();
         var options = new PaymentIntentCreateOptions
         {
-            Amount = amountMinor,
-            Currency = currency.ToLowerInvariant(),
-            AutomaticPaymentMethods = providerPaymentMethodId is null ? new() { Enabled = true } : null,
-            Customer = providerCustomerId,
-            PaymentMethod = providerPaymentMethodId,
-            Confirm = providerPaymentMethodId is not null,
-            OffSession = providerPaymentMethodId is not null,
-            SetupFutureUsage = setupFutureUsage ? "off_session" : null,
-            Metadata = new() { ["order_id"] = orderId.ToString() },
+            Amount = request.AmountMinor,
+            Currency = request.Currency.ToLowerInvariant(),
+            AutomaticPaymentMethods = request.ProviderPaymentMethodId is null ? new() { Enabled = true } : null,
+            Customer = request.ProviderCustomerId,
+            PaymentMethod = request.ProviderPaymentMethodId,
+            Confirm = request.ProviderPaymentMethodId is not null,
+            OffSession = request.ProviderPaymentMethodId is not null,
+            SetupFutureUsage = request.SetupFutureUsage ? "off_session" : null,
+            Metadata = new() { ["order_id"] = request.OrderId.ToString() },
         };
 
         var intent = await _intents.CreateAsync(
             options,
-            new RequestOptions { IdempotencyKey = idempotencyKey },
+            new RequestOptions { IdempotencyKey = request.IdempotencyKey },
             ct);
 
-        return new PaymentIntentResult(intent.Id, intent.ClientSecret);
+        return new PaymentResponse(intent.Id, intent.ClientSecret, MapOutcome(intent.Status));
     }
+
+    /// <summary>Maps Stripe's intent status to the provider-agnostic outcome. The webhook still owns the final truth.</summary>
+    private static PaymentOutcome MapOutcome(string? status) => status switch
+    {
+        "succeeded" => PaymentOutcome.Succeeded,
+        "canceled" => PaymentOutcome.Cancelled,
+        _ => PaymentOutcome.RequiresAction, // requires_confirmation / requires_action / processing — client confirms via secret
+    };
 
     public async Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct)
     {
+        EnsureApiKey();
         var customer = await _customers.CreateAsync(
             new CustomerCreateOptions
             {
@@ -68,6 +77,7 @@ public sealed class StripePaymentProvider : IPaymentProvider
 
     public async Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct)
     {
+        EnsureApiKey();
         var intent = await _setupIntents.CreateAsync(
             new SetupIntentCreateOptions
             {
@@ -81,6 +91,7 @@ public sealed class StripePaymentProvider : IPaymentProvider
 
     public async Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct)
     {
+        EnsureApiKey();
         var method = await _paymentMethods.GetAsync(providerPaymentMethodId, cancellationToken: ct);
         return new SavedPaymentMethodDetails(
             method.Id,
@@ -92,6 +103,7 @@ public sealed class StripePaymentProvider : IPaymentProvider
 
     public async Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct)
     {
+        EnsureApiKey();
         var refund = await _refunds.CreateAsync(
             new RefundCreateOptions { PaymentIntent = paymentIntentId, Amount = amountMinor },
             new RequestOptions { IdempotencyKey = idempotencyKey },

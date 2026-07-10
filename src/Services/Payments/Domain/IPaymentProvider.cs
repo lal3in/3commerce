@@ -7,15 +7,20 @@ namespace ThreeCommerce.Payments.Domain;
 /// </summary>
 public interface IPaymentProvider
 {
-    public Task<PaymentIntentResult> CreateIntentAsync(
-        Guid orderId,
-        long amountMinor,
-        string currency,
-        string idempotencyKey,
-        string? providerCustomerId,
-        string? providerPaymentMethodId,
-        bool setupFutureUsage,
-        CancellationToken ct);
+    /// <summary>
+    /// Lowercase key matching <c>PaymentAccount.Provider</c> and the <c>/webhooks/{provider}</c>
+    /// route. Adapters self-register in DI as <see cref="IPaymentProvider"/> and the registry
+    /// resolves them by this key (the mock adapter serves the key <c>"mock"</c>).
+    /// </summary>
+    public string ProviderKey { get; }
+
+    /// <summary>
+    /// Authorizes a payment from a provider-agnostic <see cref="PaymentRequest"/>, returning the
+    /// intent id + client secret and a typed <see cref="PaymentOutcome"/>/<see cref="PaymentError"/>.
+    /// Replaces the old loose-primitive CreateIntent call; the webhook remains the trusted source
+    /// of the final captured/failed outcome.
+    /// </summary>
+    public Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct);
 
     public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct);
 
@@ -32,8 +37,6 @@ public interface IPaymentProvider
     /// </summary>
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets);
 }
-
-public record PaymentIntentResult(string PaymentIntentId, string ClientSecret);
 
 public record SetupIntentResult(string SetupIntentId, string ClientSecret);
 
