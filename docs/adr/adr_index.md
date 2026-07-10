@@ -41,3 +41,4 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0036](./0036-tenant-shard-map-design.md) | Tenant shard-map design | Accepted | Multi-tenancy / data / scale |
 | [0037](./0037-kong-api-management-gate.md) | Kong API-management gate | Accepted | Edge / API management |
 | [0038](./0038-per-currency-shelf-prices-and-tax-entry.md) | Per-currency shelf prices on the Variant + tax-entry convention (inclusive AU/EU, exclusive US) | Accepted | Commerce / pricing |
+| [0039](./0039-payment-provider-architecture.md) | Provider-agnostic payment architecture — keyed registry, three-mode system (LocalMock/Sandbox/Production), wallets-as-methods vs PSP adapters, mock email-capture safety (Production hard-refuses) | Accepted | Payments / architecture |
