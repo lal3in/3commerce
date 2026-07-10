@@ -15,7 +15,10 @@ using ThreeCommerce.Payments.Infrastructure;
 using ThreeCommerce.Payments.Infrastructure.Consumers;
 using ThreeCommerce.Payments.Infrastructure.Idempotency;
 using ThreeCommerce.Payments.Infrastructure.Providers;
+using ThreeCommerce.Payments.Infrastructure.Providers.Afterpay;
 using ThreeCommerce.Payments.Infrastructure.Providers.Mock;
+using ThreeCommerce.Payments.Infrastructure.Providers.PayPal;
+using ThreeCommerce.Payments.Infrastructure.Providers.Polar;
 using ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 using ThreeCommerce.Payments.Infrastructure.Xero;
 
@@ -67,7 +70,14 @@ builder.Services.AddScoped<IPaymentProviderRegistry, PaymentProviderRegistry>();
 builder.Services.AddScoped<IIdempotencyGuard, IdempotencyGuard>();
 builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>(); // ProviderKey "mock" (LocalMock; pay_3 layers MockEmailPaymentProvider)
 builder.Services.AddSingleton<IPaymentProvider, StripePaymentProvider>(); // ProviderKey "stripe"
-// pay_4: AddSingleton<IPaymentProvider, PolarPaymentProvider>(); PayPal; Afterpay …
+
+// pay_4 PSP adapters (ADR-0039): sandbox-ready skeletons behind the same seam, self-registered by
+// lowercase ProviderKey and resolved per account by the registry; each is production-gated by the
+// secret resolver (mode-appropriate creds + sandbox/production base URL). Apple/Google Pay are NOT
+// adapters — they are PaymentMethodKind values tokenized through the account's PSP.
+builder.Services.AddSingleton<IPaymentProvider, PolarPaymentProvider>();     // ProviderKey "polar"
+builder.Services.AddSingleton<IPaymentProvider, PayPalPaymentProvider>();    // ProviderKey "paypal"
+builder.Services.AddSingleton<IPaymentProvider, AfterpayPaymentProvider>();  // ProviderKey "afterpay"
 
 var app = builder.Build();
 

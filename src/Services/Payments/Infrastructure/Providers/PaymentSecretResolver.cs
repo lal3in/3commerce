@@ -12,12 +12,46 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers;
 /// </summary>
 public sealed class PaymentSecretResolver(IConfiguration configuration)
 {
-    // Known key prefixes per provider and mode. Providers without an entry skip prefix assertion.
+    // Known key prefixes per provider and mode. Providers without an entry skip prefix assertion
+    // (PayPal/Polar/Afterpay credentials carry no test/live prefix — they are gated by base URL +
+    // the mandatory presence check below, so a Sandbox/Production host still refuses to run without
+    // its mode-appropriate credentials).
     private static readonly IReadOnlyDictionary<string, (string[] Sandbox, string[] Production)> Prefixes =
         new Dictionary<string, (string[], string[])>(StringComparer.OrdinalIgnoreCase)
         {
             ["stripe"] = (["sk_test_", "rk_test_"], ["sk_live_", "rk_live_"]),
         };
+
+    // Per-provider API base URLs (pay_4). Sandbox vs Production is the effective production gate for
+    // the PSP adapters whose credentials carry no prefix: a Sandbox host always talks to the sandbox
+    // host, a Production host to the live host — resolved from the account mode, never mixed.
+    private static readonly IReadOnlyDictionary<string, (string Sandbox, string Production)> BaseUrls =
+        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["polar"] = ("https://sandbox-api.polar.sh", "https://api.polar.sh"),
+            ["paypal"] = ("https://api-m.sandbox.paypal.com", "https://api-m.paypal.com"),
+            ["afterpay"] = ("https://global-api-sandbox.afterpay.com", "https://global-api.afterpay.com"),
+        };
+
+    /// <summary>
+    /// Resolves the provider's API base URL for the resolved <paramref name="mode"/> (pay_4). Throws
+    /// <see cref="PaymentConfigurationException"/> if the provider has no known endpoint. A per-provider
+    /// <c>"{Provider}:BaseUrl"</c> config override wins so ops can pin an endpoint without a code change.
+    /// </summary>
+    public string BaseUrl(string provider, PaymentMode mode)
+    {
+        if (configuration[$"{provider}:BaseUrl"] is { Length: > 0 } overrideUrl)
+        {
+            return overrideUrl;
+        }
+
+        if (!BaseUrls.TryGetValue(provider.ToLowerInvariant(), out var urls))
+        {
+            throw new PaymentConfigurationException($"No API base URL is configured for provider '{provider}'.");
+        }
+
+        return mode == PaymentMode.Production ? urls.Production : urls.Sandbox;
+    }
 
     /// <summary>
     /// Returns the configured secret for <paramref name="provider"/>/<paramref name="key"/>, asserting

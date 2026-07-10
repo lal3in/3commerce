@@ -13,6 +13,9 @@ public record AuthorizePayment(
     Guid? UserId = null,
     Guid? SavedPaymentMethodId = null,
     bool SavePaymentMethod = false,
-    string? ShipCountry = null);
+    string? ShipCountry = null,
+    // Checkout's normalized paymentOption (Stripe|CreditCard|ApplePay|GooglePay|PayPal). Payments maps
+    // it to the numeric PaymentMethodKind server-side (pay_4/ADR-0039); wallets settle through the PSP.
+    string? PaymentOption = null);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);

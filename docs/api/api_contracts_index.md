@@ -196,15 +196,18 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 
 Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals; the admin API accepts only token refs and masked values, never raw bank details. Xero mappings are Payments-owned with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution and an admin CRUD surface.
 
-> `POST /webhooks/stripe` (signature-verified) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
+> `POST /webhooks/{provider}` (signature-verified per provider; `stripe`/`polar`/`paypal`/`afterpay`) and `POST /dev/simulate-payment/{intentId}` (Development only) exist but are excluded from OpenAPI.
 
-> **Inbound provider webhooks (mt6_7).** Convention: the gateway routes `/webhooks/{provider}` straight
+> **Inbound provider webhooks (mt6_7, pay_4).** Convention: the gateway routes `/webhooks/{provider}` straight
 > to the owning service with **no prefix strip and no claims minting** (webhooks carry no session) —
-> basic routing/protection only. The **owning service verifies** the signature + replays and dedupes by
-> the provider's event id; the gateway never verifies (GOTCHA). HMAC providers use
-> `InboundWebhookVerifier` (constant-time HMAC over `"{timestamp}.{payload}"` + a ±5-min tolerance
-> against replay); `stripe → payments` is wired today, new providers add one YARP route + a verified
-> endpoint.
+> basic routing/protection only. Payments resolves the adapter via `IPaymentProviderRegistry.ResolveByKey`
+> and reads the provider-specific signature header (`Stripe-Signature`, `Paypal-Transmission-Sig`, …); the
+> **owning service verifies** the signature + replays and dedupes by the provider's event id; the gateway
+> never verifies (GOTCHA). Stripe verifies via its SDK; the pay_4 sandbox-skeleton providers use
+> `InboundWebhookVerifier` (constant-time HMAC over `"{timestamp}.{payload}"` + a ±5-min tolerance against
+> replay). `stripe`, `polar`, `paypal`, `afterpay` resolve today (Polar/PayPal/Afterpay are sandbox
+> skeletons behind the seam); a new provider adds an adapter with a `ProviderKey` + a def_2 webhook secret,
+> and the single `/webhooks/{provider}` YARP route already forwards it.
 
 ## Fulfillment (`/api/fulfillment`)
 

@@ -24,6 +24,9 @@ public sealed class AuthorizePaymentConsumer(
         var msg = context.Message;
         var account = modeResolver.DefaultAccountForHost();
         var provider = registry.Resolve(account);
+        // Map checkout's paymentOption → numeric PaymentMethodKind (ADR-0039). Apple/Google Pay are
+        // wallets tokenized through the account's PSP, so the kind is recorded but the PSP is unchanged.
+        var methodKind = PaymentMethodKindMapper.From(msg.PaymentOption);
         var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         if (existing is not null)
         {
@@ -33,7 +36,7 @@ public sealed class AuthorizePaymentConsumer(
                     existing.AmountMinor,
                     existing.Currency,
                     msg.IdempotencyKey,
-                    PaymentMethodKind.Card,
+                    methodKind,
                     account,
                     existing.ProviderCustomerId,
                     existing.ProviderPaymentMethodId),
@@ -58,7 +61,7 @@ public sealed class AuthorizePaymentConsumer(
                 grossMinor,
                 msg.Currency,
                 msg.IdempotencyKey,
-                PaymentMethodKind.Card,
+                methodKind,
                 account,
                 providerCustomerId,
                 providerPaymentMethodId,
