@@ -41,9 +41,11 @@ public static class ProductsEndpoints
     private static async Task<Results<Ok<ProductDetailResponse>, NotFound>> GetBySlug(
         string slug, CatalogDbContext db, string? currency, CancellationToken cancellationToken)
     {
+        // Public detail gate: an Inactive product is treated as non-existent here (404). Admin
+        // GetProduct (by id) stays unfiltered so the catalog editor can still load/edit it.
         var product = await db.Products.AsNoTracking()
             .Include(p => p.Variants).ThenInclude(v => v.Prices)
-            .SingleOrDefaultAsync(p => p.Slug == slug, cancellationToken);
+            .SingleOrDefaultAsync(p => p.Slug == slug && p.Status == ProductStatus.Active, cancellationToken);
         if (product is null)
         {
             return TypedResults.NotFound();

@@ -128,6 +128,7 @@ public static class AdminEndpoints
             CategoryId = request.CategoryId,
             Attributes = request.Attributes ?? [],
             ImageUrls = request.ImageUrls ?? [],
+            Status = request.Status ?? ProductStatus.Active,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -201,6 +202,7 @@ public static class AdminEndpoints
         product.CategoryId = request.CategoryId;
         product.Attributes = request.Attributes ?? [];
         product.ImageUrls = request.ImageUrls ?? [];
+        product.Status = request.Status ?? product.Status; // preserve current status when the editor omits it
         product.UpdatedAt = time.GetUtcNow();
 
         // Reconcile variants: update matched, add new (Id null/empty), remove the rest.
@@ -346,7 +348,7 @@ public static class AdminEndpoints
             : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     private static ProductEditorDto ToEditorDto(Product p) => new(
-        p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls,
+        p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls, p.Status,
         p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
             v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList());
 }
@@ -366,7 +368,7 @@ public record ProductListItem(
 
 public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
-    Dictionary<string, string> Attributes, List<string> ImageUrls, List<VariantEditorDto> Variants);
+    Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants);
 
 public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, List<CurrencyPriceDto> Prices);
 
@@ -375,6 +377,7 @@ public record CurrencyPriceDto(string Currency, long PriceMinor);
 
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
-    Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants);
+    Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants,
+    ProductStatus? Status = null);
 
 public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, List<CurrencyPriceDto>? Prices = null);

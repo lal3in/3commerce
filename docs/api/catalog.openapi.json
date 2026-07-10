@@ -1872,6 +1872,7 @@
           "categoryId",
           "attributes",
           "imageUrls",
+          "status",
           "variants"
         ],
         "type": "object",
@@ -1911,6 +1912,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProductStatus"
           },
           "variants": {
             "type": "array",
@@ -2155,6 +2159,9 @@
           }
         }
       },
+      "ProductStatus": {
+        "type": "integer"
+      },
       "ProductWriteRequest": {
         "required": [
           "tenantId",
@@ -2218,6 +2225,16 @@
             "items": {
               "$ref": "#/components/schemas/VariantWriteDto"
             }
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductStatus"
+              }
+            ]
           }
         }
       },
