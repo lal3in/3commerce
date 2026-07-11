@@ -22,3 +22,9 @@ Six services along capability seams: **Identity, Catalog (incl. importers/search
 
 - Splitting cart from checkout is explicitly off the table.
 - New capabilities (e.g. promotions) must argue their way into an existing seam before becoming a seventh service.
+
+## Status / implementation note (2026-07-11)
+
+The six-service core stands unchanged. Additional services were later argued in through their own
+ADRs: Entity (master data, ADR-0027) and the extracted Marketing, Pricing, Audit, Workflow,
+Entitlement, and Usage services (ADR-0030). Cart still lives inside Ordering.

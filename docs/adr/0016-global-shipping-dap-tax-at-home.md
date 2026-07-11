@@ -21,3 +21,10 @@ The owner wants to sell globally from day one. For physical goods, full global c
 
 - Checkout must clearly disclose that import duties/fees are the customer's responsibility.
 - Multi-currency display, then pricing, are analytics-triggered future items (PRD §13).
+
+## Status / implementation note (2026-07-11)
+
+The "one currency at checkout" simplification moved on: tenants now set per-currency shelf prices
+and each storefront is configured with a currency + tax regime/rate (ADR-0038) — a cart is still
+single-currency, and checkout charges the storefront-configured tax (inclusive AU GST / EU VAT,
+exclusive US sales tax). DAP shipping and expand-registrations-on-revenue remain the posture.
