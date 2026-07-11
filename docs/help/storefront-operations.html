@@ -62,7 +62,17 @@
           <li>Nav links: <strong>Shop</strong> → <code>/search</code>, <strong>Cart</strong> → <code>/cart</code>, <strong>Account</strong> → <code>/account</code></li>
           <li>A footer ("3commerce — demo storefront")</li>
         </ul>
-        <p>Money everywhere is formatted by <code>lib/money.ts</code> (<code>formatMoney(minorUnits, currency)</code>), i.e. integer cents rendered via <code>Intl.NumberFormat</code>.</p>
+        <p>Money everywhere is formatted by <code>lib/money.ts</code> (<code>formatMoney(minorUnits, currency)</code>), i.e. integer cents rendered via <code>Intl.NumberFormat</code> (en-US locale, so <code>A$</code>/<code>$</code>/<code>€</code> stay unambiguous). A cookie <strong>consent banner</strong> appears until the shopper decides, linking to the <a class="inline" href="#privacy">privacy settings page</a> at <code>/privacy</code>.</p>
+
+        <h2 id="storefront-context">Storefront context — which store am I in?</h2>
+        <p>One Next.js app serves <strong>multiple storefronts</strong>. Every shopper route resolves its storefront context, which drives the displayed <strong>currency</strong> and the <strong>tax regime</strong>:</p>
+        <ol>
+          <li>Visiting a storefront slug as a path — e.g. <strong><code>/au</code></strong> — makes <code>middleware.ts</code> pin that storefront in a <strong><code>3c_storefront</code> cookie</strong> (entering another slug switches it).</li>
+          <li><code>resolveStorefront()</code> (<code>lib/storefront-context.ts</code>, cached per request) resolves <strong>cookie → canonical host → <code>STOREFRONT_SLUG</code> env</strong> and fetches the public config via <code>GET /api/catalog/storefronts/public</code> (anonymous, active storefronts only: name, currency, tax regime/rate, storefront + tenant ids).</li>
+          <li>Home, search, product detail, and add-to-cart are then priced in the storefront's currency; checkout forwards the storefront/tenant context (<code>X-3C-Tenant-Id</code> / storefront id) so the server charges tax by the same storefront config.</li>
+        </ol>
+        <p><strong>Per-currency prices</strong> are tenant-set per variant (unique per currency). A product with <strong>no price in the storefront's currency is hidden</strong> from listings/search and its detail returns 404 in that context — no silent FX conversion. With no cookie/host match, the default context applies (dev default currency <code>EUR</code>).</p>
+        <p><strong>Tax display convention (ADR-0038):</strong> AU GST and EU VAT storefronts show <strong>tax-inclusive</strong> shelf prices — checkout charges exactly the listed amount and reports the contained tax ("Includes tax (10%)"). US-style storefronts show tax-<strong>exclusive</strong> prices and add tax at checkout ("Tax (added)").</p>
 
         <h2 id="home">1. Home — <code>/</code></h2>
         <p>File: <code>app/page.tsx</code>. Server-rendered. On load it fetches, in parallel:</p>
@@ -80,13 +90,14 @@
           <span class="mark">i</span>
           <p>If the catalog has not been imported yet, the grid and categories are empty — run the sample importer from the admin first (see <a class="inline" href="admin-operations.html">Admin operations</a>).</p>
         </div>
+        <p>Visiting a storefront slug (e.g. <code>/au</code>) renders the same landing page in that storefront's context (<code>app/[storefront]/page.tsx</code>): its name, currency, and a tax summary line (e.g. "AU GST (10%)"), with prices in that currency. Only <strong>Active</strong> products with a price in the storefront currency appear; inactive products are excluded from public listings, search, and detail (they remain editable in the admin catalog). Product images from non-allow-listed hosts degrade to a plain image instead of failing the page (<code>components/SafeImage</code>, <code>lib/image-hosts.ts</code>).</p>
 
         <h2 id="search">2. Search — <code>/search</code></h2>
         <p>File: <code>app/search/page.tsx</code>. The URL <strong>is</strong> the state (shareable + crawlable). Query params: <code>q</code>, <code>category</code>, <code>attrs</code>, <code>page</code>. Page size is 24.</p>
         <p>Steps:</p>
         <ol>
           <li>Type in the header search box and press Enter → navigates to <code>/search?q=&lt;term&gt;</code>. (Or click a category chip → <code>/search?category=&lt;slug&gt;</code>.)</li>
-          <li>The page calls <code>searchProducts(...)</code> → <code>GET /api/catalog/products?q=...&amp;category=...&amp;attrs=...&amp;page=...&amp;pageSize=24</code>.</li>
+          <li>The page calls <code>searchProducts(...)</code> → <code>GET /api/catalog/products?q=...&amp;category=...&amp;attrs=...&amp;page=...&amp;pageSize=24&amp;currency=&lt;storefront currency&gt;</code>. Results are priced in the storefront currency; products without a price in it — and products whose status is Inactive — are not returned.</li>
           <li>Results render as a product grid with a heading (<code>Results for "&lt;q&gt;"</code>, or <code>Category: &lt;slug&gt;</code>, or <code>All products</code>) and an item count read from the <code>X-Total-Count</code> response header.</li>
           <li><strong>Pagination</strong> appears when there is more than one page: <strong>Previous</strong> / <strong>Next</strong> links that preserve <code>q</code>/<code>category</code>/<code>attrs</code> and bump <code>page</code>.</li>
         </ol>
@@ -120,6 +131,7 @@
           <li><strong>Empty cart:</strong> shows "Your cart is empty" with a <strong>Browse products</strong> link → <code>/search</code>.</li>
           <li><strong>With items:</strong> lists each line (<code>CartItemRow</code>) with image, title, unit price, and quantity; a <strong>Subtotal</strong>; the note "Shipping and tax are calculated at checkout"; and a <strong>Checkout</strong> button → <code>/checkout</code>.</li>
         </ul>
+        <p>Carts are <strong>single-currency</strong>: items are priced in the storefront currency at add-to-cart time, and adding an item in a different currency is rejected (409). Logging in merges the anonymous cart into the user cart, re-pricing lines into the user cart's currency (unpriced lines are dropped).</p>
         <div class="callout note">
           <span class="mark">i</span>
           <p>A read-only cart render never sets cookies. An un-keyed visitor (no <code>3c_cart</code> cookie yet) just sees an empty cart — the cookie is established by the add-to-cart action.</p>
@@ -130,15 +142,16 @@
         <p>File: <code>app/checkout/page.tsx</code> + <code>components/checkout/CheckoutForm.tsx</code>. Guest checkout — email + shipping only, no account required (ADR-0013). If the cart is empty the page redirects to <code>/cart</code>.</p>
         <p>Steps:</p>
         <ol>
-          <li>The page shows an order summary (subtotal + item count) and tells the shopper to choose a shipping rate before authorization.</li>
+          <li>The page shows an order summary: <strong>Subtotal</strong>, <strong>Shipping</strong> (once a rate is chosen), and a tax line that follows the storefront's regime (ADR-0038) — <strong>"Includes tax (10%)"</strong> on tax-inclusive storefronts (AU GST / EU VAT: the tax is informational, already contained in the listed prices) or <strong>"Tax (added)"</strong> on exclusive ones (US style: tax is added to the total). The server charges by the same storefront tax config — the gross always matches what the page shows.</li>
           <li>Fill the form: <strong>Email</strong>, <strong>Full name</strong>, <strong>Address</strong>, <strong>City</strong>, <strong>Postcode</strong>, <strong>Country (2-letter)</strong> — all required.</li>
           <li>Click <strong>Get shipping rates</strong>. The <code>quoteCheckoutShipping</code> Server Action calls <code>/api/fulfillment/shipping/quote</code> through the gateway with a default dev parcel and warehouse origin. The returned Fake/sandbox carrier rates are rendered as radio options.</li>
           <li>Select a shipping method. The selected service, amount in minor units, and quote expiry are posted with checkout.</li>
+          <li>Pick a <strong>payment option</strong>: Credit card, Stripe Payment Element, <strong>Apple Pay</strong>, <strong>Google Pay</strong>, or <strong>PayPal</strong>. Wallets are payment <em>methods</em> tokenized through the storefront's payment provider, not separate providers (ADR-0039). In production these are provider-hosted surfaces — raw payment credentials are never stored by 3commerce; the dev card fields record only a masked summary.</li>
           <li>Click <strong>Authorize &amp; place order</strong> (button shows "Authorizing…" while pending).</li>
-          <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email, shipping address, and selected shipping quote (cart cookie forwarded). Ordering validates the selected amount/expiry and persists the shipping amount into the order totals.</li>
+          <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email, shipping address, selected shipping quote, and payment option (cart cookie forwarded; storefront/tenant context headers set). Ordering validates the selected amount/expiry and persists the shipping amount into the order totals.</li>
           <li>On success it redirects to <code>/checkout/confirmation?order=&lt;orderId&gt;</code>. On failure the form shows: "Checkout failed. Please review your cart and details."</li>
         </ol>
-        <p>The backend creates the order, starts the checkout saga, and (in dev) issues a <strong>fake</strong> payment intent. The page does <strong>not</strong> collect card details — payment is completed on the confirmation page.</p>
+        <p>The backend creates the order, starts the checkout saga, and asks Payments to authorize. Which rail runs depends on the resolved <strong>payment mode</strong> (ADR-0039): in dev, <code>Payments:Mode=LocalMock</code> routes authorization to a deterministic mock provider (no external calls) — payment is completed on the confirmation page.</p>
 
         <h2 id="confirmation">6. Confirmation — <code>/checkout/confirmation</code></h2>
         <p>File: <code>app/checkout/confirmation/page.tsx</code> + <code>components/checkout/ConfirmationView.tsx</code>. Requires an <code>?order=&lt;id&gt;</code> param (otherwise: "No order specified.").</p>
@@ -156,7 +169,7 @@
         </ol>
         <div class="callout note">
           <span class="mark">i</span>
-          <p>In production (real Stripe key set), the dev button would not apply — the Payment Element / webhook path would drive the status instead. There is no live Stripe in this build.</p>
+          <p>The dev button exists because dev runs in <strong>LocalMock</strong> payment mode (ADR-0039): the mock provider issues <code>pi_fake_…</code> intents and, with <code>Payments:AllowMockEmail</code> on, every mock authorize/refund also emails a clearly-labelled <strong><code>[TEST ONLY / MOCK PAYMENT]</code></strong> capture (redacted payload — never card data) to <code>Payments:MockEmailTo</code> for inspection. In Sandbox/Production modes the real provider's hosted flow + <code>/webhooks/{provider}</code> path drives the status instead, and the mock/email path <strong>refuses to boot</strong> outside Development.</p>
         </div>
 
         <h2 id="register">7. Register — <code>/register</code></h2>
@@ -177,6 +190,7 @@
         <ol>
           <li>Enter <strong>Email</strong> + <strong>Password</strong>, click <strong>Log in</strong>.</li>
           <li>The <code>login</code> Server Action <code>POST</code>s to <code>/api/identity/login</code>.</li>
+          <li>If the account has <strong>MFA enrolled</strong>, the response is <code>{ mfaRequired }</code> and the form shows an <strong>Authenticator code</strong> input (recovery codes work too); submitting completes the challenge via <code>/api/identity/mfa/challenge</code>. Wrong codes count toward the password lockout.</li>
           <li>On success it <strong>forwards the gateway's <code>Set-Cookie: 3c_session=...</code></strong> to the browser as an HttpOnly cookie, then redirects to <code>/account</code>. On failure: "Invalid email or password."</li>
           <li>A <strong>Register</strong> link sits below the form.</li>
         </ol>
@@ -189,6 +203,7 @@
           <li>Otherwise it shows <strong>Email</strong> and <strong>Email verified (Yes / Pending)</strong>, plus a <strong>Log out</strong> button.</li>
         </ol>
         <p>The signed-in account page shows the customer profile, saved address book, saved cards, and order history. Each order row links to <code>/orders/&lt;id&gt;/support</code> for support/RMA requests.</p>
+        <p><strong>Guest orders attach by verified email (FR-7).</strong> Orders placed as a guest with your email appear in the history once the email is <strong>verified</strong> — this works both ways: verifying sweeps existing guest orders, and orders created <em>after</em> verification attach at creation (Ordering keeps a verified-customer read model). While verification is pending the page shows an amber notice: "Verify your email address (…) — orders you placed as a guest with that email will appear here once it's verified."</p>
 
         <h2 id="order-support">10. Order support — <code>/orders/[id]/support</code></h2>
         <p>Files: <code>app/orders/[id]/support/page.tsx</code> + <code>components/support/SupportForms.tsx</code>. The page renders two forms for a given order id (and shows a green "Your request was submitted…" banner when arriving with <code>?submitted=1</code>).</p>
@@ -211,6 +226,12 @@
         <p>This opens an RMA in the <strong>Requested</strong> state. An operator then approves and refunds it from the admin <strong>RMA queue</strong> (see <a class="inline" href="admin-operations.html">Admin operations</a>) — the same refund path used everywhere, balancing the double-entry ledger.</p>
         <p>The account order history and confirmation journey link shoppers toward support/RMA rather than requiring direct URL entry.</p>
 
+        <h2 id="privacy">11. Privacy &amp; consent — <code>/privacy</code></h2>
+        <p>Files: <code>app/privacy/page.tsx</code> + <code>app/privacy/ConsentSettings.tsx</code>; consent state in <code>lib/consent.ts</code>. The permanent home for cookie/consent choices (the consent banner links here). Necessary cookies are always on; <strong>analytics and marketing are optional, off by default</strong>, and can be changed at any time. Withdrawing analytics consent also <strong>deletes the first-party visitor id</strong> from the browser.</p>
+
+        <h3 id="analytics-collection">Analytics collection (consent-aware)</h3>
+        <p><code>lib/analytics.ts</code> exposes <code>track(eventType, payload)</code> — a <strong>no-op without Analytics consent</strong>. Consented events are batched and posted to the storefront's own <code>/api/analytics/events</code> route, which proxies them to the Marketing service (<code>POST /api/marketing/events</code>, tenant resolved from the storefront context) and always answers 202 — analytics can never disrupt a page. Server-side the collector deduplicates by event id, keeps only a coarse IP, drops sensitive payload keys, and caps batches at 50 events.</p>
+
         <h2 id="server-action-reference">Server Action → gateway endpoint reference</h2>
         <div class="table-wrap">
           <table>
@@ -220,14 +241,15 @@
               <tr><td><code>removeFromCart</code> (<code>cart-actions.ts</code>)</td><td><code>DELETE /api/ordering/cart/items/&lt;id&gt;</code></td><td>Revalidates <code>/cart</code>.</td></tr>
               <tr><td><code>quoteCheckoutShipping</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/fulfillment/shipping/quote</code></td><td>Fetches checkout shipping rates before authorization.</td></tr>
               <tr><td><code>submitCheckout</code> (<code>cart-actions.ts</code>)</td><td><code>POST /api/ordering/checkout</code></td><td>Posts selected shipping quote + address; redirects to confirmation.</td></tr>
-              <tr><td><code>login</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/login</code></td><td>Forwards <code>3c_session</code> cookie; redirects to <code>/account</code>.</td></tr>
+              <tr><td><code>login</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/login</code> (+ <code>POST /api/identity/mfa/challenge</code> when enrolled)</td><td>Forwards <code>3c_session</code> cookie; redirects to <code>/account</code>.</td></tr>
               <tr><td><code>register</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/register</code></td><td>Redirects to <code>/login?registered=1</code>.</td></tr>
               <tr><td><code>logout</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/logout</code></td><td>Deletes cookie; redirects to <code>/</code>.</td></tr>
               <tr><td><code>openTicket</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/tickets</code></td><td>Returns <code>{ ok }</code> / <code>{ error }</code>.</td></tr>
               <tr><td><code>requestRefund</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/rma</code></td><td>Posts selected order lines; server derives refund amount; redirects with <code>?submitted=1</code>.</td></tr>
               <tr><td>(read) <code>getCart</code>, <code>searchProducts</code>, <code>getProduct</code>, <code>listCategories</code>, <code>getProfile</code>, <code>getOrderStatus</code> (<code>gateway.ts</code>)</td><td><code>GET /api/...</code></td><td>Server-side reads, session/cart cookies forwarded.</td></tr>
-              <tr><td>dev-pay route</td><td><code>POST /api/payments/dev/simulate-payment/&lt;intent&gt;</code></td><td>Dev-only fake payment.</td></tr>
+              <tr><td>dev-pay route</td><td><code>POST /api/payments/dev/simulate-payment/&lt;intent&gt;</code></td><td>Dev-only mock payment (LocalMock mode).</td></tr>
               <tr><td>order-status route</td><td><code>GET /api/ordering/orders/&lt;id&gt;/status</code></td><td>Polling proxy.</td></tr>
+              <tr><td>analytics route (<code>app/api/analytics/events</code>)</td><td><code>POST /api/marketing/events</code></td><td>Consent-gated batch proxy; always 202.</td></tr>
             </tbody>
           </table>
         </div>

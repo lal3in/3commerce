@@ -16,7 +16,36 @@ The root layout (`app/layout.tsx`) renders a header on every page:
 - A footer ("3commerce — demo storefront")
 
 Money everywhere is formatted by `lib/money.ts` (`formatMoney(minorUnits, currency)`),
-i.e. integer cents rendered via `Intl.NumberFormat`.
+i.e. integer cents rendered via `Intl.NumberFormat` (en-US locale, so `A$`/`$`/`€`
+stay unambiguous). A cookie **consent banner** appears until the shopper decides,
+linking to the [privacy settings page](#privacy) at `/privacy`.
+
+---
+
+## Storefront context — which store am I in?
+
+One Next.js app serves **multiple storefronts**. Every shopper route resolves its
+storefront context, which drives the displayed **currency** and the **tax regime**:
+
+1. Visiting a storefront slug as a path — e.g. **`/au`** — makes `middleware.ts` pin
+   that storefront in a **`3c_storefront` cookie** (entering another slug switches it).
+2. `resolveStorefront()` (`lib/storefront-context.ts`, cached per request) resolves
+   **cookie → canonical host → `STOREFRONT_SLUG` env** and fetches the public config
+   via `GET /api/catalog/storefronts/public` (anonymous, active storefronts only:
+   name, currency, tax regime/rate, storefront + tenant ids).
+3. Home, search, product detail, and add-to-cart are then priced in the storefront's
+   currency; checkout forwards the storefront/tenant context (`X-3C-Tenant-Id` /
+   storefront id) so the server charges tax by the same storefront config.
+
+**Per-currency prices** are tenant-set per variant (unique per currency). A product
+with **no price in the storefront's currency is hidden** from listings/search and its
+detail returns 404 in that context — no silent FX conversion. With no cookie/host
+match, the default context applies (dev default currency `EUR`).
+
+**Tax display convention (ADR-0038):** AU GST and EU VAT storefronts show
+**tax-inclusive** shelf prices — checkout charges exactly the listed amount and
+reports the contained tax ("Includes tax (10%)"). US-style storefronts show
+tax-**exclusive** prices and add tax at checkout ("Tax (added)").
 
 ---
 
@@ -36,6 +65,14 @@ Sections shown:
 > If the catalog has not been imported yet, the grid and categories are empty —
 > run the sample importer from the admin first (see [Admin operations](./admin-operations.md)).
 
+Visiting a storefront slug (e.g. `/au`) renders the same landing page in that
+storefront's context (`app/[storefront]/page.tsx`): its name, currency, and a tax
+summary line (e.g. "AU GST (10%)"), with prices in that currency. Only **Active**
+products with a price in the storefront currency appear; inactive products are
+excluded from public listings, search, and detail (they remain editable in the
+admin catalog). Product images from non-allow-listed hosts degrade to a plain
+image instead of failing the page (`components/SafeImage`, `lib/image-hosts.ts`).
+
 ---
 
 ## 2. Search — `/search`
@@ -47,7 +84,9 @@ Steps:
 
 1. Type in the header search box and press Enter → navigates to `/search?q=<term>`.
    (Or click a category chip → `/search?category=<slug>`.)
-2. The page calls `searchProducts(...)` → `GET /api/catalog/products?q=...&category=...&attrs=...&page=...&pageSize=24`.
+2. The page calls `searchProducts(...)` → `GET /api/catalog/products?q=...&category=...&attrs=...&page=...&pageSize=24&currency=<storefront currency>`.
+   Results are priced in the storefront currency; products without a price in it —
+   and products whose status is Inactive — are not returned.
 3. Results render as a product grid with a heading
    (`Results for "<q>"`, or `Category: <slug>`, or `All products`) and an item count
    read from the `X-Total-Count` response header.
@@ -100,6 +139,11 @@ File: `app/cart/page.tsx`. Dynamic, never cached. Reads the cart via
   quantity; a **Subtotal**; the note "Shipping and tax are calculated at checkout";
   and a **Checkout** button → `/checkout`.
 
+Carts are **single-currency**: items are priced in the storefront currency at
+add-to-cart time, and adding an item in a different currency is rejected (409).
+Logging in merges the anonymous cart into the user cart, re-pricing lines into the
+user cart's currency (unpriced lines are dropped).
+
 > A read-only cart render never sets cookies. An un-keyed visitor (no `3c_cart`
 > cookie yet) just sees an empty cart — the cookie is established by the
 > add-to-cart action.
@@ -117,8 +161,12 @@ cart is empty the page redirects to `/cart`.
 
 Steps:
 
-1. The page shows an order summary (subtotal + item count) and tells the shopper
-   to choose a shipping rate before authorization.
+1. The page shows an order summary: **Subtotal**, **Shipping** (once a rate is
+   chosen), and a tax line that follows the storefront's regime (ADR-0038) —
+   **"Includes tax (10%)"** on tax-inclusive storefronts (AU GST / EU VAT: the tax
+   is informational, already contained in the listed prices) or **"Tax (added)"**
+   on exclusive ones (US style: tax is added to the total). The server charges by
+   the same storefront tax config — the gross always matches what the page shows.
 2. Fill the form: **Email**, **Full name**, **Address**, **City**, **Postcode**,
    **Country (2-letter)** — all required.
 3. Click **Get shipping rates**. The `quoteCheckoutShipping` Server Action calls
@@ -127,17 +175,24 @@ Steps:
    radio options.
 4. Select a shipping method. The selected service, amount in minor units, and
    quote expiry are posted with checkout.
-5. Click **Authorize & place order** (button shows "Authorizing…" while pending).
-6. The `submitCheckout` Server Action (`lib/cart-actions.ts`) `POST`s to
-   `/api/ordering/checkout` with the email, shipping address, and selected shipping
-   quote (cart cookie forwarded). Ordering validates the selected amount/expiry and
-   persists the shipping amount into the order totals.
-7. On success it redirects to `/checkout/confirmation?order=<orderId>`.
+5. Pick a **payment option**: Credit card, Stripe Payment Element, **Apple Pay**,
+   **Google Pay**, or **PayPal**. Wallets are payment *methods* tokenized through
+   the storefront's payment provider, not separate providers (ADR-0039). In
+   production these are provider-hosted surfaces — raw payment credentials are
+   never stored by 3commerce; the dev card fields record only a masked summary.
+6. Click **Authorize & place order** (button shows "Authorizing…" while pending).
+7. The `submitCheckout` Server Action (`lib/cart-actions.ts`) `POST`s to
+   `/api/ordering/checkout` with the email, shipping address, selected shipping
+   quote, and payment option (cart cookie forwarded; storefront/tenant context
+   headers set). Ordering validates the selected amount/expiry and persists the
+   shipping amount into the order totals.
+8. On success it redirects to `/checkout/confirmation?order=<orderId>`.
    On failure the form shows: "Checkout failed. Please review your cart and details."
 
-The backend creates the order, starts the checkout saga, and (in dev) issues a
-**fake** payment intent. The page does **not** collect card details — payment is
-completed on the confirmation page.
+The backend creates the order, starts the checkout saga, and asks Payments to
+authorize. Which rail runs depends on the resolved **payment mode** (ADR-0039):
+in dev, `Payments:Mode=LocalMock` routes authorization to a deterministic mock
+provider (no external calls) — payment is completed on the confirmation page.
 
 ---
 
@@ -164,9 +219,13 @@ Behaviour ("pending-first", then poll):
    linking to `/register`.
 5. **Cancelled** → "Payment not completed" with a **Return to cart** link.
 
-> In production (real Stripe key set), the dev button would not apply — the
-> Payment Element / webhook path would drive the status instead. There is no live
-> Stripe in this build.
+> The dev button exists because dev runs in **LocalMock** payment mode (ADR-0039):
+> the mock provider issues `pi_fake_…` intents and, with `Payments:AllowMockEmail`
+> on, every mock authorize/refund also emails a clearly-labelled
+> **`[TEST ONLY / MOCK PAYMENT]`** capture (redacted payload — never card data) to
+> `Payments:MockEmailTo` for inspection. In Sandbox/Production modes the real
+> provider's hosted flow + `/webhooks/{provider}` path drives the status instead,
+> and the mock/email path **refuses to boot** outside Development.
 
 ---
 
@@ -194,10 +253,14 @@ Files: `app/register/page.tsx` + `app/register/RegisterForm.tsx`.
 
 1. Enter **Email** + **Password**, click **Log in**.
 2. The `login` Server Action `POST`s to `/api/identity/login`.
-3. On success it **forwards the gateway's `Set-Cookie: 3c_session=...`** to the
+3. If the account has **MFA enrolled**, the response is `{ mfaRequired }` and the
+   form shows an **Authenticator code** input (recovery codes work too); submitting
+   completes the challenge via `/api/identity/mfa/challenge`. Wrong codes count
+   toward the password lockout.
+4. On success it **forwards the gateway's `Set-Cookie: 3c_session=...`** to the
    browser as an HttpOnly cookie, then redirects to `/account`.
    On failure: "Invalid email or password."
-4. A **Register** link sits below the form.
+5. A **Register** link sits below the form.
 
 **Logout** is a Server Action triggered by the **Log out** button on `/account`:
 it `POST`s to `/api/identity/logout` with the session cookie, deletes the
@@ -217,6 +280,14 @@ File: `app/account/page.tsx`. Dynamic, cookie-dependent, never cached.
 The signed-in account page shows the customer profile, saved address book,
 saved cards, and order history. Each order row links to `/orders/<id>/support`
 for support/RMA requests.
+
+**Guest orders attach by verified email (FR-7).** Orders placed as a guest with
+your email appear in the history once the email is **verified** — this works both
+ways: verifying sweeps existing guest orders, and orders created *after*
+verification attach at creation (Ordering keeps a verified-customer read model).
+While verification is pending the page shows an amber notice: "Verify your email
+address (…) — orders you placed as a guest with that email will appear here once
+it's verified."
 
 ---
 
@@ -256,6 +327,26 @@ rather than requiring direct URL entry.
 
 ---
 
+## 11. Privacy & consent — `/privacy` <a id="privacy"></a>
+
+Files: `app/privacy/page.tsx` + `app/privacy/ConsentSettings.tsx`; consent state in
+`lib/consent.ts`. The permanent home for cookie/consent choices (the consent banner
+links here). Necessary cookies are always on; **analytics and marketing are
+optional, off by default**, and can be changed at any time. Withdrawing analytics
+consent also **deletes the first-party visitor id** from the browser.
+
+### Analytics collection (consent-aware)
+
+`lib/analytics.ts` exposes `track(eventType, payload)` — a **no-op without
+Analytics consent**. Consented events are batched and posted to the storefront's
+own `/api/analytics/events` route, which proxies them to the Marketing service
+(`POST /api/marketing/events`, tenant resolved from the storefront context) and
+always answers 202 — analytics can never disrupt a page. Server-side the collector
+deduplicates by event id, keeps only a coarse IP, drops sensitive payload keys, and
+caps batches at 50 events.
+
+---
+
 ## Server Action → gateway endpoint reference
 
 | Action (file) | Calls | Notes |
@@ -264,11 +355,12 @@ rather than requiring direct URL entry.
 | `removeFromCart` (`cart-actions.ts`) | `DELETE /api/ordering/cart/items/<id>` | Revalidates `/cart`. |
 | `quoteCheckoutShipping` (`cart-actions.ts`) | `POST /api/fulfillment/shipping/quote` | Fetches checkout shipping rates before authorization. |
 | `submitCheckout` (`cart-actions.ts`) | `POST /api/ordering/checkout` | Posts selected shipping quote + address; redirects to confirmation. |
-| `login` (`auth-actions.ts`) | `POST /api/identity/login` | Forwards `3c_session` cookie; redirects to `/account`. |
+| `login` (`auth-actions.ts`) | `POST /api/identity/login` (+ `POST /api/identity/mfa/challenge` when enrolled) | Forwards `3c_session` cookie; redirects to `/account`. |
 | `register` (`auth-actions.ts`) | `POST /api/identity/register` | Redirects to `/login?registered=1`. |
 | `logout` (`auth-actions.ts`) | `POST /api/identity/logout` | Deletes cookie; redirects to `/`. |
 | `openTicket` (`support-actions.ts`) | `POST /api/support/tickets` | Returns `{ ok }` / `{ error }`. |
 | `requestRefund` (`support-actions.ts`) | `POST /api/support/rma` | Posts selected order lines; server derives refund amount; redirects with `?submitted=1`. |
 | (read) `getCart`, `searchProducts`, `getProduct`, `listCategories`, `getProfile`, `getOrderStatus` (`gateway.ts`) | `GET /api/...` | Server-side reads, session/cart cookies forwarded. |
-| dev-pay route | `POST /api/payments/dev/simulate-payment/<intent>` | Dev-only fake payment. |
+| dev-pay route | `POST /api/payments/dev/simulate-payment/<intent>` | Dev-only mock payment (LocalMock mode). |
 | order-status route | `GET /api/ordering/orders/<id>/status` | Polling proxy. |
+| analytics route (`app/api/analytics/events`) | `POST /api/marketing/events` | Consent-gated batch proxy; always 202. |

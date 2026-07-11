@@ -7,9 +7,9 @@ per option, and the [API contracts index](../api/api_contracts_index.md).
 
 | Service | Gateway | Port | Owns |
 |---|---|---|---|
-| Marketing | `/api/marketing` | 5108 | Campaigns, short links (mt5_1/5_3) |
+| Marketing | `/api/marketing` | 5108 | Campaigns, short links (mt5_1/5_3); consent-aware **analytics collection** (anonymous `POST /events`, batch ≤50, deduped, coarse IP; admin `GET /admin/analytics/events`); **content publishing** (`/admin/content` draft → publish/schedule/rollback, anonymous `GET /content/{key}` for published content, signed expiring preview links; a Quartz job sweeps due scheduled publishes every minute) |
 | Pricing | `/api/pricing` | 5109 | Prices + graduated tiers (mt7_1) |
-| Audit | `/api/audit` | 5110 | Central searchable audit projection (mt6_1) |
+| Audit | `/api/audit` | 5110 | Central searchable audit projection (mt6_1) — now fed by admin mutations across Catalog, Payments, Entity, Identity, Support, and Ordering; powers the Mission Control activity timeline |
 | Workflow | `/api/workflow` | 5111 | Scheduled-job run history (mt6_3) |
 | Entitlement | `/api/entitlement` | 5112 | Digital-line access; consumes `OrderConfirmed` (mt7_2/7_6) |
 | Usage | `/api/usage` | 5113 | Metered balances + overage billing → Payments (mt7_4/7_5) |

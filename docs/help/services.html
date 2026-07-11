@@ -27,18 +27,25 @@
     <main id="main" class="content"><div class="content-inner"><p class="eyebrow">Reference · Services</p><h1>Platform services</h1><p class="lede">The six DB-owning services added in ADR-0030 — Marketing, Pricing, Audit, Workflow, Entitlement, Usage — what each owns, every endpoint, and the use cases per option. All sit behind the gateway with internal-claims auth.</p>
         <p>Six DB-owning services added once CI was restored (ADR-0030). Each owns a Postgres database + named schema, sits behind the gateway with internal-claims auth, and uses the MassTransit EF outbox. Two were extracted out of Fulfillment (Entitlement, Usage); two are event projections (Audit, Workflow); two are standalone domains (Marketing, Pricing).</p>
         <h2 id="marketing">Marketing <span style="opacity:.6">(<code>/api/marketing</code> · <code>:5108</code>)</span></h2>
-        <p>Campaigns and short links (mt5_1/5_3).</p>
+        <p>Campaigns and short links (mt5_1/5_3), consent-aware analytics collection (def_4), and content publishing with scheduling + signed previews (def_5).</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
               <tr><td><code>GET</code></td><td><code>/admin/campaigns</code></td><td>admin</td><td>List campaigns</td></tr>
               <tr><td><code>POST</code></td><td><code>/admin/campaigns</code></td><td>admin</td><td>Create (cid, name, optional window)</td></tr>
               <tr><td><code>POST</code></td><td><code>/admin/campaigns/{id}/activate|pause|end</code></td><td>admin</td><td>Lifecycle transitions</td></tr>
               <tr><td><code>GET</code></td><td><code>/admin/short-links</code></td><td>admin</td><td>List short links</td></tr>
               <tr><td><code>POST</code></td><td><code>/admin/short-links</code></td><td>admin</td><td>Create; destination host must be a registered storefront host</td></tr>
+              <tr><td><code>POST</code></td><td><code>/events</code></td><td>anonymous</td><td>Analytics batch (≤50 events → 400 above; deduped by event id; coarse IP only; tenant via <code>X-3C-Tenant-Id</code>)</td></tr>
+              <tr><td><code>GET</code></td><td><code>/admin/analytics/events</code></td><td>admin</td><td>Inspect collected analytics events</td></tr>
+              <tr><td><code>GET/POST</code></td><td><code>/admin/content[/{id}]</code></td><td>admin</td><td>List/create content (version 1 draft) + detail with version history</td></tr>
+              <tr><td><code>PUT/POST</code></td><td><code>/admin/content/{id}/draft|publish|schedule|rollback|preview-token</code></td><td>admin</td><td>Save draft, publish now, schedule (≤60s sweep), roll back, mint a signed expiring preview link</td></tr>
+              <tr><td><code>GET</code></td><td><code>/content/{key}</code> · <code>/content/preview/{id}/{version}?token=</code></td><td>anonymous</td><td>Published content by key; signed read-only draft preview (1h expiry)</td></tr>
         </tbody></table>
         <p><b>Use cases</b></p><ul>
           <li>Launch a campaign with a tracking <code>cid</code> and an optional start/end window.</li>
           <li>Pause or end a running campaign without deleting it.</li>
           <li>Mint a short link for a campaign — rejected if the destination is not a known storefront host (anti open-redirect).</li>
+          <li>Collect consent-gated storefront analytics (the storefront's <code>track()</code> batcher posts here via its proxy route) and review them as an admin.</li>
+          <li>Draft → schedule → publish storefront content, share a signed preview link with a reviewer, and roll back to a prior version.</li>
         </ul>
         <h2 id="pricing">Pricing <span style="opacity:.6">(<code>/api/pricing</code> · <code>:5109</code>)</span></h2>
         <p>The dedicated home for prices + graduated tiers (mt7_1). The Catalog Offer keeps a flat price (ADR-0028); this is what recurring/usage charging bills against.</p>
@@ -53,7 +60,7 @@
           <li>Define graduated tiers (first tier must start at qty 1) and quote the per-block charge for any quantity.</li>
         </ul>
         <h2 id="audit">Audit <span style="opacity:.6">(<code>/api/audit</code> · <code>:5110</code>)</span></h2>
-        <p>Central searchable projection of every service’s local audit entry (mt6_1). Read-only; the owning service’s hash-chained log stays authoritative. Consumes <code>AuditEntryRecorded</code>.</p>
+        <p>Central searchable projection of every service’s local audit entry (mt6_1). Read-only; the owning service’s hash-chained log stays authoritative. Consumes <code>AuditEntryRecorded</code> — admin mutations across Catalog, Payments, Entity, Identity, Support, and Ordering now emit these (mr_8), and this projection powers the Admin <b>Mission Control</b> activity timeline.</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
               <tr><td><code>GET</code></td><td><code>/admin/audit?tenantId=&resourceType=&resourceId=&action=&outcome=</code></td><td>admin</td><td>Cross-service audit search (latest 200)</td></tr>
         </tbody></table>
