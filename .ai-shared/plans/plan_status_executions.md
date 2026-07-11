@@ -413,6 +413,8 @@ Plan Path: `.ai-shared/plans/project-review-remediation.md`
 | docs_2 | API/ADR/root docs: regenerate all OpenAPI specs, contracts index, adr_index, AGENTS.md, README, PRD-vs-impl + ASVS refresh | Docs currency fleet 2026-07-11 | pending | user-directed sweep | Specs stale across services after 35 merged PRs. |
 | docs_3 | Config/deploy/perf currency: appsettings.Container, compose/env/Helm values for new config keys, ops+secrets+observability/SLO docs, script help text | Docs currency fleet 2026-07-11 | pending | user-directed sweep | Payments:Mode etc. must reach container/Helm paths; validated via compose config + helm template. |
 
+| pay_6 | Storefront checkout: clicking payment methods does nothing (user live report 2026-07-11) | Payment integration program (fix) | pending | user manual test | Payment-method tiles unresponsive on checkout; API checkout path works (201 verified) — suspected client-side interaction bug. |
+
 **Deferral triage (rev_13, decided 2026-07-04):**
 
 | Deferred capability | Origin | Decision | Rationale |
