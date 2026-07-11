@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.Payments.Api.Endpoints;
@@ -51,8 +52,8 @@ public static class AdminEndpoints
     /// ExecuteRefundConsumer acts on (same path the Phase-4 RMA will use). Idempotency-Key required.
     /// </summary>
     private static async Task<Results<Accepted<RefundResponse>, BadRequest<string>>> RequestRefund(
-        RefundRequest request, HttpContext http, IPublishEndpoint publisher, PaymentsDbContext db,
-        IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
+        RefundRequest request, HttpContext http, IPublishEndpoint publisher,
+        IIdempotencyGuard idempotency, IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
         var key = http.Request.Headers["Idempotency-Key"].ToString();
         if (string.IsNullOrEmpty(key))
@@ -60,35 +61,25 @@ public static class AdminEndpoints
             return TypedResults.BadRequest("Idempotency-Key header is required.");
         }
 
-        var requestHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes($"{request.OrderId}:{request.AmountMinor}:{request.Reason}")));
+        // Uniform replay protection via the shared guard (plan item 12): the same key returns the
+        // stored response; the same key with a different body throws IdempotencyConflictException,
+        // which the problem-details handler renders as a 409. The guard's SaveChanges also flushes
+        // the outbox publish + audit entry recorded inside the operation, so all commit atomically.
+        var response = await idempotency.ExecuteAsync(
+            key,
+            new { request.OrderId, request.AmountMinor, request.Reason },
+            async token =>
+            {
+                var refundId = Guid.CreateVersion7();
+                await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin"), token);
+                // Refund requests carry no tenant, so the entry lands under the configured default
+                // tenant — the same default the Audit search (and Mission Control) falls back to.
+                await audit.RecordAsync(user.Mutation(
+                    DefaultTenantId(config), "Refund", refundId.ToString(), "payments.refund.request", request.Reason), token);
+                return new RefundResponse(refundId);
+            },
+            ct);
 
-        // Replay protection (NFR-3): same key returns the original response; same key with a
-        // different body is a conflict.
-        var existing = await db.IdempotencyRecords.FindAsync([key], ct);
-        if (existing is not null)
-        {
-            return existing.RequestHash == requestHash
-                ? TypedResults.Accepted((string?)null, System.Text.Json.JsonSerializer.Deserialize<RefundResponse>(existing.ResponseJson)!)
-                : TypedResults.BadRequest("Idempotency-Key reused with a different request.");
-        }
-
-        var refundId = Guid.CreateVersion7();
-        var response = new RefundResponse(refundId);
-        db.IdempotencyRecords.Add(new ThreeCommerce.Payments.Domain.IdempotencyRecord
-        {
-            Key = key,
-            RequestHash = requestHash,
-            ResponseJson = System.Text.Json.JsonSerializer.Serialize(response),
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
-        await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin"), ct);
-        // Refund requests carry no tenant, so the entry lands under the configured default tenant —
-        // the same default the Audit search (and Mission Control) falls back to.
-        await audit.RecordAsync(user.Mutation(
-            DefaultTenantId(config), "Refund", refundId.ToString(), "payments.refund.request", request.Reason), ct);
-        // The bus outbox only delivers on SaveChanges; this also commits the idempotency record.
-        await db.SaveChangesAsync(ct);
         return TypedResults.Accepted((string?)null, response);
     }
 
