@@ -27,16 +27,24 @@ antiforgery → authentication → authorization**.
 
 ## New operator surfaces (platform expansion)
 
-> In progress on `feat/mt-phase1-foundation`. These nav items exist alongside the
-> classic MVP screens below. They are tenant-scoped — most take a **Tenant ID**
-> field (the seeded default is `00000000-0000-0000-0000-000000000001`).
+> These nav items are live alongside the classic MVP screens below. They are
+> tenant-scoped — most take a **Tenant ID** field (the seeded default is
+> `00000000-0000-0000-0000-000000000001`). Every action button surfaces the real
+> API failure reason (validation `errors`, then `detail`, then `title`, unwrapped by
+> `Services/GatewayError.cs`); interactive pages set their success/error banner
+> **after** the follow-up reload so the message survives the refresh, and prerender
+> is disabled on interactive pages so no button is dead before its circuit connects.
 
 - **Entities & suppliers** (`/entities`, `Components/Pages/Entities.razor`) — list
-  and create tenant party records (companies, people, trusts…), start supplier
-  onboarding, and work the **supplier change-request approval queue** (approve /
-  reject with maker-checker: the deciding operator must differ from the requester,
-  and a reason is required to reject). Backed by the **Entity** service
-  (`/api/entity/...`).
+  and create tenant party records (companies, people, trusts…), run the supplier
+  **verification lifecycle** (Draft → submit-verification → verify → activate →
+  suspend/archive; buttons carry state-prerequisite tooltips so **Activate** is
+  reachable), and work the **supplier change-request approval queue**. Maker-checker
+  is enforced: Approve/Reject are **disabled on your own requests** with a hint, the
+  deciding operator must differ from the requester, and **Reject requires a reason of
+  8–500 characters**. The page loads `/api/identity/me` to know who "you" are, and
+  unwraps `ValidationProblem` errors into the banner (e.g. "Only active suppliers can
+  be suspended."). Backed by the **Entity** service (`/api/entity/...`).
 - **Roles & permissions** (`/rbac`, `Components/Pages/Rbac.razor`) — the dynamic
   RBAC console: view the code-defined permission registry and the tenant's roles
   (seeded catalog: admin/ops/finance/support/merchandiser/customer), editable and
@@ -44,27 +52,68 @@ antiforgery → authentication → authorization**.
   active sessions (ADR-0025).
 - **Commerce ops** (`/commerce-ops`, `Components/Pages/CommerceOps.razor`) —
   storefront lifecycle, domains, and product-publication operations, plus links into
-  the now-actionable payment/pricing setup pages.
+  the payment/pricing setup pages. The per-storefront **Manage** form closes and
+  resets after a successful save (a failed save stays open for retry); a failed
+  **Preview** or **Activate** fetches `/readiness` and renders the concrete blocker
+  checklist under the error banner (e.g. "at least one domain", "one canonical
+  domain") instead of the generic ProblemDetails title.
 - **Offers & pricing** (`/offers`, `Components/Pages/Offers.razor`) — Catalog Offer
   CRUD for `(product/variant × supplier)` supply profiles: supply category,
   fulfilment type, price, pricing model, billing period, tiers, priority, and active
   state.
 - **Payment accounts** (`/payment-accounts`, `Components/Pages/PaymentAccounts.razor`) —
   Payments-owned tenant/storefront payment accounts: create Draft accounts, submit,
-  readiness-gated activate, suspend, and archive.
+  readiness-gated activate, suspend, and archive. Each row also offers **Edit** (an
+  inline form — the name is always editable; provider/mode inputs are disabled with a
+  tooltip while the account is Active, so suspend first) and **Make default** (sets
+  the tenant's default account and clears every sibling in one tenant-scoped
+  transaction; exactly one default, shown by the ★ column; an Archived account cannot
+  become default).
 - **Supplier payouts** (`/supplier-payouts`, `Components/Pages/SupplierPayouts.razor`) —
-  tokenized/masked supplier bank account setup (approve/reject/archive) and active
-  payout instructions. Raw bank details are never entered; only vault token refs and
-  masked display values are stored.
+  tokenized/masked supplier bank-account setup and active payout instructions. A
+  **supplier dropdown** (loaded from `/api/entity/entities`, filtered to Active
+  entities; manual GUID entry remains as a fallback) replaces free-typing an id.
+  Bank accounts: create → approve/reject/archive plus **Edit** — label-only changes
+  keep the account Active; changing banking identity (country / masked routing /
+  masked account / vault token) **resets an Active or Rejected account to
+  PendingApproval** for re-approval (with a re-approval message). Payout instructions:
+  create (the supplier id is taken from the selected bank account so it can't
+  mismatch) plus **Edit** (numeric-enum cadence and/or re-point `bankAccountId`; the
+  target must be Active). Raw bank details are never entered — only vault token refs
+  and masked display values are stored.
 - **Xero mappings** (`/xero-mappings`, `Components/Pages/XeroMappings.razor`) —
   ledger-account to Xero-account mapping CRUD with tenant-default, storefront,
-  category, supplier, and product override precedence.
+  category, supplier, and product override precedence. The **Scope** select carries
+  numeric values 1–5 and sends the number on the wire (the platform numeric-enum
+  invariant — the earlier string-scope path 400'd on save); **Edit** maps the
+  response's scope name back to its numeric value and re-shows the target id.
 - **Supplier Portal** (separate app, `:5300`) — suppliers sign in to view
   readiness, upload stock feeds, and raise user/contact/bank **change requests**
   that operators approve here.
+- **Security** (`/security`, `Components/Pages/Security.razor`) — three sections:
+  **Your second factor (TOTP)** (Enable MFA → add the secret/otpauth URI to an
+  authenticator app → confirm with a code → **recovery codes shown once**, store
+  them); **Tenant MFA policy** (admin-only `GET/PUT /api/identity/mfa/policy`; the
+  effective policy is the max of the platform floor `Mfa:PlatformMinimum` and the
+  tenant setting); and **Webhook signing secrets** (per-provider registry —
+  add/deactivate; secrets are **always masked** `first4…last4` in responses;
+  rotation-safe: active secrets are tried newest-first so rotating never drops
+  webhooks).
+- **Mission control** (`/mission-control`, `Components/Pages/MissionControl.razor`) —
+  the **Activity timeline** (central Audit projection — admin mutations across
+  Catalog, Payments, Entity, Identity, Support, and Ordering now emit audit events,
+  so it is populated during real operations), **Scheduled jobs** (Workflow service
+  run history), a live **Message bus** section (read-only RabbitMQ management API:
+  queue/consumer/ready/unacked/dead-letter KPI cards, a red dead-letter table when
+  any `*_error`/`*_skipped` queue holds messages, and a busiest-queues top-10;
+  unreachable broker degrades to a hint), and **Consoles** links (Grafana RED
+  dashboard, RabbitMQ management). Data comes via owning-service APIs only.
 - **CLI** (`src/Cli`, `dotnet tool`) — the same operations from a terminal,
-  Gateway-only, with explicit `--tenant`/`--storefront` scope (command surfaces are
-  scaffolded; live calls follow once CLI auth lands).
+  Gateway-only, with explicit `--tenant` scope. `auth login` (with `--code` for
+  MFA-enrolled accounts) persists the opaque session to `~/.3commerce/config.json`
+  (mode `0600`); `auth whoami`/`auth logout` round out the session. Every command
+  group (rbac/entity/supplier/storefront/catalog/payment/payout/xero) issues real
+  gateway HTTP; mutations take `--body` raw-JSON passthrough.
 
 ### Digital supply & billing (Phase 7)
 
@@ -106,6 +155,9 @@ Steps:
 2. Enter the seeded dev admin credentials:
    - **Email:** `admin@3commerce.local`
    - **Password:** `dev-admin-password-1`
+   - **Authenticator code** — only needed when MFA is enabled on the account
+     (enroll on the **Security** page); recovery codes work here too. Leave empty
+     otherwise.
 3. Click **Sign in** → posts to `/auth/login`.
 
 What `/auth/login` does:
@@ -133,7 +185,8 @@ File: `Components/Pages/Home.razor`. `[Authorize(Roles = "admin")]`. A landing p
 RMAs, the ledger, and Xero sync." The left nav (`MainLayout.razor`) links to
 Dashboard, Catalog, Offers & pricing, Orders, RMA queue, Ledger, Xero sync,
 Xero mappings, Imports, Roles & permissions, Operator users, Entities & suppliers,
-Commerce ops, Payment accounts, Supplier payouts, Mission control, plus **Log out**.
+Commerce ops, Payment accounts, Supplier payouts, Mission control, Security,
+plus **Log out**.
 
 ---
 
@@ -143,8 +196,13 @@ File: `Components/Pages/Orders.razor`. Lists orders from
 `GET /api/ordering/admin/orders` with **Order**, **Status**, **Total**, **Placed**,
 and actions. Operators can cancel unpaid/pending orders via
 `POST /api/ordering/admin/orders/<id>/cancel`; confirmed orders show a **Refund**
-action that calls the Payments admin refund path, preserving the single refund
-saga/ledger reversal.
+action (first click asks "Confirm?", second click fires) that `POST`s
+`/api/payments/admin/refunds` with the full order total and a **deterministic
+`Idempotency-Key: refund-<orderId>`** — a retried refund of the same order is
+idempotent, and the endpoint requires the key. The refund reverses the ledger via
+the single refund path; the order's own status stays **Confirmed** (money truth
+lives in the ledger). Success/error banners are set after the reload so they
+survive the refresh.
 
 ---
 
@@ -160,16 +218,30 @@ On load it calls `GatewayClient.GetListAsync(...)` →
 ### Approve → refund
 
 1. Open `/rmas`. Find the row for the customer's order — state **Requested**.
-2. Click **Approve & refund**. (All buttons are disabled while the call runs.)
+2. Click **Approve & refund** (refund now, no physical return) or
+   **Approve (require return)** (refund only after the item comes back).
+   All buttons are disabled while the call runs.
 3. The page `POST`s
-   `/api/support/admin/rmas/<id>/approve` with body `{ requireReturn: false }` and
-   an `Idempotency-Key: approve-<id>` header.
+   `/api/support/admin/rmas/<id>/approve` with body `{ requireReturn: true|false }`
+   and an `Idempotency-Key: approve-<id>` header.
 4. This triggers the refund saga on the backend:
    **RefundRequested → refund executes → RefundIssued**. The refund reverses the
    original sale in the **double-entry ledger**, keeping the trial balance at zero
    (the same single refund path used everywhere — ADR-0018).
-5. After the call the table refreshes; the row's state becomes **RefundIssued** and
-   the Approve/Deny buttons disappear (only `Requested` rows offer actions).
+5. After the call the table refreshes; when the saga has applied the transition the
+   row's state becomes **RefundIssued** (or **AwaitingReturn** on the require-return
+   path, which then offers **Mark return received** → `POST …/return-received` to
+   release the refund).
+
+### Saga lag — why a row shows "Updating…"
+
+RMA endpoints return **202 Accepted** and the saga applies the state transition
+**asynchronously**, so the read model can briefly lag the action (a second click
+used to land a 409 like `"RMA is 'RefundPending', not awaiting a return."`). After
+an accepted action the page therefore suppresses that row's buttons — it shows
+**Updating… \[Refresh\]** — until a reload observes a *different* state. On failure
+the server's own message is surfaced and the queue refreshes so the row shows its
+true state.
 
 ### Deny
 
@@ -240,16 +312,19 @@ Steps:
 
 | Screen | Read | Action |
 |--------|------|--------|
-| RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:false}`) · `.../deny` |
+| RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
 | Ledger | `GET /api/payments/admin/ledger/entries` | — |
 | Xero sync | `GET /api/payments/admin/xero/sync-runs` | `POST /api/payments/admin/xero/sync/<date>` |
-| Xero mappings | `GET /api/payments/admin/xero/mappings?tenantId=...` | `POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]` |
+| Xero mappings | `GET /api/payments/admin/xero/mappings?tenantId=...` | `POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]` (numeric `scope` 1–5) |
 | Imports | `GET /api/catalog/admin/import-runs` | `POST /api/catalog/admin/import-runs` |
 | Offers & pricing | `GET /api/catalog/admin/offers?tenantId=...` | `POST/PUT /api/catalog/admin/offers[/{id}]` |
-| Payment accounts | `GET /api/payments/admin/payment-accounts?tenantId=...` | `POST /api/payments/admin/payment-accounts` + lifecycle `submit/activate/suspend/archive` |
-| Supplier payouts | `GET /api/payments/admin/supplier-payouts/bank-accounts|instructions?tenantId=...` | bank-account `approve/reject/archive`; instruction create/deactivate |
-| Orders | `GET /api/ordering/admin/orders` | cancel unpaid orders; refund confirmed orders via Payments refund path |
-| Login | — | `POST /auth/login` → gateway `POST /api/identity/login` + admin-probe |
+| Payment accounts | `GET /api/payments/admin/payment-accounts?tenantId=...` | `POST/PUT /api/payments/admin/payment-accounts[/{id}]` + `make-default` + lifecycle `submit/activate/suspend/archive` |
+| Supplier payouts | `GET /api/payments/admin/supplier-payouts/bank-accounts|instructions?tenantId=...` | bank-account create/`PUT`/`approve/reject/archive`; instruction create/`PUT`/deactivate |
+| Orders | `GET /api/ordering/admin/orders` | cancel unpaid orders; `POST /api/payments/admin/refunds` (`Idempotency-Key: refund-<orderId>`) |
+| Security | `GET /api/identity/mfa/status|policy` · `GET /api/payments/admin/webhook-secrets` | MFA `enroll/begin` + `enroll/confirm` · `PUT /api/identity/mfa/policy` · webhook-secret `POST` + `POST …/{id}/deactivate` |
+| Mission control | `GET /api/audit/admin/audit?tenantId=...` · `GET /api/workflow/admin/workflow/runs` · RabbitMQ mgmt API | — (read-only) |
+| Login | — | `POST /auth/login` → gateway `POST /api/identity/login` (+ optional MFA code) + admin-probe |
 
-Money-affecting POSTs send an `Idempotency-Key` header (RMA approve/deny) so
-redeliveries are safe.
+Money-affecting POSTs send an `Idempotency-Key` header (Orders refund, RMA
+approve/deny) so redeliveries are safe. Admin mutations across services emit audit
+events that feed the Mission Control activity timeline.

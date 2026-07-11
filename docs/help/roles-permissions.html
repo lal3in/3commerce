@@ -37,7 +37,7 @@
         <h2 id="pipeline">How a request is authorized</h2>
         <ol>
 <li>The browser/CLI calls the <b>gateway</b> with the opaque <code>3c_session</code> cookie (ADR-0012); anonymous requests pass through.</li>
-<li>The gateway introspects the session with Identity → <code>(UserId, TenantId, Role, Email)</code> and mints a short-lived <b>ES256 internal-claims JWT</b> (<code>sub · role · sid · tenant · email</code>) in the <code>X-Internal-Claims</code> header.</li>
+<li>The gateway introspects the session with Identity → <code>(UserId, TenantId, Role, Email)</code> and mints a short-lived <b>ES256 internal-claims JWT</b> (<code>sub · role · sid · tenant · email</code>, plus <code>amr</code> — <code>pwd</code> or <code>pwd otp</code> — and <code>auth_time</code> for step-up decisions) in the <code>X-Internal-Claims</code> header. A session <b>pending an MFA challenge</b> fails introspection: the gateway mints <b>no claims</b> — completing the challenge or logging out are the only moves.</li>
 <li>The service validates that JWT (<code>InternalClaimsAuth</code>) and applies the <b>coarse endpoint policy</b>: <code>CustomerPolicy</code> (role <code>customer</code> or <code>admin</code>) or <code>AdminPolicy</code> (role <code>admin</code>).</li>
 <li>For <b>fine-grained</b> action/field decisions, the service acts as a <b>PEP</b> and asks the Identity <b>PDP</b> (<code>PolicyDecisionService.DecideAsync</code>), which resolves the principal's effective permissions from their tenant memberships → roles → permissions and decides per action/field (ADR-0025).</li>
 </ol>
@@ -51,6 +51,12 @@
           <tr><td><code>merchandiser</code></td><td>Merchandiser</td><td>Catalog and product publishing.</td><td>catalog.product.view/edit/publish</td></tr>
           <tr><td><code>customer</code></td><td>Customer</td><td>Storefront shopper.</td><td><i>none — no back-office permissions</i></td></tr>
         </tbody></table>
+        <h2 id="mfa">Multi-factor authentication (TOTP)</h2>
+        <p>Any account can enroll a <b>TOTP second factor</b> (RFC 6238; enrollment issues <b>8 one-time recovery codes</b>, stored hashed and shown once). Enrolled logins return <code>{ mfaRequired }</code> and must complete <code>POST /api/identity/mfa/challenge</code> (TOTP or recovery code; wrong codes feed the password lockout counter). Operators enroll on the Admin <b>Security</b> page; storefront login shows a code input when challenged. Admins set a <b>tenant MFA policy</b> (<code>GET/PUT /api/identity/mfa/policy</code>); the effective policy is <code>max(platform floor Mfa:PlatformMinimum, tenant policy)</code>. A required-but-unenrolled admin is nagged, not locked out (the bootstrap admin can't be locked out); a confirmed factor cannot be reset via the session — that is a support flow.</p>
+
+        <h2 id="tenant-isolation">Tenant isolation</h2>
+        <p>Tenant-scoped tables in Identity and Entity are protected by PostgreSQL <b>FORCE row-level security</b> (child tables without a <code>TenantId</code> are transitively isolated); Catalog/Ordering/Payments/Fulfillment/Support use deliberate app-level tenant filters (ADR-0024 addendum). Cross-tenant administration is gated: only a <b>platform-scope master role</b> passes <code>InternalClaimsAuth.CanActForTenant</code> for a foreign tenant — admin-user endpoints return 403 for a foreign <code>tenantId</code> otherwise, and master-role overrides are audited.</p>
+
         <h2 id="permissions">Permission catalog</h2>
         <p>The 24 permissions are <b>code-defined</b> (<code>PermissionRegistry</code>) and not operator-editable — they are persisted at startup so role mappings can reference them. Risk drives extra controls (audit, step-up).</p>
         <h3>Platform · tenancy · authz</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>

@@ -24,8 +24,10 @@ Identity service via the gateway.
 > Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow,
 > Entitlement, and Usage — plus the gateway and a Notifications worker. Services
 > communicate over RabbitMQ/MassTransit and own separate Postgres databases/schemas.
-> In dev there is **no live Stripe or Xero** — a `FakePaymentProvider` and a
-> `LoggingXeroClient` stand in.
+> In dev there is **no live Stripe or Xero** — Payments runs in **LocalMock** mode
+> (ADR-0039: a provider registry with LocalMock/Sandbox/Production modes and a
+> deterministic mock provider, plus Polar/PayPal/Afterpay sandbox adapters) and a
+> `LoggingXeroClient` stands in for Xero.
 
 > **Platform expansion.** The codebase now includes the multi-tenant platform
 > foundation (a tenant = one legal business; PostgreSQL row-level security + central
@@ -37,8 +39,12 @@ Identity service via the gateway.
 > selected checkout shipping rates, and dropship supplier-order forwarding. Operator UI
 > covers offers/pricing, payment accounts, supplier payouts, and Xero mappings; API
 > surfaces remain under `/api/fulfillment/*`, `/api/catalog/admin/offers`, and
-> `/api/payments/admin/*`. See ADRs `0023`–`0030` and the phase plans under
-> `.ai-shared/plans/`.
+> `/api/payments/admin/*`. Storefronts carry **per-currency shelf prices** and a
+> regime-aware tax convention (AU GST/EU VAT inclusive, US exclusive — ADR-0038),
+> resolved per request via storefront context routing (e.g. `/au`). Security adds
+> **TOTP MFA** (Admin `/security`), a masked webhook signing-secret registry, and
+> expanded FORCE row-level security. See ADRs `0023`–`0039` and the phase plans
+> under `.ai-shared/plans/`.
 
 ## Table of contents
 
