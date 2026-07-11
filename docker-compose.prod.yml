@@ -2,6 +2,13 @@
 # is satisfied (it refuses the committed dev key outside Development). Applied by
 # scripts/launch.sh --env prod, which exports INTERNAL_AUTH_* with REAL newlines (env_file
 # can't hold multiline PEMs, so they ride compose interpolation here instead).
+# Every service that calls AddInternalClaimsAuth needs the rotated PUBLIC key — that is all
+# 13 DB-owning services (the guard refuses the committed dev key at boot outside Development).
+#
+# Payments stays safe here without extra env: an absent Payments:Mode outside Development
+# resolves to Production, and PaymentModeGuard refuses LocalMock / AllowMockEmail=true at
+# boot (ADR-0039). Real provider credentials (Stripe__SecretKey etc.) are injected per-deploy
+# as env vars — see docs/ops/secrets.md — never committed.
 name: 3commerce
 
 services:
@@ -25,5 +32,26 @@ services:
     environment:
       InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
   support:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  entity:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  marketing:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  pricing:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  audit:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  workflow:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  entitlement:
+    environment:
+      InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}
+  usage:
     environment:
       InternalAuth__PublicKey: ${INTERNAL_AUTH_PUBLIC_KEY:?run scripts/launch.sh --env prod}

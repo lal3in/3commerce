@@ -160,6 +160,9 @@ scripts/postgres-index-audit.sh &gt; /tmp/3commerce-index-audit.txt</code></pre>
               <tr><td><code>Gateway:BaseUrl</code></td><td><code>appsettings.json</code> / <code>appsettings.Container.json</code></td><td><code>http://localhost:8080</code> / <code>http://gateway:8080</code></td><td>Gateway origin.</td></tr>
               <tr><td><code>Admin:AllowedIPs</code></td><td><code>appsettings.json</code></td><td><code>""</code> (allow all)</td><td>Comma-separated IPs/CIDRs; empty = no restriction (dev).</td></tr>
               <tr><td><code>InternalAuth:PublicKey</code></td><td><code>appsettings.json</code> (dev) / env or Secret (prod)</td><td>dev key (committed)</td><td>Verifies internal signed claims. The <strong>BL-11 gate</strong> refuses the committed dev key outside <code>Development</code>.</td></tr>
+              <tr><td><code>MessageBus:ManagementUrl</code></td><td>code fallback / <code>appsettings.Container.json</code></td><td><code>http://localhost:15672</code> / <code>http://rabbitmq:15672</code></td><td>RabbitMQ management API for Mission Control bus stats (read-only).</td></tr>
+              <tr><td><code>MessageBus:ManagementUser</code> / <code>ManagementPassword</code></td><td>code fallback (dev) / env (prod)</td><td><code>guest</code>/<code>guest</code></td><td>Management API credentials — rotate outside dev (<code>docs/ops/secrets.md</code>).</td></tr>
+              <tr><td><code>Observability:GrafanaUrl</code></td><td>code fallback</td><td><code>http://localhost:3001</code></td><td>Mission Control's Grafana link (browser-facing, so localhost is right even containerized).</td></tr>
             </tbody>
           </table>
         </div>
@@ -170,10 +173,20 @@ scripts/postgres-index-audit.sh &gt; /tmp/3commerce-index-audit.txt</code></pre>
           <table>
             <thead><tr><th>Key</th><th>Read by</th><th>Default</th><th>Notes</th></tr></thead>
             <tbody>
-              <tr><td><code>ConnectionStrings:Database</code> / <code>RabbitMq</code></td><td>every service</td><td><code>localhost</code> (bare) / <code>postgres</code>,<code>rabbitmq</code> (container)</td><td>Overridden by <code>appsettings.Container.json</code> when <code>USE_CONTAINER_CONFIG=true</code>.</td></tr>
-              <tr><td><code>Store:Currency</code></td><td><code>SampleDataImporter</code>, cart fallback (BL-9)</td><td><code>EUR</code></td><td>Configurable store currency; data model is per-entity currency (multi-currency display = future FX).</td></tr>
+              <tr><td><code>ConnectionStrings:Database</code> / <code>RabbitMq</code></td><td>every service</td><td><code>localhost</code> (bare) / <code>postgres</code>,<code>rabbitmq</code> (container)</td><td>Overridden by <code>appsettings.Container.json</code> when <code>USE_CONTAINER_CONFIG=true</code> (all 13 DB-owning services ship one).</td></tr>
+              <tr><td><code>Store:Currency</code></td><td><code>SampleDataImporter</code>, Catalog admin defaults, cart fallback (BL-9)</td><td><code>EUR</code></td><td>Default store currency; tenant per-currency product pricing rides the data model (#40).</td></tr>
               <tr><td><code>Importer:TargetRows</code></td><td><code>SampleDataImporter</code> (Catalog)</td><td><code>10_500</code></td><td>Sample-import row count. CI sets <code>400</code> to keep the projection storm light.</td></tr>
-              <tr><td><code>Stripe:SecretKey</code></td><td>Payments <code>Program.cs</code></td><td><em>unset</em></td><td>If set, real <code>StripePaymentProvider</code>; <strong>unset → <code>FakePaymentProvider</code></strong> (keyless dev).</td></tr>
+              <tr><td><code>Payments:Mode</code></td><td>Payments (ADR-0039)</td><td><code>LocalMock</code> in Development, <code>Production</code> otherwise</td><td>Host mode ceiling: <code>LocalMock</code> | <code>Sandbox</code> | <code>Production</code>. <code>PaymentModeGuard</code> refuses <code>LocalMock</code> outside Development at boot.</td></tr>
+              <tr><td><code>Payments:DefaultProvider</code></td><td>Payments</td><td><code>stripe</code></td><td>Provider used when an account doesn't name one (<code>mock</code>/<code>stripe</code>/<code>polar</code>/<code>paypal</code>/<code>afterpay</code>).</td></tr>
+              <tr><td><code>Payments:AllowMockEmail</code> / <code>Payments:MockEmailTo</code></td><td>Payments + Notifications worker</td><td><code>true</code> / <code>dev-payments@localhost</code> (Development only)</td><td>TEST-ONLY mock-payment payload email; refused at boot outside Development.</td></tr>
+              <tr><td><code>Stripe:SecretKey</code> (+ <code>Polar:*</code>, <code>PayPal:*</code>, <code>Afterpay:*</code>)</td><td>Payments provider adapters</td><td><em>unset</em></td><td>Env-injected per deploy; test/live key prefix is asserted against the mode (<code>docs/ops/secrets.md</code>).</td></tr>
+              <tr><td><code>Mfa:PlatformMinimum</code></td><td>Identity</td><td><code>0</code> (none)</td><td>Platform-wide MFA floor for operator accounts.</td></tr>
+              <tr><td><code>Publishing:PreviewSecret</code></td><td>Marketing</td><td><code>dev-preview-secret</code> (code fallback)</td><td>Signs publishing preview links — rotate outside dev.</td></tr>
+              <tr><td><code>Scheduling:Enabled</code></td><td>Payments, Marketing</td><td><code>true</code></td><td>Quartz schedulers (daily Xero journal; scheduled-publish sweep). Integration tests turn it off.</td></tr>
+              <tr><td><code>Marketing:AllowedHosts</code></td><td>Marketing short links</td><td><code>localhost</code></td><td>Comma-separated redirect-host allowlist.</td></tr>
+              <tr><td><code>Shipping:QuoteTtlMinutes</code></td><td>Fulfillment</td><td><code>30</code></td><td>Shipping-quote validity window.</td></tr>
+              <tr><td><code>Tax:FlatRate</code></td><td>Payments</td><td><code>0.19</code></td><td>Flat-rate fallback; storefront-configured checkout tax is projected into Ordering (#41).</td></tr>
+              <tr><td><code>Storefront:BaseUrl</code></td><td>Notifications worker</td><td><code>http://localhost:3000</code></td><td>Base URL for links in outbound email (public URL, not container wiring).</td></tr>
               <tr><td>Xero client</td><td>Payments <code>Program.cs</code></td><td><code>LoggingXeroClient</code></td><td>Real OAuth2 Xero is a future swap (ADR-0017).</td></tr>
             </tbody>
           </table>

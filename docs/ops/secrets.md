@@ -14,6 +14,18 @@ Development if they are still configured with the committed dev ES256 key**
 | Internal-claims **public** key (ES256) | `InternalAuth:PublicKey` | every service | `src/Services/*/appsettings.json` |
 | Seed-admin password | `Identity:SeedAdmin:Password` | Identity (dev seeder) | `src/Services/Identity/Api/appsettings.json` |
 | Postgres / RabbitMQ credentials | `ConnectionStrings:*` | each service | `appsettings.json` |
+| Stripe API key | `Stripe:SecretKey` | Payments | _empty_ (keyless dev runs LocalMock) |
+| Stripe webhook signing secret (config fallback) | `Stripe:WebhookSecret` | Payments | _unset_ |
+| Polar access token | `Polar:AccessToken` | Payments | _unset_ |
+| PayPal REST credentials | `PayPal:ClientId` / `PayPal:Secret` | Payments | _unset_ |
+| Afterpay merchant credentials | `Afterpay:MerchantId` / `Afterpay:SecretKey` | Payments | _unset_ |
+| Publishing preview-link signing secret | `Publishing:PreviewSecret` | Marketing | code fallback `dev-preview-secret` |
+| RabbitMQ management API credentials | `MessageBus:ManagementUser` / `MessageBus:ManagementPassword` | Admin (Mission Control bus stats) | code fallback `guest`/`guest` |
+| Grafana admin password | `GRAFANA_ADMIN_PASSWORD` (compose env) | observability profile | fallback `admin` |
+
+Every `_unset_` / fallback row is **env-var injected per deployment** (`Stripe__SecretKey`,
+`PayPal__ClientId`, `Publishing__PreviewSecret`, `MessageBus__ManagementPassword`, …) and
+never committed — the same rule as the rotated keys below.
 
 The private/public keys are a single keypair: the Gateway signs the short-lived
 `X-Internal-Claims` JWT with the private key; services verify it with the public key
@@ -57,3 +69,37 @@ Because verification uses only the public key, rotate with a brief overlap:
 2. Switch the Gateway to the new private key.
 3. Old internal-claims JWTs expire within 5 minutes (the mint lifetime), so in-flight
    requests drain quickly.
+
+## Payment modes — expected environment per mode (ADR-0039)
+
+`Payments:Mode` is the host-level ceiling (`LocalMock` | `Sandbox` | `Production`); the
+resolved runtime mode fails closed. Two boot guards enforce the posture, mirroring
+`DevSecretGuard`:
+
+- **`PaymentModeGuard`** — a non-Development host refuses to boot with
+  `Payments:Mode=LocalMock` or `Payments:AllowMockEmail=true`. An **absent**
+  `Payments:Mode` outside Development defaults to Production, so no committed container or
+  Helm config can enable the mock/email path by omission (`appsettings.Container.json`
+  carries no `Payments` section; the Helm chart injects none).
+- **`PaymentSecretResolver`** — Sandbox/Production hosts refuse to run without
+  mode-appropriate credentials, and refuse a credential whose prefix contradicts the mode
+  (a live Stripe key under Sandbox, a test key under Production).
+
+| Mode | `ASPNETCORE_ENVIRONMENT` | Required env | Notes |
+|------|--------------------------|--------------|-------|
+| LocalMock | `Development` only | none | Default in Development (`appsettings.Development.json`); mock adapter, offline, TEST-ONLY payload email to `Payments:MockEmailTo`. |
+| Sandbox | any | `Payments__Mode=Sandbox` + **test** credentials (`Stripe__SecretKey=sk_test_…` / `rk_test_…`, or `Polar__AccessToken`, `PayPal__ClientId`+`PayPal__Secret`, `Afterpay__MerchantId`+`Afterpay__SecretKey`) | Only Test-mode accounts resolve; sandbox base URLs are hardcoded per provider (`{Provider}:BaseUrl` overrides). |
+| Production | non-Development | `Payments__Mode=Production` (or unset) + **live** credentials (`sk_live_…` / `rk_live_…`) | Only Live-mode accounts resolve; the mock adapter is unreachable. |
+
+## Webhook signing secrets — registry vs config fallback
+
+Webhook verification (`/webhooks/{provider}`) resolves secrets from the **database
+registry** (`payments.WebhookSecrets`, managed via the Payments admin endpoints), newest
+first; when a provider has **zero active rows** it falls back to the legacy config key
+(`Stripe:WebhookSecret` — Stripe only). Dev therefore works with zero rows and no secret.
+
+Rotation (zero-downtime, both secrets verify during overlap):
+
+1. Create the new secret row (admin endpoint) while the old one is still active.
+2. Cut the provider's webhook endpoint over to the new signing secret.
+3. Deactivate the old row. Rows are masked in list output; raw values are never re-shown.
