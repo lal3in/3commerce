@@ -82,6 +82,85 @@
         }
       }
     },
+    "/entities/{id}": {
+      "put": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Update an entity's legal/trading name.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEntityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitySummaryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Archive an entity record.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/entities/{id}/suppliers": {
       "post": {
         "tags": [
@@ -817,7 +896,7 @@
         "tags": [
           "Entities"
         ],
-        "summary": "End a customer↔entity link (preserves history).",
+        "summary": "End a customer\u2194entity link (preserves history).",
         "parameters": [
           {
             "name": "linkId",
@@ -848,33 +927,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/entities/{id}": {
-      "delete": {
-        "tags": [
-          "Entities"
-        ],
-        "summary": "Archive an entity record.",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
           },
           "404": {
             "description": "Not Found"
@@ -1392,6 +1444,24 @@
             "maxLength": 500,
             "minLength": 8,
             "type": "string"
+          }
+        }
+      },
+      "UpdateEntityRequest": {
+        "required": [
+          "legalName",
+          "tradingName"
+        ],
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string"
+          },
+          "tradingName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

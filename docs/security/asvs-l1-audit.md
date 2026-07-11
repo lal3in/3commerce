@@ -6,6 +6,12 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 > This is a **self-audit**, not a substitute for the external review that is a launch gate
 > (PRD Appendix B). It records the current posture so findings are tracked, not lost.
 
+> **Refresh 2026-07-11** (post multi-tenant expansion): MFA shipped (follow-up 4 ✅); tenant
+> isolation now includes PostgreSQL RLS defense-in-depth (V4 row added); webhook verification is
+> per-provider with a rotation-safe secret registry (13.x updated); payment modes are fail-closed
+> with boot guards (14.3.x row added); product visibility is status- and price-gated on public
+> surfaces. Verdict unchanged: no critical open findings pre-launch.
+
 ## V2 — Authentication
 
 | # | Requirement | Status | Evidence |
@@ -40,6 +46,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 | 4.1.3 | Least privilege / role checks | ✅ | `Admin`/`Customer` policies on route groups |
 | 4.2.1 | Object-level authorization (no IDOR) | ✅ | ownership-scoped queries; 404 (not 403) on others' resources |
 | 4.3.1 | Admin interfaces protected | ✅ | admin role + IP allowlist + separate app/port (ADR-0019) |
+| 4.1.x | Multi-tenant data isolation | ✅ | PostgreSQL RLS on tenant-owned tables (`FORCE ROW LEVEL SECURITY`, transaction-scoped `set_config('app.tenant_id')`, non-superuser role) **plus** application checks (ADR-0024); dynamic RBAC over a code-defined permission registry (ADR-0025) |
 
 ## V5 / V7 / V12 / V13 — Validation, Errors, Files, API
 
@@ -49,14 +56,14 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 | 5.3.x | Output encoding / injection defense | ✅ | parameterized EF + Npgsql params in search; no string-built SQL with user input |
 | 7.4.1 | Generic error messages; no stack traces | ✅ | RFC 9457 ProblemDetails, internals never leaked |
 | 13.2.1 | RESTful auth on every endpoint | ✅ | anonymous endpoints are deliberate (browse/guest checkout); rest gated |
-| 13.x | Webhook signature verification | ✅ | Stripe signature verified; idempotent inbox |
+| 13.x | Webhook signature verification | ✅ | per-provider `/webhooks/{provider}` verified by the owning service (Stripe SDK; skeleton providers constant-time HMAC + ±5-min replay tolerance); rotation-safe write-only webhook-secret registry (def_2); idempotent inbox deduped by provider event id |
 
 ## V14 — Configuration
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
 | 14.2.1 | Dependencies scanned for vulnerabilities | ✅ | `dotnet list package --vulnerable` + `npm audit` in CI; 0 findings |
-| 14.3.2 | No debug/dev features in production | ✅ | `/dev/simulate-payment`, OpenAPI, dev admin seed all gated on Development |
+| 14.3.2 | No debug/dev features in production | ✅ | `/dev/simulate-payment`, OpenAPI, dev admin seed all gated on Development; `PaymentModeGuard` refuses to boot outside Development with `Payments:Mode=LocalMock` or `AllowMockEmail=true` (ADR-0039); `DevSecretGuard` refuses the committed dev ES256 key outside Development (BL-11) |
 | 14.4.1 | Secrets out of source where it matters | ⚠️ | dev-only ES256 keypair + dev DB passwords are committed for local dev (documented); **generate fresh secrets per deployed environment** |
 
 ## Open follow-ups (before live traffic)

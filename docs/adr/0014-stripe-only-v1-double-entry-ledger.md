@@ -26,3 +26,12 @@ The owner wanted "Stripe or Polar". Investigation finding: **Polar is a merchant
 - The ledger is the durable learning artifact and survives any processor swap.
 - Daily reconciliation (ledger vs Stripe vs Xero) is required tooling (PRD risk R-3).
 - Money is integer minor units + ISO 4217 everywhere; corrections are reversing entries, never updates.
+
+## Status / implementation note (2026-07-11)
+
+The "exactly one adapter" posture has been superseded by ADR-0039: `IPaymentProvider` adapters now
+resolve through a keyed `IPaymentProviderRegistry` (mock/stripe/polar/paypal/afterpay) with a
+three-mode system (LocalMock/Sandbox/Production, fail-closed). Stripe remains the only
+sandbox-ready real adapter; Polar/PayPal/Afterpay are sandbox skeletons; Apple/Google Pay are
+payment-method kinds tokenized through the PSP, not adapters. The ledger-as-truth, SAQ-A, and
+single-refund-path decisions stand unchanged.

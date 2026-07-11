@@ -34,6 +34,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/login` | anon | Sets `3c_session` HttpOnly cookie |
 | POST | `/logout` | cookie | Revokes session |
 | POST | `/verify-email` | anon | Single-use token |
+| POST | `/convert-guest` | anon | Attach verified-email guest orders to a new account (BL-1) |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
 | GET/PUT | `/me` | session | Customer shopping profile with optional `givenName` / `familyName` |
 | GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
@@ -42,6 +43,12 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/mfa/challenge` | cookie (pending) | Completes an MFA-pending login with a TOTP or recovery code. `POST /login` returns `{mfaRequired:true}` and a pending session that introspects to nothing until this passes |
 | POST | `/mfa/step-up` | cookie | Re-verifies the factor; refreshes the `auth_time` freshness anchor for sensitive actions |
 | GET/PUT | `/mfa/policy` | admin | Tenant MFA policy (numeric `MfaRequirement`); effective = max(platform floor `Mfa:PlatformMinimum`, tenant) |
+| GET | `/admin/users` | admin | Admin user directory |
+| PUT | `/admin/users/{id}/email` · POST `/admin/users/{id}/reset-password` | admin | Admin-driven email change / password reset (audited — field names only, never values) |
+| GET | `/admin/rbac/roles` · `/admin/rbac/permissions` | admin | Dynamic RBAC catalog (ADR-0025) |
+| POST/DELETE | `/admin/rbac/roles[/{id}]` · PUT `/admin/rbac/roles/{id}/permissions` | admin | Role lifecycle + permission assignment |
+| POST/DELETE | `/admin/rbac/memberships/{membershipId}/roles/{roleId}` | admin | Grant/revoke a role on a tenant membership |
+| GET | `/admin/rbac/principals/{principalId}/effective-permissions` | admin | Effective-permission introspection |
 
 > `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly. MFA-pending sessions introspect 401, so they hold no claims anywhere; internal-claims JWTs carry `amr` (`pwd` / `pwd otp`) and `auth_time` once a factor is verified.
 
@@ -49,12 +56,13 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/products?q=&category=&attrs=&currency=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header. `currency` returns tenant-set per-currency prices and HIDES products with no price in that currency |
-| GET | `/products/{slug}?currency=` | anon | Product detail with variants; with `currency`, variants are priced in it and a product with no price in that currency is 404 (hidden) |
+| GET | `/products?q=&category=&attrs=&currency=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header. Only `Status=Active` products (numeric `ProductStatus`: Active 1 / Inactive 2); `currency` returns tenant-set per-currency prices and HIDES products with no price in that currency |
+| GET | `/products/{slug}?currency=` | anon | Product detail with variants; `Inactive` products are 404 (hidden); with `currency`, variants are priced in it and a product with no price in that currency is 404 (hidden) |
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
 | GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create |
+| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate) |
 | GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
 | POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
 | GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
@@ -66,6 +74,9 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 | GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
 | PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
+| POST | `/admin/images` | admin | Upload a catalog image (stored by key) |
+| GET | `/images/{key}` | anon | Serve a stored catalog image |
+| POST | `/ping` | dev | Phase-1 messaging-spine demo (Catalog→Ordering ping-pong); not a product surface |
 
 ## Marketing (`/api/marketing`)
 
@@ -148,6 +159,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 |--------|------|------|---------|
 | GET | `/entities?tenantId=` | admin/internal claims | List tenant-scoped entity records |
 | POST | `/entities` | admin/internal claims | Create tenant-scoped entity record with type, legal/trading names, and role profiles |
+| PUT | `/entities/{id}` | admin/internal claims | Update an entity record (audited) |
 | DELETE | `/entities/{id}` | admin/internal claims | Archive an entity record |
 | POST | `/entities/{id}/duplicate-warnings/scan` | admin/internal claims | Warn on duplicate legal/trading names, ABN/ACN/GST identifiers, and contacts |
 | POST | `/entities/duplicate-warnings/{warningId}/override` | admin/internal claims | Permissioned duplicate-warning override with reason |
@@ -158,6 +170,10 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/entities/{id}/suppliers/activate` | admin/internal claims | PendingApproval → Active |
 | POST | `/entities/{id}/suppliers/suspend` | admin/internal claims | Active → Suspended with reason |
 | POST | `/entities/{id}/suppliers/archive` | admin/internal claims | Any non-archived state → Archived |
+| POST | `/entities/{id}/suppliers/change-requests` · GET `/entities/suppliers/change-requests` | admin/internal claims | Supplier change requests: raise against an entity; tenant-wide queue |
+| POST | `/entities/suppliers/change-requests/{requestId}/approve\|reject` | admin/internal claims | Approve/reject a change request (audited via the local hash chain) |
+| GET/POST | `/entities/{id}/customer-links` · GET `/entities/customer-links` | admin/internal claims | Link customer accounts to an entity; list per entity or tenant-wide |
+| POST | `/entities/customer-links/{linkId}/unlink` | admin/internal claims | Unlink a customer from an entity |
 
 ## Ordering (`/api/ordering`)
 
@@ -167,6 +183,8 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/checkout` | anon/session | Creates a `CheckoutAttempt`, accepts an optional selected shipping quote (`selectedShippingService`, amount minor, expiry), accepts a payment option snapshot (`paymentOption`: Stripe/CreditCard/ApplePay/GooglePay/PayPal + masked `paymentInstrumentSummary`), charges the storefront-configured tax resolved by the cart currency per ADR-0038 (Ordering-owned via the StorefrontTaxCopy projection: AU GST / EU VAT shelf prices are tax-INCLUSIVE — the shopper pays the listed amount and the contained tax is reported; US sales tax is ADDED on goods+shipping; Payments charges the resulting net verbatim — no second tax), rejects mixed-currency carts (400), optionally uses/saves a saved payment method for signed-in users only, attributes TenantId/StorefrontId from X-3C-Tenant-Id/X-3C-Storefront-Id headers (the storefront app forwards its resolved storefront), snapshots subtotal/discount/shipping/tax/payment/campaign/storefront context, returns 201 + clientSecret; `Order` is created only after payment success |
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
+| GET | `/admin/orders` · `/admin/orders/{id}` | admin | Admin order list / detail |
+| POST | `/admin/orders/{id}/cancel` | admin | Admin order cancel (audited — emits `AuditEntryRecorded`) |
 
 > At checkout each line resolves its **offer** (ADR-0028) from the local `OfferCopy` read model
 > (fed by Catalog `OfferChanged`) and is stamped with `FulfilmentType` + `SupplierId` + `BillingMode`.
@@ -183,6 +201,8 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
 | GET/POST | `/admin/payment-accounts` | admin | Tenant/storefront payment account lifecycle setup; readiness-gated activation |
 | PUT | `/admin/payment-accounts/{id}` | admin | Edit mutable account fields (name/provider/mode/external ref); provider+mode are locked while the account is Active (suspend first); archived accounts are immutable |
+| GET | `/admin/payment-accounts/{id}/readiness` | admin | Activation readiness check |
+| POST | `/admin/payment-accounts/{id}/submit\|activate\|suspend\|archive` | admin | Account lifecycle transitions (readiness-gated activation) |
 | POST | `/admin/payment-accounts/{id}/make-default` | admin | Make this account the tenant default and unset every sibling in one tenant-scoped transaction (exactly one default); archived accounts rejected (409) |
 | GET/POST | `/admin/supplier-payouts/bank-accounts` | admin | Tokenized/masked supplier bank accounts; approve/reject/archive lifecycle |
 | PUT | `/admin/supplier-payouts/bank-accounts/{id}` | admin | Edit masked/label fields (token refs + masked values only — never raw bank details); changing the banking identity (country/masked numbers/vault token) resets an approved account to PendingApproval for re-approval |
@@ -193,6 +213,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET/POST | `/admin/webhook-secrets` · POST `/{id}/deactivate` | admin | Provider webhook signing-secret registry (def_2): write-only (responses always masked), rotation-safe — verification tries every active secret newest-first, then the `Stripe:WebhookSecret` config fallback |
 | GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
 | POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
+| GET | `/admin/jobs/runs?job=` | admin | Payments-local scheduled-job run history (renewals, Xero sync) |
 
 Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals; the admin API accepts only token refs and masked values, never raw bank details. Xero mappings are Payments-owned with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution and an admin CRUD surface.
 
@@ -226,8 +247,14 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | POST | `/shipping/revalidate` | anon | Revalidate a selected quote before payment → `Valid` / `Expired` / `PriceChanged` / `Unavailable`; carrier fallback to Fake (mt4_6) |
 | GET | `/admin/dropship/orders?orderId=` | admin | Dropship supplier orders (Requested→Accepted→TrackingReceived) auto-forwarded on confirm (mt4_4b) |
 | GET/POST | `/admin/dropship/availability` | admin | Supplier availability feed (dropship sellability comes from the feed, not internal stock) |
-| GET | `/admin/entitlements?tenantId=&orderId=&email=` | admin | Customer entitlements (Phase 7 mt7_2): a confirmed digital/service line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess) instead of a shipment |
-| POST | `/admin/usage/provision` · `/record` · `balances/{id}/bill-overage` · GET `/balances` | admin | Metered usage (Phase 7 mt7_4/mt7_5): provision an allowance + overage price, record append-only usage (balance kept incrementally; access gated when overage is off), bill the unbilled overage via the rail (`UsageOverageCharge`) |
+| GET/POST | `/admin/orders/{orderId}/holds` | admin | Place/list fulfilment holds on an order |
+| POST | `/admin/holds/{id}/release` | admin | Release a fulfilment hold |
+| GET/POST | `/admin/shipments/{id}/packages` | admin | Packages per shipment (mt4_7; operator-driven, automation off) |
+| POST | `/admin/packages/{id}/label` · `/tracking/refresh` | admin | Buy a carrier label / refresh tracking for a package |
+| POST | `/admin/inventory/restock` | admin | Manual restock of returned items (mt4_8); partial allowed |
+
+> Entitlements and metered usage moved out of Fulfillment into the dedicated Entitlement and Usage
+> services (ADR-0030) — see their sections above.
 
 ## Payments — subscriptions (`/api/payments`)
 
@@ -235,17 +262,20 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 |--------|------|------|---------|
 | GET | `/admin/subscriptions?tenantId=&email=` | admin | Subscriptions (Phase 7 mt7_3): set up from a confirmed recurring line via `SubscriptionRequested` |
 | POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance; failure → PastDue/dunning) or cancel |
+| GET | `/me/subscriptions` | customer | The signed-in customer's own subscriptions |
 
 > Phase 7 bus contracts: `OfferChanged` carries `pricing_model` + `billing_period`; Ordering publishes
-> `SubscriptionRequested` per recurring line on confirm (→ Payments); Fulfillment publishes
-> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). Capability-first homes
-> per ADR-0028's Phase 7 note — dedicated Pricing/Entitlement/Usage services deferred until CI returns.
+> `SubscriptionRequested` per recurring line on confirm (→ Payments); Usage publishes
+> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). The dedicated
+> Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
+> capability-first placement in Catalog/Fulfillment).
 
 ## Support (`/api/support`)
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST/GET | `/tickets[/{id}[/messages]]` | session | Order-linked tickets + thread |
+| GET | `/orders/{orderId}/lines` | session | Order-line snapshot for per-line RMA selection (server-derived amounts, BL-8) |
 | POST | `/rma` | session | Request a refund/return — starts the RMA saga |
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
 | POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |

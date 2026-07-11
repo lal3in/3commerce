@@ -2283,7 +2283,7 @@
             "format": "uuid"
           },
           "scope": {
-            "type": "string"
+            "$ref": "#/components/schemas/XeroMappingScope"
           },
           "storefrontId": {
             "type": [
@@ -2433,6 +2433,9 @@
             "type": "boolean"
           }
         }
+      },
+      "XeroMappingScope": {
+        "type": "integer"
       }
     }
   },

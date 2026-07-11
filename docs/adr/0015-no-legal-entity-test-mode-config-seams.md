@@ -25,3 +25,12 @@ Registration is a **launch gate, not a build gate**. Everything jurisdiction-dep
 
 - Launch checklist (PRD Appendix B): registration → live keys, real Xero org, real tax strategy, privacy policy/imprint, pen test.
 - If registration never happens, the project still succeeds as a portfolio/learning artifact (PRD risk R-4).
+
+## Status / implementation note (2026-07-11)
+
+The seams evolved with multi-tenancy: the single `STORE_CURRENCY` value became per-storefront
+currency + tenant-set per-currency shelf prices, and the flat `ITaxStrategy` placeholder became
+storefront-configured tax regimes (inclusive AU GST / EU VAT, exclusive US sales tax) — see
+ADR-0038. The provider seam is superseded by the ADR-0039 registry + three-mode system
+(LocalMock/Sandbox/Production), whose boot guards keep the "test mode only until registration"
+posture fail-closed. Registration itself remains a launch gate, not a build gate.

@@ -1,5 +1,23 @@
 # PRD vs. Implementation — Conformance Review
 
+> **Refresh 2026-07-11 — verdicts that changed since the 2026-06-15 review.** The four remaining
+> Partials were closed the same week by backlog items BL-2 (FR-12 full admin catalog CRUD), BL-6
+> (NFR-2 checkout-saga chaos test: Ordering restarted mid-payment, saga still reaches Confirmed +
+> balanced ledger), and BL-7 (NFR-5 product-detail p95 asserted; NFR-7 single-TraceId asserted via
+> ActivityListener) — code-level tally now **21 Met / 0 Partial / 0 Missing** (grade A). Since
+> then the multi-tenant platform expansion landed on `main` (35+ PRs), which changes several
+> section-4/5 judgements: **MFA shipped** (TOTP enrollment/challenge/step-up + tenant policy,
+> mt6_10 — the ADR-0013 deferral and the "revisit before launch" consequence are resolved);
+> **payment provider architecture** replaced the single-adapter posture with a keyed registry +
+> fail-closed LocalMock/Sandbox/Production modes and boot guards (ADR-0039); **tenant isolation
+> expanded to PostgreSQL RLS** across services (`FORCE ROW LEVEL SECURITY`, transaction-scoped
+> tenant scopes, ADR-0024); **product visibility is status-gated** (Inactive products hidden from
+> public search/detail) with per-currency price gating and storefront-configured tax (ADR-0038).
+> Gap 5 (saga doc-comment) and gap 6 (unrun browser flows) were addressed by later hardening +
+> the Playwright E2E suites in CI. Remaining launch gates are unchanged and non-code: business
+> registration → live Stripe/Xero + carrier credentials, external pen test, managed cluster.
+> The matrix below is retained as the point-in-time 2026-06-15 record.
+
 > **Update 2026-06-15 — FR-7 closed (BL-1).** Post-purchase guest→account conversion is now implemented: Identity publishes `EmailVerified` on verification; Ordering's `GuestOrderAttachConsumer` attaches prior guest orders by verified email; a `/convert-guest` endpoint and a storefront convert form complete the UX. Verified by 2 integration tests, a live cross-service run, and a storefront E2E assertion. Revised tally: **16 Met / 4 Partial / 0 Missing** (grade A− → A). The remaining Partials (FR-12 admin catalog CRUD, NFR-2/5/7 measurement) are backlog BL-2/6/7.
 **Reviewer:** Conformance Reviewer (evidence-based, code-verified)
 **Date:** 2026-06-15

@@ -25,3 +25,11 @@ Forced registration is one of the best-documented causes of cart abandonment (~2
 
 - Ordering must support carts/orders with no user ID, plus a merge path (guest → account, anonymous cart → user cart on login).
 - MFA for **admin** accounts should be revisited before live launch (PRD §13).
+
+## Status / implementation note (2026-07-11)
+
+The MFA deferral has been lifted (mt6_10): TOTP enrollment/challenge/step-up, recovery codes, and a
+tenant MFA policy (effective = max of the platform floor `Mfa:PlatformMinimum` and the tenant
+setting) shipped in Identity. MFA-pending sessions introspect to nothing; verified factors stamp
+`amr` + `auth_time` into internal claims. Social login and passkeys remain deferred. Guest checkout
+and post-purchase conversion (`/convert-guest`, BL-1) work as decided.

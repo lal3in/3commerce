@@ -30,6 +30,8 @@
 1. **Company registration** — country unknown → blocks Stripe live keys, Xero production org, real tax strategy, payout currency, privacy policy/imprint.
 2. **Supplier contract** — blocks real catalog data and forces the dropship-vs-warehouse decision.
 3. **Operator MFA enrollment** — the TOTP capability shipped 2026-07-04 (def_1: enrollment + login challenge + step-up; Admin → Security). The remaining gate is operational: every operator account enrolls, and the tenant policy is set to *Required for privileged*, before real tenants.
+4. **External penetration test / security review** — the ASVS L1 self-audit (`docs/security/asvs-l1-audit.md`, refreshed 2026-07-11) is not a substitute; run after MFA enrollment and before live traffic.
+5. **Live credential swaps + managed deployment** — carrier credentials (AusPost/DHL sandbox → live), payment providers graduated Sandbox → Production per ADR-0039 (fail-closed mode guards already enforce this), fresh per-environment secrets (BL-11 rotation), and a managed cluster for the Helm chart (ADR-0021).
 
 ## C. Key external dependencies
 
