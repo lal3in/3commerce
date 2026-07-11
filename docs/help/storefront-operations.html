@@ -31,6 +31,7 @@
       <a href="services.html"><span class="idx">◆</span>Platform services</a>
       <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
       <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="selling-information.html"><span class="idx">$</span>Selling information</a>
       <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
     </nav>
     <div class="sidebar-foot">
@@ -202,16 +203,13 @@
 
         <h3 id="request-a-refund">Request a refund (RMA)</h3>
         <ol>
-          <li>Fill <strong>Your email</strong>, <strong>Amount in cents</strong> (<code>amountMinor</code>), and a free-text <strong>Reason</strong>.</li>
-          <li>Click <strong>Request refund</strong>.</li>
-          <li>The <code>requestRefund</code> Server Action <code>POST</code>s to <code>/api/support/rma</code> with <code>{ orderId, email, amountMinor, reason }</code>.</li>
+          <li>Review the order lines available for return/refund.</li>
+          <li>Select the line(s) and quantities to request, then enter the customer email and reason.</li>
+          <li>The <code>requestRefund</code> Server Action <code>POST</code>s to <code>/api/support/rma</code> with the order id, email, reason, and selected lines — the server derives the refundable amount from its order snapshot instead of trusting a free-form client amount.</li>
           <li>On success it redirects to <code>/orders/&lt;id&gt;/support?submitted=1</code> (green banner). On failure: "Could not submit the refund request."</li>
         </ol>
         <p>This opens an RMA in the <strong>Requested</strong> state. An operator then approves and refunds it from the admin <strong>RMA queue</strong> (see <a class="inline" href="admin-operations.html">Admin operations</a>) — the same refund path used everywhere, balancing the double-entry ledger.</p>
-        <div class="callout note">
-          <span class="mark">i</span>
-          <p><strong>Note:</strong> there is no link from the order/account pages to this support page; you reach it by navigating directly to <code>/orders/&lt;order-id&gt;/support</code> (the confirmation page's "Track your order" card links to register, not to support).</p>
-        </div>
+        <p>The account order history and confirmation journey link shoppers toward support/RMA rather than requiring direct URL entry.</p>
 
         <h2 id="server-action-reference">Server Action → gateway endpoint reference</h2>
         <div class="table-wrap">
@@ -226,7 +224,7 @@
               <tr><td><code>register</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/register</code></td><td>Redirects to <code>/login?registered=1</code>.</td></tr>
               <tr><td><code>logout</code> (<code>auth-actions.ts</code>)</td><td><code>POST /api/identity/logout</code></td><td>Deletes cookie; redirects to <code>/</code>.</td></tr>
               <tr><td><code>openTicket</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/tickets</code></td><td>Returns <code>{ ok }</code> / <code>{ error }</code>.</td></tr>
-              <tr><td><code>requestRefund</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/rma</code></td><td>Redirects with <code>?submitted=1</code>.</td></tr>
+              <tr><td><code>requestRefund</code> (<code>support-actions.ts</code>)</td><td><code>POST /api/support/rma</code></td><td>Posts selected order lines; server derives refund amount; redirects with <code>?submitted=1</code>.</td></tr>
               <tr><td>(read) <code>getCart</code>, <code>searchProducts</code>, <code>getProduct</code>, <code>listCategories</code>, <code>getProfile</code>, <code>getOrderStatus</code> (<code>gateway.ts</code>)</td><td><code>GET /api/...</code></td><td>Server-side reads, session/cart cookies forwarded.</td></tr>
               <tr><td>dev-pay route</td><td><code>POST /api/payments/dev/simulate-payment/&lt;intent&gt;</code></td><td>Dev-only fake payment.</td></tr>
               <tr><td>order-status route</td><td><code>GET /api/ordering/orders/&lt;id&gt;/status</code></td><td>Polling proxy.</td></tr>

@@ -2,7 +2,8 @@
 
 Every storefront and admin screen with its buttons and what each is for — captured **live in a real
 browser** (Playwright) against a seeded stack, so they stay accurate to the code. Open
-[screens.html](./screens.html) for the full gallery.
+[screens.html](./screens.html) for the full gallery. For audience-specific demo narration,
+connect these screenshots to [Selling information](./selling-information.md).
 
 Regenerate after a UI change:
 

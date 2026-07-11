@@ -16,3 +16,5 @@ per option, and the [API contracts index](../api/api_contracts_index.md).
 
 Marketing and Pricing are standalone domains; Audit and Workflow are event projections; Entitlement and
 Usage were extracted out of Fulfillment (which now ships only physical lines).
+
+For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

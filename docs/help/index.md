@@ -1,8 +1,8 @@
 # 3commerce Help Wiki
 
-This wiki documents how to **run and operate the 3commerce frontends** — the
+This wiki documents how to **run, operate, evaluate, and communicate the 3commerce platform** — the
 customer-facing **Storefront**, internal **Admin** console, Supplier Portal,
-CLI, and the gateway-backed services — step by step and accurate to the code.
+CLI, gateway-backed services, and strategic selling narrative — step by step and accurate to the code.
 
 ## What the apps are
 
@@ -52,7 +52,8 @@ Identity service via the gateway.
 | [Platform services](./services.md) | The six new DB-owning services (Marketing, Pricing, Audit, Workflow, Entitlement, Usage) — what each owns, every endpoint, and use cases per option. |
 | [Users, roles & permissions](./roles-permissions.md) | Principal types, the gateway→claims→PDP/PEP pipeline, the six built-in roles, the 24 code-defined permissions with risk, and dynamic admin RBAC. |
 | [UI screens](./screens.md) | Live Playwright screenshots of every storefront + admin screen with its buttons and use cases. |
-| **Project analysis** | [project-analysis.html](./project-analysis.html) — detailed assessment: architecture, tech, best/worst, strengths vs drawbacks, trade-off comparisons, and the verdict (open in a browser). |
+| [Selling information](./selling-information.md) | Strategic product narrative for clients, suppliers, tenants, admins, technical evaluators, plus pros/cons and compliance-sensitive claims. |
+| **Project analysis** | [project-analysis.html](./project-analysis.html) — complete visual analysis: topology diagrams, capability heatmap, service-by-service assessment, flow maps, risks, launch gates, and verdict (open in a browser). |
 
 ## Conventions used in this wiki
 

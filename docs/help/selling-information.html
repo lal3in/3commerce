@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3commerce — Selling Information</title>
+<meta name="description" content="Strategic selling information for 3commerce buyers, suppliers, tenants, admins, technical evaluators, and compliance reviewers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/wiki.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <a class="brand" href="index.html"><span class="brand-mark">3c</span><span class="brand-name">3commerce<small>Operations Wiki</small></span></a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="services.html"><span class="idx">◆</span>Platform services</a>
+      <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
+      <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="selling-information.html" class="active"><span class="idx">$</span>Selling information</a>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">Strategic messaging with launch gates and compliance-sensitive wording called out.</div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Reference</b><span class="sep">/</span>Selling information</div>
+      <span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button>
+      <button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button>
+    </header>
+    <main id="main" class="content"><div class="content-inner">
+      <p class="eyebrow">Strategic communicator page</p>
+      <h1>Selling information</h1>
+      <p class="lede">A buyer-ready narrative for clients, suppliers, tenants, admins, technical evaluators, and compliance reviewers. This page supports demos and sales conversations; it is not legal, tax, accounting, or security advice.</p>
+
+      <h2 id="positioning">Positioning</h2>
+      <p><strong>3commerce is a multi-tenant commerce operating platform for physical, dropship, digital, subscription, and metered products.</strong> It combines a customer storefront, supplier portal, admin console, CLI, and service-owned backend domains behind one gateway.</p>
+      <p>The strongest message is: <strong>one governed commerce spine for catalog, supply, checkout, fulfilment, refunds, ledger, supplier operations, marketing attribution, and auditability.</strong></p>
+
+      <h2 id="audiences">Audience-specific value</h2>
+      <div class="table-wrap"><table><thead><tr><th>Audience</th><th>What they care about</th><th>3commerce message</th></tr></thead><tbody>
+        <tr><td>Clients / shoppers</td><td>Fast browsing, clear checkout, account history, support, refunds</td><td>SSR storefront, typo-tolerant search, variant-aware cart, shipping-rate selection, saved addresses/cards, support and RMA flow.</td></tr>
+        <tr><td>Tenants / merchants</td><td>Launching and operating one or more legal businesses/storefronts</td><td>Tenant-aware model, storefront lifecycle, domains, RBAC, payment readiness, pricing/promotions, Xero mapping, explicit launch gates.</td></tr>
+        <tr><td>Suppliers</td><td>Onboarding, readiness, stock feeds, dropship orders, change requests</td><td>Supplier Portal plus Entity-backed onboarding, availability feeds, dropship forwarding, maker-checker change approval, payout setup.</td></tr>
+        <tr><td>Admins / operators</td><td>Control, traceability, exception handling</td><td>Admin console for orders, RMAs/refunds, ledger, imports, offers, payment accounts, payouts, Xero mappings, RBAC, mission control.</td></tr>
+        <tr><td>Technical evaluators</td><td>Architecture, correctness, deployment, testability</td><td>.NET microservices, YARP, MassTransit/RabbitMQ, service-owned Postgres schemas, outbox/inbox, double-entry ledger, Testcontainers, Playwright, compose and Helm.</td></tr>
+        <tr><td>Finance / compliance</td><td>Money correctness, audit, reduced card-data exposure</td><td>Provider-hosted card entry, payment-provider seam, append-only balanced ledger, Xero mapping, audit primitives, idempotent money operations.</td></tr>
+      </tbody></table></div>
+
+      <h2 id="selling-points">Core selling points</h2>
+      <ol>
+        <li><strong>Commerce operations are modeled end-to-end.</strong> Discovery, cart, checkout, payment, fulfilment, support, refund, ledger, and accounting sync connect through explicit contracts.</li>
+        <li><strong>Supply is composable.</strong> Offers define how a variant is sourced, delivered, priced, and billed.</li>
+        <li><strong>Money has a source of truth.</strong> Payments are rails; the ledger is the record.</li>
+        <li><strong>Tenancy and authorization are first-class.</strong> Gateway claims, PDP/PEP authorization, RBAC, and RLS helpers are built in.</li>
+        <li><strong>Operators get real controls.</strong> Admin screens cover catalog, offers, payment accounts, payouts, Xero mappings, RMAs, roles, suppliers, entities, and mission control.</li>
+        <li><strong>Suppliers get a portal, not an email inbox.</strong> Readiness, stock feeds, and change requests move through controlled workflows.</li>
+        <li><strong>Marketing is connected to commerce.</strong> Campaigns, short links, consent-aware tracking, themes, SEO metadata, product feeds, and attribution are represented.</li>
+        <li><strong>Deployment is repeatable.</strong> Bare-run, compose, bounded image builds, migrator bundles, optional PgBouncer/Kafka/observability profiles, and Helm/kind validation are documented.</li>
+      </ol>
+
+      <h2 id="proof">Demonstrable proof points</h2>
+      <ul>
+        <li>Storefront and admin screenshots: <a href="screens.html">UI screens</a>.</li>
+        <li>Operator workflows: <a href="admin-operations.html">Admin operations</a>.</li>
+        <li>Service and API inventory: <a href="services.html">Platform services</a> and <code>docs/api/api_contracts_index.md</code>.</li>
+        <li>Security and RBAC model: <a href="roles-permissions.html">Users, roles &amp; permissions</a>.</li>
+        <li>Deployment credibility: <a href="deployment.html">Deployment</a>.</li>
+        <li>Regression confidence: <a href="testing.html">Testing</a> and <code>scripts/e2e-verify.sh --live</code>.</li>
+      </ul>
+
+      <h2 id="pros-cons">Pros and cons</h2>
+      <div class="table-wrap"><table><thead><tr><th>Pros</th><th>Cons / trade-offs</th></tr></thead><tbody>
+        <tr><td>Strong domain separation and service ownership.</td><td>More moving parts than a monolith; requires operational discipline.</td></tr>
+        <tr><td>Ledger-backed money model and idempotent refund path.</td><td>Finance correctness adds implementation complexity.</td></tr>
+        <tr><td>Multi-tenant/RBAC direction is designed in.</td><td>Some tenant and service surfaces need production hardening before sale as managed SaaS.</td></tr>
+        <tr><td>Physical, dropship, digital, subscription, usage, and service supply share one vocabulary.</td><td>Real carrier/provider integrations still need credential onboarding and live validation.</td></tr>
+        <tr><td>Repeatable dev/compose/Helm paths.</td><td>Managed cloud deployment remains a launch gate.</td></tr>
+      </tbody></table></div>
+
+      <h2 id="compliance">Compliance-sensitive messaging</h2>
+      <ul>
+        <li>Say <strong>provider-hosted card entry / designed for reduced PCI scope</strong>, not "PCI compliant" without an assessment.</li>
+        <li>Say <strong>tax strategy seam and configurable tax behavior</strong>, not "tax compliant in every jurisdiction".</li>
+        <li>Say <strong>Xero journal integration path / logging client in dev</strong>, not "production Xero integration is live" until OAuth and a real org are configured.</li>
+        <li>Say <strong>security primitives and ASVS L1 self-audit</strong>, not "externally certified secure" until an external pen test is complete.</li>
+        <li>Say <strong>privacy and retention primitives exist</strong>, not "GDPR/APP compliant" until policies, terms, data map, and deployment-region commitments are finalized.</li>
+      </ul>
+
+      <h2 id="launch-checklist">Launch-readiness checklist</h2>
+      <ul>
+        <li>Legal entity, merchant terms, supplier terms, privacy/cookie policies, refund/returns policy, acceptable-use policy.</li>
+        <li>Live payment provider account, webhook secret handling, PCI responsibility matrix, and operational runbook.</li>
+        <li>Real Xero OAuth app/org and accounting review of chart mappings.</li>
+        <li>Jurisdiction-specific tax strategy and evidence for inclusive/exclusive tax handling.</li>
+        <li>Supplier contracts, real catalog feed, carrier credentials, dropship/warehouse operating model.</li>
+        <li>External security review, vulnerability management, managed production cluster, backup/restore proof, secrets manager, monitoring access controls, SLO/SLA decision, and accessibility review.</li>
+      </ul>
+
+      <h2 id="pitch">Short pitch</h2>
+      <blockquote><p><strong>3commerce is an operator-grade commerce platform for businesses that need more than a storefront: governed catalog and supply, checkout, fulfilment, supplier collaboration, refunds, ledger-backed money, marketing attribution, and an auditable admin control plane — with launch gates called out honestly instead of hidden.</strong></p></blockquote>
+
+      <footer class="pager"><a class="prev" href="screens.html"><div class="dir">Previous</div><div class="ttl">← UI screens</div></a><a class="next" href="project-analysis.html"><div class="dir">Next</div><div class="ttl">Project analysis →</div></a></footer>
+    </div></main>
+    <aside class="toc"><div class="toc-title">On this page</div><nav></nav></aside>
+  </div>
+</div>
+<script src="assets/wiki.js"></script>
+</body>
+</html>

@@ -3,7 +3,9 @@
 This brings up the entire 3commerce stack on one machine: infrastructure →
 database migrations → backend services + gateway + worker → storefront → admin → supplier portal.
 There is **no live Stripe or Xero** in dev; payments use a fake provider and Xero
-uses a logging client.
+uses a logging client. If you are demoing the stack to a buyer, supplier, or technical
+evaluator, pair this runbook with [Selling information](./selling-information.md) so
+fake/sandbox rails and launch gates are described accurately.
 
 ## Prerequisites
 

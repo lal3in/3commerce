@@ -210,3 +210,4 @@ Engineering-complete; these are **business/operational**, not code:
 
 Until cleared, the platform runs on the keyless dev stack (`FakePaymentProvider` +
 `LoggingXeroClient`); the swap to live rails is configuration, not new application code.
+Use [Selling information](./selling-information.md) for the approved strategic wording, pros/cons, and compliance-sensitive claim boundaries when presenting the platform externally.

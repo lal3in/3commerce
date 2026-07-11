@@ -239,10 +239,11 @@ was submitted…" banner when arriving with `?submitted=1`).
 
 ### Request a refund (RMA)
 
-1. Fill **Your email**, **Amount in cents** (`amountMinor`), and a free-text **Reason**.
-2. Click **Request refund**.
-3. The `requestRefund` Server Action `POST`s to `/api/support/rma` with
-   `{ orderId, email, amountMinor, reason }`.
+1. Review the order lines available for return/refund.
+2. Select the line(s) and quantities to request, then enter the customer email and reason.
+3. The `requestRefund` Server Action `POST`s to `/api/support/rma` with the order id,
+   email, reason, and selected lines — the server derives the refundable amount from its
+   order snapshot instead of trusting a free-form client amount.
 4. On success it redirects to `/orders/<id>/support?submitted=1` (green banner).
    On failure: "Could not submit the refund request."
 
@@ -250,9 +251,8 @@ This opens an RMA in the **Requested** state. An operator then approves and refu
 it from the admin **RMA queue** (see [Admin operations](./admin-operations.md)) —
 the same refund path used everywhere, balancing the double-entry ledger.
 
-> **Note:** there is no link from the order/account pages to this support page;
-> you reach it by navigating directly to `/orders/<order-id>/support` (the
-> confirmation page's "Track your order" card links to register, not to support).
+The account order history and confirmation journey link shoppers toward support/RMA
+rather than requiring direct URL entry.
 
 ---
 
@@ -268,7 +268,7 @@ the same refund path used everywhere, balancing the double-entry ledger.
 | `register` (`auth-actions.ts`) | `POST /api/identity/register` | Redirects to `/login?registered=1`. |
 | `logout` (`auth-actions.ts`) | `POST /api/identity/logout` | Deletes cookie; redirects to `/`. |
 | `openTicket` (`support-actions.ts`) | `POST /api/support/tickets` | Returns `{ ok }` / `{ error }`. |
-| `requestRefund` (`support-actions.ts`) | `POST /api/support/rma` | Redirects with `?submitted=1`. |
+| `requestRefund` (`support-actions.ts`) | `POST /api/support/rma` | Posts selected order lines; server derives refund amount; redirects with `?submitted=1`. |
 | (read) `getCart`, `searchProducts`, `getProduct`, `listCategories`, `getProfile`, `getOrderStatus` (`gateway.ts`) | `GET /api/...` | Server-side reads, session/cart cookies forwarded. |
 | dev-pay route | `POST /api/payments/dev/simulate-payment/<intent>` | Dev-only fake payment. |
 | order-status route | `GET /api/ordering/orders/<id>/status` | Polling proxy. |

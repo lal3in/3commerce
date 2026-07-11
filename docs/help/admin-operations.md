@@ -6,6 +6,11 @@ database access: every screen calls the YARP gateway through `GatewayClient`,
 forwarding the operator's `3c_session` cookie. The **`admin` role is required** on
 all pages.
 
+Strategic communicator note: the Admin console is the proof surface for the platform's
+operator-grade story — controlled supplier/entity setup, RBAC, offers, payments,
+payouts, Xero mappings, RMAs/refunds, ledger visibility, and mission control. See
+[Selling information](./selling-information.md) for external positioning and claim boundaries.
+
 ## Network posture & auth pipeline
 
 `Program.cs` wires the request pipeline as: **IP allowlist → static files →

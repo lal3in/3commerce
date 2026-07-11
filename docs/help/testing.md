@@ -3,7 +3,8 @@
 Three layers: .NET **unit/contract** tests, .NET **integration** tests
 (Testcontainers, Docker required), and **Playwright E2E** in a real browser
 (storefront + admin + supplier portal). `scripts/e2e-verify.sh` ties them into one regression
-command, and `.github/workflows/ci.yml` runs them in CI.
+command, and `.github/workflows/ci.yml` runs them in CI. For demos and buyer-facing
+proof points, use this page together with [Selling information](./selling-information.md).
 
 ## Quick reference
 

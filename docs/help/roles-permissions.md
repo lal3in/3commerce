@@ -2,6 +2,8 @@
 
 Who can sign in and what they can do — accurate to the code. See
 [roles-permissions.html](./roles-permissions.html) for the full tables + the admin screen.
+For sales or compliance conversations, pair this with [Selling information](./selling-information.md)
+so RBAC, service accounts, and MasterGlobal override are positioned with the right caveats.
 
 ## Principals (user types)
 
