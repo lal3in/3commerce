@@ -183,6 +183,9 @@ Dev defaults below; production values are launch-gated or injected per env.
 | `Gateway:BaseUrl` | `appsettings.json` / `appsettings.Container.json` | `http://localhost:8080` / `http://gateway:8080` | Gateway origin. |
 | `Admin:AllowedIPs` | `appsettings.json` | `""` (allow all) | Comma-separated IPs/CIDRs; empty = no restriction (dev). |
 | `InternalAuth:PublicKey` | `appsettings.json` (dev) / env or Secret (prod) | dev key (committed) | Verifies internal signed claims. The **BL-11 gate** refuses the committed dev key outside `Development`. |
+| `MessageBus:ManagementUrl` | code fallback / `appsettings.Container.json` | `http://localhost:15672` / `http://rabbitmq:15672` | RabbitMQ management API for Mission Control bus stats (read-only). |
+| `MessageBus:ManagementUser` / `ManagementPassword` | code fallback (dev) / env (prod) | `guest`/`guest` | Management API credentials — rotate outside dev (`docs/ops/secrets.md`). |
+| `Observability:GrafanaUrl` | code fallback | `http://localhost:3001` | Mission Control's Grafana link (browser-facing, so localhost is right even containerized). |
 
 The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Development only).
 
@@ -190,10 +193,20 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 
 | Key | Read by | Default | Notes |
 |-----|---------|---------|-------|
-| `ConnectionStrings:Database` / `RabbitMq` | every service | `localhost` (bare) / `postgres`,`rabbitmq` (container) | Overridden by `appsettings.Container.json` when `USE_CONTAINER_CONFIG=true`. |
-| `Store:Currency` | `SampleDataImporter`, cart fallback (BL-9) | `EUR` | Configurable store currency; data model is per-entity currency (multi-currency display = future FX). |
+| `ConnectionStrings:Database` / `RabbitMq` | every service | `localhost` (bare) / `postgres`,`rabbitmq` (container) | Overridden by `appsettings.Container.json` when `USE_CONTAINER_CONFIG=true` (all 13 DB-owning services ship one). |
+| `Store:Currency` | `SampleDataImporter`, Catalog admin defaults, cart fallback (BL-9) | `EUR` | Default store currency; tenant per-currency product pricing rides the data model (#40). |
 | `Importer:TargetRows` | `SampleDataImporter` (Catalog) | `10_500` | Sample-import row count. CI sets `400` to keep the projection storm light. |
-| `Stripe:SecretKey` | Payments `Program.cs` | _unset_ | If set, real `StripePaymentProvider`; **unset → `FakePaymentProvider`** (keyless dev). |
+| `Payments:Mode` | Payments (ADR-0039) | `LocalMock` in Development, `Production` otherwise | Host mode ceiling: `LocalMock` \| `Sandbox` \| `Production`. `PaymentModeGuard` refuses `LocalMock` outside Development at boot. |
+| `Payments:DefaultProvider` | Payments | `stripe` | Provider used when an account doesn't name one (`mock`/`stripe`/`polar`/`paypal`/`afterpay`). |
+| `Payments:AllowMockEmail` / `Payments:MockEmailTo` | Payments + Notifications worker | `true` / `dev-payments@localhost` (Development only) | TEST-ONLY mock-payment payload email; refused at boot outside Development. |
+| `Stripe:SecretKey` (+ `Polar:*`, `PayPal:*`, `Afterpay:*`) | Payments provider adapters | _unset_ | Env-injected per deploy; test/live key prefix is asserted against the mode (`docs/ops/secrets.md`). |
+| `Mfa:PlatformMinimum` | Identity | `0` (none) | Platform-wide MFA floor for operator accounts. |
+| `Publishing:PreviewSecret` | Marketing | `dev-preview-secret` (code fallback) | Signs publishing preview links — rotate outside dev. |
+| `Scheduling:Enabled` | Payments, Marketing | `true` | Quartz schedulers (daily Xero journal; scheduled-publish sweep). Integration tests turn it off. |
+| `Marketing:AllowedHosts` | Marketing short links | `localhost` | Comma-separated redirect-host allowlist. |
+| `Shipping:QuoteTtlMinutes` | Fulfillment | `30` | Shipping-quote validity window. |
+| `Tax:FlatRate` | Payments | `0.19` | Flat-rate fallback; storefront-configured checkout tax is projected into Ordering (#41). |
+| `Storefront:BaseUrl` | Notifications worker | `http://localhost:3000` | Base URL for links in outbound email (public URL, not container wiring). |
 | Xero client | Payments `Program.cs` | `LoggingXeroClient` | Real OAuth2 Xero is a future swap (ADR-0017). |
 
 ## Still deferred — launch gates (PRD Appendix B)
