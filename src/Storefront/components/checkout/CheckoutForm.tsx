@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
 import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
@@ -34,7 +34,17 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [paymentOption, setPaymentOption] = useState("CreditCard");
+  const paymentGroupRef = useRef<HTMLDivElement>(null);
   const [quoting, startQuote] = useTransition();
+
+  // pay_6: the payment radios are uncontrolled (defaultChecked) and visually hidden, so a click
+  // that lands BEFORE hydration still checks the native radio — but React state (which drives the
+  // selected border and the card-entry fields) never hears about it. Adopt whatever the DOM says
+  // is checked once we mount, so pre-hydration clicks are not silently lost.
+  useEffect(() => {
+    const checked = paymentGroupRef.current?.querySelector<HTMLInputElement>('input[name="paymentOption"]:checked');
+    if (checked) setPaymentOption((current) => (checked.value === current ? current : checked.value));
+  }, []);
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
   const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
@@ -154,7 +164,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
         <h2 className="font-medium">Payment</h2>
-        <div className="flex flex-wrap gap-2" aria-label="Payment options">
+        <div ref={paymentGroupRef} className="flex flex-wrap gap-2" role="radiogroup" aria-label="Payment options">
           {PAYMENT_OPTIONS.map((option) => {
             const selected = paymentOption === option.value;
             return (
@@ -162,9 +172,10 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
                 key={option.value}
                 title={option.label}
                 aria-label={option.label}
+                data-selected={selected || undefined}
                 className={selected
-                  ? "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border-2 border-neutral-900 bg-white px-3 shadow-sm"
-                  : "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border border-neutral-200 bg-white px-3 hover:border-neutral-400"}
+                  ? "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border-2 border-neutral-900 bg-white px-3 shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-neutral-500 has-[:focus-visible]:ring-offset-1"
+                  : "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border border-neutral-200 bg-white px-3 hover:border-neutral-400 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-neutral-500 has-[:focus-visible]:ring-offset-1"}
               >
                 <input
                   type="radio"
@@ -172,6 +183,10 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
                   value={option.value}
                   defaultChecked={option.value === "CreditCard"}
                   onChange={() => setPaymentOption(option.value)}
+                  // click (unlike change) also fires when the radio is ALREADY checked — e.g. after a
+                  // pre-hydration click checked it natively — so re-clicking a tile always resyncs
+                  // the React-driven selected styling instead of "doing nothing" (pay_6).
+                  onClick={() => setPaymentOption(option.value)}
                   className="sr-only"
                 />
                 {option.icon}
