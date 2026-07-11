@@ -15,6 +15,9 @@ GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screens
 # images land in docs/help/assets/screenshots/
 ```
 
-- **Storefront** (`:3000`): home, search, product detail, cart, checkout, sign in, register, account.
+- **Storefront** (`:3000`): home, search, product detail, cart, checkout (with selectable payment
+  methods), sign in, register, account, privacy/consent settings.
 - **Admin** (`:5200`): sign in, dashboard, orders, ledger, RMA queue, entities & suppliers, imports,
-  Xero sync, roles & permissions, mission control, commerce ops, catalog editor.
+  Xero sync &amp; mappings, roles & permissions, operator users, mission control (with the live activity
+  timeline &amp; message-bus stats), commerce ops, catalog editor, offers, payment accounts, supplier
+  payouts, and **security** (MFA enrollment, tenant MFA policy, webhook signing secrets).

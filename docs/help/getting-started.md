@@ -139,6 +139,18 @@ The catalog starts empty. Log into the admin at `http://localhost:5200`, open
 (see [Admin operations](./admin-operations.md)). After import, the storefront's
 home/search pages will show products.
 
+> **Payments in dev run in mock mode.** With no provider credentials, Payments
+> defaults to `LocalMock` (`appsettings.Development.json`): checkouts complete
+> the full saga and ledger without any external call, and each one emits a
+> **TEST ONLY / MOCK PAYMENT** email (with a redacted payload) to the
+> Notifications worker log (`.run/notifications.log`). See
+> [Testing → payment modes](./testing.md) to point it at your inbox or move to
+> sandbox credentials.
+>
+> **Operator MFA** is available on the admin **Security** page (`/security`):
+> enroll a TOTP factor, manage recovery codes, and set the tenant MFA policy —
+> see [Roles &amp; permissions](./roles-permissions.md).
+
 ## One-command equivalent
 
 `scripts/e2e-verify.sh --live` automates steps 1–5 (infra, migrations, services,

@@ -153,7 +153,25 @@ scripts/e2e-verify.sh --live-only</code></pre>
         </div>
         <p>It prints a pass/fail summary and exits non-zero on any failure. The <code>mvp-walkthrough.md</code> runbook is the manual equivalent of the L-flows.</p>
 
-        <h2 id="how-ci-runs-it">5. How CI runs it</h2>
+        <h2 id="testing-payments">5. Testing payments without a provider (mock / sandbox modes)</h2>
+        <p>Payments runs in one of three modes (<code>Payments:Mode</code>, numeric on the wire — <code>LocalMock=1</code>, <code>Sandbox=2</code>, <code>Production=3</code>; see ADR-0039). Dev defaults to <code>LocalMock</code> in <code>appsettings.Development.json</code>, so you can exercise the full checkout → payment → ledger flow <strong>before</strong> you have any provider credentials.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Mode</th><th>External calls</th><th>Test email</th><th>Use when</th></tr></thead>
+            <tbody>
+              <tr><td><strong>LocalMock</strong></td><td>none</td><td>yes (TEST ONLY / MOCK PAYMENT, redacted payload)</td><td>no provider access yet</td></tr>
+              <tr><td><strong>Sandbox</strong></td><td>provider test endpoints</td><td>yes (same TEST-ONLY email)</td><td>you have sandbox/test credentials</td></tr>
+              <tr><td><strong>Production</strong></td><td>live provider</td><td><strong>never</strong></td><td>real transactions only</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>LocalMock behaviour.</strong> <code>MockEmailPaymentProvider</code> simulates each outcome — success, failure, declined card, expired card, 3DS-required, cancelled (the <code>MockScenario</code> enum) — and on every authorize/refund publishes a <code>MockPaymentCaptured</code> event that the Notifications worker renders as an email to <code>Payments:MockEmailTo</code>, containing the <strong>redacted</strong> payload that would have gone to the provider (never PAN/CVV/wallet tokens). Set it up with:</p>
+        <pre><code>// appsettings.Development.json (Payments)
+"Payments": { "Mode": "LocalMock", "AllowMockEmail": true, "MockEmailTo": "you@example.com" }</code></pre>
+        <p>In the bare-run dev stack the email lands in the Notifications worker log (<code>.run/notifications.log</code>) since dev has no SMTP; swap <code>MockEmailTo</code> for your real address once SMTP is wired.</p>
+        <p><strong>Safety.</strong> <code>PaymentModeGuard</code> refuses to boot with <code>LocalMock</code> or <code>AllowMockEmail=true</code> outside <code>Development</code>, and Production has no capture path at all — the TEST-ONLY email can never fire against live data. Provider secrets are prefix-asserted per mode (<code>sk_test_</code> for Sandbox, <code>sk_live_</code> for Production). See the <a href="deployment.html">deployment guide</a> for the container/Helm config keys and <a href="../adr/0039-payment-provider-architecture.md">ADR-0039</a> for the full design.</p>
+
+        <h2 id="how-ci-runs-it">6. How CI runs it</h2>
         <p><code>.github/workflows/ci.yml</code> (on push to <code>main</code>/<code>develop</code> and on PRs) has four jobs:</p>
         <div class="table-wrap">
           <table>

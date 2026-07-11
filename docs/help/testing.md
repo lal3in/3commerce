@@ -152,7 +152,44 @@ the services + worker, the storefront (production build), the admin DLL, and the
 It prints a pass/fail summary and exits non-zero on any failure. The
 `mvp-walkthrough.md` runbook is the manual equivalent of the L-flows.
 
-## 5. How CI runs it
+## 5. Testing payments without a provider (mock / sandbox modes)
+
+Payments runs in one of three modes (`Payments:Mode`, numeric on the wire —
+`LocalMock=1`, `Sandbox=2`, `Production=3`; see ADR-0039). Dev defaults to
+`LocalMock` in `appsettings.Development.json`, so you can exercise the full
+checkout → payment → ledger flow **before** you have any provider credentials.
+
+| Mode | External calls | Test email | Use when |
+|------|----------------|-----------|----------|
+| **LocalMock** | none | yes (TEST ONLY / MOCK PAYMENT, redacted payload) | no provider access yet |
+| **Sandbox** | provider test endpoints | yes (same TEST-ONLY email) | you have sandbox/test credentials |
+| **Production** | live provider | **never** | real transactions only |
+
+**LocalMock behaviour.** `MockEmailPaymentProvider` simulates each outcome —
+success, failure, declined card, expired card, 3DS-required, cancelled (the
+`MockScenario` enum) — and on every authorize/refund publishes a
+`MockPaymentCaptured` event that the Notifications worker renders as an email
+to `Payments:MockEmailTo`, containing the **redacted** payload that would have
+gone to the provider (never PAN/CVV/wallet tokens). Set it up with:
+
+```jsonc
+// appsettings.Development.json (Payments)
+"Payments": { "Mode": "LocalMock", "AllowMockEmail": true, "MockEmailTo": "you@example.com" }
+```
+
+In the bare-run dev stack the email lands in the Notifications worker log
+(`.run/notifications.log`) since dev has no SMTP; swap `MockEmailTo` for your
+real address once SMTP is wired.
+
+**Safety.** `PaymentModeGuard` refuses to boot with `LocalMock` or
+`AllowMockEmail=true` outside `Development`, and Production has no capture path
+at all — the TEST-ONLY email can never fire against live data. Provider secrets
+are prefix-asserted per mode (`sk_test_` for Sandbox, `sk_live_` for
+Production). See the [deployment guide](deployment.md) for the container/Helm
+config keys and [ADR-0039](../adr/0039-payment-provider-architecture.md) for
+the full design.
+
+## 6. How CI runs it
 
 `.github/workflows/ci.yml` (on push to `main`/`develop` and on PRs) has four jobs:
 

@@ -140,6 +140,11 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         </ul>
         <p>The catalog starts empty. Log into the admin at <code>http://localhost:5200</code>, open <strong>Imports</strong>, and click <strong>Run sample importer</strong> to load ~10,500 sample SKUs (see <a class="inline" href="admin-operations.html">Admin operations</a>). After import, the storefront's home/search pages will show products.</p>
 
+        <blockquote>
+          <p><strong>Payments in dev run in mock mode.</strong> With no provider credentials, Payments defaults to <code>LocalMock</code> (<code>appsettings.Development.json</code>): checkouts complete the full saga and ledger without any external call, and each one emits a <strong>TEST ONLY / MOCK PAYMENT</strong> email (with a redacted payload) to the Notifications worker log (<code>.run/notifications.log</code>). See <a class="inline" href="testing.html">Testing → payment modes</a> to point it at your inbox or move to sandbox credentials.</p>
+          <p><strong>Operator MFA</strong> is available on the admin <strong>Security</strong> page (<code>/security</code>): enroll a TOTP factor, manage recovery codes, and set the tenant MFA policy — see <a class="inline" href="roles-permissions.html">Roles &amp; permissions</a>.</p>
+        </blockquote>
+
         <h2 id="one-command">One-command equivalent</h2>
         <p><code>scripts/e2e-verify.sh --live</code> automates steps 1–5 (infra, migrations, services, storefront, admin) and then runs the live smoke flows. Use it to confirm the whole stack boots and the core journeys work — see <a class="inline" href="testing.html">Testing</a>.</p>
 
