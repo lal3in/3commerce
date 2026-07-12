@@ -9,7 +9,7 @@ namespace ThreeCommerce.Identity.Domain;
 public interface IAuthService
 {
     /// <summary>Always behaves identically whether or not the email already exists.</summary>
-    public Task<RegisterResult> RegisterAsync(string email, string password, CancellationToken ct);
+    public Task<RegisterResult> RegisterAsync(string email, string password, MemberProfile? profile, CancellationToken ct);
 
     public Task<LoginResult?> LoginAsync(string email, string password, CancellationToken ct);
 
@@ -44,6 +44,11 @@ public interface IAuthService
     /// <summary>Re-verifies the factor on an active session, refreshing the StepUp freshness anchor.</summary>
     public Task<bool> StepUpAsync(string rawSessionToken, string code, CancellationToken ct);
 }
+
+/// <summary>Structured member profile captured at registration (mem_1). First/Last are the required legal name.</summary>
+public sealed record MemberProfile(
+    string? Title, string? FirstName, string? MiddleName, string? LastName, string? PreferredName,
+    string? Phone, DateOnly? DateOfBirth, bool MarketingConsent);
 
 public sealed record RegisterResult(bool IsNewUser);
 

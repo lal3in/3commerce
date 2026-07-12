@@ -134,8 +134,12 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
   const cookieStore = await cookies();
   if (profile) {
     cookieStore.delete("3c_guest_email");
+    cookieStore.delete("3c_guest_details");
   } else {
     cookieStore.set("3c_guest_email", body.email, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
+    // Stash what the guest just typed so the post-checkout account offer isn't an empty form (mem_1).
+    const details = JSON.stringify({ name: body.shippingAddress.name, phone: String(formData.get("phone") ?? "") });
+    cookieStore.set("3c_guest_details", details, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
   }
   redirect(`/checkout/confirmation?order=${result.orderId}`);
 }
@@ -152,17 +156,39 @@ export type ConvertState = { error?: string; ok?: boolean };
 // FR-7: post-purchase guest -> account. Registers with the checkout email; once the
 // email is verified, the guest order attaches to the new account's order history.
 export async function convertGuest(_prev: ConvertState, formData: FormData): Promise<ConvertState> {
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const dateOfBirth = String(formData.get("dateOfBirth") ?? "").trim();
+  if (!firstName || !lastName || !phone || !dateOfBirth) {
+    return { error: "First name, last name, phone and date of birth are required." };
+  }
+
+  const opt = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v.length > 0 ? v : null;
+  };
   const response = await fetch(`${GATEWAY_URL}/api/identity/convert-guest`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
+      title: opt("title"),
+      firstName,
+      middleName: opt("middleName"),
+      lastName,
+      preferredName: opt("preferredName"),
+      phone,
+      dateOfBirth,
+      marketingConsent: formData.get("marketingConsent") === "on",
     }),
   });
   if (!response.ok) {
     return { error: "Could not create the account. Try a longer password." };
   }
-  (await cookies()).delete("3c_guest_email");
+  const cookieStore = await cookies();
+  cookieStore.delete("3c_guest_email");
+  cookieStore.delete("3c_guest_details");
   return { ok: true };
 }

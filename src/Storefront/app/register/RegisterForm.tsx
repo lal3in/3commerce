@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { register, type AuthState } from "@/lib/auth-actions";
+import { MemberFields } from "@/components/account/MemberFields";
 
 export function RegisterForm() {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(register, {});
@@ -41,6 +42,10 @@ export function RegisterForm() {
           className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
         />
       </div>
+      <fieldset className="border-t border-neutral-200 pt-3">
+        <legend className="text-sm font-medium text-neutral-700">Your details</legend>
+        <MemberFields />
+      </fieldset>
       <button
         type="submit"
         disabled={pending}

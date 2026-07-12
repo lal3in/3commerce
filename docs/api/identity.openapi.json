@@ -1405,24 +1405,68 @@
       },
       "ProfileRequest": {
         "required": [
-          "givenName",
-          "familyName"
+          "title",
+          "firstName",
+          "middleName",
+          "lastName",
+          "preferredName",
+          "phone",
+          "dateOfBirth"
         ],
         "type": "object",
         "properties": {
-          "givenName": {
+          "title": {
+            "maxLength": 20,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstName": {
             "maxLength": 100,
             "type": [
               "null",
               "string"
             ]
           },
-          "familyName": {
+          "middleName": {
             "maxLength": 100,
             "type": [
               "null",
               "string"
             ]
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "maxLength": 32,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateOfBirth": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "marketingConsent": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -1430,8 +1474,14 @@
         "required": [
           "id",
           "email",
-          "givenName",
-          "familyName",
+          "title",
+          "firstName",
+          "middleName",
+          "lastName",
+          "preferredName",
+          "phone",
+          "dateOfBirth",
+          "marketingConsent",
           "emailVerified",
           "createdAt"
         ],
@@ -1444,17 +1494,51 @@
           "email": {
             "type": "string"
           },
-          "givenName": {
+          "title": {
             "type": [
               "null",
               "string"
             ]
           },
-          "familyName": {
+          "firstName": {
             "type": [
               "null",
               "string"
             ]
+          },
+          "middleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateOfBirth": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "marketingConsent": {
+            "type": "boolean"
           },
           "emailVerified": {
             "type": "boolean"
@@ -1497,6 +1581,59 @@
             "maxLength": 256,
             "minLength": 10,
             "type": "string"
+          },
+          "title": {
+            "maxLength": 20,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "middleName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredName": {
+            "maxLength": 100,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "maxLength": 32,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateOfBirth": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "marketingConsent": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

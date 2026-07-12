@@ -47,7 +47,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   }, []);
   const shipping = addresses.find((address) => address.id === shippingId);
   const billing = addresses.find((address) => address.id === billingId);
-  const name = profile ? [profile.givenName, profile.familyName].filter(Boolean).join(" ") : "";
+  const name = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
   // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
   const taxBaseMinor = cart.subtotalMinor + (selectedRate?.amountMinor ?? 0);

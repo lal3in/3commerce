@@ -30,20 +30,38 @@ public class CustomerProfileTests
     }
 
     [Fact]
-    public void Customer_profile_names_are_optional_on_user()
+    public void Customer_profile_names_are_structured_with_display_and_full_name()
     {
         var user = new User
         {
             Id = Guid.CreateVersion7(),
             Email = "shopper@example.test",
             PasswordHash = "hash",
-            GivenName = "Ada",
-            FamilyName = "Lovelace",
+            Title = "Ms",
+            FirstName = "Ada",
+            MiddleName = "King",
+            LastName = "Lovelace",
+            PreferredName = "Ada L.",
+            Phone = "+61400000000",
+            DateOfBirth = new DateOnly(1990, 5, 1),
+            MarketingConsent = true,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
-        Assert.Equal("Ada", user.GivenName);
-        Assert.Equal("Lovelace", user.FamilyName);
+        Assert.Equal("Ada", user.FirstName);
+        Assert.Equal("Lovelace", user.LastName);
+        Assert.Equal("Ada L.", user.DisplayName);            // preferred name wins
+        Assert.Equal("Ms Ada King Lovelace", user.FullName); // full legal name for billing
+    }
+
+    [Fact]
+    public void DisplayName_falls_back_to_first_last_then_email_local_part()
+    {
+        var named = new User { Id = Guid.CreateVersion7(), Email = "x@e.test", PasswordHash = "h", FirstName = "Grace", LastName = "Hopper" };
+        Assert.Equal("Grace Hopper", named.DisplayName);
+
+        var anon = new User { Id = Guid.CreateVersion7(), Email = "solo@e.test", PasswordHash = "h" };
+        Assert.Equal("solo", anon.DisplayName);
     }
 
     private static Address Address(AddressPurpose purpose) => new()

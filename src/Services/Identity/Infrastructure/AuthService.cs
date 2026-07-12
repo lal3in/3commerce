@@ -22,13 +22,15 @@ public sealed class AuthService(
     MfaPlatformPolicy platformMfa,
     ILogger<AuthService> logger) : IAuthService
 {
+    private static string? Trim(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
     private static readonly TimeSpan VerifyTokenLifetime = TimeSpan.FromHours(24);
     private static readonly TimeSpan ResetTokenLifetime = TimeSpan.FromHours(1);
     private const int LockoutThreshold = 5;
     private static readonly TimeSpan MaxLockout = TimeSpan.FromMinutes(15);
 
-    public async Task<RegisterResult> RegisterAsync(string email, string password, CancellationToken ct)
+    public async Task<RegisterResult> RegisterAsync(string email, string password, MemberProfile? profile, CancellationToken ct)
     {
         var normalized = email.Trim().ToLowerInvariant();
         var tenant = await bootstrapper.EnsureDefaultTenantAsync(ct);
@@ -62,6 +64,14 @@ public sealed class AuthService(
             PrincipalId = principal.Id,
             Email = normalized,
             PasswordHash = passwordHasher.Hash(password),
+            Title = Trim(profile?.Title),
+            FirstName = Trim(profile?.FirstName),
+            MiddleName = Trim(profile?.MiddleName),
+            LastName = Trim(profile?.LastName),
+            PreferredName = Trim(profile?.PreferredName),
+            Phone = Trim(profile?.Phone),
+            DateOfBirth = profile?.DateOfBirth,
+            MarketingConsent = profile?.MarketingConsent ?? false,
             CreatedAt = now,
         };
         db.Users.Add(user);
