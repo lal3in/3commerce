@@ -76,7 +76,7 @@ export function MemberFields({ defaults }: { defaults?: MemberDefaults }) {
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="marketingConsent" defaultChecked={defaults?.marketingConsent ?? false} className="h-4 w-4" />
-        Email me product news and offers
+        Keep me updated with product news and special offers
       </label>
     </div>
   );

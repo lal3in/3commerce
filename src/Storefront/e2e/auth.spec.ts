@@ -13,7 +13,7 @@ test.describe("Account", () => {
     const password = "a-strong-password";
 
     await page.goto("/register");
-    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel(/password/i).fill(password);
     // Structured member profile (mem_1): First/Last/Phone/DOB are required.
     await page.getByLabel(/first name/i).fill("Ada");
@@ -23,8 +23,8 @@ test.describe("Account", () => {
     await page.getByRole("button", { name: /create account/i }).click();
 
     await expect(page).toHaveURL(/\/login/);
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: /log in/i }).click();
 
     await expect(page).toHaveURL(/\/account/);
