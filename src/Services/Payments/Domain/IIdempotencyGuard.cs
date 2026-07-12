@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Abstractions;
+
 namespace ThreeCommerce.Payments.Domain;
 
 /// <summary>
@@ -20,6 +22,10 @@ public interface IIdempotencyGuard
         CancellationToken ct);
 }
 
-/// <summary>Thrown when an idempotency key is replayed with a different request payload.</summary>
+/// <summary>Thrown when an idempotency key is replayed with a different request payload → 409.</summary>
 public sealed class IdempotencyConflictException(string key)
-    : Exception($"Idempotency key '{key}' was reused with a different request.");
+    : Exception($"Idempotency key '{key}' was reused with a different request."), IProblemException
+{
+    public int StatusCode => 409;
+    public string ErrorCode => "idempotency_conflict";
+}

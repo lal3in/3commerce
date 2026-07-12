@@ -196,7 +196,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/admin/ledger/accounts` · `/admin/ledger/entries` | admin | Inspect the double-entry ledger |
-| POST | `/admin/refunds` | admin | Publish the single RefundRequested contract (Idempotency-Key required) |
+| POST | `/admin/refunds` | admin | Publish the single RefundRequested contract. `Idempotency-Key` required — replayed key + same body returns the stored 202 (no second refund); same key + different body → **409** problem+json with `errorCode: idempotency_conflict` (pay_7, via the shared `IIdempotencyGuard`) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
 | GET/POST | `/admin/payment-accounts` | admin | Tenant/storefront payment account lifecycle setup; readiness-gated activation |
