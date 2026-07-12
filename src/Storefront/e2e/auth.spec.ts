@@ -15,6 +15,11 @@ test.describe("Account", () => {
     await page.goto("/register");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel(/password/i).fill(password);
+    // Structured member profile (mem_1): First/Last/Phone/DOB are required.
+    await page.getByLabel(/first name/i).fill("Ada");
+    await page.getByLabel(/last name/i).fill("Lovelace");
+    await page.getByLabel(/^phone/i).fill("+61400111222");
+    await page.getByLabel(/date of birth/i).fill("1990-05-01");
     await page.getByRole("button", { name: /create account/i }).click();
 
     await expect(page).toHaveURL(/\/login/);
