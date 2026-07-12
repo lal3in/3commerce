@@ -11,6 +11,7 @@ export type ProductHit = {
   minPriceMinor: number;
   currency: string;
   imageUrl: string | null;
+  productType: number;
 };
 
 export type Variant = {
@@ -32,6 +33,7 @@ export type ProductDetail = {
   attributes: Record<string, string>;
   imageUrls: string[];
   variants: Variant[];
+  productType: number;
 };
 
 export type Category = { id: string; slug: string; name: string };
@@ -59,12 +61,15 @@ export async function searchProducts(params: {
   pageSize?: number;
   // When set, prices come back in this currency and products with no tenant-set price in it are hidden.
   currency?: string;
+  // Numeric ProductType filter (browse-by-type).
+  type?: number;
 }): Promise<SearchResult> {
   const query = new URLSearchParams();
   if (params.q) query.set("q", params.q);
   if (params.category) query.set("category", params.category);
   if (params.attrs) query.set("attrs", params.attrs);
   if (params.currency) query.set("currency", params.currency);
+  if (params.type) query.set("type", String(params.type));
   query.set("page", String(params.page ?? 1));
   query.set("pageSize", String(params.pageSize ?? 24));
 

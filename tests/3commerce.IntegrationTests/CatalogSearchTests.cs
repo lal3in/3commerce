@@ -61,7 +61,27 @@ public class CatalogSearchTests(Phase2Fixture fixture) : IAsyncLifetime
     }
 
     private sealed record ImportRunDto(int RowsRead, int Accepted, int Rejected, List<string> SampleRejections);
-    private sealed record HitDto(Guid Id, string Slug, string Title, string Brand, long MinPriceMinor, string Currency, string? ImageUrl);
+    private sealed record HitDto(Guid Id, string Slug, string Title, string Brand, long MinPriceMinor, string Currency, string? ImageUrl, int ProductType);
+
+    [Fact]
+    public async Task Catalog_contains_a_mix_of_product_types()
+    {
+        // The importer assigns a weighted mix, so a page of results spans several types
+        // (physical, digital, subscription, service, usage) — not a single-type catalog.
+        var hits = await _client.GetFromJsonAsync<List<HitDto>>("/products?pageSize=100");
+        var types = hits!.Select(h => h.ProductType).Distinct().ToList();
+        Assert.True(types.Count >= 3, $"expected ≥3 product types, saw: {string.Join(",", types)}");
+        Assert.All(hits!, h => Assert.InRange(h.ProductType, 1, 6));
+    }
+
+    [Fact]
+    public async Task Type_filter_returns_only_that_type()
+    {
+        // ProductType.Subscription = 5 (numeric on the wire).
+        var hits = await _client.GetFromJsonAsync<List<HitDto>>("/products?type=5&pageSize=50");
+        Assert.NotEmpty(hits!);
+        Assert.All(hits!, h => Assert.Equal(5, h.ProductType));
+    }
 
     [Fact]
     public async Task Import_seeds_over_10k_skus_with_rejections()

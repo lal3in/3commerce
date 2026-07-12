@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { SafeImage } from "@/components/SafeImage";
 import { breadcrumbJsonLd, productJsonLd, siteUrl } from "@/lib/seo";
+import { productTypeClasses, productTypeInfo } from "@/lib/product-type";
 
 // ISR product page (gateway uses revalidate: 300) for SEO at catalog scale (components.md §1).
 export async function generateMetadata({
@@ -82,7 +83,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <div>
-        <p className="text-sm text-neutral-500">{product.brand}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-neutral-500">{product.brand}</p>
+          <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${productTypeClasses(product.productType)}`}>
+            {productTypeInfo(product.productType).badge}
+          </span>
+        </div>
         <h1 className="text-2xl font-bold">{product.title}</h1>
         <p className="mt-2 text-xl font-semibold">{formatMoney(fromPrice, currency)}</p>
         <p className="mt-4 text-neutral-700">{product.description}</p>

@@ -79,7 +79,8 @@ public static class AdminEndpoints
                 p.Variants.Count,
                 p.Variants.Count > 0 ? p.Variants.Min(v => v.PriceMinor) : 0,
                 p.Variants.Sum(v => v.StockQuantity),
-                p.ImageUrls.FirstOrDefault()))
+                p.ImageUrls.FirstOrDefault(),
+                p.ProductType == 0 ? ProductType.Physical : p.ProductType))
             .ToListAsync(cancellationToken);
         return TypedResults.Ok(items);
     }
@@ -129,6 +130,7 @@ public static class AdminEndpoints
             Attributes = request.Attributes ?? [],
             ImageUrls = request.ImageUrls ?? [],
             Status = request.Status ?? ProductStatus.Active,
+            ProductType = request.ProductType ?? ProductType.Physical,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -203,6 +205,7 @@ public static class AdminEndpoints
         product.Attributes = request.Attributes ?? [];
         product.ImageUrls = request.ImageUrls ?? [];
         product.Status = request.Status ?? product.Status; // preserve current status when the editor omits it
+        product.ProductType = request.ProductType ?? product.ProductType; // preserve type when omitted
         product.UpdatedAt = time.GetUtcNow();
 
         // Reconcile variants: update matched, add new (Id null/empty), remove the rest.
@@ -350,7 +353,8 @@ public static class AdminEndpoints
     private static ProductEditorDto ToEditorDto(Product p) => new(
         p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls, p.Status,
         p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
-            v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList());
+            v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList(),
+        p.ProductType == 0 ? ProductType.Physical : p.ProductType);
 }
 
 public record ImportRunResponse(
@@ -364,11 +368,13 @@ public record ImportRunResponse(
     IReadOnlyList<string> SampleRejections);
 
 public record ProductListItem(
-    Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl);
+    Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl,
+    ProductType ProductType);
 
 public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
-    Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants);
+    Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants,
+    ProductType ProductType);
 
 public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, List<CurrencyPriceDto> Prices);
 
@@ -378,6 +384,6 @@ public record CurrencyPriceDto(string Currency, long PriceMinor);
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants,
-    ProductStatus? Status = null);
+    ProductStatus? Status = null, ProductType? ProductType = null);
 
 public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, List<CurrencyPriceDto>? Prices = null);

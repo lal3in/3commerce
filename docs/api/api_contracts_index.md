@@ -56,7 +56,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/products?q=&category=&attrs=&currency=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header. Only `Status=Active` products (numeric `ProductStatus`: Active 1 / Inactive 2); `currency` returns tenant-set per-currency prices and HIDES products with no price in that currency |
+| GET | `/products?q=&category=&attrs=&currency=&type=&page=&pageSize=` | anon | FTS + trigram search; `X-Total-Count` header. Only `Status=Active` products (numeric `ProductStatus`: Active 1 / Inactive 2); `currency` returns tenant-set per-currency prices and HIDES products with no price in that currency; `type` filters by numeric `ProductType` (Physical 1 / Digital 2 / Service 3 / Bundle 4 / Subscription 5 / UsageBased 6); each hit carries `productType` |
 | GET | `/products/{slug}?currency=` | anon | Product detail with variants; `Inactive` products are 404 (hidden); with `currency`, variants are priced in it and a product with no price in that currency is 404 (hidden) |
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |

@@ -10,7 +10,7 @@ namespace ThreeCommerce.Catalog.Infrastructure.Search;
 /// </summary>
 public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvider
 {
-    private sealed record HitRow(Guid Id, string Slug, string Title, string Brand, long MinPriceMinor, string Currency, string? ImageUrl);
+    private sealed record HitRow(Guid Id, string Slug, string Title, string Brand, long MinPriceMinor, string Currency, string? ImageUrl, int ProductType);
 
     public async Task<SearchResult> SearchAsync(SearchQuery query, CancellationToken ct)
     {
@@ -58,6 +58,11 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
         {
             sql += " AND c.\"Slug\" = @category";
             parameters.Add(new NpgsqlParameter("category", query.CategorySlug));
+        }
+
+        if (query.ProductType is { } type)
+        {
+            sql += $" AND p.\"ProductType\" = {(int)type}";
         }
 
         var i = 0;
@@ -110,7 +115,8 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
             SELECT p."Id", p."Slug", p."Title", p."Brand",
                    {priceExpr} AS "MinPriceMinor",
                    {currencyExpr} AS "Currency",
-                   (p."ImageUrls" ->> 0) AS "ImageUrl"
+                   (p."ImageUrls" ->> 0) AS "ImageUrl",
+                   p."ProductType" AS "ProductType"
             {fromSql}
             WHERE {whereSql}{hideFilter}
             ORDER BY {orderSql}
@@ -122,7 +128,10 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
             .ToListAsync(ct);
 
         var hits = rows
-            .Select(r => new ProductHit(r.Id, r.Slug, r.Title, r.Brand, r.MinPriceMinor, r.Currency ?? cur ?? "EUR", r.ImageUrl))
+            .Select(r => new ProductHit(
+                r.Id, r.Slug, r.Title, r.Brand, r.MinPriceMinor, r.Currency ?? cur ?? "EUR", r.ImageUrl,
+                // Legacy rows persisted 0 (pre-typing) render as Physical.
+                r.ProductType == 0 ? ProductType.Physical : (ProductType)r.ProductType))
             .ToList();
 
         return new SearchResult(hits, total);
