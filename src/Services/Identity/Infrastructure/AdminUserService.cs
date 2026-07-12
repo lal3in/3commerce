@@ -22,7 +22,7 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
         var users = await db.Users.AsNoTracking()
             .Where(u => u.TenantId == tenantId)
             .OrderBy(u => u.Email)
-            .Select(u => new AdminUserDto(u.Id, u.Email, u.Role, u.EmailVerified, u.GivenName, u.FamilyName, u.CreatedAt))
+            .Select(u => new AdminUserDto(u.Id, u.Email, u.Role, u.EmailVerified, u.FirstName, u.LastName, u.CreatedAt))
             .ToListAsync(ct);
         await scope.CommitAsync(ct);
         return users;

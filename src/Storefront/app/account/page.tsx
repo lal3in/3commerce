@@ -26,7 +26,21 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="flex justify-between border-b border-neutral-100 py-2">
           <dt className="text-neutral-500">Name</dt>
-          <dd>{[profile.givenName, profile.familyName].filter(Boolean).join(" ") || "Not set"}</dd>
+          <dd>{[profile.title, profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(" ") || "Not set"}</dd>
+        </div>
+        {profile.preferredName && (
+          <div className="flex justify-between border-b border-neutral-100 py-2">
+            <dt className="text-neutral-500">Preferred name</dt>
+            <dd>{profile.preferredName}</dd>
+          </div>
+        )}
+        <div className="flex justify-between border-b border-neutral-100 py-2">
+          <dt className="text-neutral-500">Phone</dt>
+          <dd>{profile.phone || "Not set"}</dd>
+        </div>
+        <div className="flex justify-between border-b border-neutral-100 py-2">
+          <dt className="text-neutral-500">Date of birth</dt>
+          <dd>{profile.dateOfBirth || "Not set"}</dd>
         </div>
         <div className="flex justify-between border-b border-neutral-100 py-2">
           <dt className="text-neutral-500">Email verified</dt>

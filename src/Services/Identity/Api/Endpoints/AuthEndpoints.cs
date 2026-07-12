@@ -27,7 +27,7 @@ public static class AuthEndpoints
     private static async Task<Accepted<MessageResponse>> Register(
         RegisterRequest request, IAuthService auth, CancellationToken cancellationToken)
     {
-        await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
+        await auth.RegisterAsync(request.Email, request.Password, request.ToProfile(), cancellationToken);
         return TypedResults.Accepted((string?)null,
             new MessageResponse("Check your inbox to verify your email address."));
     }
@@ -39,7 +39,7 @@ public static class AuthEndpoints
     private static async Task<Accepted<MessageResponse>> ConvertGuest(
         RegisterRequest request, IAuthService auth, CancellationToken cancellationToken)
     {
-        await auth.RegisterAsync(request.Email, request.Password, cancellationToken);
+        await auth.RegisterAsync(request.Email, request.Password, request.ToProfile(), cancellationToken);
         return TypedResults.Accepted((string?)null,
             new MessageResponse("Account created. Verify your email and your order will appear in your history."));
     }
@@ -110,7 +110,21 @@ public static class AuthEndpoints
 
 public record RegisterRequest(
     [property: Required, EmailAddress] string Email,
-    [property: Required, MinLength(10), MaxLength(256)] string Password);
+    [property: Required, MinLength(10), MaxLength(256)] string Password,
+    // Structured member profile (mem_1). First/Last are the required legal name for a member account;
+    // the rest are optional/compliance fields. Kept nullable so the API stays back-compatible.
+    [property: MaxLength(20)] string? Title = null,
+    [property: MaxLength(100)] string? FirstName = null,
+    [property: MaxLength(100)] string? MiddleName = null,
+    [property: MaxLength(100)] string? LastName = null,
+    [property: MaxLength(100)] string? PreferredName = null,
+    [property: MaxLength(32)] string? Phone = null,
+    DateOnly? DateOfBirth = null,
+    bool MarketingConsent = false)
+{
+    public MemberProfile ToProfile() =>
+        new(Title, FirstName, MiddleName, LastName, PreferredName, Phone, DateOfBirth, MarketingConsent);
+}
 
 public record LoginRequest(
     [property: Required, EmailAddress] string Email,

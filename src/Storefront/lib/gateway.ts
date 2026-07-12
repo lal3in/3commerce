@@ -140,8 +140,14 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
 export type ProfileDto = {
   email: string;
-  givenName: string | null;
-  familyName: string | null;
+  title: string | null;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  preferredName: string | null;
+  phone: string | null;
+  dateOfBirth: string | null;
+  marketingConsent: boolean;
   emailVerified: boolean;
 };
 

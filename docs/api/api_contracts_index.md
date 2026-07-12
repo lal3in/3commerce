@@ -30,13 +30,13 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/register` | anon | Create account; 202 always (no enumeration) |
+| POST | `/register` · `/convert-guest` | anon | Create account; 202 always (no enumeration). Carries the structured member profile: `title?/firstName/middleName?/lastName/preferredName?/phone/dateOfBirth/marketingConsent` (mem_1) |
 | POST | `/login` | anon | Sets `3c_session` HttpOnly cookie |
 | POST | `/logout` | cookie | Revokes session |
 | POST | `/verify-email` | anon | Single-use token |
 | POST | `/convert-guest` | anon | Attach verified-email guest orders to a new account (BL-1) |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
-| GET/PUT | `/me` | session | Customer shopping profile with optional `givenName` / `familyName` |
+| GET/PUT | `/me` | session | Customer member profile: title/first/middle/last/preferred name, phone, date of birth, marketing consent (mem_1) |
 | GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
 | GET | `/mfa/status` | cookie | `{enrolled, pending, required}` for the session's account (mt6_10) |
 | POST | `/mfa/enroll/begin` · `/mfa/enroll/confirm` | cookie | TOTP enrollment: begin returns secret + otpauth URI; confirm proves possession and returns the one-time recovery codes. A confirmed factor cannot be reset here (support flow) |

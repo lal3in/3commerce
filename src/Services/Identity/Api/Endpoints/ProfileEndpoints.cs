@@ -43,7 +43,9 @@ public static class ProfileEndpoints
             () => db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken));
         return user is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new ProfileResponse(user.Id, user.Email, user.GivenName, user.FamilyName, user.EmailVerified, user.CreatedAt));
+            : TypedResults.Ok(new ProfileResponse(
+                user.Id, user.Email, user.Title, user.FirstName, user.MiddleName, user.LastName, user.PreferredName,
+                user.Phone, user.DateOfBirth, user.MarketingConsent, user.EmailVerified, user.CreatedAt));
     }
 
     private static async Task<Results<NoContent, NotFound>> UpdateProfile(
@@ -58,8 +60,14 @@ public static class ProfileEndpoints
                 return (Results<NoContent, NotFound>)TypedResults.NotFound();
             }
 
-            user.GivenName = NormalizeOptional(request.GivenName);
-            user.FamilyName = NormalizeOptional(request.FamilyName);
+            user.Title = NormalizeOptional(request.Title);
+            user.FirstName = NormalizeOptional(request.FirstName);
+            user.MiddleName = NormalizeOptional(request.MiddleName);
+            user.LastName = NormalizeOptional(request.LastName);
+            user.PreferredName = NormalizeOptional(request.PreferredName);
+            user.Phone = NormalizeOptional(request.Phone);
+            user.DateOfBirth = request.DateOfBirth;
+            user.MarketingConsent = request.MarketingConsent;
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.NoContent();
         });
@@ -185,10 +193,18 @@ public static class ProfileEndpoints
 }
 
 public record ProfileRequest(
-    [property: MaxLength(100)] string? GivenName,
-    [property: MaxLength(100)] string? FamilyName);
+    [property: MaxLength(20)] string? Title,
+    [property: MaxLength(100)] string? FirstName,
+    [property: MaxLength(100)] string? MiddleName,
+    [property: MaxLength(100)] string? LastName,
+    [property: MaxLength(100)] string? PreferredName,
+    [property: MaxLength(32)] string? Phone,
+    DateOnly? DateOfBirth,
+    bool MarketingConsent = false);
 
-public record ProfileResponse(Guid Id, string Email, string? GivenName, string? FamilyName, bool EmailVerified, DateTimeOffset CreatedAt);
+public record ProfileResponse(
+    Guid Id, string Email, string? Title, string? FirstName, string? MiddleName, string? LastName, string? PreferredName,
+    string? Phone, DateOnly? DateOfBirth, bool MarketingConsent, bool EmailVerified, DateTimeOffset CreatedAt);
 
 public record AddressRequest(
     AddressPurpose Purpose,

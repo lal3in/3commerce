@@ -46,14 +46,39 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   redirect("/account");
 }
 
+function optional(formData: FormData, key: string): string | null {
+  const v = String(formData.get(key) ?? "").trim();
+  return v.length > 0 ? v : null;
+}
+
 export async function register(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const dateOfBirth = String(formData.get("dateOfBirth") ?? "").trim();
+
+  // First/Last name, phone and DOB are required for a member account (recurrent-payment services).
+  if (!firstName || !lastName || !phone || !dateOfBirth) {
+    return { error: "First name, last name, phone and date of birth are required." };
+  }
 
   const response = await fetch(`${GATEWAY_URL}/api/identity/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      title: optional(formData, "title"),
+      firstName,
+      middleName: optional(formData, "middleName"),
+      lastName,
+      preferredName: optional(formData, "preferredName"),
+      phone,
+      dateOfBirth,
+      marketingConsent: formData.get("marketingConsent") === "on",
+    }),
   });
 
   if (!response.ok) {

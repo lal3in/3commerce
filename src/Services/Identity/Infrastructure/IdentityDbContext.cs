@@ -34,6 +34,14 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
         {
             // citext: case-insensitive uniqueness at the database level.
             user.Property(u => u.Email).HasColumnType("citext");
+            user.Property(u => u.Title).HasMaxLength(20);
+            user.Property(u => u.FirstName).HasMaxLength(100);
+            user.Property(u => u.MiddleName).HasMaxLength(100);
+            user.Property(u => u.LastName).HasMaxLength(100);
+            user.Property(u => u.PreferredName).HasMaxLength(100);
+            user.Property(u => u.Phone).HasMaxLength(32);
+            user.Ignore(u => u.DisplayName);
+            user.Ignore(u => u.FullName);
             user.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
             user.HasIndex(u => u.PrincipalId).IsUnique();
             user.HasMany(u => u.Addresses).WithOne().HasForeignKey(a => a.UserId);

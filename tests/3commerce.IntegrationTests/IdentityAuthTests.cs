@@ -78,6 +78,48 @@ public class IdentityAuthTests(Phase2Fixture fixture)
         Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(request)).StatusCode);
     }
 
+    private sealed record ProfileDto(Guid Id, string Email, string? Title, string? FirstName, string? MiddleName,
+        string? LastName, string? PreferredName, string? Phone, DateOnly? DateOfBirth, bool MarketingConsent, bool EmailVerified, DateTimeOffset CreatedAt);
+
+    [Fact]
+    public async Task Register_persists_the_structured_member_profile_and_me_returns_it()
+    {
+        using var identity = fixture.CreateIdentityFactory();
+        using var client = identity.CreateClient(new() { HandleCookies = false });
+        var email = $"member-{Guid.NewGuid():N}@example.com";
+
+        await client.PostAsJsonAsync("/register", new
+        {
+            email,
+            password = "a-strong-password",
+            title = "Ms",
+            firstName = "Ada",
+            middleName = "King",
+            lastName = "Lovelace",
+            preferredName = "Ada L.",
+            phone = "+61400111222",
+            dateOfBirth = "1990-05-01",
+            marketingConsent = true,
+        });
+
+        var login = await client.PostAsJsonAsync("/login", new { email, password = "a-strong-password" });
+        var session = await (await client.PostAsJsonAsync("/internal/introspection", new { token = ExtractSessionCookie(login) }))
+            .Content.ReadFromJsonAsync<IntrospectResponse>();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/me");
+        request.Headers.Add(InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(session!.UserId, "customer"));
+        var profile = await (await client.SendAsync(request)).Content.ReadFromJsonAsync<ProfileDto>();
+
+        Assert.Equal("Ms", profile!.Title);
+        Assert.Equal("Ada", profile.FirstName);
+        Assert.Equal("King", profile.MiddleName);
+        Assert.Equal("Lovelace", profile.LastName);
+        Assert.Equal("Ada L.", profile.PreferredName);
+        Assert.Equal("+61400111222", profile.Phone);
+        Assert.Equal(new DateOnly(1990, 5, 1), profile.DateOfBirth);
+        Assert.True(profile.MarketingConsent);
+    }
+
     [Fact]
     public async Task Wrong_password_does_not_log_in()
     {

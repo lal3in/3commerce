@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { convertGuest, type ConvertState } from "@/lib/cart-actions";
+import { MemberFields } from "@/components/account/MemberFields";
 
 // Pending-first (components.md §2): show the saga state, then confirm via polling.
 // In dev without a Stripe publishable key, a button completes a simulated test payment.
@@ -10,13 +11,21 @@ export function ConfirmationView({
   orderId,
   initialStatus,
   guestEmail,
+  guestName,
+  guestPhone,
   isAuthenticated,
 }: {
   orderId: string;
   initialStatus: string;
   guestEmail: string;
+  guestName?: string;
+  guestPhone?: string;
   isAuthenticated: boolean;
 }) {
+  // Split the shipping name the guest typed into first/last to pre-fill the account offer.
+  const parts = (guestName ?? "").trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
   const [status, setStatus] = useState(initialStatus);
   const [paying, setPaying] = useState(false);
   const [convert, convertAction, converting] = useActionState<ConvertState, FormData>(convertGuest, {});
@@ -47,32 +56,34 @@ export function ConfirmationView({
               <Link href="/account" className="underline">your account</Link>.
             </p>
             ) : (
-              <form action={convertAction} className="space-y-2">
-              <p className="font-medium">Track your order — create an account</p>
-              {convert.error && <p className="text-red-600">{convert.error}</p>}
-              <input
-                name="email"
-                type="email"
-                required
-                defaultValue={guestEmail}
-                placeholder="Email"
-                className="w-full rounded border border-neutral-300 px-3 py-2"
-              />
-              <input
-                name="password"
-                type="password"
-                required
-                minLength={10}
-                placeholder="Password (min 10 characters)"
-                className="w-full rounded border border-neutral-300 px-3 py-2"
-              />
-              <button
-                type="submit"
-                disabled={converting}
-                className="rounded-md bg-neutral-900 text-white px-4 py-2 text-sm disabled:opacity-50"
-              >
-                {converting ? "Creating…" : "Create account"}
-              </button>
+              <form action={convertAction} className="space-y-3">
+                <p className="font-medium">Track your order — create an account</p>
+                {convert.error && <p className="text-red-600">{convert.error}</p>}
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={guestEmail}
+                  placeholder="Email"
+                  className="w-full rounded border border-neutral-300 px-3 py-2"
+                />
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  minLength={10}
+                  placeholder="Password (min 10 characters)"
+                  className="w-full rounded border border-neutral-300 px-3 py-2"
+                />
+                {/* Pre-filled from what you entered at checkout so the form is not empty (mem_1). */}
+                <MemberFields defaults={{ firstName, lastName, phone: guestPhone }} />
+                <button
+                  type="submit"
+                  disabled={converting}
+                  className="rounded-md bg-neutral-900 text-white px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  {converting ? "Creating…" : "Create account"}
+                </button>
               </form>
             )}
           </div>
