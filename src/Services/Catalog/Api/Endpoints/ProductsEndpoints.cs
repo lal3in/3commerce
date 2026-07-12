@@ -26,13 +26,16 @@ public static class ProductsEndpoints
         string? category,
         string? attrs,
         string? currency = null,
+        int? type = null,
         int page = 1,
         int pageSize = 24,
         CancellationToken cancellationToken = default)
     {
         var filters = ParseAttributeFilters(attrs);
+        // type is the numeric ProductType (enums cross HTTP as numbers); ignore unknown values.
+        var productType = type is { } t && Enum.IsDefined((ProductType)t) ? (ProductType?)t : null;
         var result = await search.SearchAsync(
-            new SearchQuery(q, category, filters, page, pageSize, currency), cancellationToken);
+            new SearchQuery(q, category, filters, page, pageSize, currency, productType), cancellationToken);
 
         httpContext.Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
         return TypedResults.Ok(result.Hits.ToList());
@@ -77,7 +80,8 @@ public static class ProductsEndpoints
             category?.Name,
             product.Attributes,
             product.ImageUrls,
-            variants));
+            variants,
+            product.ProductType == 0 ? ProductType.Physical : product.ProductType));
     }
 
     // Variant price in the requested currency: VariantPrice override, else base price when base currency
@@ -139,7 +143,8 @@ public record ProductDetailResponse(
     string? CategoryName,
     Dictionary<string, string> Attributes,
     List<string> ImageUrls,
-    List<VariantResponse> Variants);
+    List<VariantResponse> Variants,
+    ProductType ProductType);
 
 public record VariantResponse(Guid Id, string Sku, long PriceMinor, string Currency, bool InStock);
 

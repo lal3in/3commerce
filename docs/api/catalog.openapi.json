@@ -133,6 +133,18 @@
             }
           },
           {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -1809,7 +1821,8 @@
           "categoryName",
           "attributes",
           "imageUrls",
-          "variants"
+          "variants",
+          "productType"
         ],
         "type": "object",
         "properties": {
@@ -1858,6 +1871,9 @@
             "items": {
               "$ref": "#/components/schemas/VariantResponse"
             }
+          },
+          "productType": {
+            "$ref": "#/components/schemas/ProductType"
           }
         }
       },
@@ -1873,7 +1889,8 @@
           "attributes",
           "imageUrls",
           "status",
-          "variants"
+          "variants",
+          "productType"
         ],
         "type": "object",
         "properties": {
@@ -1921,6 +1938,9 @@
             "items": {
               "$ref": "#/components/schemas/VariantEditorDto"
             }
+          },
+          "productType": {
+            "$ref": "#/components/schemas/ProductType"
           }
         }
       },
@@ -1932,7 +1952,8 @@
           "brand",
           "minPriceMinor",
           "currency",
-          "imageUrl"
+          "imageUrl",
+          "productType"
         ],
         "type": "object",
         "properties": {
@@ -1965,6 +1986,9 @@
               "null",
               "string"
             ]
+          },
+          "productType": {
+            "$ref": "#/components/schemas/ProductType"
           }
         }
       },
@@ -1977,7 +2001,8 @@
           "variantCount",
           "minPriceMinor",
           "totalStock",
-          "imageUrl"
+          "imageUrl",
+          "productType"
         ],
         "type": "object",
         "properties": {
@@ -2023,6 +2048,9 @@
               "null",
               "string"
             ]
+          },
+          "productType": {
+            "$ref": "#/components/schemas/ProductType"
           }
         }
       },
@@ -2162,6 +2190,9 @@
       "ProductStatus": {
         "type": "integer"
       },
+      "ProductType": {
+        "type": "integer"
+      },
       "ProductWriteRequest": {
         "required": [
           "tenantId",
@@ -2233,6 +2264,16 @@
               },
               {
                 "$ref": "#/components/schemas/ProductStatus"
+              }
+            ]
+          },
+          "productType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductType"
               }
             ]
           }

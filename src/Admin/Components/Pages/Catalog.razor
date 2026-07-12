@@ -29,7 +29,7 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">Title</th><th>Brand</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
+            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">Title</th><th>Brand</th><th>Type</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
             <tbody>
             @foreach (var p in _list)
             {
@@ -37,6 +37,7 @@
                     <td>@if (!string.IsNullOrWhiteSpace(p.ImageUrl)) { <img src="@p.ImageUrl" alt="" style="width:2.6rem; height:2.6rem; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb;" /> } else { <span style="color:#d1d5db;">—</span> }</td>
                     <td>@p.Title<br /><span style="color:#6b7280; font-size:.8rem;">@p.Slug</span></td>
                     <td>@p.Brand</td>
+                    <td style="text-align:center;"><span style="background:#f3f4f6; border-radius:4px; padding:.1rem .4rem; font-size:.78rem;">@ProductTypeLabel(p.ProductType)</span></td>
                     <td style="text-align:center;">@p.VariantCount</td>
                     <td style="text-align:right;">@($"{p.MinPriceMinor / 100m:0.00}")</td>
                     <td style="text-align:center;">@p.TotalStock</td>
@@ -69,6 +70,16 @@ else
                 {
                     <option value="@c.Id">@c.Name</option>
                 }
+            </select>
+        </label>
+        <label>Product type <span style="color:#6b7280; font-size:.8rem;">(what shoppers browse/filter by; billing mechanics live on the Offer — ADR-0028)</span>
+            <select @bind="_editing.ProductType" style="width:100%; padding:.4rem;" title="The customer-facing kind of product. Subscription/usage-based products are billed via their Offer.">
+                <option value="1">Physical</option>
+                <option value="2">Digital</option>
+                <option value="3">Service</option>
+                <option value="4">Bundle</option>
+                <option value="5">Subscription</option>
+                <option value="6">Usage-based</option>
             </select>
         </label>
 
@@ -164,6 +175,16 @@ else
         _list = await Gateway.GetListAsync<ProductListItem>($"{Base}{q}");
     }
 
+    private static string ProductTypeLabel(int type) => type switch
+    {
+        2 => "Digital",
+        3 => "Service",
+        4 => "Bundle",
+        5 => "Subscription",
+        6 => "Usage-based",
+        _ => "Physical",
+    };
+
     private void NewProduct()
     {
         _error = null;
@@ -242,7 +263,7 @@ else
         _error = null;
     }
 
-    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl);
+    public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
 
     public sealed class ProductEditor
@@ -253,6 +274,7 @@ else
         public string Brand { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public Guid CategoryId { get; set; }
+        public int ProductType { get; set; } = 1; // Physical
         public Dictionary<string, string> Attributes { get; set; } = [];
         public List<string> ImageUrls { get; set; } = [];
         public List<VariantEditor> Variants { get; set; } = [];

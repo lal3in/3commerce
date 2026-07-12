@@ -41,6 +41,28 @@ public sealed class SampleDataImporter(
     private static readonly string[] Sizes = ["s", "m", "l"];
     private static readonly string[] Materials = ["aluminium", "plastic", "steel", "fabric", "bamboo"];
 
+    /// <summary>Per-type presentation so each product reads naturally for its kind.</summary>
+    private readonly record struct Flavour(string TitleSuffix, string Blurb);
+
+    private static readonly IReadOnlyDictionary<ProductType, Flavour> TypeFlavour = new Dictionary<ProductType, Flavour>
+    {
+        [ProductType.Physical] = new("", "A physical product shipped from the warehouse; ships in 2–3 business days."),
+        [ProductType.Digital] = new(" (Digital Download)", "A digital download — delivered instantly to your account, nothing ships."),
+        [ProductType.Subscription] = new(" — Monthly Subscription", "A recurring subscription billed monthly; cancel anytime from your account."),
+        [ProductType.Service] = new(" (Service)", "A professional service delivered by our team; scheduled after checkout."),
+        [ProductType.UsageBased] = new(" — Pay As You Go", "A usage-based product metered per unit; you are billed for what you use."),
+    };
+
+    /// <summary>Weighted type mix so the catalog is a realistic blend, not all-physical.</summary>
+    private static ProductType PickType(Random rng) => rng.Next(100) switch
+    {
+        < 55 => ProductType.Physical,     // 55%
+        < 70 => ProductType.Digital,      // 15%
+        < 82 => ProductType.Subscription, // 12%
+        < 92 => ProductType.Service,      // 10%
+        _ => ProductType.UsageBased,      //  8%
+    };
+
     public string Name => "sample-data";
 
     public async Task<ImportRunResult> RunAsync(CancellationToken ct)
@@ -72,9 +94,17 @@ public sealed class SampleDataImporter(
             var rng = new Random(unchecked(Seed + i));
 
             var brand = Brands[rng.Next(Brands.Length)];
-            var title = $"{brand} {Adjectives[rng.Next(Adjectives.Length)]} {Nouns[rng.Next(Nouns.Length)]} {i % 97}";
+            // A realistic catalog is a MIX of product types, not all-physical. Roll a weighted type
+            // per row (deterministic) and let it shape the noun, title suffix, price cadence and
+            // variant count so browsing the catalog shows physical goods, digital downloads,
+            // subscriptions, services and metered/usage products side by side.
+            var productType = PickType(rng);
+            var flavour = TypeFlavour[productType];
+            // Keep the original noun vocabulary (search terms stay stable); the type shows via a suffix.
+            var title = $"{brand} {Adjectives[rng.Next(Adjectives.Length)]} {Nouns[rng.Next(Nouns.Length)]} {i % 97}{flavour.TitleSuffix}";
             var basePrice = 500L + rng.Next(1, 4000) * 25L;
-            var variantCount = 1 + rng.Next(3);
+            // Subscriptions/usage/services are single-offering (no size/color variants); physical/digital vary.
+            var variantCount = productType is ProductType.Physical or ProductType.Digital ? 1 + rng.Next(3) : 1;
 
             // Deliberate bad rows: every 250th has a non-positive price; every 251st an empty title.
             if (i % 250 == 249)
@@ -110,15 +140,14 @@ public sealed class SampleDataImporter(
                 ["material"] = Materials[rng.Next(Materials.Length)],
             };
             var images = new List<string> { $"https://picsum.photos/seed/{slug}/600/600" };
-            var description =
-                $"The {title} by {brand} combines {attributes["material"]} construction with a {attributes["color"]} finish. " +
-                $"Designed for everyday use, available in size {attributes["size"].ToUpperInvariant()}.";
+            var description = $"The {title} by {brand}. {flavour.Blurb}";
 
             if (existingBySlug.TryGetValue(slug, out var existing))
             {
                 existing.Title = title;
                 existing.Brand = brand;
                 existing.Description = description;
+                existing.ProductType = productType;
                 existing.CategoryId = category.Id;
                 existing.Attributes = attributes;
                 existing.ImageUrls = images;
@@ -156,6 +185,7 @@ public sealed class SampleDataImporter(
                     Title = title,
                     Brand = brand,
                     Description = description,
+                    ProductType = productType,
                     CategoryId = category.Id,
                     Attributes = attributes,
                     ImageUrls = images,

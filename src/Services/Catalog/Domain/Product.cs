@@ -335,13 +335,21 @@ public enum PublicationState
     Published = 2,
 }
 
-/// <summary>Nature of a product (ADR-0028). Distinct from ProductKind (Standard/Bundle).</summary>
+/// <summary>
+/// The customer-facing nature of a product — the browsable "type" a shopper filters the catalog
+/// by (ADR-0028). Distinct from ProductKind (Standard/Bundle) and from the Offer's fulfilment
+/// mechanics: a Subscription product is billed recurring and a UsageBased product is metered, but
+/// those charging details live on the Offer — this is what the catalog surfaces and filters on.
+/// Int-backed and additive (no migration to extend). Legacy rows persisted as 0 render as Physical.
+/// </summary>
 public enum ProductType
 {
     Physical = 1,
     Digital = 2,
     Service = 3,
     Bundle = 4,
+    Subscription = 5,
+    UsageBased = 6,
 }
 
 /// <summary>Publication lifecycle gate honoured by the public catalog endpoints. Active is the default.</summary>
