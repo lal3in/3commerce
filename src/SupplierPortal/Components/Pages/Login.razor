@@ -1,17 +1,29 @@
 @page "/login"
 @layout EmptyLayout
+@inject IStringLocalizer<SharedResource> L
 @inject NavigationManager Nav
 
+<PageTitle>@L["Login_Title"] — @L["App_Title"]</PageTitle>
+
 <div style="max-width:380px;margin:5rem auto;padding:2rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
-    <h1>Supplier portal sign in</h1>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+        <CultureSelector />
+    </div>
+    <h1>@L["Login_Title"]</h1>
     @if (Nav.Uri.Contains("error"))
     {
-        <p style="color:#b91c1c;">Sign in failed. Check your credentials or supplier access.</p>
+        <p style="color:#b91c1c;">@L["Login_Error"]</p>
     }
     <form action="/auth/login" method="post">
         <AntiforgeryToken />
-        <label>Email<br /><input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" /></label>
-        <label>Password<br /><input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" /></label>
-        <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.6rem 1rem;border-radius:4px;">Sign in</button>
+        <label title="@L["Login_Email_Tooltip"]">
+            @L["Login_Email"]<br />
+            <input name="email" type="email" required title="@L["Login_Email_Tooltip"]" style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" />
+        </label>
+        <label title="@L["Login_Password_Tooltip"]">
+            @L["Login_Password"]<br />
+            <input name="password" type="password" required title="@L["Login_Password_Tooltip"]" style="width:100%;padding:.5rem;margin:.25rem 0 1rem;" />
+        </label>
+        <button type="submit" title="@L["Login_Submit_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.6rem 1rem;border-radius:4px;">@L["Login_Submit"]</button>
     </form>
 </div>

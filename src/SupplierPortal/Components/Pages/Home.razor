@@ -1,30 +1,33 @@
 @page "/"
 @attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
 @inject SupplierGatewayClient Gateway
 @rendermode InteractiveServer
 
-<h1>Supplier overview</h1>
-<p>View your supplier readiness and operational scope. Product content, pricing, dispatch, tracking, and bank-account changes require platform approval.</p>
+<PageTitle>@L["Home_Title"] — @L["App_Title"]</PageTitle>
+
+<h1>@L["Home_Title"]</h1>
+<p>@L["Home_Intro"]</p>
 
 <div style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
-    <label>
-        Supplier entity ID
-        <input @bind="entityId" style="width:28rem;margin-left:.5rem;" />
+    <label title="@L["Common_EntityId_Tooltip"]">
+        @L["Common_EntityId"]
+        <input @bind="entityId" title="@L["Common_EntityId_Tooltip"]" style="width:28rem;margin-left:.5rem;" />
     </label>
-    <button @onclick="LoadReadinessAsync" style="margin-left:.5rem;">Check readiness</button>
+    <button @onclick="LoadReadinessAsync" title="@L["Home_CheckReadiness_Tooltip"]" style="margin-left:.5rem;">@L["Home_CheckReadiness"]</button>
 </div>
 
 @if (readiness is not null)
 {
     <section style="padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
-        <h2>Readiness</h2>
+        <h2>@L["Home_Readiness"]</h2>
         @if (readiness.IsReady)
         {
-            <p style="color:#047857;">Supplier profile is ready.</p>
+            <p style="color:#047857;">@L["Home_Ready"]</p>
         }
         else
         {
-            <p style="color:#b45309;">Missing requirements:</p>
+            <p style="color:#b45309;">@L["Home_Missing"]</p>
             <ul>
                 @foreach (var item in readiness.MissingRequirements)
                 {
@@ -44,12 +47,14 @@
         readiness = null;
         if (!Guid.TryParse(entityId, out _))
         {
-            readiness = new SupplierReadinessResponse(false, ["Supplier entity ID must be a GUID."]);
+            readiness = new SupplierReadinessResponse(false, [L["Validation_EntityId_Guid"]]);
             return;
         }
 
+        // Requirement text inside a successful response is produced by the Entity service and is
+        // rendered as-is; only the portal's own messages are localized here.
         readiness = await Gateway.GetAsync<SupplierReadinessResponse>($"/api/entity/entities/{entityId}/suppliers/readiness")
-            ?? new SupplierReadinessResponse(false, ["Unable to load readiness. Confirm your supplier access."]);
+            ?? new SupplierReadinessResponse(false, [L["Home_LoadFailed"]]);
     }
 
     private sealed record SupplierReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);

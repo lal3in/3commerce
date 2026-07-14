@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Token second culture (French). Deliberately partial: it carries only a handful of keys so the
+    session language switch is demonstrably working end to end. Every key that is absent here falls
+    back to the English base (Resources/SharedResource.resx).
+
+    To add a language (drop-in, no code change):
+      1. Copy Resources/SharedResource.resx to Resources/SharedResource.<culture>.resx
+         (e.g. SharedResource.zh-CN.resx) and translate the <value> elements.
+      2. Add the culture code to "Localization:SupportedCultures" in appsettings.json.
+    The language switcher lists exactly the shipped cultures from that configuration.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Nav_Subtitle" xml:space="preserve">
+    <value>Portail de la plateforme</value>
+  </data>
+  <data name="Nav_Overview" xml:space="preserve">
+    <value>Vue d'ensemble</value>
+  </data>
+  <data name="Nav_Overview_Tooltip" xml:space="preserve">
+    <value>Statut de conformité du fournisseur et périmètre opérationnel</value>
+  </data>
+  <data name="Nav_Stock" xml:space="preserve">
+    <value>Flux de stock</value>
+  </data>
+  <data name="Nav_Stock_Tooltip" xml:space="preserve">
+    <value>Soumettre des mises à jour de disponibilité pour revue par la plateforme</value>
+  </data>
+  <data name="Nav_Requests" xml:space="preserve">
+    <value>Demandes de modification</value>
+  </data>
+  <data name="Nav_Requests_Tooltip" xml:space="preserve">
+    <value>Demander des modifications d'utilisateur, de contact ou de compte bancaire</value>
+  </data>
+  <data name="Nav_Logout" xml:space="preserve">
+    <value>Se déconnecter</value>
+  </data>
+  <data name="Nav_Logout_Tooltip" xml:space="preserve">
+    <value>Terminer cette session du portail fournisseur</value>
+  </data>
+  <data name="Culture_Label" xml:space="preserve">
+    <value>Langue</value>
+  </data>
+  <data name="Culture_Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="Home_Title" xml:space="preserve">
+    <value>Vue d'ensemble fournisseur</value>
+  </data>
+  <data name="Login_Title" xml:space="preserve">
+    <value>Connexion au portail fournisseur</value>
+  </data>
+  <data name="Login_Submit" xml:space="preserve">
+    <value>Se connecter</value>
+  </data>
+</root>
