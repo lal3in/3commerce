@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { getOrderStatus, getProfile } from "@/lib/gateway";
 import { ConfirmationView } from "@/components/checkout/ConfirmationView";
 
@@ -11,7 +12,8 @@ export default async function ConfirmationPage({
 }) {
   const { order } = await searchParams;
   if (!order) {
-    return <p className="text-center py-16">No order specified.</p>;
+    const t = await getTranslations("confirmation");
+    return <p className="text-center py-16">{t("noOrder")}</p>;
   }
 
   const initialStatus = (await getOrderStatus(order)) ?? "AwaitingPayment";

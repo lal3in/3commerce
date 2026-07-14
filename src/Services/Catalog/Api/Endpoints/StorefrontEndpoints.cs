@@ -36,10 +36,17 @@ public static class StorefrontEndpoints
 
         // Public (anon): the storefront app resolves its active storefront's currency/tax config
         // by canonical domain host (production) or by the PublicUrl path slug (local /{slug} demo).
-        app.MapGroup("/storefronts").WithTags("Storefronts").MapGet("/public", GetPublicConfig);
+        var publicGroup = app.MapGroup("/storefronts").WithTags("Storefronts");
+        publicGroup.MapGet("/public", GetPublicConfig);
+        // The languages a storefront's UI can be set to (i18n_0) — a static vocabulary, anon-readable
+        // so the storefront app and the admin language pickers share one source of truth.
+        publicGroup.MapGet("/languages", GetSupportedLanguages);
 
         return app;
     }
+
+    private static Ok<List<SupportedLanguageResponse>> GetSupportedLanguages() =>
+        TypedResults.Ok(SupportedLanguages.All.Select(l => new SupportedLanguageResponse(l.Code, l.Label)).ToList());
 
     private static async Task<Results<Ok<PublicStorefrontResponse>, NotFound>> GetPublicConfig(
         string? host,
@@ -80,7 +87,9 @@ public static class StorefrontEndpoints
 
         return storefront is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new PublicStorefrontResponse(storefront.Id, storefront.TenantId, storefront.Name, storefront.PublicUrl, storefront.Currency, storefront.TaxRegime, storefront.TaxRateBasisPoints));
+            : TypedResults.Ok(new PublicStorefrontResponse(
+                storefront.Id, storefront.TenantId, storefront.Name, storefront.PublicUrl, storefront.Currency,
+                storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage));
     }
 
     // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
@@ -128,6 +137,7 @@ public static class StorefrontEndpoints
             var storefront = Storefront.Create(request.TenantId, request.Name, time.GetUtcNow());
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
+            storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -170,6 +180,7 @@ public static class StorefrontEndpoints
             storefront.Rename(request.Name, now);
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
+            storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -398,6 +409,7 @@ public static class StorefrontEndpoints
         storefront.Currency,
         storefront.TaxRegime,
         storefront.TaxRateBasisPoints,
+        storefront.DefaultLanguage,
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -412,7 +424,9 @@ public sealed record CreateStorefrontRequest(
     string? PublicUrl = null,
     string? Currency = "EUR",
     StorefrontTaxRegime TaxRegime = StorefrontTaxRegime.None,
-    int TaxRateBasisPoints = 0);
+    int TaxRateBasisPoints = 0,
+    // BCP-47 default UI language (i18n_0); omit → "en". Independent of Currency/TaxRegime.
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -421,7 +435,9 @@ public sealed record UpdateStorefrontRequest(
     string? PublicUrl,
     [property: Required, StringLength(3, MinimumLength = 3)] string Currency,
     StorefrontTaxRegime TaxRegime,
-    int TaxRateBasisPoints);
+    int TaxRateBasisPoints,
+    // Optional: omitted → the storefront keeps its current language (a currency/tax edit never resets it).
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -437,6 +453,7 @@ public sealed record StorefrontResponse(
     string Currency,
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
+    string DefaultLanguage,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
@@ -444,9 +461,21 @@ public sealed record StorefrontResponse(
 
 public sealed record StorefrontDomainResponse(Guid Id, string Host, bool Canonical);
 
-// Minimal, anon-safe public view of a storefront's shopper-facing config (currency + tax).
+// Minimal, anon-safe public view of a storefront's shopper-facing config (currency + tax + language).
 // Id/TenantId are non-secret identifiers the storefront forwards at checkout for order attribution.
-public sealed record PublicStorefrontResponse(Guid Id, Guid TenantId, string Name, string PublicUrl, string Currency, StorefrontTaxRegime TaxRegime, int TaxRateBasisPoints);
+// DefaultLanguage is the storefront's UI language before any per-session shopper override (i18n_0).
+public sealed record PublicStorefrontResponse(
+    Guid Id,
+    Guid TenantId,
+    string Name,
+    string PublicUrl,
+    string Currency,
+    StorefrontTaxRegime TaxRegime,
+    int TaxRateBasisPoints,
+    string DefaultLanguage);
+
+// The languages a storefront's UI can be set to (i18n_0). Label is an endonym ("中文"), not a translation.
+public sealed record SupportedLanguageResponse(string Code, string Label);
 
 public sealed record StorefrontReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
 

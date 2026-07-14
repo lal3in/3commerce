@@ -61,9 +61,10 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
-| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create |
-| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate) |
-| GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
+| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create (optional `defaultLanguage`, BCP-47; omit → `en`) |
+| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate, `defaultLanguage`). `defaultLanguage` is optional and **independent of currency/tax** (i18n_0): omit it and the storefront keeps its current language |
+| GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints, **defaultLanguage**) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
+| GET | `/storefronts/languages` | anon | Supported UI languages (`code` BCP-47 + endonym `label`, e.g. `zh`/`中文`) — the vocabulary a storefront's `defaultLanguage` and the storefront language switcher draw from (i18n_0) |
 | POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
 | GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
 | POST | `/admin/storefronts/{id}/preview|activate|pause|archive` | admin | Storefront lifecycle transitions |

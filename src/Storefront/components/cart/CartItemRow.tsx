@@ -1,12 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import type { CartItemDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { removeFromCart, updateCartQuantity } from "@/lib/cart-actions";
 import { SafeImage } from "@/components/SafeImage";
 
 export function CartItemRow({ item }: { item: CartItemDto }) {
+  const t = useTranslations("cart");
   const [pending, start] = useTransition();
   const variantId = item.variantId ?? null;
 
@@ -26,13 +28,16 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
       </div>
       <div className="flex-1">
         <p className="text-sm font-medium">{item.title}</p>
-        {item.variantSku && <p className="text-xs text-neutral-500">Variant: {item.variantSku}</p>}
-        <p className="text-sm text-neutral-500">{formatMoney(item.unitPriceMinor, item.currency)} each</p>
+        {item.variantSku && <p className="text-xs text-neutral-500">{t("variant", { sku: item.variantSku })}</p>}
+        <p className="text-sm text-neutral-500">
+          {t("each", { price: formatMoney(item.unitPriceMinor, item.currency) })}
+        </p>
       </div>
       <div className="inline-flex items-center rounded-md border border-neutral-300">
         <button
           type="button"
-          aria-label="Decrease quantity"
+          aria-label={t("decreaseQuantity")}
+          title={t("tips.decreaseQuantity")}
           disabled={pending}
           onClick={decrement}
           className="px-3 py-1.5 text-sm disabled:opacity-40"
@@ -42,7 +47,8 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
         <span className="w-10 text-center text-sm tabular-nums">{item.quantity}</span>
         <button
           type="button"
-          aria-label="Increase quantity"
+          aria-label={t("increaseQuantity")}
+          title={t("tips.increaseQuantity")}
           disabled={pending || item.quantity >= 99}
           onClick={increment}
           className="px-3 py-1.5 text-sm disabled:opacity-40"
@@ -53,10 +59,11 @@ export function CartItemRow({ item }: { item: CartItemDto }) {
       <button
         type="button"
         disabled={pending}
+        title={t("tips.remove")}
         onClick={() => start(() => removeFromCart(item.productId, variantId))}
         className="text-sm text-neutral-500 hover:text-red-600 disabled:opacity-50"
       >
-        Remove
+        {t("remove")}
       </button>
     </li>
   );

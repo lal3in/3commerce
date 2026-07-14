@@ -85,6 +85,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             storefront.Property(s => s.AccessPasswordHash).HasMaxLength(500);
             storefront.Property(s => s.PublicUrl).HasMaxLength(300);
             storefront.Property(s => s.Currency).HasMaxLength(3);
+            // BCP-47 default UI language (i18n_0) — independent of Currency/TaxRegime.
+            storefront.Property(s => s.DefaultLanguage).HasMaxLength(16).HasDefaultValue(SupportedLanguages.Default);
             storefront.Property(s => s.TaxRegime).HasConversion<string>().HasMaxLength(24);
             storefront.HasIndex(s => new { s.TenantId, s.Name }).IsUnique();
             storefront.HasIndex(s => new { s.TenantId, s.State });

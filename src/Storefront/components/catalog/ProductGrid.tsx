@@ -1,9 +1,11 @@
+import { getTranslations } from "next-intl/server";
 import type { ProductHit } from "@/lib/gateway";
 import { ProductCard } from "./ProductCard";
 
-export function ProductGrid({ products }: { products: ProductHit[] }) {
+export async function ProductGrid({ products }: { products: ProductHit[] }) {
   if (products.length === 0) {
-    return <p className="text-neutral-500">No products found.</p>;
+    const t = await getTranslations("search");
+    return <p className="text-neutral-500">{t("empty")}</p>;
   }
 
   return (

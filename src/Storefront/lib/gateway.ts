@@ -109,6 +109,9 @@ export type StorefrontConfig = {
   currency: string;
   taxRegime: StorefrontTaxRegime;
   taxRateBasisPoints: number;
+  // BCP-47 UI language this storefront defaults to (i18n_0). A shopper's `3c_locale` cookie overrides
+  // it for their session. Independent of currency/tax — see i18n/request.ts.
+  defaultLanguage: string;
 };
 
 // Enum ordinals from Catalog StorefrontTaxRegime (System.Text.Json serializes enums as numbers).
@@ -131,10 +134,15 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
-  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime"> & { taxRegime: StorefrontTaxRegime | number };
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage"> & {
+    taxRegime: StorefrontTaxRegime | number;
+    defaultLanguage?: string;
+  };
   return {
     ...raw,
     taxRegime: typeof raw.taxRegime === "number" ? (STOREFRONT_TAX_REGIME[raw.taxRegime] ?? "Other") : raw.taxRegime,
+    // Pre-i18n_0 storefronts (or an older Catalog) simply have no language configured → English.
+    defaultLanguage: raw.defaultLanguage ?? "en",
   };
 }
 
