@@ -3,8 +3,8 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Orders</h1>
-<p style="color:#6b7280;">Cancel an unpaid order (Pending/Awaiting payment), or refund a confirmed (paid) one. Refunds reverse the ledger; the order's own status stays Confirmed.</p>
+<h1>@L["Orders.Title"]</h1>
+<p style="color:#6b7280;">@L["Orders.Intro"]</p>
 
 @if (_error is not null)
 {
@@ -17,16 +17,16 @@
 
 @if (_orders is null)
 {
-    <p>Loading…</p>
+    <p>@L["Common.Loading"]</p>
 }
 else if (_orders.Count == 0)
 {
-    <p>No orders yet.</p>
+    <p>@L["Orders.Empty"]</p>
 }
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">Order</th><th>Status</th><th>Total</th><th>Placed</th><th>Actions</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Orders.Col.Order"]</th><th>@L["Common.Status"]</th><th>@L["Orders.Col.Total"]</th><th>@L["Orders.Col.Placed"]</th><th>@L["Common.Actions"]</th></tr></thead>
         <tbody>
         @foreach (var o in _orders)
         {
@@ -38,11 +38,11 @@ else
                 <td>
                     @if (o.Status is "Pending" or "AwaitingPayment")
                     {
-                        <button @onclick="() => Cancel(o.Id)" title="Cancel this unpaid order (releases it).">@(_confirm == $"{o.Id}:cancel" ? "Confirm?" : "Cancel")</button>
+                        <button @onclick="() => Cancel(o.Id)" title="@L["Orders.Cancel.Tip"]">@(_confirm == $"{o.Id}:cancel" ? L["Common.Confirm"] : L["Orders.Cancel"])</button>
                     }
                     else if (o.Status == "Confirmed")
                     {
-                        <button @onclick="() => Refund(o)" title="Refund the full order total — reverses the ledger.">@(_confirm == $"{o.Id}:refund" ? "Confirm?" : "Refund")</button>
+                        <button @onclick="() => Refund(o)" title="@L["Orders.Refund.Tip"]">@(_confirm == $"{o.Id}:refund" ? L["Common.Confirm"] : L["Orders.Refund"])</button>
                     }
                 </td>
             </tr>
@@ -74,7 +74,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Order cancelled."; // after LoadAsync — it clears _status on refresh
+            _status = L["Orders.Status.Cancelled"]; // after LoadAsync — it clears _status on refresh
         }
         else
         {
@@ -91,7 +91,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Refund requested — the ledger will reverse."; // after LoadAsync — it clears _status on refresh
+            _status = L["Orders.Status.Refunded"]; // after LoadAsync — it clears _status on refresh
         }
         else
         {

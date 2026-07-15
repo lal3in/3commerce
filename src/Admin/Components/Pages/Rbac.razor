@@ -3,14 +3,14 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Roles &amp; permissions</h1>
-<p style="color:#6b7280;">Roles are <strong>data</strong> — compose any subset of the code-defined permissions. Built-in roles are seeded per tenant; you can edit their permissions, duplicate them, or build a new role by cherry-picking. Changes are enforced by the Identity PDP and re-evaluate active sessions.</p>
+<h1>@L["Rbac.Title"]</h1>
+<p style="color:#6b7280;">@((MarkupString)L["Rbac.Intro"].Value)</p>
 
 <div style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0 1rem;">
-    <label style="font-size:.85rem; color:#374151;">Tenant
-        <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="The tenant whose roles you are managing (GUID)." />
+    <label style="font-size:.85rem; color:#374151;">@L["Rbac.Tenant"]
+        <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="@L["Rbac.Tenant.Tip"]" />
     </label>
-    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">Load</button>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.35rem .8rem;">@L["Common.Load"]</button>
 </div>
 
 @if (_error is not null)
@@ -24,18 +24,18 @@
 
 @if (_editing is null)
 {
-    <button @onclick="NewRole" style="padding:.4rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">+ New role</button>
+    <button @onclick="NewRole" title="@L["Rbac.NewRole.Tip"]" style="padding:.4rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Rbac.NewRole"]</button>
 
     @if (_roles.Count == 0)
     {
-        <p style="margin-top:1rem;">No roles loaded for this tenant.</p>
+        <p style="margin-top:1rem;">@L["Rbac.NoRoles"]</p>
     }
     else
     {
         <table style="border-collapse:collapse; width:100%; margin-top:1rem;">
             <thead><tr>
-                <th style="text-align:left;">Role</th><th style="text-align:left;">Key</th>
-                <th>Type</th><th>Permissions</th><th></th>
+                <th style="text-align:left;">@L["Rbac.Col.Role"]</th><th style="text-align:left;">@L["Rbac.Col.Key"]</th>
+                <th>@L["Common.Type"]</th><th>@L["Rbac.Col.Permissions"]</th><th></th>
             </tr></thead>
             <tbody>
             @foreach (var r in _roles)
@@ -44,15 +44,15 @@
                     <td>@r.Name@if (!string.IsNullOrWhiteSpace(r.Description)) { <br /><span style="color:#6b7280; font-size:.8rem;">@r.Description</span> }</td>
                     <td><code>@r.Key</code></td>
                     <td style="text-align:center;">
-                        @if (r.IsSystem) { <span style="font-size:.75rem; background:#fee2e2; color:#b91c1c; padding:.1rem .4rem; border-radius:9px;">system</span> }
-                        else if (r.IsBuiltIn) { <span style="font-size:.75rem; background:#e0e7ff; color:#3730a3; padding:.1rem .4rem; border-radius:9px;">built-in</span> }
-                        else { <span style="font-size:.75rem; color:#6b7280;">custom</span> }
+                        @if (r.IsSystem) { <span style="font-size:.75rem; background:#fee2e2; color:#b91c1c; padding:.1rem .4rem; border-radius:9px;">@L["Rbac.Badge.System"]</span> }
+                        else if (r.IsBuiltIn) { <span style="font-size:.75rem; background:#e0e7ff; color:#3730a3; padding:.1rem .4rem; border-radius:9px;">@L["Rbac.Badge.BuiltIn"]</span> }
+                        else { <span style="font-size:.75rem; color:#6b7280;">@L["Rbac.Badge.Custom"]</span> }
                     </td>
                     <td style="text-align:center;">@r.PermissionKeys.Count</td>
                     <td style="text-align:right; white-space:nowrap;">
-                        <button @onclick="() => EditRole(r)" disabled="@r.IsSystem" title="@(r.IsSystem ? "System roles are platform-managed" : "Edit this role's permissions")" style="padding:.2rem .6rem;">Edit</button>
-                        <button @onclick="() => DuplicateRole(r)" style="padding:.2rem .6rem;" title="Create a new role pre-filled with this role's permissions">Duplicate</button>
-                        <button @onclick="() => DeleteRole(r)" disabled="@(r.IsBuiltIn || r.IsSystem)" title="@(r.IsBuiltIn || r.IsSystem ? "Built-in/system roles cannot be deleted" : "Delete this custom role")" style="padding:.2rem .6rem; color:#b91c1c;">@(_confirmingDelete == r.Id ? "Confirm?" : "Delete")</button>
+                        <button @onclick="() => EditRole(r)" disabled="@r.IsSystem" title="@(r.IsSystem ? L["Rbac.Edit.SystemTip"] : L["Rbac.Edit.Tip"])" style="padding:.2rem .6rem;">@L["Common.Edit"]</button>
+                        <button @onclick="() => DuplicateRole(r)" style="padding:.2rem .6rem;" title="@L["Rbac.Duplicate.Tip"]">@L["Rbac.Duplicate"]</button>
+                        <button @onclick="() => DeleteRole(r)" disabled="@(r.IsBuiltIn || r.IsSystem)" title="@(r.IsBuiltIn || r.IsSystem ? L["Rbac.Delete.LockedTip"] : L["Rbac.Delete.Tip"])" style="padding:.2rem .6rem; color:#b91c1c;">@(_confirmingDelete == r.Id ? L["Common.Confirm"] : L["Common.Delete"])</button>
                     </td>
                 </tr>
             }
@@ -62,19 +62,19 @@
 }
 else
 {
-    <h2>@_editing.HeadingFor</h2>
+    <h2>@_editing.HeadingFor(L)</h2>
     <div style="display:flex; flex-direction:column; gap:.6rem; max-width:880px;">
-        <label>Name <input @bind="_editing.Name" style="width:100%; padding:.4rem;" title="Human-readable role name shown to operators." /></label>
-        <label>Key
+        <label>@L["Rbac.Field.Name"] <input @bind="_editing.Name" style="width:100%; padding:.4rem;" title="@L["Rbac.Field.Name.Tip"]" /></label>
+        <label>@L["Rbac.Field.Key"]
             <input @bind="_editing.Key" disabled="@(!_editing.IsNew)" style="width:100%; padding:.4rem;"
-                   title="Stable slug (lowercase, digits, hyphens). Set once at creation; can't change later." />
-            <span style="color:#6b7280; font-size:.8rem;">@(_editing.IsNew ? "lowercase, digits, hyphens" : "key is fixed after creation")</span>
+                   title="@L["Rbac.Field.Key.Tip"]" />
+            <span style="color:#6b7280; font-size:.8rem;">@(_editing.IsNew ? L["Rbac.Field.Key.HintNew"] : L["Rbac.Field.Key.HintFixed"])</span>
         </label>
-        <label>Description <input @bind="_editing.Description" style="width:100%; padding:.4rem;" title="Optional: what this role is for." /></label>
+        <label>@L["Rbac.Field.Description"] <input @bind="_editing.Description" style="width:100%; padding:.4rem;" title="@L["Rbac.Field.Description.Tip"]" /></label>
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:.5rem 0;">Permissions <span style="color:#6b7280; font-size:.85rem;">(@_editing.Selected.Count selected)</span></h3>
-            <span style="font-size:.8rem; color:#6b7280;">Cherry-pick each permission ↓</span>
+            <h3 style="margin:.5rem 0;">@L["Rbac.Permissions"] <span style="color:#6b7280; font-size:.85rem;">@L["Rbac.Permissions.Selected", _editing.Selected.Count]</span></h3>
+            <span style="font-size:.8rem; color:#6b7280;">@L["Rbac.Permissions.Hint"]</span>
         </div>
 
         @foreach (var group in _grouped)
@@ -83,7 +83,7 @@ else
                 <legend style="font-weight:600; text-transform:capitalize;">@group.Key.Replace('_', ' ')</legend>
                 @foreach (var p in group)
                 {
-                    <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.25rem 0; cursor:pointer;">
+                    <label style="display:flex; gap:.5rem; align-items:flex-start; padding:.25rem 0; cursor:pointer;" title="@L["Rbac.Permission.Tip"]">
                         <input type="checkbox" checked="@_editing.Selected.Contains(p.Key)" @onchange="e => Toggle(p.Key, e)" style="margin-top:.2rem;" />
                         <span>
                             <code>@p.Key</code>
@@ -96,8 +96,8 @@ else
         }
 
         <div style="display:flex; gap:.5rem; margin-top:.5rem;">
-            <button @onclick="Save" disabled="@_saving" style="padding:.4rem 1.1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? "Saving…" : "Save role")</button>
-            <button @onclick="() => _editing = null" style="padding:.4rem 1.1rem;">Cancel</button>
+            <button @onclick="Save" disabled="@_saving" title="@L["Rbac.Save.Tip"]" style="padding:.4rem 1.1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? L["Common.Saving"] : L["Rbac.Save"])</button>
+            <button @onclick="() => _editing = null" title="@L["Common.Cancel.Tip"]" style="padding:.4rem 1.1rem;">@L["Common.Cancel"]</button>
         </div>
     </div>
 }
@@ -120,7 +120,7 @@ else
         _error = _status = null;
         if (!Guid.TryParse(_tenantId, out _))
         {
-            _error = "Tenant ID must be a GUID.";
+            _error = L["Rbac.Error.TenantGuid"];
             return;
         }
 
@@ -146,7 +146,7 @@ else
     {
         IsNew = true,
         Mode = "Duplicate",
-        Name = $"{r.Name} (copy)",
+        Name = L["Rbac.CopySuffix", r.Name],
         Key = $"{r.Key}-copy",
         Description = r.Description,
         Selected = new HashSet<string>(r.PermissionKeys),
@@ -166,7 +166,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-            _status = $"Deleted role '{r.Name}'.";
+            _status = L["Rbac.Status.Deleted", r.Name];
         }
         else
         {
@@ -209,11 +209,11 @@ else
                 var savedName = _editing.Name;
                 _editing = null;
                 await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-                _status = $"Role '{savedName}' saved.";
+                _status = L["Rbac.Status.Saved", savedName];
             }
             else
             {
-                _error = $"Save failed: {await response.Content.ReadAsStringAsync()}";
+                _error = L["Rbac.Error.SaveFailed", await response.Content.ReadAsStringAsync()];
             }
         }
         catch (Exception ex)
@@ -226,7 +226,7 @@ else
         }
     }
 
-    private static string RiskLabel(int r) => r switch { 3 => "High", 2 => "Medium", _ => "Low" };
+    private string RiskLabel(int r) => r switch { 3 => L["Rbac.Risk.High"], 2 => L["Rbac.Risk.Medium"], _ => L["Rbac.Risk.Low"] };
 
     private static string RiskStyle(int r) => r switch
     {
@@ -248,6 +248,11 @@ else
         public string Key { get; set; } = string.Empty;
         public string? Description { get; set; }
         public HashSet<string> Selected { get; set; } = [];
-        public string HeadingFor => $"{Mode} role";
+        public string HeadingFor(IStringLocalizer<SharedResource> l) => Mode switch
+        {
+            "Edit" => l["Rbac.Heading.Edit"],
+            "Duplicate" => l["Rbac.Heading.Duplicate"],
+            _ => l["Rbac.Heading.New"],
+        };
     }
 }

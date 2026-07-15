@@ -3,20 +3,37 @@
 @inject NavigationManager Nav
 
 <div style="max-width:320px;margin:6rem auto;font-family:system-ui;">
-    <h1 style="font-size:1.3rem;">Admin sign in</h1>
+    <h1 style="font-size:1.3rem;">@L["Login.Title"]</h1>
     @if (Nav.Uri.Contains("error=3"))
     {
-        <p style="color:#b91c1c;">This account has MFA enabled — enter the 6-digit code from your authenticator app (or a recovery code).</p>
+        <p style="color:#b91c1c;">@L["Login.Error.Mfa"]</p>
     }
     else if (Nav.Uri.Contains("error"))
     {
-        <p style="color:#b91c1c;">Invalid credentials or not an admin account.</p>
+        <p style="color:#b91c1c;">@L["Login.Error.Invalid"]</p>
     }
     <form action="/auth/login" method="post">
         <AntiforgeryToken />
-        <label>Email<input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="Your operator email. The admin console requires the 'admin' role." /></label>
-        <label>Password<input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="Your account password." /></label>
-        <label>Authenticator code<input name="code" inputmode="numeric" autocomplete="one-time-code" style="width:100%;padding:.5rem;margin:.25rem 0;" title="Only needed when MFA is enabled on your account (Security page). Leave empty otherwise. Recovery codes work here too." /></label>
-        <button type="submit" style="width:100%;padding:.6rem;background:#111827;color:#fff;border:0;border-radius:4px;margin-top:.5rem;">Sign in</button>
+        <label>@L["Login.Email"]<input name="email" type="email" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="@L["Login.Email.Tip"]" /></label>
+        <label>@L["Login.Password"]<input name="password" type="password" required style="width:100%;padding:.5rem;margin:.25rem 0;" title="@L["Login.Password.Tip"]" /></label>
+        <label>@L["Login.Code"]<input name="code" inputmode="numeric" autocomplete="one-time-code" style="width:100%;padding:.5rem;margin:.25rem 0;" title="@L["Login.Code.Tip"]" /></label>
+        <button type="submit" title="@L["Login.SignIn.Tip"]" style="width:100%;padding:.6rem;background:#111827;color:#fff;border:0;border-radius:4px;margin-top:.5rem;">@L["Login.SignIn"]</button>
+    </form>
+
+    @* Sign-in uses EmptyLayout (no nav), so it carries its own switcher — an operator has to be able to read
+       the login form in their language before they have a session. *@
+    <form action="/culture/set" method="post" style="margin-top:1.5rem; display:flex; gap:.3rem; align-items:end;">
+        <AntiforgeryToken />
+        <input type="hidden" name="redirectUri" value="/login" />
+        <label for="culture" title="@L["Nav.Language.Tip"]" style="flex:1; font-size:.75rem; color:#6b7280;">
+            @L["Nav.Language"]
+            <select id="culture" name="culture" title="@L["Nav.Language.Tip"]" style="width:100%; padding:.3rem; margin-top:.15rem;">
+                @foreach (var culture in AdminCultures.Supported)
+                {
+                    <option value="@culture.Name" selected="@(culture.Name == System.Globalization.CultureInfo.CurrentUICulture.Name)">@AdminCultures.DisplayName(culture)</option>
+                }
+            </select>
+        </label>
+        <button type="submit" title="@L["Nav.Language.Apply.Tip"]" style="padding:.35rem .6rem;">@L["Nav.Language.Apply"]</button>
     </form>
 </div>

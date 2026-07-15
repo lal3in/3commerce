@@ -3,12 +3,12 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 @inject GatewayClient Gateway
 
-<h1>Ledger</h1>
-@if (_entries is null) { <p>Loading…</p> }
+<h1>@L["Ledger.Title"]</h1>
+@if (_entries is null) { <p>@L["Common.Loading"]</p> }
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">Description</th><th>Reference</th><th>Lines</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Lines"]</th></tr></thead>
         <tbody>
         @foreach (var e in _entries)
         {

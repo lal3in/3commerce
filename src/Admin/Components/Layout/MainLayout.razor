@@ -1,30 +1,65 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+@* The layout renders statically (only each page's own subtree is an interactive circuit), so the language
+   switcher is a plain form POST — which is exactly what it has to be: a SignalR circuit cannot write a
+   response cookie. /culture/set writes the culture cookie and redirects back to the page you were on. *@
 <div style="display:flex; min-height:100vh;">
     <nav style="width:200px; background:#111827; color:#fff; padding:1rem;">
-        <h2 style="font-size:1.1rem;">3commerce admin</h2>
+        <h2 style="font-size:1.1rem;">@L["App.Title"]</h2>
         <ul style="list-style:none; padding:0; line-height:2;">
-            <li><NavLink href="/" Match="NavLinkMatch.All" style="color:#cbd5e1;">Dashboard</NavLink></li>
-            <li><NavLink href="/catalog" style="color:#cbd5e1;">Catalog</NavLink></li>
-            <li><NavLink href="/offers" style="color:#cbd5e1;">Offers &amp; pricing</NavLink></li>
-            <li><NavLink href="/orders" style="color:#cbd5e1;">Orders</NavLink></li>
-            <li><NavLink href="/rmas" style="color:#cbd5e1;">RMA queue</NavLink></li>
-            <li><NavLink href="/ledger" style="color:#cbd5e1;">Ledger</NavLink></li>
-            <li><NavLink href="/xero" style="color:#cbd5e1;">Xero sync</NavLink></li>
-            <li><NavLink href="/xero-mappings" style="color:#cbd5e1;">Xero mappings</NavLink></li>
-            <li><NavLink href="/imports" style="color:#cbd5e1;">Imports</NavLink></li>
-            <li><NavLink href="/rbac" style="color:#cbd5e1;">Roles &amp; permissions</NavLink></li>
-            <li><NavLink href="/users" style="color:#cbd5e1;">Operator users</NavLink></li>
-            <li><NavLink href="/entities" style="color:#cbd5e1;">Entities &amp; suppliers</NavLink></li>
-            <li><NavLink href="/commerce-ops" style="color:#cbd5e1;">Commerce ops</NavLink></li>
-            <li><NavLink href="/payment-accounts" style="color:#cbd5e1;">Payment accounts</NavLink></li>
-            <li><NavLink href="/supplier-payouts" style="color:#cbd5e1;">Supplier payouts</NavLink></li>
-            <li><NavLink href="/mission-control" style="color:#cbd5e1;">Mission control</NavLink></li>
-            <li><NavLink href="/security" style="color:#cbd5e1;">Security</NavLink></li>
+            <li><NavLink href="/" Match="NavLinkMatch.All" style="color:#cbd5e1;" title="@L["Nav.Dashboard.Tip"]">@L["Nav.Dashboard"]</NavLink></li>
+            <li><NavLink href="/catalog" style="color:#cbd5e1;" title="@L["Nav.Catalog.Tip"]">@L["Nav.Catalog"]</NavLink></li>
+            <li><NavLink href="/offers" style="color:#cbd5e1;" title="@L["Nav.Offers.Tip"]">@L["Nav.Offers"]</NavLink></li>
+            <li><NavLink href="/orders" style="color:#cbd5e1;" title="@L["Nav.Orders.Tip"]">@L["Nav.Orders"]</NavLink></li>
+            <li><NavLink href="/rmas" style="color:#cbd5e1;" title="@L["Nav.Rmas.Tip"]">@L["Nav.Rmas"]</NavLink></li>
+            <li><NavLink href="/ledger" style="color:#cbd5e1;" title="@L["Nav.Ledger.Tip"]">@L["Nav.Ledger"]</NavLink></li>
+            <li><NavLink href="/xero" style="color:#cbd5e1;" title="@L["Nav.XeroSync.Tip"]">@L["Nav.XeroSync"]</NavLink></li>
+            <li><NavLink href="/xero-mappings" style="color:#cbd5e1;" title="@L["Nav.XeroMappings.Tip"]">@L["Nav.XeroMappings"]</NavLink></li>
+            <li><NavLink href="/imports" style="color:#cbd5e1;" title="@L["Nav.Imports.Tip"]">@L["Nav.Imports"]</NavLink></li>
+            <li><NavLink href="/rbac" style="color:#cbd5e1;" title="@L["Nav.Rbac.Tip"]">@L["Nav.Rbac"]</NavLink></li>
+            <li><NavLink href="/users" style="color:#cbd5e1;" title="@L["Nav.Users.Tip"]">@L["Nav.Users"]</NavLink></li>
+            <li><NavLink href="/entities" style="color:#cbd5e1;" title="@L["Nav.Entities.Tip"]">@L["Nav.Entities"]</NavLink></li>
+            <li><NavLink href="/commerce-ops" style="color:#cbd5e1;" title="@L["Nav.CommerceOps.Tip"]">@L["Nav.CommerceOps"]</NavLink></li>
+            <li><NavLink href="/payment-accounts" style="color:#cbd5e1;" title="@L["Nav.PaymentAccounts.Tip"]">@L["Nav.PaymentAccounts"]</NavLink></li>
+            <li><NavLink href="/supplier-payouts" style="color:#cbd5e1;" title="@L["Nav.SupplierPayouts.Tip"]">@L["Nav.SupplierPayouts"]</NavLink></li>
+            <li><NavLink href="/mission-control" style="color:#cbd5e1;" title="@L["Nav.MissionControl.Tip"]">@L["Nav.MissionControl"]</NavLink></li>
+            <li><NavLink href="/security" style="color:#cbd5e1;" title="@L["Nav.Security.Tip"]">@L["Nav.Security"]</NavLink></li>
         </ul>
-        <form action="/auth/logout" method="post" style="margin-top:2rem;">
+
+        <form action="/culture/set" method="post" style="margin-top:2rem;">
             <AntiforgeryToken />
-            <button type="submit" style="background:#374151;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">Log out</button>
+            <input type="hidden" name="redirectUri" value="@CurrentPath" />
+            <label for="culture" title="@L["Nav.Language.Tip"]" style="display:block; font-size:.72rem; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em;">@L["Nav.Language"]</label>
+            <div style="display:flex; gap:.3rem; margin-top:.25rem;">
+                <select id="culture" name="culture" title="@L["Nav.Language.Tip"]" style="flex:1; min-width:0; padding:.25rem; background:#1f2937; color:#fff; border:1px solid #374151; border-radius:4px;">
+                    @foreach (var culture in AdminCultures.Supported)
+                    {
+                        <option value="@culture.Name" selected="@(culture.Name == CurrentCulture)">@AdminCultures.DisplayName(culture)</option>
+                    }
+                </select>
+                <button type="submit" title="@L["Nav.Language.Apply.Tip"]" style="background:#374151; color:#fff; border:0; padding:.25rem .55rem; border-radius:4px;">@L["Nav.Language.Apply"]</button>
+            </div>
+        </form>
+
+        <form action="/auth/logout" method="post" style="margin-top:1rem;">
+            <AntiforgeryToken />
+            <button type="submit" title="@L["Nav.Logout.Tip"]" style="background:#374151;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">@L["Nav.Logout"]</button>
         </form>
     </nav>
     <main style="flex:1; padding:2rem; background:#f9fafb;">@Body</main>
 </div>
+
+@code {
+    private static string CurrentCulture => System.Globalization.CultureInfo.CurrentUICulture.Name;
+
+    // Come back to the page the operator was on, not to the dashboard.
+    private string CurrentPath
+    {
+        get
+        {
+            var relative = Nav.ToBaseRelativePath(Nav.Uri);
+            return string.IsNullOrEmpty(relative) ? "/" : "/" + relative;
+        }
+    }
+}

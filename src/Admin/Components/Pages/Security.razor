@@ -3,50 +3,50 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Security</h1>
-<p style="color:#6b7280;">Two-factor authentication for your operator account, and this tenant's MFA policy.</p>
+<h1>@L["Sec.Title"]</h1>
+<p style="color:#6b7280;">@L["Sec.Intro"]</p>
 
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
 @if (_status is not null) { <p style="color:#047857;">@_status</p> }
 
 <section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;">
-    <h2 style="margin-top:0;font-size:1.05rem;">Your second factor (TOTP)</h2>
+    <h2 style="margin-top:0;font-size:1.05rem;">@L["Sec.Totp"]</h2>
     @if (_mfa is null)
     {
-        <p>Loading…</p>
+        <p>@L["Common.Loading"]</p>
     }
     else if (_mfa.Enrolled)
     {
-        <p>✅ MFA is <strong>enabled</strong> on this account. Every sign-in asks for an authenticator code (recovery codes work too).</p>
+        <p>@((MarkupString)L["Sec.Enabled"].Value)</p>
     }
     else
     {
         @if (_mfa.Required)
         {
-            <p style="color:#b45309;">⚠️ The effective MFA policy <strong>requires</strong> a second factor for this account — enroll now.</p>
+            <p style="color:#b45309;">@((MarkupString)L["Sec.Required"].Value)</p>
         }
         @if (_enrollStart is null)
         {
             <button @onclick="BeginEnroll" disabled="@_busy" style="padding:.4rem .8rem;"
-                    title="Generates a TOTP secret. Add it to an authenticator app (manual entry), then confirm with a code.">
-                Enable MFA
+                    title="@L["Sec.EnableMfa.Tip"]">
+                @L["Sec.EnableMfa"]
             </button>
         }
         else
         {
-            <p>Add this secret to your authenticator app (manual entry / time-based):</p>
+            <p>@L["Sec.SecretPrompt"]</p>
             <p><code style="background:#f3f4f6;padding:.3rem .5rem;border-radius:4px;word-break:break-all;">@_enrollStart.SecretBase32</code></p>
-            <p style="color:#6b7280;font-size:.85rem;word-break:break-all;">or use the URI: <code>@_enrollStart.OtpauthUri</code></p>
-            <label>Code from the app
+            <p style="color:#6b7280;font-size:.85rem;word-break:break-all;">@L["Sec.SecretUri"] <code>@_enrollStart.OtpauthUri</code></p>
+            <label>@L["Sec.Code"]
                 <input @bind="_confirmCode" inputmode="numeric" autocomplete="one-time-code" style="width:10rem;padding:.4rem;margin-left:.5rem;"
-                       title="The current 6-digit code shown by your authenticator — proves the secret was captured." />
+                       title="@L["Sec.Code.Tip"]" />
             </label>
-            <button @onclick="ConfirmEnroll" disabled="@_busy" style="padding:.4rem .8rem;margin-left:.5rem;">Confirm</button>
+            <button @onclick="ConfirmEnroll" disabled="@_busy" title="@L["Sec.Confirm.Tip"]" style="padding:.4rem .8rem;margin-left:.5rem;">@L["Sec.Confirm"]</button>
         }
         @if (_recoveryCodes is not null)
         {
             <div style="background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:.8rem;margin-top:.8rem;">
-                <strong>Recovery codes — store them now, they are not shown again:</strong>
+                <strong>@L["Sec.RecoveryCodes"]</strong>
                 <ul style="margin:.5rem 0 0;">
                     @foreach (var recoveryCode in _recoveryCodes) { <li><code>@recoveryCode</code></li> }
                 </ul>
@@ -56,42 +56,39 @@
 </section>
 
 <section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;margin-top:1rem;">
-    <h2 style="margin-top:0;font-size:1.05rem;">Tenant MFA policy</h2>
+    <h2 style="margin-top:0;font-size:1.05rem;">@L["Sec.Policy"]</h2>
     @if (_policy is null)
     {
-        <p>Loading…</p>
+        <p>@L["Common.Loading"]</p>
     }
     else
     {
         <p style="color:#6b7280;font-size:.9rem;">
-            Platform minimum: <strong>@Describe(_policy.PlatformMinimum)</strong> · Effective: <strong>@Describe(_policy.Effective)</strong>.
-            A tenant policy can only strengthen the platform floor. Note: users are only challenged once enrolled —
-            "required" prompts unenrolled users to enroll, it never locks them out.
+            @((MarkupString)L["Sec.Policy.Summary", Describe(_policy.PlatformMinimum), Describe(_policy.Effective)].Value)
         </p>
-        <select @bind="_selectedPolicy" title="How strongly MFA is required for this tenant's users. 'Privileged' targets admin accounts.">
-            <option value="0">Disabled — no one is prompted</option>
-            <option value="1">Optional — enrolled users are challenged</option>
-            <option value="2">Required for privileged (admin) accounts</option>
-            <option value="3">Required for all users</option>
+        <select @bind="_selectedPolicy" title="@L["Sec.Policy.Tip"]">
+            <option value="0">@L["Sec.Policy.Option.Disabled"]</option>
+            <option value="1">@L["Sec.Policy.Option.Optional"]</option>
+            <option value="2">@L["Sec.Policy.Option.Privileged"]</option>
+            <option value="3">@L["Sec.Policy.Option.All"]</option>
         </select>
-        <button @onclick="SavePolicy" disabled="@_busy" style="padding:.4rem .8rem;margin-left:.5rem;">Save policy</button>
+        <button @onclick="SavePolicy" disabled="@_busy" title="@L["Sec.Policy.Save.Tip"]" style="padding:.4rem .8rem;margin-left:.5rem;">@L["Sec.Policy.Save"]</button>
     }
 </section>
 
 <section style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;max-width:640px;margin-top:1rem;">
-    <h2 style="margin-top:0;font-size:1.05rem;">Webhook signing secrets</h2>
+    <h2 style="margin-top:0;font-size:1.05rem;">@L["Sec.Webhooks"]</h2>
     <p style="color:#6b7280;font-size:.9rem;">
-        Provider webhook secrets (e.g. Stripe's <code>whsec_…</code>). Values are stored server-side and only ever
-        shown masked. To rotate: add the new secret (both verify), switch the provider, then deactivate the old one.
+        @((MarkupString)L["Sec.Webhooks.Intro"].Value)
     </p>
     @if (_secrets is null)
     {
-        <p>Loading…</p>
+        <p>@L["Common.Loading"]</p>
     }
     else
     {
         <table style="border-collapse:collapse;width:100%;font-size:.9rem;">
-            <thead><tr style="text-align:left;color:#6b7280;"><th>Provider</th><th>Secret</th><th>Label</th><th>Status</th><th></th></tr></thead>
+            <thead><tr style="text-align:left;color:#6b7280;"><th>@L["Sec.Col.Provider"]</th><th>@L["Sec.Col.Secret"]</th><th>@L["Sec.Col.Label"]</th><th>@L["Common.Status"]</th><th></th></tr></thead>
             <tbody>
             @foreach (var s in _secrets)
             {
@@ -99,13 +96,13 @@
                     <td>@s.Provider</td>
                     <td><code>@s.Masked</code></td>
                     <td>@s.Label</td>
-                    <td>@(s.Active ? "active" : "deactivated")</td>
+                    <td>@(s.Active ? L["Sec.Secret.Active"] : L["Sec.Secret.Deactivated"])</td>
                     <td>
                         @if (s.Active)
                         {
                             <button @onclick="() => DeactivateSecret(s.Id)" disabled="@_busy" style="padding:.2rem .5rem;"
-                                    title="Stop accepting webhooks signed with this secret. Do this only after the provider has cut over to a newer one.">
-                                Deactivate
+                                    title="@L["Sec.Deactivate.Tip"]">
+                                @L["Sec.Deactivate"]
                             </button>
                         }
                     </td>
@@ -114,14 +111,14 @@
             </tbody>
         </table>
         <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
-            <select @bind="_newSecretProvider" title="The provider whose webhook this secret signs — matches the /webhooks/{provider} route.">
+            <select @bind="_newSecretProvider" title="@L["Sec.NewSecret.Provider.Tip"]">
                 <option value="stripe">stripe</option>
             </select>
-            <input @bind="_newSecretValue" placeholder="whsec_…" style="flex:1;min-width:12rem;padding:.4rem;"
-                   title="Paste the signing secret from the provider dashboard. It is never displayed again." />
-            <input @bind="_newSecretLabel" placeholder="label (optional)" style="width:10rem;padding:.4rem;"
-                   title="Operator note, e.g. 'live key 2026-07'." />
-            <button @onclick="AddSecret" disabled="@_busy" style="padding:.4rem .8rem;">Add secret</button>
+            <input @bind="_newSecretValue" placeholder="@L["Sec.NewSecret.Value"]" style="flex:1;min-width:12rem;padding:.4rem;"
+                   title="@L["Sec.NewSecret.Value.Tip"]" />
+            <input @bind="_newSecretLabel" placeholder="@L["Sec.NewSecret.Label"]" style="width:10rem;padding:.4rem;"
+                   title="@L["Sec.NewSecret.Label.Tip"]" />
+            <button @onclick="AddSecret" disabled="@_busy" title="@L["Sec.AddSecret.Tip"]" style="padding:.4rem .8rem;">@L["Sec.AddSecret"]</button>
         </div>
     }
 </section>
@@ -158,13 +155,13 @@
             new { provider = _newSecretProvider, secret = _newSecretValue, label = _newSecretLabel });
         if (response.IsSuccessStatusCode)
         {
-            _status = "Secret registered.";
+            _status = L["Sec.Status.SecretAdded"];
             _newSecretValue = ""; _newSecretLabel = "";
             _secrets = await Gateway.GetListAsync<WebhookSecretDto>("/api/payments/admin/webhook-secrets");
         }
         else
         {
-            _error = "Could not register the secret.";
+            _error = L["Sec.Error.SecretAdd"];
         }
 
         _busy = false;
@@ -176,12 +173,12 @@
         var response = await Gateway.PostAsync($"/api/payments/admin/webhook-secrets/{id}/deactivate");
         if (response.IsSuccessStatusCode)
         {
-            _status = "Secret deactivated.";
+            _status = L["Sec.Status.SecretDeactivated"];
             _secrets = await Gateway.GetListAsync<WebhookSecretDto>("/api/payments/admin/webhook-secrets");
         }
         else
         {
-            _error = "Could not deactivate the secret.";
+            _error = L["Sec.Error.SecretDeactivate"];
         }
 
         _busy = false;
@@ -194,7 +191,7 @@
         _enrollStart = response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<EnrollStartDto>()
             : null;
-        if (_enrollStart is null) { _error = "Could not start enrollment."; }
+        if (_enrollStart is null) { _error = L["Sec.Error.EnrollStart"]; }
         _busy = false;
     }
 
@@ -206,13 +203,13 @@
         {
             var body = await response.Content.ReadFromJsonAsync<RecoveryCodesDto>();
             _recoveryCodes = body?.RecoveryCodes ?? [];
-            _status = "MFA enabled. Your next sign-in will ask for a code.";
+            _status = L["Sec.Status.MfaEnabled"];
             _enrollStart = null;
             _mfa = await Gateway.GetAsync<MfaStatusDto>("/api/identity/mfa/status");
         }
         else
         {
-            _error = "Code not accepted — check the authenticator and try again.";
+            _error = L["Sec.Error.CodeRejected"];
         }
 
         _busy = false;
@@ -225,22 +222,22 @@
         if (response.IsSuccessStatusCode)
         {
             _policy = await response.Content.ReadFromJsonAsync<MfaPolicyDto>();
-            _status = "Policy saved.";
+            _status = L["Sec.Status.PolicySaved"];
         }
         else
         {
-            _error = "Could not save the policy.";
+            _error = L["Sec.Error.PolicySave"];
         }
 
         _busy = false;
     }
 
-    private static string Describe(int value) => value switch
+    private string Describe(int value) => value switch
     {
-        1 => "Optional",
-        2 => "Required for privileged",
-        3 => "Required for all",
-        _ => "Disabled",
+        1 => L["Sec.Policy.Name.Optional"],
+        2 => L["Sec.Policy.Name.Privileged"],
+        3 => L["Sec.Policy.Name.All"],
+        _ => L["Sec.Policy.Name.Disabled"],
     };
 
     private sealed record MfaStatusDto(bool Enrolled, bool Pending, bool Required);

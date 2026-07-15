@@ -5,16 +5,16 @@
 @using System.Net.Http.Json
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
-    <h1 style="margin:0;">Operator users</h1>
-    <span style="color:#6b7280; font-size:.85rem;">master admin · reset passwords &amp; change emails</span>
+    <h1 style="margin:0;">@L["Users.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Users.Subtitle"]</span>
 </div>
-<p style="color:#6b7280;">Manage the accounts that sign in to a tenant. Resetting issues a one-time temporary password to read out; changing an email forces re-verification.</p>
+<p style="color:#6b7280;">@L["Users.Intro"]</p>
 
 <div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
-    <label>Tenant ID
-        <input @bind="_tenantId" title="The tenant whose users you are managing." style="width:23rem; display:block;" />
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Users.TenantId.Tip"]" style="width:23rem; display:block;" />
     </label>
-    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load users</button>
+    <button @onclick="LoadAsync" title="@L["Users.Load.Tip"]" style="padding:.45rem .8rem;">@L["Users.Load"]</button>
 </div>
 
 @if (_error is not null)
@@ -31,7 +31,7 @@
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
             <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
-                <th style="padding:.4rem;">Email</th><th>Role</th><th>Verified</th><th>Created</th><th>Actions</th>
+                <th style="padding:.4rem;">@L["Users.Col.Email"]</th><th>@L["Users.Col.Role"]</th><th>@L["Users.Col.Verified"]</th><th>@L["Users.Col.Created"]</th><th>@L["Common.Actions"]</th>
             </tr>
         </thead>
         <tbody>
@@ -43,20 +43,20 @@
                 <td style="text-align:center;">@(u.EmailVerified ? "✓" : "—")</td>
                 <td>@u.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
                 <td>
-                    <button @onclick="() => ResetPassword(u.Id)" title="Issue a one-time temporary password." style="margin-right:.4rem;">Reset password</button>
-                    <button @onclick="() => ToggleEmail(u.Id)" title="Change this user's sign-in email.">Change email</button>
+                    <button @onclick="() => ResetPassword(u.Id)" title="@L["Users.Reset.Tip"]" style="margin-right:.4rem;">@L["Users.Reset"]</button>
+                    <button @onclick="() => ToggleEmail(u.Id)" title="@L["Users.ChangeEmail.Tip"]">@L["Users.ChangeEmail"]</button>
                     @if (_resetFor == u.Id && _tempPassword is not null)
                     {
                         <div style="margin-top:.4rem; padding:.4rem .6rem; background:#fef9c3; border:1px solid #fde047; border-radius:6px;">
-                            Temporary password (read out once): <code style="user-select:all; font-weight:700;">@_tempPassword</code>
+                            @L["Users.TempPassword"] <code style="user-select:all; font-weight:700;">@_tempPassword</code>
                         </div>
                     }
                     @if (_emailFor == u.Id)
                     {
                         <div style="margin-top:.4rem; display:flex; gap:.4rem; align-items:center;">
-                            <input @bind="_newEmail" placeholder="new@email.com" title="The new sign-in email (must be unique in the tenant)." />
-                            <button @onclick="() => ChangeEmail(u.Id)">Save</button>
-                            <button @onclick="() => _emailFor = null">Cancel</button>
+                            <input @bind="_newEmail" placeholder="@L["Users.NewEmail"]" title="@L["Users.NewEmail.Tip"]" />
+                            <button @onclick="() => ChangeEmail(u.Id)" title="@L["Users.SaveEmail.Tip"]">@L["Common.Save"]</button>
+                            <button @onclick="() => _emailFor = null" title="@L["Users.CancelEmail.Tip"]">@L["Common.Cancel"]</button>
                         </div>
                     }
                 </td>
@@ -66,7 +66,7 @@
     </table>
     @if (_users.Count == 0)
     {
-        <p style="color:#9ca3af;">No users in this tenant yet.</p>
+        <p style="color:#9ca3af;">@L["Users.Empty"]</p>
     }
 }
 
@@ -102,7 +102,7 @@
             _resetFor = id;
             _tempPassword = body?.TemporaryPassword;
         }
-        else { _error = $"Reset failed ({(int)response.StatusCode})."; }
+        else { _error = L["Users.Error.ResetFailed", (int)response.StatusCode]; }
     }
 
     private void ToggleEmail(Guid id)
@@ -120,7 +120,7 @@
         {
             _emailFor = null;
             await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-            _status = "Email changed — the user must re-verify.";
+            _status = L["Users.Status.EmailChanged"];
         }
         else
         {

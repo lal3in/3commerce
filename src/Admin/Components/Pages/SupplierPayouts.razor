@@ -5,20 +5,20 @@
 @using System.Net.Http.Json
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
-    <h1 style="margin:0;">Supplier payouts</h1>
-    <span style="color:#6b7280; font-size:.85rem;">masked bank accounts · payout instructions</span>
+    <h1 style="margin:0;">@L["Payouts.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Payouts.Subtitle"]</span>
 </div>
-<p style="color:#6b7280;">Create tokenized supplier bank accounts from your vault reference, approve or reject them, and create the active payout instruction for a supplier. Raw bank details must never be entered here.</p>
+<p style="color:#6b7280;">@L["Payouts.Intro"]</p>
 
 <div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0; flex-wrap:wrap;">
-    <label>Tenant ID
-        <input @bind="_tenantId" title="The tenant whose supplier payout setup you are managing." style="width:23rem; display:block;" />
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Payouts.TenantId.Tip"]" style="width:23rem; display:block;" />
     </label>
     @if (_suppliers.Count > 0)
     {
-        <label>Supplier
-            <select @bind="_supplierEntityId" title="Active suppliers for this tenant; filters the lists and is used by the new bank account form." style="width:23rem; display:block;">
-                <option value="">All suppliers</option>
+        <label>@L["Payouts.Supplier"]
+            <select @bind="_supplierEntityId" title="@L["Payouts.Supplier.Tip"]" style="width:23rem; display:block;">
+                <option value="">@L["Payouts.Supplier.All"]</option>
                 @foreach (var s in _suppliers)
                 {
                     <option value="@s.Id">@s.DisplayName — @Short(s.Id)</option>
@@ -28,11 +28,11 @@
     }
     else
     {
-        <label>Supplier entity ID
-            <input @bind="_supplierEntityId" title="No active suppliers were found for this tenant — enter a supplier entity GUID manually." style="width:23rem; display:block;" />
+        <label>@L["Payouts.SupplierId"]
+            <input @bind="_supplierEntityId" title="@L["Payouts.SupplierId.Tip"]" style="width:23rem; display:block;" />
         </label>
     }
-    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
 </div>
 
 @if (_error is not null)
@@ -47,11 +47,11 @@
 @if (_bankAccounts is not null && _instructions is not null)
 {
     <section style="margin-top:1rem;">
-        <h2 style="font-size:1.1rem;">Bank accounts</h2>
+        <h2 style="font-size:1.1rem;">@L["Payouts.BankAccounts"]</h2>
         <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
             <thead>
                 <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
-                    <th style="padding:.4rem;">Account name</th><th>Country</th><th>Routing</th><th>Account</th><th>State</th><th>Reason</th><th>Actions</th>
+                    <th style="padding:.4rem;">@L["Payouts.Col.AccountName"]</th><th>@L["Payouts.Col.Country"]</th><th>@L["Payouts.Col.Routing"]</th><th>@L["Payouts.Col.Account"]</th><th>@L["Payouts.Col.State"]</th><th>@L["Common.Reason"]</th><th>@L["Common.Actions"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -67,13 +67,13 @@
                     <td style="white-space:nowrap;">
                         @if (account.State == "PendingApproval")
                         {
-                            <button @onclick='() => Decide(account.Id, "approve")' title="Approve this tokenized bank account.">Approve</button>
-                            <button @onclick='() => Decide(account.Id, "reject")' title="Reject this bank account." style="color:#b91c1c;">Reject</button>
+                            <button @onclick='() => Decide(account.Id, "approve")' title="@L["Payouts.Approve.Tip"]">@L["Payouts.Approve"]</button>
+                            <button @onclick='() => Decide(account.Id, "reject")' title="@L["Payouts.Reject.Tip"]" style="color:#b91c1c;">@L["Payouts.Reject"]</button>
                         }
                         @if (account.State != "Archived")
                         {
-                            <button @onclick="() => StartEditBank(account)" title="Edit masked details — changing the banking identity resets approval to pending.">Edit</button>
-                            <button @onclick='() => Archive(account.Id)' title="Archive this bank account." style="color:#b91c1c;">Archive</button>
+                            <button @onclick="() => StartEditBank(account)" title="@L["Payouts.EditBank.Tip"]">@L["Common.Edit"]</button>
+                            <button @onclick='() => Archive(account.Id)' title="@L["Payouts.Archive.Tip"]" style="color:#b91c1c;">@L["Payouts.Archive"]</button>
                         }
                     </td>
                 </tr>
@@ -82,23 +82,23 @@
         </table>
         @if (_bankAccounts.Count == 0)
         {
-            <p style="color:#9ca3af;">No supplier bank accounts found.</p>
+            <p style="color:#9ca3af;">@L["Payouts.NoBankAccounts"]</p>
         }
 
         @if (_editBank is not null)
         {
             <div style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin-top:1rem; max-width:560px; background:#fff;">
-                <h3 style="margin-top:0; font-size:1rem;">Edit bank account</h3>
-                <p style="color:#6b7280; font-size:.82rem; margin:.2rem 0 .6rem;">Masked display values and the vault token only — never raw bank details. Changing country, masked numbers or the token resets an approved account to pending approval.</p>
+                <h3 style="margin-top:0; font-size:1rem;">@L["Payouts.EditBank"]</h3>
+                <p style="color:#6b7280; font-size:.82rem; margin:.2rem 0 .6rem;">@L["Payouts.EditBank.Note"]</p>
                 <div style="display:flex; flex-direction:column; gap:.5rem;">
-                    <label>Account name <input @bind="_editBank.AccountName" title="Masked display account holder/name from the vault/KYC system." style="width:100%;" /></label>
-                    <label>Bank country <input @bind="_editBank.BankCountry" maxlength="2" title="ISO 3166-1 alpha-2 country code, e.g. AU." style="width:100%;" /></label>
-                    <label>Routing masked <input @bind="_editBank.RoutingNumberMasked" title="Masked BSB/routing display value only." style="width:100%;" /></label>
-                    <label>Account masked <input @bind="_editBank.AccountNumberMasked" title="Masked account display value only." style="width:100%;" /></label>
-                    <label>Vault token ref <input @bind="_editBank.AccountTokenRef" title="Reference to the vaulted/tokenized account. Do not paste raw bank details." style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.AccountName"] <input @bind="_editBank.AccountName" title="@L["Payouts.Field.AccountName.Tip"]" style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.BankCountry"] <input @bind="_editBank.BankCountry" maxlength="2" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.RoutingMasked"] <input @bind="_editBank.RoutingNumberMasked" title="@L["Payouts.Field.RoutingMasked.Tip"]" style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.AccountMasked"] <input @bind="_editBank.AccountNumberMasked" title="@L["Payouts.Field.AccountMasked.Tip"]" style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.TokenRef"] <input @bind="_editBank.AccountTokenRef" title="@L["Payouts.Field.TokenRef.Tip"]" style="width:100%;" /></label>
                     <div style="display:flex; gap:.5rem;">
-                        <button @onclick="SaveBankEdit" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save</button>
-                        <button @onclick="() => _editBank = null" style="padding:.45rem .9rem;">Cancel</button>
+                        <button @onclick="SaveBankEdit" title="@L["Common.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Save"]</button>
+                        <button @onclick="() => _editBank = null" title="@L["Common.Cancel.Tip"]" style="padding:.45rem .9rem;">@L["Common.Cancel"]</button>
                     </div>
                 </div>
             </div>
@@ -107,83 +107,83 @@
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:1rem; margin-top:1.5rem;">
         <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; background:#fff;">
-            <h2 style="margin-top:0; font-size:1.1rem;">New bank account</h2>
+            <h2 style="margin-top:0; font-size:1.1rem;">@L["Payouts.NewBank"]</h2>
             <div style="display:flex; flex-direction:column; gap:.5rem;">
-                <label>Account name <input @bind="_newBank.AccountName" title="Masked display account holder/name from the vault/KYC system." style="width:100%;" /></label>
-                <label>Bank country <input @bind="_newBank.BankCountry" maxlength="2" title="ISO 3166-1 alpha-2 country code, e.g. AU." style="width:100%;" /></label>
-                <label>Routing masked <input @bind="_newBank.RoutingNumberMasked" title="Masked BSB/routing display value only." style="width:100%;" /></label>
-                <label>Account masked <input @bind="_newBank.AccountNumberMasked" title="Masked account display value only." style="width:100%;" /></label>
-                <label>Vault token ref <input @bind="_newBank.AccountTokenRef" title="Reference to the vaulted/tokenized account. Do not paste raw bank details." style="width:100%;" /></label>
-                <button @onclick="CreateBank" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create (Pending approval)</button>
+                <label>@L["Payouts.Field.AccountName"] <input @bind="_newBank.AccountName" title="@L["Payouts.Field.AccountName.Tip"]" style="width:100%;" /></label>
+                <label>@L["Payouts.Field.BankCountry"] <input @bind="_newBank.BankCountry" maxlength="2" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
+                <label>@L["Payouts.Field.RoutingMasked"] <input @bind="_newBank.RoutingNumberMasked" title="@L["Payouts.Field.RoutingMasked.Tip"]" style="width:100%;" /></label>
+                <label>@L["Payouts.Field.AccountMasked"] <input @bind="_newBank.AccountNumberMasked" title="@L["Payouts.Field.AccountMasked.Tip"]" style="width:100%;" /></label>
+                <label>@L["Payouts.Field.TokenRef"] <input @bind="_newBank.AccountTokenRef" title="@L["Payouts.Field.TokenRef.Tip"]" style="width:100%;" /></label>
+                <button @onclick="CreateBank" title="@L["Payouts.CreateBank.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Payouts.CreateBank"]</button>
             </div>
         </section>
 
         <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; background:#fff;">
-            <h2 style="margin-top:0; font-size:1.1rem;">Payout instructions</h2>
+            <h2 style="margin-top:0; font-size:1.1rem;">@L["Payouts.Instructions"]</h2>
             <ul style="padding-left:1rem;">
                 @foreach (var instruction in _instructions)
                 {
                     <li style="margin:.35rem 0;">
-                        <strong>@instruction.Cadence</strong> · bank <code>@Short(instruction.BankAccountId)</code> · @(instruction.Active ? "Active" : "Inactive")
-                        <button @onclick="() => StartEditInstruction(instruction)" title="Change this instruction's cadence or route it to another approved bank account." style="margin-left:.5rem;">Edit</button>
+                        <strong>@CadenceLabel(instruction.Cadence)</strong> · @L["Payouts.Instruction.Bank"] <code>@Short(instruction.BankAccountId)</code> · @(instruction.Active ? L["Common.Active"] : L["Common.Inactive"])
+                        <button @onclick="() => StartEditInstruction(instruction)" title="@L["Payouts.Instruction.Edit.Tip"]" style="margin-left:.5rem;">@L["Common.Edit"]</button>
                         @if (instruction.Active)
                         {
-                            <button @onclick='() => DeactivateInstruction(instruction.Id)' title="Deactivate this instruction." style="margin-left:.3rem;">Deactivate</button>
+                            <button @onclick='() => DeactivateInstruction(instruction.Id)' title="@L["Payouts.Instruction.Deactivate.Tip"]" style="margin-left:.3rem;">@L["Payouts.Instruction.Deactivate"]</button>
                         }
                     </li>
                 }
             </ul>
             @if (_instructions.Count == 0)
             {
-                <p style="color:#9ca3af;">No payout instructions found.</p>
+                <p style="color:#9ca3af;">@L["Payouts.NoInstructions"]</p>
             }
             @if (_editInstruction is not null)
             {
                 <div style="border:1px solid #e5e7eb; border-radius:8px; padding:.8rem; margin-top:.6rem;">
-                    <h3 style="margin-top:0; font-size:1rem;">Edit instruction @Short(_editInstruction.Id)</h3>
+                    <h3 style="margin-top:0; font-size:1rem;">@L["Payouts.EditInstruction", Short(_editInstruction.Id)]</h3>
                     <div style="display:flex; flex-direction:column; gap:.5rem;">
-                        <label>Bank account
-                            <select @bind="_editInstruction.BankAccountId" title="Only Active bank accounts for the same supplier can receive payouts." style="width:100%;">
+                        <label>@L["Payouts.Field.BankAccount"]
+                            <select @bind="_editInstruction.BankAccountId" title="@L["Payouts.Field.BankAccount.Tip"]" style="width:100%;">
                                 @foreach (var account in _bankAccounts.Where(a => a.State == "Active" && a.SupplierEntityId == _editInstruction.SupplierEntityId))
                                 {
                                     <option value="@account.Id">@account.AccountName — @account.AccountNumberMasked</option>
                                 }
                             </select>
                         </label>
-                        <label>Cadence
-                            <select @bind="_editInstruction.Cadence" title="How often this supplier is paid." style="width:100%;">
-                                <option value="1">Manual</option>
-                                <option value="2">Weekly</option>
-                                <option value="3">Fortnightly</option>
-                                <option value="4">Monthly</option>
+                        <label>@L["Payouts.Field.Cadence"]
+                            <select @bind="_editInstruction.Cadence" title="@L["Payouts.Field.Cadence.Tip"]" style="width:100%;">
+                                <option value="1">@L["Payouts.Cadence.Manual"]</option>
+                                <option value="2">@L["Payouts.Cadence.Weekly"]</option>
+                                <option value="3">@L["Payouts.Cadence.Fortnightly"]</option>
+                                <option value="4">@L["Payouts.Cadence.Monthly"]</option>
                             </select>
                         </label>
                         <div style="display:flex; gap:.5rem;">
-                            <button @onclick="SaveInstructionEdit" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save</button>
-                            <button @onclick="() => _editInstruction = null" style="padding:.45rem .9rem;">Cancel</button>
+                            <button @onclick="SaveInstructionEdit" title="@L["Common.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Save"]</button>
+                            <button @onclick="() => _editInstruction = null" title="@L["Common.Cancel.Tip"]" style="padding:.45rem .9rem;">@L["Common.Cancel"]</button>
                         </div>
                     </div>
                 </div>
             }
             <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
-                <label>Approved bank account
-                    <select @bind="_newInstruction.BankAccountId" title="Only Active bank accounts can receive payout instructions." style="width:100%;">
-                        <option value="">Choose an active bank account</option>
+                <label>@L["Payouts.Field.ApprovedBank"]
+                    <select @bind="_newInstruction.BankAccountId" title="@L["Payouts.Field.ApprovedBank.Tip"]" style="width:100%;">
+                        <option value="">@L["Payouts.ChooseBank"]</option>
                         @foreach (var account in _bankAccounts.Where(a => a.State == "Active"))
                         {
                             <option value="@account.Id">@account.AccountName — @account.AccountNumberMasked</option>
                         }
                     </select>
                 </label>
-                <label>Cadence
-                    <select @bind="_newInstruction.Cadence" title="How often this supplier is paid." style="width:100%;">
-                        <option value="Manual">Manual</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Fortnightly">Fortnightly</option>
-                        <option value="Monthly">Monthly</option>
+                <label>@L["Payouts.Field.Cadence"]
+                    <select @bind="_newInstruction.Cadence" title="@L["Payouts.Field.Cadence.Tip"]" style="width:100%;">
+                        <option value="Manual">@L["Payouts.Cadence.Manual"]</option>
+                        <option value="Weekly">@L["Payouts.Cadence.Weekly"]</option>
+                        <option value="Fortnightly">@L["Payouts.Cadence.Fortnightly"]</option>
+                        <option value="Monthly">@L["Payouts.Cadence.Monthly"]</option>
                     </select>
                 </label>
-                <button @onclick="CreateInstruction" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create active instruction</button>
+                <button @onclick="CreateInstruction" title="@L["Payouts.CreateInstruction.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Payouts.CreateInstruction"]</button>
             </div>
         </section>
     </div>
@@ -250,7 +250,7 @@
         {
             _newBank.Reset();
             await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-            _status = "Bank account created pending approval.";
+            _status = L["Payouts.Status.BankCreated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -263,7 +263,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
-            _status = $"Bank account {(action == "approve" ? "approved" : "rejected")}.";
+            _status = action == "approve" ? L["Payouts.Status.BankApproved"] : L["Payouts.Status.BankRejected"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -275,7 +275,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Bank account archived.";
+            _status = L["Payouts.Status.BankArchived"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -285,13 +285,13 @@
         _error = _status = null;
         if (!Guid.TryParse(_tenantId, out var tenant))
         {
-            _error = "Tenant ID must be a valid GUID.";
+            _error = L["Payouts.Error.TenantGuid"];
             return;
         }
 
         if (!Guid.TryParse(_newInstruction.BankAccountId, out var bankAccountId))
         {
-            _error = "Choose an active bank account.";
+            _error = L["Payouts.Error.ChooseBank"];
             return;
         }
 
@@ -302,7 +302,7 @@
         var bank = _bankAccounts?.FirstOrDefault(a => a.Id == bankAccountId);
         if (bank is null)
         {
-            _error = "Choose an active bank account.";
+            _error = L["Payouts.Error.ChooseBank"];
             return;
         }
 
@@ -312,7 +312,7 @@
         {
             _newInstruction.Reset();
             await LoadAsync();
-            _status = "Payout instruction created.";
+            _status = L["Payouts.Status.InstructionCreated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -345,8 +345,8 @@
             var updated = await response.Content.ReadFromJsonAsync<SupplierBankAccountDto>();
             await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
             _status = updated?.State == "PendingApproval"
-                ? "Bank account updated — banking identity changed, so it is pending approval again."
-                : "Bank account updated.";
+                ? L["Payouts.Status.BankUpdatedPending"]
+                : L["Payouts.Status.BankUpdated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -366,7 +366,7 @@
         _error = _status = null;
         if (!Guid.TryParse(_editInstruction.BankAccountId, out var bankAccountId))
         {
-            _error = "Choose an active bank account for this instruction.";
+            _error = L["Payouts.Error.ChooseBankForInstruction"];
             return;
         }
 
@@ -375,7 +375,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Payout instruction updated.";
+            _status = L["Payouts.Status.InstructionUpdated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -387,7 +387,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Payout instruction deactivated.";
+            _status = L["Payouts.Status.InstructionDeactivated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -396,26 +396,35 @@
     {
         if (!Guid.TryParse(_tenantId, out tenant))
         {
-            _error = "Tenant ID must be a valid GUID.";
+            _error = L["Payouts.Error.TenantGuid"];
             supplier = default;
             return false;
         }
         if (!Guid.TryParse(_supplierEntityId, out supplier))
         {
-            _error = _suppliers.Count > 0 ? "Choose a supplier first." : "Supplier entity ID must be a valid GUID.";
+            _error = _suppliers.Count > 0 ? L["Payouts.Error.ChooseSupplier"] : L["Payouts.Error.SupplierGuid"];
             return false;
         }
         return true;
     }
 
     // Empty failure bodies (e.g. a bare 404) used to render as an invisible error; always include the status code.
-    private static async Task<string> ErrorText(HttpResponseMessage response)
+    private async Task<string> ErrorText(HttpResponseMessage response)
     {
         var body = await response.Content.ReadAsStringAsync();
         return string.IsNullOrWhiteSpace(body)
-            ? $"Request failed ({(int)response.StatusCode} {response.StatusCode})."
+            ? L["Payouts.Error.RequestFailed", (int)response.StatusCode, response.StatusCode]
             : $"({(int)response.StatusCode}) {body}";
     }
+
+    // The instruction list shows the cadence enum NAME from the API ("Weekly"); map it to a localized label.
+    private string CadenceLabel(string cadence) => cadence switch
+    {
+        "Manual" => L["Payouts.Cadence.Manual"],
+        "Fortnightly" => L["Payouts.Cadence.Fortnightly"],
+        "Monthly" => L["Payouts.Cadence.Monthly"],
+        _ => L["Payouts.Cadence.Weekly"],
+    };
 
     private const string _decisionReason = "approved by admin operator";
     private static string Short(Guid id) => id.ToString()[..8];

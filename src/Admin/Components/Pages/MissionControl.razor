@@ -6,31 +6,31 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
-    <h1 style="margin:0;">Mission control</h1>
-    <span style="color:#6b7280; font-size:.85rem;">cross-service ops · read-only</span>
+    <h1 style="margin:0;">@L["Mc.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Mc.Subtitle"]</span>
     <span style="flex:1;"></span>
-    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">↻ Refresh</button>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
 </div>
-<p style="color:#6b7280;">Activity comes from the central Audit projection; jobs from the Workflow service. Data is via owning-service APIs only — never by reading service DBs directly (mt6_14).</p>
+<p style="color:#6b7280;">@L["Mc.Intro"]</p>
 
 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:1rem; margin:1rem 0;">
-    @KpiCard("Activity (24h)", _audit.Count(a => a.OccurredAt > DateTimeOffset.UtcNow.AddDays(-1)).ToString(), "#4f46e5")
-    @KpiCard("Audit events", _audit.Count.ToString(), "#0891b2")
-    @KpiCard("Job runs", _runs.Count.ToString(), "#059669")
-    @KpiCard("Failed jobs", _runs.Count(r => r.Status is "Failed").ToString(), _runs.Any(r => r.Status is "Failed") ? "#dc2626" : "#059669")
+    @KpiCard(L["Mc.Kpi.Activity"], _audit.Count(a => a.OccurredAt > DateTimeOffset.UtcNow.AddDays(-1)).ToString(), "#4f46e5", L["Mc.Kpi.Activity.Tip"])
+    @KpiCard(L["Mc.Kpi.AuditEvents"], _audit.Count.ToString(), "#0891b2", L["Mc.Kpi.AuditEvents.Tip"])
+    @KpiCard(L["Mc.Kpi.JobRuns"], _runs.Count.ToString(), "#059669", L["Mc.Kpi.JobRuns.Tip"])
+    @KpiCard(L["Mc.Kpi.FailedJobs"], _runs.Count(r => r.Status is "Failed").ToString(), _runs.Any(r => r.Status is "Failed") ? "#dc2626" : "#059669", L["Mc.Kpi.FailedJobs.Tip"])
 </div>
 
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.2rem;">
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
-        <h2 style="margin-top:0;">Activity timeline</h2>
+        <h2 style="margin-top:0;">@L["Mc.Timeline"]</h2>
         @if (_audit.Count == 0)
         {
-            <p style="color:#9ca3af;">No audit activity yet. It appears as operators act (RBAC, supplier, entity changes…).</p>
+            <p style="color:#9ca3af;">@L["Mc.NoAudit"]</p>
         }
         else
         {
             <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
-                <thead><tr><th style="text-align:left;">When</th><th style="text-align:left;">Actor</th><th style="text-align:left;">Action</th><th>Outcome</th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Mc.Col.When"]</th><th style="text-align:left;">@L["Mc.Col.Actor"]</th><th style="text-align:left;">@L["Mc.Col.Action"]</th><th>@L["Mc.Col.Outcome"]</th></tr></thead>
                 <tbody>
                 @foreach (var a in _audit.Take(12))
                 {
@@ -47,15 +47,15 @@
     </section>
 
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
-        <h2 style="margin-top:0;">Scheduled jobs</h2>
+        <h2 style="margin-top:0;">@L["Mc.Jobs"]</h2>
         @if (_runs.Count == 0)
         {
-            <p style="color:#9ca3af;">No job runs recorded yet (the Payments daily-journal job reports here).</p>
+            <p style="color:#9ca3af;">@L["Mc.NoJobs"]</p>
         }
         else
         {
             <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
-                <thead><tr><th style="text-align:left;">Job</th><th style="text-align:left;">Status</th><th style="text-align:left;">Started</th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Mc.Col.Job"]</th><th style="text-align:left;">@L["Common.Status"]</th><th style="text-align:left;">@L["Mc.Col.Started"]</th></tr></thead>
                 <tbody>
                 @foreach (var r in _runs.Take(12))
                 {
@@ -72,25 +72,25 @@
 </div>
 
 <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
-    <h2 style="margin-top:0;">Message bus <span style="color:#6b7280; font-size:.75rem; font-weight:400;">live · RabbitMQ management API · read-only</span></h2>
+    <h2 style="margin-top:0;">@L["Mc.Bus"] <span style="color:#6b7280; font-size:.75rem; font-weight:400;">@L["Mc.Bus.Subtitle"]</span></h2>
     @if (_bus is null)
     {
-        <p style="color:#9ca3af;">Management API unreachable (config <code>MessageBus:ManagementUrl</code>, dev default <code>http://localhost:15672</code>). Queue stats appear when the broker's management plugin is up.</p>
+        <p style="color:#9ca3af;">@((MarkupString)L["Mc.Bus.Unreachable"].Value)</p>
     }
     else
     {
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1rem;">
-            @KpiCard("Queues", _bus.Queues.ToString(), "#4f46e5")
-            @KpiCard("Consumers", _bus.Consumers.ToString(), "#0891b2")
-            @KpiCard("Ready", _bus.Ready.ToString(), _bus.Ready > 0 ? "#b45309" : "#059669")
-            @KpiCard("Unacked", _bus.Unacked.ToString(), "#059669")
-            @KpiCard("Dead-lettered", _bus.DeadLettered.ToString(), _bus.DeadLettered > 0 ? "#dc2626" : "#059669")
+            @KpiCard(L["Mc.Bus.Queues"], _bus.Queues.ToString(), "#4f46e5", L["Mc.Bus.Queues.Tip"])
+            @KpiCard(L["Mc.Bus.Consumers"], _bus.Consumers.ToString(), "#0891b2", L["Mc.Bus.Consumers.Tip"])
+            @KpiCard(L["Mc.Bus.Ready"], _bus.Ready.ToString(), _bus.Ready > 0 ? "#b45309" : "#059669", L["Mc.Bus.Ready.Tip"])
+            @KpiCard(L["Mc.Bus.Unacked"], _bus.Unacked.ToString(), "#059669", L["Mc.Bus.Unacked.Tip"])
+            @KpiCard(L["Mc.Bus.DeadLettered"], _bus.DeadLettered.ToString(), _bus.DeadLettered > 0 ? "#dc2626" : "#059669", L["Mc.Bus.DeadLettered.Tip"])
         </div>
         @if (_bus.DeadLetterQueues.Count > 0)
         {
-            <p style="color:#b91c1c; font-weight:600;">⚠ Dead-letter queues holding messages — these consumers are failing:</p>
+            <p style="color:#b91c1c; font-weight:600;">@L["Mc.Bus.DlqWarning"]</p>
             <table style="width:100%; border-collapse:collapse; font-size:.85rem; margin-bottom:1rem;">
-                <thead><tr><th style="text-align:left;">Queue</th><th>Ready</th><th>Unacked</th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Mc.Col.Queue"]</th><th>@L["Mc.Bus.Ready"]</th><th>@L["Mc.Bus.Unacked"]</th></tr></thead>
                 <tbody>
                 @foreach (var q in _bus.DeadLetterQueues)
                 {
@@ -100,9 +100,9 @@
             </table>
         }
         <details>
-            <summary style="cursor:pointer; color:#6b7280;">Busiest queues (top 10 by depth, then publish rate)</summary>
+            <summary style="cursor:pointer; color:#6b7280;" title="@L["Mc.Bus.Busiest.Tip"]">@L["Mc.Bus.Busiest"]</summary>
             <table style="width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem;">
-                <thead><tr><th style="text-align:left;">Queue</th><th>Ready</th><th>Unacked</th><th>Consumers</th><th>Publish/s</th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Mc.Col.Queue"]</th><th>@L["Mc.Bus.Ready"]</th><th>@L["Mc.Bus.Unacked"]</th><th>@L["Mc.Bus.Consumers"]</th><th>@L["Mc.Col.PublishRate"]</th></tr></thead>
                 <tbody>
                 @foreach (var q in _bus.TopQueues)
                 {
@@ -121,13 +121,13 @@
 </section>
 
 <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
-    <h2 style="margin-top:0;">Consoles</h2>
+    <h2 style="margin-top:0;">@L["Mc.Consoles"]</h2>
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
-        <a href="@GrafanaUrl" target="_blank" rel="noopener">📊 Grafana — Services (RED metrics)</a>
-        <NavLink href="/rbac">🔐 Roles &amp; permissions</NavLink>
-        <NavLink href="/entities">🏢 Entities &amp; suppliers</NavLink>
-        <NavLink href="/ledger">📒 Ledger</NavLink>
-        <NavLink href="/orders">🧾 Orders</NavLink>
+        <a href="@GrafanaUrl" target="_blank" rel="noopener" title="@L["Mc.Link.Grafana.Tip"]">📊 @L["Mc.Link.Grafana"]</a>
+        <NavLink href="/rbac" title="@L["Nav.Rbac.Tip"]">🔐 @L["Nav.Rbac"]</NavLink>
+        <NavLink href="/entities" title="@L["Nav.Entities.Tip"]">🏢 @L["Nav.Entities"]</NavLink>
+        <NavLink href="/ledger" title="@L["Nav.Ledger.Tip"]">📒 @L["Nav.Ledger"]</NavLink>
+        <NavLink href="/orders" title="@L["Nav.Orders.Tip"]">🧾 @L["Nav.Orders"]</NavLink>
     </div>
 </section>
 
@@ -148,10 +148,11 @@
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
 
-    private RenderFragment KpiCard(string label, string value, string color) => builder =>
+    // label/tip come from the resx (trusted); value is our own ToString of a count — nothing user-supplied.
+    private RenderFragment KpiCard(string label, string value, string color, string tip) => builder =>
     {
         builder.AddMarkupContent(0,
-            $"<div style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:.8rem 1rem;\">" +
+            $"<div title=\"{tip}\" style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:.8rem 1rem;\">" +
             $"<div style=\"font-size:.75rem; color:#6b7280; text-transform:uppercase;\">{label}</div>" +
             $"<div style=\"font-size:1.5rem; font-weight:700;\">{value}</div></div>");
     };

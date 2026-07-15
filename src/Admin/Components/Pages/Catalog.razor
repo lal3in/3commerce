@@ -3,14 +3,14 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Catalog</h1>
+<h1>@L["Catalog.Title"]</h1>
 
 @if (_editing is null)
 {
     <div style="margin-bottom:1rem; display:flex; gap:.5rem;">
-        <input @bind="_search" @bind:event="oninput" placeholder="Search title or slug…" style="flex:1; padding:.4rem;" title="Filter products by title or slug." />
-        <button @onclick="LoadList" style="padding:.4rem .8rem;">Search</button>
-        <button @onclick="NewProduct" style="padding:.4rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">New product</button>
+        <input @bind="_search" @bind:event="oninput" placeholder="@L["Catalog.Search.Placeholder"]" style="flex:1; padding:.4rem;" title="@L["Catalog.Search.Tip"]" />
+        <button @onclick="LoadList" title="@L["Catalog.Search.Button.Tip"]" style="padding:.4rem .8rem;">@L["Common.Search"]</button>
+        <button @onclick="NewProduct" title="@L["Catalog.New.Tip"]" style="padding:.4rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">@L["Catalog.New"]</button>
     </div>
 
     @if (_status is not null)
@@ -20,16 +20,16 @@
 
     @if (_list is null)
     {
-        <p>Loading…</p>
+        <p>@L["Common.Loading"]</p>
     }
     else if (_list.Count == 0)
     {
-        <p>No products.</p>
+        <p>@L["Catalog.Empty"]</p>
     }
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">Title</th><th>Brand</th><th>Type</th><th>Variants</th><th>From</th><th>Stock</th><th></th></tr></thead>
+            <thead><tr><th style="width:3rem;"></th><th style="text-align:left;">@L["Catalog.Col.Title"]</th><th>@L["Catalog.Col.Brand"]</th><th>@L["Catalog.Col.Type"]</th><th>@L["Catalog.Col.Variants"]</th><th>@L["Catalog.Col.From"]</th><th>@L["Catalog.Col.Stock"]</th><th></th></tr></thead>
             <tbody>
             @foreach (var p in _list)
             {
@@ -42,8 +42,8 @@
                     <td style="text-align:right;">@($"{p.MinPriceMinor / 100m:0.00}")</td>
                     <td style="text-align:center;">@p.TotalStock</td>
                     <td style="text-align:right; white-space:nowrap;">
-                        <button @onclick="() => EditProduct(p.Id)" style="padding:.2rem .6rem;">Edit</button>
-                        <button @onclick="() => DeleteProduct(p.Id)" style="padding:.2rem .6rem; color:#b91c1c;">Delete</button>
+                        <button @onclick="() => EditProduct(p.Id)" title="@L["Catalog.Edit.Tip"]" style="padding:.2rem .6rem;">@L["Common.Edit"]</button>
+                        <button @onclick="() => DeleteProduct(p.Id)" title="@L["Catalog.Delete.Tip"]" style="padding:.2rem .6rem; color:#b91c1c;">@L["Common.Delete"]</button>
                     </td>
                 </tr>
             }
@@ -53,99 +53,99 @@
 }
 else
 {
-    <h2>@(_isNew ? "New product" : "Edit product")</h2>
+    <h2>@(_isNew ? L["Catalog.New"] : L["Catalog.EditProduct"])</h2>
     @if (_error is not null)
     {
         <p style="color:#b91c1c;">@_error</p>
     }
 
     <div style="max-width:720px; display:flex; flex-direction:column; gap:.6rem;">
-        <label>Title <input @bind="_editing.Title" style="width:100%; padding:.4rem;" title="The product name customers see. Clear and specific (e.g. 'Borealis Ultra Speaker 22')." /></label>
-        <label>Slug <input @bind="_editing.Slug" style="width:100%; padding:.4rem;" title="URL-friendly identifier (lowercase, hyphens). Must be unique — it forms the storefront link." /></label>
-        <label>Brand <input @bind="_editing.Brand" style="width:100%; padding:.4rem;" title="Manufacturer or brand shown on the product." /></label>
-        <label>Description <textarea @bind="_editing.Description" rows="3" style="width:100%; padding:.4rem;" title="Customer-facing description shown on the product page. Plain text."></textarea></label>
-        <label>Category <span style="color:#6b7280; font-size:.8rem;">(required — products without one are not searchable)</span>
-            <select @bind="_editing.CategoryId" style="width:100%; padding:.4rem;">
+        <label>@L["Catalog.Field.Title"] <input @bind="_editing.Title" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.Title.Tip"]" /></label>
+        <label>@L["Catalog.Field.Slug"] <input @bind="_editing.Slug" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.Slug.Tip"]" /></label>
+        <label>@L["Catalog.Field.Brand"] <input @bind="_editing.Brand" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.Brand.Tip"]" /></label>
+        <label>@L["Catalog.Field.Description"] <textarea @bind="_editing.Description" rows="3" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.Description.Tip"]"></textarea></label>
+        <label>@L["Catalog.Field.Category"] <span style="color:#6b7280; font-size:.8rem;">@L["Catalog.Field.Category.Hint"]</span>
+            <select @bind="_editing.CategoryId" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.Category.Tip"]">
                 @foreach (var c in _categories)
                 {
                     <option value="@c.Id">@c.Name</option>
                 }
             </select>
         </label>
-        <label>Product type <span style="color:#6b7280; font-size:.8rem;">(what shoppers browse/filter by; billing mechanics live on the Offer — ADR-0028)</span>
-            <select @bind="_editing.ProductType" style="width:100%; padding:.4rem;" title="The customer-facing kind of product. Subscription/usage-based products are billed via their Offer.">
-                <option value="1">Physical</option>
-                <option value="2">Digital</option>
-                <option value="3">Service</option>
-                <option value="4">Bundle</option>
-                <option value="5">Subscription</option>
-                <option value="6">Usage-based</option>
+        <label>@L["Catalog.Field.ProductType"] <span style="color:#6b7280; font-size:.8rem;">@L["Catalog.Field.ProductType.Hint"]</span>
+            <select @bind="_editing.ProductType" style="width:100%; padding:.4rem;" title="@L["Catalog.Field.ProductType.Tip"]">
+                <option value="1">@L["Catalog.Type.Physical"]</option>
+                <option value="2">@L["Catalog.Type.Digital"]</option>
+                <option value="3">@L["Catalog.Type.Service"]</option>
+                <option value="4">@L["Catalog.Type.Bundle"]</option>
+                <option value="5">@L["Catalog.Type.Subscription"]</option>
+                <option value="6">@L["Catalog.Type.Usage"]</option>
             </select>
         </label>
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
-            <legend>Variants</legend>
+            <legend>@L["Catalog.Variants"]</legend>
             <table style="width:100%; border-collapse:collapse;">
-                <thead><tr><th style="text-align:left;">SKU</th><th>Price (minor)</th><th>Currency</th><th>Stock</th><th></th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Catalog.Variant.Sku"]</th><th>@L["Catalog.Variant.Price"]</th><th>@L["Catalog.Variant.Currency"]</th><th>@L["Catalog.Variant.Stock"]</th><th></th></tr></thead>
                 <tbody>
                 @foreach (var v in _editing.Variants)
                 {
                     <tr>
-                        <td><input @bind="v.Sku" style="width:100%;" title="Stock-keeping unit — your unique code for this variant." /></td>
-                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="Base price in minor units (cents): 1999 = €19.99. Fallback when no per-currency price is set. Enter the FINAL shelf price: AU GST / EU VAT storefront prices INCLUDE tax; US storefront prices EXCLUDE it (tax added at checkout) — ADR-0038." /></td>
+                        <td><input @bind="v.Sku" style="width:100%;" title="@L["Catalog.Variant.Sku.Tip"]" /></td>
+                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="@L["Catalog.Variant.Price.Tip"]" /></td>
                         <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
-                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="Units available to sell for this variant." /></td>
-                        <td><button @onclick="() => _editing.Variants.Remove(v)" style="color:#b91c1c;">✕</button></td>
+                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="@L["Catalog.Variant.Stock.Tip"]" /></td>
+                        <td><button @onclick="() => _editing.Variants.Remove(v)" title="@L["Catalog.Variant.Remove.Tip"]" style="color:#b91c1c;">✕</button></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="padding:.2rem .4rem .8rem 1.5rem; background:#f9fafb;">
-                            <span style="font-size:.8rem; color:#6b7280;">Per-currency prices (tenant-set, no FX — a storefront hides this product if its currency has no price here). Enter the FINAL shelf price for each currency: on AU GST / EU VAT storefronts the price INCLUDES tax, on US storefronts tax is ADDED at checkout (ADR-0038).</span>
+                            <span style="font-size:.8rem; color:#6b7280;">@L["Catalog.Prices.Note"]</span>
                             @foreach (var pr in v.Prices)
                             {
                                 <span style="display:inline-flex; gap:.2rem; align-items:center; margin-left:.5rem;">
                                     <CurrencySelect @bind-Value="pr.Currency" style="width:8rem;padding:.15rem;" />
-                                    <input type="number" @bind="pr.PriceMinor" style="width:6rem;" title="FINAL shelf price in minor units for this currency: includes tax on AU GST / EU VAT storefronts; excludes tax (added at checkout) on US storefronts — ADR-0038." />
-                                    <button @onclick="() => v.Prices.Remove(pr)" style="color:#b91c1c;" title="Remove this currency price.">✕</button>
+                                    <input type="number" @bind="pr.PriceMinor" style="width:6rem;" title="@L["Catalog.Prices.Price.Tip"]" />
+                                    <button @onclick="() => v.Prices.Remove(pr)" style="color:#b91c1c;" title="@L["Catalog.Prices.Remove.Tip"]">✕</button>
                                 </span>
                             }
-                            <button @onclick="() => v.Prices.Add(new CurrencyPrice())" style="margin-left:.5rem;">+ currency price</button>
+                            <button @onclick="() => v.Prices.Add(new CurrencyPrice())" title="@L["Catalog.Prices.Add.Tip"]" style="margin-left:.5rem;">@L["Catalog.Prices.Add"]</button>
                         </td>
                     </tr>
                 }
                 </tbody>
             </table>
-            <button @onclick="AddVariant" style="margin-top:.4rem;">+ Add variant</button>
+            <button @onclick="AddVariant" title="@L["Catalog.Variant.Add.Tip"]" style="margin-top:.4rem;">@L["Catalog.Variant.Add"]</button>
         </fieldset>
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
-            <legend>Image URLs</legend>
+            <legend>@L["Catalog.Images"]</legend>
             @for (var i = 0; i < _editing.ImageUrls.Count; i++)
             {
                 var idx = i;
                 <div style="display:flex; gap:.3rem; margin-bottom:.3rem; align-items:center;">
                     <div style="flex:1;"><ImageInput Value="@_editing.ImageUrls[idx]" ValueChanged="@(v => _editing.ImageUrls[idx] = v ?? string.Empty)" /></div>
-                    <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" style="color:#b91c1c;">✕</button>
+                    <button @onclick="() => _editing.ImageUrls.RemoveAt(idx)" title="@L["Catalog.Image.Remove.Tip"]" style="color:#b91c1c;">✕</button>
                 </div>
             }
-            <button @onclick="() => _editing.ImageUrls.Add(string.Empty)">+ Add image</button>
+            <button @onclick="() => _editing.ImageUrls.Add(string.Empty)" title="@L["Catalog.Image.Add.Tip"]">@L["Catalog.Image.Add"]</button>
         </fieldset>
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
-            <legend>Attributes</legend>
+            <legend>@L["Catalog.Attributes"]</legend>
             @foreach (var a in _attributes)
             {
                 <div style="display:flex; gap:.3rem; margin-bottom:.3rem;">
-                    <input @bind="a.Key" placeholder="key" style="width:10rem;" title="Attribute name (e.g. colour, size). Used for storefront filtering." />
-                    <input @bind="a.Value" placeholder="value" style="flex:1;" title="Attribute value (e.g. black, large)." />
-                    <button @onclick="() => _attributes.Remove(a)" style="color:#b91c1c;">✕</button>
+                    <input @bind="a.Key" placeholder="@L["Catalog.Attr.Key"]" style="width:10rem;" title="@L["Catalog.Attr.Key.Tip"]" />
+                    <input @bind="a.Value" placeholder="@L["Catalog.Attr.Value"]" style="flex:1;" title="@L["Catalog.Attr.Value.Tip"]" />
+                    <button @onclick="() => _attributes.Remove(a)" title="@L["Catalog.Attr.Remove.Tip"]" style="color:#b91c1c;">✕</button>
                 </div>
             }
-            <button @onclick="() => _attributes.Add(new())">+ Add attribute</button>
+            <button @onclick="() => _attributes.Add(new())" title="@L["Catalog.Attr.Add.Tip"]">@L["Catalog.Attr.Add"]</button>
         </fieldset>
 
         <div style="display:flex; gap:.5rem;">
-            <button @onclick="Save" disabled="@_saving" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:4px;">@(_saving ? "Saving…" : "Save")</button>
-            <button @onclick="Cancel" style="padding:.4rem 1rem;">Cancel</button>
+            <button @onclick="Save" disabled="@_saving" title="@L["Catalog.Save.Tip"]" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:4px;">@(_saving ? L["Common.Saving"] : L["Common.Save"])</button>
+            <button @onclick="Cancel" title="@L["Common.Cancel.Tip"]" style="padding:.4rem 1rem;">@L["Common.Cancel"]</button>
         </div>
     </div>
 }
@@ -175,14 +175,14 @@ else
         _list = await Gateway.GetListAsync<ProductListItem>($"{Base}{q}");
     }
 
-    private static string ProductTypeLabel(int type) => type switch
+    private string ProductTypeLabel(int type) => type switch
     {
-        2 => "Digital",
-        3 => "Service",
-        4 => "Bundle",
-        5 => "Subscription",
-        6 => "Usage-based",
-        _ => "Physical",
+        2 => L["Catalog.Type.Digital"],
+        3 => L["Catalog.Type.Service"],
+        4 => L["Catalog.Type.Bundle"],
+        5 => L["Catalog.Type.Subscription"],
+        6 => L["Catalog.Type.Usage"],
+        _ => L["Catalog.Type.Physical"],
     };
 
     private void NewProduct()
@@ -203,7 +203,7 @@ else
         var dto = await Gateway.GetAsync<ProductEditor>($"{Base}/{id}");
         if (dto is null)
         {
-            _status = "Product not found.";
+            _status = L["Catalog.Status.NotFound"];
             return;
         }
 
@@ -219,7 +219,7 @@ else
     private async Task DeleteProduct(Guid id)
     {
         var resp = await Gateway.DeleteAsync($"{Base}/{id}");
-        _status = resp.IsSuccessStatusCode ? "Product deleted." : $"Delete failed ({(int)resp.StatusCode}).";
+        _status = resp.IsSuccessStatusCode ? L["Catalog.Status.Deleted"] : L["Catalog.Status.DeleteFailed", (int)resp.StatusCode];
         await LoadList();
     }
 
@@ -247,13 +247,13 @@ else
         _saving = false;
         if (resp.IsSuccessStatusCode)
         {
-            _status = _isNew ? "Product created." : "Product updated.";
+            _status = _isNew ? L["Catalog.Status.Created"] : L["Catalog.Status.Updated"];
             _editing = null;
             await LoadList();
         }
         else
         {
-            _error = $"Save failed ({(int)resp.StatusCode}): {await resp.Content.ReadAsStringAsync()}";
+            _error = L["Catalog.Status.SaveFailed", (int)resp.StatusCode, await resp.Content.ReadAsStringAsync()];
         }
     }
 
