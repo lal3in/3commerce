@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "start:standalone": "cp -R public .next/standalone/ 2>/dev/null; cp -R .next/static .next/standalone/.next/ 2>/dev/null; PORT=${PORT:-3000} HOSTNAME=127.0.0.1 node .next/standalone/server.js"
   },
   "dependencies": {
     "next": "15.5.19",
