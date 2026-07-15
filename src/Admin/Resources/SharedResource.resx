@@ -338,7 +338,7 @@
   <data name="Orders.Refund" xml:space="preserve"><value>Refund</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>Refund the full order total — reverses the ledger. Click twice to confirm.</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Order cancelled.</value></data>
-  <data name="Orders.Status.Refunded" xml:space="preserve"><value>Refund requested — the ledger will reverse.</value></data>
+  <data name="Orders.Status.Refunded" xml:space="preserve"><value>Refund requested — it will appear in the RMA queue and the order will show Refunded once complete.</value></data>
 
   <!-- ===== RMA queue ===== -->
   <data name="Rma.Title" xml:space="preserve"><value>RMA queue</value></data>

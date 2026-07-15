@@ -16,6 +16,8 @@ public static class AdminRmaEndpoints
     {
         var group = app.MapGroup("/admin/rmas").WithTags("RMA").RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         group.MapGet("/", ListRmas);
+        group.MapPost("/", CreateAdminRefund)
+            .WithSummary("Admin-initiated whole-order refund via an auto-approved RMA.");
         group.MapPost("/{id:guid}/approve", Approve);
         group.MapPost("/{id:guid}/deny", Deny);
         group.MapPost("/{id:guid}/return-received", ReturnReceivedAction);
@@ -34,6 +36,27 @@ public static class AdminRmaEndpoints
             .Select(r => new RmaDto(r.CorrelationId, r.OrderId, r.Email, r.AmountMinor, r.Reason, r.CurrentState, r.CreatedAt))
             .ToListAsync(ct);
         return TypedResults.Ok(rmas);
+    }
+
+    // Admin refunds an order straight from the Orders screen: this opens an auto-approved, no-return RMA
+    // for the whole order so the refund travels the single RMA/refund path AND appears in the RMA queue,
+    // rather than a side-channel direct refund that the queue never saw.
+    private static async Task<Results<Accepted<RmaDto>, NotFound>> CreateAdminRefund(
+        AdminRefundRequest request, SupportDbContext db, IPublishEndpoint publisher,
+        IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
+    {
+        var snapshot = await db.OrderSnapshots.AsNoTracking().SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
+        if (snapshot is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var rmaId = Guid.CreateVersion7();
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? "refunded by admin" : request.Reason.Trim();
+        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, AutoApprove: true), ct);
+        await audit.RecordAsync(user.Mutation(DefaultTenantId(config), "Rma", rmaId.ToString(), "support.rma.admin_refund", reason), ct);
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Accepted((string?)null, new RmaDto(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, "RefundPending", DateTimeOffset.UtcNow));
     }
 
     /// <summary>Idempotent: approving an already-approved RMA is a no-op (FR-10).</summary>
@@ -118,6 +141,7 @@ public static class AdminRmaEndpoints
             : new Guid("00000000-0000-0000-0000-000000000001");
 }
 
+public record AdminRefundRequest(Guid OrderId, string? Reason);
 public record ApproveRequest(bool RequireReturn);
 public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
 public record ReturnReceivedRequest(Guid? TenantId, List<RestockLineRequest>? Restock);

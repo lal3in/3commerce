@@ -64,12 +64,13 @@ public sealed class ExecuteRefundConsumer(
         db.JournalEntries.Add(Ledger.Refund(msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow()));
 
         payment.RefundedMinor += msg.AmountMinor;
-        if (payment.RefundedMinor >= payment.AmountMinor)
+        var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;
+        if (fullyRefunded)
         {
             payment.Status = PaymentStatus.Refunded;
         }
 
         await db.SaveChangesAsync(context.CancellationToken);
-        await context.Publish(new RefundCompleted(msg.RefundId, msg.OrderId, msg.AmountMinor));
+        await context.Publish(new RefundCompleted(msg.RefundId, msg.OrderId, msg.AmountMinor, fullyRefunded));
     }
 }

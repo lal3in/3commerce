@@ -2,7 +2,7 @@ using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 
 namespace ThreeCommerce.Ordering.Domain;
 
-public enum OrderStatus { Pending = 1, AwaitingPayment = 2, Confirmed = 3, Cancelled = 4 }
+public enum OrderStatus { Pending = 1, AwaitingPayment = 2, Confirmed = 3, Cancelled = 4, Refunded = 5 }
 
 public class Order
 {

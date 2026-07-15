@@ -13,8 +13,28 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
 public sealed class OrderStatusConsumer(OrderingDbContext db) :
-    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>
+    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>
 {
+    /// <summary>
+    /// A fully-refunded order moves Confirmed → Refunded so the admin order list stops offering
+    /// "Refund" and shows the true state. Partial refunds leave the order Confirmed (the money moved
+    /// but the order still stands). Idempotent: only a Confirmed order transitions.
+    /// </summary>
+    public async Task Consume(ConsumeContext<RefundCompleted> context)
+    {
+        if (!context.Message.FullyRefunded)
+        {
+            return;
+        }
+
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
+        if (order is not null && order.Status == OrderStatus.Confirmed)
+        {
+            order.Status = OrderStatus.Refunded;
+            await db.SaveChangesAsync(context.CancellationToken);
+        }
+    }
+
     public async Task Consume(ConsumeContext<CheckoutCompleted> context)
     {
         var order = await db.Orders.Include(o => o.Lines)
