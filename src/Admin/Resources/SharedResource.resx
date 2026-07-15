@@ -571,6 +571,72 @@
   <data name="Entities.Info.SupplierOk" xml:space="preserve"><value>Supplier '{0}' ok.</value></data>
   <data name="Entities.Info.Approved" xml:space="preserve"><value>Request approved.</value></data>
   <data name="Entities.Info.Rejected" xml:space="preserve"><value>Request rejected.</value></data>
+  <data name="Common.Add" xml:space="preserve"><value>Add</value></data>
+  <data name="Common.Back" xml:space="preserve"><value>Back</value></data>
+  <data name="Common.Back.Tip" xml:space="preserve"><value>Return to the list.</value></data>
+  <data name="Entities.Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Entities.Details.Tip" xml:space="preserve"><value>Add the identifiers, contacts and addresses this entity needs for supplier onboarding.</value></data>
+  <data name="Entities.Details.Heading" xml:space="preserve"><value>Onboarding details — {0}</value></data>
+  <data name="Entities.Details.Intro" xml:space="preserve"><value>Required data for a {0}. Complete the checklist below, then submit the entity for supplier verification.</value></data>
+  <data name="Entities.Details.Ready" xml:space="preserve"><value>Ready for supplier verification — all required fields are present.</value></data>
+  <data name="Entities.Details.Missing" xml:space="preserve"><value>Still required before verification:</value></data>
+  <data name="Entities.Ident.Heading" xml:space="preserve"><value>Tax &amp; registration identifiers</value></data>
+  <data name="Entities.Ident.None" xml:space="preserve"><value>No identifiers yet. A verified ABN or ACN is required for suppliers.</value></data>
+  <data name="Entities.Ident.Verify" xml:space="preserve"><value>Verify</value></data>
+  <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>Attest that this identifier has been checked (marks it verified).</value></data>
+  <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>Kind of identifier to add.</value></data>
+  <data name="Entities.Ident.Value" xml:space="preserve"><value>Identifier value</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN is 11 digits; ACN is 9 digits.</value></data>
+  <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>Add this identifier to the entity.</value></data>
+  <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
+  <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
+  <data name="Entities.IdType.Gst" xml:space="preserve"><value>GST</value></data>
+  <data name="Entities.IdType.Other" xml:space="preserve"><value>Other tax registration</value></data>
+  <data name="Entities.VStatus.Unverified" xml:space="preserve"><value>Unverified</value></data>
+  <data name="Entities.VStatus.Pending" xml:space="preserve"><value>Pending</value></data>
+  <data name="Entities.VStatus.Verified" xml:space="preserve"><value>Verified</value></data>
+  <data name="Entities.VStatus.Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Entities.Contact.Heading" xml:space="preserve"><value>Contact methods</value></data>
+  <data name="Entities.Contact.None" xml:space="preserve"><value>No contacts yet. A primary or operations email is required for suppliers.</value></data>
+  <data name="Entities.Contact.Purpose.Tip" xml:space="preserve"><value>What this contact is used for.</value></data>
+  <data name="Entities.Contact.Kind.Tip" xml:space="preserve"><value>Email, phone or website.</value></data>
+  <data name="Entities.Contact.Value" xml:space="preserve"><value>Contact value</value></data>
+  <data name="Entities.Contact.Value.Tip" xml:space="preserve"><value>e.g. accounts@supplier.com</value></data>
+  <data name="Entities.Contact.Add.Tip" xml:space="preserve"><value>Add this contact to the entity.</value></data>
+  <data name="Entities.CPurpose.Primary" xml:space="preserve"><value>Primary</value></data>
+  <data name="Entities.CPurpose.Accounts" xml:space="preserve"><value>Accounts</value></data>
+  <data name="Entities.CPurpose.Operations" xml:space="preserve"><value>Operations</value></data>
+  <data name="Entities.CPurpose.Support" xml:space="preserve"><value>Support</value></data>
+  <data name="Entities.CPurpose.Legal" xml:space="preserve"><value>Legal</value></data>
+  <data name="Entities.CKind.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Entities.CKind.Phone" xml:space="preserve"><value>Phone</value></data>
+  <data name="Entities.CKind.Website" xml:space="preserve"><value>Website</value></data>
+  <data name="Entities.Addr.Heading" xml:space="preserve"><value>Addresses</value></data>
+  <data name="Entities.Addr.None" xml:space="preserve"><value>No addresses yet. A current registered office or warehouse address is required for suppliers.</value></data>
+  <data name="Entities.Addr.Purpose.Tip" xml:space="preserve"><value>What this address is used for.</value></data>
+  <data name="Entities.Addr.Line1" xml:space="preserve"><value>Address line 1</value></data>
+  <data name="Entities.Addr.Line1.Tip" xml:space="preserve"><value>Street address.</value></data>
+  <data name="Entities.Addr.Line2" xml:space="preserve"><value>Address line 2</value></data>
+  <data name="Entities.Addr.Line2.Tip" xml:space="preserve"><value>Unit, suite, floor (optional).</value></data>
+  <data name="Entities.Addr.City" xml:space="preserve"><value>City</value></data>
+  <data name="Entities.Addr.City.Tip" xml:space="preserve"><value>Town or city.</value></data>
+  <data name="Entities.Addr.Region" xml:space="preserve"><value>Region</value></data>
+  <data name="Entities.Addr.Region.Tip" xml:space="preserve"><value>State or region (optional).</value></data>
+  <data name="Entities.Addr.Postcode" xml:space="preserve"><value>Postcode</value></data>
+  <data name="Entities.Addr.Postcode.Tip" xml:space="preserve"><value>Postal or ZIP code.</value></data>
+  <data name="Entities.Addr.Country" xml:space="preserve"><value>Country</value></data>
+  <data name="Entities.Addr.Country.Tip" xml:space="preserve"><value>ISO 3166-1 alpha-2 code, e.g. AU.</value></data>
+  <data name="Entities.Addr.Add.Tip" xml:space="preserve"><value>Add this address to the entity.</value></data>
+  <data name="Entities.AddrPurpose.RegisteredOffice" xml:space="preserve"><value>Registered office</value></data>
+  <data name="Entities.AddrPurpose.Warehouse" xml:space="preserve"><value>Warehouse</value></data>
+  <data name="Entities.AddrPurpose.Billing" xml:space="preserve"><value>Billing</value></data>
+  <data name="Entities.AddrPurpose.Shipping" xml:space="preserve"><value>Shipping</value></data>
+  <data name="Entities.AddrPurpose.Returns" xml:space="preserve"><value>Returns</value></data>
+  <data name="Entities.AddrPurpose.Mailing" xml:space="preserve"><value>Mailing</value></data>
+  <data name="Entities.Info.IdentifierAdded" xml:space="preserve"><value>Identifier added.</value></data>
+  <data name="Entities.Info.IdentifierVerified" xml:space="preserve"><value>Identifier verified.</value></data>
+  <data name="Entities.Info.ContactAdded" xml:space="preserve"><value>Contact added.</value></data>
+  <data name="Entities.Info.AddressAdded" xml:space="preserve"><value>Address added.</value></data>
 
   <!-- ===== Commerce ops ===== -->
   <data name="Ops.Title" xml:space="preserve"><value>Storefront commerce operations</value></data>

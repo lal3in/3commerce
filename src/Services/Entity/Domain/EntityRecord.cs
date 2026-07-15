@@ -175,6 +175,19 @@ public sealed class EntityRecord
         return contact;
     }
 
+    // Admin-operator attestation that an identifier (e.g. ABN/ACN) has been checked. Supplier
+    // onboarding readiness requires a Verified ABN/ACN, and there is no external registry lookup in
+    // this environment, so a trusted operator marks it verified through the admin portal.
+    public EntityIdentifier MarkIdentifierVerified(Guid identifierId, DateTimeOffset now)
+    {
+        var identifier = Identifiers.SingleOrDefault(i => i.Id == identifierId)
+            ?? throw new DomainRuleException("Identifier not found on this entity.");
+        identifier.VerificationStatus = EntityVerificationStatus.Verified;
+        identifier.VerifiedAt = now;
+        UpdatedAt = now;
+        return identifier;
+    }
+
     public void Archive(DateTimeOffset now)
     {
         if (Status == EntityRecordStatus.Archived)

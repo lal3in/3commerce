@@ -25,6 +25,16 @@ public static class EntityEndpoints
             .WithSummary("Create a minimal tenant-scoped entity record.");
         group.MapPut("/{id:guid}", Update)
             .WithSummary("Update an entity's legal/trading name.");
+        group.MapGet("/{id:guid}", GetDetail)
+            .WithSummary("Get an entity with its identifiers, contacts and addresses.");
+        group.MapPost("/{id:guid}/identifiers", AddIdentifier)
+            .WithSummary("Add a tax/registration identifier (ABN, ACN, GST, other).");
+        group.MapPost("/{id:guid}/identifiers/{identifierId:guid}/verify", VerifyIdentifier)
+            .WithSummary("Mark an identifier verified (operator attestation).");
+        group.MapPost("/{id:guid}/contacts", AddContact)
+            .WithSummary("Add a contact method (email/phone/website) with a purpose.");
+        group.MapPost("/{id:guid}/addresses", AddAddress)
+            .WithSummary("Add a current address for a given purpose.");
         group.MapPost("/{id:guid}/suppliers", StartSupplierOnboarding)
             .WithSummary("Start supplier onboarding for an entity.");
         group.MapGet("/{id:guid}/suppliers/readiness", CheckSupplierReadiness)
@@ -137,6 +147,144 @@ public static class EntityEndpoints
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.LegalName)] = [ex.Message] });
         }
     }
+
+    private static async Task<Results<Ok<EntityDetailResponse>, NotFound>> GetDetail(
+        Guid id,
+        EntityDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var entity = await LoadWithDetailsAsync(db.Entities.AsNoTracking(), id, cancellationToken);
+        return entity is null ? TypedResults.NotFound() : TypedResults.Ok(ToDetail(entity));
+    }
+
+    private static async Task<Results<Ok<EntityDetailResponse>, NotFound, ValidationProblem>> AddIdentifier(
+        Guid id,
+        AddIdentifierRequest request,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await LoadWithDetailsAsync(db.Entities, id, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.identifier.add", $"{request.Type}"), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(ToDetail(entity));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Value)] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<EntityDetailResponse>, NotFound, ValidationProblem>> VerifyIdentifier(
+        Guid id,
+        Guid identifierId,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await LoadWithDetailsAsync(db.Entities, id, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            entity.MarkIdentifierVerified(identifierId, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.identifier.verify", identifierId.ToString()), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(ToDetail(entity));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["identifier"] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<EntityDetailResponse>, NotFound, ValidationProblem>> AddContact(
+        Guid id,
+        AddContactRequest request,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await LoadWithDetailsAsync(db.Entities, id, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            entity.AddContactMethod(request.Purpose, request.Kind, request.Value, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.contact.add", $"{request.Purpose}/{request.Kind}"), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(ToDetail(entity));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Value)] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<EntityDetailResponse>, NotFound, ValidationProblem>> AddAddress(
+        Guid id,
+        AddAddressRequest request,
+        EntityDbContext db,
+        AuditRecorder audit,
+        ClaimsPrincipal user,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await LoadWithDetailsAsync(db.Entities, id, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            entity.AddAddress(request.Purpose, request.Line1, request.Line2, request.City, request.Region, request.Postcode, request.CountryCode, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.address.add", $"{request.Purpose}"), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(ToDetail(entity));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Line1)] = [ex.Message] });
+        }
+    }
+
+    private static Task<EntityRecord?> LoadWithDetailsAsync(IQueryable<EntityRecord> entities, Guid id, CancellationToken cancellationToken) =>
+        entities
+            .Include(e => e.Identifiers)
+            .Include(e => e.ContactMethods)
+            .Include(e => e.Addresses)
+            .SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
+
+    private static EntityDetailResponse ToDetail(EntityRecord e) => new(
+        e.Id, e.TenantId, e.Type, e.LegalName, e.TradingName, e.DisplayName, e.Status,
+        [.. e.Identifiers.OrderBy(i => i.Type).Select(i => new EntityIdentifierResponse(i.Id, i.Type, i.Value, i.VerificationStatus))],
+        [.. e.ContactMethods.OrderBy(c => c.Purpose).Select(c => new EntityContactResponse(c.Id, c.Purpose, c.Kind, c.Value))],
+        [.. e.Addresses.Where(a => a.IsCurrent).OrderBy(a => a.Purpose).Select(a => new EntityAddressResponse(a.Id, a.Purpose, a.Line1, a.Line2, a.City, a.Region, a.Postcode, a.CountryCode))]);
 
     private static async Task<Ok<SupplierOnboardingResponse>> StartSupplierOnboarding(
         Guid id,
@@ -498,6 +646,40 @@ public sealed record EntitySummaryResponse(
     EntityRecordStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
+
+public sealed record AddIdentifierRequest(
+    [property: Required] EntityIdentifierType Type,
+    [property: Required, StringLength(80, MinimumLength = 2)] string Value);
+
+public sealed record AddContactRequest(
+    [property: Required] EntityContactPurpose Purpose,
+    [property: Required] EntityContactKind Kind,
+    [property: Required, StringLength(320, MinimumLength = 3)] string Value);
+
+public sealed record AddAddressRequest(
+    [property: Required] EntityAddressPurpose Purpose,
+    [property: Required, StringLength(200, MinimumLength = 2)] string Line1,
+    string? Line2,
+    [property: Required, StringLength(200, MinimumLength = 2)] string City,
+    string? Region,
+    [property: Required, StringLength(200, MinimumLength = 2)] string Postcode,
+    [property: Required, StringLength(2, MinimumLength = 2)] string CountryCode);
+
+public sealed record EntityIdentifierResponse(Guid Id, EntityIdentifierType Type, string Value, EntityVerificationStatus VerificationStatus);
+public sealed record EntityContactResponse(Guid Id, EntityContactPurpose Purpose, EntityContactKind Kind, string Value);
+public sealed record EntityAddressResponse(Guid Id, EntityAddressPurpose Purpose, string Line1, string? Line2, string City, string? Region, string Postcode, string CountryCode);
+
+public sealed record EntityDetailResponse(
+    Guid Id,
+    Guid TenantId,
+    EntityType Type,
+    string LegalName,
+    string? TradingName,
+    string DisplayName,
+    EntityRecordStatus Status,
+    IReadOnlyList<EntityIdentifierResponse> Identifiers,
+    IReadOnlyList<EntityContactResponse> Contacts,
+    IReadOnlyList<EntityAddressResponse> Addresses);
 
 public sealed record OverrideDuplicateWarningRequest([property: Required, StringLength(500, MinimumLength = 8)] string Reason);
 
