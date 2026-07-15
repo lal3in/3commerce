@@ -786,6 +786,8 @@
   <data name="Payouts.Field.ApprovedBank.Tip" xml:space="preserve"><value>Only Active bank accounts can receive payout instructions.</value></data>
   <data name="Payouts.ChooseBank" xml:space="preserve"><value>Choose an active bank account</value></data>
   <data name="Payouts.CreateInstruction" xml:space="preserve"><value>Create active instruction</value></data>
+  <data name="Payouts.NewInstruction" xml:space="preserve"><value>New payout instruction</value></data>
+  <data name="Payouts.Instruction.NeedActiveBank" xml:space="preserve"><value>Approve a bank account first — a payout instruction can only route to an active (approved) bank account.</value></data>
   <data name="Payouts.CreateInstruction.Tip" xml:space="preserve"><value>Create the active payout instruction for the selected bank account's supplier.</value></data>
   <data name="Payouts.Status.BankCreated" xml:space="preserve"><value>Bank account created pending approval.</value></data>
   <data name="Payouts.Status.BankApproved" xml:space="preserve"><value>Bank account approved.</value></data>
