@@ -9,6 +9,10 @@ import { ProductGrid } from "@/components/catalog/ProductGrid";
 // stays in the language the tenant imported it in.
 export default async function HomePage() {
   const t = await getTranslations("home");
+  // Category names arrive from the catalog as imported (single-language). We localise the KNOWN
+  // storefront categories by slug and fall back to the raw name for anything not in the catalog,
+  // so a new category never renders blank.
+  const tc = await getTranslations("categories");
   const storefront = await resolveStorefront();
   const [featured, categories] = await Promise.all([
     searchProducts({ pageSize: 8, currency: storefront?.currency }),
@@ -40,7 +44,7 @@ export default async function HomePage() {
                 title={t("tips.category")}
                 className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100"
               >
-                {c.name}
+                {tc.has(c.slug) ? tc(c.slug) : c.name}
               </Link>
             ))}
           </div>

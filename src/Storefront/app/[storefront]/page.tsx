@@ -22,7 +22,7 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
     notFound();
   }
 
-  const [t, th] = await Promise.all([getTranslations("storefrontLanding"), getTranslations("home")]);
+  const [t, th, tc] = await Promise.all([getTranslations("storefrontLanding"), getTranslations("home"), getTranslations("categories")]);
   const config = await getStorefrontConfig({ slug });
   const [featured, categories] = await Promise.all([
     searchProducts({ pageSize: 8, currency: config?.currency }),
@@ -65,7 +65,7 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
                 href={`/search?category=${category.slug}`}
                 className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100"
               >
-                {category.name}
+                {tc.has(category.slug) ? tc(category.slug) : category.name}
               </Link>
             ))}
           </div>
