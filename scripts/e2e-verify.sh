@@ -223,7 +223,7 @@ run_live() {
   [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
   stage "Booting storefront + admin + supplier portal"
-  ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start >/tmp/3c-storefront.log 2>&1 & )
+  ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start:standalone >/tmp/3c-storefront.log 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
