@@ -1,0 +1,920 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    English base (neutral) resources for the admin console — the fallback for every culture.
+
+    Conventions:
+      <Area>.<Thing>      a visible label, heading, button, option or message
+      <Area>.<Thing>.Tip  the tooltip (title=) for the control that label belongs to
+      {0}, {1}            format arguments, passed as L["Key", arg]
+
+    Adding a language: copy this file to SharedResource.<culture>.resx (e.g. SharedResource.fr.resx),
+    translate the <value>s, rebuild. Keys you leave out fall back to the English value here, and the culture
+    shows up in the layout's language switcher automatically (AdminCultures discovers satellite assemblies).
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ===== Common ===== -->
+  <data name="Common.Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Common.Save.Tip" xml:space="preserve"><value>Save your changes.</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Common.Cancel.Tip" xml:space="preserve"><value>Discard your changes and go back.</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Common.Create" xml:space="preserve"><value>Create</value></data>
+  <data name="Common.Load" xml:space="preserve"><value>Load</value></data>
+  <data name="Common.Load.Tip" xml:space="preserve"><value>Load the records for the tenant above.</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Common.Refresh.Tip" xml:space="preserve"><value>Reload this page's data from the services.</value></data>
+  <data name="Common.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Common.Clear" xml:space="preserve"><value>Clear</value></data>
+  <data name="Common.Clear.Tip" xml:space="preserve"><value>Empty the form without saving.</value></data>
+  <data name="Common.Confirm" xml:space="preserve"><value>Confirm?</value></data>
+  <data name="Common.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Common.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Common.Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Common.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Common.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Common.Inactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Common.No" xml:space="preserve"><value>No</value></data>
+  <data name="Common.Remove.Tip" xml:space="preserve"><value>Remove this row.</value></data>
+  <data name="Common.TenantId" xml:space="preserve"><value>Tenant ID</value></data>
+  <data name="Common.TenantId.Tip" xml:space="preserve"><value>The tenant (GUID) whose records you are managing.</value></data>
+
+  <!-- ===== App shell / navigation / language switcher ===== -->
+  <data name="App.Title" xml:space="preserve"><value>3commerce admin</value></data>
+  <data name="Nav.Dashboard" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Nav.Dashboard.Tip" xml:space="preserve"><value>Live operator overview: revenue, orders, products, open RMAs and ledger balance.</value></data>
+  <data name="Nav.Catalog" xml:space="preserve"><value>Catalog</value></data>
+  <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Create and edit products, variants, prices, images and attributes.</value></data>
+  <data name="Nav.Offers" xml:space="preserve"><value>Offers &amp; pricing</value></data>
+  <data name="Nav.Offers.Tip" xml:space="preserve"><value>Supplier supply profiles: fulfilment type, price model, billing period, priority.</value></data>
+  <data name="Nav.Orders" xml:space="preserve"><value>Orders</value></data>
+  <data name="Nav.Orders.Tip" xml:space="preserve"><value>Browse orders; cancel unpaid ones and refund paid ones.</value></data>
+  <data name="Nav.Rmas" xml:space="preserve"><value>RMA queue</value></data>
+  <data name="Nav.Rmas.Tip" xml:space="preserve"><value>Approve, deny and receive customer return requests.</value></data>
+  <data name="Nav.Ledger" xml:space="preserve"><value>Ledger</value></data>
+  <data name="Nav.Ledger.Tip" xml:space="preserve"><value>The double-entry ledger — every posted entry and its lines.</value></data>
+  <data name="Nav.XeroSync" xml:space="preserve"><value>Xero sync</value></data>
+  <data name="Nav.XeroSync.Tip" xml:space="preserve"><value>Post daily summary journals to Xero and review past sync runs.</value></data>
+  <data name="Nav.XeroMappings" xml:space="preserve"><value>Xero mappings</value></data>
+  <data name="Nav.XeroMappings.Tip" xml:space="preserve"><value>Map ledger account codes to Xero account codes, with scope precedence.</value></data>
+  <data name="Nav.Imports" xml:space="preserve"><value>Imports</value></data>
+  <data name="Nav.Imports.Tip" xml:space="preserve"><value>Run catalog importers and review what each run read, accepted and rejected.</value></data>
+  <data name="Nav.Rbac" xml:space="preserve"><value>Roles &amp; permissions</value></data>
+  <data name="Nav.Rbac.Tip" xml:space="preserve"><value>Compose roles from the code-defined permission set; enforced by the Identity PDP.</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>Operator users</value></data>
+  <data name="Nav.Users.Tip" xml:space="preserve"><value>The accounts that sign in to a tenant: reset passwords, change emails.</value></data>
+  <data name="Nav.Entities" xml:space="preserve"><value>Entities &amp; suppliers</value></data>
+  <data name="Nav.Entities.Tip" xml:space="preserve"><value>Party master data, supplier onboarding, and the maker-checker change-request queue.</value></data>
+  <data name="Nav.CommerceOps" xml:space="preserve"><value>Commerce ops</value></data>
+  <data name="Nav.CommerceOps.Tip" xml:space="preserve"><value>Storefronts, domains, publication, tax regime and the policy surfaces around them.</value></data>
+  <data name="Nav.PaymentAccounts" xml:space="preserve"><value>Payment accounts</value></data>
+  <data name="Nav.PaymentAccounts.Tip" xml:space="preserve"><value>Tenant and storefront payment provider accounts and their lifecycle.</value></data>
+  <data name="Nav.SupplierPayouts" xml:space="preserve"><value>Supplier payouts</value></data>
+  <data name="Nav.SupplierPayouts.Tip" xml:space="preserve"><value>Tokenized supplier bank accounts and the payout instructions that use them.</value></data>
+  <data name="Nav.MissionControl" xml:space="preserve"><value>Mission control</value></data>
+  <data name="Nav.MissionControl.Tip" xml:space="preserve"><value>Cross-service read-only ops: audit activity, scheduled jobs, message-bus health.</value></data>
+  <data name="Nav.Security" xml:space="preserve"><value>Security</value></data>
+  <data name="Nav.Security.Tip" xml:space="preserve"><value>Your two-factor enrolment, the tenant MFA policy, and webhook signing secrets.</value></data>
+  <data name="Nav.Logout" xml:space="preserve"><value>Log out</value></data>
+  <data name="Nav.Logout.Tip" xml:space="preserve"><value>End your admin session and return to the sign-in page.</value></data>
+  <data name="Nav.Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Nav.Language.Tip" xml:space="preserve"><value>The language of the admin interface for your session. It is stored in a cookie against your browser and is independent of currency, tax and other financial configuration.</value></data>
+  <data name="Nav.Language.Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Nav.Language.Apply.Tip" xml:space="preserve"><value>Switch the interface to the selected language and reload the page.</value></data>
+
+  <!-- ===== Login ===== -->
+  <data name="Login.Title" xml:space="preserve"><value>Admin sign in</value></data>
+  <data name="Login.Error.Mfa" xml:space="preserve"><value>This account has MFA enabled — enter the 6-digit code from your authenticator app (or a recovery code).</value></data>
+  <data name="Login.Error.Invalid" xml:space="preserve"><value>Invalid credentials or not an admin account.</value></data>
+  <data name="Login.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Login.Email.Tip" xml:space="preserve"><value>Your operator email. The admin console requires the 'admin' role.</value></data>
+  <data name="Login.Password" xml:space="preserve"><value>Password</value></data>
+  <data name="Login.Password.Tip" xml:space="preserve"><value>Your account password.</value></data>
+  <data name="Login.Code" xml:space="preserve"><value>Authenticator code</value></data>
+  <data name="Login.Code.Tip" xml:space="preserve"><value>Only needed when MFA is enabled on your account (Security page). Leave empty otherwise. Recovery codes work here too.</value></data>
+  <data name="Login.SignIn" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Login.SignIn.Tip" xml:space="preserve"><value>Sign in to the admin console.</value></data>
+
+  <!-- ===== Dashboard (Home) ===== -->
+  <data name="Home.Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Home.Subtitle" xml:space="preserve"><value>operator overview · live</value></data>
+  <data name="Home.Loading" xml:space="preserve"><value>Loading metrics…</value></data>
+  <data name="Home.Kpi.Revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Home.Kpi.Revenue.Tip" xml:space="preserve"><value>Gross revenue across every order the Ordering service has recorded.</value></data>
+  <data name="Home.Kpi.Revenue.Sub" xml:space="preserve"><value>{0} orders</value></data>
+  <data name="Home.Kpi.Orders" xml:space="preserve"><value>Orders</value></data>
+  <data name="Home.Kpi.Orders.Tip" xml:space="preserve"><value>Total orders, in every status.</value></data>
+  <data name="Home.Kpi.Orders.Sub" xml:space="preserve"><value>{0} today</value></data>
+  <data name="Home.Kpi.Products" xml:space="preserve"><value>Products</value></data>
+  <data name="Home.Kpi.Products.Tip" xml:space="preserve"><value>Products in the tenant catalog (first 200 sampled).</value></data>
+  <data name="Home.Kpi.Products.Sub" xml:space="preserve"><value>in catalog</value></data>
+  <data name="Home.Kpi.OpenRmas" xml:space="preserve"><value>Open RMAs</value></data>
+  <data name="Home.Kpi.OpenRmas.Tip" xml:space="preserve"><value>Return requests still awaiting an operator decision.</value></data>
+  <data name="Home.Kpi.OpenRmas.Sub" xml:space="preserve"><value>{0} total</value></data>
+  <data name="Home.Kpi.Ledger" xml:space="preserve"><value>Ledger balance</value></data>
+  <data name="Home.Kpi.Ledger.Tip" xml:space="preserve"><value>Debits minus credits across the ledger. A healthy double-entry ledger sums to zero.</value></data>
+  <data name="Home.Kpi.Balanced" xml:space="preserve"><value>balanced ✓</value></data>
+  <data name="Home.Kpi.OutOfBalance" xml:space="preserve"><value>out of balance</value></data>
+  <data name="Home.Revenue14" xml:space="preserve"><value>Revenue — last 14 days</value></data>
+  <data name="Home.NoOrders" xml:space="preserve"><value>No orders yet.</value></data>
+  <data name="Home.OrdersByStatus" xml:space="preserve"><value>Orders by status</value></data>
+  <data name="Home.RecentOrders" xml:space="preserve"><value>Recent orders</value></data>
+  <data name="Home.Col.When" xml:space="preserve"><value>When</value></data>
+  <data name="Home.Col.Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Home.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Home.Col.Amount" xml:space="preserve"><value>Amount</value></data>
+
+  <!-- ===== Catalog ===== -->
+  <data name="Catalog.Title" xml:space="preserve"><value>Catalog</value></data>
+  <data name="Catalog.Search.Placeholder" xml:space="preserve"><value>Search title or slug…</value></data>
+  <data name="Catalog.Search.Tip" xml:space="preserve"><value>Filter products by title or slug.</value></data>
+  <data name="Catalog.Search.Button.Tip" xml:space="preserve"><value>Run the search.</value></data>
+  <data name="Catalog.New" xml:space="preserve"><value>New product</value></data>
+  <data name="Catalog.New.Tip" xml:space="preserve"><value>Start a new product with one empty variant.</value></data>
+  <data name="Catalog.Empty" xml:space="preserve"><value>No products.</value></data>
+  <data name="Catalog.Col.Title" xml:space="preserve"><value>Title</value></data>
+  <data name="Catalog.Col.Brand" xml:space="preserve"><value>Brand</value></data>
+  <data name="Catalog.Col.Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Catalog.Col.Variants" xml:space="preserve"><value>Variants</value></data>
+  <data name="Catalog.Col.From" xml:space="preserve"><value>From</value></data>
+  <data name="Catalog.Col.Stock" xml:space="preserve"><value>Stock</value></data>
+  <data name="Catalog.Edit.Tip" xml:space="preserve"><value>Edit this product.</value></data>
+  <data name="Catalog.Delete.Tip" xml:space="preserve"><value>Delete this product permanently.</value></data>
+  <data name="Catalog.EditProduct" xml:space="preserve"><value>Edit product</value></data>
+  <data name="Catalog.Field.Title" xml:space="preserve"><value>Title</value></data>
+  <data name="Catalog.Field.Title.Tip" xml:space="preserve"><value>The product name customers see. Clear and specific (e.g. 'Borealis Ultra Speaker 22').</value></data>
+  <data name="Catalog.Field.Slug" xml:space="preserve"><value>Slug</value></data>
+  <data name="Catalog.Field.Slug.Tip" xml:space="preserve"><value>URL-friendly identifier (lowercase, hyphens). Must be unique — it forms the storefront link.</value></data>
+  <data name="Catalog.Field.Brand" xml:space="preserve"><value>Brand</value></data>
+  <data name="Catalog.Field.Brand.Tip" xml:space="preserve"><value>Manufacturer or brand shown on the product.</value></data>
+  <data name="Catalog.Field.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Catalog.Field.Description.Tip" xml:space="preserve"><value>Customer-facing description shown on the product page. Plain text.</value></data>
+  <data name="Catalog.Field.Category" xml:space="preserve"><value>Category</value></data>
+  <data name="Catalog.Field.Category.Hint" xml:space="preserve"><value>(required — products without one are not searchable)</value></data>
+  <data name="Catalog.Field.Category.Tip" xml:space="preserve"><value>The catalog category this product belongs to. Required: an uncategorised product is not searchable.</value></data>
+  <data name="Catalog.Field.ProductType" xml:space="preserve"><value>Product type</value></data>
+  <data name="Catalog.Field.ProductType.Hint" xml:space="preserve"><value>(what shoppers browse/filter by; billing mechanics live on the Offer — ADR-0028)</value></data>
+  <data name="Catalog.Field.ProductType.Tip" xml:space="preserve"><value>The customer-facing kind of product. Subscription/usage-based products are billed via their Offer.</value></data>
+  <data name="Catalog.Type.Physical" xml:space="preserve"><value>Physical</value></data>
+  <data name="Catalog.Type.Digital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Catalog.Type.Service" xml:space="preserve"><value>Service</value></data>
+  <data name="Catalog.Type.Bundle" xml:space="preserve"><value>Bundle</value></data>
+  <data name="Catalog.Type.Subscription" xml:space="preserve"><value>Subscription</value></data>
+  <data name="Catalog.Type.Usage" xml:space="preserve"><value>Usage-based</value></data>
+  <data name="Catalog.Variants" xml:space="preserve"><value>Variants</value></data>
+  <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
+  <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>Stock-keeping unit — your unique code for this variant.</value></data>
+  <data name="Catalog.Variant.Price" xml:space="preserve"><value>Price (minor)</value></data>
+  <data name="Catalog.Variant.Price.Tip" xml:space="preserve"><value>Base price in minor units (cents): 1999 = €19.99. Fallback when no per-currency price is set. Enter the FINAL shelf price: AU GST / EU VAT storefront prices INCLUDE tax; US storefront prices EXCLUDE it (tax added at checkout) — ADR-0038.</value></data>
+  <data name="Catalog.Variant.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Catalog.Variant.Stock" xml:space="preserve"><value>Stock</value></data>
+  <data name="Catalog.Variant.Stock.Tip" xml:space="preserve"><value>Units available to sell for this variant.</value></data>
+  <data name="Catalog.Variant.Remove.Tip" xml:space="preserve"><value>Remove this variant.</value></data>
+  <data name="Catalog.Variant.Add" xml:space="preserve"><value>+ Add variant</value></data>
+  <data name="Catalog.Variant.Add.Tip" xml:space="preserve"><value>Add another sellable variant (SKU, price, stock) to this product.</value></data>
+  <data name="Catalog.Prices.Note" xml:space="preserve"><value>Per-currency prices (tenant-set, no FX — a storefront hides this product if its currency has no price here). Enter the FINAL shelf price for each currency: on AU GST / EU VAT storefronts the price INCLUDES tax, on US storefronts tax is ADDED at checkout (ADR-0038).</value></data>
+  <data name="Catalog.Prices.Price.Tip" xml:space="preserve"><value>FINAL shelf price in minor units for this currency: includes tax on AU GST / EU VAT storefronts; excludes tax (added at checkout) on US storefronts — ADR-0038.</value></data>
+  <data name="Catalog.Prices.Remove.Tip" xml:space="preserve"><value>Remove this currency price.</value></data>
+  <data name="Catalog.Prices.Add" xml:space="preserve"><value>+ currency price</value></data>
+  <data name="Catalog.Prices.Add.Tip" xml:space="preserve"><value>Add a price for another currency on this variant.</value></data>
+  <data name="Catalog.Images" xml:space="preserve"><value>Image URLs</value></data>
+  <data name="Catalog.Image.Remove.Tip" xml:space="preserve"><value>Remove this image.</value></data>
+  <data name="Catalog.Image.Add" xml:space="preserve"><value>+ Add image</value></data>
+  <data name="Catalog.Image.Add.Tip" xml:space="preserve"><value>Add another product image (paste a URL or upload a file).</value></data>
+  <data name="Catalog.Attributes" xml:space="preserve"><value>Attributes</value></data>
+  <data name="Catalog.Attr.Key" xml:space="preserve"><value>key</value></data>
+  <data name="Catalog.Attr.Key.Tip" xml:space="preserve"><value>Attribute name (e.g. colour, size). Used for storefront filtering.</value></data>
+  <data name="Catalog.Attr.Value" xml:space="preserve"><value>value</value></data>
+  <data name="Catalog.Attr.Value.Tip" xml:space="preserve"><value>Attribute value (e.g. black, large).</value></data>
+  <data name="Catalog.Attr.Remove.Tip" xml:space="preserve"><value>Remove this attribute.</value></data>
+  <data name="Catalog.Attr.Add" xml:space="preserve"><value>+ Add attribute</value></data>
+  <data name="Catalog.Attr.Add.Tip" xml:space="preserve"><value>Add another key/value attribute.</value></data>
+  <data name="Catalog.Save.Tip" xml:space="preserve"><value>Save this product and return to the list.</value></data>
+  <data name="Catalog.Status.NotFound" xml:space="preserve"><value>Product not found.</value></data>
+  <data name="Catalog.Status.Deleted" xml:space="preserve"><value>Product deleted.</value></data>
+  <data name="Catalog.Status.DeleteFailed" xml:space="preserve"><value>Delete failed ({0}).</value></data>
+  <data name="Catalog.Status.Created" xml:space="preserve"><value>Product created.</value></data>
+  <data name="Catalog.Status.Updated" xml:space="preserve"><value>Product updated.</value></data>
+  <data name="Catalog.Status.SaveFailed" xml:space="preserve"><value>Save failed ({0}): {1}</value></data>
+
+  <!-- ===== Offers ===== -->
+  <data name="Offers.Title" xml:space="preserve"><value>Offers &amp; pricing</value></data>
+  <data name="Offers.Intro" xml:space="preserve"><value>Manage Catalog Offers: product/variant × supplier supply profiles, fulfilment type, price model, billing period, priority, and active state.</value></data>
+  <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Tenant owning these offers.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Product ID filter</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optional product GUID filter — leave blank for every offer in the tenant.</value></data>
+  <data name="Offers.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Offers.Col.Variant" xml:space="preserve"><value>Variant</value></data>
+  <data name="Offers.Col.Supplier" xml:space="preserve"><value>Supplier</value></data>
+  <data name="Offers.Col.Supply" xml:space="preserve"><value>Supply</value></data>
+  <data name="Offers.Col.Pricing" xml:space="preserve"><value>Pricing</value></data>
+  <data name="Offers.Col.Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Offers.Col.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Offers.Empty" xml:space="preserve"><value>No offers found.</value></data>
+  <data name="Offers.Edit.Tip" xml:space="preserve"><value>Load this offer into the form below.</value></data>
+  <data name="Offers.New" xml:space="preserve"><value>New offer</value></data>
+  <data name="Offers.EditHeading" xml:space="preserve"><value>Edit offer</value></data>
+  <data name="Offers.Field.ProductId" xml:space="preserve"><value>Product ID</value></data>
+  <data name="Offers.Field.ProductId.Tip" xml:space="preserve"><value>Product GUID this offer supplies.</value></data>
+  <data name="Offers.Field.VariantId" xml:space="preserve"><value>Variant ID</value></data>
+  <data name="Offers.Field.VariantId.Tip" xml:space="preserve"><value>Optional variant GUID. Blank applies to the product.</value></data>
+  <data name="Offers.Field.SupplierId" xml:space="preserve"><value>Supplier ID</value></data>
+  <data name="Offers.Field.SupplierId.Tip" xml:space="preserve"><value>Supplier Entity GUID.</value></data>
+  <data name="Offers.Field.SupplyCategory" xml:space="preserve"><value>Supply category</value></data>
+  <data name="Offers.Field.SupplyCategory.Tip" xml:space="preserve"><value>Physical/Digital/Service compatibility is enforced by Catalog.</value></data>
+  <data name="Offers.Field.FulfilmentType" xml:space="preserve"><value>Fulfilment type</value></data>
+  <data name="Offers.Field.FulfilmentType.Tip" xml:space="preserve"><value>How this offer is delivered/fulfilled.</value></data>
+  <data name="Offers.Field.PriceMinor" xml:space="preserve"><value>Price minor</value></data>
+  <data name="Offers.Field.PriceMinor.Tip" xml:space="preserve"><value>Price in minor units, e.g. 1999.</value></data>
+  <data name="Offers.Field.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Offers.Field.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Offers.Field.Priority.Tip" xml:space="preserve"><value>Lower priority is selected first.</value></data>
+  <data name="Offers.Field.PricingModel" xml:space="preserve"><value>Pricing model</value></data>
+  <data name="Offers.Field.PricingModel.Tip" xml:space="preserve"><value>Offer price model.</value></data>
+  <data name="Offers.Field.BillingPeriod" xml:space="preserve"><value>Billing period</value></data>
+  <data name="Offers.Field.BillingPeriod.Tip" xml:space="preserve"><value>Charge cadence.</value></data>
+  <data name="Offers.Field.Active.Tip" xml:space="preserve"><value>Inactive offers are never selected at checkout.</value></data>
+  <data name="Offers.Fulfilment.Dropship" xml:space="preserve"><value>Dropship</value></data>
+  <data name="Offers.Fulfilment.Warehouse" xml:space="preserve"><value>Warehouse</value></data>
+  <data name="Offers.Fulfilment.DigitalDownload" xml:space="preserve"><value>Digital download</value></data>
+  <data name="Offers.Fulfilment.Subscription" xml:space="preserve"><value>Subscription</value></data>
+  <data name="Offers.Fulfilment.Usage" xml:space="preserve"><value>Usage</value></data>
+  <data name="Offers.Fulfilment.ManualService" xml:space="preserve"><value>Manual service</value></data>
+  <data name="Offers.PricingModel.OneTime" xml:space="preserve"><value>One-time</value></data>
+  <data name="Offers.PricingModel.Subscription" xml:space="preserve"><value>Subscription</value></data>
+  <data name="Offers.PricingModel.UsageBased" xml:space="preserve"><value>Usage-based</value></data>
+  <data name="Offers.PricingModel.Tiered" xml:space="preserve"><value>Tiered</value></data>
+  <data name="Offers.BillingPeriod.Once" xml:space="preserve"><value>Once</value></data>
+  <data name="Offers.BillingPeriod.Monthly" xml:space="preserve"><value>Monthly</value></data>
+  <data name="Offers.BillingPeriod.Yearly" xml:space="preserve"><value>Yearly</value></data>
+  <data name="Offers.Tiers" xml:space="preserve"><value>Graduated tiers</value></data>
+  <data name="Offers.Tier.FromQty" xml:space="preserve"><value>From qty</value></data>
+  <data name="Offers.Tier.FromQty.Tip" xml:space="preserve"><value>The quantity at which this tier's unit price starts to apply.</value></data>
+  <data name="Offers.Tier.UnitPrice" xml:space="preserve"><value>Unit price minor</value></data>
+  <data name="Offers.Tier.UnitPrice.Tip" xml:space="preserve"><value>Unit price in minor units once this tier's quantity is reached.</value></data>
+  <data name="Offers.Tier.Remove.Tip" xml:space="preserve"><value>Remove this tier.</value></data>
+  <data name="Offers.Tier.Add" xml:space="preserve"><value>+ Add tier</value></data>
+  <data name="Offers.Tier.Add.Tip" xml:space="preserve"><value>Add a graduated price tier.</value></data>
+  <data name="Offers.Tier.Summary" xml:space="preserve"><value>({0} tiers)</value></data>
+  <data name="Offers.Save" xml:space="preserve"><value>Save offer</value></data>
+  <data name="Offers.Save.Tip" xml:space="preserve"><value>Create or update the offer from the form above.</value></data>
+  <data name="Offers.Status.Saved" xml:space="preserve"><value>Offer saved.</value></data>
+  <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a valid GUID.</value></data>
+  <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>Product ID must be a valid GUID.</value></data>
+  <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>Supplier ID must be a valid GUID.</value></data>
+
+  <!-- ===== Orders ===== -->
+  <data name="Orders.Title" xml:space="preserve"><value>Orders</value></data>
+  <data name="Orders.Intro" xml:space="preserve"><value>Cancel an unpaid order (Pending/Awaiting payment), or refund a confirmed (paid) one. Refunds reverse the ledger; the order's own status stays Confirmed.</value></data>
+  <data name="Orders.Empty" xml:space="preserve"><value>No orders yet.</value></data>
+  <data name="Orders.Col.Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Orders.Col.Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Orders.Col.Placed" xml:space="preserve"><value>Placed</value></data>
+  <data name="Orders.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Cancel this unpaid order (releases it). Click twice to confirm.</value></data>
+  <data name="Orders.Refund" xml:space="preserve"><value>Refund</value></data>
+  <data name="Orders.Refund.Tip" xml:space="preserve"><value>Refund the full order total — reverses the ledger. Click twice to confirm.</value></data>
+  <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Order cancelled.</value></data>
+  <data name="Orders.Status.Refunded" xml:space="preserve"><value>Refund requested — the ledger will reverse.</value></data>
+
+  <!-- ===== RMA queue ===== -->
+  <data name="Rma.Title" xml:space="preserve"><value>RMA queue</value></data>
+  <data name="Rma.Col.Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Rma.Col.Amount" xml:space="preserve"><value>Amount</value></data>
+  <data name="Rma.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Rma.Updating" xml:space="preserve"><value>Updating…</value></data>
+  <data name="Rma.Refresh.Tip" xml:space="preserve"><value>Reload the queue — the saga applies the transition asynchronously, so the row catches up a moment later.</value></data>
+  <data name="Rma.Approve" xml:space="preserve"><value>Approve &amp; refund</value></data>
+  <data name="Rma.Approve.Tip" xml:space="preserve"><value>Refund now — no physical return required.</value></data>
+  <data name="Rma.ApproveReturn" xml:space="preserve"><value>Approve (require return)</value></data>
+  <data name="Rma.ApproveReturn.Tip" xml:space="preserve"><value>Approve, but require the item back before the refund is issued.</value></data>
+  <data name="Rma.Deny" xml:space="preserve"><value>Deny</value></data>
+  <data name="Rma.Deny.Tip" xml:space="preserve"><value>Reject this return request.</value></data>
+  <data name="Rma.MarkReceived" xml:space="preserve"><value>Mark return received</value></data>
+  <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Mark the returned item received — this releases the refund.</value></data>
+  <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} accepted.</value></data>
+  <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} failed ({1}): {2}</value></data>
+
+  <!-- ===== Ledger ===== -->
+  <data name="Ledger.Title" xml:space="preserve"><value>Ledger</value></data>
+  <data name="Ledger.Col.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Ledger.Col.Reference" xml:space="preserve"><value>Reference</value></data>
+  <data name="Ledger.Col.Lines" xml:space="preserve"><value>Lines</value></data>
+
+  <!-- ===== Xero sync ===== -->
+  <data name="Xero.Title" xml:space="preserve"><value>Xero sync</value></data>
+  <data name="Xero.PostYesterday" xml:space="preserve"><value>Post yesterday's summary</value></data>
+  <data name="Xero.PostYesterday.Tip" xml:space="preserve"><value>Post yesterday's summary journal to Xero. Safe to retry — the run is keyed by date.</value></data>
+  <data name="Xero.Col.Reference" xml:space="preserve"><value>Reference</value></data>
+  <data name="Xero.Col.Journal" xml:space="preserve"><value>Xero journal</value></data>
+  <data name="Xero.Status.Posted" xml:space="preserve"><value>Posted summary for {0}.</value></data>
+  <data name="Xero.Status.Failed" xml:space="preserve"><value>Post failed ({0}): {1}</value></data>
+
+  <!-- ===== Xero mappings ===== -->
+  <data name="XeroMap.Title" xml:space="preserve"><value>Xero mappings</value></data>
+  <data name="XeroMap.Intro" xml:space="preserve"><value>Map ledger account codes to Xero account codes with tenant default, storefront, category, supplier, or product precedence.</value></data>
+  <data name="XeroMap.TenantId.Tip" xml:space="preserve"><value>The tenant whose Xero mappings you are managing.</value></data>
+  <data name="XeroMap.Col.Ledger" xml:space="preserve"><value>Ledger</value></data>
+  <data name="XeroMap.Col.Xero" xml:space="preserve"><value>Xero</value></data>
+  <data name="XeroMap.Col.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="XeroMap.Col.Target" xml:space="preserve"><value>Target</value></data>
+  <data name="XeroMap.Empty" xml:space="preserve"><value>No Xero mappings yet.</value></data>
+  <data name="XeroMap.New" xml:space="preserve"><value>New mapping</value></data>
+  <data name="XeroMap.EditHeading" xml:space="preserve"><value>Edit mapping</value></data>
+  <data name="XeroMap.Edit.Tip" xml:space="preserve"><value>Load this mapping into the form below.</value></data>
+  <data name="XeroMap.Delete.Tip" xml:space="preserve"><value>Delete this mapping.</value></data>
+  <data name="XeroMap.Field.Ledger" xml:space="preserve"><value>Ledger account</value></data>
+  <data name="XeroMap.Field.Ledger.Tip" xml:space="preserve"><value>Payments ledger account code, e.g. revenue.sales.</value></data>
+  <data name="XeroMap.Field.Xero" xml:space="preserve"><value>Xero account</value></data>
+  <data name="XeroMap.Field.Xero.Tip" xml:space="preserve"><value>Xero account code.</value></data>
+  <data name="XeroMap.Field.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="XeroMap.Field.Scope.Tip" xml:space="preserve"><value>More specific scopes win over tenant defaults.</value></data>
+  <data name="XeroMap.Field.Target" xml:space="preserve"><value>Target ID</value></data>
+  <data name="XeroMap.Field.Target.Tip" xml:space="preserve"><value>Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default.</value></data>
+  <data name="XeroMap.Field.Active.Tip" xml:space="preserve"><value>Inactive mappings are ignored when posting to Xero.</value></data>
+  <data name="XeroMap.Scope.TenantDefault" xml:space="preserve"><value>Tenant default</value></data>
+  <data name="XeroMap.Scope.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="XeroMap.Scope.Category" xml:space="preserve"><value>Category</value></data>
+  <data name="XeroMap.Scope.Supplier" xml:space="preserve"><value>Supplier</value></data>
+  <data name="XeroMap.Scope.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="XeroMap.Save" xml:space="preserve"><value>Save mapping</value></data>
+  <data name="XeroMap.Save.Tip" xml:space="preserve"><value>Create or update the mapping from the form above.</value></data>
+  <data name="XeroMap.Status.Saved" xml:space="preserve"><value>Xero mapping saved.</value></data>
+  <data name="XeroMap.Status.Deleted" xml:space="preserve"><value>Xero mapping deleted.</value></data>
+  <data name="XeroMap.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a valid GUID.</value></data>
+
+  <!-- ===== Imports ===== -->
+  <data name="Imports.Title" xml:space="preserve"><value>Catalog imports</value></data>
+  <data name="Imports.Template" xml:space="preserve"><value>Import template</value></data>
+  <data name="Imports.Template.Tip" xml:space="preserve"><value>Download a catalog import template (CSV) with two example products as a reference for the expected format.</value></data>
+  <data name="Imports.Run" xml:space="preserve"><value>Run sample importer</value></data>
+  <data name="Imports.Run.Tip" xml:space="preserve"><value>Start an import run using the built-in sample importer.</value></data>
+  <data name="Imports.Col.Importer" xml:space="preserve"><value>Importer</value></data>
+  <data name="Imports.Col.Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Imports.Col.Read" xml:space="preserve"><value>Read</value></data>
+  <data name="Imports.Col.Accepted" xml:space="preserve"><value>Accepted</value></data>
+  <data name="Imports.Col.Rejected" xml:space="preserve"><value>Rejected</value></data>
+  <data name="Imports.Running" xml:space="preserve"><value> (running…)</value></data>
+  <data name="Imports.Status.Started" xml:space="preserve"><value>Import run started.</value></data>
+  <data name="Imports.Status.Failed" xml:space="preserve"><value>Import failed ({0}): {1}</value></data>
+
+  <!-- ===== Roles &amp; permissions (RBAC) ===== -->
+  <data name="Rbac.Title" xml:space="preserve"><value>Roles &amp; permissions</value></data>
+  <data name="Rbac.Intro" xml:space="preserve"><value>Roles are &lt;strong&gt;data&lt;/strong&gt; — compose any subset of the code-defined permissions. Built-in roles are seeded per tenant; you can edit their permissions, duplicate them, or build a new role by cherry-picking. Changes are enforced by the Identity PDP and re-evaluate active sessions.</value></data>
+  <data name="Rbac.Tenant" xml:space="preserve"><value>Tenant</value></data>
+  <data name="Rbac.Tenant.Tip" xml:space="preserve"><value>The tenant whose roles you are managing (GUID).</value></data>
+  <data name="Rbac.NewRole" xml:space="preserve"><value>+ New role</value></data>
+  <data name="Rbac.NewRole.Tip" xml:space="preserve"><value>Build a new custom role by cherry-picking permissions.</value></data>
+  <data name="Rbac.NoRoles" xml:space="preserve"><value>No roles loaded for this tenant.</value></data>
+  <data name="Rbac.Col.Role" xml:space="preserve"><value>Role</value></data>
+  <data name="Rbac.Col.Key" xml:space="preserve"><value>Key</value></data>
+  <data name="Rbac.Col.Permissions" xml:space="preserve"><value>Permissions</value></data>
+  <data name="Rbac.Badge.System" xml:space="preserve"><value>system</value></data>
+  <data name="Rbac.Badge.BuiltIn" xml:space="preserve"><value>built-in</value></data>
+  <data name="Rbac.Badge.Custom" xml:space="preserve"><value>custom</value></data>
+  <data name="Rbac.Edit.Tip" xml:space="preserve"><value>Edit this role's permissions.</value></data>
+  <data name="Rbac.Edit.SystemTip" xml:space="preserve"><value>System roles are platform-managed.</value></data>
+  <data name="Rbac.Duplicate" xml:space="preserve"><value>Duplicate</value></data>
+  <data name="Rbac.Duplicate.Tip" xml:space="preserve"><value>Create a new role pre-filled with this role's permissions.</value></data>
+  <data name="Rbac.Delete.Tip" xml:space="preserve"><value>Delete this custom role. Click twice to confirm.</value></data>
+  <data name="Rbac.Delete.LockedTip" xml:space="preserve"><value>Built-in/system roles cannot be deleted.</value></data>
+  <data name="Rbac.Heading.New" xml:space="preserve"><value>New role</value></data>
+  <data name="Rbac.Heading.Edit" xml:space="preserve"><value>Edit role</value></data>
+  <data name="Rbac.Heading.Duplicate" xml:space="preserve"><value>Duplicate role</value></data>
+  <data name="Rbac.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Rbac.Field.Name.Tip" xml:space="preserve"><value>Human-readable role name shown to operators.</value></data>
+  <data name="Rbac.Field.Key" xml:space="preserve"><value>Key</value></data>
+  <data name="Rbac.Field.Key.Tip" xml:space="preserve"><value>Stable slug (lowercase, digits, hyphens). Set once at creation; can't change later.</value></data>
+  <data name="Rbac.Field.Key.HintNew" xml:space="preserve"><value>lowercase, digits, hyphens</value></data>
+  <data name="Rbac.Field.Key.HintFixed" xml:space="preserve"><value>key is fixed after creation</value></data>
+  <data name="Rbac.Field.Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Rbac.Field.Description.Tip" xml:space="preserve"><value>Optional: what this role is for.</value></data>
+  <data name="Rbac.Permissions" xml:space="preserve"><value>Permissions</value></data>
+  <data name="Rbac.Permissions.Selected" xml:space="preserve"><value>({0} selected)</value></data>
+  <data name="Rbac.Permissions.Hint" xml:space="preserve"><value>Cherry-pick each permission ↓</value></data>
+  <data name="Rbac.Permission.Tip" xml:space="preserve"><value>Grant this permission to the role.</value></data>
+  <data name="Rbac.Save" xml:space="preserve"><value>Save role</value></data>
+  <data name="Rbac.Save.Tip" xml:space="preserve"><value>Save the role and its selected permissions. Active sessions re-evaluate.</value></data>
+  <data name="Rbac.Risk.High" xml:space="preserve"><value>High</value></data>
+  <data name="Rbac.Risk.Medium" xml:space="preserve"><value>Medium</value></data>
+  <data name="Rbac.Risk.Low" xml:space="preserve"><value>Low</value></data>
+  <data name="Rbac.CopySuffix" xml:space="preserve"><value>{0} (copy)</value></data>
+  <data name="Rbac.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a GUID.</value></data>
+  <data name="Rbac.Error.SaveFailed" xml:space="preserve"><value>Save failed: {0}</value></data>
+  <data name="Rbac.Status.Deleted" xml:space="preserve"><value>Deleted role '{0}'.</value></data>
+  <data name="Rbac.Status.Saved" xml:space="preserve"><value>Role '{0}' saved.</value></data>
+
+  <!-- ===== Operator users ===== -->
+  <data name="Users.Title" xml:space="preserve"><value>Operator users</value></data>
+  <data name="Users.Subtitle" xml:space="preserve"><value>master admin · reset passwords &amp; change emails</value></data>
+  <data name="Users.Intro" xml:space="preserve"><value>Manage the accounts that sign in to a tenant. Resetting issues a one-time temporary password to read out; changing an email forces re-verification.</value></data>
+  <data name="Users.TenantId.Tip" xml:space="preserve"><value>The tenant whose users you are managing.</value></data>
+  <data name="Users.Load" xml:space="preserve"><value>Load users</value></data>
+  <data name="Users.Load.Tip" xml:space="preserve"><value>Load the operator accounts for this tenant.</value></data>
+  <data name="Users.Col.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Users.Col.Role" xml:space="preserve"><value>Role</value></data>
+  <data name="Users.Col.Verified" xml:space="preserve"><value>Verified</value></data>
+  <data name="Users.Col.Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Users.Reset" xml:space="preserve"><value>Reset password</value></data>
+  <data name="Users.Reset.Tip" xml:space="preserve"><value>Issue a one-time temporary password.</value></data>
+  <data name="Users.ChangeEmail" xml:space="preserve"><value>Change email</value></data>
+  <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>Change this user's sign-in email.</value></data>
+  <data name="Users.TempPassword" xml:space="preserve"><value>Temporary password (read out once):</value></data>
+  <data name="Users.NewEmail" xml:space="preserve"><value>new@email.com</value></data>
+  <data name="Users.NewEmail.Tip" xml:space="preserve"><value>The new sign-in email (must be unique in the tenant).</value></data>
+  <data name="Users.SaveEmail.Tip" xml:space="preserve"><value>Save the new sign-in email — the user must verify it again.</value></data>
+  <data name="Users.CancelEmail.Tip" xml:space="preserve"><value>Cancel this email change.</value></data>
+  <data name="Users.Empty" xml:space="preserve"><value>No users in this tenant yet.</value></data>
+  <data name="Users.Status.EmailChanged" xml:space="preserve"><value>Email changed — the user must re-verify.</value></data>
+  <data name="Users.Error.ResetFailed" xml:space="preserve"><value>Reset failed ({0}).</value></data>
+
+  <!-- ===== Entities &amp; suppliers ===== -->
+  <data name="Entities.Title" xml:space="preserve"><value>Entities &amp; suppliers</value></data>
+  <data name="Entities.Intro" xml:space="preserve"><value>Tenant-scoped party master data + supplier onboarding. The change-request queue is &lt;strong&gt;maker-checker&lt;/strong&gt;: a sensitive supplier change (bank account, contact, access) is &lt;em&gt;requested&lt;/em&gt; by one operator and must be &lt;em&gt;approved by a different one&lt;/em&gt; — separation of duties, with the decision audited.</value></data>
+  <data name="Entities.Tenant" xml:space="preserve"><value>Tenant</value></data>
+  <data name="Entities.Tenant.Tip" xml:space="preserve"><value>The tenant whose entities you are managing (GUID).</value></data>
+  <data name="Entities.EditHeading" xml:space="preserve"><value>Edit entity</value></data>
+  <data name="Entities.Field.LegalName" xml:space="preserve"><value>Legal name</value></data>
+  <data name="Entities.Field.LegalName.Tip" xml:space="preserve"><value>Registered legal name of the entity.</value></data>
+  <data name="Entities.Field.TradingName" xml:space="preserve"><value>Trading name</value></data>
+  <data name="Entities.Field.TradingName.Tip" xml:space="preserve"><value>Optional 'doing business as' name; shown to operators when set.</value></data>
+  <data name="Entities.Field.Type.Tip" xml:space="preserve"><value>Entity type is fixed after creation.</value></data>
+  <data name="Entities.List" xml:space="preserve"><value>Entities</value></data>
+  <data name="Entities.SuspendReason" xml:space="preserve"><value>Suspend reason</value></data>
+  <data name="Entities.SuspendReason.Tip" xml:space="preserve"><value>Recorded when suspending a supplier (min 8 characters).</value></data>
+  <data name="Entities.Empty" xml:space="preserve"><value>No entities loaded.</value></data>
+  <data name="Entities.Col.SupplierActions" xml:space="preserve"><value>Supplier actions</value></data>
+  <data name="Entities.EditSmall" xml:space="preserve"><value>edit</value></data>
+  <data name="Entities.EditSmall.Tip" xml:space="preserve"><value>Edit this entity's names.</value></data>
+  <data name="Entities.Action.Onboard" xml:space="preserve"><value>Onboard</value></data>
+  <data name="Entities.Action.Onboard.Tip" xml:space="preserve"><value>Begin supplier onboarding (state: Draft).</value></data>
+  <data name="Entities.Action.Verify" xml:space="preserve"><value>Verify</value></data>
+  <data name="Entities.Action.Verify.Tip" xml:space="preserve"><value>Submit a Draft supplier for verification (requires a verified ABN/ACN, an email contact, and a current address on the entity).</value></data>
+  <data name="Entities.Action.Verified" xml:space="preserve"><value>Verified</value></data>
+  <data name="Entities.Action.Verified.Tip" xml:space="preserve"><value>Mark verification complete (state: Pending verification → Pending approval).</value></data>
+  <data name="Entities.Action.Activate" xml:space="preserve"><value>Activate</value></data>
+  <data name="Entities.Action.Activate.Tip" xml:space="preserve"><value>Activate a supplier whose verification is complete (state must be Pending approval).</value></data>
+  <data name="Entities.Action.Suspend" xml:space="preserve"><value>Suspend</value></data>
+  <data name="Entities.Action.Suspend.Tip" xml:space="preserve"><value>Suspend an ACTIVE supplier — the reason on the left is recorded (8–500 chars).</value></data>
+  <data name="Entities.Action.Archive" xml:space="preserve"><value>Archive</value></data>
+  <data name="Entities.Action.Archive.Tip" xml:space="preserve"><value>Archive the supplier.</value></data>
+  <data name="Entities.Create" xml:space="preserve"><value>Create entity</value></data>
+  <data name="Entities.New.LegalName" xml:space="preserve"><value>Legal name</value></data>
+  <data name="Entities.New.LegalName.Tip" xml:space="preserve"><value>Registered legal name.</value></data>
+  <data name="Entities.New.TradingName" xml:space="preserve"><value>Trading name (optional)</value></data>
+  <data name="Entities.New.TradingName.Tip" xml:space="preserve"><value>Optional 'doing business as' name.</value></data>
+  <data name="Entities.New.Type.Tip" xml:space="preserve"><value>Entity type — fixed after creation.</value></data>
+  <data name="Entities.Create.Tip" xml:space="preserve"><value>Create the entity in this tenant.</value></data>
+  <data name="Entities.Type.NaturalPerson" xml:space="preserve"><value>Natural person</value></data>
+  <data name="Entities.Type.Company" xml:space="preserve"><value>Company</value></data>
+  <data name="Entities.Type.Trust" xml:space="preserve"><value>Trust</value></data>
+  <data name="Entities.Type.Partnership" xml:space="preserve"><value>Partnership</value></data>
+  <data name="Entities.Type.SoleTrader" xml:space="preserve"><value>Sole trader</value></data>
+  <data name="Entities.Type.GovernmentBody" xml:space="preserve"><value>Government body</value></data>
+  <data name="Entities.Type.NonProfit" xml:space="preserve"><value>Non-profit / association</value></data>
+  <data name="Entities.Type.Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Entities.Status.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Entities.Status.Inactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Entities.Status.Archived" xml:space="preserve"><value>Archived</value></data>
+  <data name="Entities.Requests" xml:space="preserve"><value>Pending supplier change requests</value></data>
+  <data name="Entities.DecisionReason" xml:space="preserve"><value>Decision reason</value></data>
+  <data name="Entities.DecisionReason.Placeholder" xml:space="preserve"><value>Reason (8–500 chars, required to reject)</value></data>
+  <data name="Entities.DecisionReason.Tip" xml:space="preserve"><value>Recorded with the decision; optional for approve, required (8–500 characters) when rejecting.</value></data>
+  <data name="Entities.NoRequests" xml:space="preserve"><value>No pending change requests.</value></data>
+  <data name="Entities.RequestedBy" xml:space="preserve"><value>requested by {0}</value></data>
+  <data name="Entities.MakerChecker" xml:space="preserve"><value>You raised this request — a different admin must decide it (maker-checker).</value></data>
+  <data name="Entities.Approve" xml:space="preserve"><value>Approve</value></data>
+  <data name="Entities.Approve.Tip" xml:space="preserve"><value>Approve this change request.</value></data>
+  <data name="Entities.Approve.OwnTip" xml:space="preserve"><value>Maker-checker: the requester cannot approve their own request.</value></data>
+  <data name="Entities.Reject" xml:space="preserve"><value>Reject</value></data>
+  <data name="Entities.Reject.Tip" xml:space="preserve"><value>Reject this change request — the decision reason above is required (8–500 chars).</value></data>
+  <data name="Entities.Reject.OwnTip" xml:space="preserve"><value>Maker-checker: the requester cannot reject their own request.</value></data>
+  <data name="Entities.ChangeType.UserAccess" xml:space="preserve"><value>User access</value></data>
+  <data name="Entities.ChangeType.Contact" xml:space="preserve"><value>Contact</value></data>
+  <data name="Entities.ChangeType.BankAccount" xml:space="preserve"><value>Bank account</value></data>
+  <data name="Entities.ChangeType.Other" xml:space="preserve"><value>Type {0}</value></data>
+  <data name="Entities.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a GUID.</value></data>
+  <data name="Entities.Error.SuspendReason" xml:space="preserve"><value>Suspend reason must be at least 8 characters.</value></data>
+  <data name="Entities.Error.RejectReason" xml:space="preserve"><value>Rejecting requires a decision reason of at least 8 characters.</value></data>
+  <data name="Entities.Error.ReasonTooLong" xml:space="preserve"><value>The decision reason must be at most 500 characters.</value></data>
+  <data name="Entities.Error.UpdateFailed" xml:space="preserve"><value>Update failed: {0}</value></data>
+  <data name="Entities.Error.CreateFailed" xml:space="preserve"><value>Create failed ({0}).</value></data>
+  <data name="Entities.Error.ActionFailed" xml:space="preserve"><value>Action failed: {0}</value></data>
+  <data name="Entities.Error.DecisionFailed" xml:space="preserve"><value>{0} failed: {1}</value></data>
+  <data name="Entities.Info.Updated" xml:space="preserve"><value>Entity updated.</value></data>
+  <data name="Entities.Info.Created" xml:space="preserve"><value>Created '{0}'.</value></data>
+  <data name="Entities.Info.SupplierOk" xml:space="preserve"><value>Supplier '{0}' ok.</value></data>
+  <data name="Entities.Info.Approved" xml:space="preserve"><value>Request approved.</value></data>
+  <data name="Entities.Info.Rejected" xml:space="preserve"><value>Request rejected.</value></data>
+
+  <!-- ===== Commerce ops ===== -->
+  <data name="Ops.Title" xml:space="preserve"><value>Storefront commerce operations</value></data>
+  <data name="Ops.Intro" xml:space="preserve"><value>Tenant/storefront catalog, publication, pricing, payment, payout, and Xero setup surfaces. Sensitive values (supplier cost, margins, bank tokens, provider account refs, accounting mappings) are intentionally summarized here; field-level policy/audit enforcement is provided by the owning service/Admin API as those mutation endpoints are expanded.</value></data>
+  <data name="Ops.TenantContext" xml:space="preserve"><value>Tenant context</value></data>
+  <data name="Ops.TenantId.Tip" xml:space="preserve"><value>The tenant (legal operator) whose commerce config you are managing (GUID).</value></data>
+  <data name="Ops.LoadStorefronts" xml:space="preserve"><value>Load storefronts</value></data>
+  <data name="Ops.LoadStorefronts.Tip" xml:space="preserve"><value>Load every storefront belonging to this tenant.</value></data>
+  <data name="Ops.Storefronts" xml:space="preserve"><value>Storefronts</value></data>
+  <data name="Ops.NotReadyIntro" xml:space="preserve"><value>This storefront is not ready to go live yet:</value></data>
+  <data name="Ops.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Ops.Field.Name.Tip" xml:space="preserve"><value>Internal name for the storefront.</value></data>
+  <data name="Ops.Field.PublicUrl" xml:space="preserve"><value>Public URL</value></data>
+  <data name="Ops.Field.PublicUrl.Tip" xml:space="preserve"><value>Public storefront URL used in customer-facing links.</value></data>
+  <data name="Ops.Field.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Ops.Field.Currency.Tip" xml:space="preserve"><value>ISO 4217 currency for this storefront. Independent of the interface language.</value></data>
+  <data name="Ops.Field.TaxRegime" xml:space="preserve"><value>Tax regime</value></data>
+  <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Region tax rule. AU GST / EU VAT are tax-INCLUSIVE: shelf prices already contain the tax (shoppers pay the listed price; tax shown informationally). US sales tax is ADDED at checkout on top of listed prices (ADR-0038).</value></data>
+  <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Tax bps</value></data>
+  <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Tax rate in basis points, e.g. 1000 = 10%. For AU GST / EU VAT this is the rate CONTAINED in shelf prices; for US it is ADDED at checkout (ADR-0038).</value></data>
+  <data name="Ops.Field.Visibility" xml:space="preserve"><value>Visibility</value></data>
+  <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Who can see the storefront: Public (live) or Private (draft).</value></data>
+  <data name="Ops.CreateStorefront" xml:space="preserve"><value>Create storefront</value></data>
+  <data name="Ops.CreateStorefront.Tip" xml:space="preserve"><value>Create the storefront from the fields on the left.</value></data>
+  <data name="Ops.TaxRegime.None" xml:space="preserve"><value>None</value></data>
+  <data name="Ops.TaxRegime.AuGst" xml:space="preserve"><value>AU GST</value></data>
+  <data name="Ops.TaxRegime.EuVat" xml:space="preserve"><value>EU VAT</value></data>
+  <data name="Ops.TaxRegime.UsSalesTax" xml:space="preserve"><value>US sales tax</value></data>
+  <data name="Ops.TaxRegime.Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Ops.Visibility.Private" xml:space="preserve"><value>Private</value></data>
+  <data name="Ops.Visibility.Password" xml:space="preserve"><value>Password</value></data>
+  <data name="Ops.Visibility.InviteOnly" xml:space="preserve"><value>Invite only</value></data>
+  <data name="Ops.Visibility.Public" xml:space="preserve"><value>Public</value></data>
+  <data name="Ops.LoadPrompt" xml:space="preserve"><value>Load storefronts to begin.</value></data>
+  <data name="Ops.NoStorefronts" xml:space="preserve"><value>No storefronts for this tenant.</value></data>
+  <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
+  <data name="Ops.Col.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Ops.Col.Tax" xml:space="preserve"><value>Tax</value></data>
+  <data name="Ops.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Ops.Col.Visibility" xml:space="preserve"><value>Visibility</value></data>
+  <data name="Ops.Col.Domains" xml:space="preserve"><value>Domains</value></data>
+  <data name="Ops.Manage" xml:space="preserve"><value>Manage</value></data>
+  <data name="Ops.Manage.Tip" xml:space="preserve"><value>Open this storefront's settings, domains and product publication.</value></data>
+  <data name="Ops.Preview" xml:space="preserve"><value>Preview</value></data>
+  <data name="Ops.Preview.Tip" xml:space="preserve"><value>Move the storefront to Preview (readiness is checked).</value></data>
+  <data name="Ops.Activate" xml:space="preserve"><value>Activate</value></data>
+  <data name="Ops.Activate.Tip" xml:space="preserve"><value>Take the storefront live (readiness is checked).</value></data>
+  <data name="Ops.Pause" xml:space="preserve"><value>Pause</value></data>
+  <data name="Ops.Pause.Tip" xml:space="preserve"><value>Pause the storefront — it stops serving shoppers.</value></data>
+  <data name="Ops.Archive" xml:space="preserve"><value>Archive</value></data>
+  <data name="Ops.Archive.Tip" xml:space="preserve"><value>Archive the storefront.</value></data>
+  <data name="Ops.ManageHeading" xml:space="preserve"><value>Manage {0}</value></data>
+  <data name="Ops.SaveSettings" xml:space="preserve"><value>Save storefront settings</value></data>
+  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Save the name, URL, currency, tax and visibility above.</value></data>
+  <data name="Ops.DomainHost" xml:space="preserve"><value>Domain host</value></data>
+  <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
+  <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Domain to map to this storefront (host only, no https://).</value></data>
+  <data name="Ops.Canonical" xml:space="preserve"><value>Canonical</value></data>
+  <data name="Ops.Canonical.Tip" xml:space="preserve"><value>The primary domain; others redirect to it (one canonical per storefront).</value></data>
+  <data name="Ops.AddDomain" xml:space="preserve"><value>Add domain</value></data>
+  <data name="Ops.AddDomain.Tip" xml:space="preserve"><value>Map the host above to this storefront.</value></data>
+  <data name="Ops.CheckReadiness" xml:space="preserve"><value>Check readiness</value></data>
+  <data name="Ops.CheckReadiness.Tip" xml:space="preserve"><value>List what this storefront still needs before it can go live.</value></data>
+  <data name="Ops.Readiness" xml:space="preserve"><value>Readiness:</value></data>
+  <data name="Ops.Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="Ops.NotReady" xml:space="preserve"><value>Not ready</value></data>
+  <data name="Ops.Publication" xml:space="preserve"><value>Product publication</value></data>
+  <data name="Ops.Field.ProductId" xml:space="preserve"><value>Product ID</value></data>
+  <data name="Ops.Field.ProductId.Tip" xml:space="preserve"><value>The tenant product (GUID) to publish to this storefront.</value></data>
+  <data name="Ops.Field.SeoTitle" xml:space="preserve"><value>SEO title</value></data>
+  <data name="Ops.Field.SeoTitle.Tip" xml:space="preserve"><value>Optional SEO title override for this product on this storefront.</value></data>
+  <data name="Ops.Field.Fulfillment" xml:space="preserve"><value>Fulfillment</value></data>
+  <data name="Ops.Field.Fulfillment.Tip" xml:space="preserve"><value>How this product is fulfilled on this storefront (warehouse, dropship, digital…).</value></data>
+  <data name="Ops.Fulfillment.Unassigned" xml:space="preserve"><value>Unassigned (blocks publish)</value></data>
+  <data name="Ops.Fulfillment.Dropship" xml:space="preserve"><value>Dropship</value></data>
+  <data name="Ops.Fulfillment.OwnWarehouse" xml:space="preserve"><value>Own warehouse</value></data>
+  <data name="Ops.AssignProduct" xml:space="preserve"><value>Assign product</value></data>
+  <data name="Ops.AssignProduct.Tip" xml:space="preserve"><value>Attach the product above to this storefront (it is not published yet).</value></data>
+  <data name="Ops.ProductReadiness" xml:space="preserve"><value>Product readiness</value></data>
+  <data name="Ops.ProductReadiness.Tip" xml:space="preserve"><value>List what this product still needs before it can be published here.</value></data>
+  <data name="Ops.Publish" xml:space="preserve"><value>Publish</value></data>
+  <data name="Ops.Publish.Tip" xml:space="preserve"><value>Publish the product on this storefront.</value></data>
+  <data name="Ops.Unpublish" xml:space="preserve"><value>Unpublish</value></data>
+  <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>Remove the product from this storefront.</value></data>
+  <data name="Ops.PublicationReadiness" xml:space="preserve"><value>Publication readiness:</value></data>
+  <data name="Ops.Policies" xml:space="preserve"><value>Pricing, payment, payout, and Xero policy surfaces</value></data>
+  <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>Pricing &amp; promotions</value></data>
+  <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Catalog Offers + Ordering. Per-product offers include price model + tiers.</value></data>
+  <data name="Ops.Card.Pricing.Link" xml:space="preserve"><value>Manage offers &amp; pricing</value></data>
+  <data name="Ops.Card.Payments.Title" xml:space="preserve"><value>Payment accounts</value></data>
+  <data name="Ops.Card.Payments.Body" xml:space="preserve"><value>Payments owns tenant defaults, storefront overrides, provider mode, readiness, live activation approval, and checkout snapshots. Use active eligible accounts only.</value></data>
+  <data name="Ops.Card.Payments.Link" xml:space="preserve"><value>Manage payment accounts</value></data>
+  <data name="Ops.Card.Payouts.Title" xml:space="preserve"><value>Supplier payouts</value></data>
+  <data name="Ops.Card.Payouts.Body" xml:space="preserve"><value>Payments owns masked/tokenized bank accounts, approval-protected payout instructions, payable policies, and balanced supplier payable accruals.</value></data>
+  <data name="Ops.Card.Payouts.Link" xml:space="preserve"><value>Manage supplier payouts</value></data>
+  <data name="Ops.Card.Xero.Title" xml:space="preserve"><value>Xero mappings</value></data>
+  <data name="Ops.Card.Xero.Body" xml:space="preserve"><value>Payments owns tenant default plus storefront/category/supplier/product mapping precedence. Xero remains downstream of ledger truth. Sync runs + the daily journal are operable now.</value></data>
+  <data name="Ops.Card.Xero.Link" xml:space="preserve"><value>Manage Xero mappings</value></data>
+  <data name="Ops.Card.Link.Tip" xml:space="preserve"><value>Open the admin page that manages this surface.</value></data>
+  <data name="Ops.Status.StorefrontCreated" xml:space="preserve"><value>Storefront created.</value></data>
+  <data name="Ops.Status.SettingsUpdated" xml:space="preserve"><value>Storefront settings updated.</value></data>
+  <data name="Ops.Status.DomainAdded" xml:space="preserve"><value>Domain added.</value></data>
+  <data name="Ops.Status.ProductAssigned" xml:space="preserve"><value>Product assigned.</value></data>
+  <data name="Ops.Status.Transition" xml:space="preserve"><value>Storefront {0} requested.</value></data>
+  <data name="Ops.Status.ProductPublish" xml:space="preserve"><value>Product publish requested.</value></data>
+  <data name="Ops.Status.ProductUnpublish" xml:space="preserve"><value>Product unpublish requested.</value></data>
+  <data name="Ops.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0}): {1}</value></data>
+
+  <!-- ===== Payment accounts ===== -->
+  <data name="Pay.Title" xml:space="preserve"><value>Payment accounts</value></data>
+  <data name="Pay.Subtitle" xml:space="preserve"><value>tenant &amp; storefront accounts · lifecycle</value></data>
+  <data name="Pay.Intro" xml:space="preserve"><value>Create an account (Draft), submit it for approval, then activate it (a Live account needs an external account reference). Suspend or archive as needed. Only active accounts are eligible at checkout.</value></data>
+  <data name="Pay.TenantId.Tip" xml:space="preserve"><value>The tenant whose payment accounts you are managing.</value></data>
+  <data name="Pay.Col.Provider" xml:space="preserve"><value>Provider</value></data>
+  <data name="Pay.Col.Mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="Pay.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Pay.Col.Default" xml:space="preserve"><value>Default</value></data>
+  <data name="Pay.Col.ExtRef" xml:space="preserve"><value>Ext. ref</value></data>
+  <data name="Pay.Empty" xml:space="preserve"><value>No payment accounts for this tenant yet.</value></data>
+  <data name="Pay.Edit.Tip" xml:space="preserve"><value>Edit this account's details.</value></data>
+  <data name="Pay.MakeDefault" xml:space="preserve"><value>Make default</value></data>
+  <data name="Pay.MakeDefault.Tip" xml:space="preserve"><value>Make this the tenant default account (unsets the current default).</value></data>
+  <data name="Pay.Submit" xml:space="preserve"><value>Submit</value></data>
+  <data name="Pay.Submit.Tip" xml:space="preserve"><value>Submit for approval.</value></data>
+  <data name="Pay.Activate" xml:space="preserve"><value>Activate</value></data>
+  <data name="Pay.Activate.Tip" xml:space="preserve"><value>Activate (checks readiness).</value></data>
+  <data name="Pay.Suspend" xml:space="preserve"><value>Suspend</value></data>
+  <data name="Pay.Suspend.Tip" xml:space="preserve"><value>Suspend this account.</value></data>
+  <data name="Pay.Archive" xml:space="preserve"><value>Archive</value></data>
+  <data name="Pay.Archive.Tip" xml:space="preserve"><value>Archive this account.</value></data>
+  <data name="Pay.EditHeading" xml:space="preserve"><value>Edit payment account</value></data>
+  <data name="Pay.NewHeading" xml:space="preserve"><value>New payment account</value></data>
+  <data name="Pay.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Pay.Field.Name.Tip" xml:space="preserve"><value>A label for this account.</value></data>
+  <data name="Pay.Field.Provider" xml:space="preserve"><value>Provider</value></data>
+  <data name="Pay.Field.Provider.Tip" xml:space="preserve"><value>Payment provider, e.g. stripe.</value></data>
+  <data name="Pay.Field.Provider.LockedTip" xml:space="preserve"><value>Provider cannot change on an active account — suspend it first.</value></data>
+  <data name="Pay.Field.Mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="Pay.Field.Mode.Tip" xml:space="preserve"><value>Test for sandbox, Live for real charges.</value></data>
+  <data name="Pay.Field.Mode.LockedTip" xml:space="preserve"><value>Mode cannot change on an active account — suspend it first.</value></data>
+  <data name="Pay.Mode.Test" xml:space="preserve"><value>Test</value></data>
+  <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
+  <data name="Pay.Field.ExtRef" xml:space="preserve"><value>External account ref</value></data>
+  <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>Provider account id — required to activate a Live account.</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>Default for tenant</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Use as the tenant default.</value></data>
+  <data name="Pay.Create" xml:space="preserve"><value>Create (Draft)</value></data>
+  <data name="Pay.Create.Tip" xml:space="preserve"><value>Create the account in Draft — submit and activate it afterwards.</value></data>
+  <data name="Pay.Status.Created" xml:space="preserve"><value>Account created (Draft).</value></data>
+  <data name="Pay.Status.Updated" xml:space="preserve"><value>Account updated.</value></data>
+  <data name="Pay.Status.Default" xml:space="preserve"><value>Account is now the tenant default.</value></data>
+  <data name="Pay.Status.Submitted" xml:space="preserve"><value>Account submitted.</value></data>
+  <data name="Pay.Status.Activated" xml:space="preserve"><value>Account activated.</value></data>
+  <data name="Pay.Status.Suspended" xml:space="preserve"><value>Account suspended.</value></data>
+  <data name="Pay.Status.Archived" xml:space="preserve"><value>Account archived.</value></data>
+  <data name="Pay.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0} {1}).</value></data>
+
+  <!-- ===== Supplier payouts ===== -->
+  <data name="Payouts.Title" xml:space="preserve"><value>Supplier payouts</value></data>
+  <data name="Payouts.Subtitle" xml:space="preserve"><value>masked bank accounts · payout instructions</value></data>
+  <data name="Payouts.Intro" xml:space="preserve"><value>Create tokenized supplier bank accounts from your vault reference, approve or reject them, and create the active payout instruction for a supplier. Raw bank details must never be entered here.</value></data>
+  <data name="Payouts.TenantId.Tip" xml:space="preserve"><value>The tenant whose supplier payout setup you are managing.</value></data>
+  <data name="Payouts.Supplier" xml:space="preserve"><value>Supplier</value></data>
+  <data name="Payouts.Supplier.Tip" xml:space="preserve"><value>Active suppliers for this tenant; filters the lists and is used by the new bank account form.</value></data>
+  <data name="Payouts.Supplier.All" xml:space="preserve"><value>All suppliers</value></data>
+  <data name="Payouts.SupplierId" xml:space="preserve"><value>Supplier entity ID</value></data>
+  <data name="Payouts.SupplierId.Tip" xml:space="preserve"><value>No active suppliers were found for this tenant — enter a supplier entity GUID manually.</value></data>
+  <data name="Payouts.BankAccounts" xml:space="preserve"><value>Bank accounts</value></data>
+  <data name="Payouts.Col.AccountName" xml:space="preserve"><value>Account name</value></data>
+  <data name="Payouts.Col.Country" xml:space="preserve"><value>Country</value></data>
+  <data name="Payouts.Col.Routing" xml:space="preserve"><value>Routing</value></data>
+  <data name="Payouts.Col.Account" xml:space="preserve"><value>Account</value></data>
+  <data name="Payouts.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Payouts.Approve" xml:space="preserve"><value>Approve</value></data>
+  <data name="Payouts.Approve.Tip" xml:space="preserve"><value>Approve this tokenized bank account.</value></data>
+  <data name="Payouts.Reject" xml:space="preserve"><value>Reject</value></data>
+  <data name="Payouts.Reject.Tip" xml:space="preserve"><value>Reject this bank account.</value></data>
+  <data name="Payouts.EditBank.Tip" xml:space="preserve"><value>Edit masked details — changing the banking identity resets approval to pending.</value></data>
+  <data name="Payouts.Archive" xml:space="preserve"><value>Archive</value></data>
+  <data name="Payouts.Archive.Tip" xml:space="preserve"><value>Archive this bank account.</value></data>
+  <data name="Payouts.NoBankAccounts" xml:space="preserve"><value>No supplier bank accounts found.</value></data>
+  <data name="Payouts.EditBank" xml:space="preserve"><value>Edit bank account</value></data>
+  <data name="Payouts.EditBank.Note" xml:space="preserve"><value>Masked display values and the vault token only — never raw bank details. Changing country, masked numbers or the token resets an approved account to pending approval.</value></data>
+  <data name="Payouts.Field.AccountName" xml:space="preserve"><value>Account name</value></data>
+  <data name="Payouts.Field.AccountName.Tip" xml:space="preserve"><value>Masked display account holder/name from the vault/KYC system.</value></data>
+  <data name="Payouts.Field.BankCountry" xml:space="preserve"><value>Bank country</value></data>
+  <data name="Payouts.Field.BankCountry.Tip" xml:space="preserve"><value>ISO 3166-1 alpha-2 country code, e.g. AU.</value></data>
+  <data name="Payouts.Field.RoutingMasked" xml:space="preserve"><value>Routing masked</value></data>
+  <data name="Payouts.Field.RoutingMasked.Tip" xml:space="preserve"><value>Masked BSB/routing display value only.</value></data>
+  <data name="Payouts.Field.AccountMasked" xml:space="preserve"><value>Account masked</value></data>
+  <data name="Payouts.Field.AccountMasked.Tip" xml:space="preserve"><value>Masked account display value only.</value></data>
+  <data name="Payouts.Field.TokenRef" xml:space="preserve"><value>Vault token ref</value></data>
+  <data name="Payouts.Field.TokenRef.Tip" xml:space="preserve"><value>Reference to the vaulted/tokenized account. Do not paste raw bank details.</value></data>
+  <data name="Payouts.NewBank" xml:space="preserve"><value>New bank account</value></data>
+  <data name="Payouts.CreateBank" xml:space="preserve"><value>Create (Pending approval)</value></data>
+  <data name="Payouts.CreateBank.Tip" xml:space="preserve"><value>Create the tokenized bank account — it starts pending approval.</value></data>
+  <data name="Payouts.Instructions" xml:space="preserve"><value>Payout instructions</value></data>
+  <data name="Payouts.Instruction.Bank" xml:space="preserve"><value>bank</value></data>
+  <data name="Payouts.Instruction.Edit.Tip" xml:space="preserve"><value>Change this instruction's cadence or route it to another approved bank account.</value></data>
+  <data name="Payouts.Instruction.Deactivate" xml:space="preserve"><value>Deactivate</value></data>
+  <data name="Payouts.Instruction.Deactivate.Tip" xml:space="preserve"><value>Deactivate this instruction.</value></data>
+  <data name="Payouts.NoInstructions" xml:space="preserve"><value>No payout instructions found.</value></data>
+  <data name="Payouts.EditInstruction" xml:space="preserve"><value>Edit instruction {0}</value></data>
+  <data name="Payouts.Field.BankAccount" xml:space="preserve"><value>Bank account</value></data>
+  <data name="Payouts.Field.BankAccount.Tip" xml:space="preserve"><value>Only Active bank accounts for the same supplier can receive payouts.</value></data>
+  <data name="Payouts.Field.Cadence" xml:space="preserve"><value>Cadence</value></data>
+  <data name="Payouts.Field.Cadence.Tip" xml:space="preserve"><value>How often this supplier is paid.</value></data>
+  <data name="Payouts.Cadence.Manual" xml:space="preserve"><value>Manual</value></data>
+  <data name="Payouts.Cadence.Weekly" xml:space="preserve"><value>Weekly</value></data>
+  <data name="Payouts.Cadence.Fortnightly" xml:space="preserve"><value>Fortnightly</value></data>
+  <data name="Payouts.Cadence.Monthly" xml:space="preserve"><value>Monthly</value></data>
+  <data name="Payouts.Field.ApprovedBank" xml:space="preserve"><value>Approved bank account</value></data>
+  <data name="Payouts.Field.ApprovedBank.Tip" xml:space="preserve"><value>Only Active bank accounts can receive payout instructions.</value></data>
+  <data name="Payouts.ChooseBank" xml:space="preserve"><value>Choose an active bank account</value></data>
+  <data name="Payouts.CreateInstruction" xml:space="preserve"><value>Create active instruction</value></data>
+  <data name="Payouts.CreateInstruction.Tip" xml:space="preserve"><value>Create the active payout instruction for the selected bank account's supplier.</value></data>
+  <data name="Payouts.Status.BankCreated" xml:space="preserve"><value>Bank account created pending approval.</value></data>
+  <data name="Payouts.Status.BankApproved" xml:space="preserve"><value>Bank account approved.</value></data>
+  <data name="Payouts.Status.BankRejected" xml:space="preserve"><value>Bank account rejected.</value></data>
+  <data name="Payouts.Status.BankArchived" xml:space="preserve"><value>Bank account archived.</value></data>
+  <data name="Payouts.Status.BankUpdated" xml:space="preserve"><value>Bank account updated.</value></data>
+  <data name="Payouts.Status.BankUpdatedPending" xml:space="preserve"><value>Bank account updated — banking identity changed, so it is pending approval again.</value></data>
+  <data name="Payouts.Status.InstructionCreated" xml:space="preserve"><value>Payout instruction created.</value></data>
+  <data name="Payouts.Status.InstructionUpdated" xml:space="preserve"><value>Payout instruction updated.</value></data>
+  <data name="Payouts.Status.InstructionDeactivated" xml:space="preserve"><value>Payout instruction deactivated.</value></data>
+  <data name="Payouts.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a valid GUID.</value></data>
+  <data name="Payouts.Error.SupplierGuid" xml:space="preserve"><value>Supplier entity ID must be a valid GUID.</value></data>
+  <data name="Payouts.Error.ChooseSupplier" xml:space="preserve"><value>Choose a supplier first.</value></data>
+  <data name="Payouts.Error.ChooseBank" xml:space="preserve"><value>Choose an active bank account.</value></data>
+  <data name="Payouts.Error.ChooseBankForInstruction" xml:space="preserve"><value>Choose an active bank account for this instruction.</value></data>
+  <data name="Payouts.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0} {1}).</value></data>
+
+  <!-- ===== Mission control ===== -->
+  <data name="Mc.Title" xml:space="preserve"><value>Mission control</value></data>
+  <data name="Mc.Subtitle" xml:space="preserve"><value>cross-service ops · read-only</value></data>
+  <data name="Mc.Intro" xml:space="preserve"><value>Activity comes from the central Audit projection; jobs from the Workflow service. Data is via owning-service APIs only — never by reading service DBs directly (mt6_14).</value></data>
+  <data name="Mc.Kpi.Activity" xml:space="preserve"><value>Activity (24h)</value></data>
+  <data name="Mc.Kpi.Activity.Tip" xml:space="preserve"><value>Audit events recorded in the last 24 hours.</value></data>
+  <data name="Mc.Kpi.AuditEvents" xml:space="preserve"><value>Audit events</value></data>
+  <data name="Mc.Kpi.AuditEvents.Tip" xml:space="preserve"><value>Every audit event in the projection for this tenant.</value></data>
+  <data name="Mc.Kpi.JobRuns" xml:space="preserve"><value>Job runs</value></data>
+  <data name="Mc.Kpi.JobRuns.Tip" xml:space="preserve"><value>Scheduled job runs reported by the Workflow service.</value></data>
+  <data name="Mc.Kpi.FailedJobs" xml:space="preserve"><value>Failed jobs</value></data>
+  <data name="Mc.Kpi.FailedJobs.Tip" xml:space="preserve"><value>Job runs that ended in Failed — investigate before they compound.</value></data>
+  <data name="Mc.Timeline" xml:space="preserve"><value>Activity timeline</value></data>
+  <data name="Mc.NoAudit" xml:space="preserve"><value>No audit activity yet. It appears as operators act (RBAC, supplier, entity changes…).</value></data>
+  <data name="Mc.Col.When" xml:space="preserve"><value>When</value></data>
+  <data name="Mc.Col.Actor" xml:space="preserve"><value>Actor</value></data>
+  <data name="Mc.Col.Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Mc.Col.Outcome" xml:space="preserve"><value>Outcome</value></data>
+  <data name="Mc.Jobs" xml:space="preserve"><value>Scheduled jobs</value></data>
+  <data name="Mc.NoJobs" xml:space="preserve"><value>No job runs recorded yet (the Payments daily-journal job reports here).</value></data>
+  <data name="Mc.Col.Job" xml:space="preserve"><value>Job</value></data>
+  <data name="Mc.Col.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Mc.Bus" xml:space="preserve"><value>Message bus</value></data>
+  <data name="Mc.Bus.Subtitle" xml:space="preserve"><value>live · RabbitMQ management API · read-only</value></data>
+  <data name="Mc.Bus.Unreachable" xml:space="preserve"><value>Management API unreachable (config &lt;code&gt;MessageBus:ManagementUrl&lt;/code&gt;, dev default &lt;code&gt;http://localhost:15672&lt;/code&gt;). Queue stats appear when the broker's management plugin is up.</value></data>
+  <data name="Mc.Bus.Queues" xml:space="preserve"><value>Queues</value></data>
+  <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Queues declared on the broker.</value></data>
+  <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Consumers</value></data>
+  <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Consumers currently attached across all queues.</value></data>
+  <data name="Mc.Bus.Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Messages waiting to be delivered. A growing number means consumers are behind.</value></data>
+  <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Unacked</value></data>
+  <data name="Mc.Bus.Unacked.Tip" xml:space="preserve"><value>Messages delivered but not yet acknowledged.</value></data>
+  <data name="Mc.Bus.DeadLettered" xml:space="preserve"><value>Dead-lettered</value></data>
+  <data name="Mc.Bus.DeadLettered.Tip" xml:space="preserve"><value>Messages parked in dead-letter queues — a consumer is failing.</value></data>
+  <data name="Mc.Bus.DlqWarning" xml:space="preserve"><value>⚠ Dead-letter queues holding messages — these consumers are failing:</value></data>
+  <data name="Mc.Bus.Busiest" xml:space="preserve"><value>Busiest queues (top 10 by depth, then publish rate)</value></data>
+  <data name="Mc.Bus.Busiest.Tip" xml:space="preserve"><value>Expand to see the deepest and busiest queues.</value></data>
+  <data name="Mc.Col.Queue" xml:space="preserve"><value>Queue</value></data>
+  <data name="Mc.Col.PublishRate" xml:space="preserve"><value>Publish/s</value></data>
+  <data name="Mc.Consoles" xml:space="preserve"><value>Consoles</value></data>
+  <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana — Services (RED metrics)</value></data>
+  <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>Open the Grafana RED-metrics dashboard in a new tab.</value></data>
+
+  <!-- ===== Security ===== -->
+  <data name="Sec.Title" xml:space="preserve"><value>Security</value></data>
+  <data name="Sec.Intro" xml:space="preserve"><value>Two-factor authentication for your operator account, and this tenant's MFA policy.</value></data>
+  <data name="Sec.Totp" xml:space="preserve"><value>Your second factor (TOTP)</value></data>
+  <data name="Sec.Enabled" xml:space="preserve"><value>✅ MFA is &lt;strong&gt;enabled&lt;/strong&gt; on this account. Every sign-in asks for an authenticator code (recovery codes work too).</value></data>
+  <data name="Sec.Required" xml:space="preserve"><value>⚠️ The effective MFA policy &lt;strong&gt;requires&lt;/strong&gt; a second factor for this account — enroll now.</value></data>
+  <data name="Sec.EnableMfa" xml:space="preserve"><value>Enable MFA</value></data>
+  <data name="Sec.EnableMfa.Tip" xml:space="preserve"><value>Generates a TOTP secret. Add it to an authenticator app (manual entry), then confirm with a code.</value></data>
+  <data name="Sec.SecretPrompt" xml:space="preserve"><value>Add this secret to your authenticator app (manual entry / time-based):</value></data>
+  <data name="Sec.SecretUri" xml:space="preserve"><value>or use the URI:</value></data>
+  <data name="Sec.Code" xml:space="preserve"><value>Code from the app</value></data>
+  <data name="Sec.Code.Tip" xml:space="preserve"><value>The current 6-digit code shown by your authenticator — proves the secret was captured.</value></data>
+  <data name="Sec.Confirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="Sec.Confirm.Tip" xml:space="preserve"><value>Confirm enrolment with the code above and reveal your recovery codes.</value></data>
+  <data name="Sec.RecoveryCodes" xml:space="preserve"><value>Recovery codes — store them now, they are not shown again:</value></data>
+  <data name="Sec.Policy" xml:space="preserve"><value>Tenant MFA policy</value></data>
+  <data name="Sec.Policy.Summary" xml:space="preserve"><value>Platform minimum: &lt;strong&gt;{0}&lt;/strong&gt; · Effective: &lt;strong&gt;{1}&lt;/strong&gt;. A tenant policy can only strengthen the platform floor. Note: users are only challenged once enrolled — "required" prompts unenrolled users to enroll, it never locks them out.</value></data>
+  <data name="Sec.Policy.Tip" xml:space="preserve"><value>How strongly MFA is required for this tenant's users. 'Privileged' targets admin accounts.</value></data>
+  <data name="Sec.Policy.Option.Disabled" xml:space="preserve"><value>Disabled — no one is prompted</value></data>
+  <data name="Sec.Policy.Option.Optional" xml:space="preserve"><value>Optional — enrolled users are challenged</value></data>
+  <data name="Sec.Policy.Option.Privileged" xml:space="preserve"><value>Required for privileged (admin) accounts</value></data>
+  <data name="Sec.Policy.Option.All" xml:space="preserve"><value>Required for all users</value></data>
+  <data name="Sec.Policy.Save" xml:space="preserve"><value>Save policy</value></data>
+  <data name="Sec.Policy.Save.Tip" xml:space="preserve"><value>Apply the selected MFA policy to this tenant.</value></data>
+  <data name="Sec.Policy.Name.Disabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Sec.Policy.Name.Optional" xml:space="preserve"><value>Optional</value></data>
+  <data name="Sec.Policy.Name.Privileged" xml:space="preserve"><value>Required for privileged</value></data>
+  <data name="Sec.Policy.Name.All" xml:space="preserve"><value>Required for all</value></data>
+  <data name="Sec.Webhooks" xml:space="preserve"><value>Webhook signing secrets</value></data>
+  <data name="Sec.Webhooks.Intro" xml:space="preserve"><value>Provider webhook secrets (e.g. Stripe's &lt;code&gt;whsec_…&lt;/code&gt;). Values are stored server-side and only ever shown masked. To rotate: add the new secret (both verify), switch the provider, then deactivate the old one.</value></data>
+  <data name="Sec.Col.Provider" xml:space="preserve"><value>Provider</value></data>
+  <data name="Sec.Col.Secret" xml:space="preserve"><value>Secret</value></data>
+  <data name="Sec.Col.Label" xml:space="preserve"><value>Label</value></data>
+  <data name="Sec.Secret.Active" xml:space="preserve"><value>active</value></data>
+  <data name="Sec.Secret.Deactivated" xml:space="preserve"><value>deactivated</value></data>
+  <data name="Sec.Deactivate" xml:space="preserve"><value>Deactivate</value></data>
+  <data name="Sec.Deactivate.Tip" xml:space="preserve"><value>Stop accepting webhooks signed with this secret. Do this only after the provider has cut over to a newer one.</value></data>
+  <data name="Sec.NewSecret.Provider.Tip" xml:space="preserve"><value>The provider whose webhook this secret signs — matches the /webhooks/{provider} route.</value></data>
+  <data name="Sec.NewSecret.Value" xml:space="preserve"><value>whsec_…</value></data>
+  <data name="Sec.NewSecret.Value.Tip" xml:space="preserve"><value>Paste the signing secret from the provider dashboard. It is never displayed again.</value></data>
+  <data name="Sec.NewSecret.Label" xml:space="preserve"><value>label (optional)</value></data>
+  <data name="Sec.NewSecret.Label.Tip" xml:space="preserve"><value>Operator note, e.g. 'live key 2026-07'.</value></data>
+  <data name="Sec.AddSecret" xml:space="preserve"><value>Add secret</value></data>
+  <data name="Sec.AddSecret.Tip" xml:space="preserve"><value>Register the signing secret for the selected provider.</value></data>
+  <data name="Sec.Status.SecretAdded" xml:space="preserve"><value>Secret registered.</value></data>
+  <data name="Sec.Status.SecretDeactivated" xml:space="preserve"><value>Secret deactivated.</value></data>
+  <data name="Sec.Status.MfaEnabled" xml:space="preserve"><value>MFA enabled. Your next sign-in will ask for a code.</value></data>
+  <data name="Sec.Status.PolicySaved" xml:space="preserve"><value>Policy saved.</value></data>
+  <data name="Sec.Error.SecretAdd" xml:space="preserve"><value>Could not register the secret.</value></data>
+  <data name="Sec.Error.SecretDeactivate" xml:space="preserve"><value>Could not deactivate the secret.</value></data>
+  <data name="Sec.Error.EnrollStart" xml:space="preserve"><value>Could not start enrollment.</value></data>
+  <data name="Sec.Error.CodeRejected" xml:space="preserve"><value>Code not accepted — check the authenticator and try again.</value></data>
+  <data name="Sec.Error.PolicySave" xml:space="preserve"><value>Could not save the policy.</value></data>
+
+  <!-- ===== Shared controls ===== -->
+  <data name="Currency.Tip" xml:space="preserve"><value>Currency (ISO 4217) this price is expressed in. Picked from the full list — never free-typed.</value></data>
+  <data name="Currency.Group.Common" xml:space="preserve"><value>Common</value></data>
+  <data name="Currency.Group.All" xml:space="preserve"><value>All currencies (ISO 4217)</value></data>
+  <data name="Image.Tip" xml:space="preserve"><value>Paste an image URL, or upload a local file (PNG/JPEG/WebP/GIF, max 10 MB).</value></data>
+  <data name="Image.Placeholder" xml:space="preserve"><value>https://… or upload →</value></data>
+  <data name="Image.Browse" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Image.Browse.Tip" xml:space="preserve"><value>Choose a local image file to upload to the catalog object store.</value></data>
+  <data name="Image.Uploading" xml:space="preserve"><value>Uploading…</value></data>
+  <data name="Image.UploadFailed" xml:space="preserve"><value>Upload failed: {0}</value></data>
+
+  <!-- ===== Error page ===== -->
+  <data name="Error.Title" xml:space="preserve"><value>Error.</value></data>
+  <data name="Error.Heading" xml:space="preserve"><value>An error occurred while processing your request.</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>Request ID:</value></data>
+  <data name="Error.DevMode" xml:space="preserve"><value>Development Mode</value></data>
+  <data name="Error.DevMode.Body1" xml:space="preserve"><value>Swapping to &lt;strong&gt;Development&lt;/strong&gt; environment will display more detailed information about the error that occurred.</value></data>
+  <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;The Development environment shouldn't be enabled for deployed applications.&lt;/strong&gt; It can result in displaying sensitive information from exceptions to end users. For local debugging, enable the &lt;strong&gt;Development&lt;/strong&gt; environment by setting the &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; environment variable to &lt;strong&gt;Development&lt;/strong&gt; and restarting the app.</value></data>
+</root>

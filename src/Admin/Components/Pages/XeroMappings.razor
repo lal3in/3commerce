@@ -3,14 +3,14 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Xero mappings</h1>
-<p style="color:#6b7280;">Map ledger account codes to Xero account codes with tenant default, storefront, category, supplier, or product precedence.</p>
+<h1>@L["XeroMap.Title"]</h1>
+<p style="color:#6b7280;">@L["XeroMap.Intro"]</p>
 
 <div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
-    <label>Tenant ID
-        <input @bind="_tenantId" title="The tenant whose Xero mappings you are managing." style="width:23rem; display:block;" />
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["XeroMap.TenantId.Tip"]" style="width:23rem; display:block;" />
     </label>
-    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
 </div>
 
 @if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
@@ -19,32 +19,32 @@
 @if (_mappings is not null)
 {
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
-        <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">Ledger</th><th>Xero</th><th>Scope</th><th>Target</th><th>Active</th><th>Actions</th></tr></thead>
+        <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["XeroMap.Col.Ledger"]</th><th>@L["XeroMap.Col.Xero"]</th><th>@L["XeroMap.Col.Scope"]</th><th>@L["XeroMap.Col.Target"]</th><th>@L["Common.Active"]</th><th>@L["Common.Actions"]</th></tr></thead>
         <tbody>
         @foreach (var mapping in _mappings)
         {
-            <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:.4rem;"><code>@mapping.LedgerAccountCode</code></td><td><code>@mapping.XeroAccountCode</code></td><td>@mapping.Scope</td><td>@Target(mapping)</td><td>@(mapping.Active ? "Yes" : "No")</td><td><button @onclick="() => Edit(mapping)">Edit</button> <button @onclick="() => Delete(mapping.Id)" style="color:#b91c1c;">Delete</button></td></tr>
+            <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:.4rem;"><code>@mapping.LedgerAccountCode</code></td><td><code>@mapping.XeroAccountCode</code></td><td>@ScopeLabel(mapping.Scope)</td><td>@Target(mapping)</td><td>@(mapping.Active ? L["Common.Yes"] : L["Common.No"])</td><td><button @onclick="() => Edit(mapping)" title="@L["XeroMap.Edit.Tip"]">@L["Common.Edit"]</button> <button @onclick="() => Delete(mapping.Id)" title="@L["XeroMap.Delete.Tip"]" style="color:#b91c1c;">@L["Common.Delete"]</button></td></tr>
         }
         </tbody>
     </table>
-    @if (_mappings.Count == 0) { <p style="color:#9ca3af;">No Xero mappings yet.</p> }
+    @if (_mappings.Count == 0) { <p style="color:#9ca3af;">@L["XeroMap.Empty"]</p> }
 
     <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:680px; background:#fff;">
-        <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? "New mapping" : "Edit mapping")</h2>
+        <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? L["XeroMap.New"] : L["XeroMap.EditHeading"])</h2>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:.5rem;">
-            <label>Ledger account <input @bind="_form.LedgerAccountCode" title="Payments ledger account code, e.g. revenue.sales." style="width:100%;" /></label>
-            <label>Xero account <input @bind="_form.XeroAccountCode" title="Xero account code." style="width:100%;" /></label>
-            <label>Scope
-                <select @bind="_form.Scope" title="More specific scopes win over tenant defaults." style="width:100%;">
-                    <option value="1">TenantDefault</option><option value="2">Storefront</option><option value="3">Category</option><option value="4">Supplier</option><option value="5">Product</option>
+            <label>@L["XeroMap.Field.Ledger"] <input @bind="_form.LedgerAccountCode" title="@L["XeroMap.Field.Ledger.Tip"]" style="width:100%;" /></label>
+            <label>@L["XeroMap.Field.Xero"] <input @bind="_form.XeroAccountCode" title="@L["XeroMap.Field.Xero.Tip"]" style="width:100%;" /></label>
+            <label>@L["XeroMap.Field.Scope"]
+                <select @bind="_form.Scope" title="@L["XeroMap.Field.Scope.Tip"]" style="width:100%;">
+                    <option value="1">@L["XeroMap.Scope.TenantDefault"]</option><option value="2">@L["XeroMap.Scope.Storefront"]</option><option value="3">@L["XeroMap.Scope.Category"]</option><option value="4">@L["XeroMap.Scope.Supplier"]</option><option value="5">@L["XeroMap.Scope.Product"]</option>
                 </select>
             </label>
-            <label>Target ID <input @bind="_form.TargetId" title="Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default." style="width:100%;" /></label>
-            <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" /> Active</label>
+            <label>@L["XeroMap.Field.Target"] <input @bind="_form.TargetId" title="@L["XeroMap.Field.Target.Tip"]" style="width:100%;" /></label>
+            <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" title="@L["XeroMap.Field.Active.Tip"]" /> @L["Common.Active"]</label>
         </div>
         <div style="margin-top:.8rem; display:flex; gap:.5rem;">
-            <button @onclick="Save" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save mapping</button>
-            <button @onclick="ResetForm">Clear</button>
+            <button @onclick="Save" title="@L["XeroMap.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["XeroMap.Save"]</button>
+            <button @onclick="ResetForm" title="@L["Common.Clear.Tip"]">@L["Common.Clear"]</button>
         </div>
     </section>
 }
@@ -67,7 +67,7 @@
     private async Task Save()
     {
         _error = _status = null;
-        if (!Guid.TryParse(_tenantId, out var tenant)) { _error = "Tenant ID must be a valid GUID."; return; }
+        if (!Guid.TryParse(_tenantId, out var tenant)) { _error = L["XeroMap.Error.TenantGuid"]; return; }
         Guid? target = Guid.TryParse(_form.TargetId, out var parsed) ? parsed : null;
         // Enums cross HTTP as NUMBERS (platform invariant): send the numeric XeroMappingScope value,
         // and route the target GUID to the field the scope selects.
@@ -75,7 +75,7 @@
         var response = _editingId is null
             ? await Gateway.PostAsync("/api/payments/admin/xero/mappings", body)
             : await Gateway.PutAsync($"/api/payments/admin/xero/mappings/{_editingId}", body);
-        if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = "Xero mapping saved."; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+        if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = L["XeroMap.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await GatewayError.ReadAsync(response); }
     }
 
@@ -83,7 +83,7 @@
     {
         _error = _status = null;
         var response = await Gateway.DeleteAsync($"/api/payments/admin/xero/mappings/{id}");
-        if (response.IsSuccessStatusCode) { await LoadAsync(); _status = "Xero mapping deleted."; }
+        if (response.IsSuccessStatusCode) { await LoadAsync(); _status = L["XeroMap.Status.Deleted"]; }
         else { _error = await GatewayError.ReadAsync(response); }
     }
 
@@ -120,6 +120,16 @@
         "Supplier" => SupplierScope,
         "Product" => ProductScope,
         _ => TenantDefaultScope,
+    };
+
+    // …and to a localized label for the table.
+    private string ScopeLabel(string scope) => scope switch
+    {
+        "Storefront" => L["XeroMap.Scope.Storefront"],
+        "Category" => L["XeroMap.Scope.Category"],
+        "Supplier" => L["XeroMap.Scope.Supplier"],
+        "Product" => L["XeroMap.Scope.Product"],
+        _ => L["XeroMap.Scope.TenantDefault"],
     };
 
     private sealed class MappingForm { public int Scope { get; set; } = TenantDefaultScope; public string TargetId { get; set; } = string.Empty; public string LedgerAccountCode { get; set; } = string.Empty; public string XeroAccountCode { get; set; } = string.Empty; public bool Active { get; set; } = true; }

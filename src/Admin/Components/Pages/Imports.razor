@@ -4,34 +4,34 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:center; gap:1rem;">
-    <h1 style="margin:0; flex:1;">Catalog imports</h1>
+    <h1 style="margin:0; flex:1;">@L["Imports.Title"]</h1>
     <a href="/catalog-import-template.csv" download
-       title="Download a catalog import template (CSV) with two example products as a reference for the expected format."
+       title="@L["Imports.Template.Tip"]"
        style="display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .7rem; border:1px solid #d1d5db; border-radius:6px; text-decoration:none; color:#111827; font-size:.9rem;">
-        <span style="font-size:1.1rem;">⬇</span> Import template
+        <span style="font-size:1.1rem;">⬇</span> @L["Imports.Template"]
     </a>
 </div>
 
-<button disabled="@_busy" @onclick="RunImport" style="margin-top:1rem; padding:.4rem .8rem;">Run sample importer</button>
+<button disabled="@_busy" @onclick="RunImport" title="@L["Imports.Run.Tip"]" style="margin-top:1rem; padding:.4rem .8rem;">@L["Imports.Run"]</button>
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
 @if (_status is not null) { <p style="color:#047857;">@_status</p> }
 @if (_runs is null)
 {
-    <p>Loading…</p>
+    <p>@L["Common.Loading"]</p>
 }
 else
 {
     <table style="border-collapse:collapse;width:100%;margin-top:1rem;">
         <thead><tr>
-            <th style="text-align:left;">Importer</th><th style="text-align:left;">Date</th>
-            <th>Read</th><th>Accepted</th><th>Rejected</th>
+            <th style="text-align:left;">@L["Imports.Col.Importer"]</th><th style="text-align:left;">@L["Imports.Col.Date"]</th>
+            <th>@L["Imports.Col.Read"]</th><th>@L["Imports.Col.Accepted"]</th><th>@L["Imports.Col.Rejected"]</th>
         </tr></thead>
         <tbody>
         @foreach (var r in _runs)
         {
             <tr style="border-top:1px solid #e5e7eb;">
                 <td>@r.Importer</td>
-                <td title="@r.StartedAt.ToString("u")">@r.StartedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")@(r.CompletedAt is null ? " (running…)" : "")</td>
+                <td title="@r.StartedAt.ToString("u")">@r.StartedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")@(r.CompletedAt is null ? L["Imports.Running"] : "")</td>
                 <td style="text-align:center;">@r.RowsRead</td>
                 <td style="text-align:center;">@r.Accepted</td>
                 <td style="text-align:center; @(r.Rejected > 0 ? "color:#b45309;" : "")">@r.Rejected</td>
@@ -53,8 +53,8 @@ else
         _error = _status = null;
         _busy = true;
         var response = await Gateway.PostAsync("/api/catalog/admin/import-runs");
-        if (response.IsSuccessStatusCode) { _status = "Import run started."; }
-        else { _error = $"Import failed ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}"; }
+        if (response.IsSuccessStatusCode) { _status = L["Imports.Status.Started"]; }
+        else { _error = L["Imports.Status.Failed", (int)response.StatusCode, await response.Content.ReadAsStringAsync()]; }
         await Refresh();
         _busy = false;
     }

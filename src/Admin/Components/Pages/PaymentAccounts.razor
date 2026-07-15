@@ -5,16 +5,16 @@
 @using System.Net.Http.Json
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
-    <h1 style="margin:0;">Payment accounts</h1>
-    <span style="color:#6b7280; font-size:.85rem;">tenant &amp; storefront accounts · lifecycle</span>
+    <h1 style="margin:0;">@L["Pay.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Pay.Subtitle"]</span>
 </div>
-<p style="color:#6b7280;">Create an account (Draft), submit it for approval, then activate it (a Live account needs an external account reference). Suspend or archive as needed. Only active accounts are eligible at checkout.</p>
+<p style="color:#6b7280;">@L["Pay.Intro"]</p>
 
 <div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
-    <label>Tenant ID
-        <input @bind="_tenantId" title="The tenant whose payment accounts you are managing." style="width:23rem; display:block;" />
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Pay.TenantId.Tip"]" style="width:23rem; display:block;" />
     </label>
-    <button @onclick="LoadAsync" style="padding:.45rem .8rem;">Load</button>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
 </div>
 
 @if (_error is not null)
@@ -31,7 +31,7 @@
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
             <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
-                <th style="padding:.4rem;">Name</th><th>Provider</th><th>Mode</th><th>State</th><th>Default</th><th>Ext. ref</th><th>Actions</th>
+                <th style="padding:.4rem;">@L["Pay.Field.Name"]</th><th>@L["Pay.Col.Provider"]</th><th>@L["Pay.Col.Mode"]</th><th>@L["Pay.Col.State"]</th><th>@L["Pay.Col.Default"]</th><th>@L["Pay.Col.ExtRef"]</th><th>@L["Common.Actions"]</th>
             </tr>
         </thead>
         <tbody>
@@ -47,27 +47,27 @@
                 <td style="white-space:nowrap;">
                     @if (a.State != "Archived")
                     {
-                        <button @onclick="() => StartEdit(a)" title="Edit this account's details.">Edit</button>
+                        <button @onclick="() => StartEdit(a)" title="@L["Pay.Edit.Tip"]">@L["Common.Edit"]</button>
                     }
                     @if (a.State != "Archived" && !a.IsDefaultForTenant)
                     {
-                        <button @onclick="() => MakeDefault(a.Id)" title="Make this the tenant default account (unsets the current default).">Make default</button>
+                        <button @onclick="() => MakeDefault(a.Id)" title="@L["Pay.MakeDefault.Tip"]">@L["Pay.MakeDefault"]</button>
                     }
                     @if (a.State == "Draft")
                     {
-                        <button @onclick='() => Act(a.Id, "submit")' title="Submit for approval.">Submit</button>
+                        <button @onclick='() => Act(a.Id, "submit")' title="@L["Pay.Submit.Tip"]">@L["Pay.Submit"]</button>
                     }
                     @if (a.State is "PendingApproval" or "Suspended")
                     {
-                        <button @onclick='() => Act(a.Id, "activate")' title="Activate (checks readiness).">Activate</button>
+                        <button @onclick='() => Act(a.Id, "activate")' title="@L["Pay.Activate.Tip"]">@L["Pay.Activate"]</button>
                     }
                     @if (a.State == "Active")
                     {
-                        <button @onclick='() => Act(a.Id, "suspend")' title="Suspend this account.">Suspend</button>
+                        <button @onclick='() => Act(a.Id, "suspend")' title="@L["Pay.Suspend.Tip"]">@L["Pay.Suspend"]</button>
                     }
                     @if (a.State != "Archived")
                     {
-                        <button @onclick='() => Act(a.Id, "archive")' title="Archive this account." style="color:#b91c1c;">Archive</button>
+                        <button @onclick='() => Act(a.Id, "archive")' title="@L["Pay.Archive.Tip"]" style="color:#b91c1c;">@L["Pay.Archive"]</button>
                     }
                 </td>
             </tr>
@@ -76,47 +76,47 @@
     </table>
     @if (_accounts.Count == 0)
     {
-        <p style="color:#9ca3af;">No payment accounts for this tenant yet.</p>
+        <p style="color:#9ca3af;">@L["Pay.Empty"]</p>
     }
 
     @if (_edit is not null)
     {
         <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
-            <h2 style="margin-top:0; font-size:1.1rem;">Edit payment account</h2>
+            <h2 style="margin-top:0; font-size:1.1rem;">@L["Pay.EditHeading"]</h2>
             <div style="display:flex; flex-direction:column; gap:.5rem;">
-                <label>Name <input @bind="_edit.Name" title="A label for this account." style="width:100%;" /></label>
-                <label>Provider <input @bind="_edit.Provider" disabled="@_edit.IsActive" title="@(_edit.IsActive ? "Provider cannot change on an active account — suspend it first." : "Payment provider, e.g. stripe.")" style="width:100%;" /></label>
-                <label>Mode
-                    <select @bind="_edit.Mode" disabled="@_edit.IsActive" title="@(_edit.IsActive ? "Mode cannot change on an active account — suspend it first." : "Test for sandbox, Live for real charges.")" style="width:100%;">
-                        <option value="1">Test</option>
-                        <option value="2">Live</option>
+                <label>@L["Pay.Field.Name"] <input @bind="_edit.Name" title="@L["Pay.Field.Name.Tip"]" style="width:100%;" /></label>
+                <label>@L["Pay.Field.Provider"] <input @bind="_edit.Provider" disabled="@_edit.IsActive" title="@(_edit.IsActive ? L["Pay.Field.Provider.LockedTip"] : L["Pay.Field.Provider.Tip"])" style="width:100%;" /></label>
+                <label>@L["Pay.Field.Mode"]
+                    <select @bind="_edit.Mode" disabled="@_edit.IsActive" title="@(_edit.IsActive ? L["Pay.Field.Mode.LockedTip"] : L["Pay.Field.Mode.Tip"])" style="width:100%;">
+                        <option value="1">@L["Pay.Mode.Test"]</option>
+                        <option value="2">@L["Pay.Mode.Live"]</option>
                     </select>
                 </label>
-                <label>External account ref <input @bind="_edit.ExternalAccountRef" title="Provider account id — required to activate a Live account." style="width:100%;" /></label>
+                <label>@L["Pay.Field.ExtRef"] <input @bind="_edit.ExternalAccountRef" title="@L["Pay.Field.ExtRef.Tip"]" style="width:100%;" /></label>
                 <div style="display:flex; gap:.5rem;">
-                    <button @onclick="SaveEdit" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">Save</button>
-                    <button @onclick="() => _edit = null" style="padding:.45rem .9rem;">Cancel</button>
+                    <button @onclick="SaveEdit" title="@L["Common.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Save"]</button>
+                    <button @onclick="() => _edit = null" title="@L["Common.Cancel.Tip"]" style="padding:.45rem .9rem;">@L["Common.Cancel"]</button>
                 </div>
             </div>
         </section>
     }
 
     <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
-        <h2 style="margin-top:0; font-size:1.1rem;">New payment account</h2>
+        <h2 style="margin-top:0; font-size:1.1rem;">@L["Pay.NewHeading"]</h2>
         <div style="display:flex; flex-direction:column; gap:.5rem;">
-            <label>Name <input @bind="_new.Name" title="A label for this account." style="width:100%;" /></label>
-            <label>Provider <input @bind="_new.Provider" title="Payment provider, e.g. stripe." style="width:100%;" /></label>
-            <label>Mode
-                <select @bind="_new.Mode" title="Test for sandbox, Live for real charges." style="width:100%;">
-                    <option value="1">Test</option>
-                    <option value="2">Live</option>
+            <label>@L["Pay.Field.Name"] <input @bind="_new.Name" title="@L["Pay.Field.Name.Tip"]" style="width:100%;" /></label>
+            <label>@L["Pay.Field.Provider"] <input @bind="_new.Provider" title="@L["Pay.Field.Provider.Tip"]" style="width:100%;" /></label>
+            <label>@L["Pay.Field.Mode"]
+                <select @bind="_new.Mode" title="@L["Pay.Field.Mode.Tip"]" style="width:100%;">
+                    <option value="1">@L["Pay.Mode.Test"]</option>
+                    <option value="2">@L["Pay.Mode.Live"]</option>
                 </select>
             </label>
-            <label>External account ref <input @bind="_new.ExternalAccountRef" title="Provider account id — required to activate a Live account." style="width:100%;" /></label>
+            <label>@L["Pay.Field.ExtRef"] <input @bind="_new.ExternalAccountRef" title="@L["Pay.Field.ExtRef.Tip"]" style="width:100%;" /></label>
             <label style="display:flex; gap:.4rem; align-items:center;">
-                <input type="checkbox" @bind="_new.IsDefaultForTenant" title="Use as the tenant default." /> Default for tenant
+                <input type="checkbox" @bind="_new.IsDefaultForTenant" title="@L["Pay.Field.Default.Tip"]" /> @L["Pay.Field.Default"]
             </label>
-            <button @onclick="Create" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">Create (Draft)</button>
+            <button @onclick="Create" title="@L["Pay.Create.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Pay.Create"]</button>
         </div>
     </section>
 }
@@ -148,7 +148,7 @@
         {
             _new.Reset();
             await LoadAsync(); // clears _status/_error, so set the confirmation AFTER the reload
-            _status = "Account created (Draft).";
+            _status = L["Pay.Status.Created"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -173,7 +173,7 @@
         {
             _edit = null;
             await LoadAsync(); // clears _status/_error, so set the confirmation AFTER the reload
-            _status = "Account updated.";
+            _status = L["Pay.Status.Updated"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -185,7 +185,7 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = "Account is now the tenant default.";
+            _status = L["Pay.Status.Default"];
         }
         else { _error = await ErrorText(response); }
     }
@@ -197,17 +197,24 @@
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();
-            _status = $"Account {action switch { "submit" => "submitted", "activate" => "activated", "suspend" => "suspended", "archive" => "archived", _ => action + "d" }}.";
+            _status = action switch
+            {
+                "submit" => L["Pay.Status.Submitted"],
+                "activate" => L["Pay.Status.Activated"],
+                "suspend" => L["Pay.Status.Suspended"],
+                "archive" => L["Pay.Status.Archived"],
+                _ => L["Pay.Status.Updated"],
+            };
         }
         else { _error = await ErrorText(response); }
     }
 
     // Empty failure bodies (e.g. a bare 404) used to render as an invisible error; always include the status code.
-    private static async Task<string> ErrorText(HttpResponseMessage response)
+    private async Task<string> ErrorText(HttpResponseMessage response)
     {
         var body = await response.Content.ReadAsStringAsync();
         return string.IsNullOrWhiteSpace(body)
-            ? $"Request failed ({(int)response.StatusCode} {response.StatusCode})."
+            ? L["Pay.Error.RequestFailed", (int)response.StatusCode, response.StatusCode]
             : $"({(int)response.StatusCode}) {body}";
     }
 

@@ -3,18 +3,16 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Storefront commerce operations</h1>
+<h1>@L["Ops.Title"]</h1>
 <p style="color:#4b5563; max-width:900px;">
-    Tenant/storefront catalog, publication, pricing, payment, payout, and Xero setup surfaces. Sensitive values
-    (supplier cost, margins, bank tokens, provider account refs, accounting mappings) are intentionally summarized here;
-    field-level policy/audit enforcement is provided by the owning service/Admin API as those mutation endpoints are expanded.
+    @L["Ops.Intro"]
 </p>
 
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
-    <h2>Tenant context</h2>
+    <h2>@L["Ops.TenantContext"]</h2>
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
-        <label>Tenant ID<br /><input @bind="_tenantId" style="width:24rem; padding:.4rem;" title="The tenant (legal operator) whose commerce config you are managing (GUID)." /></label>
-        <button @onclick="LoadStorefronts" style="padding:.45rem .8rem;">Load storefronts</button>
+        <label>@L["Common.TenantId"]<br /><input @bind="_tenantId" style="width:24rem; padding:.4rem;" title="@L["Ops.TenantId.Tip"]" /></label>
+        <button @onclick="LoadStorefronts" title="@L["Ops.LoadStorefronts.Tip"]" style="padding:.45rem .8rem;">@L["Ops.LoadStorefronts"]</button>
     </div>
 </section>
 
@@ -27,7 +25,7 @@
     <p style="color:#b91c1c;">@_error</p>
     @if (_transitionReadiness is not null && !_transitionReadiness.IsReady)
     {
-        <p style="color:#b91c1c; margin:.1rem 0;">This storefront is not ready to go live yet:</p>
+        <p style="color:#b91c1c; margin:.1rem 0;">@L["Ops.NotReadyIntro"]</p>
         <ul style="color:#b91c1c; margin:.1rem 0;">
             @foreach (var missing in _transitionReadiness.MissingRequirements)
             {
@@ -38,44 +36,44 @@
 }
 
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
-    <h2>Storefronts</h2>
+    <h2>@L["Ops.Storefronts"]</h2>
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
-        <label>Name<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="Internal name for the new storefront." /></label>
-        <label>Public URL<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="Public storefront URL used in customer-facing links." /></label>
-        <label>Currency<br /><input @bind="_newCurrency" maxlength="3" style="width:5rem; padding:.4rem;" title="ISO 4217 currency for this storefront." /></label>
-        <label>Tax regime<br />
-            <select @bind="_newTaxRegime" style="padding:.4rem;" title="Region tax rule. AU GST / EU VAT are tax-INCLUSIVE: shelf prices already contain the tax (shoppers pay the listed price; tax shown informationally). US sales tax is ADDED at checkout on top of listed prices (ADR-0038).">
-                <option value="0">None</option>
-                <option value="1">AU GST</option>
-                <option value="2">EU VAT</option>
-                <option value="3">US sales tax</option>
-                <option value="99">Other</option>
+        <label>@L["Ops.Field.Name"]<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
+        <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
+        <label>@L["Ops.Field.Currency"]<br /><input @bind="_newCurrency" maxlength="3" style="width:5rem; padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
+        <label>@L["Ops.Field.TaxRegime"]<br />
+            <select @bind="_newTaxRegime" style="padding:.4rem;" title="@L["Ops.Field.TaxRegime.Tip"]">
+                <option value="0">@L["Ops.TaxRegime.None"]</option>
+                <option value="1">@L["Ops.TaxRegime.AuGst"]</option>
+                <option value="2">@L["Ops.TaxRegime.EuVat"]</option>
+                <option value="3">@L["Ops.TaxRegime.UsSalesTax"]</option>
+                <option value="99">@L["Ops.TaxRegime.Other"]</option>
             </select>
         </label>
-        <label>Tax bps<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="Tax rate in basis points, e.g. 1000 = 10%. For AU GST / EU VAT this is the rate CONTAINED in shelf prices; for US it is ADDED at checkout (ADR-0038)." /></label>
-        <label>Visibility<br />
-            <select @bind="_newVisibility" style="padding:.4rem;" title="Who can see the storefront: Public (live) or Private (draft).">
-                <option value="1">Private</option>
-                <option value="2">Password</option>
-                <option value="3">Invite only</option>
-                <option value="4">Public</option>
+        <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
+        <label>@L["Ops.Field.Visibility"]<br />
+            <select @bind="_newVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]">
+                <option value="1">@L["Ops.Visibility.Private"]</option>
+                <option value="2">@L["Ops.Visibility.Password"]</option>
+                <option value="3">@L["Ops.Visibility.InviteOnly"]</option>
+                <option value="4">@L["Ops.Visibility.Public"]</option>
             </select>
         </label>
-        <button @onclick="CreateStorefront" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">Create storefront</button>
+        <button @onclick="CreateStorefront" title="@L["Ops.CreateStorefront.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">@L["Ops.CreateStorefront"]</button>
     </div>
 
     @if (_storefronts is null)
     {
-        <p>Load storefronts to begin.</p>
+        <p>@L["Ops.LoadPrompt"]</p>
     }
     else if (_storefronts.Count == 0)
     {
-        <p>No storefronts for this tenant.</p>
+        <p>@L["Ops.NoStorefronts"]</p>
     }
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">Name</th><th>URL</th><th>Currency</th><th>Tax</th><th>State</th><th>Visibility</th><th>Domains</th><th></th></tr></thead>
+            <thead><tr><th style="text-align:left;">@L["Ops.Field.Name"]</th><th>@L["Ops.Col.Url"]</th><th>@L["Ops.Col.Currency"]</th><th>@L["Ops.Col.Tax"]</th><th>@L["Ops.Col.State"]</th><th>@L["Ops.Col.Visibility"]</th><th>@L["Ops.Col.Domains"]</th><th></th></tr></thead>
             <tbody>
             @foreach (var s in _storefronts)
             {
@@ -88,11 +86,11 @@
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
                     <td style="text-align:right; white-space:nowrap;">
-                        <button @onclick="() => SelectStorefront(s)">Manage</button>
-                        <button @onclick='() => Transition(s.Id, "preview")'>Preview</button>
-                        <button @onclick='() => Transition(s.Id, "activate")'>Activate</button>
-                        <button @onclick='() => Transition(s.Id, "pause")'>Pause</button>
-                        <button @onclick='() => Transition(s.Id, "archive")' style="color:#b91c1c;">Archive</button>
+                        <button @onclick="() => SelectStorefront(s)" title="@L["Ops.Manage.Tip"]">@L["Ops.Manage"]</button>
+                        <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
+                        <button @onclick='() => Transition(s.Id, "activate")' title="@L["Ops.Activate.Tip"]">@L["Ops.Activate"]</button>
+                        <button @onclick='() => Transition(s.Id, "pause")' title="@L["Ops.Pause.Tip"]">@L["Ops.Pause"]</button>
+                        <button @onclick='() => Transition(s.Id, "archive")' title="@L["Ops.Archive.Tip"]" style="color:#b91c1c;">@L["Ops.Archive"]</button>
                     </td>
                 </tr>
             }
@@ -104,33 +102,33 @@
 @if (_selectedStorefront is not null)
 {
     <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
-        <h2>Manage @_selectedStorefront.Name</h2>
+        <h2>@L["Ops.ManageHeading", _selectedStorefront.Name]</h2>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; align-items:end; margin-bottom:1rem;">
-            <label>Name<br /><input @bind="_editName" style="padding:.4rem;" /></label>
-            <label>Public URL<br /><input @bind="_editPublicUrl" style="padding:.4rem;" /></label>
-            <label>Currency<br /><input @bind="_editCurrency" maxlength="3" style="padding:.4rem;" /></label>
-            <label>Tax regime<br />
-                <select @bind="_editTaxRegime" style="padding:.4rem;">
-                    <option value="0">None</option>
-                    <option value="1">AU GST</option>
-                    <option value="2">EU VAT</option>
-                    <option value="3">US sales tax</option>
-                    <option value="99">Other</option>
+            <label>@L["Ops.Field.Name"]<br /><input @bind="_editName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
+            <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_editPublicUrl" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
+            <label>@L["Ops.Field.Currency"]<br /><input @bind="_editCurrency" maxlength="3" style="padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
+            <label>@L["Ops.Field.TaxRegime"]<br />
+                <select @bind="_editTaxRegime" style="padding:.4rem;" title="@L["Ops.Field.TaxRegime.Tip"]">
+                    <option value="0">@L["Ops.TaxRegime.None"]</option>
+                    <option value="1">@L["Ops.TaxRegime.AuGst"]</option>
+                    <option value="2">@L["Ops.TaxRegime.EuVat"]</option>
+                    <option value="3">@L["Ops.TaxRegime.UsSalesTax"]</option>
+                    <option value="99">@L["Ops.TaxRegime.Other"]</option>
                 </select>
             </label>
-            <label>Tax bps<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" /></label>
-            <label>Visibility<br /><select @bind="_editVisibility" style="padding:.4rem;"><option value="1">Private</option><option value="2">Password</option><option value="3">Invite only</option><option value="4">Public</option></select></label>
-            <button @onclick="UpdateStorefront">Save storefront settings</button>
+            <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
+            <label>@L["Ops.Field.Visibility"]<br /><select @bind="_editVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]"><option value="1">@L["Ops.Visibility.Private"]</option><option value="2">@L["Ops.Visibility.Password"]</option><option value="3">@L["Ops.Visibility.InviteOnly"]</option><option value="4">@L["Ops.Visibility.Public"]</option></select></label>
+            <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
         </div>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
-            <label>Domain host<br /><input @bind="_domainHost" placeholder="shop.example.com" style="padding:.4rem;" title="Domain to map to this storefront (host only, no https://)." /></label>
-            <label><input type="checkbox" @bind="_domainCanonical" title="The primary domain; others redirect to it (one canonical per storefront)." /> Canonical</label>
-            <button @onclick="AddDomain">Add domain</button>
-            <button @onclick="CheckReadiness">Check readiness</button>
+            <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
+            <label><input type="checkbox" @bind="_domainCanonical" title="@L["Ops.Canonical.Tip"]" /> @L["Ops.Canonical"]</label>
+            <button @onclick="AddDomain" title="@L["Ops.AddDomain.Tip"]">@L["Ops.AddDomain"]</button>
+            <button @onclick="CheckReadiness" title="@L["Ops.CheckReadiness.Tip"]">@L["Ops.CheckReadiness"]</button>
         </div>
         @if (_readiness is not null)
         {
-            <p>Readiness: <strong>@(_readiness.IsReady ? "Ready" : "Not ready")</strong></p>
+            <p>@L["Ops.Readiness"] <strong>@(_readiness.IsReady ? L["Ops.Ready"] : L["Ops.NotReady"])</strong></p>
             @if (!_readiness.IsReady)
             {
                 <ul>
@@ -142,27 +140,27 @@
             }
         }
 
-        <h3>Product publication</h3>
+        <h3>@L["Ops.Publication"]</h3>
         <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:.5rem; align-items:end;">
-            <label>Product ID<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" title="The tenant product (GUID) to publish to this storefront." /></label>
-            <label>SEO title<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" title="Optional SEO title override for this product on this storefront." /></label>
-            <label>Fulfillment<br />
-                <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;" title="How this product is fulfilled on this storefront (warehouse, dropship, digital…).">
-                    <option value="0">Unassigned (blocks publish)</option>
-                    <option value="1">Dropship</option>
-                    <option value="2">Own warehouse</option>
+            <label>@L["Ops.Field.ProductId"]<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" title="@L["Ops.Field.ProductId.Tip"]" /></label>
+            <label>@L["Ops.Field.SeoTitle"]<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" title="@L["Ops.Field.SeoTitle.Tip"]" /></label>
+            <label>@L["Ops.Field.Fulfillment"]<br />
+                <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;" title="@L["Ops.Field.Fulfillment.Tip"]">
+                    <option value="0">@L["Ops.Fulfillment.Unassigned"]</option>
+                    <option value="1">@L["Ops.Fulfillment.Dropship"]</option>
+                    <option value="2">@L["Ops.Fulfillment.OwnWarehouse"]</option>
                 </select>
             </label>
         </div>
         <div style="display:flex; gap:.5rem; margin-top:.5rem;">
-            <button @onclick="AssignProduct">Assign product</button>
-            <button @onclick="CheckProductReadiness">Product readiness</button>
-            <button @onclick="PublishProduct">Publish</button>
-            <button @onclick="UnpublishProduct">Unpublish</button>
+            <button @onclick="AssignProduct" title="@L["Ops.AssignProduct.Tip"]">@L["Ops.AssignProduct"]</button>
+            <button @onclick="CheckProductReadiness" title="@L["Ops.ProductReadiness.Tip"]">@L["Ops.ProductReadiness"]</button>
+            <button @onclick="PublishProduct" title="@L["Ops.Publish.Tip"]">@L["Ops.Publish"]</button>
+            <button @onclick="UnpublishProduct" title="@L["Ops.Unpublish.Tip"]">@L["Ops.Unpublish"]</button>
         </div>
         @if (_publicationReadiness is not null)
         {
-            <p>Publication readiness: <strong>@(_publicationReadiness.IsReady ? "Ready" : "Not ready")</strong></p>
+            <p>@L["Ops.PublicationReadiness"] <strong>@(_publicationReadiness.IsReady ? L["Ops.Ready"] : L["Ops.NotReady"])</strong></p>
             @if (!_publicationReadiness.IsReady)
             {
                 <ul>
@@ -177,12 +175,12 @@
 }
 
 <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
-    <h2>Pricing, payment, payout, and Xero policy surfaces</h2>
+    <h2>@L["Ops.Policies"]</h2>
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
-        <PolicyCard Title="Pricing & promotions" Body="SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Catalog Offers + Ordering. Per-product offers include price model + tiers." Link="/offers" LinkText="Manage offers & pricing" />
-        <PolicyCard Title="Payment accounts" Body="Payments owns tenant defaults, storefront overrides, provider mode, readiness, live activation approval, and checkout snapshots. Use active eligible accounts only." Link="/payment-accounts" LinkText="Manage payment accounts" />
-        <PolicyCard Title="Supplier payouts" Body="Payments owns masked/tokenized bank accounts, approval-protected payout instructions, payable policies, and balanced supplier payable accruals." Link="/supplier-payouts" LinkText="Manage supplier payouts" />
-        <PolicyCard Title="Xero mappings" Body="Payments owns tenant default plus storefront/category/supplier/product mapping precedence. Xero remains downstream of ledger truth. Sync runs + the daily journal are operable now." Link="/xero-mappings" LinkText="Manage Xero mappings" />
+        <PolicyCard Title="@L["Ops.Card.Pricing.Title"]" Body="@L["Ops.Card.Pricing.Body"]" Link="/offers" LinkText="@L["Ops.Card.Pricing.Link"]" LinkTitle="@L["Ops.Card.Link.Tip"]" />
+        <PolicyCard Title="@L["Ops.Card.Payments.Title"]" Body="@L["Ops.Card.Payments.Body"]" Link="/payment-accounts" LinkText="@L["Ops.Card.Payments.Link"]" LinkTitle="@L["Ops.Card.Link.Tip"]" />
+        <PolicyCard Title="@L["Ops.Card.Payouts.Title"]" Body="@L["Ops.Card.Payouts.Body"]" Link="/supplier-payouts" LinkText="@L["Ops.Card.Payouts.Link"]" LinkTitle="@L["Ops.Card.Link.Tip"]" />
+        <PolicyCard Title="@L["Ops.Card.Xero.Title"]" Body="@L["Ops.Card.Xero.Body"]" Link="/xero-mappings" LinkText="@L["Ops.Card.Xero.Link"]" LinkTitle="@L["Ops.Card.Link.Tip"]" />
     </div>
 </section>
 
@@ -230,7 +228,7 @@
         var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints });
         // LoadStorefronts clears _error, so refresh FIRST then report the outcome (D3: errors were being wiped).
         await LoadStorefronts();
-        if (await HandleMutation(response, "Storefront created."))
+        if (await HandleMutation(response, L["Ops.Status.StorefrontCreated"]))
         {
             ResetCreateStorefrontForm();
         }
@@ -257,7 +255,7 @@
         // visibility/taxRegime already serialize as numeric enum values here.
         var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
         await LoadStorefronts();
-        if (await HandleMutation(response, "Storefront settings updated."))
+        if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
             // On success, close the manage form. Leaving it open re-showed the saved storefront and
             // could later display THIS storefront's values when managing a different one (stale form).
@@ -288,7 +286,7 @@
             _selectedStorefront = _storefronts?.FirstOrDefault(s => s.Id == id);
         }
 
-        if (!await HandleMutation(response, $"Storefront {transition} requested.")
+        if (!await HandleMutation(response, L["Ops.Status.Transition", transition])
             && transition is "preview" or "activate")
         {
             // Show the concrete readiness blockers (e.g. "one canonical domain") next to the error.
@@ -302,7 +300,7 @@
         var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/domains", new { host = _domainHost, canonical = _domainCanonical });
         // Refresh FIRST — LoadStorefronts clears _error, so a failed add (server error) is set AFTER (D3).
         await LoadStorefronts();
-        await HandleMutation(response, "Domain added.");
+        await HandleMutation(response, L["Ops.Status.DomainAdded"]);
     }
 
     private async Task CheckReadiness()
@@ -321,7 +319,7 @@
             fulfillmentSource = _fulfillmentSource,
             countryOfOrigin = "AU",
         });
-        await HandleMutation(response, "Product assigned.");
+        await HandleMutation(response, L["Ops.Status.ProductAssigned"]);
     }
 
     private async Task CheckProductReadiness()
@@ -330,8 +328,8 @@
         _publicationReadiness = await Gateway.GetAsync<ReadinessDto>($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products/{productId}/readiness");
     }
 
-    private Task PublishProduct() => ProductTransition("publish", "Product publish requested.");
-    private Task UnpublishProduct() => ProductTransition("unpublish", "Product unpublish requested.");
+    private Task PublishProduct() => ProductTransition("publish", L["Ops.Status.ProductPublish"]);
+    private Task UnpublishProduct() => ProductTransition("unpublish", L["Ops.Status.ProductUnpublish"]);
 
     private async Task ProductTransition(string transition, string message)
     {
@@ -351,7 +349,7 @@
         }
 
         _status = null;
-        _error = $"Request failed ({(int)response.StatusCode}): {await GatewayError.ReadAsync(response)}";
+        _error = L["Ops.Error.RequestFailed", (int)response.StatusCode, await GatewayError.ReadAsync(response)];
         return false;
     }
 
@@ -365,7 +363,7 @@
         _newVisibility = 1;
     }
 
-    private static string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? "None" : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
+    private string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? L["Ops.TaxRegime.None"] : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
 
     public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);

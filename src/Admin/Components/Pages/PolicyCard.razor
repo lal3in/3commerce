@@ -3,7 +3,7 @@
     <p style="color:#4b5563; flex:1;">@Body</p>
     @if (!string.IsNullOrEmpty(Link))
     {
-        <a href="@Link" style="font-size:.85rem; font-weight:600;">@LinkText →</a>
+        <a href="@Link" title="@LinkTitle" style="font-size:.85rem; font-weight:600;">@LinkText →</a>
     }
     else if (!string.IsNullOrEmpty(Pending))
     {
@@ -18,6 +18,9 @@
     /// <summary>Optional: a working admin page that manages this surface (renders an action link).</summary>
     [Parameter] public string? Link { get; set; }
     [Parameter] public string LinkText { get; set; } = "Manage";
+
+    /// <summary>Tooltip for the action link (localized by the caller).</summary>
+    [Parameter] public string? LinkTitle { get; set; }
 
     /// <summary>Optional: a short badge when the surface still needs backend endpoints.</summary>
     [Parameter] public string? Pending { get; set; }

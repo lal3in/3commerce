@@ -5,10 +5,10 @@
    returned URL is used. Shows a live thumbnail. Usage:
    <ImageInput Value="x" ValueChanged="v => x = v" /> *@
 <div style="display:flex; gap:.4rem; align-items:center;">
-    <input value="@Value" @onchange="OnUrlChange" placeholder="https://… or upload →"
-           title="@Title" style="flex:1; padding:.3rem;" />
-    <label style="white-space:nowrap; font-size:.8rem; cursor:pointer; padding:.3rem .5rem; border:1px solid #d1d5db; border-radius:4px;">
-        📁 Browse… <InputFile OnChange="OnFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
+    <input value="@Value" @onchange="OnUrlChange" placeholder="@L["Image.Placeholder"]"
+           title="@(Title ?? L["Image.Tip"])" style="flex:1; padding:.3rem;" />
+    <label title="@L["Image.Browse.Tip"]" style="white-space:nowrap; font-size:.8rem; cursor:pointer; padding:.3rem .5rem; border:1px solid #d1d5db; border-radius:4px;">
+        📁 @L["Image.Browse"] <InputFile OnChange="OnFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
     </label>
     @if (!string.IsNullOrWhiteSpace(Value))
     {
@@ -17,7 +17,7 @@
 </div>
 @if (_uploading)
 {
-    <span style="font-size:.8rem; color:#6b7280;">Uploading…</span>
+    <span style="font-size:.8rem; color:#6b7280;">@L["Image.Uploading"]</span>
 }
 @if (_error is not null)
 {
@@ -27,7 +27,8 @@
 @code {
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
-    [Parameter] public string Title { get; set; } = "Paste an image URL, or upload a local file (PNG/JPEG/WebP/GIF, max 10 MB).";
+    // Null → localized default tooltip.
+    [Parameter] public string? Title { get; set; }
 
     private bool _uploading;
     private string? _error;
@@ -62,7 +63,7 @@
             }
             else
             {
-                _error = $"Upload failed: {await response.Content.ReadAsStringAsync()}";
+                _error = L["Image.UploadFailed", await response.Content.ReadAsStringAsync()];
             }
         }
         catch (Exception ex)

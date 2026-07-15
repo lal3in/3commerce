@@ -4,12 +4,12 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>Entities &amp; suppliers</h1>
-<p style="color:#6b7280;">Tenant-scoped party master data + supplier onboarding. The change-request queue is <strong>maker-checker</strong>: a sensitive supplier change (bank account, contact, access) is <em>requested</em> by one operator and must be <em>approved by a different one</em> — separation of duties, with the decision audited.</p>
+<h1>@L["Entities.Title"]</h1>
+<p style="color:#6b7280;">@((MarkupString)L["Entities.Intro"].Value)</p>
 
 <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:1rem;">
-    <label style="font-size:.85rem;">Tenant <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="The tenant whose entities you are managing (GUID)." /></label>
-    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">Load</button>
+    <label style="font-size:.85rem;">@L["Entities.Tenant"] <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="@L["Entities.Tenant.Tip"]" /></label>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.35rem .8rem;">@L["Common.Load"]</button>
 </div>
 
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
@@ -17,14 +17,14 @@
 
 @if (_editing is not null)
 {
-    <h2>Edit entity</h2>
+    <h2>@L["Entities.EditHeading"]</h2>
     <div style="display:flex; flex-direction:column; gap:.5rem; max-width:30rem;">
-        <label>Legal name <input @bind="_editing.LegalName" style="width:100%; padding:.4rem;" title="Registered legal name of the entity." /></label>
-        <label>Trading name <input @bind="_editing.TradingName" style="width:100%; padding:.4rem;" title="Optional 'doing business as' name; shown to operators when set." /></label>
-        <label>Type <input value="@TypeName(_editing.Type)" disabled style="width:100%; padding:.4rem; background:#f9fafb;" title="Entity type is fixed after creation." /></label>
+        <label>@L["Entities.Field.LegalName"] <input @bind="_editing.LegalName" style="width:100%; padding:.4rem;" title="@L["Entities.Field.LegalName.Tip"]" /></label>
+        <label>@L["Entities.Field.TradingName"] <input @bind="_editing.TradingName" style="width:100%; padding:.4rem;" title="@L["Entities.Field.TradingName.Tip"]" /></label>
+        <label>@L["Common.Type"] <input value="@TypeName(_editing.Type)" disabled style="width:100%; padding:.4rem; background:#f9fafb;" title="@L["Entities.Field.Type.Tip"]" /></label>
         <div style="display:flex; gap:.5rem;">
-            <button @onclick="SaveEntity" disabled="@_saving" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? "Saving…" : "Save")</button>
-            <button @onclick="() => _editing = null" style="padding:.4rem 1rem;">Cancel</button>
+            <button @onclick="SaveEntity" disabled="@_saving" title="@L["Common.Save.Tip"]" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? L["Common.Saving"] : L["Common.Save"])</button>
+            <button @onclick="() => _editing = null" title="@L["Common.Cancel.Tip"]" style="padding:.4rem 1rem;">@L["Common.Cancel"]</button>
         </div>
     </div>
 }
@@ -32,27 +32,27 @@ else
 {
     <section style="display:grid; grid-template-columns:1.3fr 1fr; gap:2rem;">
         <div>
-            <h2>Entities</h2>
-            <label style="font-size:.85rem; display:block; margin-bottom:.5rem;">Suspend reason <input @bind="_suspendReason" style="width:100%; padding:.3rem;" title="Recorded when suspending a supplier (min 8 characters)." /></label>
-            @if (_entities.Count == 0) { <p style="color:#9ca3af;">No entities loaded.</p> }
+            <h2>@L["Entities.List"]</h2>
+            <label style="font-size:.85rem; display:block; margin-bottom:.5rem;">@L["Entities.SuspendReason"] <input @bind="_suspendReason" style="width:100%; padding:.3rem;" title="@L["Entities.SuspendReason.Tip"]" /></label>
+            @if (_entities.Count == 0) { <p style="color:#9ca3af;">@L["Entities.Empty"]</p> }
             else
             {
                 <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
-                    <thead><tr><th style="text-align:left;">Name</th><th>Type</th><th>Status</th><th>Supplier actions</th></tr></thead>
+                    <thead><tr><th style="text-align:left;">@L["Common.Name"]</th><th>@L["Common.Type"]</th><th>@L["Common.Status"]</th><th>@L["Entities.Col.SupplierActions"]</th></tr></thead>
                     <tbody>
                     @foreach (var e in _entities)
                     {
                         <tr style="border-top:1px solid #e5e7eb;">
-                            <td>@e.DisplayName <button @onclick="() => EditEntity(e)" style="font-size:.75rem; margin-left:.3rem;">edit</button></td>
+                            <td>@e.DisplayName <button @onclick="() => EditEntity(e)" title="@L["Entities.EditSmall.Tip"]" style="font-size:.75rem; margin-left:.3rem;">@L["Entities.EditSmall"]</button></td>
                             <td style="text-align:center;">@TypeName(e.Type)</td>
                             <td style="text-align:center;">@StatusName(e.Status)</td>
                             <td style="text-align:right; white-space:nowrap;">
-                                <button @onclick='() => Supplier(e.Id, "suppliers")' style="font-size:.75rem;" title="Begin supplier onboarding (state: Draft)">Onboard</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/submit-verification")' style="font-size:.75rem;" title="Submit a Draft supplier for verification (requires a verified ABN/ACN, an email contact, and a current address on the entity)">Verify</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/verification-complete")' style="font-size:.75rem;" title="Mark verification complete (state: Pending verification → Pending approval)">Verified</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/activate")' style="font-size:.75rem;" title="Activate a supplier whose verification is complete (state must be Pending approval)">Activate</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/suspend")' style="font-size:.75rem;" title="Suspend an ACTIVE supplier — the reason on the left is recorded (8–500 chars)">Suspend</button>
-                                <button @onclick='() => Supplier(e.Id, "suppliers/archive")' style="font-size:.75rem; color:#b91c1c;" title="Archive the supplier">Archive</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers")' style="font-size:.75rem;" title="@L["Entities.Action.Onboard.Tip"]">@L["Entities.Action.Onboard"]</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/submit-verification")' style="font-size:.75rem;" title="@L["Entities.Action.Verify.Tip"]">@L["Entities.Action.Verify"]</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/verification-complete")' style="font-size:.75rem;" title="@L["Entities.Action.Verified.Tip"]">@L["Entities.Action.Verified"]</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/activate")' style="font-size:.75rem;" title="@L["Entities.Action.Activate.Tip"]">@L["Entities.Action.Activate"]</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/suspend")' style="font-size:.75rem;" title="@L["Entities.Action.Suspend.Tip"]">@L["Entities.Action.Suspend"]</button>
+                                <button @onclick='() => Supplier(e.Id, "suppliers/archive")' style="font-size:.75rem; color:#b91c1c;" title="@L["Entities.Action.Archive.Tip"]">@L["Entities.Action.Archive"]</button>
                             </td>
                         </tr>
                     }
@@ -60,24 +60,24 @@ else
                 </table>
             }
 
-            <h3>Create entity</h3>
+            <h3>@L["Entities.Create"]</h3>
             <div style="display:grid; gap:.4rem; max-width:28rem;">
-                <input @bind="_newLegalName" placeholder="Legal name" title="Registered legal name." />
-                <input @bind="_newTradingName" placeholder="Trading name (optional)" title="Optional 'doing business as' name." />
-                <select @bind="_newType" title="Entity type — fixed after creation.">
-                    <option value="2">Company</option><option value="1">Natural person</option>
-                    <option value="3">Trust</option><option value="4">Partnership</option>
-                    <option value="5">Sole trader</option><option value="6">Government body</option>
-                    <option value="7">Non-profit / association</option><option value="99">Other</option>
+                <input @bind="_newLegalName" placeholder="@L["Entities.New.LegalName"]" title="@L["Entities.New.LegalName.Tip"]" />
+                <input @bind="_newTradingName" placeholder="@L["Entities.New.TradingName"]" title="@L["Entities.New.TradingName.Tip"]" />
+                <select @bind="_newType" title="@L["Entities.New.Type.Tip"]">
+                    <option value="2">@L["Entities.Type.Company"]</option><option value="1">@L["Entities.Type.NaturalPerson"]</option>
+                    <option value="3">@L["Entities.Type.Trust"]</option><option value="4">@L["Entities.Type.Partnership"]</option>
+                    <option value="5">@L["Entities.Type.SoleTrader"]</option><option value="6">@L["Entities.Type.GovernmentBody"]</option>
+                    <option value="7">@L["Entities.Type.NonProfit"]</option><option value="99">@L["Entities.Type.Other"]</option>
                 </select>
-                <button @onclick="CreateAsync" style="padding:.4rem; background:#111827; color:#fff; border:0; border-radius:5px;">Create</button>
+                <button @onclick="CreateAsync" title="@L["Entities.Create.Tip"]" style="padding:.4rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Create"]</button>
             </div>
         </div>
 
         <div>
-            <h2>Pending supplier change requests</h2>
-            <label style="font-size:.85rem;">Decision reason <input @bind="_decisionReason" style="width:100%; padding:.3rem;" placeholder="Reason (8–500 chars, required to reject)" title="Recorded with the decision; optional for approve, required (8–500 characters) when rejecting." /></label>
-            @if (_requests.Count == 0) { <p style="color:#9ca3af; margin-top:.5rem;">No pending change requests.</p> }
+            <h2>@L["Entities.Requests"]</h2>
+            <label style="font-size:.85rem;">@L["Entities.DecisionReason"] <input @bind="_decisionReason" style="width:100%; padding:.3rem;" placeholder="@L["Entities.DecisionReason.Placeholder"]" title="@L["Entities.DecisionReason.Tip"]" /></label>
+            @if (_requests.Count == 0) { <p style="color:#9ca3af; margin-top:.5rem;">@L["Entities.NoRequests"]</p> }
             else
             {
                 @foreach (var r in _requests)
@@ -89,15 +89,15 @@ else
                         </div>
                         <div style="font-size:.9rem; margin:.2rem 0;">@r.Summary</div>
                         @if (!string.IsNullOrWhiteSpace(r.Detail)) { <div style="font-size:.82rem; color:#4b5563;">@r.Detail</div> }
-                        <div style="font-size:.75rem; color:#9ca3af;">requested by @r.RequestedByPrincipalId.ToString()[..8]</div>
+                        <div style="font-size:.75rem; color:#9ca3af;">@L["Entities.RequestedBy", r.RequestedByPrincipalId.ToString()[..8]]</div>
                         @{ var mine = _myPrincipalId is not null && r.RequestedByPrincipalId == _myPrincipalId; }
                         @if (mine)
                         {
-                            <div style="font-size:.78rem; color:#92400e; margin-top:.3rem;">You raised this request — a different admin must decide it (maker-checker).</div>
+                            <div style="font-size:.78rem; color:#92400e; margin-top:.3rem;">@L["Entities.MakerChecker"]</div>
                         }
                         <div style="margin-top:.4rem; display:flex; gap:.4rem;">
-                            <button @onclick='() => DecideAsync(r.Id, "approve")' disabled="@mine" title="@(mine ? "Maker-checker: the requester cannot approve their own request." : "Approve this change request.")" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#047857"); color:#fff; border:0; border-radius:4px;">Approve</button>
-                            <button @onclick='() => DecideAsync(r.Id, "reject")' disabled="@mine" title="@(mine ? "Maker-checker: the requester cannot reject their own request." : "Reject this change request — the decision reason above is required (8–500 chars).")" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#b91c1c"); color:#fff; border:0; border-radius:4px;">Reject</button>
+                            <button @onclick='() => DecideAsync(r.Id, "approve")' disabled="@mine" title="@(mine ? L["Entities.Approve.OwnTip"] : L["Entities.Approve.Tip"])" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#047857"); color:#fff; border:0; border-radius:4px;">@L["Entities.Approve"]</button>
+                            <button @onclick='() => DecideAsync(r.Id, "reject")' disabled="@mine" title="@(mine ? L["Entities.Reject.OwnTip"] : L["Entities.Reject.Tip"])" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#b91c1c"); color:#fff; border:0; border-radius:4px;">@L["Entities.Reject"]</button>
                         </div>
                     </div>
                 }
@@ -136,7 +136,7 @@ else
         // calling LoadAsync to refresh, and clearing here would wipe that feedback.
         if (!Guid.TryParse(_tenantId, out _))
         {
-            _error = "Tenant ID must be a GUID.";
+            _error = L["Entities.Error.TenantGuid"];
             return;
         }
 
@@ -156,13 +156,13 @@ else
                 new { legalName = _editing.LegalName, tradingName = string.IsNullOrWhiteSpace(_editing.TradingName) ? null : _editing.TradingName });
             if (response.IsSuccessStatusCode)
             {
-                _info = "Entity updated.";
+                _info = L["Entities.Info.Updated"];
                 _editing = null;
                 await LoadAsync();
             }
             else
             {
-                _error = $"Update failed: {await GatewayError.ReadAsync(response)}";
+                _error = L["Entities.Error.UpdateFailed", await GatewayError.ReadAsync(response)];
             }
         }
         finally
@@ -176,7 +176,7 @@ else
         _error = _info = null;
         if (!Guid.TryParse(_tenantId, out var tid))
         {
-            _error = "Tenant ID must be a GUID.";
+            _error = L["Entities.Error.TenantGuid"];
             return;
         }
 
@@ -184,13 +184,13 @@ else
             new { tenantId = tid, type = _newType, legalName = _newLegalName, tradingName = string.IsNullOrWhiteSpace(_newTradingName) ? null : _newTradingName });
         if (response.IsSuccessStatusCode)
         {
-            _info = $"Created '{_newLegalName}'.";
+            _info = L["Entities.Info.Created", _newLegalName];
             _newLegalName = _newTradingName = string.Empty;
             await LoadAsync();
         }
         else
         {
-            _error = $"Create failed ({(int)response.StatusCode}).";
+            _error = L["Entities.Error.CreateFailed", (int)response.StatusCode];
         }
     }
 
@@ -205,7 +205,7 @@ else
             var reason = string.IsNullOrWhiteSpace(_suspendReason) ? "Suspended by operator via admin." : _suspendReason.Trim();
             if (reason.Length < 8)
             {
-                _error = "Suspend reason must be at least 8 characters.";
+                _error = L["Entities.Error.SuspendReason"];
                 return;
             }
 
@@ -213,8 +213,8 @@ else
         }
 
         var response = await Gateway.PostAsync($"/api/entity/entities/{entityId}/{action}", body);
-        if (response.IsSuccessStatusCode) { _info = $"Supplier '{action.Split('/').Last()}' ok."; }
-        else { _error = $"Action failed: {await ReadFailureAsync(response)}"; }
+        if (response.IsSuccessStatusCode) { _info = L["Entities.Info.SupplierOk", action.Split('/').Last()]; }
+        else { _error = L["Entities.Error.ActionFailed", await ReadFailureAsync(response)]; }
         await LoadAsync();
     }
 
@@ -261,13 +261,13 @@ else
         // instead of a 400 from the service.
         if (decision == "reject" && (reason is null || reason.Length < 8))
         {
-            _error = "Rejecting requires a decision reason of at least 8 characters.";
+            _error = L["Entities.Error.RejectReason"];
             return;
         }
 
         if (reason is { Length: > 500 })
         {
-            _error = "The decision reason must be at most 500 characters.";
+            _error = L["Entities.Error.ReasonTooLong"];
             return;
         }
 
@@ -275,19 +275,19 @@ else
             new { reason });
         if (response.IsSuccessStatusCode)
         {
-            _info = decision == "approve" ? "Request approved." : "Request rejected.";
+            _info = decision == "approve" ? L["Entities.Info.Approved"] : L["Entities.Info.Rejected"];
             _decisionReason = string.Empty;
             await LoadAsync();
         }
         else
         {
-            _error = $"{decision} failed: {await ReadFailureAsync(response)}";
+            _error = L["Entities.Error.DecisionFailed", decision, await ReadFailureAsync(response)];
         }
     }
 
-    private static string TypeName(int t) => t switch { 1 => "Natural person", 2 => "Company", 3 => "Trust", 4 => "Partnership", 5 => "Sole trader", 6 => "Government body", 7 => "Non-profit", _ => "Other" };
-    private static string StatusName(int s) => s switch { 1 => "Active", 2 => "Inactive", 3 => "Archived", _ => s.ToString() };
-    private static string ChangeTypeName(int t) => t switch { 1 => "User access", 2 => "Contact", 3 => "Bank account", _ => $"Type {t}" };
+    private string TypeName(int t) => t switch { 1 => L["Entities.Type.NaturalPerson"], 2 => L["Entities.Type.Company"], 3 => L["Entities.Type.Trust"], 4 => L["Entities.Type.Partnership"], 5 => L["Entities.Type.SoleTrader"], 6 => L["Entities.Type.GovernmentBody"], 7 => L["Entities.Type.NonProfit"], _ => L["Entities.Type.Other"] };
+    private string StatusName(int s) => s switch { 1 => L["Entities.Status.Active"], 2 => L["Entities.Status.Inactive"], 3 => L["Entities.Status.Archived"], _ => s.ToString() };
+    private string ChangeTypeName(int t) => t switch { 1 => L["Entities.ChangeType.UserAccess"], 2 => L["Entities.ChangeType.Contact"], 3 => L["Entities.ChangeType.BankAccount"], _ => L["Entities.ChangeType.Other", t] };
 
     private sealed record EntitySummary(Guid Id, Guid TenantId, int Type, string LegalName, string? TradingName, string DisplayName, int Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
     private sealed record MeResponse(Guid Id, string Email);

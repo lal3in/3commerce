@@ -4,32 +4,32 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
-    <h1 style="margin:0;">Dashboard</h1>
-    <span style="color:#6b7280; font-size:.85rem;">operator overview · live</span>
+    <h1 style="margin:0;">@L["Home.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Home.Subtitle"]</span>
     <span style="flex:1;"></span>
-    <button @onclick="LoadAsync" style="padding:.35rem .8rem;">↻ Refresh</button>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
 </div>
 
 @if (_loading)
 {
-    <p style="margin-top:1rem;">Loading metrics…</p>
+    <p style="margin-top:1rem;">@L["Home.Loading"]</p>
 }
 else
 {
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-top:1.2rem;">
-        @KpiCard("Revenue", Money(_revenueMinor), "#4f46e5", $"{_orders.Count} orders")
-        @KpiCard("Orders", _orders.Count.ToString(), "#0891b2", $"{_ordersToday} today")
-        @KpiCard("Products", _productCount.ToString(), "#059669", "in catalog")
-        @KpiCard("Open RMAs", _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", $"{_rmas.Count} total")
-        @KpiCard("Ledger balance", Money(_trialBalanceMinor), _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? "balanced ✓" : "out of balance")
+        @KpiCard(L["Home.Kpi.Revenue"], Money(_revenueMinor), "#4f46e5", L["Home.Kpi.Revenue.Sub", _orders.Count], L["Home.Kpi.Revenue.Tip"])
+        @KpiCard(L["Home.Kpi.Orders"], _orders.Count.ToString(), "#0891b2", L["Home.Kpi.Orders.Sub", _ordersToday], L["Home.Kpi.Orders.Tip"])
+        @KpiCard(L["Home.Kpi.Products"], _productCount.ToString(), "#059669", L["Home.Kpi.Products.Sub"], L["Home.Kpi.Products.Tip"])
+        @KpiCard(L["Home.Kpi.OpenRmas"], _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", L["Home.Kpi.OpenRmas.Sub", _rmas.Count], L["Home.Kpi.OpenRmas.Tip"])
+        @KpiCard(L["Home.Kpi.Ledger"], Money(_trialBalanceMinor), _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Ledger.Tip"])
     </div>
 
     <div style="display:grid; grid-template-columns:2fr 1fr; gap:1.2rem; margin-top:1.4rem;">
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
-            <h3 style="margin:0 0 .6rem;">Revenue — last 14 days</h3>
+            <h3 style="margin:0 0 .6rem;">@L["Home.Revenue14"]</h3>
             @if (_revByDay.Count == 0)
             {
-                <p style="color:#9ca3af;">No orders yet.</p>
+                <p style="color:#9ca3af;">@L["Home.NoOrders"]</p>
             }
             else
             {
@@ -38,7 +38,7 @@ else
         </div>
 
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
-            <h3 style="margin:0 0 .6rem;">Orders by status</h3>
+            <h3 style="margin:0 0 .6rem;">@L["Home.OrdersByStatus"]</h3>
             @if (_byStatus.Count == 0)
             {
                 <p style="color:#9ca3af;">—</p>
@@ -58,15 +58,15 @@ else
     </div>
 
     <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff; margin-top:1.2rem;">
-        <h3 style="margin:0 0 .6rem;">Recent orders</h3>
+        <h3 style="margin:0 0 .6rem;">@L["Home.RecentOrders"]</h3>
         @if (_orders.Count == 0)
         {
-            <p style="color:#9ca3af;">No orders yet.</p>
+            <p style="color:#9ca3af;">@L["Home.NoOrders"]</p>
         }
         else
         {
             <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
-                <thead><tr><th style="text-align:left;">When</th><th style="text-align:left;">Order</th><th style="text-align:left;">Status</th><th style="text-align:right;">Amount</th></tr></thead>
+                <thead><tr><th style="text-align:left;">@L["Home.Col.When"]</th><th style="text-align:left;">@L["Home.Col.Order"]</th><th style="text-align:left;">@L["Home.Col.Status"]</th><th style="text-align:right;">@L["Home.Col.Amount"]</th></tr></thead>
                 <tbody>
                 @foreach (var o in _orders.OrderByDescending(o => o.CreatedAt).Take(8))
                 {
@@ -149,10 +149,12 @@ else
 
     private string Money(long minor) => $"{minor / 100m:N2} {_currency}";
 
-    private RenderFragment KpiCard(string label, string value, string color, string sub) => builder =>
+    // label/sub/tip come from the resx (trusted, developer-authored), value from our own formatting — nothing
+    // user-supplied reaches this markup.
+    private RenderFragment KpiCard(string label, string value, string color, string sub, string tip) => builder =>
     {
         builder.AddMarkupContent(0,
-            $"<div style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:1rem 1.1rem; background:#fff;\">" +
+            $"<div title=\"{tip}\" style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:1rem 1.1rem; background:#fff;\">" +
             $"<div style=\"font-size:.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em;\">{label}</div>" +
             $"<div style=\"font-size:1.7rem; font-weight:700; color:#111827; margin:.2rem 0;\">{value}</div>" +
             $"<div style=\"font-size:.8rem; color:#9ca3af;\">{sub}</div></div>");

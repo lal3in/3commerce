@@ -2,15 +2,15 @@
 
 @* Currency is always picked from the full ISO 4217 list (Currencies.All), never free-typed.
    Usage: <CurrencySelect @bind-Value="variant.Currency" /> *@
-<select value="@Value" @onchange="OnChange" title="@Title" @attributes="Attributes">
-    <optgroup label="Common">
+<select value="@Value" @onchange="OnChange" title="@(Title ?? L["Currency.Tip"])" @attributes="Attributes">
+    <optgroup label="@L["Currency.Group.Common"]">
         @foreach (var cc in Currencies.Common)
         {
             var c = _byCode.GetValueOrDefault(cc);
             <option value="@cc">@cc — @(c?.Name)</option>
         }
     </optgroup>
-    <optgroup label="All currencies (ISO 4217)">
+    <optgroup label="@L["Currency.Group.All"]">
         @foreach (var c in Currencies.All)
         {
             <option value="@c.Code">@c.Code — @c.Name</option>
@@ -24,7 +24,8 @@
 
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
-    [Parameter] public string Title { get; set; } = "Currency (ISO 4217)";
+    // Null → use the localized default tooltip. Callers may still override with a specific string.
+    [Parameter] public string? Title { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? Attributes { get; set; }

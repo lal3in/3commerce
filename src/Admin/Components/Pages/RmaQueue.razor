@@ -3,17 +3,17 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<h1>RMA queue</h1>
+<h1>@L["Rma.Title"]</h1>
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
 @if (_status is not null) { <p style="color:#047857;">@_status</p> }
 @if (_rmas is null)
 {
-    <p>Loading…</p>
+    <p>@L["Common.Loading"]</p>
 }
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">Order</th><th>Amount</th><th>State</th><th>Reason</th><th></th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Rma.Col.Order"]</th><th>@L["Rma.Col.Amount"]</th><th>@L["Rma.Col.State"]</th><th>@L["Common.Reason"]</th><th></th></tr></thead>
         <tbody>
         @foreach (var r in _rmas)
         {
@@ -29,17 +29,17 @@ else
                         // eventually consistent, so the row's State may still read stale for a moment.
                         // Suppress the buttons until the next reload catches up — this is what prevents
                         // a double-click landing a 409 ("RMA is 'RefundPending', not awaiting a return").
-                        <span style="color:#6b7280;">Updating… <button disabled="@_busy" @onclick="Refresh">Refresh</button></span>
+                        <span style="color:#6b7280;">@L["Rma.Updating"] <button disabled="@_busy" @onclick="Refresh" title="@L["Rma.Refresh.Tip"]">@L["Common.Refresh"]</button></span>
                     }
                     else if (r.State == "Requested")
                     {
-                        <button disabled="@_busy" @onclick="() => Approve(r.Id, false)" title="Refund now — no physical return required.">Approve &amp; refund</button>
-                        <button disabled="@_busy" @onclick="() => Approve(r.Id, true)" title="Approve, but require the item back before the refund is issued.">Approve (require return)</button>
-                        <button disabled="@_busy" @onclick="() => Post(r.Id, DenyAction, null)" title="Reject this return request.">Deny</button>
+                        <button disabled="@_busy" @onclick="() => Approve(r.Id, false)" title="@L["Rma.Approve.Tip"]">@L["Rma.Approve"]</button>
+                        <button disabled="@_busy" @onclick="() => Approve(r.Id, true)" title="@L["Rma.ApproveReturn.Tip"]">@L["Rma.ApproveReturn"]</button>
+                        <button disabled="@_busy" @onclick="() => Post(r.Id, DenyAction, null)" title="@L["Rma.Deny.Tip"]">@L["Rma.Deny"]</button>
                     }
                     else if (r.State == "AwaitingReturn")
                     {
-                        <button disabled="@_busy" @onclick="() => Post(r.Id, ReturnReceivedAction, _empty)" title="Mark the returned item received — this releases the refund.">Mark return received</button>
+                        <button disabled="@_busy" @onclick="() => Post(r.Id, ReturnReceivedAction, _empty)" title="@L["Rma.MarkReceived.Tip"]">@L["Rma.MarkReceived"]</button>
                     }
                 </td>
             </tr>
@@ -87,7 +87,7 @@ else
         var response = await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
         if (response.IsSuccessStatusCode)
         {
-            _status = $"RMA {action} accepted.";
+            _status = L["Rma.Status.Accepted", action];
             // The saga applies the transition asynchronously; suppress this row's buttons until
             // the list shows it in a new state.
             var stateAtAction = _rmas?.FirstOrDefault(r => r.Id == id)?.State;
@@ -100,7 +100,7 @@ else
         {
             // Surface the server's own message (e.g. "RMA is 'RefundPending', not awaiting a return.")
             // and refresh below so the row shows its true state instead of the stale one.
-            _error = $"RMA {action} failed ({(int)response.StatusCode}): {await GatewayError.ReadAsync(response)}";
+            _error = L["Rma.Status.Failed", action, (int)response.StatusCode, await GatewayError.ReadAsync(response)];
         }
 
         await Refresh();

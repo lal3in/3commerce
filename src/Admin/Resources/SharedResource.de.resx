@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    German (de) — the TOKEN second culture. Deliberately a small subset: enough that switching the language is
+    visibly, demonstrably working end to end (nav, layout, login, dashboard headings), not a full translation.
+
+    Every key NOT listed here falls back to the English value in SharedResource.resx. That fallback is the whole
+    point: a culture can be shipped partial and grown over time, and importing a full translation later
+    (Chinese, French, …) means dropping in SharedResource.<culture>.resx with the same keys — no code change.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Navigation + layout chrome -->
+  <data name="Nav.Dashboard" xml:space="preserve"><value>Übersicht</value></data>
+  <data name="Nav.Dashboard.Tip" xml:space="preserve"><value>Live-Überblick für Betreiber: Umsatz, Bestellungen, Produkte, offene Retouren und Saldo.</value></data>
+  <data name="Nav.Catalog" xml:space="preserve"><value>Katalog</value></data>
+  <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Produkte, Varianten, Preise, Bilder und Attribute anlegen und bearbeiten.</value></data>
+  <data name="Nav.Offers" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
+  <data name="Nav.Orders" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Nav.Orders.Tip" xml:space="preserve"><value>Bestellungen ansehen; unbezahlte stornieren, bezahlte erstatten.</value></data>
+  <data name="Nav.Rmas" xml:space="preserve"><value>Retouren</value></data>
+  <data name="Nav.Ledger" xml:space="preserve"><value>Hauptbuch</value></data>
+  <data name="Nav.XeroSync" xml:space="preserve"><value>Xero-Abgleich</value></data>
+  <data name="Nav.XeroMappings" xml:space="preserve"><value>Xero-Zuordnungen</value></data>
+  <data name="Nav.Imports" xml:space="preserve"><value>Importe</value></data>
+  <data name="Nav.Rbac" xml:space="preserve"><value>Rollen &amp; Rechte</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>Benutzerkonten</value></data>
+  <data name="Nav.Entities" xml:space="preserve"><value>Einheiten &amp; Lieferanten</value></data>
+  <data name="Nav.CommerceOps" xml:space="preserve"><value>Handelsbetrieb</value></data>
+  <data name="Nav.PaymentAccounts" xml:space="preserve"><value>Zahlungskonten</value></data>
+  <data name="Nav.SupplierPayouts" xml:space="preserve"><value>Lieferantenauszahlungen</value></data>
+  <data name="Nav.MissionControl" xml:space="preserve"><value>Leitstand</value></data>
+  <data name="Nav.Security" xml:space="preserve"><value>Sicherheit</value></data>
+  <data name="Nav.Logout" xml:space="preserve"><value>Abmelden</value></data>
+  <data name="Nav.Logout.Tip" xml:space="preserve"><value>Sitzung beenden und zur Anmeldung zurückkehren.</value></data>
+  <data name="Nav.Language" xml:space="preserve"><value>Sprache</value></data>
+  <data name="Nav.Language.Tip" xml:space="preserve"><value>Die Sprache der Oberfläche für Ihre Sitzung. Sie wird in einem Cookie gespeichert und ist unabhängig von Währung und Finanzeinstellungen.</value></data>
+  <data name="Nav.Language.Apply" xml:space="preserve"><value>Übernehmen</value></data>
+  <data name="Nav.Language.Apply.Tip" xml:space="preserve"><value>Oberfläche auf die gewählte Sprache umstellen und Seite neu laden.</value></data>
+
+  <!-- Login -->
+  <data name="Login.Title" xml:space="preserve"><value>Admin-Anmeldung</value></data>
+  <data name="Login.Email" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Login.Email.Tip" xml:space="preserve"><value>Ihre Betreiber-E-Mail. Die Admin-Konsole verlangt die Rolle 'admin'.</value></data>
+  <data name="Login.Password" xml:space="preserve"><value>Passwort</value></data>
+  <data name="Login.Password.Tip" xml:space="preserve"><value>Ihr Kontopasswort.</value></data>
+  <data name="Login.Code" xml:space="preserve"><value>Authenticator-Code</value></data>
+  <data name="Login.Code.Tip" xml:space="preserve"><value>Nur nötig, wenn MFA für Ihr Konto aktiviert ist. Sonst leer lassen. Wiederherstellungscodes funktionieren hier ebenfalls.</value></data>
+  <data name="Login.SignIn" xml:space="preserve"><value>Anmelden</value></data>
+  <data name="Login.SignIn.Tip" xml:space="preserve"><value>An der Admin-Konsole anmelden.</value></data>
+  <data name="Login.Error.Invalid" xml:space="preserve"><value>Ungültige Zugangsdaten oder kein Administratorkonto.</value></data>
+
+  <!-- Dashboard -->
+  <data name="Home.Title" xml:space="preserve"><value>Übersicht</value></data>
+  <data name="Home.Subtitle" xml:space="preserve"><value>Betreiberüberblick · live</value></data>
+  <data name="Home.Loading" xml:space="preserve"><value>Kennzahlen werden geladen…</value></data>
+  <data name="Home.Kpi.Revenue" xml:space="preserve"><value>Umsatz</value></data>
+  <data name="Home.Kpi.Orders" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Home.Kpi.Products" xml:space="preserve"><value>Produkte</value></data>
+  <data name="Home.Kpi.OpenRmas" xml:space="preserve"><value>Offene Retouren</value></data>
+  <data name="Home.Kpi.Ledger" xml:space="preserve"><value>Saldo Hauptbuch</value></data>
+  <data name="Home.Revenue14" xml:space="preserve"><value>Umsatz — letzte 14 Tage</value></data>
+  <data name="Home.OrdersByStatus" xml:space="preserve"><value>Bestellungen nach Status</value></data>
+  <data name="Home.RecentOrders" xml:space="preserve"><value>Neueste Bestellungen</value></data>
+  <data name="Home.NoOrders" xml:space="preserve"><value>Noch keine Bestellungen.</value></data>
+  <data name="Home.Col.When" xml:space="preserve"><value>Wann</value></data>
+  <data name="Home.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
+  <data name="Home.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Home.Col.Amount" xml:space="preserve"><value>Betrag</value></data>
+
+  <!-- Common chrome that shows up on almost every page -->
+  <data name="Common.Loading" xml:space="preserve"><value>Wird geladen…</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>Speichern</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>Wird gespeichert…</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Abbrechen</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Common.Create" xml:space="preserve"><value>Anlegen</value></data>
+  <data name="Common.Load" xml:space="preserve"><value>Laden</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>Aktualisieren</value></data>
+  <data name="Common.Search" xml:space="preserve"><value>Suchen</value></data>
+  <data name="Common.Clear" xml:space="preserve"><value>Leeren</value></data>
+  <data name="Common.TenantId" xml:space="preserve"><value>Mandanten-ID</value></data>
+  <data name="Common.TenantId.Tip" xml:space="preserve"><value>Der Mandant (GUID), dessen Datensätze Sie verwalten.</value></data>
+
+  <!-- Catalog page title, to show a page beyond the shell switching too -->
+  <data name="Catalog.Title" xml:space="preserve"><value>Katalog</value></data>
+  <data name="Catalog.New" xml:space="preserve"><value>Neues Produkt</value></data>
+  <data name="Catalog.Search.Placeholder" xml:space="preserve"><value>Titel oder Slug suchen…</value></data>
+  <data name="Catalog.Search.Tip" xml:space="preserve"><value>Produkte nach Titel oder Slug filtern.</value></data>
+  <data name="Catalog.Empty" xml:space="preserve"><value>Keine Produkte.</value></data>
+</root>
