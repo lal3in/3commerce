@@ -1,9 +1,10 @@
+@* lang reflects the session culture; the page <title> comes from each page's localized
+   <PageTitle> via HeadOutlet (a static <title> here would win over it and never localize). *@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3commerce supplier portal</title>
     <base href="/" />
     <HeadOutlet />
 </head>

@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Application shell -->
+  <data name="App_Title" xml:space="preserve">
+    <value>3commerce supplier portal</value>
+  </data>
+
+  <!-- Navigation -->
+  <data name="Nav_Brand" xml:space="preserve">
+    <value>3commerce supplier</value>
+  </data>
+  <data name="Nav_Subtitle" xml:space="preserve">
+    <value>Platform portal</value>
+  </data>
+  <data name="Nav_Overview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="Nav_Overview_Tooltip" xml:space="preserve">
+    <value>Supplier readiness and operational scope</value>
+  </data>
+  <data name="Nav_Stock" xml:space="preserve">
+    <value>Stock feeds</value>
+  </data>
+  <data name="Nav_Stock_Tooltip" xml:space="preserve">
+    <value>Submit availability updates for platform review</value>
+  </data>
+  <data name="Nav_Requests" xml:space="preserve">
+    <value>Change requests</value>
+  </data>
+  <data name="Nav_Requests_Tooltip" xml:space="preserve">
+    <value>Request supplier user, contact, or bank-account changes</value>
+  </data>
+  <data name="Nav_Logout" xml:space="preserve">
+    <value>Log out</value>
+  </data>
+  <data name="Nav_Logout_Tooltip" xml:space="preserve">
+    <value>End this supplier portal session and return to sign in</value>
+  </data>
+
+  <!-- Language switcher -->
+  <data name="Culture_Label" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Culture_Select_Tooltip" xml:space="preserve">
+    <value>Choose the language for this session. Language is independent of currency and financial settings.</value>
+  </data>
+  <data name="Culture_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Culture_Apply_Tooltip" xml:space="preserve">
+    <value>Save the selected language for this session and reload the page</value>
+  </data>
+
+  <!-- Shared fields -->
+  <data name="Common_EntityId" xml:space="preserve">
+    <value>Supplier entity ID</value>
+  </data>
+  <data name="Common_EntityId_Tooltip" xml:space="preserve">
+    <value>The GUID of your supplier entity. Platform support can provide it if you do not have it.</value>
+  </data>
+  <data name="Common_ValidationTitle" xml:space="preserve">
+    <value>Please correct the following:</value>
+  </data>
+
+  <!-- Validation -->
+  <data name="Validation_EntityId_Required" xml:space="preserve">
+    <value>Supplier entity ID is required.</value>
+  </data>
+  <data name="Validation_EntityId_Guid" xml:space="preserve">
+    <value>Supplier entity ID must be a GUID.</value>
+  </data>
+  <data name="Validation_FeedReference_Required" xml:space="preserve">
+    <value>Feed URI or filename is required.</value>
+  </data>
+  <data name="Validation_RequestType_Required" xml:space="preserve">
+    <value>Request type is required.</value>
+  </data>
+  <data name="Validation_Details_Required" xml:space="preserve">
+    <value>Details are required.</value>
+  </data>
+
+  <!-- Sign in -->
+  <data name="Login_Title" xml:space="preserve">
+    <value>Supplier portal sign in</value>
+  </data>
+  <data name="Login_Error" xml:space="preserve">
+    <value>Sign in failed. Check your credentials or supplier access.</value>
+  </data>
+  <data name="Login_Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Login_Email_Tooltip" xml:space="preserve">
+    <value>The email address registered for your supplier portal account</value>
+  </data>
+  <data name="Login_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Login_Password_Tooltip" xml:space="preserve">
+    <value>Your supplier portal password</value>
+  </data>
+  <data name="Login_Submit" xml:space="preserve">
+    <value>Sign in</value>
+  </data>
+  <data name="Login_Submit_Tooltip" xml:space="preserve">
+    <value>Sign in to the supplier portal</value>
+  </data>
+
+  <!-- Overview -->
+  <data name="Home_Title" xml:space="preserve">
+    <value>Supplier overview</value>
+  </data>
+  <data name="Home_Intro" xml:space="preserve">
+    <value>View your supplier readiness and operational scope. Product content, pricing, dispatch, tracking, and bank-account changes require platform approval.</value>
+  </data>
+  <data name="Home_CheckReadiness" xml:space="preserve">
+    <value>Check readiness</value>
+  </data>
+  <data name="Home_CheckReadiness_Tooltip" xml:space="preserve">
+    <value>Load the current readiness status for this supplier entity</value>
+  </data>
+  <data name="Home_Readiness" xml:space="preserve">
+    <value>Readiness</value>
+  </data>
+  <data name="Home_Ready" xml:space="preserve">
+    <value>Supplier profile is ready.</value>
+  </data>
+  <data name="Home_Missing" xml:space="preserve">
+    <value>Missing requirements:</value>
+  </data>
+  <data name="Home_LoadFailed" xml:space="preserve">
+    <value>Unable to load readiness. Confirm your supplier access.</value>
+  </data>
+
+  <!-- Stock feeds -->
+  <data name="Stock_Title" xml:space="preserve">
+    <value>Stock feeds</value>
+  </data>
+  <data name="Stock_Intro" xml:space="preserve">
+    <value>Upload a stock feed request for platform review. Suppliers may update availability only; product content and pricing remain platform-controlled.</value>
+  </data>
+  <data name="Stock_FeedReference" xml:space="preserve">
+    <value>Feed URI or filename</value>
+  </data>
+  <data name="Stock_FeedReference_Tooltip" xml:space="preserve">
+    <value>The public URI of the feed, or the filename you supplied to the platform</value>
+  </data>
+  <data name="Stock_Notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Stock_Notes_Tooltip" xml:space="preserve">
+    <value>Optional context for the platform reviewer</value>
+  </data>
+  <data name="Stock_Submit" xml:space="preserve">
+    <value>Submit stock feed request</value>
+  </data>
+  <data name="Stock_Submit_Tooltip" xml:space="preserve">
+    <value>Send this stock feed request for platform review</value>
+  </data>
+  <data name="Stock_Submitted" xml:space="preserve">
+    <value>Stock feed request captured locally. Workflow/audit persistence is scheduled for Phase 6.</value>
+  </data>
+
+  <!-- Change requests -->
+  <data name="Requests_Title" xml:space="preserve">
+    <value>Change requests</value>
+  </data>
+  <data name="Requests_Intro" xml:space="preserve">
+    <value>Request supplier user/contact or bank-account changes. Bank-account data is owned by Payments and always requires approval.</value>
+  </data>
+  <data name="Requests_Type" xml:space="preserve">
+    <value>Request type</value>
+  </data>
+  <data name="Requests_Type_Tooltip" xml:space="preserve">
+    <value>The kind of change the platform should review and approve</value>
+  </data>
+  <data name="Requests_Type_UserAccess" xml:space="preserve">
+    <value>User access</value>
+  </data>
+  <data name="Requests_Type_ContactDetails" xml:space="preserve">
+    <value>Contact details</value>
+  </data>
+  <data name="Requests_Type_BankAccount" xml:space="preserve">
+    <value>Bank account</value>
+  </data>
+  <data name="Requests_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Requests_Details_Tooltip" xml:space="preserve">
+    <value>Describe the change, including who or what it affects</value>
+  </data>
+  <data name="Requests_Submit" xml:space="preserve">
+    <value>Submit request</value>
+  </data>
+  <data name="Requests_Submit_Tooltip" xml:space="preserve">
+    <value>Send this change request to the platform for approval</value>
+  </data>
+  <data name="Requests_Submitted" xml:space="preserve">
+    <value>Change request captured locally. Approval workflow persistence is scheduled for Phase 6.</value>
+  </data>
+
+  <!-- Error -->
+  <data name="Error_Title" xml:space="preserve">
+    <value>Something went wrong</value>
+  </data>
+  <data name="Error_Body" xml:space="preserve">
+    <value>The supplier portal could not complete the request. Try again or contact platform support.</value>
+  </data>
+</root>

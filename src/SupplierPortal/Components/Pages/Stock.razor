@@ -1,40 +1,80 @@
 @page "/stock"
 @attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
 @rendermode InteractiveServer
 
-<h1>Stock feeds</h1>
-<p>Upload a stock feed request for platform review. Suppliers may update availability only; product content and pricing remain platform-controlled.</p>
+<PageTitle>@L["Stock_Title"] — @L["App_Title"]</PageTitle>
 
-<EditForm Model="request" OnValidSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <label>Supplier entity ID<br /><InputText @bind-Value="request.EntityId" style="width:100%;padding:.4rem;" /></label><br /><br />
-    <label>Feed URI or filename<br /><InputText @bind-Value="request.FeedReference" style="width:100%;padding:.4rem;" /></label><br /><br />
-    <label>Notes<br /><InputTextArea @bind-Value="request.Notes" style="width:100%;padding:.4rem;min-height:6rem;" /></label><br /><br />
-    <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">Submit stock feed request</button>
+<h1>@L["Stock_Title"]</h1>
+<p>@L["Stock_Intro"]</p>
+
+@* Validation is done in code (not via DataAnnotations attributes) so the messages come from the
+   resource file and follow the session language. *@
+<EditForm Model="request" OnSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
+    @if (errors.Count > 0)
+    {
+        <div style="color:#b91c1c;margin-bottom:1rem;">
+            <p style="margin:0 0 .25rem;">@L["Common_ValidationTitle"]</p>
+            <ul style="margin:0;">
+                @foreach (var error in errors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </div>
+    }
+    <label title="@L["Common_EntityId_Tooltip"]">
+        @L["Common_EntityId"]<br />
+        <InputText @bind-Value="request.EntityId" title="@L["Common_EntityId_Tooltip"]" style="width:100%;padding:.4rem;" />
+    </label><br /><br />
+    <label title="@L["Stock_FeedReference_Tooltip"]">
+        @L["Stock_FeedReference"]<br />
+        <InputText @bind-Value="request.FeedReference" title="@L["Stock_FeedReference_Tooltip"]" style="width:100%;padding:.4rem;" />
+    </label><br /><br />
+    <label title="@L["Stock_Notes_Tooltip"]">
+        @L["Stock_Notes"]<br />
+        <InputTextArea @bind-Value="request.Notes" title="@L["Stock_Notes_Tooltip"]" style="width:100%;padding:.4rem;min-height:6rem;" />
+    </label><br /><br />
+    <button type="submit" title="@L["Stock_Submit_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">@L["Stock_Submit"]</button>
 </EditForm>
 
 @if (submitted)
 {
-    <p style="color:#047857;">Stock feed request captured locally. Workflow/audit persistence is scheduled for Phase 6.</p>
+    <p style="color:#047857;">@L["Stock_Submitted"]</p>
 }
 
 @code {
+    private readonly List<string> errors = [];
     private StockFeedRequest request = new();
     private bool submitted;
 
     private Task SubmitAsync()
     {
-        submitted = true;
+        submitted = false;
+        errors.Clear();
+
+        if (string.IsNullOrWhiteSpace(request.EntityId))
+        {
+            errors.Add(L["Validation_EntityId_Required"]);
+        }
+        else if (!Guid.TryParse(request.EntityId, out _))
+        {
+            errors.Add(L["Validation_EntityId_Guid"]);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FeedReference))
+        {
+            errors.Add(L["Validation_FeedReference_Required"]);
+        }
+
+        submitted = errors.Count == 0;
         return Task.CompletedTask;
     }
 
     private sealed class StockFeedRequest
     {
-        [System.ComponentModel.DataAnnotations.Required]
         public string EntityId { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
         public string FeedReference { get; set; } = string.Empty;
 
         public string? Notes { get; set; }

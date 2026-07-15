@@ -1,5 +1,8 @@
 @page "/Error"
 @layout EmptyLayout
+@inject IStringLocalizer<SharedResource> L
 
-<h1>Something went wrong</h1>
-<p>The supplier portal could not complete the request. Try again or contact platform support.</p>
+<PageTitle>@L["Error_Title"] — @L["App_Title"]</PageTitle>
+
+<h1>@L["Error_Title"]</h1>
+<p>@L["Error_Body"]</p>

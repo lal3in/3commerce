@@ -1,0 +1,54 @@
+@using Microsoft.AspNetCore.Localization
+@using Microsoft.Extensions.Options
+@inject IStringLocalizer<SharedResource> L
+@inject NavigationManager Nav
+@inject IOptions<RequestLocalizationOptions> LocalizationOptions
+
+@*
+    Session language switcher. A plain GET form (no JS, no interactivity, no antiforgery token) so it
+    renders identically on the statically rendered sign-in page and inside the authenticated layout.
+    /culture/set writes the culture cookie and redirects back here, which reloads the page in the new
+    language. Only shipped cultures are listed — they come from Localization:SupportedCultures.
+*@
+<form action="/culture/set" method="get" style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
+    <input type="hidden" name="redirectUri" value="@CurrentPath" />
+    <label for="culture-select" style="font-size:.8rem; color:@LabelColor;" title="@L["Culture_Select_Tooltip"]">@L["Culture_Label"]</label>
+    <select id="culture-select"
+            name="culture"
+            title="@L["Culture_Select_Tooltip"]"
+            aria-label="@L["Culture_Label"]"
+            style="padding:.25rem; border-radius:4px; border:1px solid #cbd5e1; background:#fff; color:#0f172a;">
+        @foreach (var culture in SupportedCultures)
+        {
+            if (culture.Name == CurrentCulture)
+            {
+                <option value="@culture.Name" selected>@DisplayName(culture)</option>
+            }
+            else
+            {
+                <option value="@culture.Name">@DisplayName(culture)</option>
+            }
+        }
+    </select>
+    <button type="submit"
+            title="@L["Culture_Apply_Tooltip"]"
+            style="background:#334155; color:#fff; border:0; padding:.25rem .6rem; border-radius:4px; font-size:.8rem;">
+        @L["Culture_Apply"]
+    </button>
+</form>
+
+@code {
+    /// <summary>Label colour, so the switcher reads correctly on both the dark nav and the light sign-in card.</summary>
+    [Parameter]
+    public string LabelColor { get; set; } = "#475569";
+
+    private IList<CultureInfo> SupportedCultures =>
+        LocalizationOptions.Value.SupportedUICultures ?? [CultureInfo.CurrentUICulture];
+
+    private static string CurrentCulture => CultureInfo.CurrentUICulture.Name;
+
+    private string CurrentPath => new Uri(Nav.Uri).AbsolutePath;
+
+    private static string DisplayName(CultureInfo culture) =>
+        culture.TextInfo.ToTitleCase(culture.NativeName);
+}

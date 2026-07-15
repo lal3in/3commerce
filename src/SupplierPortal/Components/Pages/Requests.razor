@@ -1,49 +1,92 @@
 @page "/requests"
 @attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
 @rendermode InteractiveServer
 
-<h1>Change requests</h1>
-<p>Request supplier user/contact or bank-account changes. Bank-account data is owned by Payments and always requires approval.</p>
+<PageTitle>@L["Requests_Title"] — @L["App_Title"]</PageTitle>
 
-<EditForm Model="request" OnValidSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <label>Supplier entity ID<br /><InputText @bind-Value="request.EntityId" style="width:100%;padding:.4rem;" /></label><br /><br />
-    <label>Request type<br />
-        <InputSelect @bind-Value="request.Type" style="width:100%;padding:.4rem;">
-            <option>UserAccess</option>
-            <option>ContactDetails</option>
-            <option>BankAccount</option>
+<h1>@L["Requests_Title"]</h1>
+<p>@L["Requests_Intro"]</p>
+
+@* Validation is done in code (not via DataAnnotations attributes) so the messages come from the
+   resource file and follow the session language. *@
+<EditForm Model="request" OnSubmit="SubmitAsync" style="max-width:42rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">
+    @if (errors.Count > 0)
+    {
+        <div style="color:#b91c1c;margin-bottom:1rem;">
+            <p style="margin:0 0 .25rem;">@L["Common_ValidationTitle"]</p>
+            <ul style="margin:0;">
+                @foreach (var error in errors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </div>
+    }
+    <label title="@L["Common_EntityId_Tooltip"]">
+        @L["Common_EntityId"]<br />
+        <InputText @bind-Value="request.EntityId" title="@L["Common_EntityId_Tooltip"]" style="width:100%;padding:.4rem;" />
+    </label><br /><br />
+    <label title="@L["Requests_Type_Tooltip"]">
+        @L["Requests_Type"]<br />
+        @* Option values stay the platform's request-type codes; only the display text is localized. *@
+        <InputSelect @bind-Value="request.Type" title="@L["Requests_Type_Tooltip"]" style="width:100%;padding:.4rem;">
+            <option value="UserAccess">@L["Requests_Type_UserAccess"]</option>
+            <option value="ContactDetails">@L["Requests_Type_ContactDetails"]</option>
+            <option value="BankAccount">@L["Requests_Type_BankAccount"]</option>
         </InputSelect>
     </label><br /><br />
-    <label>Details<br /><InputTextArea @bind-Value="request.Details" style="width:100%;padding:.4rem;min-height:8rem;" /></label><br /><br />
-    <button type="submit" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">Submit request</button>
+    <label title="@L["Requests_Details_Tooltip"]">
+        @L["Requests_Details"]<br />
+        <InputTextArea @bind-Value="request.Details" title="@L["Requests_Details_Tooltip"]" style="width:100%;padding:.4rem;min-height:8rem;" />
+    </label><br /><br />
+    <button type="submit" title="@L["Requests_Submit_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">@L["Requests_Submit"]</button>
 </EditForm>
 
 @if (submitted)
 {
-    <p style="color:#047857;">Change request captured locally. Approval workflow persistence is scheduled for Phase 6.</p>
+    <p style="color:#047857;">@L["Requests_Submitted"]</p>
 }
 
 @code {
+    private readonly List<string> errors = [];
     private ChangeRequest request = new();
     private bool submitted;
 
     private Task SubmitAsync()
     {
-        submitted = true;
+        submitted = false;
+        errors.Clear();
+
+        if (string.IsNullOrWhiteSpace(request.EntityId))
+        {
+            errors.Add(L["Validation_EntityId_Required"]);
+        }
+        else if (!Guid.TryParse(request.EntityId, out _))
+        {
+            errors.Add(L["Validation_EntityId_Guid"]);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Type))
+        {
+            errors.Add(L["Validation_RequestType_Required"]);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Details))
+        {
+            errors.Add(L["Validation_Details_Required"]);
+        }
+
+        submitted = errors.Count == 0;
         return Task.CompletedTask;
     }
 
     private sealed class ChangeRequest
     {
-        [System.ComponentModel.DataAnnotations.Required]
         public string EntityId { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required]
         public string Type { get; set; } = "UserAccess";
 
-        [System.ComponentModel.DataAnnotations.Required]
         public string Details { get; set; } = string.Empty;
     }
 }
