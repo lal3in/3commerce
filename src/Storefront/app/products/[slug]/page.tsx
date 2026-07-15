@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { getProduct } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
@@ -17,7 +18,8 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getProduct(slug);
   if (!product) {
-    return { title: "Product not found", robots: { index: false } };
+    const t = await getTranslations("product");
+    return { title: t("notFound"), robots: { index: false } };
   }
 
   const url = `${siteUrl()}/products/${slug}`;
@@ -41,7 +43,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   // Storefront-scoped: variants priced in the active storefront's currency; a product the tenant
   // hasn't priced there is 404 (hidden). No context → base-currency behavior (fetch stays ISR-cached
   // per currency URL; the page render itself is dynamic once cookies are read).
-  const storefront = await resolveStorefront();
+  const [t, tt, storefront] = await Promise.all([
+    getTranslations("product"),
+    getTranslations("productTypes"),
+    resolveStorefront(),
+  ]);
   const product = await getProduct(slug, storefront?.currency);
   if (!product) {
     notFound();
@@ -56,8 +62,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const jsonLd = [
     productJsonLd(product, url),
     breadcrumbJsonLd([
-      { name: "Home", url: siteUrl() },
-      { name: "Shop", url: `${siteUrl()}/search` },
+      { name: t("breadcrumbHome"), url: siteUrl() },
+      { name: t("breadcrumbShop"), url: `${siteUrl()}/search` },
       { name: product.title, url },
     ]),
   ];
@@ -86,22 +92,25 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div className="flex items-center gap-2">
           <p className="text-sm text-neutral-500">{product.brand}</p>
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${productTypeClasses(product.productType)}`}>
-            {productTypeInfo(product.productType).badge}
+            {tt(productTypeInfo(product.productType).badgeKey)}
           </span>
         </div>
         <h1 className="text-2xl font-bold">{product.title}</h1>
         <p className="mt-2 text-xl font-semibold">{formatMoney(fromPrice, currency)}</p>
         <p className="mt-4 text-neutral-700">{product.description}</p>
 
-        <h2 className="mt-6 text-sm font-semibold">Options</h2>
+        <h2 className="mt-6 text-sm font-semibold">{t("options")}</h2>
         <ul className="mt-2 space-y-1">
           {product.variants.map((v) => (
             <li key={v.id} className="flex justify-between text-sm border-b border-neutral-100 py-1">
               <span>{v.sku}</span>
               <span className="flex items-center gap-3">
                 {formatMoney(v.priceMinor, v.currency)}
-                <span className={v.inStock ? "text-green-600" : "text-neutral-400"}>
-                  {v.inStock ? "In stock" : "Out of stock"}
+                <span
+                  className={v.inStock ? "text-green-600" : "text-neutral-400"}
+                  title={v.inStock ? undefined : t("tips.outOfStock")}
+                >
+                  {v.inStock ? t("inStock") : t("outOfStock")}
                 </span>
               </span>
             </li>

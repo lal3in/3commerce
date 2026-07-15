@@ -68,6 +68,44 @@ public class StorefrontLifecycleTests
     }
 
     [Fact]
+    public void StorefrontLanguage_defaults_to_english_and_is_independent_of_commerce_config()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "AU store", DateTimeOffset.UtcNow);
+        Assert.Equal("en", storefront.DefaultLanguage);
+
+        // i18n_0: configuring currency/tax must never touch the language, and vice versa.
+        storefront.SetDefaultLanguage("ZH-hant", DateTimeOffset.UtcNow);
+        storefront.ConfigureCommerce("http://localhost:3000/au", "AUD", StorefrontTaxRegime.AuGst, 1000, DateTimeOffset.UtcNow);
+
+        Assert.Equal("zh-Hant", storefront.DefaultLanguage); // normalized BCP-47 casing
+        Assert.Equal("AUD", storefront.Currency);
+    }
+
+    [Fact]
+    public void StorefrontLanguage_blank_keeps_the_current_language_and_invalid_tags_are_rejected()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+        storefront.SetDefaultLanguage("zh", DateTimeOffset.UtcNow);
+
+        storefront.SetDefaultLanguage(null, DateTimeOffset.UtcNow); // an older client PUT omits it
+        storefront.SetDefaultLanguage("  ", DateTimeOffset.UtcNow);
+
+        Assert.Equal("zh", storefront.DefaultLanguage);
+        Assert.Throws<CatalogRuleException>(() => storefront.SetDefaultLanguage("e", DateTimeOffset.UtcNow));
+        Assert.Throws<CatalogRuleException>(() => storefront.SetDefaultLanguage("en_US", DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void SupportedLanguages_lists_english_first_with_endonym_labels()
+    {
+        Assert.Equal("en", SupportedLanguages.All[0].Code);
+        Assert.True(SupportedLanguages.IsKnown("EN"));
+        Assert.True(SupportedLanguages.IsKnown("yue"));
+        Assert.False(SupportedLanguages.IsKnown("xx"));
+        Assert.All(SupportedLanguages.All, l => Assert.False(string.IsNullOrWhiteSpace(l.Label)));
+    }
+
+    [Fact]
     public void StorefrontLifecycle_can_pause_a_draft_or_preview_storefront()
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "EUR store", DateTimeOffset.UtcNow);

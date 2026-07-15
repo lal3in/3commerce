@@ -1,15 +1,24 @@
 // Catalog product types (Catalog ProductType enum — numeric on the wire, ADR-0028). The billing
 // mechanics (recurring, metered) live on the Offer; this is the browsable label a shopper filters by.
+//
+// i18n_1: the display strings live in the message catalogs (`productTypes.*`), not here — this module
+// only maps the numeric enum to catalog KEYS, so a new language translates the type chips for free.
 
-export type ProductTypeInfo = { value: number; label: string; badge: string };
+export type ProductTypeInfo = {
+  value: number;
+  /** Key into the `productTypes` namespace for the filter-chip label. */
+  labelKey: string;
+  /** Key into the `productTypes` namespace for the card/PDP badge (differs for usage-based). */
+  badgeKey: string;
+};
 
 export const PRODUCT_TYPES: ProductTypeInfo[] = [
-  { value: 1, label: "Physical", badge: "Physical" },
-  { value: 2, label: "Digital", badge: "Digital" },
-  { value: 3, label: "Service", badge: "Service" },
-  { value: 4, label: "Bundle", badge: "Bundle" },
-  { value: 5, label: "Subscription", badge: "Subscription" },
-  { value: 6, label: "Usage-based", badge: "Pay as you go" },
+  { value: 1, labelKey: "physical", badgeKey: "physical" },
+  { value: 2, labelKey: "digital", badgeKey: "digital" },
+  { value: 3, labelKey: "service", badgeKey: "service" },
+  { value: 4, labelKey: "bundle", badgeKey: "bundle" },
+  { value: 5, labelKey: "subscription", badgeKey: "subscription" },
+  { value: 6, labelKey: "usageBased", badgeKey: "usageBasedBadge" },
 ];
 
 const BY_VALUE = new Map(PRODUCT_TYPES.map((t) => [t.value, t]));

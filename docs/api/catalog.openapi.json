@@ -1165,6 +1165,28 @@
         }
       }
     },
+    "/storefronts/languages": {
+      "get": {
+        "tags": [
+          "Storefronts"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportedLanguageResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/offers": {
       "get": {
         "tags": [
@@ -1545,6 +1567,14 @@
             ],
             "format": "int32",
             "default": 0
+          },
+          "defaultLanguage": {
+            "maxLength": 16,
+            "minLength": 2,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2290,7 +2320,8 @@
           "publicUrl",
           "currency",
           "taxRegime",
-          "taxRateBasisPoints"
+          "taxRateBasisPoints",
+          "defaultLanguage"
         ],
         "type": "object",
         "properties": {
@@ -2321,6 +2352,9 @@
               "string"
             ],
             "format": "int32"
+          },
+          "defaultLanguage": {
+            "type": "string"
           }
         }
       },
@@ -2373,6 +2407,7 @@
           "currency",
           "taxRegime",
           "taxRateBasisPoints",
+          "defaultLanguage",
           "domains",
           "createdAt",
           "updatedAt",
@@ -2414,6 +2449,9 @@
             ],
             "format": "int32"
           },
+          "defaultLanguage": {
+            "type": "string"
+          },
           "domains": {
             "type": "array",
             "items": {
@@ -2448,6 +2486,21 @@
       },
       "SupplyCategory": {
         "type": "integer"
+      },
+      "SupportedLanguageResponse": {
+        "required": [
+          "code",
+          "label"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
       },
       "UpdateOfferRequest": {
         "required": [
@@ -2559,6 +2612,14 @@
               "string"
             ],
             "format": "int32"
+          },
+          "defaultLanguage": {
+            "maxLength": 16,
+            "minLength": 2,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

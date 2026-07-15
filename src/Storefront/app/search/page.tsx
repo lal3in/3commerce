@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { searchProducts } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
@@ -15,7 +16,11 @@ export default async function SearchPage({
   const pageSize = 24;
   const activeType = Number(params.type) || undefined;
 
-  const storefront = await resolveStorefront();
+  const [t, tt, storefront] = await Promise.all([
+    getTranslations("search"),
+    getTranslations("productTypes"),
+    resolveStorefront(),
+  ]);
   const { hits, total } = await searchProducts({
     q: params.q,
     category: params.category,
@@ -28,32 +33,34 @@ export default async function SearchPage({
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const heading = params.q
-    ? `Results for “${params.q}”`
+    ? t("resultsFor", { query: params.q })
     : params.category
-      ? `Category: ${params.category}`
-      : "All products";
+      ? t("category", { category: params.category })
+      : t("allProducts");
 
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-semibold">{heading}</h1>
-        <p className="text-sm text-neutral-500">{total} items</p>
+        <p className="text-sm text-neutral-500">{t("itemCount", { count: total })}</p>
       </div>
 
-      <nav className="flex flex-wrap gap-2" aria-label="Filter by product type">
+      <nav className="flex flex-wrap gap-2" aria-label={t("filterByType")}>
         <Link
           href={typeHref(params, undefined)}
+          title={t("tips.allTypes")}
           className={`rounded-full px-3 py-1 text-sm ${activeType ? "border border-neutral-300 hover:bg-neutral-50" : "bg-neutral-900 text-white"}`}
         >
-          All types
+          {t("allTypes")}
         </Link>
-        {PRODUCT_TYPES.map((t) => (
+        {PRODUCT_TYPES.map((type) => (
           <Link
-            key={t.value}
-            href={typeHref(params, t.value)}
-            className={`rounded-full px-3 py-1 text-sm ${activeType === t.value ? "bg-neutral-900 text-white" : `border border-neutral-300 ${productTypeClasses(t.value)}`}`}
+            key={type.value}
+            href={typeHref(params, type.value)}
+            title={t("tips.type", { type: tt(type.labelKey) })}
+            className={`rounded-full px-3 py-1 text-sm ${activeType === type.value ? "bg-neutral-900 text-white" : `border border-neutral-300 ${productTypeClasses(type.value)}`}`}
           >
-            {t.label}
+            {tt(type.labelKey)}
           </Link>
         ))}
       </nav>
@@ -61,18 +68,16 @@ export default async function SearchPage({
       <ProductGrid products={hits} />
 
       {totalPages > 1 && (
-        <nav className="flex items-center justify-center gap-2 pt-4" aria-label="Pagination">
+        <nav className="flex items-center justify-center gap-2 pt-4" aria-label={t("pagination")}>
           {page > 1 && (
-            <Link href={pageHref(params, page - 1)} className="rounded border px-3 py-1 text-sm">
-              Previous
+            <Link href={pageHref(params, page - 1)} title={t("tips.previous")} className="rounded border px-3 py-1 text-sm">
+              {t("previous")}
             </Link>
           )}
-          <span className="text-sm text-neutral-500">
-            Page {page} of {totalPages}
-          </span>
+          <span className="text-sm text-neutral-500">{t("pageOf", { page, total: totalPages })}</span>
           {page < totalPages && (
-            <Link href={pageHref(params, page + 1)} className="rounded border px-3 py-1 text-sm">
-              Next
+            <Link href={pageHref(params, page + 1)} title={t("tips.next")} className="rounded border px-3 py-1 text-sm">
+              {t("next")}
             </Link>
           )}
         </nav>

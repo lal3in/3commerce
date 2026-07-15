@@ -1,23 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
 import { listCategories, searchProducts, getStorefrontConfig, type StorefrontTaxRegime } from "@/lib/gateway";
 
 const RESERVED_ROUTES = new Set(["account", "api", "cart", "checkout", "login", "orders", "products", "register", "search"]);
 
-const TAX_LABEL: Record<StorefrontTaxRegime, string> = {
-  None: "no tax",
-  AuGst: "AU GST",
-  EuVat: "EU VAT",
-  UsSalesTax: "US sales tax",
-  Other: "custom tax",
+// Maps the tax regime to a catalog key under `storefrontLanding.tax.*` (i18n_1).
+const TAX_KEY: Record<StorefrontTaxRegime, string> = {
+  None: "none",
+  AuGst: "auGst",
+  EuVat: "euVat",
+  UsSalesTax: "usSalesTax",
+  Other: "other",
 };
-
-function taxSummary(regime: StorefrontTaxRegime, basisPoints: number): string {
-  if (regime === "None") return TAX_LABEL.None;
-  const pct = (basisPoints / 100).toFixed(basisPoints % 100 === 0 ? 0 : 2);
-  return `${TAX_LABEL[regime]} (${pct}%)`;
-}
 
 export default async function LocalStorefrontPage({ params }: { params: Promise<{ storefront: string }> }) {
   const { storefront } = await params;
@@ -26,33 +22,42 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
     notFound();
   }
 
+  const [t, th] = await Promise.all([getTranslations("storefrontLanding"), getTranslations("home")]);
   const config = await getStorefrontConfig({ slug });
   const [featured, categories] = await Promise.all([
     searchProducts({ pageSize: 8, currency: config?.currency }),
     listCategories(),
   ]);
 
+  const taxSummary = (regime: StorefrontTaxRegime, basisPoints: number): string => {
+    const label = t(`tax.${TAX_KEY[regime]}`);
+    if (regime === "None") return label;
+    const percent = (basisPoints / 100).toFixed(basisPoints % 100 === 0 ? 0 : 2);
+    return t("tax.withRate", { label, percent });
+  };
+
   const name = config?.name ?? storefront.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const currency = config?.currency ?? "configured in Admin";
-  const tax = config ? taxSummary(config.taxRegime, config.taxRateBasisPoints) : "configured in Admin";
+  const currency = config?.currency ?? t("configuredInAdmin");
+  const tax = config ? taxSummary(config.taxRegime, config.taxRateBasisPoints) : t("configuredInAdmin");
 
   return (
     <div className="space-y-10">
       <section className="rounded-xl bg-neutral-900 text-white px-8 py-12">
-        <p className="text-sm uppercase tracking-wide text-neutral-400">Local storefront</p>
+        <p className="text-sm uppercase tracking-wide text-neutral-400">{t("eyebrow")}</p>
         <h1 className="mt-2 text-3xl font-bold">{name}</h1>
-        <p className="mt-2 text-neutral-300">Currency: {currency} · Tax: {tax}</p>
+        <p className="mt-2 text-neutral-300">{t("summary", { currency, tax })}</p>
         <Link
           href="/search"
+          title={t("tips.browse")}
           className="mt-4 inline-block rounded-md bg-white text-neutral-900 px-4 py-2 text-sm font-medium"
         >
-          Browse this storefront catalog
+          {t("browse")}
         </Link>
       </section>
 
       {categories.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold mb-3">Categories</h2>
+          <h2 className="text-lg font-semibold mb-3">{th("categories")}</h2>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <Link
@@ -68,7 +73,7 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
       )}
 
       <section>
-        <h2 className="text-lg font-semibold mb-3">Featured</h2>
+        <h2 className="text-lg font-semibold mb-3">{th("featured")}</h2>
         <ProductGrid products={featured.hits} />
       </section>
     </div>

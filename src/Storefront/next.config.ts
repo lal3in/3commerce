@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 import { ALLOWED_IMAGE_HOSTS } from "./lib/image-hosts";
 
 const nextConfig: NextConfig = {
@@ -11,4 +12,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// i18n_1: no locale URL segment — the request locale comes from the session cookie / storefront
+// default / Accept-Language (i18n/request.ts), so /au, /products/... keep their existing shape.
+export default createNextIntlPlugin("./i18n/request.ts")(nextConfig);

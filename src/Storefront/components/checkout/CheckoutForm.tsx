@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
 import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
@@ -18,15 +19,17 @@ interface CheckoutFormProps {
   taxInclusive: boolean;
 }
 
+// Wire values are fixed; the visible label comes from the `checkout.methods.*` catalog (i18n_1).
 const PAYMENT_OPTIONS = [
-  { value: "CreditCard", label: "Credit card", icon: <CardIcon /> },
-  { value: "Stripe", label: "Stripe Payment Element", icon: <StripeIcon /> },
-  { value: "ApplePay", label: "Apple Pay", icon: <ApplePayIcon /> },
-  { value: "GooglePay", label: "Google Pay", icon: <GooglePayIcon /> },
-  { value: "PayPal", label: "PayPal", icon: <PayPalIcon /> },
+  { value: "CreditCard", labelKey: "creditCard", icon: <CardIcon /> },
+  { value: "Stripe", labelKey: "stripe", icon: <StripeIcon /> },
+  { value: "ApplePay", labelKey: "applePay", icon: <ApplePayIcon /> },
+  { value: "GooglePay", labelKey: "googlePay", icon: <GooglePayIcon /> },
+  { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
 export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive }: CheckoutFormProps) {
+  const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
@@ -80,17 +83,21 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       )}
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Review items</h2>
+        <h2 className="font-medium">{t("reviewItems")}</h2>
         <ul className="divide-y divide-neutral-100">
           {cart.items.map((item) => (
             <CheckoutLine key={`${item.productId}:${item.variantId ?? "default"}`} item={item} />
           ))}
         </ul>
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
-          <Row label="Subtotal" value={formatMoney(cart.subtotalMinor, cart.currency)} />
-          <Row label="Shipping" value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : "Choose a rate below"} muted={!selectedRate} />
+          <Row label={t("subtotal")} value={formatMoney(cart.subtotalMinor, cart.currency)} />
           <Row
-            label={taxInclusive ? `Includes tax (${(taxRateBasisPoints / 100).toFixed(taxRateBasisPoints % 100 === 0 ? 0 : 2)}%)` : "Tax (added)"}
+            label={t("shipping")}
+            value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : t("chooseRate")}
+            muted={!selectedRate}
+          />
+          <Row
+            label={taxInclusive ? t("includesTax", { percent: formatRate(taxRateBasisPoints) }) : t("taxAdded")}
             value={formatMoney(estimatedTaxMinor, cart.currency)}
             muted={estimatedTaxMinor === 0 || taxInclusive}
           />
@@ -98,23 +105,24 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Contact</h2>
+        <h2 className="font-medium">{t("contact")}</h2>
         {profile ? (
           <>
-            <p className="text-sm text-neutral-600">Signed in as {profile.email}. We use this verified account email for the order.</p>
+            <p className="text-sm text-neutral-600">{t("signedInAs", { email: profile.email })}</p>
             <input type="hidden" name="email" value={profile.email} />
           </>
         ) : (
-          <Field name="email" label="Email" type="email" autoComplete="email" required title="We'll send your order confirmation here." />
+          <Field name="email" label={t("email")} type="email" autoComplete="email" required title={t("tips.email")} />
         )}
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Shipping address</h2>
+        <h2 className="font-medium">{t("shippingAddress")}</h2>
         {addresses.length > 0 && (
           <AddressSelect
             id="shippingAddressId"
-            label="Saved shipping address"
+            label={t("savedShippingAddress")}
+            title={t("tips.savedShippingAddress")}
             value={shippingId}
             addresses={addresses.filter((address) => canUse(address, "Shipping"))}
             includeSame={false}
@@ -125,28 +133,34 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Shipping method</h2>
+        <h2 className="font-medium">{t("shippingMethod")}</h2>
         <button
           type="button"
           disabled={quoting}
+          title={t("tips.getRates")}
           onClick={(event) => quoteShipping(event.currentTarget.form!)}
           className="rounded-md border border-neutral-300 px-3 py-2 text-sm disabled:opacity-50"
         >
-          {quoting ? "Getting rates…" : "Get shipping rates"}
+          {quoting ? t("gettingRates") : t("getRates")}
         </button>
         {quoteError && <p className="text-sm text-red-700">{quoteError}</p>}
         {shippingRates.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2" role="radiogroup" aria-label={t("shippingRateChoice")}>
             {shippingRates.map((rate) => (
-              <label key={`${rate.carrier}:${rate.service}`} className="flex items-center justify-between gap-3 rounded border border-neutral-200 p-3 text-sm">
+              <label
+                key={`${rate.carrier}:${rate.service}`}
+                title={t("tips.shippingRateChoice")}
+                className="flex items-center justify-between gap-3 rounded border border-neutral-200 p-3 text-sm"
+              >
                 <span className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="shippingRateChoice"
+                    title={t("tips.shippingRateChoice")}
                     checked={selectedRate?.service === rate.service && selectedRate.carrier === rate.carrier}
                     onChange={() => setSelectedRate(rate)}
                   />
-                  <span>{rate.serviceName} · {rate.estimatedDays} day{rate.estimatedDays === 1 ? "" : "s"}</span>
+                  <span>{t("rateOption", { service: rate.serviceName, days: rate.estimatedDays })}</span>
                 </span>
                 <span>{formatMoney(rate.amountMinor, rate.currency)}</span>
               </label>
@@ -163,15 +177,16 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Payment</h2>
-        <div ref={paymentGroupRef} className="flex flex-wrap gap-2" role="radiogroup" aria-label="Payment options">
+        <h2 className="font-medium">{t("payment")}</h2>
+        <div ref={paymentGroupRef} className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("paymentOptions")}>
           {PAYMENT_OPTIONS.map((option) => {
             const selected = paymentOption === option.value;
+            const label = t(`methods.${option.labelKey}`);
             return (
               <label
                 key={option.value}
-                title={option.label}
-                aria-label={option.label}
+                title={`${label} — ${t("tips.paymentOption")}`}
+                aria-label={label}
                 data-selected={selected || undefined}
                 className={selected
                   ? "flex h-11 min-w-20 cursor-pointer items-center justify-center rounded-md border-2 border-neutral-900 bg-white px-3 shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-neutral-500 has-[:focus-visible]:ring-offset-1"
@@ -190,25 +205,30 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
                   className="sr-only"
                 />
                 {option.icon}
-                <span className="sr-only">{option.label}</span>
+                <span className="sr-only">{label}</span>
               </label>
             );
           })}
         </div>
         {profile && paymentMethods.length > 0 && paymentOption === "CreditCard" && (
-          <label htmlFor="savedPaymentMethodId" className="block text-sm font-medium">
-            Saved card
+          <label htmlFor="savedPaymentMethodId" className="block text-sm font-medium" title={t("tips.savedCard")}>
+            {t("savedCard")}
             <select
               id="savedPaymentMethodId"
               name="savedPaymentMethodId"
+              title={t("tips.savedCard")}
               defaultValue={paymentMethods.find((method) => method.isDefault)?.id ?? "new"}
               className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
             >
-              <option value="new">Use a new card / wallet</option>
+              <option value="new">{t("newCard")}</option>
               {paymentMethods.map((method) => (
                 <option key={method.id} value={method.id}>
-                  {method.brand.toUpperCase()} ending {method.last4} · {method.expMonth}/{method.expYear}
-                  {method.isDefault ? " · default" : ""}
+                  {t(method.isDefault ? "savedCardOptionDefault" : "savedCardOption", {
+                    brand: method.brand.toUpperCase(),
+                    last4: method.last4,
+                    expMonth: method.expMonth,
+                    expYear: method.expYear,
+                  })}
                 </option>
               ))}
             </select>
@@ -216,49 +236,57 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         )}
         {paymentOption === "CreditCard" && (
           <div className="space-y-3 rounded-md bg-neutral-50 p-3">
-            <Field name="paymentCardNumber" label="Card number" autoComplete="cc-number" title="Provider-hosted card entry in production; this dev field records only a masked summary." />
+            <Field name="paymentCardNumber" label={t("cardNumber")} autoComplete="cc-number" title={t("tips.cardNumber")} />
             <div className="grid grid-cols-2 gap-3">
-              <Field name="paymentExpiry" label="Expiry" autoComplete="cc-exp" title="Expiry is used only by the provider in production." />
-              <Field name="paymentCvv" label="CVV" autoComplete="cc-csc" title="CVV is provider-hosted in production and never stored." />
+              <Field name="paymentExpiry" label={t("expiry")} autoComplete="cc-exp" title={t("tips.expiry")} />
+              <Field name="paymentCvv" label={t("cvv")} autoComplete="cc-csc" title={t("tips.cvv")} />
             </div>
           </div>
         )}
         {profile && paymentOption === "CreditCard" && (
-          <label className="flex items-center gap-2 text-sm text-neutral-700">
-            <input name="savePaymentMethod" type="checkbox" className="h-4 w-4" />
-            Save this new card for one-click checkout later
+          <label className="flex items-center gap-2 text-sm text-neutral-700" title={t("tips.saveCard")}>
+            <input name="savePaymentMethod" type="checkbox" className="h-4 w-4" title={t("tips.saveCard")} />
+            {t("saveCard")}
           </label>
         )}
-        {!profile && <p className="text-sm text-neutral-500">Guests can choose a payment option, but payment methods are not saved to an account. The order keeps the selected method and masked payment summary for audit, tracking, and notifications.</p>}
-        <p className="text-xs text-neutral-500">Stripe, Apple Pay, Google Pay, PayPal, and card entry are handled by provider-hosted payment surfaces in production; raw payment credentials must not be stored by 3commerce.</p>
+        {!profile && <p className="text-sm text-neutral-500">{t("guestPaymentNote")}</p>}
+        <p className="text-xs text-neutral-500">{t("providerNote")}</p>
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-        <h2 className="font-medium">Billing address</h2>
+        <h2 className="font-medium">{t("billingAddress")}</h2>
         <AddressSelect
           id="billingAddressId"
-          label="Billing address"
+          label={t("billingAddress")}
+          title={t("tips.billingAddress")}
           value={billingId}
           addresses={addresses.filter((address) => canUse(address, "Billing"))}
           includeSame
           onChange={setBillingId}
         />
         {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} />}
-        {billingId === "same" && <p className="text-sm text-neutral-500">Using the shipping address for card billing/AVS.</p>}
+        {billingId === "same" && <p className="text-sm text-neutral-500">{t("usingShippingForBilling")}</p>}
       </section>
 
       <button
         type="submit"
         disabled={pending || cart.items.length === 0}
+        title={t("tips.placeOrder")}
         className="w-full rounded-md bg-neutral-900 text-white py-3 text-sm font-medium disabled:opacity-50"
       >
-        {pending ? "Authorizing…" : "Authorize & place order"}
+        {pending ? t("authorizing") : t("placeOrder")}
       </button>
     </form>
   );
 }
 
+// 1000 bp → "10", 825 bp → "8.25" (the catalog string supplies the % sign and word order).
+function formatRate(basisPoints: number): string {
+  return (basisPoints / 100).toFixed(basisPoints % 100 === 0 ? 0 : 2);
+}
+
 function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
+  const t = useTranslations("checkout");
   const [updating, start] = useTransition();
   const router = useRouter();
   const changeQuantity = (quantity: number) => {
@@ -272,16 +300,17 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium">{item.title}</p>
-          {item.variantSku && <p className="text-xs text-neutral-500">Variant: {item.variantSku}</p>}
-          <p className="text-neutral-500">{formatMoney(item.unitPriceMinor, item.currency)} each</p>
+          {item.variantSku && <p className="text-xs text-neutral-500">{t("variant", { sku: item.variantSku })}</p>}
+          <p className="text-neutral-500">{t("each", { price: formatMoney(item.unitPriceMinor, item.currency) })}</p>
         </div>
-        <div className="flex items-center gap-2" aria-label={`Quantity for ${item.title}`}>
+        <div className="flex items-center gap-2" aria-label={t("quantityFor", { title: item.title })} title={t("tips.quantity")}>
           <button
             type="button"
             disabled={updating}
             onClick={() => changeQuantity(item.quantity - 1)}
             className="h-8 w-8 rounded border border-neutral-300 disabled:opacity-50"
-            aria-label="Decrease quantity"
+            aria-label={t("decreaseQuantity")}
+            title={t("decreaseQuantity")}
           >
             −
           </button>
@@ -291,7 +320,8 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
             disabled={updating}
             onClick={() => changeQuantity(item.quantity + 1)}
             className="h-8 w-8 rounded border border-neutral-300 disabled:opacity-50"
-            aria-label="Increase quantity"
+            aria-label={t("increaseQuantity")}
+            title={t("increaseQuantity")}
           >
             +
           </button>
@@ -302,48 +332,62 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
 }
 
 function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string }) {
+  const t = useTranslations("checkout");
   return (
     <div className="space-y-3">
-      <Field name={`${prefix}Name`} label="Full name" autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title="Full name for delivery, as it should appear on the parcel." />
-      <Field name={`${prefix}Line1`} label="Address" autoComplete="address-line1" defaultValue={defaults?.line1 ?? ""} required title="Street address — number and street name." />
+      <Field name={`${prefix}Name`} label={t("fullName")} autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title={t("tips.fullName")} />
+      <Field name={`${prefix}Line1`} label={t("address")} autoComplete="address-line1" defaultValue={defaults?.line1 ?? ""} required title={t("tips.address")} />
       <div className="grid grid-cols-2 gap-3">
-        <Field name={`${prefix}City`} label="City" autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title="Town or city for delivery." />
-        <Field name={`${prefix}Postcode`} label="Postcode" autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title="Postal/ZIP code — used to calculate shipping." />
+        <Field name={`${prefix}City`} label={t("city")} autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title={t("tips.city")} />
+        <Field name={`${prefix}Postcode`} label={t("postcode")} autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title={t("tips.postcode")} />
       </div>
-      <Field name={`${prefix}Country`} label="Country (2-letter)" autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title="2-letter country code (ISO 3166), e.g. DE, US, AU." />
+      <Field name={`${prefix}Country`} label={t("country")} autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title={t("tips.country")} />
     </div>
   );
 }
 
-function AddressSelect({ id, label, value, addresses, includeSame, onChange }: {
+function AddressSelect({ id, label, title, value, addresses, includeSame, onChange }: {
   id: string;
   label: string;
+  title: string;
   value: string;
   addresses: AddressDto[];
   includeSame: boolean;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("checkout");
   return (
-    <label htmlFor={id} className="block text-sm font-medium">
+    <label htmlFor={id} className="block text-sm font-medium" title={title}>
       {label}
       <select
         id={id}
         value={value}
+        title={title}
+        aria-describedby={`${id}-tip`}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
       >
-        {includeSame && <option value="same">Same as shipping</option>}
+        {includeSame && <option value="same">{t("sameAsShipping")}</option>}
         {addresses.map((address) => (
           <option key={address.id} value={address.id}>
-            {address.name} — {address.line1}, {address.city} {address.isDefault ? "(default)" : ""}
+            {t(address.isDefault ? "savedAddressOptionDefault" : "savedAddressOption", {
+              name: address.name,
+              line1: address.line1,
+              city: address.city,
+            })}
           </option>
         ))}
-        <option value="new">Enter a new address</option>
+        <option value="new">{t("newAddress")}</option>
       </select>
+      <span id={`${id}-tip`} className="sr-only">
+        {title}
+      </span>
     </label>
   );
 }
 
+// Every field carries its localized tooltip twice over: `title` (hover) and an sr-only
+// `aria-describedby` help text (screen readers / keyboard-only users) — i18n_1 tooltip coverage.
 function Field({ name, label, type = "text", autoComplete, maxLength, defaultValue, required = false, title, onChange }: {
   name: string;
   label: string;
@@ -352,12 +396,12 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
   maxLength?: number;
   defaultValue?: string;
   required?: boolean;
-  title?: string;
+  title: string;
   onChange?: (value: string) => void;
 }) {
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium">{label}</label>
+      <label htmlFor={name} className="block text-sm font-medium" title={title}>{label}</label>
       <input
         id={name}
         name={name}
@@ -367,9 +411,13 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
         maxLength={maxLength}
         defaultValue={defaultValue}
         title={title}
+        aria-describedby={`${name}-tip`}
         onChange={onChange ? (event) => onChange(event.currentTarget.value) : undefined}
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
       />
+      <span id={`${name}-tip`} className="sr-only">
+        {title}
+      </span>
     </div>
   );
 }
@@ -392,7 +440,7 @@ function canUse(address: AddressDto, purpose: "Billing" | "Shipping") {
   return address.purpose === "Both" || address.purpose === purpose;
 }
 
-function CardIcon() {
+function CardIcon(): ReactNode {
   return (
     <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
       <rect x="1" y="4" width="72" height="20" rx="4" fill="#f8fafc" stroke="#cbd5e1" />
@@ -404,7 +452,7 @@ function CardIcon() {
   );
 }
 
-function StripeIcon() {
+function StripeIcon(): ReactNode {
   return (
     <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
       <rect width="74" height="28" rx="5" fill="#635bff" />
@@ -413,16 +461,16 @@ function StripeIcon() {
   );
 }
 
-function ApplePayIcon() {
+function ApplePayIcon(): ReactNode {
   return (
     <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
       <rect width="74" height="28" rx="5" fill="#000" />
-      <text x="37" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="13" fontWeight="700" fill="white"> Pay</text>
+      <text x="37" y="18" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontSize="13" fontWeight="700" fill="white"> Pay</text>
     </svg>
   );
 }
 
-function GooglePayIcon() {
+function GooglePayIcon(): ReactNode {
   return (
     <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
       <rect width="74" height="28" rx="5" fill="#fff" stroke="#dadce0" />
@@ -432,7 +480,7 @@ function GooglePayIcon() {
   );
 }
 
-function PayPalIcon() {
+function PayPalIcon(): ReactNode {
   return (
     <svg viewBox="0 0 74 28" width="74" height="28" role="img" aria-hidden="true" className="h-7 w-auto">
       <rect width="74" height="28" rx="5" fill="#ffc439" />

@@ -10,6 +10,13 @@ public sealed class Storefront
     public string? AccessPasswordHash { get; private set; }
     public string PublicUrl { get; private set; } = string.Empty;
     public string Currency { get; private set; } = "EUR";
+
+    /// <summary>
+    /// The language the storefront UI is presented in by default (BCP-47, i18n_0). Each shopper may
+    /// override it for their session (storefront `3c_locale` cookie). Deliberately INDEPENDENT of
+    /// Currency/TaxRegime — language implies no financial relationship.
+    /// </summary>
+    public string DefaultLanguage { get; private set; } = SupportedLanguages.Default;
     public StorefrontTaxRegime TaxRegime { get; private set; } = StorefrontTaxRegime.None;
     public int TaxRateBasisPoints { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -54,6 +61,23 @@ public sealed class Storefront
 
         TaxRegime = taxRegime;
         TaxRateBasisPoints = taxRegime == StorefrontTaxRegime.None ? 0 : taxRateBasisPoints;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Sets the storefront's default UI language (i18n_0). Separate from <see cref="ConfigureCommerce"/>
+    /// on purpose: language is presentation, not commerce — changing it must never touch currency or tax.
+    /// A null/blank value leaves the current language untouched (so a caller that doesn't know about
+    /// languages — e.g. an older admin client PUT — cannot silently reset it).
+    /// </summary>
+    public void SetDefaultLanguage(string? language, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return;
+        }
+
+        DefaultLanguage = SupportedLanguages.Normalize(language);
         UpdatedAt = now;
     }
 

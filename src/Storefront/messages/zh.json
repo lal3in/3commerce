@@ -1,0 +1,95 @@
+{
+  "_readme": "Chinese (zh) — a DELIBERATELY PARTIAL catalog (i18n_1). It proves the drop-in path: any key not translated here falls back to messages/en.json (i18n/request.ts deep-merges this over the English base), so a half-finished translation never shows a raw key. Fill in the remaining namespaces from en.json to complete it; add messages/yue.json the same way and register it in i18n/locales.ts.",
+  "common": {
+    "loading": "载入中…",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑"
+  },
+  "header": {
+    "searchPlaceholder": "搜索商品…",
+    "searchLabel": "搜索商品",
+    "shop": "商店",
+    "cart": "购物车",
+    "account": "账户",
+    "language": "语言",
+    "tips": {
+      "home": "返回首页。",
+      "search": "按商品名称、品牌或关键词搜索。",
+      "shop": "浏览本店的全部商品。",
+      "cart": "查看购物车并结账。",
+      "account": "您的资料、地址、已保存的银行卡和订单记录。",
+      "language": "选择本店显示的语言。您的选择仅在本次会话中保留，且不会更改价格、货币或税费。"
+    }
+  },
+  "footer": {
+    "tagline": "3commerce — 演示商店"
+  },
+  "home": {
+    "heroTitle": "万物皆备，为您甄选。",
+    "heroSubtitle": "浏览各个品类的数千种商品。",
+    "startShopping": "开始购物",
+    "categories": "商品分类",
+    "featured": "精选推荐",
+    "tips": {
+      "startShopping": "打开完整商品目录。",
+      "category": "只显示该分类下的商品。"
+    }
+  },
+  "search": {
+    "allProducts": "全部商品",
+    "resultsFor": "“{query}” 的搜索结果",
+    "category": "分类：{category}",
+    "itemCount": "共 {count} 件商品",
+    "allTypes": "全部类型",
+    "previous": "上一页",
+    "next": "下一页",
+    "pageOf": "第 {page} 页 / 共 {total} 页",
+    "empty": "未找到商品。"
+  },
+  "product": {
+    "options": "可选规格",
+    "inStock": "有货",
+    "outOfStock": "缺货",
+    "variant": "规格",
+    "quantity": "数量",
+    "addToCart": "加入购物车",
+    "adding": "正在加入…",
+    "tips": {
+      "addToCart": "将所选规格加入购物车。",
+      "quantity": "要加入购物车的数量（1–99）。"
+    }
+  },
+  "cart": {
+    "emptyTitle": "购物车是空的",
+    "browseProducts": "浏览商品",
+    "title": "您的购物车",
+    "subtotal": "小计",
+    "taxNote": "运费和税费将在结账时计算。",
+    "checkout": "结账",
+    "remove": "移除"
+  },
+  "checkout": {
+    "title": "结账",
+    "contact": "联系方式",
+    "email": "电子邮箱",
+    "shippingAddress": "收货地址",
+    "shippingMethod": "配送方式",
+    "payment": "支付",
+    "billingAddress": "账单地址",
+    "placeOrder": "授权并下单",
+    "tips": {
+      "email": "订单确认邮件将发送到此邮箱。",
+      "placeOrder": "授权支付并提交订单，随后显示确认页面。"
+    }
+  },
+  "auth": {
+    "loginTitle": "登录",
+    "email": "电子邮箱",
+    "password": "密码",
+    "logIn": "登录",
+    "register": "注册",
+    "registerTitle": "创建账户"
+  }
+}

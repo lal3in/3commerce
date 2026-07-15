@@ -1,14 +1,18 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { ProductHit } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { SafeImage } from "@/components/SafeImage";
 import { productTypeClasses, productTypeInfo } from "@/lib/product-type";
 
 // Server Component (default): no interactivity, just renders props (components.md §1).
-export function ProductCard({ product }: { product: ProductHit }) {
+export async function ProductCard({ product }: { product: ProductHit }) {
+  const tt = await getTranslations("productTypes");
+  const type = productTypeInfo(product.productType);
   return (
     <Link
       href={`/products/${product.slug}`}
+      title={product.title}
       className="group block rounded-lg border border-neutral-200 overflow-hidden hover:shadow-md transition-shadow"
     >
       <div className="aspect-square bg-neutral-100 relative">
@@ -24,7 +28,7 @@ export function ProductCard({ product }: { product: ProductHit }) {
         <span
           className={`absolute left-2 top-2 rounded px-1.5 py-0.5 text-[11px] font-medium ${productTypeClasses(product.productType)}`}
         >
-          {productTypeInfo(product.productType).badge}
+          {tt(type.badgeKey)}
         </span>
       </div>
       <div className="p-3">
