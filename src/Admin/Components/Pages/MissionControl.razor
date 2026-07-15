@@ -29,20 +29,24 @@
         }
         else
         {
-            <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
-                <thead><tr><th style="text-align:left;">@L["Mc.Col.When"]</th><th style="text-align:left;">@L["Mc.Col.Actor"]</th><th style="text-align:left;">@L["Mc.Col.Action"]</th><th>@L["Mc.Col.Outcome"]</th></tr></thead>
-                <tbody>
-                @foreach (var a in _audit.Take(12))
-                {
-                    <tr style="border-top:1px solid #f3f4f6;">
-                        <td>@a.OccurredAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
-                        <td>@(a.ActorRole ?? "—")</td>
-                        <td><code style="font-size:.78rem;">@a.Action</code> <span style="color:#9ca3af;">@a.ResourceType</span></td>
-                        <td style="text-align:center; @(a.Outcome == "Success" ? "color:#047857;" : "color:#b45309;")">@a.Outcome</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
+            @* Timeline can be long; keep it inside a fixed-height, vertically scrollable pane so the
+               card doesn't push the rest of the dashboard down. sticky header stays visible while scrolling. *@
+            <div style="max-height:22rem; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+                    <thead><tr style="position:sticky; top:0; background:#fff;"><th style="text-align:left;">@L["Mc.Col.When"]</th><th style="text-align:left;">@L["Mc.Col.Actor"]</th><th style="text-align:left;">@L["Mc.Col.Action"]</th><th>@L["Mc.Col.Outcome"]</th></tr></thead>
+                    <tbody>
+                    @foreach (var a in _audit.Take(100))
+                    {
+                        <tr style="border-top:1px solid #f3f4f6;">
+                            <td>@a.OccurredAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                            <td>@(a.ActorRole ?? "—")</td>
+                            <td><code style="font-size:.78rem;">@a.Action</code> <span style="color:#9ca3af;">@a.ResourceType</span></td>
+                            <td style="text-align:center; @(a.Outcome == "Success" ? "color:#047857;" : "color:#b45309;")">@a.Outcome</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
         }
     </section>
 

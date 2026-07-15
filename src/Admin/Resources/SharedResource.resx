@@ -394,6 +394,7 @@
   <data name="XeroMap.Field.Scope.Tip" xml:space="preserve"><value>More specific scopes win over tenant defaults.</value></data>
   <data name="XeroMap.Field.Target" xml:space="preserve"><value>Target ID</value></data>
   <data name="XeroMap.Field.Target.Tip" xml:space="preserve"><value>Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default.</value></data>
+  <data name="XeroMap.Field.Target.NotApplicable" xml:space="preserve"><value>No target — tenant-default scope applies to the whole tenant.</value></data>
   <data name="XeroMap.Field.Active.Tip" xml:space="preserve"><value>Inactive mappings are ignored when posting to Xero.</value></data>
   <data name="XeroMap.Scope.TenantDefault" xml:space="preserve"><value>Tenant default</value></data>
   <data name="XeroMap.Scope.Storefront" xml:space="preserve"><value>Storefront</value></data>
@@ -405,6 +406,7 @@
   <data name="XeroMap.Status.Saved" xml:space="preserve"><value>Xero mapping saved.</value></data>
   <data name="XeroMap.Status.Deleted" xml:space="preserve"><value>Xero mapping deleted.</value></data>
   <data name="XeroMap.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a valid GUID.</value></data>
+  <data name="XeroMap.Error.TargetRequired" xml:space="preserve"><value>This scope needs a target GUID (storefront, category, supplier, or product).</value></data>
 
   <!-- ===== Imports ===== -->
   <data name="Imports.Title" xml:space="preserve"><value>Catalog imports</value></data>

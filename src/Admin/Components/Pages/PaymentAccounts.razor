@@ -85,7 +85,14 @@
             <h2 style="margin-top:0; font-size:1.1rem;">@L["Pay.EditHeading"]</h2>
             <div style="display:flex; flex-direction:column; gap:.5rem;">
                 <label>@L["Pay.Field.Name"] <input @bind="_edit.Name" title="@L["Pay.Field.Name.Tip"]" style="width:100%;" /></label>
-                <label>@L["Pay.Field.Provider"] <input @bind="_edit.Provider" disabled="@_edit.IsActive" title="@(_edit.IsActive ? L["Pay.Field.Provider.LockedTip"] : L["Pay.Field.Provider.Tip"])" style="width:100%;" /></label>
+                <label>@L["Pay.Field.Provider"]
+                    <select @bind="_edit.Provider" disabled="@_edit.IsActive" title="@(_edit.IsActive ? L["Pay.Field.Provider.LockedTip"] : L["Pay.Field.Provider.Tip"])" style="width:100%;">
+                        @foreach (var provider in ProviderOptions(_edit.Provider))
+                        {
+                            <option value="@provider">@ProviderLabel(provider)</option>
+                        }
+                    </select>
+                </label>
                 <label>@L["Pay.Field.Mode"]
                     <select @bind="_edit.Mode" disabled="@_edit.IsActive" title="@(_edit.IsActive ? L["Pay.Field.Mode.LockedTip"] : L["Pay.Field.Mode.Tip"])" style="width:100%;">
                         <option value="1">@L["Pay.Mode.Test"]</option>
@@ -105,7 +112,14 @@
         <h2 style="margin-top:0; font-size:1.1rem;">@L["Pay.NewHeading"]</h2>
         <div style="display:flex; flex-direction:column; gap:.5rem;">
             <label>@L["Pay.Field.Name"] <input @bind="_new.Name" title="@L["Pay.Field.Name.Tip"]" style="width:100%;" /></label>
-            <label>@L["Pay.Field.Provider"] <input @bind="_new.Provider" title="@L["Pay.Field.Provider.Tip"]" style="width:100%;" /></label>
+            <label>@L["Pay.Field.Provider"]
+                <select @bind="_new.Provider" title="@L["Pay.Field.Provider.Tip"]" style="width:100%;">
+                    @foreach (var provider in ProviderOptions(_new.Provider))
+                    {
+                        <option value="@provider">@ProviderLabel(provider)</option>
+                    }
+                </select>
+            </label>
             <label>@L["Pay.Field.Mode"]
                 <select @bind="_new.Mode" title="@L["Pay.Field.Mode.Tip"]" style="width:100%;">
                     <option value="1">@L["Pay.Mode.Test"]</option>
@@ -219,6 +233,27 @@
     }
 
     private static string StateBadge(string state) => state;
+
+    // Provider adapters that self-register in the Payments service (IPaymentProvider.ProviderKey).
+    // Keep in sync with the registered adapters — a free-text box let operators create accounts for
+    // providers that have no adapter, which then fail to resolve at capture time.
+    private static readonly string[] KnownProviders = ["stripe", "polar", "paypal", "afterpay"];
+
+    // Include the account's current provider even if it is not a known key, so editing a legacy
+    // account never silently rewrites its provider to the first option in the list.
+    private static IEnumerable<string> ProviderOptions(string? current) =>
+        string.IsNullOrWhiteSpace(current) || KnownProviders.Contains(current)
+            ? KnownProviders
+            : KnownProviders.Append(current);
+
+    private static string ProviderLabel(string key) => key switch
+    {
+        "stripe" => "Stripe",
+        "polar" => "Polar",
+        "paypal" => "PayPal",
+        "afterpay" => "Afterpay",
+        _ => key,
+    };
 
     private sealed class NewAccount
     {
