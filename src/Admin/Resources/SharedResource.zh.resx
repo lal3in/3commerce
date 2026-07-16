@@ -1004,7 +1004,7 @@
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>已发放退款</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>退款已完成的退货。</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>流程监控</value></data>
-  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>结账、订阅和代发货流程</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>结账、订阅、代发货和通知</value></data>
   <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>进行中的结账</value></data>
   <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>等待付款（尚未确认或取消）的结账流程。</value></data>
   <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>有效订阅</value></data>
@@ -1018,4 +1018,8 @@
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>代发货失败</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>供应商拒绝或转发失败的订单。</value></data>
   <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>选择一个选项…</value></data>
+  <data name="Mc.Kpi.NotifSent" xml:space="preserve"><value>通知已发送（24小时）</value></data>
+  <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>过去 24 小时内已送达的邮件。</value></data>
+  <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>通知发送失败</value></data>
+  <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>发送失败的通知（需要处理）。</value></data>
 </root>

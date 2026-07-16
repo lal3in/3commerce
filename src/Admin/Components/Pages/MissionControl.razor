@@ -46,6 +46,8 @@
         @KpiCard(L["Mc.Kpi.DropshipOpen"], DropshipWith("Requested", "Accepted").ToString(), DropshipWith("Requested", "Accepted") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.DropshipOpen.Tip"])
         @KpiCard(L["Mc.Kpi.DropshipTracking"], DropshipWith("TrackingReceived").ToString(), "#0891b2", L["Mc.Kpi.DropshipTracking.Tip"])
         @KpiCard(L["Mc.Kpi.DropshipFailed"], DropshipWith("Failed").ToString(), DropshipWith("Failed") > 0 ? "#dc2626" : "#059669", L["Mc.Kpi.DropshipFailed.Tip"])
+        @KpiCard(L["Mc.Kpi.NotifSent"], (_notif?.Sent24h ?? 0).ToString(), "#059669", L["Mc.Kpi.NotifSent.Tip"])
+        @KpiCard(L["Mc.Kpi.NotifFailed"], (_notif?.Failed ?? 0).ToString(), (_notif?.Failed ?? 0) > 0 ? "#dc2626" : "#059669", L["Mc.Kpi.NotifFailed.Tip"])
     </div>
 </section>
 
@@ -172,6 +174,7 @@
     private List<CheckoutCountDto> _checkouts = [];
     private List<SubKpiDto> _subs = [];
     private List<DropshipKpiDto> _dropship = [];
+    private NotifSummaryDto? _notif;
     private BusStatsService.BusSnapshot? _bus;
     private string _tenant = "00000000-0000-0000-0000-000000000001";
 
@@ -189,6 +192,7 @@
         _checkouts = await SafeList<CheckoutCountDto>("/api/ordering/admin/checkouts");
         _subs = await SafeList<SubKpiDto>("/api/payments/admin/subscriptions");
         _dropship = await SafeList<DropshipKpiDto>("/api/fulfillment/admin/dropship/orders");
+        _notif = await SafeGet<NotifSummaryDto>("/api/notifications/admin/notifications");
         _bus = await BusStats.GetSnapshotAsync();
     }
 
@@ -197,6 +201,12 @@
     {
         try { return await Gateway.GetListAsync<T>(path); }
         catch { return []; }
+    }
+
+    private async Task<T?> SafeGet<T>(string path) where T : class
+    {
+        try { return await Gateway.GetAsync<T>(path); }
+        catch { return null; }
     }
 
     private int OrdersWith(params string[] statuses) => _orders.Count(o => statuses.Contains(o.Status));
@@ -224,4 +234,5 @@
     private record CheckoutCountDto(string State, int Count);
     private record SubKpiDto(Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);
     private record DropshipKpiDto(Guid Id, Guid OrderId, Guid SupplierId, string Status, string? ExternalReference, string? TrackingNumber, string? Carrier, string? FailureReason);
+    private record NotifSummaryDto(int Total, int Sent24h, int Failed);
 }

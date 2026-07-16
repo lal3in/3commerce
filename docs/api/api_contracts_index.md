@@ -23,6 +23,7 @@ Kafka event-stream contracts are documented separately in [event-streams.md](./e
 | Workflow | service (OpenAPI at `/openapi` in Dev) | `/api/workflow` | 5111 |
 | Entitlement | service (OpenAPI at `/openapi` in Dev) | `/api/entitlement` | 5112 |
 | Usage | service (OpenAPI at `/openapi` in Dev) | `/api/usage` | 5113 |
+| Notifications | worker + read surface (OpenAPI at `/openapi` in Dev) | `/api/notifications` | 5114 |
 
 Note: Catalog admin storefront contracts include per-storefront public URL, currency, and tax regime/rate configuration for multi-storefront tenant operations.
 
@@ -291,6 +292,17 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
 | POST | `/admin/rmas` | admin | Admin-initiated whole-order refund: opens an **auto-approved, no-return** RMA (saga `AutoApprove`), so the refund travels the single RefundRequested path and appears in the queue as RefundPending → RefundIssued. The admin Orders screen uses this instead of a direct `/payments/admin/refunds` call |
 | POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |
+
+## Notifications (`/api/notifications`)
+
+The Notifications worker consumes domain events and sends transactional email; it also owns a small
+delivery-log read model so operators can monitor the pipeline (mc_proc_4). Self-applies its migration
+at startup (not in dev-up's migrate loop).
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/admin/notifications` | admin | Delivery counts: total, sent (24h), failed — Mission Control monitor |
+| GET | `/admin/notifications/recent` | admin | 50 most recent deliveries (recipient masked, subject, status) |
 
 All current services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
 through the gateway; it adds no new public endpoints.

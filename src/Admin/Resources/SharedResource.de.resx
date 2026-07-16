@@ -1004,7 +1004,7 @@
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Rückerstattungen ausgeführt</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs, deren Rückerstattung abgeschlossen ist.</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>Prozessmonitore</value></data>
-  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>Checkout-, Abo- &amp; Dropship-Pipelines</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>Checkout-, Abo-, Dropship- &amp; Benachrichtigungs-Pipelines</value></data>
   <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>Checkouts in Bearbeitung</value></data>
   <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>Checkout-Sagas, die auf Zahlung warten (noch nicht bestätigt oder storniert).</value></data>
   <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>Aktive Abos</value></data>
@@ -1018,4 +1018,8 @@
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropship fehlgeschlagen</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Lieferantenbestellungen, die der Anbieter abgelehnt oder nicht weitergeleitet hat.</value></data>
   <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>Option auswählen…</value></data>
+  <data name="Mc.Kpi.NotifSent" xml:space="preserve"><value>Benachrichtigungen gesendet (24 Std.)</value></data>
+  <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>In den letzten 24 Stunden zugestellte E-Mails.</value></data>
+  <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>Benachrichtigungen fehlgeschlagen</value></data>
+  <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>Fehlgeschlagene Benachrichtigungssendungen (erfordern Aufmerksamkeit).</value></data>
 </root>

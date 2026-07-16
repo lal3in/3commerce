@@ -14,7 +14,7 @@ test.describe("Mission Control monitors", () => {
     await expect(page.getByText("Process monitors")).toBeVisible();
 
     // Representative KPI labels from each section render (distinctive to the monitors).
-    for (const label of ["Revenue", "Refunds issued", "Checkouts in-flight", "Subscriptions active", "Dropship open"]) {
+    for (const label of ["Revenue", "Refunds issued", "Checkouts in-flight", "Subscriptions active", "Dropship open", "Notifications sent"]) {
       await expect(page.getByText(label, { exact: false }).first()).toBeVisible();
     }
 

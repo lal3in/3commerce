@@ -21,10 +21,12 @@ SERVICES=(
   "usage:src/Services/Usage/Api:5113"
 )
 
-# Gateway + workers (no owned database).
+# Gateway + workers. notifications is a worker that ALSO owns a small delivery-log DB and exposes a
+# read-only admin surface (mc_proc_4), so it runs as an HTTP host on 5114; it self-applies its
+# migrations at startup (it is not in the SERVICES ef-migrate loop below).
 EDGE=(
   "gateway:src/Gateway:8080"
-  "notifications:src/Workers/Notifications:"
+  "notifications:src/Workers/Notifications:5114"
 )
 
 # PascalCase service folders that have EF migrations (derive from SERVICES paths).
