@@ -17,3 +17,17 @@ export function isAllowedImageSrc(src: string | null | undefined): boolean {
     return false;
   }
 }
+
+// Hosts that serve SVG by default. next/image's optimizer refuses SVG (returns 400), so these must
+// bypass the optimizer (rendered unoptimized) or the image comes back broken. placehold.co returns
+// SVG unless an explicit raster extension is requested.
+const SVG_HOSTS = ["placehold.co"];
+
+export function servesSvg(src: string | null | undefined): boolean {
+  if (!src || src.startsWith("/")) return false;
+  try {
+    return SVG_HOSTS.includes(new URL(src).hostname);
+  } catch {
+    return false;
+  }
+}
