@@ -1017,4 +1017,5 @@
   <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Pedidos a proveedor que devolvieron un número de seguimiento.</value></data>
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropshipping fallido</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Pedidos a proveedor que el proveedor rechazó o no reenvió.</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>Seleccione una opción…</value></data>
 </root>

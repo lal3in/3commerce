@@ -1017,4 +1017,5 @@
   <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>已經有物流單號嘅供應商訂單。</value></data>
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>代發貨失敗</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>供應商拒絕或轉發失敗嘅訂單。</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>揀一個選項…</value></data>
 </root>

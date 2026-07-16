@@ -1017,4 +1017,5 @@
   <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Commandes fournisseur ayant renvoyé un numéro de suivi.</value></data>
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropshipping échoué</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Commandes fournisseur rejetées ou non transmises par le fournisseur.</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>Sélectionnez une option…</value></data>
 </root>

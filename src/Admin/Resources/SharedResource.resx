@@ -394,6 +394,7 @@
   <data name="XeroMap.Field.Scope.Tip" xml:space="preserve"><value>More specific scopes win over tenant defaults.</value></data>
   <data name="XeroMap.Field.Target" xml:space="preserve"><value>Target ID</value></data>
   <data name="XeroMap.Field.Target.Tip" xml:space="preserve"><value>Storefront/category/supplier/product GUID for scoped mappings; blank for tenant default.</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>Select an option…</value></data>
   <data name="XeroMap.Field.Target.NotApplicable" xml:space="preserve"><value>No target — tenant-default scope applies to the whole tenant.</value></data>
   <data name="XeroMap.Field.Active.Tip" xml:space="preserve"><value>Inactive mappings are ignored when posting to Xero.</value></data>
   <data name="XeroMap.Scope.TenantDefault" xml:space="preserve"><value>Tenant default</value></data>

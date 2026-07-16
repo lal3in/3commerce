@@ -452,6 +452,8 @@ Plan Path: `.ai-shared/plans/project-review-remediation.md`
 | mc_proc_3 | Mission Control: dropship forwarding monitor | Process monitors 2026-07-16 | done | chore/frontend-audit | Reused Fulfillment /admin/dropship/orders. MC "Dropship open/tracking/failed" KPIs. Verified live. All process KPIs localized (14 keys ×5). |
 | mc_proc_4 | Mission Control: notification delivery monitor | Process monitors 2026-07-16 | planned | — | Notifications worker is a pure consumer (Host, no DbContext/HTTP). Needs a delivery-log persistence + a read surface (convert worker to minimal web host OR project deliveries into an API service) + gateway route. Largest of the four. Wire MC + PW. |
 
+| ux_8 | Xero mapping Target is a real-options dropdown (not a GUID box) | Frontend audit 2026-07-16 | done | chore/frontend-audit | Scope change loads the live options for that scope — Storefront/Category/Supplier/Product — from the owning services; operator selects by name. Editing a stale target still shows it. Verified live (storefront 3, category 12, supplier 1, product 50 real options). Localized "Select an option…" (6 langs). |
+
 **Deferral triage (rev_13, decided 2026-07-04):**
 
 | Deferred capability | Origin | Decision | Rationale |

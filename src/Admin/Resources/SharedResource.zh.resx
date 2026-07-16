@@ -1017,4 +1017,5 @@
   <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>已返回物流单号的供应商订单。</value></data>
   <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>代发货失败</value></data>
   <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>供应商拒绝或转发失败的订单。</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>选择一个选项…</value></data>
 </root>

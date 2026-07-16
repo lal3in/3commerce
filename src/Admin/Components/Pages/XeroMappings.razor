@@ -35,15 +35,23 @@
             <label>@L["XeroMap.Field.Ledger"] <input @bind="_form.LedgerAccountCode" title="@L["XeroMap.Field.Ledger.Tip"]" style="width:100%;" /></label>
             <label>@L["XeroMap.Field.Xero"] <input @bind="_form.XeroAccountCode" title="@L["XeroMap.Field.Xero.Tip"]" style="width:100%;" /></label>
             <label>@L["XeroMap.Field.Scope"]
-                <select @bind="_form.Scope" title="@L["XeroMap.Field.Scope.Tip"]" style="width:100%;">
+                <select @bind="_form.Scope" @bind:after="LoadTargetOptionsAsync" title="@L["XeroMap.Field.Scope.Tip"]" style="width:100%;">
                     <option value="1">@L["XeroMap.Scope.TenantDefault"]</option><option value="2">@L["XeroMap.Scope.Storefront"]</option><option value="3">@L["XeroMap.Scope.Category"]</option><option value="4">@L["XeroMap.Scope.Supplier"]</option><option value="5">@L["XeroMap.Scope.Product"]</option>
                 </select>
             </label>
-            @* Tenant-default mappings have no target — the API drops any target for that scope, so a value
-               typed here would silently vanish and come back blank on Edit. Only offer the field where it applies. *@
+            @* Tenant-default mappings have no target. For every other scope the target is picked from a
+               dropdown of the REAL options for that scope (fetched live) — no GUID to remember or mistype. *@
             @if (_form.Scope != TenantDefaultScope)
             {
-                <label>@L["XeroMap.Field.Target"] <input @bind="_form.TargetId" title="@L["XeroMap.Field.Target.Tip"]" style="width:100%;" /></label>
+                <label>@L["XeroMap.Field.Target"]
+                    <select @bind="_form.TargetId" title="@L["XeroMap.Field.Target.Tip"]" style="width:100%;">
+                        <option value="">@L["XeroMap.Field.Target.Choose"]</option>
+                        @foreach (var opt in _targetOptions)
+                        {
+                            <option value="@opt.Id">@opt.Label</option>
+                        }
+                    </select>
+                </label>
             }
             else
             {
@@ -65,6 +73,35 @@
     private string? _error;
     private Guid? _editingId;
     private readonly MappingForm _form = new();
+    private List<TargetOption> _targetOptions = [];
+
+    // Load the real options for the selected scope, so the operator picks a storefront/category/supplier/
+    // product from a list instead of pasting a GUID. Runs whenever the scope changes (and on Edit).
+    private async Task LoadTargetOptionsAsync()
+    {
+        _targetOptions = [];
+        if (_form.Scope == TenantDefaultScope) { _form.TargetId = string.Empty; return; }
+        var tenant = Uri.EscapeDataString(_tenantId);
+        try
+        {
+            _targetOptions = _form.Scope switch
+            {
+                StorefrontScope => [.. (await Gateway.GetListAsync<StorefrontOption>($"/api/catalog/admin/storefronts?tenantId={tenant}")).Select(s => new TargetOption(s.Id.ToString(), s.Name))],
+                CategoryScope => [.. (await Gateway.GetListAsync<CategoryOption>("/api/catalog/categories")).Select(c => new TargetOption(c.Id.ToString(), c.Name))],
+                SupplierScope => [.. (await Gateway.GetListAsync<EntityOption>($"/api/entity/entities?tenantId={tenant}")).Where(e => e.Status == 1).Select(e => new TargetOption(e.Id.ToString(), e.DisplayName))],
+                ProductScope => [.. (await Gateway.GetListAsync<ProductOption>("/api/catalog/admin/products")).Select(p => new TargetOption(p.Id.ToString(), p.Title))],
+                _ => [],
+            };
+        }
+        catch { _targetOptions = []; }
+
+        // Editing a mapping whose target no longer appears in the list (renamed/removed) still shows it,
+        // so the operator sees what it points at rather than a silently-blank dropdown.
+        if (!string.IsNullOrEmpty(_form.TargetId) && _targetOptions.All(o => o.Id != _form.TargetId))
+        {
+            _targetOptions.Insert(0, new TargetOption(_form.TargetId, _form.TargetId));
+        }
+    }
 
     private async Task LoadAsync()
     {
@@ -106,7 +143,7 @@
     private const int SupplierScope = 4;
     private const int ProductScope = 5;
 
-    private void Edit(XeroAccountMappingDto mapping)
+    private async Task Edit(XeroAccountMappingDto mapping)
     {
         _editingId = mapping.Id;
         _form.Scope = ScopeValue(mapping.Scope);
@@ -114,12 +151,14 @@
         _form.XeroAccountCode = mapping.XeroAccountCode;
         _form.Active = mapping.Active;
         _form.TargetId = (mapping.StorefrontId ?? mapping.CategoryId ?? mapping.SupplierEntityId ?? mapping.ProductId)?.ToString() ?? string.Empty;
+        await LoadTargetOptionsAsync(); // populate the scope's dropdown so the saved target shows selected
     }
 
     private void ResetForm()
     {
         _editingId = null;
         _form.Scope = TenantDefaultScope; _form.TargetId = string.Empty; _form.LedgerAccountCode = string.Empty; _form.XeroAccountCode = string.Empty; _form.Active = true;
+        _targetOptions = [];
     }
 
     private static string Target(XeroAccountMappingDto m) => (m.StorefrontId ?? m.CategoryId ?? m.SupplierEntityId ?? m.ProductId)?.ToString() ?? "—";
@@ -145,5 +184,10 @@
     };
 
     private sealed class MappingForm { public int Scope { get; set; } = TenantDefaultScope; public string TargetId { get; set; } = string.Empty; public string LedgerAccountCode { get; set; } = string.Empty; public string XeroAccountCode { get; set; } = string.Empty; public bool Active { get; set; } = true; }
+    private sealed record TargetOption(string Id, string Label);
+    private sealed record StorefrontOption(Guid Id, string Name);
+    private sealed record CategoryOption(Guid Id, string Name);
+    private sealed record EntityOption(Guid Id, string DisplayName, int Status);
+    private sealed record ProductOption(Guid Id, string Title);
     private record XeroAccountMappingDto(Guid Id, Guid TenantId, string Scope, Guid? StorefrontId, Guid? CategoryId, Guid? SupplierEntityId, Guid? ProductId, string LedgerAccountCode, string XeroAccountCode, bool Active);
 }
