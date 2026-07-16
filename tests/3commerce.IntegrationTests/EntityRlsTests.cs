@@ -144,4 +144,48 @@ public class EntityRlsTests : IAsyncLifetime
         db.SupplierOnboardings.Add(SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
+
+    /// <summary>
+    /// Guards the entity sub-resource endpoints (add identifier/contact/address). A child with a
+    /// client-generated Guid PK, added through a LOADED navigation, is mis-detected by EF as Modified —
+    /// it emits an UPDATE that affects 0 rows (DbUpdateConcurrencyException → HTTP 500), which is why
+    /// supplier onboarding always failed with "Supplier is missing: verified ABN or ACN, ...". The fix is
+    /// to force the new child to Added so it INSERTs. This proves both the bug and the fix.
+    /// </summary>
+    [Fact]
+    public async Task Child_added_through_loaded_navigation_persists_only_when_forced_added()
+    {
+        const string value = "51824753556";
+
+        // Without forcing Added: EF UPDATEs a row that was never inserted → concurrency failure.
+        await using (var buggy = NewContext())
+        {
+            await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
+                buggy.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA), async () =>
+                {
+                    var entity = await buggy.Entities.Include(e => e.Identifiers).SingleAsync(e => e.Id == _entityAId);
+                    entity.AddIdentifier(EntityIdentifierType.Abn, value, DateTimeOffset.UtcNow);
+                    await buggy.SaveChangesAsync();
+                    return true;
+                }));
+        }
+
+        // Forcing Added (the endpoint fix): the identifier INSERTs.
+        await using (var corrected = NewContext())
+        {
+            await corrected.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA), async () =>
+            {
+                var entity = await corrected.Entities.Include(e => e.Identifiers).SingleAsync(e => e.Id == _entityAId);
+                var identifier = entity.AddIdentifier(EntityIdentifierType.Abn, value, DateTimeOffset.UtcNow);
+                corrected.Entry(identifier).State = EntityState.Added;
+                await corrected.SaveChangesAsync();
+                return true;
+            });
+        }
+
+        await using var verify = NewContext();
+        var count = await verify.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA),
+            () => verify.EntityIdentifiers.AsNoTracking().CountAsync(i => i.EntityId == _entityAId && i.Value == value));
+        Assert.Equal(1, count);
+    }
 }

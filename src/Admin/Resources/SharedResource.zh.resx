@@ -1022,4 +1022,8 @@
   <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>过去 24 小时内已送达的邮件。</value></data>
   <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>通知发送失败</value></data>
   <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>发送失败的通知（需要处理）。</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>{0}的入驻信息</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>填写这些内容以创建可作为供应商的实体（验证前均为必填）。留空可稍后通过“详情”添加。</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要邮箱（例如 accounts@company.com）</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或运营邮箱 — 供应商验证所需。</value></data>
 </root>
