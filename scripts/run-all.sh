@@ -31,7 +31,10 @@ log_env() {
 }
 
 start_all() {
-  mapfile -t LOGENV < <(log_env)
+  # Read log_env lines into an array WITHOUT `mapfile` — that builtin is bash 4+, and macOS ships
+  # bash 3.2 as /bin/bash, so `#!/usr/bin/env bash` can resolve to it and break a fresh dev-up.
+  LOGENV=()
+  while IFS= read -r line; do LOGENV+=("$line"); done < <(log_env)
   for entry in "${APPS[@]}"; do
     name="${entry%%:*}"; rest="${entry#*:}"; path="${rest%:*}"; port="${rest##*:}"
     local -a e=( "${LOGENV[@]}" )
