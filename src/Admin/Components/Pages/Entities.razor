@@ -1,6 +1,7 @@
 @page "/entities"
 @attribute [Authorize(Roles = "admin")]
 @using System.Text.Json
+@using System.Net.Http.Json
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
@@ -185,7 +186,7 @@ else
             }
 
             <h3>@L["Entities.Create"]</h3>
-            <div style="display:grid; gap:.4rem; max-width:28rem;">
+            <div style="display:grid; gap:.4rem; max-width:30rem;">
                 <input @bind="_newLegalName" placeholder="@L["Entities.New.LegalName"]" title="@L["Entities.New.LegalName.Tip"]" />
                 <input @bind="_newTradingName" placeholder="@L["Entities.New.TradingName"]" title="@L["Entities.New.TradingName.Tip"]" />
                 <select @bind="_newType" title="@L["Entities.New.Type.Tip"]">
@@ -194,6 +195,34 @@ else
                     <option value="5">@L["Entities.Type.SoleTrader"]</option><option value="6">@L["Entities.Type.GovernmentBody"]</option>
                     <option value="7">@L["Entities.Type.NonProfit"]</option><option value="99">@L["Entities.Type.Other"]</option>
                 </select>
+
+                @* Type-aware onboarding prerequisites: filling these creates a supplier-READY entity (a
+                   verified ABN/ACN, a primary email, and a registered-office/warehouse address are exactly
+                   what verification checks). Left blank, they can still be added later via Details. *@
+                @if (_newType != OtherType)
+                {
+                    <div style="border:1px solid #e5e7eb; border-radius:8px; padding:.7rem; background:#f9fafb;">
+                        <div style="font-weight:600; font-size:.85rem;">@L["Entities.Onboard.Heading", TypeName(_newType)]</div>
+                        <p style="color:#6b7280; font-size:.78rem; margin:.2rem 0 .5rem;">@L["Entities.Onboard.Note"]</p>
+                        <div style="display:flex; gap:.4rem;">
+                            <select @bind="_createIdentType" title="@L["Entities.Ident.Type.Tip"]" style="width:9rem;">
+                                <option value="1">@L["Entities.IdType.Abn"]</option>
+                                <option value="2">@L["Entities.IdType.Acn"]</option>
+                                <option value="3">@L["Entities.IdType.Gst"]</option>
+                                <option value="4">@L["Entities.IdType.Other"]</option>
+                            </select>
+                            <input @bind="_createIdentValue" placeholder="@L["Entities.Ident.Value"]" title="@L["Entities.Ident.Value.Tip"]" style="flex:1;" />
+                        </div>
+                        <input @bind="_createEmail" type="email" placeholder="@L["Entities.Onboard.Email"]" title="@L["Entities.Onboard.Email.Tip"]" style="margin-top:.4rem; width:100%;" />
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.4rem; margin-top:.4rem;">
+                            <input @bind="_createAddr.Line1" placeholder="@L["Entities.Addr.Line1"]" title="@L["Entities.Addr.Line1.Tip"]" />
+                            <input @bind="_createAddr.City" placeholder="@L["Entities.Addr.City"]" title="@L["Entities.Addr.City.Tip"]" />
+                            <input @bind="_createAddr.Postcode" placeholder="@L["Entities.Addr.Postcode"]" title="@L["Entities.Addr.Postcode.Tip"]" />
+                            <input @bind="_createAddr.CountryCode" maxlength="2" placeholder="@L["Entities.Addr.Country"]" title="@L["Entities.Addr.Country.Tip"]" />
+                        </div>
+                    </div>
+                }
+
                 <button @onclick="CreateAsync" title="@L["Entities.Create.Tip"]" style="padding:.4rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Create"]</button>
             </div>
         </div>
@@ -240,6 +269,12 @@ else
     private string _newLegalName = string.Empty;
     private string _newTradingName = string.Empty;
     private int _newType = 2;
+    private const int OtherType = 99; // EntityType.Other — not supplier-capable, so no onboarding fields
+    // Inline onboarding prerequisites captured on the create form (added to the entity right after create).
+    private int _createIdentType = 1; // ABN
+    private string _createIdentValue = string.Empty;
+    private string _createEmail = string.Empty;
+    private readonly AddressForm _createAddr = new();
     private string _decisionReason = string.Empty;
     private string _suspendReason = "Suspended by operator via admin.";
     private EntityEditor? _editing;
@@ -316,17 +351,65 @@ else
             return;
         }
 
+        var legalName = _newLegalName;
         var response = await Gateway.PostAsync("/api/entity/entities",
             new { tenantId = tid, type = _newType, legalName = _newLegalName, tradingName = string.IsNullOrWhiteSpace(_newTradingName) ? null : _newTradingName });
-        if (response.IsSuccessStatusCode)
-        {
-            _info = L["Entities.Info.Created", _newLegalName];
-            _newLegalName = _newTradingName = string.Empty;
-            await LoadAsync();
-        }
-        else
+        if (!response.IsSuccessStatusCode)
         {
             _error = L["Entities.Error.CreateFailed", (int)response.StatusCode];
+            return;
+        }
+
+        var created = await response.Content.ReadFromJsonAsync<EntitySummary>();
+        // Attach the onboarding prerequisites the operator supplied, so a supplier-capable entity is
+        // created verification-ready in one step (identifier is auto-verified — operator attestation).
+        if (created is not null && _newType != OtherType)
+        {
+            await AttachOnboardingDetailsAsync(created.Id);
+        }
+
+        _info = L["Entities.Info.Created", legalName];
+        _newLegalName = _newTradingName = _createIdentValue = _createEmail = string.Empty;
+        _createIdentType = 1;
+        _createAddr.Reset();
+        await LoadAsync();
+    }
+
+    private async Task AttachOnboardingDetailsAsync(Guid entityId)
+    {
+        if (!string.IsNullOrWhiteSpace(_createIdentValue))
+        {
+            var idResp = await Gateway.PostAsync($"/api/entity/entities/{entityId}/identifiers",
+                new { type = _createIdentType, value = _createIdentValue.Trim() });
+            if (idResp.IsSuccessStatusCode)
+            {
+                var detail = await idResp.Content.ReadFromJsonAsync<EntityDetail>();
+                var added = detail?.Identifiers.FirstOrDefault(i => i.Type == _createIdentType);
+                if (added is not null)
+                {
+                    await Gateway.PostAsync($"/api/entity/entities/{entityId}/identifiers/{added.Id}/verify", new { });
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(_createEmail))
+        {
+            await Gateway.PostAsync($"/api/entity/entities/{entityId}/contacts",
+                new { purpose = 1, kind = 1, value = _createEmail.Trim() }); // Primary / Email
+        }
+
+        if (!string.IsNullOrWhiteSpace(_createAddr.Line1) && !string.IsNullOrWhiteSpace(_createAddr.City))
+        {
+            await Gateway.PostAsync($"/api/entity/entities/{entityId}/addresses", new
+            {
+                purpose = 1, // RegisteredOffice
+                line1 = _createAddr.Line1.Trim(),
+                line2 = string.IsNullOrWhiteSpace(_createAddr.Line2) ? null : _createAddr.Line2!.Trim(),
+                city = _createAddr.City.Trim(),
+                region = string.IsNullOrWhiteSpace(_createAddr.Region) ? null : _createAddr.Region!.Trim(),
+                postcode = _createAddr.Postcode.Trim(),
+                countryCode = _createAddr.CountryCode.Trim(),
+            });
         }
     }
 

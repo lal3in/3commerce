@@ -1022,4 +1022,8 @@
   <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>In den letzten 24 Stunden zugestellte E-Mails.</value></data>
   <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>Benachrichtigungen fehlgeschlagen</value></data>
   <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>Fehlgeschlagene Benachrichtigungssendungen (erfordern Aufmerksamkeit).</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>Onboarding-Daten für {0}</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>Füllen Sie diese aus, um eine lieferantenbereite Entität zu erstellen (vor der Verifizierung alle erforderlich). Leer lassen, um später über Details hinzuzufügen.</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>Primäre E-Mail (z. B. accounts@company.com)</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Eine primäre oder Betriebs-E-Mail — für die Lieferantenverifizierung erforderlich.</value></data>
 </root>

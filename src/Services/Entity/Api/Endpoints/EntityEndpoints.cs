@@ -175,6 +175,10 @@ public static class EntityEndpoints
         try
         {
             var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow());
+            // The child carries a client-generated Guid PK; added through the loaded navigation, EF
+            // mis-detects it as Modified and emits an UPDATE that affects 0 rows (DbUpdateConcurrency).
+            // Force Added so it INSERTs.
+            db.Entry(identifier).State = EntityState.Added;
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.identifier.add", $"{request.Type}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -232,7 +236,8 @@ public static class EntityEndpoints
 
         try
         {
-            entity.AddContactMethod(request.Purpose, request.Kind, request.Value, timeProvider.GetUtcNow());
+            var contact = entity.AddContactMethod(request.Purpose, request.Kind, request.Value, timeProvider.GetUtcNow());
+            db.Entry(contact).State = EntityState.Added; // client-generated PK via loaded nav — force INSERT (see AddIdentifier)
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.contact.add", $"{request.Purpose}/{request.Kind}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -261,7 +266,8 @@ public static class EntityEndpoints
 
         try
         {
-            entity.AddAddress(request.Purpose, request.Line1, request.Line2, request.City, request.Region, request.Postcode, request.CountryCode, timeProvider.GetUtcNow());
+            var address = entity.AddAddress(request.Purpose, request.Line1, request.Line2, request.City, request.Region, request.Postcode, request.CountryCode, timeProvider.GetUtcNow());
+            db.Entry(address).State = EntityState.Added; // only the NEW address; any superseded ones stay Modified (see AddIdentifier)
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.address.add", $"{request.Purpose}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);

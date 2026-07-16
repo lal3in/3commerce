@@ -1022,4 +1022,8 @@
   <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>E-mails distribués au cours des dernières 24 heures.</value></data>
   <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>Notifications échouées</value></data>
   <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>Envois de notifications ayant échoué (à surveiller).</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>Détails d'intégration pour {0}</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>Renseignez-les pour créer une entité prête à devenir fournisseur (tous requis avant vérification). Laissez vide pour ajouter plus tard via Détails.</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>E-mail principal (p. ex. accounts@company.com)</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Un e-mail principal ou d'exploitation — requis pour la vérification fournisseur.</value></data>
 </root>

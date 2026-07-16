@@ -1022,4 +1022,8 @@
   <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>Correos entregados en las últimas 24 horas.</value></data>
   <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>Notificaciones fallidas</value></data>
   <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>Envíos de notificaciones fallidos (requieren atención).</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>Datos de incorporación para {0}</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>Complételos para crear una entidad lista para ser proveedor (todos obligatorios antes de la verificación). Déjelos en blanco para añadirlos luego en Detalles.</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>Correo principal (p. ej. accounts@company.com)</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Un correo principal o de operaciones — requerido para la verificación de proveedor.</value></data>
 </root>

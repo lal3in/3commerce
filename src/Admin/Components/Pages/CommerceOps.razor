@@ -40,7 +40,7 @@
     <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem;">
         <label>@L["Ops.Field.Name"]<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
         <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
-        <label>@L["Ops.Field.Currency"]<br /><input @bind="_newCurrency" maxlength="3" style="width:5rem; padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
+        <label>@L["Ops.Field.Currency"]<br /><CurrencySelect @bind-Value="_newCurrency" style="padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
         <label>@L["Ops.Field.TaxRegime"]<br />
             <select @bind="_newTaxRegime" style="padding:.4rem;" title="@L["Ops.Field.TaxRegime.Tip"]">
                 <option value="0">@L["Ops.TaxRegime.None"]</option>
@@ -106,7 +106,7 @@
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; align-items:end; margin-bottom:1rem;">
             <label>@L["Ops.Field.Name"]<br /><input @bind="_editName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
             <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_editPublicUrl" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
-            <label>@L["Ops.Field.Currency"]<br /><input @bind="_editCurrency" maxlength="3" style="padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
+            <label>@L["Ops.Field.Currency"]<br /><CurrencySelect @bind-Value="_editCurrency" style="padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
             <label>@L["Ops.Field.TaxRegime"]<br />
                 <select @bind="_editTaxRegime" style="padding:.4rem;" title="@L["Ops.Field.TaxRegime.Tip"]">
                     <option value="0">@L["Ops.TaxRegime.None"]</option>

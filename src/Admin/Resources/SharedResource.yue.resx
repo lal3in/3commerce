@@ -1022,4 +1022,8 @@
   <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>過去 24 小時內已送達嘅電郵。</value></data>
   <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>通知發送失敗</value></data>
   <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>發送失敗嘅通知（需要處理）。</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>{0}嘅入駐資料</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>填寫呢啲內容以建立可以做供應商嘅實體（驗證前全部必填）。留空可以稍後喺「詳情」度加。</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要電郵（例如 accounts@company.com）</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或營運電郵 — 供應商驗證需要。</value></data>
 </root>

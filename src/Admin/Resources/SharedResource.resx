@@ -524,6 +524,10 @@
   <data name="Entities.Action.Suspend.Tip" xml:space="preserve"><value>Suspend an ACTIVE supplier — the reason on the left is recorded (8–500 chars).</value></data>
   <data name="Entities.Action.Archive" xml:space="preserve"><value>Archive</value></data>
   <data name="Entities.Action.Archive.Tip" xml:space="preserve"><value>Archive the supplier.</value></data>
+  <data name="Entities.Onboard.Heading" xml:space="preserve"><value>Onboarding details for a {0}</value></data>
+  <data name="Entities.Onboard.Note" xml:space="preserve"><value>Fill these to create a supplier-ready entity (all are required before verification). Leave blank to add later via Details.</value></data>
+  <data name="Entities.Onboard.Email" xml:space="preserve"><value>Primary email (e.g. accounts@company.com)</value></data>
+  <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>A primary or operations email — required for supplier verification.</value></data>
   <data name="Entities.Create" xml:space="preserve"><value>Create entity</value></data>
   <data name="Entities.New.LegalName" xml:space="preserve"><value>Legal name</value></data>
   <data name="Entities.New.LegalName.Tip" xml:space="preserve"><value>Registered legal name.</value></data>
