@@ -1003,4 +1003,18 @@
   <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Devoluciones en curso (solicitada, esperando devolución o reembolso pendiente).</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Reembolsos emitidos</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMA cuyo reembolso se ha completado.</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>Monitores de procesos</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>canales de pago, suscripciones y dropshipping</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>Pagos en curso</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>Sagas de pago a la espera del cobro (aún no confirmadas ni canceladas).</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>Suscripciones activas</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>Suscripciones activas o en prueba que se renovarán.</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>Suscripciones vencidas</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>Suscripciones cuyo pago de renovación falló.</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>Dropshipping abierto</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>Pedidos a proveedor solicitados o aceptados, a la espera de seguimiento.</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>Seguimiento dropshipping</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Pedidos a proveedor que devolvieron un número de seguimiento.</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropshipping fallido</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Pedidos a proveedor que el proveedor rechazó o no reenvió.</value></data>
 </root>

@@ -1003,4 +1003,18 @@
   <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>处理中的退货（已申请、等待退回或待退款）。</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>已发放退款</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>退款已完成的退货。</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>流程监控</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>结账、订阅和代发货流程</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>进行中的结账</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>等待付款（尚未确认或取消）的结账流程。</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>有效订阅</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>将续订的有效或试用订阅。</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>逾期订阅</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>续订付款失败的订阅。</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>代发货待处理</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>已请求或已接受、等待物流跟踪的供应商订单。</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>代发货已跟踪</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>已返回物流单号的供应商订单。</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>代发货失败</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>供应商拒绝或转发失败的订单。</value></data>
 </root>

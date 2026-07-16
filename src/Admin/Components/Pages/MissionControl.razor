@@ -35,6 +35,20 @@
     </div>
 </section>
 
+@* Per-process monitors (mc_proc): checkout saga in-flight, subscription renewals, dropship
+   forwarding — each from the owning service's admin read endpoint, so the whole pipeline is visible. *@
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1.2rem;">
+    <h2 style="margin-top:0;">@L["Mc.Process"] <span style="color:#6b7280; font-size:.75rem; font-weight:400;">@L["Mc.Process.Subtitle"]</span></h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem;">
+        @KpiCard(L["Mc.Kpi.CheckoutsInFlight"], CheckoutsInState("AwaitingPayment").ToString(), CheckoutsInState("AwaitingPayment") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.CheckoutsInFlight.Tip"])
+        @KpiCard(L["Mc.Kpi.SubsActive"], SubsWith("Active", "Trialing").ToString(), "#059669", L["Mc.Kpi.SubsActive.Tip"])
+        @KpiCard(L["Mc.Kpi.SubsPastDue"], SubsWith("PastDue").ToString(), SubsWith("PastDue") > 0 ? "#dc2626" : "#059669", L["Mc.Kpi.SubsPastDue.Tip"])
+        @KpiCard(L["Mc.Kpi.DropshipOpen"], DropshipWith("Requested", "Accepted").ToString(), DropshipWith("Requested", "Accepted") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.DropshipOpen.Tip"])
+        @KpiCard(L["Mc.Kpi.DropshipTracking"], DropshipWith("TrackingReceived").ToString(), "#0891b2", L["Mc.Kpi.DropshipTracking.Tip"])
+        @KpiCard(L["Mc.Kpi.DropshipFailed"], DropshipWith("Failed").ToString(), DropshipWith("Failed") > 0 ? "#dc2626" : "#059669", L["Mc.Kpi.DropshipFailed.Tip"])
+    </div>
+</section>
+
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.2rem;">
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
         <h2 style="margin-top:0;">@L["Mc.Timeline"]</h2>
@@ -155,6 +169,9 @@
     private List<RunDto> _runs = [];
     private List<OrderKpiDto> _orders = [];
     private List<RmaKpiDto> _rmas = [];
+    private List<CheckoutCountDto> _checkouts = [];
+    private List<SubKpiDto> _subs = [];
+    private List<DropshipKpiDto> _dropship = [];
     private BusStatsService.BusSnapshot? _bus;
     private string _tenant = "00000000-0000-0000-0000-000000000001";
 
@@ -166,14 +183,28 @@
         _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
         // Live commerce activity — the same admin read models the Orders and RMA pages use, so a
         // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
-        _orders = await Gateway.GetListAsync<OrderKpiDto>("/api/ordering/admin/orders");
-        _rmas = await Gateway.GetListAsync<RmaKpiDto>("/api/support/admin/rmas");
+        _orders = await SafeList<OrderKpiDto>("/api/ordering/admin/orders");
+        _rmas = await SafeList<RmaKpiDto>("/api/support/admin/rmas");
+        // Per-process monitors (mc_proc): checkout saga, subscription renewals, dropship forwarding.
+        _checkouts = await SafeList<CheckoutCountDto>("/api/ordering/admin/checkouts");
+        _subs = await SafeList<SubKpiDto>("/api/payments/admin/subscriptions");
+        _dropship = await SafeList<DropshipKpiDto>("/api/fulfillment/admin/dropship/orders");
         _bus = await BusStats.GetSnapshotAsync();
+    }
+
+    // A single failing read model must not blank the whole monitor — degrade that tile to 0/empty.
+    private async Task<List<T>> SafeList<T>(string path)
+    {
+        try { return await Gateway.GetListAsync<T>(path); }
+        catch { return []; }
     }
 
     private int OrdersWith(params string[] statuses) => _orders.Count(o => statuses.Contains(o.Status));
     private int RmasWith(params string[] states) => _rmas.Count(r => states.Contains(r.State));
     private long RevenueMinor => _orders.Where(o => o.Status is "Confirmed" or "Refunded").Sum(o => o.GrossMinor);
+    private int CheckoutsInState(params string[] states) => _checkouts.Where(c => states.Contains(c.State)).Sum(c => c.Count);
+    private int SubsWith(params string[] statuses) => _subs.Count(s => statuses.Contains(s.Status));
+    private int DropshipWith(params string[] statuses) => _dropship.Count(d => statuses.Contains(d.Status));
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
 
@@ -190,4 +221,7 @@
     private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
     private record OrderKpiDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
     private record RmaKpiDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+    private record CheckoutCountDto(string State, int Count);
+    private record SubKpiDto(Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);
+    private record DropshipKpiDto(Guid Id, Guid OrderId, Guid SupplierId, string Status, string? ExternalReference, string? TrackingNumber, string? Carrier, string? FailureReason);
 }

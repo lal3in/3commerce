@@ -893,6 +893,20 @@
   <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Returns in progress (requested, awaiting return, or refund pending).</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Refunds issued</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs whose refund has completed.</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>Process monitors</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>checkout, subscriptions &amp; dropship pipelines</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>Checkouts in-flight</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>Checkout sagas awaiting payment (not yet confirmed or cancelled).</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>Subscriptions active</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>Active or trialing subscriptions that will renew.</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>Subscriptions past due</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>Subscriptions whose renewal payment failed.</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>Dropship open</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>Supplier orders requested or accepted, awaiting tracking.</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>Dropship tracking</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Supplier orders that returned a tracking number.</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropship failed</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Supplier orders the provider rejected or failed to forward.</value></data>
   <data name="Mc.Kpi.AuditEvents" xml:space="preserve"><value>Audit events</value></data>
   <data name="Mc.Kpi.AuditEvents.Tip" xml:space="preserve"><value>Every audit event in the projection for this tenant.</value></data>
   <data name="Mc.Kpi.JobRuns" xml:space="preserve"><value>Job runs</value></data>

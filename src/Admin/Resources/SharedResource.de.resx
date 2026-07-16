@@ -1003,4 +1003,18 @@
   <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Laufende Rücksendungen (angefragt, Rücksendung ausstehend oder Rückerstattung ausstehend).</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Rückerstattungen ausgeführt</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs, deren Rückerstattung abgeschlossen ist.</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>Prozessmonitore</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>Checkout-, Abo- &amp; Dropship-Pipelines</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>Checkouts in Bearbeitung</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>Checkout-Sagas, die auf Zahlung warten (noch nicht bestätigt oder storniert).</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>Aktive Abos</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>Aktive oder Test-Abos, die verlängert werden.</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>Überfällige Abos</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>Abos, deren Verlängerungszahlung fehlgeschlagen ist.</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>Dropship offen</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>Lieferantenbestellungen angefragt oder angenommen, Tracking ausstehend.</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>Dropship-Tracking</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Lieferantenbestellungen mit zurückgemeldeter Sendungsnummer.</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropship fehlgeschlagen</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Lieferantenbestellungen, die der Anbieter abgelehnt oder nicht weitergeleitet hat.</value></data>
 </root>

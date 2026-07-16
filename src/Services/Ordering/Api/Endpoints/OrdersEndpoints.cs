@@ -7,6 +7,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
+using ThreeCommerce.Ordering.Infrastructure.Sagas;
 
 namespace ThreeCommerce.Ordering.Api.Endpoints;
 
@@ -28,7 +29,21 @@ public static class OrdersEndpoints
         admin.MapGet("/", ListAllOrders);
         admin.MapGet("/{id:guid}", GetAnyOrder);
         admin.MapPost("/{id:guid}/cancel", CancelOrder);
+
+        // Checkout-saga monitor (mc_proc_1): counts by saga state so Mission Control can show how many
+        // checkouts are in-flight (AwaitingPayment) vs. concluded (Confirmed/Cancelled).
+        app.MapGet("/admin/checkouts", CheckoutStateCounts).WithTags("Admin")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         return app;
+    }
+
+    private static async Task<Ok<List<CheckoutStateCountDto>>> CheckoutStateCounts(OrderingDbContext db, CancellationToken ct)
+    {
+        var counts = await db.Set<CheckoutState>().AsNoTracking()
+            .GroupBy(s => s.CurrentState)
+            .Select(g => new CheckoutStateCountDto(g.Key, g.Count()))
+            .ToListAsync(ct);
+        return TypedResults.Ok(counts);
     }
 
     private static async Task<Results<Accepted, NotFound, Conflict<string>>> CancelOrder(
@@ -128,3 +143,4 @@ public record OrderLineResponse(Guid ProductId, Guid? VariantId, string? Variant
 public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
 public record OrderStatusResponse(Guid Id, string Status);
 public record CancelOrderRequest(string? Reason);
+public record CheckoutStateCountDto(string State, int Count);
