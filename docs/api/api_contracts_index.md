@@ -190,6 +190,7 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET | `/orders` · `/orders/{id}` | session | Order history / detail, including order and line `DiscountMinor` breakdown |
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 | GET | `/admin/orders` · `/admin/orders/{id}` | admin | Admin order list / detail |
+| GET | `/admin/checkouts` | admin | Checkout-saga state counts (in-flight vs concluded) — Mission Control process monitor |
 | POST | `/admin/orders/{id}/cancel` | admin | Admin order cancel (audited — emits `AuditEntryRecorded`) |
 
 > `RefundCompleted` now carries `FullyRefunded`; `OrderStatusConsumer` moves a Confirmed order to the
