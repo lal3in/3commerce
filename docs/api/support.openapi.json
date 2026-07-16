@@ -239,6 +239,37 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "RMA"
+        ],
+        "summary": "Admin-initiated whole-order refund via an auto-approved RMA.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RmaDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
       }
     },
     "/admin/rmas/{id}/approve": {
@@ -384,6 +415,25 @@
   },
   "components": {
     "schemas": {
+      "AdminRefundRequest": {
+        "required": [
+          "orderId",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ApproveRequest": {
         "required": [
           "requireReturn"

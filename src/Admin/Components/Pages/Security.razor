@@ -112,7 +112,10 @@
         </table>
         <div style="display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap;">
             <select @bind="_newSecretProvider" title="@L["Sec.NewSecret.Provider.Tip"]">
-                <option value="stripe">stripe</option>
+                @foreach (var provider in WebhookProviders)
+                {
+                    <option value="@provider">@provider</option>
+                }
             </select>
             <input @bind="_newSecretValue" placeholder="@L["Sec.NewSecret.Value"]" style="flex:1;min-width:12rem;padding:.4rem;"
                    title="@L["Sec.NewSecret.Value.Tip"]" />
@@ -127,6 +130,8 @@
     private MfaStatusDto? _mfa;
     private MfaPolicyDto? _policy;
     private List<WebhookSecretDto>? _secrets;
+    // Providers whose inbound webhooks the Payments service verifies (matches the /webhooks/{provider} routes).
+    private static readonly string[] WebhookProviders = ["stripe", "polar", "paypal", "afterpay"];
     private string _newSecretProvider = "stripe";
     private string _newSecretValue = "";
     private string _newSecretLabel = "";

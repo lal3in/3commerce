@@ -61,207 +61,207 @@
 
   <!-- Application shell -->
   <data name="App_Title" xml:space="preserve">
-    <value>Portail fournisseur 3commerce</value>
+    <value>3commerce 供應商入口網站</value>
   </data>
 
   <!-- Navigation -->
   <data name="Nav_Brand" xml:space="preserve">
-    <value>Fournisseur 3commerce</value>
+    <value>3commerce 供應商</value>
   </data>
   <data name="Nav_Subtitle" xml:space="preserve">
-    <value>Portail de la plateforme</value>
+    <value>平台入口網站</value>
   </data>
   <data name="Nav_Overview" xml:space="preserve">
-    <value>Vue d'ensemble</value>
+    <value>概覽</value>
   </data>
   <data name="Nav_Overview_Tooltip" xml:space="preserve">
-    <value>Niveau de préparation du fournisseur et périmètre opérationnel</value>
+    <value>供應商準備情況同營運範圍</value>
   </data>
   <data name="Nav_Stock" xml:space="preserve">
-    <value>Flux de stock</value>
+    <value>存貨資料流</value>
   </data>
   <data name="Nav_Stock_Tooltip" xml:space="preserve">
-    <value>Soumettre des mises à jour de disponibilité pour examen par la plateforme</value>
+    <value>遞交存貨供應更新畀平台審核</value>
   </data>
   <data name="Nav_Requests" xml:space="preserve">
-    <value>Demandes de modification</value>
+    <value>變更申請</value>
   </data>
   <data name="Nav_Requests_Tooltip" xml:space="preserve">
-    <value>Demander des modifications d'utilisateur fournisseur, de contact ou de compte bancaire</value>
+    <value>申請變更供應商用戶、聯絡人或者銀行戶口</value>
   </data>
   <data name="Nav_Logout" xml:space="preserve">
-    <value>Se déconnecter</value>
+    <value>登出</value>
   </data>
   <data name="Nav_Logout_Tooltip" xml:space="preserve">
-    <value>Terminer cette session du portail fournisseur et revenir à la connexion</value>
+    <value>結束呢個供應商入口網站嘅工作階段，返去登入版面</value>
   </data>
 
   <!-- Language switcher -->
   <data name="Culture_Label" xml:space="preserve">
-    <value>Langue</value>
+    <value>語言</value>
   </data>
   <data name="Culture_Select_Tooltip" xml:space="preserve">
-    <value>Choisissez la langue de cette session. La langue est indépendante de la devise et des paramètres financiers.</value>
+    <value>揀呢個工作階段用嘅語言。語言同貨幣、財務設定係各自獨立嘅。</value>
   </data>
   <data name="Culture_Apply" xml:space="preserve">
-    <value>Appliquer</value>
+    <value>套用</value>
   </data>
   <data name="Culture_Apply_Tooltip" xml:space="preserve">
-    <value>Enregistrer la langue sélectionnée pour cette session et recharger la page</value>
+    <value>儲存揀咗嘅語言畀呢個工作階段，然後重新載入版面</value>
   </data>
 
   <!-- Shared fields -->
   <data name="Common_EntityId" xml:space="preserve">
-    <value>Identifiant de l'entité fournisseur</value>
+    <value>供應商實體 ID</value>
   </data>
   <data name="Common_EntityId_Tooltip" xml:space="preserve">
-    <value>Le GUID de votre entité fournisseur. Le support de la plateforme peut vous le fournir si vous ne l'avez pas.</value>
+    <value>你供應商實體嘅 GUID。如果你冇，平台支援可以提供畀你。</value>
   </data>
   <data name="Common_ValidationTitle" xml:space="preserve">
-    <value>Veuillez corriger les éléments suivants :</value>
+    <value>請更正以下內容：</value>
   </data>
 
   <!-- Validation -->
   <data name="Validation_EntityId_Required" xml:space="preserve">
-    <value>L'identifiant de l'entité fournisseur est requis.</value>
+    <value>供應商實體 ID 係必填。</value>
   </data>
   <data name="Validation_EntityId_Guid" xml:space="preserve">
-    <value>L'identifiant de l'entité fournisseur doit être un GUID.</value>
+    <value>供應商實體 ID 一定要係 GUID。</value>
   </data>
   <data name="Validation_FeedReference_Required" xml:space="preserve">
-    <value>L'URI ou le nom de fichier du flux est requis.</value>
+    <value>資料流 URI 或者檔案名係必填。</value>
   </data>
   <data name="Validation_RequestType_Required" xml:space="preserve">
-    <value>Le type de demande est requis.</value>
+    <value>申請類型係必填。</value>
   </data>
   <data name="Validation_Details_Required" xml:space="preserve">
-    <value>Les détails sont requis.</value>
+    <value>詳情係必填。</value>
   </data>
 
   <!-- Sign in -->
   <data name="Login_Title" xml:space="preserve">
-    <value>Connexion au portail fournisseur</value>
+    <value>供應商入口網站登入</value>
   </data>
   <data name="Login_Error" xml:space="preserve">
-    <value>Échec de la connexion. Vérifiez vos identifiants ou votre accès fournisseur.</value>
+    <value>登入失敗。請檢查你嘅登入資料或者供應商權限。</value>
   </data>
   <data name="Login_Email" xml:space="preserve">
-    <value>Adresse e-mail</value>
+    <value>電郵</value>
   </data>
   <data name="Login_Email_Tooltip" xml:space="preserve">
-    <value>L'adresse e-mail enregistrée pour votre compte du portail fournisseur</value>
+    <value>登記咗喺你供應商入口網站帳戶嘅電郵地址</value>
   </data>
   <data name="Login_Password" xml:space="preserve">
-    <value>Mot de passe</value>
+    <value>密碼</value>
   </data>
   <data name="Login_Password_Tooltip" xml:space="preserve">
-    <value>Votre mot de passe du portail fournisseur</value>
+    <value>你供應商入口網站嘅密碼</value>
   </data>
   <data name="Login_Submit" xml:space="preserve">
-    <value>Se connecter</value>
+    <value>登入</value>
   </data>
   <data name="Login_Submit_Tooltip" xml:space="preserve">
-    <value>Se connecter au portail fournisseur</value>
+    <value>登入供應商入口網站</value>
   </data>
 
   <!-- Overview -->
   <data name="Home_Title" xml:space="preserve">
-    <value>Vue d'ensemble du fournisseur</value>
+    <value>供應商概覽</value>
   </data>
   <data name="Home_Intro" xml:space="preserve">
-    <value>Consultez votre niveau de préparation et votre périmètre opérationnel. Le contenu produit, la tarification, l'expédition, le suivi et les modifications de compte bancaire nécessitent l'approbation de la plateforme.</value>
+    <value>睇你供應商嘅準備情況同營運範圍。產品內容、定價、發貨、追蹤同銀行戶口變更都要經平台批准。</value>
   </data>
   <data name="Home_CheckReadiness" xml:space="preserve">
-    <value>Vérifier la préparation</value>
+    <value>檢查準備情況</value>
   </data>
   <data name="Home_CheckReadiness_Tooltip" xml:space="preserve">
-    <value>Charger le statut de préparation actuel pour cette entité fournisseur</value>
+    <value>載入呢個供應商實體目前嘅準備狀態</value>
   </data>
   <data name="Home_Readiness" xml:space="preserve">
-    <value>Préparation</value>
+    <value>準備情況</value>
   </data>
   <data name="Home_Ready" xml:space="preserve">
-    <value>Le profil du fournisseur est prêt.</value>
+    <value>供應商檔案已經準備好。</value>
   </data>
   <data name="Home_Missing" xml:space="preserve">
-    <value>Exigences manquantes :</value>
+    <value>欠缺嘅要求：</value>
   </data>
   <data name="Home_LoadFailed" xml:space="preserve">
-    <value>Impossible de charger la préparation. Vérifiez votre accès fournisseur.</value>
+    <value>無法載入準備情況。請確認你嘅供應商權限。</value>
   </data>
 
   <!-- Stock feeds -->
   <data name="Stock_Title" xml:space="preserve">
-    <value>Flux de stock</value>
+    <value>存貨資料流</value>
   </data>
   <data name="Stock_Intro" xml:space="preserve">
-    <value>Téléversez une demande de flux de stock pour examen par la plateforme. Les fournisseurs peuvent uniquement mettre à jour la disponibilité ; le contenu produit et la tarification restent contrôlés par la plateforme.</value>
+    <value>上載存貨資料流申請畀平台審核。供應商淨係可以更新供應情況；產品內容同定價一律由平台控制。</value>
   </data>
   <data name="Stock_FeedReference" xml:space="preserve">
-    <value>URI ou nom de fichier du flux</value>
+    <value>資料流 URI 或者檔案名</value>
   </data>
   <data name="Stock_FeedReference_Tooltip" xml:space="preserve">
-    <value>L'URI publique du flux, ou le nom de fichier que vous avez fourni à la plateforme</value>
+    <value>資料流嘅公開 URI，或者你交畀平台嘅檔案名</value>
   </data>
   <data name="Stock_Notes" xml:space="preserve">
-    <value>Notes</value>
+    <value>備註</value>
   </data>
   <data name="Stock_Notes_Tooltip" xml:space="preserve">
-    <value>Contexte facultatif pour l'examinateur de la plateforme</value>
+    <value>畀平台審核人員嘅選填說明</value>
   </data>
   <data name="Stock_Submit" xml:space="preserve">
-    <value>Soumettre la demande de flux de stock</value>
+    <value>遞交存貨資料流申請</value>
   </data>
   <data name="Stock_Submit_Tooltip" xml:space="preserve">
-    <value>Envoyer cette demande de flux de stock pour examen par la plateforme</value>
+    <value>將呢個存貨資料流申請發送畀平台審核</value>
   </data>
   <data name="Stock_Submitted" xml:space="preserve">
-    <value>Demande de flux de stock enregistrée localement. La persistance du flux de travail et de l'audit est prévue pour la Phase 6.</value>
+    <value>存貨資料流申請已經喺本機記錄低。工作流程／稽核儲存安排喺第 6 階段推出。</value>
   </data>
 
   <!-- Change requests -->
   <data name="Requests_Title" xml:space="preserve">
-    <value>Demandes de modification</value>
+    <value>變更申請</value>
   </data>
   <data name="Requests_Intro" xml:space="preserve">
-    <value>Demandez des modifications d'utilisateur/contact fournisseur ou de compte bancaire. Les données de compte bancaire appartiennent au service Paiements et nécessitent toujours une approbation.</value>
+    <value>申請變更供應商用戶／聯絡人或者銀行戶口。銀行戶口資料由 Payments 擁有，一律要批准先得。</value>
   </data>
   <data name="Requests_Type" xml:space="preserve">
-    <value>Type de demande</value>
+    <value>申請類型</value>
   </data>
   <data name="Requests_Type_Tooltip" xml:space="preserve">
-    <value>Le type de modification que la plateforme doit examiner et approuver</value>
+    <value>平台需要審核同批准嘅變更種類</value>
   </data>
   <data name="Requests_Type_UserAccess" xml:space="preserve">
-    <value>Accès utilisateur</value>
+    <value>用戶權限</value>
   </data>
   <data name="Requests_Type_ContactDetails" xml:space="preserve">
-    <value>Coordonnées</value>
+    <value>聯絡資料</value>
   </data>
   <data name="Requests_Type_BankAccount" xml:space="preserve">
-    <value>Compte bancaire</value>
+    <value>銀行戶口</value>
   </data>
   <data name="Requests_Details" xml:space="preserve">
-    <value>Détails</value>
+    <value>詳情</value>
   </data>
   <data name="Requests_Details_Tooltip" xml:space="preserve">
-    <value>Décrivez la modification, y compris qui ou ce qu'elle concerne</value>
+    <value>描述呢個變更，包括影響邊個或者邊樣嘢</value>
   </data>
   <data name="Requests_Submit" xml:space="preserve">
-    <value>Soumettre la demande</value>
+    <value>遞交申請</value>
   </data>
   <data name="Requests_Submit_Tooltip" xml:space="preserve">
-    <value>Envoyer cette demande de modification à la plateforme pour approbation</value>
+    <value>將呢個變更申請發送畀平台批准</value>
   </data>
   <data name="Requests_Submitted" xml:space="preserve">
-    <value>Demande de modification enregistrée localement. La persistance du flux de travail d'approbation est prévue pour la Phase 6.</value>
+    <value>變更申請已經喺本機記錄低。批准工作流程儲存安排喺第 6 階段推出。</value>
   </data>
 
   <!-- Error -->
   <data name="Error_Title" xml:space="preserve">
-    <value>Une erreur s'est produite</value>
+    <value>出咗啲問題</value>
   </data>
   <data name="Error_Body" xml:space="preserve">
-    <value>Le portail fournisseur n'a pas pu traiter la demande. Réessayez ou contactez le support de la plateforme.</value>
+    <value>供應商入口網站無法完成呢個申請。請再試一次，或者聯絡平台支援。</value>
   </data>
 </root>

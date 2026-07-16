@@ -45,6 +45,20 @@
       "category": "Show only products in this category."
     }
   },
+  "categories": {
+    "audio": "Audio",
+    "computing": "Computing",
+    "phones": "Phones",
+    "gaming": "Gaming",
+    "home": "Home",
+    "kitchen": "Kitchen",
+    "fitness": "Fitness",
+    "outdoor": "Outdoor",
+    "toys": "Toys",
+    "office": "Office",
+    "lighting": "Lighting",
+    "wearables": "Wearables"
+  },
   "storefrontLanding": {
     "eyebrow": "Local storefront",
     "summary": "Currency: {currency} · Tax: {tax}",

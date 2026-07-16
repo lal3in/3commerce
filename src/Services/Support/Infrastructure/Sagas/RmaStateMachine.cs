@@ -44,8 +44,19 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
                     c.Saga.Reason = c.Message.Reason;
                     c.Saga.CreatedAt = DateTimeOffset.UtcNow;
                 })
-                .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "Requested"))
-                .TransitionTo(Requested));
+                // Admin-initiated refunds arrive pre-approved (AutoApprove): skip the manual review and
+                // go straight down the no-return refund path, so the refund still travels the single
+                // RefundRequested → RefundCompleted route and shows in the RMA queue as RefundPending →
+                // RefundIssued. Customer-raised RMAs (AutoApprove=false) wait for an operator decision.
+                .IfElse(c => c.Message.AutoApprove,
+                    auto => auto
+                        .Then(c => c.Saga.RefundId = Guid.CreateVersion7())
+                        .Publish(c => new RefundRequested(c.Saga.RefundId, c.Saga.OrderId, c.Saga.AmountMinor, c.Saga.Reason ?? "rma", "rma"))
+                        .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "Approved"))
+                        .TransitionTo(RefundPending),
+                    manual => manual
+                        .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "Requested"))
+                        .TransitionTo(Requested)));
 
         During(Requested,
             When(RmaApprovedEvent)
@@ -78,7 +89,7 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
 }
 
 // Support-internal saga events (commands from the endpoints).
-public record RmaRequested(Guid RmaId, Guid OrderId, string Email, long AmountMinor, string Reason);
+public record RmaRequested(Guid RmaId, Guid OrderId, string Email, long AmountMinor, string Reason, bool AutoApprove = false);
 public record RmaApproved(Guid RmaId, bool RequireReturn);
 public record RmaDenied(Guid RmaId);
 public record ReturnReceived(Guid RmaId);

@@ -61,207 +61,207 @@
 
   <!-- Application shell -->
   <data name="App_Title" xml:space="preserve">
-    <value>Portail fournisseur 3commerce</value>
+    <value>Portal de proveedores 3commerce</value>
   </data>
 
   <!-- Navigation -->
   <data name="Nav_Brand" xml:space="preserve">
-    <value>Fournisseur 3commerce</value>
+    <value>Proveedor 3commerce</value>
   </data>
   <data name="Nav_Subtitle" xml:space="preserve">
-    <value>Portail de la plateforme</value>
+    <value>Portal de la plataforma</value>
   </data>
   <data name="Nav_Overview" xml:space="preserve">
-    <value>Vue d'ensemble</value>
+    <value>Resumen</value>
   </data>
   <data name="Nav_Overview_Tooltip" xml:space="preserve">
-    <value>Niveau de préparation du fournisseur et périmètre opérationnel</value>
+    <value>Preparación del proveedor y alcance operativo</value>
   </data>
   <data name="Nav_Stock" xml:space="preserve">
-    <value>Flux de stock</value>
+    <value>Feeds de existencias</value>
   </data>
   <data name="Nav_Stock_Tooltip" xml:space="preserve">
-    <value>Soumettre des mises à jour de disponibilité pour examen par la plateforme</value>
+    <value>Envíe actualizaciones de disponibilidad para su revisión por la plataforma</value>
   </data>
   <data name="Nav_Requests" xml:space="preserve">
-    <value>Demandes de modification</value>
+    <value>Solicitudes de cambio</value>
   </data>
   <data name="Nav_Requests_Tooltip" xml:space="preserve">
-    <value>Demander des modifications d'utilisateur fournisseur, de contact ou de compte bancaire</value>
+    <value>Solicite cambios de usuario, contacto o cuenta bancaria del proveedor</value>
   </data>
   <data name="Nav_Logout" xml:space="preserve">
-    <value>Se déconnecter</value>
+    <value>Cerrar sesión</value>
   </data>
   <data name="Nav_Logout_Tooltip" xml:space="preserve">
-    <value>Terminer cette session du portail fournisseur et revenir à la connexion</value>
+    <value>Finalice esta sesión del portal de proveedores y vuelva al inicio de sesión</value>
   </data>
 
   <!-- Language switcher -->
   <data name="Culture_Label" xml:space="preserve">
-    <value>Langue</value>
+    <value>Idioma</value>
   </data>
   <data name="Culture_Select_Tooltip" xml:space="preserve">
-    <value>Choisissez la langue de cette session. La langue est indépendante de la devise et des paramètres financiers.</value>
+    <value>Elija el idioma para esta sesión. El idioma es independiente de la moneda y de la configuración financiera.</value>
   </data>
   <data name="Culture_Apply" xml:space="preserve">
-    <value>Appliquer</value>
+    <value>Aplicar</value>
   </data>
   <data name="Culture_Apply_Tooltip" xml:space="preserve">
-    <value>Enregistrer la langue sélectionnée pour cette session et recharger la page</value>
+    <value>Guarde el idioma seleccionado para esta sesión y recargue la página</value>
   </data>
 
   <!-- Shared fields -->
   <data name="Common_EntityId" xml:space="preserve">
-    <value>Identifiant de l'entité fournisseur</value>
+    <value>ID de entidad del proveedor</value>
   </data>
   <data name="Common_EntityId_Tooltip" xml:space="preserve">
-    <value>Le GUID de votre entité fournisseur. Le support de la plateforme peut vous le fournir si vous ne l'avez pas.</value>
+    <value>El GUID de su entidad de proveedor. El soporte de la plataforma puede proporcionárselo si no lo tiene.</value>
   </data>
   <data name="Common_ValidationTitle" xml:space="preserve">
-    <value>Veuillez corriger les éléments suivants :</value>
+    <value>Corrija lo siguiente:</value>
   </data>
 
   <!-- Validation -->
   <data name="Validation_EntityId_Required" xml:space="preserve">
-    <value>L'identifiant de l'entité fournisseur est requis.</value>
+    <value>El ID de entidad del proveedor es obligatorio.</value>
   </data>
   <data name="Validation_EntityId_Guid" xml:space="preserve">
-    <value>L'identifiant de l'entité fournisseur doit être un GUID.</value>
+    <value>El ID de entidad del proveedor debe ser un GUID.</value>
   </data>
   <data name="Validation_FeedReference_Required" xml:space="preserve">
-    <value>L'URI ou le nom de fichier du flux est requis.</value>
+    <value>El URI o el nombre de archivo del feed es obligatorio.</value>
   </data>
   <data name="Validation_RequestType_Required" xml:space="preserve">
-    <value>Le type de demande est requis.</value>
+    <value>El tipo de solicitud es obligatorio.</value>
   </data>
   <data name="Validation_Details_Required" xml:space="preserve">
-    <value>Les détails sont requis.</value>
+    <value>Los detalles son obligatorios.</value>
   </data>
 
   <!-- Sign in -->
   <data name="Login_Title" xml:space="preserve">
-    <value>Connexion au portail fournisseur</value>
+    <value>Inicio de sesión del portal de proveedores</value>
   </data>
   <data name="Login_Error" xml:space="preserve">
-    <value>Échec de la connexion. Vérifiez vos identifiants ou votre accès fournisseur.</value>
+    <value>Error al iniciar sesión. Verifique sus credenciales o su acceso de proveedor.</value>
   </data>
   <data name="Login_Email" xml:space="preserve">
-    <value>Adresse e-mail</value>
+    <value>Correo electrónico</value>
   </data>
   <data name="Login_Email_Tooltip" xml:space="preserve">
-    <value>L'adresse e-mail enregistrée pour votre compte du portail fournisseur</value>
+    <value>La dirección de correo electrónico registrada para su cuenta del portal de proveedores</value>
   </data>
   <data name="Login_Password" xml:space="preserve">
-    <value>Mot de passe</value>
+    <value>Contraseña</value>
   </data>
   <data name="Login_Password_Tooltip" xml:space="preserve">
-    <value>Votre mot de passe du portail fournisseur</value>
+    <value>Su contraseña del portal de proveedores</value>
   </data>
   <data name="Login_Submit" xml:space="preserve">
-    <value>Se connecter</value>
+    <value>Iniciar sesión</value>
   </data>
   <data name="Login_Submit_Tooltip" xml:space="preserve">
-    <value>Se connecter au portail fournisseur</value>
+    <value>Inicie sesión en el portal de proveedores</value>
   </data>
 
   <!-- Overview -->
   <data name="Home_Title" xml:space="preserve">
-    <value>Vue d'ensemble du fournisseur</value>
+    <value>Resumen del proveedor</value>
   </data>
   <data name="Home_Intro" xml:space="preserve">
-    <value>Consultez votre niveau de préparation et votre périmètre opérationnel. Le contenu produit, la tarification, l'expédition, le suivi et les modifications de compte bancaire nécessitent l'approbation de la plateforme.</value>
+    <value>Consulte la preparación de su proveedor y el alcance operativo. El contenido de los productos, los precios, el despacho, el seguimiento y los cambios de cuenta bancaria requieren la aprobación de la plataforma.</value>
   </data>
   <data name="Home_CheckReadiness" xml:space="preserve">
-    <value>Vérifier la préparation</value>
+    <value>Comprobar preparación</value>
   </data>
   <data name="Home_CheckReadiness_Tooltip" xml:space="preserve">
-    <value>Charger le statut de préparation actuel pour cette entité fournisseur</value>
+    <value>Cargue el estado de preparación actual de esta entidad de proveedor</value>
   </data>
   <data name="Home_Readiness" xml:space="preserve">
-    <value>Préparation</value>
+    <value>Preparación</value>
   </data>
   <data name="Home_Ready" xml:space="preserve">
-    <value>Le profil du fournisseur est prêt.</value>
+    <value>El perfil del proveedor está listo.</value>
   </data>
   <data name="Home_Missing" xml:space="preserve">
-    <value>Exigences manquantes :</value>
+    <value>Requisitos pendientes:</value>
   </data>
   <data name="Home_LoadFailed" xml:space="preserve">
-    <value>Impossible de charger la préparation. Vérifiez votre accès fournisseur.</value>
+    <value>No se pudo cargar la preparación. Confirme su acceso de proveedor.</value>
   </data>
 
   <!-- Stock feeds -->
   <data name="Stock_Title" xml:space="preserve">
-    <value>Flux de stock</value>
+    <value>Feeds de existencias</value>
   </data>
   <data name="Stock_Intro" xml:space="preserve">
-    <value>Téléversez une demande de flux de stock pour examen par la plateforme. Les fournisseurs peuvent uniquement mettre à jour la disponibilité ; le contenu produit et la tarification restent contrôlés par la plateforme.</value>
+    <value>Cargue una solicitud de feed de existencias para su revisión por la plataforma. Los proveedores solo pueden actualizar la disponibilidad; el contenido de los productos y los precios permanecen bajo el control de la plataforma.</value>
   </data>
   <data name="Stock_FeedReference" xml:space="preserve">
-    <value>URI ou nom de fichier du flux</value>
+    <value>URI o nombre de archivo del feed</value>
   </data>
   <data name="Stock_FeedReference_Tooltip" xml:space="preserve">
-    <value>L'URI publique du flux, ou le nom de fichier que vous avez fourni à la plateforme</value>
+    <value>El URI público del feed, o el nombre de archivo que proporcionó a la plataforma</value>
   </data>
   <data name="Stock_Notes" xml:space="preserve">
-    <value>Notes</value>
+    <value>Notas</value>
   </data>
   <data name="Stock_Notes_Tooltip" xml:space="preserve">
-    <value>Contexte facultatif pour l'examinateur de la plateforme</value>
+    <value>Contexto opcional para el revisor de la plataforma</value>
   </data>
   <data name="Stock_Submit" xml:space="preserve">
-    <value>Soumettre la demande de flux de stock</value>
+    <value>Enviar solicitud de feed de existencias</value>
   </data>
   <data name="Stock_Submit_Tooltip" xml:space="preserve">
-    <value>Envoyer cette demande de flux de stock pour examen par la plateforme</value>
+    <value>Envíe esta solicitud de feed de existencias para su revisión por la plataforma</value>
   </data>
   <data name="Stock_Submitted" xml:space="preserve">
-    <value>Demande de flux de stock enregistrée localement. La persistance du flux de travail et de l'audit est prévue pour la Phase 6.</value>
+    <value>Solicitud de feed de existencias registrada localmente. La persistencia del flujo de trabajo y la auditoría está prevista para la Fase 6.</value>
   </data>
 
   <!-- Change requests -->
   <data name="Requests_Title" xml:space="preserve">
-    <value>Demandes de modification</value>
+    <value>Solicitudes de cambio</value>
   </data>
   <data name="Requests_Intro" xml:space="preserve">
-    <value>Demandez des modifications d'utilisateur/contact fournisseur ou de compte bancaire. Les données de compte bancaire appartiennent au service Paiements et nécessitent toujours une approbation.</value>
+    <value>Solicite cambios de usuario/contacto del proveedor o de cuenta bancaria. Los datos de la cuenta bancaria son propiedad de Pagos y siempre requieren aprobación.</value>
   </data>
   <data name="Requests_Type" xml:space="preserve">
-    <value>Type de demande</value>
+    <value>Tipo de solicitud</value>
   </data>
   <data name="Requests_Type_Tooltip" xml:space="preserve">
-    <value>Le type de modification que la plateforme doit examiner et approuver</value>
+    <value>El tipo de cambio que la plataforma debe revisar y aprobar</value>
   </data>
   <data name="Requests_Type_UserAccess" xml:space="preserve">
-    <value>Accès utilisateur</value>
+    <value>Acceso de usuario</value>
   </data>
   <data name="Requests_Type_ContactDetails" xml:space="preserve">
-    <value>Coordonnées</value>
+    <value>Datos de contacto</value>
   </data>
   <data name="Requests_Type_BankAccount" xml:space="preserve">
-    <value>Compte bancaire</value>
+    <value>Cuenta bancaria</value>
   </data>
   <data name="Requests_Details" xml:space="preserve">
-    <value>Détails</value>
+    <value>Detalles</value>
   </data>
   <data name="Requests_Details_Tooltip" xml:space="preserve">
-    <value>Décrivez la modification, y compris qui ou ce qu'elle concerne</value>
+    <value>Describa el cambio, incluyendo a quién o qué afecta</value>
   </data>
   <data name="Requests_Submit" xml:space="preserve">
-    <value>Soumettre la demande</value>
+    <value>Enviar solicitud</value>
   </data>
   <data name="Requests_Submit_Tooltip" xml:space="preserve">
-    <value>Envoyer cette demande de modification à la plateforme pour approbation</value>
+    <value>Envíe esta solicitud de cambio a la plataforma para su aprobación</value>
   </data>
   <data name="Requests_Submitted" xml:space="preserve">
-    <value>Demande de modification enregistrée localement. La persistance du flux de travail d'approbation est prévue pour la Phase 6.</value>
+    <value>Solicitud de cambio registrada localmente. La persistencia del flujo de trabajo de aprobación está prevista para la Fase 6.</value>
   </data>
 
   <!-- Error -->
   <data name="Error_Title" xml:space="preserve">
-    <value>Une erreur s'est produite</value>
+    <value>Algo salió mal</value>
   </data>
   <data name="Error_Body" xml:space="preserve">
-    <value>Le portail fournisseur n'a pas pu traiter la demande. Réessayez ou contactez le support de la plateforme.</value>
+    <value>El portal de proveedores no pudo completar la solicitud. Inténtelo de nuevo o póngase en contacto con el soporte de la plataforma.</value>
   </data>
 </root>

@@ -39,7 +39,16 @@
                     <option value="1">@L["XeroMap.Scope.TenantDefault"]</option><option value="2">@L["XeroMap.Scope.Storefront"]</option><option value="3">@L["XeroMap.Scope.Category"]</option><option value="4">@L["XeroMap.Scope.Supplier"]</option><option value="5">@L["XeroMap.Scope.Product"]</option>
                 </select>
             </label>
-            <label>@L["XeroMap.Field.Target"] <input @bind="_form.TargetId" title="@L["XeroMap.Field.Target.Tip"]" style="width:100%;" /></label>
+            @* Tenant-default mappings have no target — the API drops any target for that scope, so a value
+               typed here would silently vanish and come back blank on Edit. Only offer the field where it applies. *@
+            @if (_form.Scope != TenantDefaultScope)
+            {
+                <label>@L["XeroMap.Field.Target"] <input @bind="_form.TargetId" title="@L["XeroMap.Field.Target.Tip"]" style="width:100%;" /></label>
+            }
+            else
+            {
+                <span style="color:#9ca3af; font-size:.82rem; align-self:end;">@L["XeroMap.Field.Target.NotApplicable"]</span>
+            }
             <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" title="@L["XeroMap.Field.Active.Tip"]" /> @L["Common.Active"]</label>
         </div>
         <div style="margin-top:.8rem; display:flex; gap:.5rem;">
@@ -69,6 +78,9 @@
         _error = _status = null;
         if (!Guid.TryParse(_tenantId, out var tenant)) { _error = L["XeroMap.Error.TenantGuid"]; return; }
         Guid? target = Guid.TryParse(_form.TargetId, out var parsed) ? parsed : null;
+        // Every scope except tenant-default keys the mapping to a target id; without it the mapping would
+        // save against the wrong (null) field and never round-trip back into this form on Edit.
+        if (_form.Scope != TenantDefaultScope && target is null) { _error = L["XeroMap.Error.TargetRequired"]; return; }
         // Enums cross HTTP as NUMBERS (platform invariant): send the numeric XeroMappingScope value,
         // and route the target GUID to the field the scope selects.
         var body = new { tenantId = tenant, scope = _form.Scope, storefrontId = _form.Scope == StorefrontScope ? target : null, categoryId = _form.Scope == CategoryScope ? target : null, supplierEntityId = _form.Scope == SupplierScope ? target : null, productId = _form.Scope == ProductScope ? target : null, ledgerAccountCode = _form.LedgerAccountCode, xeroAccountCode = _form.XeroAccountCode, active = _form.Active };

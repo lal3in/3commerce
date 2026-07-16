@@ -86,8 +86,9 @@ else
     {
         if (_confirm != $"{o.Id}:refund") { _confirm = $"{o.Id}:refund"; return; }
         _confirm = null;
-        // Deterministic key per order so a retried refund of the same order is idempotent (endpoint requires it).
-        var response = await Gateway.PostAsync("/api/payments/admin/refunds", new { orderId = o.Id, amountMinor = o.GrossMinor, reason = "refunded by admin" }, idempotencyKey: $"refund-{o.Id}");
+        // Refund through the RMA path (auto-approved, no-return) so it shows in the RMA queue and drives
+        // the single refund flow; when the payment is fully refunded the order transitions to Refunded.
+        var response = await Gateway.PostAsync("/api/support/admin/rmas", new { orderId = o.Id, reason = "refunded by admin" }, idempotencyKey: $"refund-{o.Id}");
         if (response.IsSuccessStatusCode)
         {
             await LoadAsync();

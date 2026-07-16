@@ -84,6 +84,31 @@ public class SupplierOnboardingTests
         Assert.Single(await db.SupplierOnboardings.ToListAsync());
     }
 
+    [Fact]
+    public void MarkIdentifierVerified_makes_ABN_satisfy_readiness()
+    {
+        // Mirrors the admin details form: add the required data through the domain, verify the ABN,
+        // and confirm readiness flips — the ABN/ACN requirement is the one that needs verification.
+        var entity = EntityRecord.Create(Guid.CreateVersion7(), EntityType.Company, "Acme Pty Ltd", null, DateTimeOffset.UtcNow, []);
+        var onboarding = SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow);
+        var identifier = entity.AddIdentifier(EntityIdentifierType.Abn, "12345678901", DateTimeOffset.UtcNow);
+        entity.AddContactMethod(EntityContactPurpose.Operations, EntityContactKind.Email, "ops@example.test", DateTimeOffset.UtcNow);
+        entity.AddAddress(EntityAddressPurpose.Warehouse, "1 Supplier St", null, "Sydney", "NSW", "2000", "AU", DateTimeOffset.UtcNow);
+
+        Assert.Contains("verified ABN or ACN", onboarding.CheckReadiness(entity).MissingRequirements);
+
+        entity.MarkIdentifierVerified(identifier.Id, DateTimeOffset.UtcNow);
+
+        Assert.Equal(EntityVerificationStatus.Verified, identifier.VerificationStatus);
+        Assert.True(onboarding.CheckReadiness(entity).IsReady);
+    }
+
+    [Fact]
+    public void MarkIdentifierVerified_throws_for_unknown_identifier() =>
+        Assert.Throws<DomainRuleException>(() =>
+            EntityRecord.Create(Guid.CreateVersion7(), EntityType.Company, "Acme Pty Ltd", null, DateTimeOffset.UtcNow, [])
+                .MarkIdentifierVerified(Guid.NewGuid(), DateTimeOffset.UtcNow));
+
     private static EntityRecord NewReadySupplier()
     {
         var entity = EntityRecord.Create(Guid.CreateVersion7(), EntityType.Company, "Acme Pty Ltd", null, DateTimeOffset.UtcNow, []);

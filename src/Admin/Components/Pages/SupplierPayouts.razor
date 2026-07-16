@@ -165,7 +165,16 @@
                     </div>
                 </div>
             }
-            <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem;">
+            @{ var hasActiveBank = _bankAccounts.Any(a => a.State == "Active"); }
+            <div style="display:flex; flex-direction:column; gap:.5rem; margin-top:1rem; border-top:1px solid #f3f4f6; padding-top:1rem;">
+                <h3 style="margin:0; font-size:1rem;">@L["Payouts.NewInstruction"]</h3>
+                @* An instruction can only route to an approved (Active) bank account. Without one the form
+                   is unusable, and the "Create" error lands at the top of a long page — off-screen from the
+                   button — so it reads as "nothing happens". Guide the operator inline instead. *@
+                @if (!hasActiveBank)
+                {
+                    <p style="color:#b45309; font-size:.85rem; margin:0;">@L["Payouts.Instruction.NeedActiveBank"]</p>
+                }
                 <label>@L["Payouts.Field.ApprovedBank"]
                     <select @bind="_newInstruction.BankAccountId" title="@L["Payouts.Field.ApprovedBank.Tip"]" style="width:100%;">
                         <option value="">@L["Payouts.ChooseBank"]</option>
@@ -183,7 +192,9 @@
                         <option value="Monthly">@L["Payouts.Cadence.Monthly"]</option>
                     </select>
                 </label>
-                <button @onclick="CreateInstruction" title="@L["Payouts.CreateInstruction.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Payouts.CreateInstruction"]</button>
+                @* Feedback repeated here so it is visible next to the button on this long page. *@
+                @if (_instructionError is not null) { <p style="color:#b91c1c; margin:0; font-size:.85rem;">@_instructionError</p> }
+                <button @onclick="CreateInstruction" disabled="@(!hasActiveBank)" title="@L["Payouts.CreateInstruction.Tip"]" style="padding:.45rem .9rem; background:@(hasActiveBank ? "#111827" : "#9ca3af"); color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Payouts.CreateInstruction"]</button>
             </div>
         </section>
     </div>
@@ -197,6 +208,7 @@
     private List<SupplierOption> _suppliers = [];
     private string? _status;
     private string? _error;
+    private string? _instructionError; // feedback shown inline next to the New-instruction button
     private readonly NewBankAccount _newBank = new();
     private readonly NewInstruction _newInstruction = new();
     private BankAccountEditor? _editBank;
@@ -206,7 +218,7 @@
 
     private async Task LoadAsync()
     {
-        _error = _status = null;
+        _error = _status = _instructionError = null;
         _editBank = null;
         _editInstruction = null;
         try
@@ -282,16 +294,16 @@
 
     private async Task CreateInstruction()
     {
-        _error = _status = null;
+        _error = _status = _instructionError = null;
         if (!Guid.TryParse(_tenantId, out var tenant))
         {
-            _error = L["Payouts.Error.TenantGuid"];
+            _instructionError = L["Payouts.Error.TenantGuid"];
             return;
         }
 
         if (!Guid.TryParse(_newInstruction.BankAccountId, out var bankAccountId))
         {
-            _error = L["Payouts.Error.ChooseBank"];
+            _instructionError = L["Payouts.Error.ChooseBank"];
             return;
         }
 
@@ -302,7 +314,7 @@
         var bank = _bankAccounts?.FirstOrDefault(a => a.Id == bankAccountId);
         if (bank is null)
         {
-            _error = L["Payouts.Error.ChooseBank"];
+            _instructionError = L["Payouts.Error.ChooseBank"];
             return;
         }
 
@@ -314,7 +326,7 @@
             await LoadAsync();
             _status = L["Payouts.Status.InstructionCreated"];
         }
-        else { _error = await ErrorText(response); }
+        else { _instructionError = await ErrorText(response); }
     }
 
     private void StartEditBank(SupplierBankAccountDto account) => _editBank = new BankAccountEditor

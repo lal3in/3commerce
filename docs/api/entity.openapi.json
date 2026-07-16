@@ -135,6 +135,38 @@
           }
         }
       },
+      "get": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Get an entity with its identifiers, contacts and addresses.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Entities"
@@ -157,6 +189,221 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/entities/{id}/identifiers": {
+      "post": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Add a tax/registration identifier (ABN, ACN, GST, other).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddIdentifierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{id}/identifiers/{identifierId}/verify": {
+      "post": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Mark an identifier verified (operator attestation).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "identifierId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{id}/contacts": {
+      "post": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Add a contact method (email/phone/website) with a purpose.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{id}/addresses": {
+      "post": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "Add a current address for a given purpose.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAddressRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -896,7 +1143,7 @@
         "tags": [
           "Entities"
         ],
-        "summary": "End a customer\u2194entity link (preserves history).",
+        "summary": "End a customer↔entity link (preserves history).",
         "parameters": [
           {
             "name": "linkId",
@@ -937,6 +1184,93 @@
   },
   "components": {
     "schemas": {
+      "AddAddressRequest": {
+        "required": [
+          "purpose",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postcode",
+          "countryCode"
+        ],
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/EntityAddressPurpose"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "line2": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "countryCode": {
+            "maxLength": 2,
+            "minLength": 2,
+            "type": "string"
+          }
+        }
+      },
+      "AddContactRequest": {
+        "required": [
+          "purpose",
+          "kind",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/EntityContactPurpose"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntityContactKind"
+          },
+          "value": {
+            "maxLength": 320,
+            "minLength": 3,
+            "type": "string"
+          }
+        }
+      },
+      "AddIdentifierRequest": {
+        "required": [
+          "type",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/EntityIdentifierType"
+          },
+          "value": {
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          }
+        }
+      },
       "CreateEntityRequest": {
         "required": [
           "tenantId",
@@ -1084,6 +1418,173 @@
       "DuplicateWarningStatus": {
         "type": "integer"
       },
+      "EntityAddressPurpose": {
+        "type": "integer"
+      },
+      "EntityAddressResponse": {
+        "required": [
+          "id",
+          "purpose",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postcode",
+          "countryCode"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/EntityAddressPurpose"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          }
+        }
+      },
+      "EntityContactKind": {
+        "type": "integer"
+      },
+      "EntityContactPurpose": {
+        "type": "integer"
+      },
+      "EntityContactResponse": {
+        "required": [
+          "id",
+          "purpose",
+          "kind",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/EntityContactPurpose"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntityContactKind"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "EntityDetailResponse": {
+        "required": [
+          "id",
+          "tenantId",
+          "type",
+          "legalName",
+          "tradingName",
+          "displayName",
+          "status",
+          "identifiers",
+          "contacts",
+          "addresses"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "legalName": {
+            "type": "string"
+          },
+          "tradingName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EntityRecordStatus"
+          },
+          "identifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityIdentifierResponse"
+            }
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityContactResponse"
+            }
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityAddressResponse"
+            }
+          }
+        }
+      },
+      "EntityIdentifierResponse": {
+        "required": [
+          "id",
+          "type",
+          "value",
+          "verificationStatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EntityIdentifierType"
+          },
+          "value": {
+            "type": "string"
+          },
+          "verificationStatus": {
+            "$ref": "#/components/schemas/EntityVerificationStatus"
+          }
+        }
+      },
+      "EntityIdentifierType": {
+        "type": "integer"
+      },
       "EntityRecordStatus": {
         "type": "integer"
       },
@@ -1141,6 +1642,9 @@
         }
       },
       "EntityType": {
+        "type": "integer"
+      },
+      "EntityVerificationStatus": {
         "type": "integer"
       },
       "HttpValidationProblemDetails": {
