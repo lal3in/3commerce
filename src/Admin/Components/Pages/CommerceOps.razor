@@ -82,15 +82,31 @@
                     <td>@(string.IsNullOrWhiteSpace(s.PublicUrl) ? "—" : s.PublicUrl)</td>
                     <td style="text-align:center;">@s.Currency</td>
                     <td style="text-align:center;">@TaxLabel(s)</td>
-                    <td style="text-align:center;">@s.State</td>
+                    <td style="text-align:center;">@StateName(s.State)</td>
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
                     <td style="text-align:right; white-space:nowrap;">
+                        @* Only offer the transitions VALID from the current state — otherwise clicking e.g.
+                           Preview on an already-Preview/Active storefront 400s ("state Preview cannot
+                           perform this transition"). Draft→preview/pause · Preview→activate/pause ·
+                           Active→pause · Paused→preview/activate · Archived→(none). *@
                         <button @onclick="() => SelectStorefront(s)" title="@L["Ops.Manage.Tip"]">@L["Ops.Manage"]</button>
-                        <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
-                        <button @onclick='() => Transition(s.Id, "activate")' title="@L["Ops.Activate.Tip"]">@L["Ops.Activate"]</button>
-                        <button @onclick='() => Transition(s.Id, "pause")' title="@L["Ops.Pause.Tip"]">@L["Ops.Pause"]</button>
-                        <button @onclick='() => Transition(s.Id, "archive")' title="@L["Ops.Archive.Tip"]" style="color:#b91c1c;">@L["Ops.Archive"]</button>
+                        @if (s.State is DraftState or PausedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
+                        }
+                        @if (s.State is PreviewState or PausedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "activate")' title="@L["Ops.Activate.Tip"]">@L["Ops.Activate"]</button>
+                        }
+                        @if (s.State is DraftState or PreviewState or ActiveState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "pause")' title="@L["Ops.Pause.Tip"]">@L["Ops.Pause"]</button>
+                        }
+                        @if (s.State != ArchivedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "archive")' title="@L["Ops.Archive.Tip"]" style="color:#b91c1c;">@L["Ops.Archive"]</button>
+                        }
                     </td>
                 </tr>
             }
@@ -185,6 +201,14 @@
 </section>
 
 @code {
+    // StorefrontState (Catalog domain) numeric values — enums cross HTTP as numbers.
+    private const int DraftState = 1, PreviewState = 2, ActiveState = 3, PausedState = 4, ArchivedState = 5;
+    private static string StateName(int s) => s switch
+    {
+        DraftState => "Draft", PreviewState => "Preview", ActiveState => "Active",
+        PausedState => "Paused", ArchivedState => "Archived", _ => s.ToString(),
+    };
+
     private string _tenantId = "00000000-0000-0000-0000-000000000001";
     private string _newStorefrontName = string.Empty;
     private int _newVisibility = 1;

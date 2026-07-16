@@ -28,6 +28,7 @@ public class Order
     public required string ShipName { get; set; }
     public required string ShipLine1 { get; set; }
     public required string ShipCity { get; set; }
+    public string? ShipRegion { get; set; }
     public required string ShipPostcode { get; set; }
     public required string ShipCountry { get; set; }
     public DateTimeOffset CreatedAt { get; init; }

@@ -1012,6 +1012,9 @@
   <data name="Currency.Tip" xml:space="preserve"><value>Currency (ISO 4217) this price is expressed in. Picked from the full list — never free-typed.</value></data>
   <data name="Currency.Group.Common" xml:space="preserve"><value>Common</value></data>
   <data name="Currency.Group.All" xml:space="preserve"><value>All currencies (ISO 4217)</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>Country (ISO 3166). Picked from the full list — never free-typed.</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>Common</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>All countries (ISO 3166)</value></data>
   <data name="Image.Tip" xml:space="preserve"><value>Paste an image URL, or upload a local file (PNG/JPEG/WebP/GIF, max 10 MB).</value></data>
   <data name="Image.Placeholder" xml:space="preserve"><value>https://… or upload →</value></data>
   <data name="Image.Browse" xml:space="preserve"><value>Browse…</value></data>

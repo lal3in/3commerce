@@ -15,7 +15,7 @@ public record OrderConfirmed(
     ShipToInfo ShipTo,
     IReadOnlyList<OrderLineInfo> Lines);
 
-public record ShipToInfo(string Name, string Line1, string City, string Postcode, string Country);
+public record ShipToInfo(string Name, string Line1, string City, string Postcode, string Country, string? Region = null);
 
 public record OrderLineInfo(
     Guid ProductId, Guid? VariantId, Guid? SupplierId, string Title, int Quantity,
