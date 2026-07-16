@@ -1026,4 +1026,7 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>填寫呢啲內容以建立可以做供應商嘅實體（驗證前全部必填）。留空可以稍後喺「詳情」度加。</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要電郵（例如 accounts@company.com）</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或營運電郵 — 供應商驗證需要。</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>國家/地區（ISO 3166）。喺完整清單度揀，唔使自己打。</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>常用</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>所有國家/地區（ISO 3166）</value></data>
 </root>

@@ -143,9 +143,9 @@ else if (_details is not null)
             <input @bind="_newAddr.Line1" placeholder="@L["Entities.Addr.Line1"]" title="@L["Entities.Addr.Line1.Tip"]" />
             <input @bind="_newAddr.Line2" placeholder="@L["Entities.Addr.Line2"]" title="@L["Entities.Addr.Line2.Tip"]" />
             <input @bind="_newAddr.City" placeholder="@L["Entities.Addr.City"]" title="@L["Entities.Addr.City.Tip"]" />
-            <input @bind="_newAddr.Region" placeholder="@L["Entities.Addr.Region"]" title="@L["Entities.Addr.Region.Tip"]" />
+            <input @bind="_newAddr.Region" placeholder="@Countries.RegionLabel(_newAddr.CountryCode)" title="@L["Entities.Addr.Region.Tip"]" />
             <input @bind="_newAddr.Postcode" placeholder="@L["Entities.Addr.Postcode"]" title="@L["Entities.Addr.Postcode.Tip"]" />
-            <input @bind="_newAddr.CountryCode" maxlength="2" placeholder="@L["Entities.Addr.Country"]" title="@L["Entities.Addr.Country.Tip"]" />
+            <CountrySelect @bind-Value="_newAddr.CountryCode" title="@L["Entities.Addr.Country.Tip"]" />
             <button @onclick="AddAddress" title="@L["Entities.Addr.Add.Tip"]">@L["Common.Add"]</button>
         </div>
     </section>
@@ -218,8 +218,9 @@ else
                         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.4rem; margin-top:.4rem;">
                             <input @bind="_createAddr.Line1" placeholder="@L["Entities.Addr.Line1"]" title="@L["Entities.Addr.Line1.Tip"]" />
                             <input @bind="_createAddr.City" placeholder="@L["Entities.Addr.City"]" title="@L["Entities.Addr.City.Tip"]" />
+                            <input @bind="_createAddr.Region" placeholder="@Countries.RegionLabel(_createAddr.CountryCode)" title="@L["Entities.Addr.Region.Tip"]" />
                             <input @bind="_createAddr.Postcode" placeholder="@L["Entities.Addr.Postcode"]" title="@L["Entities.Addr.Postcode.Tip"]" />
-                            <input @bind="_createAddr.CountryCode" maxlength="2" placeholder="@L["Entities.Addr.Country"]" title="@L["Entities.Addr.Country.Tip"]" />
+                            <CountrySelect @bind-Value="_createAddr.CountryCode" title="@L["Entities.Addr.Country.Tip"]" />
                         </div>
                     </div>
                 }

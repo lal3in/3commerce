@@ -1026,4 +1026,7 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>填写这些内容以创建可作为供应商的实体（验证前均为必填）。留空可稍后通过“详情”添加。</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要邮箱（例如 accounts@company.com）</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或运营邮箱 — 供应商验证所需。</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>国家/地区（ISO 3166）。从完整列表中选择，无需手动输入。</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>常用</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>所有国家/地区（ISO 3166）</value></data>
 </root>
