@@ -987,4 +987,39 @@
   <data name="Error.DevMode" xml:space="preserve"><value>Modo de desarrollo</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>Cambiar al entorno de &lt;strong&gt;Desarrollo&lt;/strong&gt; mostrará información más detallada sobre el error que se produjo.</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;El entorno de Desarrollo no debe habilitarse para aplicaciones desplegadas.&lt;/strong&gt; Puede provocar que se muestre información sensible de las excepciones a los usuarios finales. Para la depuración local, habilite el entorno de &lt;strong&gt;Desarrollo&lt;/strong&gt; estableciendo la variable de entorno &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; en &lt;strong&gt;Development&lt;/strong&gt; y reiniciando la aplicación.</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>Actividad comercial</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>pedidos, ingresos, reembolsos y devoluciones en vivo</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>Pedidos</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>Todos los pedidos en el modelo de lectura de administración.</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Confirmados</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Pedidos cuyo pago se ha capturado.</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Ingresos</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Total bruto de pedidos confirmados y reembolsados (unidades principales).</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Reembolsados</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Pedidos totalmente reembolsados.</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Cancelados</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Pedidos cancelados antes del pago.</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>RMA abiertos</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Devoluciones en curso (solicitada, esperando devolución o reembolso pendiente).</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Reembolsos emitidos</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMA cuyo reembolso se ha completado.</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>Monitores de procesos</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>canales de pago, suscripciones, dropshipping y notificaciones</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>Pagos en curso</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>Sagas de pago a la espera del cobro (aún no confirmadas ni canceladas).</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>Suscripciones activas</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>Suscripciones activas o en prueba que se renovarán.</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>Suscripciones vencidas</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>Suscripciones cuyo pago de renovación falló.</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>Dropshipping abierto</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>Pedidos a proveedor solicitados o aceptados, a la espera de seguimiento.</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>Seguimiento dropshipping</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>Pedidos a proveedor que devolvieron un número de seguimiento.</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>Dropshipping fallido</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>Pedidos a proveedor que el proveedor rechazó o no reenvió.</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>Seleccione una opción…</value></data>
+  <data name="Mc.Kpi.NotifSent" xml:space="preserve"><value>Notificaciones enviadas (24 h)</value></data>
+  <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>Correos entregados en las últimas 24 horas.</value></data>
+  <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>Notificaciones fallidas</value></data>
+  <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>Envíos de notificaciones fallidos (requieren atención).</value></data>
 </root>

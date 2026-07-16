@@ -987,4 +987,39 @@
   <data name="Error.DevMode" xml:space="preserve"><value>開發模式</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>切換去&lt;strong&gt;開發&lt;/strong&gt;環境會顯示關於所發生錯誤嘅更詳細資訊。</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;已部署嘅應用程式唔應該啟用開發環境。&lt;/strong&gt;咁做可能會將例外中嘅敏感資訊顯示俾最終用戶。若要作本機除錯，請將 &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; 環境變數設為 &lt;strong&gt;Development&lt;/strong&gt; 並重新啟動應用程式，以啟用&lt;strong&gt;開發&lt;/strong&gt;環境。</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>商務活動</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>即時訂單、收入、退款同退貨</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>訂單</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>管理讀取模型入面嘅所有訂單。</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>已確認</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>已經收到付款嘅訂單。</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>收入</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>已確認同已退款訂單嘅總額（主要單位）。</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>全數退款嘅訂單。</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>付款前取消嘅訂單。</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>未處理退貨</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>處理緊嘅退貨（已申請、等緊退回或者待退款）。</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>已發放退款</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>退款已完成嘅退貨。</value></data>
+  <data name="Mc.Process" xml:space="preserve"><value>流程監控</value></data>
+  <data name="Mc.Process.Subtitle" xml:space="preserve"><value>結帳、訂閱、代發貨同通知</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight" xml:space="preserve"><value>進行緊嘅結帳</value></data>
+  <data name="Mc.Kpi.CheckoutsInFlight.Tip" xml:space="preserve"><value>等緊付款（未確認或取消）嘅結帳流程。</value></data>
+  <data name="Mc.Kpi.SubsActive" xml:space="preserve"><value>有效訂閱</value></data>
+  <data name="Mc.Kpi.SubsActive.Tip" xml:space="preserve"><value>會續訂嘅有效或試用訂閱。</value></data>
+  <data name="Mc.Kpi.SubsPastDue" xml:space="preserve"><value>逾期訂閱</value></data>
+  <data name="Mc.Kpi.SubsPastDue.Tip" xml:space="preserve"><value>續訂付款失敗嘅訂閱。</value></data>
+  <data name="Mc.Kpi.DropshipOpen" xml:space="preserve"><value>代發貨待處理</value></data>
+  <data name="Mc.Kpi.DropshipOpen.Tip" xml:space="preserve"><value>已請求或已接受、等緊物流追蹤嘅供應商訂單。</value></data>
+  <data name="Mc.Kpi.DropshipTracking" xml:space="preserve"><value>代發貨已追蹤</value></data>
+  <data name="Mc.Kpi.DropshipTracking.Tip" xml:space="preserve"><value>已經有物流單號嘅供應商訂單。</value></data>
+  <data name="Mc.Kpi.DropshipFailed" xml:space="preserve"><value>代發貨失敗</value></data>
+  <data name="Mc.Kpi.DropshipFailed.Tip" xml:space="preserve"><value>供應商拒絕或轉發失敗嘅訂單。</value></data>
+  <data name="XeroMap.Field.Target.Choose" xml:space="preserve"><value>揀一個選項…</value></data>
+  <data name="Mc.Kpi.NotifSent" xml:space="preserve"><value>通知已發送（24小時）</value></data>
+  <data name="Mc.Kpi.NotifSent.Tip" xml:space="preserve"><value>過去 24 小時內已送達嘅電郵。</value></data>
+  <data name="Mc.Kpi.NotifFailed" xml:space="preserve"><value>通知發送失敗</value></data>
+  <data name="Mc.Kpi.NotifFailed.Tip" xml:space="preserve"><value>發送失敗嘅通知（需要處理）。</value></data>
 </root>
