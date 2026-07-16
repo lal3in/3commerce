@@ -987,4 +987,20 @@
   <data name="Error.DevMode" xml:space="preserve"><value>Entwicklungsmodus</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>Der Wechsel zur &lt;strong&gt;Entwicklungsumgebung&lt;/strong&gt; zeigt detailliertere Informationen über den aufgetretenen Fehler an.</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;Die Entwicklungsumgebung sollte für bereitgestellte Anwendungen nicht aktiviert sein.&lt;/strong&gt; Sie kann dazu führen, dass Endbenutzern sensible Informationen aus Ausnahmen angezeigt werden. Aktivieren Sie für lokales Debugging die &lt;strong&gt;Entwicklungsumgebung&lt;/strong&gt;, indem Sie die Umgebungsvariable &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; auf &lt;strong&gt;Development&lt;/strong&gt; setzen und die App neu starten.</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>Handelsaktivität</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>Live-Bestellungen, Umsatz, Rückerstattungen &amp; Rücksendungen</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>Alle Bestellungen im Admin-Lesemodell.</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Bestätigt</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Bestellungen, deren Zahlung eingezogen wurde.</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Umsatz</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Bruttosumme bestätigter und rückerstatteter Bestellungen (Haupteinheiten).</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Rückerstattet</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Vollständig rückerstattete Bestellungen.</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Storniert</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Vor der Zahlung stornierte Bestellungen.</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>Offene RMAs</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Laufende Rücksendungen (angefragt, Rücksendung ausstehend oder Rückerstattung ausstehend).</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Rückerstattungen ausgeführt</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs, deren Rückerstattung abgeschlossen ist.</value></data>
 </root>

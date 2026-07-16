@@ -987,4 +987,20 @@
   <data name="Error.DevMode" xml:space="preserve"><value>開發模式</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>切換去&lt;strong&gt;開發&lt;/strong&gt;環境會顯示關於所發生錯誤嘅更詳細資訊。</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;已部署嘅應用程式唔應該啟用開發環境。&lt;/strong&gt;咁做可能會將例外中嘅敏感資訊顯示俾最終用戶。若要作本機除錯，請將 &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; 環境變數設為 &lt;strong&gt;Development&lt;/strong&gt; 並重新啟動應用程式，以啟用&lt;strong&gt;開發&lt;/strong&gt;環境。</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>商務活動</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>即時訂單、收入、退款同退貨</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>訂單</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>管理讀取模型入面嘅所有訂單。</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>已確認</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>已經收到付款嘅訂單。</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>收入</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>已確認同已退款訂單嘅總額（主要單位）。</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>全數退款嘅訂單。</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>付款前取消嘅訂單。</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>未處理退貨</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>處理緊嘅退貨（已申請、等緊退回或者待退款）。</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>已發放退款</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>退款已完成嘅退貨。</value></data>
 </root>

@@ -987,4 +987,20 @@
   <data name="Error.DevMode" xml:space="preserve"><value>Mode Développement</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>Passer à l'environnement &lt;strong&gt;Development&lt;/strong&gt; affichera des informations plus détaillées sur l'erreur survenue.</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;L'environnement Development ne doit pas être activé pour les applications déployées.&lt;/strong&gt; Il peut entraîner l'affichage d'informations sensibles issues des exceptions aux utilisateurs finaux. Pour le débogage local, activez l'environnement &lt;strong&gt;Development&lt;/strong&gt; en définissant la variable d'environnement &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; sur &lt;strong&gt;Development&lt;/strong&gt; et en redémarrant l'application.</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>Activité commerciale</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>commandes, chiffre d'affaires, remboursements et retours en direct</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>Commandes</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>Toutes les commandes du modèle de lecture admin.</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Confirmées</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Commandes dont le paiement a été capturé.</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Chiffre d'affaires</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Total brut des commandes confirmées et remboursées (unités principales).</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Remboursées</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Commandes intégralement remboursées.</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Annulées</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Commandes annulées avant paiement.</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>RMA ouverts</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Retours en cours (demandé, en attente de retour ou remboursement en attente).</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Remboursements émis</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMA dont le remboursement est terminé.</value></data>
 </root>
