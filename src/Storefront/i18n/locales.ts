@@ -33,6 +33,10 @@ export const LOCALE_COOKIE = "3c_locale";
 export const LOCALES: LocaleDefinition[] = [
   { code: "en", label: "English", messages: () => import("../messages/en.json") },
   { code: "zh", label: "中文", messages: () => import("../messages/zh.json") },
+  { code: "yue", label: "廣東話", messages: () => import("../messages/yue.json") },
+  { code: "de", label: "Deutsch", messages: () => import("../messages/de.json") },
+  { code: "fr", label: "Français", messages: () => import("../messages/fr.json") },
+  { code: "es", label: "Español", messages: () => import("../messages/es.json") },
 ];
 
 export const LOCALE_CODES: LocaleCode[] = LOCALES.map((l) => l.code);
