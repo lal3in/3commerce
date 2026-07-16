@@ -20,6 +20,21 @@
     @KpiCard(L["Mc.Kpi.FailedJobs"], _runs.Count(r => r.Status is "Failed").ToString(), _runs.Any(r => r.Status is "Failed") ? "#dc2626" : "#059669", L["Mc.Kpi.FailedJobs.Tip"])
 </div>
 
+@* Live commerce activity (mc1): orders / revenue / refunds & returns, from the same admin read
+   models the Orders and RMA pages use — a payment or refund shows here as soon as it lands. *@
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1.2rem;">
+    <h2 style="margin-top:0;">@L["Mc.Commerce"] <span style="color:#6b7280; font-size:.75rem; font-weight:400;">@L["Mc.Commerce.Subtitle"]</span></h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem;">
+        @KpiCard(L["Mc.Kpi.Orders"], _orders.Count.ToString(), "#4f46e5", L["Mc.Kpi.Orders.Tip"])
+        @KpiCard(L["Mc.Kpi.Confirmed"], OrdersWith("Confirmed").ToString(), "#059669", L["Mc.Kpi.Confirmed.Tip"])
+        @KpiCard(L["Mc.Kpi.Revenue"], $"{RevenueMinor / 100m:0.00}", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
+        @KpiCard(L["Mc.Kpi.Refunded"], OrdersWith("Refunded").ToString(), _orders.Any(o => o.Status == "Refunded") ? "#b45309" : "#059669", L["Mc.Kpi.Refunded.Tip"])
+        @KpiCard(L["Mc.Kpi.Cancelled"], OrdersWith("Cancelled").ToString(), "#6b7280", L["Mc.Kpi.Cancelled.Tip"])
+        @KpiCard(L["Mc.Kpi.RmasOpen"], RmasWith("Requested", "AwaitingReturn", "RefundPending").ToString(), RmasWith("Requested", "AwaitingReturn", "RefundPending") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasOpen.Tip"])
+        @KpiCard(L["Mc.Kpi.RmasIssued"], RmasWith("RefundIssued").ToString(), "#059669", L["Mc.Kpi.RmasIssued.Tip"])
+    </div>
+</section>
+
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.2rem;">
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
         <h2 style="margin-top:0;">@L["Mc.Timeline"]</h2>
@@ -138,6 +153,8 @@
 @code {
     private List<AuditDto> _audit = [];
     private List<RunDto> _runs = [];
+    private List<OrderKpiDto> _orders = [];
+    private List<RmaKpiDto> _rmas = [];
     private BusStatsService.BusSnapshot? _bus;
     private string _tenant = "00000000-0000-0000-0000-000000000001";
 
@@ -147,8 +164,16 @@
     {
         _audit = await Gateway.GetListAsync<AuditDto>($"/api/audit/admin/audit?tenantId={_tenant}");
         _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
+        // Live commerce activity — the same admin read models the Orders and RMA pages use, so a
+        // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
+        _orders = await Gateway.GetListAsync<OrderKpiDto>("/api/ordering/admin/orders");
+        _rmas = await Gateway.GetListAsync<RmaKpiDto>("/api/support/admin/rmas");
         _bus = await BusStats.GetSnapshotAsync();
     }
+
+    private int OrdersWith(params string[] statuses) => _orders.Count(o => statuses.Contains(o.Status));
+    private int RmasWith(params string[] states) => _rmas.Count(r => states.Contains(r.State));
+    private long RevenueMinor => _orders.Where(o => o.Status is "Confirmed" or "Refunded").Sum(o => o.GrossMinor);
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
 
@@ -163,4 +188,6 @@
 
     private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
     private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
+    private record OrderKpiDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+    private record RmaKpiDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
 }

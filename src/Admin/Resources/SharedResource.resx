@@ -877,6 +877,22 @@
   <data name="Mc.Intro" xml:space="preserve"><value>Activity comes from the central Audit projection; jobs from the Workflow service. Data is via owning-service APIs only — never by reading service DBs directly (mt6_14).</value></data>
   <data name="Mc.Kpi.Activity" xml:space="preserve"><value>Activity (24h)</value></data>
   <data name="Mc.Kpi.Activity.Tip" xml:space="preserve"><value>Audit events recorded in the last 24 hours.</value></data>
+  <data name="Mc.Commerce" xml:space="preserve"><value>Commerce activity</value></data>
+  <data name="Mc.Commerce.Subtitle" xml:space="preserve"><value>live orders, revenue, refunds &amp; returns</value></data>
+  <data name="Mc.Kpi.Orders" xml:space="preserve"><value>Orders</value></data>
+  <data name="Mc.Kpi.Orders.Tip" xml:space="preserve"><value>All orders in the admin read model.</value></data>
+  <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Confirmed</value></data>
+  <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Orders whose payment has been captured.</value></data>
+  <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Gross total of confirmed and refunded orders (major units).</value></data>
+  <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Refunded</value></data>
+  <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Fully refunded orders.</value></data>
+  <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Orders cancelled before payment.</value></data>
+  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>RMAs open</value></data>
+  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Returns in progress (requested, awaiting return, or refund pending).</value></data>
+  <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Refunds issued</value></data>
+  <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs whose refund has completed.</value></data>
   <data name="Mc.Kpi.AuditEvents" xml:space="preserve"><value>Audit events</value></data>
   <data name="Mc.Kpi.AuditEvents.Tip" xml:space="preserve"><value>Every audit event in the projection for this tenant.</value></data>
   <data name="Mc.Kpi.JobRuns" xml:space="preserve"><value>Job runs</value></data>
