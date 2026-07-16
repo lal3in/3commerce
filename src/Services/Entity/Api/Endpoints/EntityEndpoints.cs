@@ -842,7 +842,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), request.Reason, cancellationToken);
+            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), IsAdmin(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -861,7 +861,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), request.Reason, cancellationToken);
+            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), IsAdmin(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -929,6 +929,11 @@ public static class EntityEndpoints
     // The acting ROLE for the audit entry, from the same internal claims the AuditActor convention
     // uses (mt6_1) — so a maker-checker decision records who decided AND in which role.
     private static string? ActingRole(HttpContext http) => http.User.AuditActor().ActorRole;
+
+    // Admins/operators are trusted to self-approve their own supplier change requests (maker-checker is
+    // only enforced for non-admin requesters). These endpoints already require the admin role, so this
+    // is true in practice — reading it keeps the rule explicit rather than hard-coded.
+    private static bool IsAdmin(HttpContext http) => http.User.IsInRole("admin");
 
     private static CustomerEntityLinkResponse ToResponse(CustomerEntityLink link) => new(
         link.Id,

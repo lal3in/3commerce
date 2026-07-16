@@ -42,7 +42,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
     /// maker-checker decision shows WHO, in WHICH role, decided. Null only when unauthenticated.
     /// </param>
     public async Task<SupplierChangeRequest?> ApproveAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, string? reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, bool approverIsAdmin, string? reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -52,7 +52,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
         try
         {
-            request.Approve(approverPrincipalId, reason, timeProvider.GetUtcNow());
+            request.Approve(approverPrincipalId, approverIsAdmin, reason, timeProvider.GetUtcNow());
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {
@@ -74,7 +74,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
     /// <param name="approverRole">The deciding principal's <c>role</c> claim — recorded on the audit entry (mt6_1).</param>
     public async Task<SupplierChangeRequest?> RejectAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, string reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, bool approverIsAdmin, string reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -84,7 +84,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
         try
         {
-            request.Reject(approverPrincipalId, reason, timeProvider.GetUtcNow());
+            request.Reject(approverPrincipalId, approverIsAdmin, reason, timeProvider.GetUtcNow());
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {
