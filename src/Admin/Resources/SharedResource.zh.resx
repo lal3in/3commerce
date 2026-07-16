@@ -1,0 +1,990 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    English base (neutral) resources for the admin console — the fallback for every culture.
+
+    Conventions:
+      <Area>.<Thing>      a visible label, heading, button, option or message
+      <Area>.<Thing>.Tip  the tooltip (title=) for the control that label belongs to
+      {0}, {1}            format arguments, passed as L["Key", arg]
+
+    Adding a language: copy this file to SharedResource.<culture>.resx (e.g. SharedResource.fr.resx),
+    translate the <value>s, rebuild. Keys you leave out fall back to the English value here, and the culture
+    shows up in the layout's language switcher automatically (AdminCultures discovers satellite assemblies).
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ===== Common ===== -->
+  <data name="Common.Loading" xml:space="preserve"><value>加载中…</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Common.Save.Tip" xml:space="preserve"><value>保存您的更改。</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>保存中…</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Common.Cancel.Tip" xml:space="preserve"><value>放弃更改并返回。</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>删除</value></data>
+  <data name="Common.Create" xml:space="preserve"><value>创建</value></data>
+  <data name="Common.Load" xml:space="preserve"><value>加载</value></data>
+  <data name="Common.Load.Tip" xml:space="preserve"><value>加载上方租户的记录。</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>刷新</value></data>
+  <data name="Common.Refresh.Tip" xml:space="preserve"><value>从各服务重新加载本页数据。</value></data>
+  <data name="Common.Search" xml:space="preserve"><value>搜索</value></data>
+  <data name="Common.Clear" xml:space="preserve"><value>清空</value></data>
+  <data name="Common.Clear.Tip" xml:space="preserve"><value>清空表单但不保存。</value></data>
+  <data name="Common.Confirm" xml:space="preserve"><value>确认？</value></data>
+  <data name="Common.Actions" xml:space="preserve"><value>操作</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Common.Name" xml:space="preserve"><value>名称</value></data>
+  <data name="Common.Type" xml:space="preserve"><value>类型</value></data>
+  <data name="Common.Reason" xml:space="preserve"><value>原因</value></data>
+  <data name="Common.Active" xml:space="preserve"><value>启用</value></data>
+  <data name="Common.Inactive" xml:space="preserve"><value>停用</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>是</value></data>
+  <data name="Common.No" xml:space="preserve"><value>否</value></data>
+  <data name="Common.Remove.Tip" xml:space="preserve"><value>移除此行。</value></data>
+  <data name="Common.TenantId" xml:space="preserve"><value>租户 ID</value></data>
+  <data name="Common.TenantId.Tip" xml:space="preserve"><value>您正在管理其记录的租户（GUID）。</value></data>
+
+  <!-- ===== App shell / navigation / language switcher ===== -->
+  <data name="App.Title" xml:space="preserve"><value>3commerce 管理后台</value></data>
+  <data name="Nav.Dashboard" xml:space="preserve"><value>仪表板</value></data>
+  <data name="Nav.Dashboard.Tip" xml:space="preserve"><value>实时运营概览：收入、订单、商品、未处理 RMA 及账簿余额。</value></data>
+  <data name="Nav.Catalog" xml:space="preserve"><value>商品目录</value></data>
+  <data name="Nav.Catalog.Tip" xml:space="preserve"><value>创建和编辑商品、变体、价格、图片及属性。</value></data>
+  <data name="Nav.Offers" xml:space="preserve"><value>供货与定价</value></data>
+  <data name="Nav.Offers.Tip" xml:space="preserve"><value>供应商供货配置：履约类型、价格模型、计费周期、优先级。</value></data>
+  <data name="Nav.Orders" xml:space="preserve"><value>订单</value></data>
+  <data name="Nav.Orders.Tip" xml:space="preserve"><value>浏览订单；取消未付款订单，为已付款订单退款。</value></data>
+  <data name="Nav.Rmas" xml:space="preserve"><value>RMA 队列</value></data>
+  <data name="Nav.Rmas.Tip" xml:space="preserve"><value>批准、拒绝和接收客户退货请求。</value></data>
+  <data name="Nav.Ledger" xml:space="preserve"><value>账簿</value></data>
+  <data name="Nav.Ledger.Tip" xml:space="preserve"><value>复式记账账簿——每一笔已过账分录及其明细行。</value></data>
+  <data name="Nav.XeroSync" xml:space="preserve"><value>Xero 同步</value></data>
+  <data name="Nav.XeroSync.Tip" xml:space="preserve"><value>向 Xero 过账每日汇总日记账，并查看历史同步运行。</value></data>
+  <data name="Nav.XeroMappings" xml:space="preserve"><value>Xero 映射</value></data>
+  <data name="Nav.XeroMappings.Tip" xml:space="preserve"><value>将账簿科目代码映射到 Xero 科目代码，并按作用域优先级生效。</value></data>
+  <data name="Nav.Imports" xml:space="preserve"><value>导入</value></data>
+  <data name="Nav.Imports.Tip" xml:space="preserve"><value>运行商品目录导入器，查看每次运行读取、接受和拒绝的内容。</value></data>
+  <data name="Nav.Rbac" xml:space="preserve"><value>角色与权限</value></data>
+  <data name="Nav.Rbac.Tip" xml:space="preserve"><value>从代码定义的权限集中组合角色；由 Identity PDP 强制执行。</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>运营用户</value></data>
+  <data name="Nav.Users.Tip" xml:space="preserve"><value>登录租户的账户：重置密码、更改邮箱。</value></data>
+  <data name="Nav.Entities" xml:space="preserve"><value>实体与供应商</value></data>
+  <data name="Nav.Entities.Tip" xml:space="preserve"><value>参与方主数据、供应商入驻，以及双人复核变更请求队列。</value></data>
+  <data name="Nav.CommerceOps" xml:space="preserve"><value>商务运营</value></data>
+  <data name="Nav.CommerceOps.Tip" xml:space="preserve"><value>店面、域名、发布、税制及其相关策略界面。</value></data>
+  <data name="Nav.PaymentAccounts" xml:space="preserve"><value>支付账户</value></data>
+  <data name="Nav.PaymentAccounts.Tip" xml:space="preserve"><value>租户与店面的支付服务商账户及其生命周期。</value></data>
+  <data name="Nav.SupplierPayouts" xml:space="preserve"><value>供应商付款</value></data>
+  <data name="Nav.SupplierPayouts.Tip" xml:space="preserve"><value>已令牌化的供应商银行账户及使用它们的付款指令。</value></data>
+  <data name="Nav.MissionControl" xml:space="preserve"><value>指挥中心</value></data>
+  <data name="Nav.MissionControl.Tip" xml:space="preserve"><value>跨服务只读运营：审计活动、计划任务、消息总线健康状况。</value></data>
+  <data name="Nav.Security" xml:space="preserve"><value>安全</value></data>
+  <data name="Nav.Security.Tip" xml:space="preserve"><value>您的双因素注册、租户 MFA 策略以及 Webhook 签名密钥。</value></data>
+  <data name="Nav.Logout" xml:space="preserve"><value>退出登录</value></data>
+  <data name="Nav.Logout.Tip" xml:space="preserve"><value>结束您的管理会话并返回登录页。</value></data>
+  <data name="Nav.Language" xml:space="preserve"><value>语言</value></data>
+  <data name="Nav.Language.Tip" xml:space="preserve"><value>本次会话中管理界面的语言。它以 Cookie 形式存储在您的浏览器中，与货币、税务及其他财务配置相互独立。</value></data>
+  <data name="Nav.Language.Apply" xml:space="preserve"><value>应用</value></data>
+  <data name="Nav.Language.Apply.Tip" xml:space="preserve"><value>将界面切换为所选语言并重新加载页面。</value></data>
+
+  <!-- ===== Login ===== -->
+  <data name="Login.Title" xml:space="preserve"><value>管理员登录</value></data>
+  <data name="Login.Error.Mfa" xml:space="preserve"><value>此账户已启用 MFA——请输入身份验证器应用中的 6 位验证码（或恢复码）。</value></data>
+  <data name="Login.Error.Invalid" xml:space="preserve"><value>凭据无效或非管理员账户。</value></data>
+  <data name="Login.Email" xml:space="preserve"><value>邮箱</value></data>
+  <data name="Login.Email.Tip" xml:space="preserve"><value>您的运营邮箱。管理后台要求具有“admin”角色。</value></data>
+  <data name="Login.Password" xml:space="preserve"><value>密码</value></data>
+  <data name="Login.Password.Tip" xml:space="preserve"><value>您的账户密码。</value></data>
+  <data name="Login.Code" xml:space="preserve"><value>身份验证器验证码</value></data>
+  <data name="Login.Code.Tip" xml:space="preserve"><value>仅当您的账户启用了 MFA（安全页面）时需要。否则请留空。恢复码在此同样有效。</value></data>
+  <data name="Login.SignIn" xml:space="preserve"><value>登录</value></data>
+  <data name="Login.SignIn.Tip" xml:space="preserve"><value>登录管理后台。</value></data>
+
+  <!-- ===== Dashboard (Home) ===== -->
+  <data name="Home.Title" xml:space="preserve"><value>仪表板</value></data>
+  <data name="Home.Subtitle" xml:space="preserve"><value>运营概览 · 实时</value></data>
+  <data name="Home.Loading" xml:space="preserve"><value>正在加载指标…</value></data>
+  <data name="Home.Kpi.Revenue" xml:space="preserve"><value>收入</value></data>
+  <data name="Home.Kpi.Revenue.Tip" xml:space="preserve"><value>订单服务记录的所有订单的总收入。</value></data>
+  <data name="Home.Kpi.Revenue.Sub" xml:space="preserve"><value>{0} 笔订单</value></data>
+  <data name="Home.Kpi.Orders" xml:space="preserve"><value>订单</value></data>
+  <data name="Home.Kpi.Orders.Tip" xml:space="preserve"><value>各种状态的订单总数。</value></data>
+  <data name="Home.Kpi.Orders.Sub" xml:space="preserve"><value>今日 {0} 笔</value></data>
+  <data name="Home.Kpi.Products" xml:space="preserve"><value>商品</value></data>
+  <data name="Home.Kpi.Products.Tip" xml:space="preserve"><value>租户商品目录中的商品（抽样前 200 个）。</value></data>
+  <data name="Home.Kpi.Products.Sub" xml:space="preserve"><value>在目录中</value></data>
+  <data name="Home.Kpi.OpenRmas" xml:space="preserve"><value>未处理 RMA</value></data>
+  <data name="Home.Kpi.OpenRmas.Tip" xml:space="preserve"><value>仍在等待运营人员裁决的退货请求。</value></data>
+  <data name="Home.Kpi.OpenRmas.Sub" xml:space="preserve"><value>共 {0} 个</value></data>
+  <data name="Home.Kpi.Ledger" xml:space="preserve"><value>账簿余额</value></data>
+  <data name="Home.Kpi.Ledger.Tip" xml:space="preserve"><value>账簿中借方减贷方的差额。健康的复式记账账簿总和应为零。</value></data>
+  <data name="Home.Kpi.Balanced" xml:space="preserve"><value>已平衡 ✓</value></data>
+  <data name="Home.Kpi.OutOfBalance" xml:space="preserve"><value>不平衡</value></data>
+  <data name="Home.Revenue14" xml:space="preserve"><value>收入——最近 14 天</value></data>
+  <data name="Home.NoOrders" xml:space="preserve"><value>暂无订单。</value></data>
+  <data name="Home.OrdersByStatus" xml:space="preserve"><value>按状态划分的订单</value></data>
+  <data name="Home.RecentOrders" xml:space="preserve"><value>近期订单</value></data>
+  <data name="Home.Col.When" xml:space="preserve"><value>时间</value></data>
+  <data name="Home.Col.Order" xml:space="preserve"><value>订单</value></data>
+  <data name="Home.Col.Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Home.Col.Amount" xml:space="preserve"><value>金额</value></data>
+
+  <!-- ===== Catalog ===== -->
+  <data name="Catalog.Title" xml:space="preserve"><value>商品目录</value></data>
+  <data name="Catalog.Search.Placeholder" xml:space="preserve"><value>搜索标题或 slug…</value></data>
+  <data name="Catalog.Search.Tip" xml:space="preserve"><value>按标题或 slug 筛选商品。</value></data>
+  <data name="Catalog.Search.Button.Tip" xml:space="preserve"><value>执行搜索。</value></data>
+  <data name="Catalog.New" xml:space="preserve"><value>新建商品</value></data>
+  <data name="Catalog.New.Tip" xml:space="preserve"><value>创建一个带有一个空变体的新商品。</value></data>
+  <data name="Catalog.Empty" xml:space="preserve"><value>暂无商品。</value></data>
+  <data name="Catalog.Col.Title" xml:space="preserve"><value>标题</value></data>
+  <data name="Catalog.Col.Brand" xml:space="preserve"><value>品牌</value></data>
+  <data name="Catalog.Col.Type" xml:space="preserve"><value>类型</value></data>
+  <data name="Catalog.Col.Variants" xml:space="preserve"><value>变体</value></data>
+  <data name="Catalog.Col.From" xml:space="preserve"><value>起价</value></data>
+  <data name="Catalog.Col.Stock" xml:space="preserve"><value>库存</value></data>
+  <data name="Catalog.Edit.Tip" xml:space="preserve"><value>编辑此商品。</value></data>
+  <data name="Catalog.Delete.Tip" xml:space="preserve"><value>永久删除此商品。</value></data>
+  <data name="Catalog.EditProduct" xml:space="preserve"><value>编辑商品</value></data>
+  <data name="Catalog.Field.Title" xml:space="preserve"><value>标题</value></data>
+  <data name="Catalog.Field.Title.Tip" xml:space="preserve"><value>顾客看到的商品名称。应清晰具体（例如“Borealis Ultra Speaker 22”）。</value></data>
+  <data name="Catalog.Field.Slug" xml:space="preserve"><value>Slug</value></data>
+  <data name="Catalog.Field.Slug.Tip" xml:space="preserve"><value>适合 URL 的标识符（小写、连字符）。必须唯一——它构成店面链接。</value></data>
+  <data name="Catalog.Field.Brand" xml:space="preserve"><value>品牌</value></data>
+  <data name="Catalog.Field.Brand.Tip" xml:space="preserve"><value>商品上显示的制造商或品牌。</value></data>
+  <data name="Catalog.Field.Description" xml:space="preserve"><value>描述</value></data>
+  <data name="Catalog.Field.Description.Tip" xml:space="preserve"><value>商品页面上向顾客展示的描述。纯文本。</value></data>
+  <data name="Catalog.Field.Category" xml:space="preserve"><value>类目</value></data>
+  <data name="Catalog.Field.Category.Hint" xml:space="preserve"><value>（必填——未归类的商品无法被搜索到）</value></data>
+  <data name="Catalog.Field.Category.Tip" xml:space="preserve"><value>此商品所属的目录类目。必填：未归类的商品无法被搜索到。</value></data>
+  <data name="Catalog.Field.ProductType" xml:space="preserve"><value>商品种类</value></data>
+  <data name="Catalog.Field.ProductType.Hint" xml:space="preserve"><value>（供顾客浏览/筛选；计费机制归于供货（Offer）——ADR-0028）</value></data>
+  <data name="Catalog.Field.ProductType.Tip" xml:space="preserve"><value>面向顾客的商品种类。订阅制/按用量计费的商品通过其供货（Offer）计费。</value></data>
+  <data name="Catalog.Type.Physical" xml:space="preserve"><value>实物</value></data>
+  <data name="Catalog.Type.Digital" xml:space="preserve"><value>数字</value></data>
+  <data name="Catalog.Type.Service" xml:space="preserve"><value>服务</value></data>
+  <data name="Catalog.Type.Bundle" xml:space="preserve"><value>套装</value></data>
+  <data name="Catalog.Type.Subscription" xml:space="preserve"><value>订阅</value></data>
+  <data name="Catalog.Type.Usage" xml:space="preserve"><value>按用量</value></data>
+  <data name="Catalog.Variants" xml:space="preserve"><value>变体</value></data>
+  <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
+  <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>库存单位——您为此变体设定的唯一编码。</value></data>
+  <data name="Catalog.Variant.Price" xml:space="preserve"><value>价格（最小单位）</value></data>
+  <data name="Catalog.Variant.Price.Tip" xml:space="preserve"><value>以最小单位（分）表示的基础价：1999 = €19.99。未设置分币种价格时作为回退值。请输入最终标价：AU GST / EU VAT 店面价格含税；US 店面价格不含税（结账时加税）——ADR-0038。</value></data>
+  <data name="Catalog.Variant.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Catalog.Variant.Stock" xml:space="preserve"><value>库存</value></data>
+  <data name="Catalog.Variant.Stock.Tip" xml:space="preserve"><value>此变体可供销售的数量。</value></data>
+  <data name="Catalog.Variant.Remove.Tip" xml:space="preserve"><value>移除此变体。</value></data>
+  <data name="Catalog.Variant.Add" xml:space="preserve"><value>+ 添加变体</value></data>
+  <data name="Catalog.Variant.Add.Tip" xml:space="preserve"><value>为此商品添加另一个可售变体（SKU、价格、库存）。</value></data>
+  <data name="Catalog.Prices.Note" xml:space="preserve"><value>分币种价格（由租户设定，无汇率换算——若某店面的货币在此处没有价格，则该店面会隐藏此商品）。请为每种货币输入最终标价：在 AU GST / EU VAT 店面价格含税，在 US 店面结账时加税（ADR-0038）。</value></data>
+  <data name="Catalog.Prices.Price.Tip" xml:space="preserve"><value>此货币以最小单位表示的最终标价：在 AU GST / EU VAT 店面含税；在 US 店面不含税（结账时加税）——ADR-0038。</value></data>
+  <data name="Catalog.Prices.Remove.Tip" xml:space="preserve"><value>移除此货币价格。</value></data>
+  <data name="Catalog.Prices.Add" xml:space="preserve"><value>+ 货币价格</value></data>
+  <data name="Catalog.Prices.Add.Tip" xml:space="preserve"><value>为此变体添加另一种货币的价格。</value></data>
+  <data name="Catalog.Images" xml:space="preserve"><value>图片 URL</value></data>
+  <data name="Catalog.Image.Remove.Tip" xml:space="preserve"><value>移除此图片。</value></data>
+  <data name="Catalog.Image.Add" xml:space="preserve"><value>+ 添加图片</value></data>
+  <data name="Catalog.Image.Add.Tip" xml:space="preserve"><value>添加另一张商品图片（粘贴 URL 或上传文件）。</value></data>
+  <data name="Catalog.Attributes" xml:space="preserve"><value>属性</value></data>
+  <data name="Catalog.Attr.Key" xml:space="preserve"><value>键</value></data>
+  <data name="Catalog.Attr.Key.Tip" xml:space="preserve"><value>属性名称（例如颜色、尺寸）。用于店面筛选。</value></data>
+  <data name="Catalog.Attr.Value" xml:space="preserve"><value>值</value></data>
+  <data name="Catalog.Attr.Value.Tip" xml:space="preserve"><value>属性值（例如黑色、大号）。</value></data>
+  <data name="Catalog.Attr.Remove.Tip" xml:space="preserve"><value>移除此属性。</value></data>
+  <data name="Catalog.Attr.Add" xml:space="preserve"><value>+ 添加属性</value></data>
+  <data name="Catalog.Attr.Add.Tip" xml:space="preserve"><value>添加另一个键/值属性。</value></data>
+  <data name="Catalog.Save.Tip" xml:space="preserve"><value>保存此商品并返回列表。</value></data>
+  <data name="Catalog.Status.NotFound" xml:space="preserve"><value>未找到商品。</value></data>
+  <data name="Catalog.Status.Deleted" xml:space="preserve"><value>商品已删除。</value></data>
+  <data name="Catalog.Status.DeleteFailed" xml:space="preserve"><value>删除失败（{0}）。</value></data>
+  <data name="Catalog.Status.Created" xml:space="preserve"><value>商品已创建。</value></data>
+  <data name="Catalog.Status.Updated" xml:space="preserve"><value>商品已更新。</value></data>
+  <data name="Catalog.Status.SaveFailed" xml:space="preserve"><value>保存失败（{0}）：{1}</value></data>
+
+  <!-- ===== Offers ===== -->
+  <data name="Offers.Title" xml:space="preserve"><value>供货与定价</value></data>
+  <data name="Offers.Intro" xml:space="preserve"><value>管理目录供货（Offer）：商品/变体 × 供应商供货配置、履约类型、价格模型、计费周期、优先级及启用状态。</value></data>
+  <data name="Offers.TenantId.Tip" xml:space="preserve"><value>拥有这些供货的租户。</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>商品 ID 筛选</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>可选的商品 GUID 筛选——留空则显示该租户的所有供货。</value></data>
+  <data name="Offers.Col.Product" xml:space="preserve"><value>商品</value></data>
+  <data name="Offers.Col.Variant" xml:space="preserve"><value>变体</value></data>
+  <data name="Offers.Col.Supplier" xml:space="preserve"><value>供应商</value></data>
+  <data name="Offers.Col.Supply" xml:space="preserve"><value>供货</value></data>
+  <data name="Offers.Col.Pricing" xml:space="preserve"><value>定价</value></data>
+  <data name="Offers.Col.Price" xml:space="preserve"><value>价格</value></data>
+  <data name="Offers.Col.Priority" xml:space="preserve"><value>优先级</value></data>
+  <data name="Offers.Empty" xml:space="preserve"><value>未找到供货。</value></data>
+  <data name="Offers.Edit.Tip" xml:space="preserve"><value>将此供货加载到下方表单。</value></data>
+  <data name="Offers.New" xml:space="preserve"><value>新建供货</value></data>
+  <data name="Offers.EditHeading" xml:space="preserve"><value>编辑供货</value></data>
+  <data name="Offers.Field.ProductId" xml:space="preserve"><value>商品 ID</value></data>
+  <data name="Offers.Field.ProductId.Tip" xml:space="preserve"><value>此供货所供应的商品 GUID。</value></data>
+  <data name="Offers.Field.VariantId" xml:space="preserve"><value>变体 ID</value></data>
+  <data name="Offers.Field.VariantId.Tip" xml:space="preserve"><value>可选的变体 GUID。留空则适用于整个商品。</value></data>
+  <data name="Offers.Field.SupplierId" xml:space="preserve"><value>供应商 ID</value></data>
+  <data name="Offers.Field.SupplierId.Tip" xml:space="preserve"><value>供应商实体 GUID。</value></data>
+  <data name="Offers.Field.SupplyCategory" xml:space="preserve"><value>供货类别</value></data>
+  <data name="Offers.Field.SupplyCategory.Tip" xml:space="preserve"><value>实物/数字/服务的兼容性由目录（Catalog）强制执行。</value></data>
+  <data name="Offers.Field.FulfilmentType" xml:space="preserve"><value>履约类型</value></data>
+  <data name="Offers.Field.FulfilmentType.Tip" xml:space="preserve"><value>此供货的交付/履约方式。</value></data>
+  <data name="Offers.Field.PriceMinor" xml:space="preserve"><value>价格（最小单位）</value></data>
+  <data name="Offers.Field.PriceMinor.Tip" xml:space="preserve"><value>以最小单位表示的价格，例如 1999。</value></data>
+  <data name="Offers.Field.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Offers.Field.Priority" xml:space="preserve"><value>优先级</value></data>
+  <data name="Offers.Field.Priority.Tip" xml:space="preserve"><value>优先级数值越小越先被选用。</value></data>
+  <data name="Offers.Field.PricingModel" xml:space="preserve"><value>价格模型</value></data>
+  <data name="Offers.Field.PricingModel.Tip" xml:space="preserve"><value>供货的价格模型。</value></data>
+  <data name="Offers.Field.BillingPeriod" xml:space="preserve"><value>计费周期</value></data>
+  <data name="Offers.Field.BillingPeriod.Tip" xml:space="preserve"><value>收费频率。</value></data>
+  <data name="Offers.Field.Active.Tip" xml:space="preserve"><value>停用的供货在结账时永远不会被选用。</value></data>
+  <data name="Offers.Fulfilment.Dropship" xml:space="preserve"><value>代发货</value></data>
+  <data name="Offers.Fulfilment.Warehouse" xml:space="preserve"><value>仓库</value></data>
+  <data name="Offers.Fulfilment.DigitalDownload" xml:space="preserve"><value>数字下载</value></data>
+  <data name="Offers.Fulfilment.Subscription" xml:space="preserve"><value>订阅</value></data>
+  <data name="Offers.Fulfilment.Usage" xml:space="preserve"><value>用量</value></data>
+  <data name="Offers.Fulfilment.ManualService" xml:space="preserve"><value>人工服务</value></data>
+  <data name="Offers.PricingModel.OneTime" xml:space="preserve"><value>一次性</value></data>
+  <data name="Offers.PricingModel.Subscription" xml:space="preserve"><value>订阅</value></data>
+  <data name="Offers.PricingModel.UsageBased" xml:space="preserve"><value>按用量</value></data>
+  <data name="Offers.PricingModel.Tiered" xml:space="preserve"><value>阶梯</value></data>
+  <data name="Offers.BillingPeriod.Once" xml:space="preserve"><value>一次</value></data>
+  <data name="Offers.BillingPeriod.Monthly" xml:space="preserve"><value>每月</value></data>
+  <data name="Offers.BillingPeriod.Yearly" xml:space="preserve"><value>每年</value></data>
+  <data name="Offers.Tiers" xml:space="preserve"><value>梯度阶梯</value></data>
+  <data name="Offers.Tier.FromQty" xml:space="preserve"><value>起始数量</value></data>
+  <data name="Offers.Tier.FromQty.Tip" xml:space="preserve"><value>此阶梯单价开始适用的数量。</value></data>
+  <data name="Offers.Tier.UnitPrice" xml:space="preserve"><value>单价（最小单位）</value></data>
+  <data name="Offers.Tier.UnitPrice.Tip" xml:space="preserve"><value>达到此阶梯数量后，以最小单位表示的单价。</value></data>
+  <data name="Offers.Tier.Remove.Tip" xml:space="preserve"><value>移除此阶梯。</value></data>
+  <data name="Offers.Tier.Add" xml:space="preserve"><value>+ 添加阶梯</value></data>
+  <data name="Offers.Tier.Add.Tip" xml:space="preserve"><value>添加一个梯度价格阶梯。</value></data>
+  <data name="Offers.Tier.Summary" xml:space="preserve"><value>（{0} 个阶梯）</value></data>
+  <data name="Offers.Save" xml:space="preserve"><value>保存供货</value></data>
+  <data name="Offers.Save.Tip" xml:space="preserve"><value>根据上方表单创建或更新供货。</value></data>
+  <data name="Offers.Status.Saved" xml:space="preserve"><value>供货已保存。</value></data>
+  <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>租户 ID 必须是有效的 GUID。</value></data>
+  <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>商品 ID 必须是有效的 GUID。</value></data>
+  <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>供应商 ID 必须是有效的 GUID。</value></data>
+
+  <!-- ===== Orders ===== -->
+  <data name="Orders.Title" xml:space="preserve"><value>订单</value></data>
+  <data name="Orders.Intro" xml:space="preserve"><value>取消未付款订单（待处理/等待付款），或为已确认（已付款）订单退款。退款会冲销账簿；订单自身状态仍保持“已确认”。</value></data>
+  <data name="Orders.Empty" xml:space="preserve"><value>暂无订单。</value></data>
+  <data name="Orders.Col.Order" xml:space="preserve"><value>订单</value></data>
+  <data name="Orders.Col.Total" xml:space="preserve"><value>总计</value></data>
+  <data name="Orders.Col.Placed" xml:space="preserve"><value>下单时间</value></data>
+  <data name="Orders.Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Orders.Cancel.Tip" xml:space="preserve"><value>取消此未付款订单（释放它）。点击两次以确认。</value></data>
+  <data name="Orders.Refund" xml:space="preserve"><value>退款</value></data>
+  <data name="Orders.Refund.Tip" xml:space="preserve"><value>退还订单全额——冲销账簿。点击两次以确认。</value></data>
+  <data name="Orders.Status.Cancelled" xml:space="preserve"><value>订单已取消。</value></data>
+  <data name="Orders.Status.Refunded" xml:space="preserve"><value>退款已请求——它将出现在 RMA 队列中，完成后订单会显示为“已退款”。</value></data>
+
+  <!-- ===== RMA queue ===== -->
+  <data name="Rma.Title" xml:space="preserve"><value>RMA 队列</value></data>
+  <data name="Rma.Col.Order" xml:space="preserve"><value>订单</value></data>
+  <data name="Rma.Col.Amount" xml:space="preserve"><value>金额</value></data>
+  <data name="Rma.Col.State" xml:space="preserve"><value>状态</value></data>
+  <data name="Rma.Updating" xml:space="preserve"><value>更新中…</value></data>
+  <data name="Rma.Refresh.Tip" xml:space="preserve"><value>重新加载队列——saga 会异步应用状态转换，因此该行会稍后才更新。</value></data>
+  <data name="Rma.Approve" xml:space="preserve"><value>批准并退款</value></data>
+  <data name="Rma.Approve.Tip" xml:space="preserve"><value>立即退款——无需实物退货。</value></data>
+  <data name="Rma.ApproveReturn" xml:space="preserve"><value>批准（要求退货）</value></data>
+  <data name="Rma.ApproveReturn.Tip" xml:space="preserve"><value>批准，但在退款前要求退回商品。</value></data>
+  <data name="Rma.Deny" xml:space="preserve"><value>拒绝</value></data>
+  <data name="Rma.Deny.Tip" xml:space="preserve"><value>驳回此退货请求。</value></data>
+  <data name="Rma.MarkReceived" xml:space="preserve"><value>标记已收到退货</value></data>
+  <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>标记已收到退回的商品——这将放行退款。</value></data>
+  <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} 已受理。</value></data>
+  <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} 失败（{1}）：{2}</value></data>
+
+  <!-- ===== Ledger ===== -->
+  <data name="Ledger.Title" xml:space="preserve"><value>账簿</value></data>
+  <data name="Ledger.Col.Description" xml:space="preserve"><value>描述</value></data>
+  <data name="Ledger.Col.Reference" xml:space="preserve"><value>参考</value></data>
+  <data name="Ledger.Col.Lines" xml:space="preserve"><value>明细行</value></data>
+
+  <!-- ===== Xero sync ===== -->
+  <data name="Xero.Title" xml:space="preserve"><value>Xero 同步</value></data>
+  <data name="Xero.PostYesterday" xml:space="preserve"><value>过账昨日汇总</value></data>
+  <data name="Xero.PostYesterday.Tip" xml:space="preserve"><value>将昨日的汇总日记账过账到 Xero。可安全重试——该运行以日期为键。</value></data>
+  <data name="Xero.Col.Reference" xml:space="preserve"><value>参考</value></data>
+  <data name="Xero.Col.Journal" xml:space="preserve"><value>Xero 日记账</value></data>
+  <data name="Xero.Status.Posted" xml:space="preserve"><value>已过账 {0} 的汇总。</value></data>
+  <data name="Xero.Status.Failed" xml:space="preserve"><value>过账失败（{0}）：{1}</value></data>
+
+  <!-- ===== Xero mappings ===== -->
+  <data name="XeroMap.Title" xml:space="preserve"><value>Xero 映射</value></data>
+  <data name="XeroMap.Intro" xml:space="preserve"><value>按租户默认、店面、类目、供应商或商品的优先级，将账簿科目代码映射到 Xero 科目代码。</value></data>
+  <data name="XeroMap.TenantId.Tip" xml:space="preserve"><value>您正在管理其 Xero 映射的租户。</value></data>
+  <data name="XeroMap.Col.Ledger" xml:space="preserve"><value>账簿</value></data>
+  <data name="XeroMap.Col.Xero" xml:space="preserve"><value>Xero</value></data>
+  <data name="XeroMap.Col.Scope" xml:space="preserve"><value>作用域</value></data>
+  <data name="XeroMap.Col.Target" xml:space="preserve"><value>目标</value></data>
+  <data name="XeroMap.Empty" xml:space="preserve"><value>暂无 Xero 映射。</value></data>
+  <data name="XeroMap.New" xml:space="preserve"><value>新建映射</value></data>
+  <data name="XeroMap.EditHeading" xml:space="preserve"><value>编辑映射</value></data>
+  <data name="XeroMap.Edit.Tip" xml:space="preserve"><value>将此映射加载到下方表单。</value></data>
+  <data name="XeroMap.Delete.Tip" xml:space="preserve"><value>删除此映射。</value></data>
+  <data name="XeroMap.Field.Ledger" xml:space="preserve"><value>账簿科目</value></data>
+  <data name="XeroMap.Field.Ledger.Tip" xml:space="preserve"><value>支付账簿科目代码，例如 revenue.sales。</value></data>
+  <data name="XeroMap.Field.Xero" xml:space="preserve"><value>Xero 科目</value></data>
+  <data name="XeroMap.Field.Xero.Tip" xml:space="preserve"><value>Xero 科目代码。</value></data>
+  <data name="XeroMap.Field.Scope" xml:space="preserve"><value>作用域</value></data>
+  <data name="XeroMap.Field.Scope.Tip" xml:space="preserve"><value>更具体的作用域优先于租户默认值。</value></data>
+  <data name="XeroMap.Field.Target" xml:space="preserve"><value>目标 ID</value></data>
+  <data name="XeroMap.Field.Target.Tip" xml:space="preserve"><value>范围映射的店面/类目/供应商/商品 GUID；租户默认时留空。</value></data>
+  <data name="XeroMap.Field.Target.NotApplicable" xml:space="preserve"><value>无目标——租户默认作用域适用于整个租户。</value></data>
+  <data name="XeroMap.Field.Active.Tip" xml:space="preserve"><value>过账到 Xero 时会忽略停用的映射。</value></data>
+  <data name="XeroMap.Scope.TenantDefault" xml:space="preserve"><value>租户默认</value></data>
+  <data name="XeroMap.Scope.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="XeroMap.Scope.Category" xml:space="preserve"><value>类目</value></data>
+  <data name="XeroMap.Scope.Supplier" xml:space="preserve"><value>供应商</value></data>
+  <data name="XeroMap.Scope.Product" xml:space="preserve"><value>商品</value></data>
+  <data name="XeroMap.Save" xml:space="preserve"><value>保存映射</value></data>
+  <data name="XeroMap.Save.Tip" xml:space="preserve"><value>根据上方表单创建或更新映射。</value></data>
+  <data name="XeroMap.Status.Saved" xml:space="preserve"><value>Xero 映射已保存。</value></data>
+  <data name="XeroMap.Status.Deleted" xml:space="preserve"><value>Xero 映射已删除。</value></data>
+  <data name="XeroMap.Error.TenantGuid" xml:space="preserve"><value>租户 ID 必须是有效的 GUID。</value></data>
+  <data name="XeroMap.Error.TargetRequired" xml:space="preserve"><value>此作用域需要一个目标 GUID（店面、类目、供应商或商品）。</value></data>
+
+  <!-- ===== Imports ===== -->
+  <data name="Imports.Title" xml:space="preserve"><value>商品目录导入</value></data>
+  <data name="Imports.Template" xml:space="preserve"><value>导入模板</value></data>
+  <data name="Imports.Template.Tip" xml:space="preserve"><value>下载含两个示例商品的商品目录导入模板（CSV），作为预期格式的参考。</value></data>
+  <data name="Imports.Run" xml:space="preserve"><value>运行示例导入器</value></data>
+  <data name="Imports.Run.Tip" xml:space="preserve"><value>使用内置的示例导入器启动一次导入运行。</value></data>
+  <data name="Imports.Col.Importer" xml:space="preserve"><value>导入器</value></data>
+  <data name="Imports.Col.Date" xml:space="preserve"><value>日期</value></data>
+  <data name="Imports.Col.Read" xml:space="preserve"><value>已读取</value></data>
+  <data name="Imports.Col.Accepted" xml:space="preserve"><value>已接受</value></data>
+  <data name="Imports.Col.Rejected" xml:space="preserve"><value>已拒绝</value></data>
+  <data name="Imports.Running" xml:space="preserve"><value> （运行中…）</value></data>
+  <data name="Imports.Status.Started" xml:space="preserve"><value>导入运行已启动。</value></data>
+  <data name="Imports.Status.Failed" xml:space="preserve"><value>导入失败（{0}）：{1}</value></data>
+
+  <!-- ===== Roles &amp; permissions (RBAC) ===== -->
+  <data name="Rbac.Title" xml:space="preserve"><value>角色与权限</value></data>
+  <data name="Rbac.Intro" xml:space="preserve"><value>角色即&lt;strong&gt;数据&lt;/strong&gt;——可组合代码定义权限的任意子集。内置角色按租户预置；您可以编辑其权限、复制它们，或通过精选权限来构建新角色。更改由 Identity PDP 强制执行，并会重新评估活跃会话。</value></data>
+  <data name="Rbac.Tenant" xml:space="preserve"><value>租户</value></data>
+  <data name="Rbac.Tenant.Tip" xml:space="preserve"><value>您正在管理其角色的租户（GUID）。</value></data>
+  <data name="Rbac.NewRole" xml:space="preserve"><value>+ 新建角色</value></data>
+  <data name="Rbac.NewRole.Tip" xml:space="preserve"><value>通过精选权限来构建新的自定义角色。</value></data>
+  <data name="Rbac.NoRoles" xml:space="preserve"><value>此租户未加载任何角色。</value></data>
+  <data name="Rbac.Col.Role" xml:space="preserve"><value>角色</value></data>
+  <data name="Rbac.Col.Key" xml:space="preserve"><value>键</value></data>
+  <data name="Rbac.Col.Permissions" xml:space="preserve"><value>权限</value></data>
+  <data name="Rbac.Badge.System" xml:space="preserve"><value>系统</value></data>
+  <data name="Rbac.Badge.BuiltIn" xml:space="preserve"><value>内置</value></data>
+  <data name="Rbac.Badge.Custom" xml:space="preserve"><value>自定义</value></data>
+  <data name="Rbac.Edit.Tip" xml:space="preserve"><value>编辑此角色的权限。</value></data>
+  <data name="Rbac.Edit.SystemTip" xml:space="preserve"><value>系统角色由平台管理。</value></data>
+  <data name="Rbac.Duplicate" xml:space="preserve"><value>复制</value></data>
+  <data name="Rbac.Duplicate.Tip" xml:space="preserve"><value>创建一个预填此角色权限的新角色。</value></data>
+  <data name="Rbac.Delete.Tip" xml:space="preserve"><value>删除此自定义角色。点击两次以确认。</value></data>
+  <data name="Rbac.Delete.LockedTip" xml:space="preserve"><value>内置/系统角色无法删除。</value></data>
+  <data name="Rbac.Heading.New" xml:space="preserve"><value>新建角色</value></data>
+  <data name="Rbac.Heading.Edit" xml:space="preserve"><value>编辑角色</value></data>
+  <data name="Rbac.Heading.Duplicate" xml:space="preserve"><value>复制角色</value></data>
+  <data name="Rbac.Field.Name" xml:space="preserve"><value>名称</value></data>
+  <data name="Rbac.Field.Name.Tip" xml:space="preserve"><value>向运营人员展示的可读角色名称。</value></data>
+  <data name="Rbac.Field.Key" xml:space="preserve"><value>键</value></data>
+  <data name="Rbac.Field.Key.Tip" xml:space="preserve"><value>稳定的 slug（小写、数字、连字符）。创建时设定一次；此后不可更改。</value></data>
+  <data name="Rbac.Field.Key.HintNew" xml:space="preserve"><value>小写、数字、连字符</value></data>
+  <data name="Rbac.Field.Key.HintFixed" xml:space="preserve"><value>键在创建后固定不变</value></data>
+  <data name="Rbac.Field.Description" xml:space="preserve"><value>描述</value></data>
+  <data name="Rbac.Field.Description.Tip" xml:space="preserve"><value>可选：此角色的用途。</value></data>
+  <data name="Rbac.Permissions" xml:space="preserve"><value>权限</value></data>
+  <data name="Rbac.Permissions.Selected" xml:space="preserve"><value>（已选 {0} 项）</value></data>
+  <data name="Rbac.Permissions.Hint" xml:space="preserve"><value>逐项精选每个权限 ↓</value></data>
+  <data name="Rbac.Permission.Tip" xml:space="preserve"><value>将此权限授予该角色。</value></data>
+  <data name="Rbac.Save" xml:space="preserve"><value>保存角色</value></data>
+  <data name="Rbac.Save.Tip" xml:space="preserve"><value>保存角色及其所选权限。活跃会话将重新评估。</value></data>
+  <data name="Rbac.Risk.High" xml:space="preserve"><value>高</value></data>
+  <data name="Rbac.Risk.Medium" xml:space="preserve"><value>中</value></data>
+  <data name="Rbac.Risk.Low" xml:space="preserve"><value>低</value></data>
+  <data name="Rbac.CopySuffix" xml:space="preserve"><value>{0}（副本）</value></data>
+  <data name="Rbac.Error.TenantGuid" xml:space="preserve"><value>租户 ID 必须是 GUID。</value></data>
+  <data name="Rbac.Error.SaveFailed" xml:space="preserve"><value>保存失败：{0}</value></data>
+  <data name="Rbac.Status.Deleted" xml:space="preserve"><value>已删除角色“{0}”。</value></data>
+  <data name="Rbac.Status.Saved" xml:space="preserve"><value>角色“{0}”已保存。</value></data>
+
+  <!-- ===== Operator users ===== -->
+  <data name="Users.Title" xml:space="preserve"><value>运营用户</value></data>
+  <data name="Users.Subtitle" xml:space="preserve"><value>主管理员 · 重置密码并更改邮箱</value></data>
+  <data name="Users.Intro" xml:space="preserve"><value>管理登录租户的账户。重置密码会签发一个供读出的一次性临时密码；更改邮箱会强制重新验证。</value></data>
+  <data name="Users.TenantId.Tip" xml:space="preserve"><value>您正在管理其用户的租户。</value></data>
+  <data name="Users.Load" xml:space="preserve"><value>加载用户</value></data>
+  <data name="Users.Load.Tip" xml:space="preserve"><value>加载此租户的运营账户。</value></data>
+  <data name="Users.Col.Email" xml:space="preserve"><value>邮箱</value></data>
+  <data name="Users.Col.Role" xml:space="preserve"><value>角色</value></data>
+  <data name="Users.Col.Verified" xml:space="preserve"><value>已验证</value></data>
+  <data name="Users.Col.Created" xml:space="preserve"><value>创建时间</value></data>
+  <data name="Users.Reset" xml:space="preserve"><value>重置密码</value></data>
+  <data name="Users.Reset.Tip" xml:space="preserve"><value>签发一个一次性临时密码。</value></data>
+  <data name="Users.ChangeEmail" xml:space="preserve"><value>更改邮箱</value></data>
+  <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>更改此用户的登录邮箱。</value></data>
+  <data name="Users.TempPassword" xml:space="preserve"><value>临时密码（仅读出一次）：</value></data>
+  <data name="Users.NewEmail" xml:space="preserve"><value>new@email.com</value></data>
+  <data name="Users.NewEmail.Tip" xml:space="preserve"><value>新的登录邮箱（在租户内必须唯一）。</value></data>
+  <data name="Users.SaveEmail.Tip" xml:space="preserve"><value>保存新的登录邮箱——用户必须再次验证。</value></data>
+  <data name="Users.CancelEmail.Tip" xml:space="preserve"><value>取消此次邮箱更改。</value></data>
+  <data name="Users.Empty" xml:space="preserve"><value>此租户暂无用户。</value></data>
+  <data name="Users.Status.EmailChanged" xml:space="preserve"><value>邮箱已更改——用户必须重新验证。</value></data>
+  <data name="Users.Error.ResetFailed" xml:space="preserve"><value>重置失败（{0}）。</value></data>
+
+  <!-- ===== Entities &amp; suppliers ===== -->
+  <data name="Entities.Title" xml:space="preserve"><value>实体与供应商</value></data>
+  <data name="Entities.Intro" xml:space="preserve"><value>租户范围的参与方主数据 + 供应商入驻。变更请求队列采用&lt;strong&gt;双人复核&lt;/strong&gt;：敏感的供应商变更（银行账户、联系人、访问权限）由一名运营人员&lt;em&gt;发起&lt;/em&gt;，且必须&lt;em&gt;由另一名运营人员批准&lt;/em&gt;——职责分离，且裁决会被审计。</value></data>
+  <data name="Entities.Tenant" xml:space="preserve"><value>租户</value></data>
+  <data name="Entities.Tenant.Tip" xml:space="preserve"><value>您正在管理其实体的租户（GUID）。</value></data>
+  <data name="Entities.EditHeading" xml:space="preserve"><value>编辑实体</value></data>
+  <data name="Entities.Field.LegalName" xml:space="preserve"><value>法定名称</value></data>
+  <data name="Entities.Field.LegalName.Tip" xml:space="preserve"><value>实体的注册法定名称。</value></data>
+  <data name="Entities.Field.TradingName" xml:space="preserve"><value>商号</value></data>
+  <data name="Entities.Field.TradingName.Tip" xml:space="preserve"><value>可选的“经营名称”；设置后会向运营人员显示。</value></data>
+  <data name="Entities.Field.Type.Tip" xml:space="preserve"><value>实体类型在创建后固定不变。</value></data>
+  <data name="Entities.List" xml:space="preserve"><value>实体</value></data>
+  <data name="Entities.SuspendReason" xml:space="preserve"><value>暂停原因</value></data>
+  <data name="Entities.SuspendReason.Tip" xml:space="preserve"><value>暂停供应商时记录（至少 8 个字符）。</value></data>
+  <data name="Entities.Empty" xml:space="preserve"><value>未加载任何实体。</value></data>
+  <data name="Entities.Col.SupplierActions" xml:space="preserve"><value>供应商操作</value></data>
+  <data name="Entities.EditSmall" xml:space="preserve"><value>编辑</value></data>
+  <data name="Entities.EditSmall.Tip" xml:space="preserve"><value>编辑此实体的名称。</value></data>
+  <data name="Entities.Action.Onboard" xml:space="preserve"><value>入驻</value></data>
+  <data name="Entities.Action.Onboard.Tip" xml:space="preserve"><value>开始供应商入驻（状态：草稿）。</value></data>
+  <data name="Entities.Action.Verify" xml:space="preserve"><value>提交验证</value></data>
+  <data name="Entities.Action.Verify.Tip" xml:space="preserve"><value>提交一个草稿供应商进行验证（需要已验证的 ABN/ACN、一个邮箱联系人，以及实体上的现行地址）。</value></data>
+  <data name="Entities.Action.Verified" xml:space="preserve"><value>验证完成</value></data>
+  <data name="Entities.Action.Verified.Tip" xml:space="preserve"><value>标记验证完成（状态：待验证 → 待批准）。</value></data>
+  <data name="Entities.Action.Activate" xml:space="preserve"><value>激活</value></data>
+  <data name="Entities.Action.Activate.Tip" xml:space="preserve"><value>激活验证已完成的供应商（状态必须为待批准）。</value></data>
+  <data name="Entities.Action.Suspend" xml:space="preserve"><value>暂停</value></data>
+  <data name="Entities.Action.Suspend.Tip" xml:space="preserve"><value>暂停一个已激活的供应商——左侧的原因会被记录（8–500 个字符）。</value></data>
+  <data name="Entities.Action.Archive" xml:space="preserve"><value>归档</value></data>
+  <data name="Entities.Action.Archive.Tip" xml:space="preserve"><value>归档该供应商。</value></data>
+  <data name="Entities.Create" xml:space="preserve"><value>创建实体</value></data>
+  <data name="Entities.New.LegalName" xml:space="preserve"><value>法定名称</value></data>
+  <data name="Entities.New.LegalName.Tip" xml:space="preserve"><value>注册法定名称。</value></data>
+  <data name="Entities.New.TradingName" xml:space="preserve"><value>商号（可选）</value></data>
+  <data name="Entities.New.TradingName.Tip" xml:space="preserve"><value>可选的“经营名称”。</value></data>
+  <data name="Entities.New.Type.Tip" xml:space="preserve"><value>实体类型——创建后固定不变。</value></data>
+  <data name="Entities.Create.Tip" xml:space="preserve"><value>在此租户中创建该实体。</value></data>
+  <data name="Entities.Type.NaturalPerson" xml:space="preserve"><value>自然人</value></data>
+  <data name="Entities.Type.Company" xml:space="preserve"><value>公司</value></data>
+  <data name="Entities.Type.Trust" xml:space="preserve"><value>信托</value></data>
+  <data name="Entities.Type.Partnership" xml:space="preserve"><value>合伙企业</value></data>
+  <data name="Entities.Type.SoleTrader" xml:space="preserve"><value>个体经营者</value></data>
+  <data name="Entities.Type.GovernmentBody" xml:space="preserve"><value>政府机构</value></data>
+  <data name="Entities.Type.NonProfit" xml:space="preserve"><value>非营利组织 / 社团</value></data>
+  <data name="Entities.Type.Other" xml:space="preserve"><value>其他</value></data>
+  <data name="Entities.Status.Active" xml:space="preserve"><value>启用</value></data>
+  <data name="Entities.Status.Inactive" xml:space="preserve"><value>停用</value></data>
+  <data name="Entities.Status.Archived" xml:space="preserve"><value>已归档</value></data>
+  <data name="Entities.Requests" xml:space="preserve"><value>待处理的供应商变更请求</value></data>
+  <data name="Entities.DecisionReason" xml:space="preserve"><value>裁决原因</value></data>
+  <data name="Entities.DecisionReason.Placeholder" xml:space="preserve"><value>原因（8–500 个字符，拒绝时必填）</value></data>
+  <data name="Entities.DecisionReason.Tip" xml:space="preserve"><value>随裁决一并记录；批准时可选，拒绝时必填（8–500 个字符）。</value></data>
+  <data name="Entities.NoRequests" xml:space="preserve"><value>没有待处理的变更请求。</value></data>
+  <data name="Entities.RequestedBy" xml:space="preserve"><value>由 {0} 发起</value></data>
+  <data name="Entities.MakerChecker" xml:space="preserve"><value>您发起了此请求——必须由另一名管理员裁决（双人复核）。</value></data>
+  <data name="Entities.Approve" xml:space="preserve"><value>批准</value></data>
+  <data name="Entities.Approve.Tip" xml:space="preserve"><value>批准此变更请求。</value></data>
+  <data name="Entities.Approve.OwnTip" xml:space="preserve"><value>双人复核：发起人不能批准自己的请求。</value></data>
+  <data name="Entities.Reject" xml:space="preserve"><value>拒绝</value></data>
+  <data name="Entities.Reject.Tip" xml:space="preserve"><value>拒绝此变更请求——上方的裁决原因为必填（8–500 个字符）。</value></data>
+  <data name="Entities.Reject.OwnTip" xml:space="preserve"><value>双人复核：发起人不能拒绝自己的请求。</value></data>
+  <data name="Entities.ChangeType.UserAccess" xml:space="preserve"><value>用户访问权限</value></data>
+  <data name="Entities.ChangeType.Contact" xml:space="preserve"><value>联系人</value></data>
+  <data name="Entities.ChangeType.BankAccount" xml:space="preserve"><value>银行账户</value></data>
+  <data name="Entities.ChangeType.Other" xml:space="preserve"><value>类型 {0}</value></data>
+  <data name="Entities.Error.TenantGuid" xml:space="preserve"><value>租户 ID 必须是 GUID。</value></data>
+  <data name="Entities.Error.SuspendReason" xml:space="preserve"><value>暂停原因至少需要 8 个字符。</value></data>
+  <data name="Entities.Error.RejectReason" xml:space="preserve"><value>拒绝需要一个至少 8 个字符的裁决原因。</value></data>
+  <data name="Entities.Error.ReasonTooLong" xml:space="preserve"><value>裁决原因最多 500 个字符。</value></data>
+  <data name="Entities.Error.UpdateFailed" xml:space="preserve"><value>更新失败：{0}</value></data>
+  <data name="Entities.Error.CreateFailed" xml:space="preserve"><value>创建失败（{0}）。</value></data>
+  <data name="Entities.Error.ActionFailed" xml:space="preserve"><value>操作失败：{0}</value></data>
+  <data name="Entities.Error.DecisionFailed" xml:space="preserve"><value>{0} 失败：{1}</value></data>
+  <data name="Entities.Info.Updated" xml:space="preserve"><value>实体已更新。</value></data>
+  <data name="Entities.Info.Created" xml:space="preserve"><value>已创建“{0}”。</value></data>
+  <data name="Entities.Info.SupplierOk" xml:space="preserve"><value>供应商“{0}”正常。</value></data>
+  <data name="Entities.Info.Approved" xml:space="preserve"><value>请求已批准。</value></data>
+  <data name="Entities.Info.Rejected" xml:space="preserve"><value>请求已拒绝。</value></data>
+  <data name="Common.Add" xml:space="preserve"><value>添加</value></data>
+  <data name="Common.Back" xml:space="preserve"><value>返回</value></data>
+  <data name="Common.Back.Tip" xml:space="preserve"><value>返回列表。</value></data>
+  <data name="Entities.Details" xml:space="preserve"><value>详情</value></data>
+  <data name="Entities.Details.Tip" xml:space="preserve"><value>添加此实体供应商入驻所需的标识符、联系人和地址。</value></data>
+  <data name="Entities.Details.Heading" xml:space="preserve"><value>入驻详情——{0}</value></data>
+  <data name="Entities.Details.Intro" xml:space="preserve"><value>{0} 所需的数据。完成下方清单，然后提交实体进行供应商验证。</value></data>
+  <data name="Entities.Details.Ready" xml:space="preserve"><value>已可进行供应商验证——所有必填字段均已填写。</value></data>
+  <data name="Entities.Details.Missing" xml:space="preserve"><value>验证前仍需完成：</value></data>
+  <data name="Entities.Ident.Heading" xml:space="preserve"><value>税务与注册标识符</value></data>
+  <data name="Entities.Ident.None" xml:space="preserve"><value>暂无标识符。供应商需要一个已验证的 ABN 或 ACN。</value></data>
+  <data name="Entities.Ident.Verify" xml:space="preserve"><value>验证</value></data>
+  <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>证明此标识符已经核对（将其标记为已验证）。</value></data>
+  <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>要添加的标识符种类。</value></data>
+  <data name="Entities.Ident.Value" xml:space="preserve"><value>标识符值</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN 为 11 位数字；ACN 为 9 位数字。</value></data>
+  <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>将此标识符添加到该实体。</value></data>
+  <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
+  <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
+  <data name="Entities.IdType.Gst" xml:space="preserve"><value>GST</value></data>
+  <data name="Entities.IdType.Other" xml:space="preserve"><value>其他税务注册</value></data>
+  <data name="Entities.VStatus.Unverified" xml:space="preserve"><value>未验证</value></data>
+  <data name="Entities.VStatus.Pending" xml:space="preserve"><value>待处理</value></data>
+  <data name="Entities.VStatus.Verified" xml:space="preserve"><value>已验证</value></data>
+  <data name="Entities.VStatus.Failed" xml:space="preserve"><value>失败</value></data>
+  <data name="Entities.Contact.Heading" xml:space="preserve"><value>联系方式</value></data>
+  <data name="Entities.Contact.None" xml:space="preserve"><value>暂无联系人。供应商需要一个主要或运营邮箱。</value></data>
+  <data name="Entities.Contact.Purpose.Tip" xml:space="preserve"><value>此联系人的用途。</value></data>
+  <data name="Entities.Contact.Kind.Tip" xml:space="preserve"><value>邮箱、电话或网站。</value></data>
+  <data name="Entities.Contact.Value" xml:space="preserve"><value>联系值</value></data>
+  <data name="Entities.Contact.Value.Tip" xml:space="preserve"><value>例如 accounts@supplier.com</value></data>
+  <data name="Entities.Contact.Add.Tip" xml:space="preserve"><value>将此联系人添加到该实体。</value></data>
+  <data name="Entities.CPurpose.Primary" xml:space="preserve"><value>主要</value></data>
+  <data name="Entities.CPurpose.Accounts" xml:space="preserve"><value>财务</value></data>
+  <data name="Entities.CPurpose.Operations" xml:space="preserve"><value>运营</value></data>
+  <data name="Entities.CPurpose.Support" xml:space="preserve"><value>支持</value></data>
+  <data name="Entities.CPurpose.Legal" xml:space="preserve"><value>法务</value></data>
+  <data name="Entities.CKind.Email" xml:space="preserve"><value>邮箱</value></data>
+  <data name="Entities.CKind.Phone" xml:space="preserve"><value>电话</value></data>
+  <data name="Entities.CKind.Website" xml:space="preserve"><value>网站</value></data>
+  <data name="Entities.Addr.Heading" xml:space="preserve"><value>地址</value></data>
+  <data name="Entities.Addr.None" xml:space="preserve"><value>暂无地址。供应商需要一个现行的注册办公地址或仓库地址。</value></data>
+  <data name="Entities.Addr.Purpose.Tip" xml:space="preserve"><value>此地址的用途。</value></data>
+  <data name="Entities.Addr.Line1" xml:space="preserve"><value>地址行 1</value></data>
+  <data name="Entities.Addr.Line1.Tip" xml:space="preserve"><value>街道地址。</value></data>
+  <data name="Entities.Addr.Line2" xml:space="preserve"><value>地址行 2</value></data>
+  <data name="Entities.Addr.Line2.Tip" xml:space="preserve"><value>单元、套间、楼层（可选）。</value></data>
+  <data name="Entities.Addr.City" xml:space="preserve"><value>城市</value></data>
+  <data name="Entities.Addr.City.Tip" xml:space="preserve"><value>城镇或城市。</value></data>
+  <data name="Entities.Addr.Region" xml:space="preserve"><value>地区</value></data>
+  <data name="Entities.Addr.Region.Tip" xml:space="preserve"><value>州或地区（可选）。</value></data>
+  <data name="Entities.Addr.Postcode" xml:space="preserve"><value>邮政编码</value></data>
+  <data name="Entities.Addr.Postcode.Tip" xml:space="preserve"><value>邮政编码或 ZIP 码。</value></data>
+  <data name="Entities.Addr.Country" xml:space="preserve"><value>国家/地区</value></data>
+  <data name="Entities.Addr.Country.Tip" xml:space="preserve"><value>ISO 3166-1 alpha-2 代码，例如 AU。</value></data>
+  <data name="Entities.Addr.Add.Tip" xml:space="preserve"><value>将此地址添加到该实体。</value></data>
+  <data name="Entities.AddrPurpose.RegisteredOffice" xml:space="preserve"><value>注册办公地址</value></data>
+  <data name="Entities.AddrPurpose.Warehouse" xml:space="preserve"><value>仓库</value></data>
+  <data name="Entities.AddrPurpose.Billing" xml:space="preserve"><value>账单</value></data>
+  <data name="Entities.AddrPurpose.Shipping" xml:space="preserve"><value>配送</value></data>
+  <data name="Entities.AddrPurpose.Returns" xml:space="preserve"><value>退货</value></data>
+  <data name="Entities.AddrPurpose.Mailing" xml:space="preserve"><value>邮寄</value></data>
+  <data name="Entities.Info.IdentifierAdded" xml:space="preserve"><value>标识符已添加。</value></data>
+  <data name="Entities.Info.IdentifierVerified" xml:space="preserve"><value>标识符已验证。</value></data>
+  <data name="Entities.Info.ContactAdded" xml:space="preserve"><value>联系人已添加。</value></data>
+  <data name="Entities.Info.AddressAdded" xml:space="preserve"><value>地址已添加。</value></data>
+
+  <!-- ===== Commerce ops ===== -->
+  <data name="Ops.Title" xml:space="preserve"><value>店面商务运营</value></data>
+  <data name="Ops.Intro" xml:space="preserve"><value>租户/店面的商品目录、发布、定价、支付、付款及 Xero 配置界面。敏感值（供应商成本、利润、银行令牌、服务商账户引用、会计映射）在此处有意进行了汇总；随着这些变更端点的扩展，字段级策略/审计强制由所属服务/管理 API 提供。</value></data>
+  <data name="Ops.TenantContext" xml:space="preserve"><value>租户上下文</value></data>
+  <data name="Ops.TenantId.Tip" xml:space="preserve"><value>您正在管理其商务配置的租户（法定运营方）（GUID）。</value></data>
+  <data name="Ops.LoadStorefronts" xml:space="preserve"><value>加载店面</value></data>
+  <data name="Ops.LoadStorefronts.Tip" xml:space="preserve"><value>加载此租户下的所有店面。</value></data>
+  <data name="Ops.Storefronts" xml:space="preserve"><value>店面</value></data>
+  <data name="Ops.NotReadyIntro" xml:space="preserve"><value>此店面尚未准备好上线：</value></data>
+  <data name="Ops.Field.Name" xml:space="preserve"><value>名称</value></data>
+  <data name="Ops.Field.Name.Tip" xml:space="preserve"><value>店面的内部名称。</value></data>
+  <data name="Ops.Field.PublicUrl" xml:space="preserve"><value>公开 URL</value></data>
+  <data name="Ops.Field.PublicUrl.Tip" xml:space="preserve"><value>用于面向顾客链接的公开店面 URL。</value></data>
+  <data name="Ops.Field.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Ops.Field.Currency.Tip" xml:space="preserve"><value>此店面的 ISO 4217 货币。与界面语言相互独立。</value></data>
+  <data name="Ops.Field.TaxRegime" xml:space="preserve"><value>税制</value></data>
+  <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>地区税务规则。AU GST / EU VAT 为含税：标价已包含税额（顾客支付所列价格；税额仅作提示性显示）。US 销售税在结账时于所列价格之上另加（ADR-0038）。</value></data>
+  <data name="Ops.Field.TaxBps" xml:space="preserve"><value>税率（基点）</value></data>
+  <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>以基点表示的税率，例如 1000 = 10%。对于 AU GST / EU VAT，这是标价中所含的税率；对于 US，此税在结账时另加（ADR-0038）。</value></data>
+  <data name="Ops.Field.Visibility" xml:space="preserve"><value>可见性</value></data>
+  <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>谁能看到店面：公开（已上线）或私密（草稿）。</value></data>
+  <data name="Ops.CreateStorefront" xml:space="preserve"><value>创建店面</value></data>
+  <data name="Ops.CreateStorefront.Tip" xml:space="preserve"><value>根据左侧字段创建店面。</value></data>
+  <data name="Ops.TaxRegime.None" xml:space="preserve"><value>无</value></data>
+  <data name="Ops.TaxRegime.AuGst" xml:space="preserve"><value>AU GST</value></data>
+  <data name="Ops.TaxRegime.EuVat" xml:space="preserve"><value>EU VAT</value></data>
+  <data name="Ops.TaxRegime.UsSalesTax" xml:space="preserve"><value>US 销售税</value></data>
+  <data name="Ops.TaxRegime.Other" xml:space="preserve"><value>其他</value></data>
+  <data name="Ops.Visibility.Private" xml:space="preserve"><value>私密</value></data>
+  <data name="Ops.Visibility.Password" xml:space="preserve"><value>密码保护</value></data>
+  <data name="Ops.Visibility.InviteOnly" xml:space="preserve"><value>仅限邀请</value></data>
+  <data name="Ops.Visibility.Public" xml:space="preserve"><value>公开</value></data>
+  <data name="Ops.LoadPrompt" xml:space="preserve"><value>加载店面以开始。</value></data>
+  <data name="Ops.NoStorefronts" xml:space="preserve"><value>此租户暂无店面。</value></data>
+  <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
+  <data name="Ops.Col.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Ops.Col.Tax" xml:space="preserve"><value>税</value></data>
+  <data name="Ops.Col.State" xml:space="preserve"><value>状态</value></data>
+  <data name="Ops.Col.Visibility" xml:space="preserve"><value>可见性</value></data>
+  <data name="Ops.Col.Domains" xml:space="preserve"><value>域名</value></data>
+  <data name="Ops.Manage" xml:space="preserve"><value>管理</value></data>
+  <data name="Ops.Manage.Tip" xml:space="preserve"><value>打开此店面的设置、域名及商品发布。</value></data>
+  <data name="Ops.Preview" xml:space="preserve"><value>预览</value></data>
+  <data name="Ops.Preview.Tip" xml:space="preserve"><value>将店面转为预览（会检查就绪状态）。</value></data>
+  <data name="Ops.Activate" xml:space="preserve"><value>激活</value></data>
+  <data name="Ops.Activate.Tip" xml:space="preserve"><value>让店面上线（会检查就绪状态）。</value></data>
+  <data name="Ops.Pause" xml:space="preserve"><value>暂停</value></data>
+  <data name="Ops.Pause.Tip" xml:space="preserve"><value>暂停店面——它将停止向顾客提供服务。</value></data>
+  <data name="Ops.Archive" xml:space="preserve"><value>归档</value></data>
+  <data name="Ops.Archive.Tip" xml:space="preserve"><value>归档该店面。</value></data>
+  <data name="Ops.ManageHeading" xml:space="preserve"><value>管理 {0}</value></data>
+  <data name="Ops.SaveSettings" xml:space="preserve"><value>保存店面设置</value></data>
+  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>保存上方的名称、URL、货币、税制及可见性。</value></data>
+  <data name="Ops.DomainHost" xml:space="preserve"><value>域名主机</value></data>
+  <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
+  <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>要映射到此店面的域名（仅主机名，不含 https://）。</value></data>
+  <data name="Ops.Canonical" xml:space="preserve"><value>规范域名</value></data>
+  <data name="Ops.Canonical.Tip" xml:space="preserve"><value>主域名；其他域名会重定向到它（每个店面一个规范域名）。</value></data>
+  <data name="Ops.AddDomain" xml:space="preserve"><value>添加域名</value></data>
+  <data name="Ops.AddDomain.Tip" xml:space="preserve"><value>将上方主机名映射到此店面。</value></data>
+  <data name="Ops.CheckReadiness" xml:space="preserve"><value>检查就绪状态</value></data>
+  <data name="Ops.CheckReadiness.Tip" xml:space="preserve"><value>列出此店面上线前仍需完成的事项。</value></data>
+  <data name="Ops.Readiness" xml:space="preserve"><value>就绪状态：</value></data>
+  <data name="Ops.Ready" xml:space="preserve"><value>就绪</value></data>
+  <data name="Ops.NotReady" xml:space="preserve"><value>未就绪</value></data>
+  <data name="Ops.Publication" xml:space="preserve"><value>商品发布</value></data>
+  <data name="Ops.Field.ProductId" xml:space="preserve"><value>商品 ID</value></data>
+  <data name="Ops.Field.ProductId.Tip" xml:space="preserve"><value>要发布到此店面的租户商品（GUID）。</value></data>
+  <data name="Ops.Field.SeoTitle" xml:space="preserve"><value>SEO 标题</value></data>
+  <data name="Ops.Field.SeoTitle.Tip" xml:space="preserve"><value>此商品在此店面上可选的 SEO 标题覆盖值。</value></data>
+  <data name="Ops.Field.Fulfillment" xml:space="preserve"><value>履约</value></data>
+  <data name="Ops.Field.Fulfillment.Tip" xml:space="preserve"><value>此商品在此店面上的履约方式（仓库、代发货、数字…）。</value></data>
+  <data name="Ops.Fulfillment.Unassigned" xml:space="preserve"><value>未指定（阻止发布）</value></data>
+  <data name="Ops.Fulfillment.Dropship" xml:space="preserve"><value>代发货</value></data>
+  <data name="Ops.Fulfillment.OwnWarehouse" xml:space="preserve"><value>自有仓库</value></data>
+  <data name="Ops.AssignProduct" xml:space="preserve"><value>指派商品</value></data>
+  <data name="Ops.AssignProduct.Tip" xml:space="preserve"><value>将上方商品附加到此店面（尚未发布）。</value></data>
+  <data name="Ops.ProductReadiness" xml:space="preserve"><value>商品就绪状态</value></data>
+  <data name="Ops.ProductReadiness.Tip" xml:space="preserve"><value>列出此商品在此处发布前仍需完成的事项。</value></data>
+  <data name="Ops.Publish" xml:space="preserve"><value>发布</value></data>
+  <data name="Ops.Publish.Tip" xml:space="preserve"><value>在此店面上发布该商品。</value></data>
+  <data name="Ops.Unpublish" xml:space="preserve"><value>取消发布</value></data>
+  <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>从此店面移除该商品。</value></data>
+  <data name="Ops.PublicationReadiness" xml:space="preserve"><value>发布就绪状态：</value></data>
+  <data name="Ops.Policies" xml:space="preserve"><value>定价、支付、付款及 Xero 策略界面</value></data>
+  <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>定价与促销</value></data>
+  <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>供应商成本、售价、税务模式、店面覆盖、优惠券、自动折扣、套装折扣及免运费均在目录供货（Catalog Offers）+ 订单（Ordering）中建模。单商品供货包含价格模型 + 阶梯。</value></data>
+  <data name="Ops.Card.Pricing.Link" xml:space="preserve"><value>管理供货与定价</value></data>
+  <data name="Ops.Card.Payments.Title" xml:space="preserve"><value>支付账户</value></data>
+  <data name="Ops.Card.Payments.Body" xml:space="preserve"><value>支付（Payments）负责租户默认值、店面覆盖、服务商模式、就绪状态、上线激活审批及结账快照。仅使用启用且合规的账户。</value></data>
+  <data name="Ops.Card.Payments.Link" xml:space="preserve"><value>管理支付账户</value></data>
+  <data name="Ops.Card.Payouts.Title" xml:space="preserve"><value>供应商付款</value></data>
+  <data name="Ops.Card.Payouts.Body" xml:space="preserve"><value>支付（Payments）负责已脱敏/令牌化的银行账户、受审批保护的付款指令、应付策略及平衡的供应商应付计提。</value></data>
+  <data name="Ops.Card.Payouts.Link" xml:space="preserve"><value>管理供应商付款</value></data>
+  <data name="Ops.Card.Xero.Title" xml:space="preserve"><value>Xero 映射</value></data>
+  <data name="Ops.Card.Xero.Body" xml:space="preserve"><value>支付（Payments）负责租户默认值以及店面/类目/供应商/商品的映射优先级。Xero 始终位于账簿真相的下游。同步运行 + 每日日记账现已可用。</value></data>
+  <data name="Ops.Card.Xero.Link" xml:space="preserve"><value>管理 Xero 映射</value></data>
+  <data name="Ops.Card.Link.Tip" xml:space="preserve"><value>打开管理此界面的管理页面。</value></data>
+  <data name="Ops.Status.StorefrontCreated" xml:space="preserve"><value>店面已创建。</value></data>
+  <data name="Ops.Status.SettingsUpdated" xml:space="preserve"><value>店面设置已更新。</value></data>
+  <data name="Ops.Status.DomainAdded" xml:space="preserve"><value>域名已添加。</value></data>
+  <data name="Ops.Status.ProductAssigned" xml:space="preserve"><value>商品已指派。</value></data>
+  <data name="Ops.Status.Transition" xml:space="preserve"><value>已请求店面 {0}。</value></data>
+  <data name="Ops.Status.ProductPublish" xml:space="preserve"><value>已请求商品发布。</value></data>
+  <data name="Ops.Status.ProductUnpublish" xml:space="preserve"><value>已请求取消商品发布。</value></data>
+  <data name="Ops.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0}）：{1}</value></data>
+
+  <!-- ===== Payment accounts ===== -->
+  <data name="Pay.Title" xml:space="preserve"><value>支付账户</value></data>
+  <data name="Pay.Subtitle" xml:space="preserve"><value>租户与店面账户 · 生命周期</value></data>
+  <data name="Pay.Intro" xml:space="preserve"><value>创建账户（草稿），提交审批，然后激活它（上线账户需要一个外部账户引用）。可按需暂停或归档。仅启用的账户才能在结账时使用。</value></data>
+  <data name="Pay.TenantId.Tip" xml:space="preserve"><value>您正在管理其支付账户的租户。</value></data>
+  <data name="Pay.Col.Provider" xml:space="preserve"><value>服务商</value></data>
+  <data name="Pay.Col.Mode" xml:space="preserve"><value>模式</value></data>
+  <data name="Pay.Col.State" xml:space="preserve"><value>状态</value></data>
+  <data name="Pay.Col.Default" xml:space="preserve"><value>默认</value></data>
+  <data name="Pay.Col.ExtRef" xml:space="preserve"><value>外部引用</value></data>
+  <data name="Pay.Empty" xml:space="preserve"><value>此租户暂无支付账户。</value></data>
+  <data name="Pay.Edit.Tip" xml:space="preserve"><value>编辑此账户的详情。</value></data>
+  <data name="Pay.MakeDefault" xml:space="preserve"><value>设为默认</value></data>
+  <data name="Pay.MakeDefault.Tip" xml:space="preserve"><value>将其设为租户默认账户（会取消当前默认账户）。</value></data>
+  <data name="Pay.Submit" xml:space="preserve"><value>提交</value></data>
+  <data name="Pay.Submit.Tip" xml:space="preserve"><value>提交审批。</value></data>
+  <data name="Pay.Activate" xml:space="preserve"><value>激活</value></data>
+  <data name="Pay.Activate.Tip" xml:space="preserve"><value>激活（会检查就绪状态）。</value></data>
+  <data name="Pay.Suspend" xml:space="preserve"><value>暂停</value></data>
+  <data name="Pay.Suspend.Tip" xml:space="preserve"><value>暂停此账户。</value></data>
+  <data name="Pay.Archive" xml:space="preserve"><value>归档</value></data>
+  <data name="Pay.Archive.Tip" xml:space="preserve"><value>归档此账户。</value></data>
+  <data name="Pay.EditHeading" xml:space="preserve"><value>编辑支付账户</value></data>
+  <data name="Pay.NewHeading" xml:space="preserve"><value>新建支付账户</value></data>
+  <data name="Pay.Field.Name" xml:space="preserve"><value>名称</value></data>
+  <data name="Pay.Field.Name.Tip" xml:space="preserve"><value>此账户的标签。</value></data>
+  <data name="Pay.Field.Provider" xml:space="preserve"><value>服务商</value></data>
+  <data name="Pay.Field.Provider.Tip" xml:space="preserve"><value>支付服务商，例如 stripe。</value></data>
+  <data name="Pay.Field.Provider.LockedTip" xml:space="preserve"><value>已激活账户的服务商不可更改——请先暂停它。</value></data>
+  <data name="Pay.Field.Mode" xml:space="preserve"><value>模式</value></data>
+  <data name="Pay.Field.Mode.Tip" xml:space="preserve"><value>Test 用于沙盒，Live 用于真实扣款。</value></data>
+  <data name="Pay.Field.Mode.LockedTip" xml:space="preserve"><value>已激活账户的模式不可更改——请先暂停它。</value></data>
+  <data name="Pay.Mode.Test" xml:space="preserve"><value>Test</value></data>
+  <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
+  <data name="Pay.Field.ExtRef" xml:space="preserve"><value>外部账户引用</value></data>
+  <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>服务商账户 id——激活 Live 账户时必填。</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>租户默认</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>用作租户默认账户。</value></data>
+  <data name="Pay.Create" xml:space="preserve"><value>创建（草稿）</value></data>
+  <data name="Pay.Create.Tip" xml:space="preserve"><value>以草稿状态创建账户——随后再提交并激活它。</value></data>
+  <data name="Pay.Status.Created" xml:space="preserve"><value>账户已创建（草稿）。</value></data>
+  <data name="Pay.Status.Updated" xml:space="preserve"><value>账户已更新。</value></data>
+  <data name="Pay.Status.Default" xml:space="preserve"><value>账户现已成为租户默认账户。</value></data>
+  <data name="Pay.Status.Submitted" xml:space="preserve"><value>账户已提交。</value></data>
+  <data name="Pay.Status.Activated" xml:space="preserve"><value>账户已激活。</value></data>
+  <data name="Pay.Status.Suspended" xml:space="preserve"><value>账户已暂停。</value></data>
+  <data name="Pay.Status.Archived" xml:space="preserve"><value>账户已归档。</value></data>
+  <data name="Pay.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0} {1}）。</value></data>
+
+  <!-- ===== Supplier payouts ===== -->
+  <data name="Payouts.Title" xml:space="preserve"><value>供应商付款</value></data>
+  <data name="Payouts.Subtitle" xml:space="preserve"><value>脱敏银行账户 · 付款指令</value></data>
+  <data name="Payouts.Intro" xml:space="preserve"><value>根据您的保险库引用创建令牌化的供应商银行账户，批准或拒绝它们，并为供应商创建启用的付款指令。切勿在此处输入原始银行详情。</value></data>
+  <data name="Payouts.TenantId.Tip" xml:space="preserve"><value>您正在管理其供应商付款配置的租户。</value></data>
+  <data name="Payouts.Supplier" xml:space="preserve"><value>供应商</value></data>
+  <data name="Payouts.Supplier.Tip" xml:space="preserve"><value>此租户的启用供应商；用于筛选列表，并被新建银行账户表单使用。</value></data>
+  <data name="Payouts.Supplier.All" xml:space="preserve"><value>所有供应商</value></data>
+  <data name="Payouts.SupplierId" xml:space="preserve"><value>供应商实体 ID</value></data>
+  <data name="Payouts.SupplierId.Tip" xml:space="preserve"><value>此租户未找到启用的供应商——请手动输入供应商实体 GUID。</value></data>
+  <data name="Payouts.BankAccounts" xml:space="preserve"><value>银行账户</value></data>
+  <data name="Payouts.Col.AccountName" xml:space="preserve"><value>账户名称</value></data>
+  <data name="Payouts.Col.Country" xml:space="preserve"><value>国家/地区</value></data>
+  <data name="Payouts.Col.Routing" xml:space="preserve"><value>路由号</value></data>
+  <data name="Payouts.Col.Account" xml:space="preserve"><value>账号</value></data>
+  <data name="Payouts.Col.State" xml:space="preserve"><value>状态</value></data>
+  <data name="Payouts.Approve" xml:space="preserve"><value>批准</value></data>
+  <data name="Payouts.Approve.Tip" xml:space="preserve"><value>批准此令牌化银行账户。</value></data>
+  <data name="Payouts.Reject" xml:space="preserve"><value>拒绝</value></data>
+  <data name="Payouts.Reject.Tip" xml:space="preserve"><value>拒绝此银行账户。</value></data>
+  <data name="Payouts.EditBank.Tip" xml:space="preserve"><value>编辑脱敏详情——更改银行身份信息会将批准状态重置为待处理。</value></data>
+  <data name="Payouts.Archive" xml:space="preserve"><value>归档</value></data>
+  <data name="Payouts.Archive.Tip" xml:space="preserve"><value>归档此银行账户。</value></data>
+  <data name="Payouts.NoBankAccounts" xml:space="preserve"><value>未找到供应商银行账户。</value></data>
+  <data name="Payouts.EditBank" xml:space="preserve"><value>编辑银行账户</value></data>
+  <data name="Payouts.EditBank.Note" xml:space="preserve"><value>仅限脱敏显示值与保险库令牌——切勿使用原始银行详情。更改国家/地区、脱敏号码或令牌会将已批准的账户重置为待批准。</value></data>
+  <data name="Payouts.Field.AccountName" xml:space="preserve"><value>账户名称</value></data>
+  <data name="Payouts.Field.AccountName.Tip" xml:space="preserve"><value>来自保险库/KYC 系统的脱敏显示账户持有人/名称。</value></data>
+  <data name="Payouts.Field.BankCountry" xml:space="preserve"><value>银行国家/地区</value></data>
+  <data name="Payouts.Field.BankCountry.Tip" xml:space="preserve"><value>ISO 3166-1 alpha-2 国家/地区代码，例如 AU。</value></data>
+  <data name="Payouts.Field.RoutingMasked" xml:space="preserve"><value>脱敏路由号</value></data>
+  <data name="Payouts.Field.RoutingMasked.Tip" xml:space="preserve"><value>仅脱敏的 BSB/路由号显示值。</value></data>
+  <data name="Payouts.Field.AccountMasked" xml:space="preserve"><value>脱敏账号</value></data>
+  <data name="Payouts.Field.AccountMasked.Tip" xml:space="preserve"><value>仅脱敏的账号显示值。</value></data>
+  <data name="Payouts.Field.TokenRef" xml:space="preserve"><value>保险库令牌引用</value></data>
+  <data name="Payouts.Field.TokenRef.Tip" xml:space="preserve"><value>指向保险库化/令牌化账户的引用。请勿粘贴原始银行详情。</value></data>
+  <data name="Payouts.NewBank" xml:space="preserve"><value>新建银行账户</value></data>
+  <data name="Payouts.CreateBank" xml:space="preserve"><value>创建（待批准）</value></data>
+  <data name="Payouts.CreateBank.Tip" xml:space="preserve"><value>创建令牌化银行账户——它以待批准状态开始。</value></data>
+  <data name="Payouts.Instructions" xml:space="preserve"><value>付款指令</value></data>
+  <data name="Payouts.Instruction.Bank" xml:space="preserve"><value>银行</value></data>
+  <data name="Payouts.Instruction.Edit.Tip" xml:space="preserve"><value>更改此指令的频率，或将其路由到另一个已批准的银行账户。</value></data>
+  <data name="Payouts.Instruction.Deactivate" xml:space="preserve"><value>停用</value></data>
+  <data name="Payouts.Instruction.Deactivate.Tip" xml:space="preserve"><value>停用此指令。</value></data>
+  <data name="Payouts.NoInstructions" xml:space="preserve"><value>未找到付款指令。</value></data>
+  <data name="Payouts.EditInstruction" xml:space="preserve"><value>编辑指令 {0}</value></data>
+  <data name="Payouts.Field.BankAccount" xml:space="preserve"><value>银行账户</value></data>
+  <data name="Payouts.Field.BankAccount.Tip" xml:space="preserve"><value>只有同一供应商的启用银行账户才能接收付款。</value></data>
+  <data name="Payouts.Field.Cadence" xml:space="preserve"><value>频率</value></data>
+  <data name="Payouts.Field.Cadence.Tip" xml:space="preserve"><value>向此供应商付款的频率。</value></data>
+  <data name="Payouts.Cadence.Manual" xml:space="preserve"><value>手动</value></data>
+  <data name="Payouts.Cadence.Weekly" xml:space="preserve"><value>每周</value></data>
+  <data name="Payouts.Cadence.Fortnightly" xml:space="preserve"><value>每两周</value></data>
+  <data name="Payouts.Cadence.Monthly" xml:space="preserve"><value>每月</value></data>
+  <data name="Payouts.Field.ApprovedBank" xml:space="preserve"><value>已批准的银行账户</value></data>
+  <data name="Payouts.Field.ApprovedBank.Tip" xml:space="preserve"><value>只有启用的银行账户才能接收付款指令。</value></data>
+  <data name="Payouts.ChooseBank" xml:space="preserve"><value>选择一个启用的银行账户</value></data>
+  <data name="Payouts.CreateInstruction" xml:space="preserve"><value>创建启用指令</value></data>
+  <data name="Payouts.NewInstruction" xml:space="preserve"><value>新建付款指令</value></data>
+  <data name="Payouts.Instruction.NeedActiveBank" xml:space="preserve"><value>请先批准一个银行账户——付款指令只能路由到一个启用（已批准）的银行账户。</value></data>
+  <data name="Payouts.CreateInstruction.Tip" xml:space="preserve"><value>为所选银行账户对应供应商创建启用的付款指令。</value></data>
+  <data name="Payouts.Status.BankCreated" xml:space="preserve"><value>银行账户已创建，待批准。</value></data>
+  <data name="Payouts.Status.BankApproved" xml:space="preserve"><value>银行账户已批准。</value></data>
+  <data name="Payouts.Status.BankRejected" xml:space="preserve"><value>银行账户已拒绝。</value></data>
+  <data name="Payouts.Status.BankArchived" xml:space="preserve"><value>银行账户已归档。</value></data>
+  <data name="Payouts.Status.BankUpdated" xml:space="preserve"><value>银行账户已更新。</value></data>
+  <data name="Payouts.Status.BankUpdatedPending" xml:space="preserve"><value>银行账户已更新——银行身份信息已更改，因此再次进入待批准状态。</value></data>
+  <data name="Payouts.Status.InstructionCreated" xml:space="preserve"><value>付款指令已创建。</value></data>
+  <data name="Payouts.Status.InstructionUpdated" xml:space="preserve"><value>付款指令已更新。</value></data>
+  <data name="Payouts.Status.InstructionDeactivated" xml:space="preserve"><value>付款指令已停用。</value></data>
+  <data name="Payouts.Error.TenantGuid" xml:space="preserve"><value>租户 ID 必须是有效的 GUID。</value></data>
+  <data name="Payouts.Error.SupplierGuid" xml:space="preserve"><value>供应商实体 ID 必须是有效的 GUID。</value></data>
+  <data name="Payouts.Error.ChooseSupplier" xml:space="preserve"><value>请先选择一个供应商。</value></data>
+  <data name="Payouts.Error.ChooseBank" xml:space="preserve"><value>请选择一个启用的银行账户。</value></data>
+  <data name="Payouts.Error.ChooseBankForInstruction" xml:space="preserve"><value>请为此指令选择一个启用的银行账户。</value></data>
+  <data name="Payouts.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0} {1}）。</value></data>
+
+  <!-- ===== Mission control ===== -->
+  <data name="Mc.Title" xml:space="preserve"><value>指挥中心</value></data>
+  <data name="Mc.Subtitle" xml:space="preserve"><value>跨服务运营 · 只读</value></data>
+  <data name="Mc.Intro" xml:space="preserve"><value>活动来自中央审计投影；任务来自 Workflow 服务。数据仅通过所属服务 API 获取——绝不直接读取服务数据库（mt6_14）。</value></data>
+  <data name="Mc.Kpi.Activity" xml:space="preserve"><value>活动（24 小时）</value></data>
+  <data name="Mc.Kpi.Activity.Tip" xml:space="preserve"><value>过去 24 小时内记录的审计事件。</value></data>
+  <data name="Mc.Kpi.AuditEvents" xml:space="preserve"><value>审计事件</value></data>
+  <data name="Mc.Kpi.AuditEvents.Tip" xml:space="preserve"><value>此租户投影中的每一个审计事件。</value></data>
+  <data name="Mc.Kpi.JobRuns" xml:space="preserve"><value>任务运行</value></data>
+  <data name="Mc.Kpi.JobRuns.Tip" xml:space="preserve"><value>由 Workflow 服务报告的计划任务运行。</value></data>
+  <data name="Mc.Kpi.FailedJobs" xml:space="preserve"><value>失败任务</value></data>
+  <data name="Mc.Kpi.FailedJobs.Tip" xml:space="preserve"><value>以“失败”结束的任务运行——请在其累积之前排查。</value></data>
+  <data name="Mc.Timeline" xml:space="preserve"><value>活动时间线</value></data>
+  <data name="Mc.NoAudit" xml:space="preserve"><value>暂无审计活动。它会随运营人员的操作（RBAC、供应商、实体变更…）而出现。</value></data>
+  <data name="Mc.Col.When" xml:space="preserve"><value>时间</value></data>
+  <data name="Mc.Col.Actor" xml:space="preserve"><value>操作者</value></data>
+  <data name="Mc.Col.Action" xml:space="preserve"><value>操作</value></data>
+  <data name="Mc.Col.Outcome" xml:space="preserve"><value>结果</value></data>
+  <data name="Mc.Jobs" xml:space="preserve"><value>计划任务</value></data>
+  <data name="Mc.NoJobs" xml:space="preserve"><value>暂未记录任何任务运行（支付每日日记账任务会在此报告）。</value></data>
+  <data name="Mc.Col.Job" xml:space="preserve"><value>任务</value></data>
+  <data name="Mc.Col.Started" xml:space="preserve"><value>开始时间</value></data>
+  <data name="Mc.Bus" xml:space="preserve"><value>消息总线</value></data>
+  <data name="Mc.Bus.Subtitle" xml:space="preserve"><value>实时 · RabbitMQ 管理 API · 只读</value></data>
+  <data name="Mc.Bus.Unreachable" xml:space="preserve"><value>管理 API 不可达（配置 &lt;code&gt;MessageBus:ManagementUrl&lt;/code&gt;，开发默认值 &lt;code&gt;http://localhost:15672&lt;/code&gt;）。当消息代理的管理插件启用后，队列统计信息会显示出来。</value></data>
+  <data name="Mc.Bus.Queues" xml:space="preserve"><value>队列</value></data>
+  <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>在消息代理上声明的队列。</value></data>
+  <data name="Mc.Bus.Consumers" xml:space="preserve"><value>消费者</value></data>
+  <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>当前附加到所有队列的消费者。</value></data>
+  <data name="Mc.Bus.Ready" xml:space="preserve"><value>就绪</value></data>
+  <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>等待投递的消息。数量增长意味着消费者处理滞后。</value></data>
+  <data name="Mc.Bus.Unacked" xml:space="preserve"><value>未确认</value></data>
+  <data name="Mc.Bus.Unacked.Tip" xml:space="preserve"><value>已投递但尚未确认的消息。</value></data>
+  <data name="Mc.Bus.DeadLettered" xml:space="preserve"><value>已进入死信</value></data>
+  <data name="Mc.Bus.DeadLettered.Tip" xml:space="preserve"><value>停留在死信队列中的消息——某个消费者正在失败。</value></data>
+  <data name="Mc.Bus.DlqWarning" xml:space="preserve"><value>⚠ 死信队列中存有消息——以下消费者正在失败：</value></data>
+  <data name="Mc.Bus.Busiest" xml:space="preserve"><value>最繁忙队列（按深度取前 10，再按发布速率排序）</value></data>
+  <data name="Mc.Bus.Busiest.Tip" xml:space="preserve"><value>展开以查看最深、最繁忙的队列。</value></data>
+  <data name="Mc.Col.Queue" xml:space="preserve"><value>队列</value></data>
+  <data name="Mc.Col.PublishRate" xml:space="preserve"><value>发布/秒</value></data>
+  <data name="Mc.Consoles" xml:space="preserve"><value>控制台</value></data>
+  <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana——服务（RED 指标）</value></data>
+  <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>在新标签页中打开 Grafana RED 指标仪表板。</value></data>
+
+  <!-- ===== Security ===== -->
+  <data name="Sec.Title" xml:space="preserve"><value>安全</value></data>
+  <data name="Sec.Intro" xml:space="preserve"><value>您运营账户的双因素认证，以及此租户的 MFA 策略。</value></data>
+  <data name="Sec.Totp" xml:space="preserve"><value>您的第二因素（TOTP）</value></data>
+  <data name="Sec.Enabled" xml:space="preserve"><value>✅ 此账户已&lt;strong&gt;启用&lt;/strong&gt; MFA。每次登录都会要求身份验证器验证码（恢复码同样有效）。</value></data>
+  <data name="Sec.Required" xml:space="preserve"><value>⚠️ 生效的 MFA 策略&lt;strong&gt;要求&lt;/strong&gt;此账户使用第二因素——请立即注册。</value></data>
+  <data name="Sec.EnableMfa" xml:space="preserve"><value>启用 MFA</value></data>
+  <data name="Sec.EnableMfa.Tip" xml:space="preserve"><value>生成一个 TOTP 密钥。将其添加到身份验证器应用（手动录入），然后用验证码确认。</value></data>
+  <data name="Sec.SecretPrompt" xml:space="preserve"><value>将此密钥添加到您的身份验证器应用（手动录入 / 基于时间）：</value></data>
+  <data name="Sec.SecretUri" xml:space="preserve"><value>或使用此 URI：</value></data>
+  <data name="Sec.Code" xml:space="preserve"><value>应用中的验证码</value></data>
+  <data name="Sec.Code.Tip" xml:space="preserve"><value>您身份验证器当前显示的 6 位验证码——用于证明密钥已成功录入。</value></data>
+  <data name="Sec.Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="Sec.Confirm.Tip" xml:space="preserve"><value>用上方验证码确认注册，并显示您的恢复码。</value></data>
+  <data name="Sec.RecoveryCodes" xml:space="preserve"><value>恢复码——请立即保存，它们不会再次显示：</value></data>
+  <data name="Sec.Policy" xml:space="preserve"><value>租户 MFA 策略</value></data>
+  <data name="Sec.Policy.Summary" xml:space="preserve"><value>平台最低要求：&lt;strong&gt;{0}&lt;/strong&gt; · 生效值：&lt;strong&gt;{1}&lt;/strong&gt;。租户策略只能强化平台底线。注意：用户仅在注册后才会被要求验证——“要求”会提示未注册用户去注册，绝不会将其锁在门外。</value></data>
+  <data name="Sec.Policy.Tip" xml:space="preserve"><value>此租户用户被要求使用 MFA 的强度。“特权”针对管理员账户。</value></data>
+  <data name="Sec.Policy.Option.Disabled" xml:space="preserve"><value>禁用——不提示任何人</value></data>
+  <data name="Sec.Policy.Option.Optional" xml:space="preserve"><value>可选——已注册用户会被要求验证</value></data>
+  <data name="Sec.Policy.Option.Privileged" xml:space="preserve"><value>对特权（管理员）账户要求</value></data>
+  <data name="Sec.Policy.Option.All" xml:space="preserve"><value>对所有用户要求</value></data>
+  <data name="Sec.Policy.Save" xml:space="preserve"><value>保存策略</value></data>
+  <data name="Sec.Policy.Save.Tip" xml:space="preserve"><value>将所选 MFA 策略应用于此租户。</value></data>
+  <data name="Sec.Policy.Name.Disabled" xml:space="preserve"><value>禁用</value></data>
+  <data name="Sec.Policy.Name.Optional" xml:space="preserve"><value>可选</value></data>
+  <data name="Sec.Policy.Name.Privileged" xml:space="preserve"><value>对特权账户要求</value></data>
+  <data name="Sec.Policy.Name.All" xml:space="preserve"><value>对所有用户要求</value></data>
+  <data name="Sec.Webhooks" xml:space="preserve"><value>Webhook 签名密钥</value></data>
+  <data name="Sec.Webhooks.Intro" xml:space="preserve"><value>服务商 Webhook 密钥（例如 Stripe 的 &lt;code&gt;whsec_…&lt;/code&gt;）。值存储在服务器端，且始终仅以脱敏方式显示。轮换方法：添加新密钥（两者都验证），切换服务商，然后停用旧的。</value></data>
+  <data name="Sec.Col.Provider" xml:space="preserve"><value>服务商</value></data>
+  <data name="Sec.Col.Secret" xml:space="preserve"><value>密钥</value></data>
+  <data name="Sec.Col.Label" xml:space="preserve"><value>标签</value></data>
+  <data name="Sec.Secret.Active" xml:space="preserve"><value>启用</value></data>
+  <data name="Sec.Secret.Deactivated" xml:space="preserve"><value>已停用</value></data>
+  <data name="Sec.Deactivate" xml:space="preserve"><value>停用</value></data>
+  <data name="Sec.Deactivate.Tip" xml:space="preserve"><value>停止接受用此密钥签名的 Webhook。仅在服务商已切换到较新密钥后才这样做。</value></data>
+  <data name="Sec.NewSecret.Provider.Tip" xml:space="preserve"><value>此密钥所签 Webhook 对应的服务商——与 /webhooks/{provider} 路由匹配。</value></data>
+  <data name="Sec.NewSecret.Value" xml:space="preserve"><value>whsec_…</value></data>
+  <data name="Sec.NewSecret.Value.Tip" xml:space="preserve"><value>粘贴来自服务商控制台的签名密钥。它不会再次显示。</value></data>
+  <data name="Sec.NewSecret.Label" xml:space="preserve"><value>标签（可选）</value></data>
+  <data name="Sec.NewSecret.Label.Tip" xml:space="preserve"><value>运营备注，例如“live key 2026-07”。</value></data>
+  <data name="Sec.AddSecret" xml:space="preserve"><value>添加密钥</value></data>
+  <data name="Sec.AddSecret.Tip" xml:space="preserve"><value>为所选服务商注册签名密钥。</value></data>
+  <data name="Sec.Status.SecretAdded" xml:space="preserve"><value>密钥已注册。</value></data>
+  <data name="Sec.Status.SecretDeactivated" xml:space="preserve"><value>密钥已停用。</value></data>
+  <data name="Sec.Status.MfaEnabled" xml:space="preserve"><value>MFA 已启用。您下次登录时将要求验证码。</value></data>
+  <data name="Sec.Status.PolicySaved" xml:space="preserve"><value>策略已保存。</value></data>
+  <data name="Sec.Error.SecretAdd" xml:space="preserve"><value>无法注册该密钥。</value></data>
+  <data name="Sec.Error.SecretDeactivate" xml:space="preserve"><value>无法停用该密钥。</value></data>
+  <data name="Sec.Error.EnrollStart" xml:space="preserve"><value>无法开始注册。</value></data>
+  <data name="Sec.Error.CodeRejected" xml:space="preserve"><value>验证码未被接受——请检查身份验证器后重试。</value></data>
+  <data name="Sec.Error.PolicySave" xml:space="preserve"><value>无法保存该策略。</value></data>
+
+  <!-- ===== Shared controls ===== -->
+  <data name="Currency.Tip" xml:space="preserve"><value>此价格所用的货币（ISO 4217）。从完整列表中选取——绝不手动输入。</value></data>
+  <data name="Currency.Group.Common" xml:space="preserve"><value>常用</value></data>
+  <data name="Currency.Group.All" xml:space="preserve"><value>所有货币（ISO 4217）</value></data>
+  <data name="Image.Tip" xml:space="preserve"><value>粘贴图片 URL，或上传本地文件（PNG/JPEG/WebP/GIF，最大 10 MB）。</value></data>
+  <data name="Image.Placeholder" xml:space="preserve"><value>https://… 或上传 →</value></data>
+  <data name="Image.Browse" xml:space="preserve"><value>浏览…</value></data>
+  <data name="Image.Browse.Tip" xml:space="preserve"><value>选择一个本地图片文件上传到目录对象存储。</value></data>
+  <data name="Image.Uploading" xml:space="preserve"><value>上传中…</value></data>
+  <data name="Image.UploadFailed" xml:space="preserve"><value>上传失败：{0}</value></data>
+
+  <!-- ===== Error page ===== -->
+  <data name="Error.Title" xml:space="preserve"><value>错误。</value></data>
+  <data name="Error.Heading" xml:space="preserve"><value>处理您的请求时发生错误。</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>请求 ID：</value></data>
+  <data name="Error.DevMode" xml:space="preserve"><value>开发模式</value></data>
+  <data name="Error.DevMode.Body1" xml:space="preserve"><value>切换到&lt;strong&gt;开发（Development）&lt;/strong&gt;环境将显示有关所发生错误的更详细信息。</value></data>
+  <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;不应为已部署的应用启用开发（Development）环境。&lt;/strong&gt;它可能导致向最终用户显示异常中的敏感信息。要进行本地调试，请通过将 &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; 环境变量设置为 &lt;strong&gt;Development&lt;/strong&gt; 并重启应用来启用&lt;strong&gt;开发（Development）&lt;/strong&gt;环境。</value></data>
+</root>

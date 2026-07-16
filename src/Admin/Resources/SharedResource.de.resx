@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
-    German (de) — the TOKEN second culture. Deliberately a small subset: enough that switching the language is
-    visibly, demonstrably working end to end (nav, layout, login, dashboard headings), not a full translation.
+    English base (neutral) resources for the admin console — the fallback for every culture.
 
-    Every key NOT listed here falls back to the English value in SharedResource.resx. That fallback is the whole
-    point: a culture can be shipped partial and grown over time, and importing a full translation later
-    (Chinese, French, …) means dropping in SharedResource.<culture>.resx with the same keys — no code change.
+    Conventions:
+      <Area>.<Thing>      a visible label, heading, button, option or message
+      <Area>.<Thing>.Tip  the tooltip (title=) for the control that label belongs to
+      {0}, {1}            format arguments, passed as L["Key", arg]
+
+    Adding a language: copy this file to SharedResource.<culture>.resx (e.g. SharedResource.fr.resx),
+    translate the <value>s, rebuild. Keys you leave out fall back to the English value here, and the culture
+    shows up in the layout's language switcher automatically (AdminCultures discovers satellite assemblies).
   -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -67,83 +71,920 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
 
-  <!-- Navigation + layout chrome -->
-  <data name="Nav.Dashboard" xml:space="preserve"><value>Übersicht</value></data>
-  <data name="Nav.Dashboard.Tip" xml:space="preserve"><value>Live-Überblick für Betreiber: Umsatz, Bestellungen, Produkte, offene Retouren und Saldo.</value></data>
-  <data name="Nav.Catalog" xml:space="preserve"><value>Katalog</value></data>
-  <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Produkte, Varianten, Preise, Bilder und Attribute anlegen und bearbeiten.</value></data>
-  <data name="Nav.Offers" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
-  <data name="Nav.Orders" xml:space="preserve"><value>Bestellungen</value></data>
-  <data name="Nav.Orders.Tip" xml:space="preserve"><value>Bestellungen ansehen; unbezahlte stornieren, bezahlte erstatten.</value></data>
-  <data name="Nav.Rmas" xml:space="preserve"><value>Retouren</value></data>
-  <data name="Nav.Ledger" xml:space="preserve"><value>Hauptbuch</value></data>
-  <data name="Nav.XeroSync" xml:space="preserve"><value>Xero-Abgleich</value></data>
-  <data name="Nav.XeroMappings" xml:space="preserve"><value>Xero-Zuordnungen</value></data>
-  <data name="Nav.Imports" xml:space="preserve"><value>Importe</value></data>
-  <data name="Nav.Rbac" xml:space="preserve"><value>Rollen &amp; Rechte</value></data>
-  <data name="Nav.Users" xml:space="preserve"><value>Benutzerkonten</value></data>
-  <data name="Nav.Entities" xml:space="preserve"><value>Einheiten &amp; Lieferanten</value></data>
-  <data name="Nav.CommerceOps" xml:space="preserve"><value>Handelsbetrieb</value></data>
-  <data name="Nav.PaymentAccounts" xml:space="preserve"><value>Zahlungskonten</value></data>
-  <data name="Nav.SupplierPayouts" xml:space="preserve"><value>Lieferantenauszahlungen</value></data>
-  <data name="Nav.MissionControl" xml:space="preserve"><value>Leitstand</value></data>
-  <data name="Nav.Security" xml:space="preserve"><value>Sicherheit</value></data>
-  <data name="Nav.Logout" xml:space="preserve"><value>Abmelden</value></data>
-  <data name="Nav.Logout.Tip" xml:space="preserve"><value>Sitzung beenden und zur Anmeldung zurückkehren.</value></data>
-  <data name="Nav.Language" xml:space="preserve"><value>Sprache</value></data>
-  <data name="Nav.Language.Tip" xml:space="preserve"><value>Die Sprache der Oberfläche für Ihre Sitzung. Sie wird in einem Cookie gespeichert und ist unabhängig von Währung und Finanzeinstellungen.</value></data>
-  <data name="Nav.Language.Apply" xml:space="preserve"><value>Übernehmen</value></data>
-  <data name="Nav.Language.Apply.Tip" xml:space="preserve"><value>Oberfläche auf die gewählte Sprache umstellen und Seite neu laden.</value></data>
+  <!-- ===== Common ===== -->
+  <data name="Common.Loading" xml:space="preserve"><value>Wird geladen…</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>Speichern</value></data>
+  <data name="Common.Save.Tip" xml:space="preserve"><value>Speichern Sie Ihre Änderungen.</value></data>
+  <data name="Common.Saving" xml:space="preserve"><value>Wird gespeichert…</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>Abbrechen</value></data>
+  <data name="Common.Cancel.Tip" xml:space="preserve"><value>Verwerfen Sie Ihre Änderungen und gehen Sie zurück.</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>Löschen</value></data>
+  <data name="Common.Create" xml:space="preserve"><value>Erstellen</value></data>
+  <data name="Common.Load" xml:space="preserve"><value>Laden</value></data>
+  <data name="Common.Load.Tip" xml:space="preserve"><value>Laden Sie die Datensätze für den oben angegebenen Mandanten.</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>Aktualisieren</value></data>
+  <data name="Common.Refresh.Tip" xml:space="preserve"><value>Laden Sie die Daten dieser Seite aus den Diensten neu.</value></data>
+  <data name="Common.Search" xml:space="preserve"><value>Suchen</value></data>
+  <data name="Common.Clear" xml:space="preserve"><value>Leeren</value></data>
+  <data name="Common.Clear.Tip" xml:space="preserve"><value>Leeren Sie das Formular, ohne zu speichern.</value></data>
+  <data name="Common.Confirm" xml:space="preserve"><value>Bestätigen?</value></data>
+  <data name="Common.Actions" xml:space="preserve"><value>Aktionen</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Common.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Common.Type" xml:space="preserve"><value>Typ</value></data>
+  <data name="Common.Reason" xml:space="preserve"><value>Grund</value></data>
+  <data name="Common.Active" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Common.Inactive" xml:space="preserve"><value>Inaktiv</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>Ja</value></data>
+  <data name="Common.No" xml:space="preserve"><value>Nein</value></data>
+  <data name="Common.Remove.Tip" xml:space="preserve"><value>Entfernen Sie diese Zeile.</value></data>
+  <data name="Common.TenantId" xml:space="preserve"><value>Mandanten-ID</value></data>
+  <data name="Common.TenantId.Tip" xml:space="preserve"><value>Der Mandant (GUID), dessen Datensätze Sie verwalten.</value></data>
 
-  <!-- Login -->
-  <data name="Login.Title" xml:space="preserve"><value>Admin-Anmeldung</value></data>
+  <!-- ===== App shell / navigation / language switcher ===== -->
+  <data name="App.Title" xml:space="preserve"><value>3commerce Administration</value></data>
+  <data name="Nav.Dashboard" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Nav.Dashboard.Tip" xml:space="preserve"><value>Live-Betriebsübersicht: Umsatz, Bestellungen, Produkte, offene RMAs und Hauptbuchsaldo.</value></data>
+  <data name="Nav.Catalog" xml:space="preserve"><value>Katalog</value></data>
+  <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Erstellen und bearbeiten Sie Produkte, Varianten, Preise, Bilder und Attribute.</value></data>
+  <data name="Nav.Offers" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
+  <data name="Nav.Offers.Tip" xml:space="preserve"><value>Lieferantenprofile: Fulfillment-Typ, Preismodell, Abrechnungszeitraum, Priorität.</value></data>
+  <data name="Nav.Orders" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Nav.Orders.Tip" xml:space="preserve"><value>Bestellungen durchsuchen; unbezahlte stornieren und bezahlte erstatten.</value></data>
+  <data name="Nav.Rmas" xml:space="preserve"><value>RMA-Warteschlange</value></data>
+  <data name="Nav.Rmas.Tip" xml:space="preserve"><value>Kundenrücksendeanfragen genehmigen, ablehnen und annehmen.</value></data>
+  <data name="Nav.Ledger" xml:space="preserve"><value>Hauptbuch</value></data>
+  <data name="Nav.Ledger.Tip" xml:space="preserve"><value>Das doppelte Buchführungshauptbuch — jede gebuchte Buchung und ihre Zeilen.</value></data>
+  <data name="Nav.XeroSync" xml:space="preserve"><value>Xero-Synchronisierung</value></data>
+  <data name="Nav.XeroSync.Tip" xml:space="preserve"><value>Tägliche Sammelbuchungen an Xero senden und vergangene Synchronisierungsläufe prüfen.</value></data>
+  <data name="Nav.XeroMappings" xml:space="preserve"><value>Xero-Zuordnungen</value></data>
+  <data name="Nav.XeroMappings.Tip" xml:space="preserve"><value>Hauptbuch-Kontocodes Xero-Kontocodes zuordnen, mit Geltungsbereichs-Vorrang.</value></data>
+  <data name="Nav.Imports" xml:space="preserve"><value>Importe</value></data>
+  <data name="Nav.Imports.Tip" xml:space="preserve"><value>Katalog-Importer ausführen und prüfen, was jeder Lauf gelesen, angenommen und abgelehnt hat.</value></data>
+  <data name="Nav.Rbac" xml:space="preserve"><value>Rollen &amp; Berechtigungen</value></data>
+  <data name="Nav.Rbac.Tip" xml:space="preserve"><value>Rollen aus dem im Code definierten Berechtigungssatz zusammenstellen; durchgesetzt vom Identity-PDP.</value></data>
+  <data name="Nav.Users" xml:space="preserve"><value>Betreiber-Benutzer</value></data>
+  <data name="Nav.Users.Tip" xml:space="preserve"><value>Die Konten, die sich bei einem Mandanten anmelden: Passwörter zurücksetzen, E-Mails ändern.</value></data>
+  <data name="Nav.Entities" xml:space="preserve"><value>Entitäten &amp; Lieferanten</value></data>
+  <data name="Nav.Entities.Tip" xml:space="preserve"><value>Partner-Stammdaten, Lieferanten-Onboarding und die Maker-Checker-Warteschlange für Änderungsanträge.</value></data>
+  <data name="Nav.CommerceOps" xml:space="preserve"><value>Commerce-Betrieb</value></data>
+  <data name="Nav.CommerceOps.Tip" xml:space="preserve"><value>Storefronts, Domains, Veröffentlichung, Steuerregime und die zugehörigen Richtlinienbereiche.</value></data>
+  <data name="Nav.PaymentAccounts" xml:space="preserve"><value>Zahlungskonten</value></data>
+  <data name="Nav.PaymentAccounts.Tip" xml:space="preserve"><value>Zahlungsanbieterkonten von Mandant und Storefront sowie deren Lebenszyklus.</value></data>
+  <data name="Nav.SupplierPayouts" xml:space="preserve"><value>Lieferantenauszahlungen</value></data>
+  <data name="Nav.SupplierPayouts.Tip" xml:space="preserve"><value>Tokenisierte Lieferanten-Bankkonten und die Auszahlungsanweisungen, die sie verwenden.</value></data>
+  <data name="Nav.MissionControl" xml:space="preserve"><value>Mission Control</value></data>
+  <data name="Nav.MissionControl.Tip" xml:space="preserve"><value>Dienstübergreifender schreibgeschützter Betrieb: Audit-Aktivität, geplante Jobs, Nachrichtenbus-Zustand.</value></data>
+  <data name="Nav.Security" xml:space="preserve"><value>Sicherheit</value></data>
+  <data name="Nav.Security.Tip" xml:space="preserve"><value>Ihre Zwei-Faktor-Registrierung, die MFA-Richtlinie des Mandanten und die Webhook-Signaturgeheimnisse.</value></data>
+  <data name="Nav.Logout" xml:space="preserve"><value>Abmelden</value></data>
+  <data name="Nav.Logout.Tip" xml:space="preserve"><value>Beenden Sie Ihre Administrationssitzung und kehren Sie zur Anmeldeseite zurück.</value></data>
+  <data name="Nav.Language" xml:space="preserve"><value>Sprache</value></data>
+  <data name="Nav.Language.Tip" xml:space="preserve"><value>Die Sprache der Administrationsoberfläche für Ihre Sitzung. Sie wird in einem Cookie in Ihrem Browser gespeichert und ist unabhängig von Währung, Steuern und anderer Finanzkonfiguration.</value></data>
+  <data name="Nav.Language.Apply" xml:space="preserve"><value>Übernehmen</value></data>
+  <data name="Nav.Language.Apply.Tip" xml:space="preserve"><value>Wechseln Sie die Oberfläche zur ausgewählten Sprache und laden Sie die Seite neu.</value></data>
+
+  <!-- ===== Login ===== -->
+  <data name="Login.Title" xml:space="preserve"><value>Administrationsanmeldung</value></data>
+  <data name="Login.Error.Mfa" xml:space="preserve"><value>Für dieses Konto ist MFA aktiviert — geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein (oder einen Wiederherstellungscode).</value></data>
+  <data name="Login.Error.Invalid" xml:space="preserve"><value>Ungültige Anmeldedaten oder kein Administratorkonto.</value></data>
   <data name="Login.Email" xml:space="preserve"><value>E-Mail</value></data>
-  <data name="Login.Email.Tip" xml:space="preserve"><value>Ihre Betreiber-E-Mail. Die Admin-Konsole verlangt die Rolle 'admin'.</value></data>
+  <data name="Login.Email.Tip" xml:space="preserve"><value>Ihre Betreiber-E-Mail. Die Administrationskonsole erfordert die Rolle „admin“.</value></data>
   <data name="Login.Password" xml:space="preserve"><value>Passwort</value></data>
   <data name="Login.Password.Tip" xml:space="preserve"><value>Ihr Kontopasswort.</value></data>
   <data name="Login.Code" xml:space="preserve"><value>Authenticator-Code</value></data>
-  <data name="Login.Code.Tip" xml:space="preserve"><value>Nur nötig, wenn MFA für Ihr Konto aktiviert ist. Sonst leer lassen. Wiederherstellungscodes funktionieren hier ebenfalls.</value></data>
+  <data name="Login.Code.Tip" xml:space="preserve"><value>Nur erforderlich, wenn MFA für Ihr Konto aktiviert ist (Seite „Sicherheit“). Andernfalls leer lassen. Wiederherstellungscodes funktionieren hier ebenfalls.</value></data>
   <data name="Login.SignIn" xml:space="preserve"><value>Anmelden</value></data>
-  <data name="Login.SignIn.Tip" xml:space="preserve"><value>An der Admin-Konsole anmelden.</value></data>
-  <data name="Login.Error.Invalid" xml:space="preserve"><value>Ungültige Zugangsdaten oder kein Administratorkonto.</value></data>
+  <data name="Login.SignIn.Tip" xml:space="preserve"><value>Melden Sie sich bei der Administrationskonsole an.</value></data>
 
-  <!-- Dashboard -->
-  <data name="Home.Title" xml:space="preserve"><value>Übersicht</value></data>
-  <data name="Home.Subtitle" xml:space="preserve"><value>Betreiberüberblick · live</value></data>
+  <!-- ===== Dashboard (Home) ===== -->
+  <data name="Home.Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Home.Subtitle" xml:space="preserve"><value>Betreiberübersicht · live</value></data>
   <data name="Home.Loading" xml:space="preserve"><value>Kennzahlen werden geladen…</value></data>
   <data name="Home.Kpi.Revenue" xml:space="preserve"><value>Umsatz</value></data>
+  <data name="Home.Kpi.Revenue.Tip" xml:space="preserve"><value>Bruttoumsatz über alle vom Ordering-Dienst erfassten Bestellungen.</value></data>
+  <data name="Home.Kpi.Revenue.Sub" xml:space="preserve"><value>{0} Bestellungen</value></data>
   <data name="Home.Kpi.Orders" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Home.Kpi.Orders.Tip" xml:space="preserve"><value>Gesamtzahl der Bestellungen in jedem Status.</value></data>
+  <data name="Home.Kpi.Orders.Sub" xml:space="preserve"><value>{0} heute</value></data>
   <data name="Home.Kpi.Products" xml:space="preserve"><value>Produkte</value></data>
-  <data name="Home.Kpi.OpenRmas" xml:space="preserve"><value>Offene Retouren</value></data>
-  <data name="Home.Kpi.Ledger" xml:space="preserve"><value>Saldo Hauptbuch</value></data>
+  <data name="Home.Kpi.Products.Tip" xml:space="preserve"><value>Produkte im Mandantenkatalog (erste 200 als Stichprobe).</value></data>
+  <data name="Home.Kpi.Products.Sub" xml:space="preserve"><value>im Katalog</value></data>
+  <data name="Home.Kpi.OpenRmas" xml:space="preserve"><value>Offene RMAs</value></data>
+  <data name="Home.Kpi.OpenRmas.Tip" xml:space="preserve"><value>Rücksendeanfragen, die noch auf eine Entscheidung des Betreibers warten.</value></data>
+  <data name="Home.Kpi.OpenRmas.Sub" xml:space="preserve"><value>{0} insgesamt</value></data>
+  <data name="Home.Kpi.Ledger" xml:space="preserve"><value>Hauptbuchsaldo</value></data>
+  <data name="Home.Kpi.Ledger.Tip" xml:space="preserve"><value>Soll minus Haben über das gesamte Hauptbuch. Ein gesundes doppeltes Hauptbuch ergibt in Summe null.</value></data>
+  <data name="Home.Kpi.Balanced" xml:space="preserve"><value>ausgeglichen ✓</value></data>
+  <data name="Home.Kpi.OutOfBalance" xml:space="preserve"><value>nicht ausgeglichen</value></data>
   <data name="Home.Revenue14" xml:space="preserve"><value>Umsatz — letzte 14 Tage</value></data>
-  <data name="Home.OrdersByStatus" xml:space="preserve"><value>Bestellungen nach Status</value></data>
-  <data name="Home.RecentOrders" xml:space="preserve"><value>Neueste Bestellungen</value></data>
   <data name="Home.NoOrders" xml:space="preserve"><value>Noch keine Bestellungen.</value></data>
+  <data name="Home.OrdersByStatus" xml:space="preserve"><value>Bestellungen nach Status</value></data>
+  <data name="Home.RecentOrders" xml:space="preserve"><value>Aktuelle Bestellungen</value></data>
   <data name="Home.Col.When" xml:space="preserve"><value>Wann</value></data>
   <data name="Home.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
   <data name="Home.Col.Status" xml:space="preserve"><value>Status</value></data>
   <data name="Home.Col.Amount" xml:space="preserve"><value>Betrag</value></data>
 
-  <!-- Common chrome that shows up on almost every page -->
-  <data name="Common.Loading" xml:space="preserve"><value>Wird geladen…</value></data>
-  <data name="Common.Save" xml:space="preserve"><value>Speichern</value></data>
-  <data name="Common.Saving" xml:space="preserve"><value>Wird gespeichert…</value></data>
-  <data name="Common.Cancel" xml:space="preserve"><value>Abbrechen</value></data>
-  <data name="Common.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
-  <data name="Common.Delete" xml:space="preserve"><value>Löschen</value></data>
-  <data name="Common.Create" xml:space="preserve"><value>Anlegen</value></data>
-  <data name="Common.Load" xml:space="preserve"><value>Laden</value></data>
-  <data name="Common.Refresh" xml:space="preserve"><value>Aktualisieren</value></data>
-  <data name="Common.Search" xml:space="preserve"><value>Suchen</value></data>
-  <data name="Common.Clear" xml:space="preserve"><value>Leeren</value></data>
-  <data name="Common.TenantId" xml:space="preserve"><value>Mandanten-ID</value></data>
-  <data name="Common.TenantId.Tip" xml:space="preserve"><value>Der Mandant (GUID), dessen Datensätze Sie verwalten.</value></data>
-
-  <!-- Catalog page title, to show a page beyond the shell switching too -->
+  <!-- ===== Catalog ===== -->
   <data name="Catalog.Title" xml:space="preserve"><value>Katalog</value></data>
-  <data name="Catalog.New" xml:space="preserve"><value>Neues Produkt</value></data>
   <data name="Catalog.Search.Placeholder" xml:space="preserve"><value>Titel oder Slug suchen…</value></data>
   <data name="Catalog.Search.Tip" xml:space="preserve"><value>Produkte nach Titel oder Slug filtern.</value></data>
+  <data name="Catalog.Search.Button.Tip" xml:space="preserve"><value>Suche ausführen.</value></data>
+  <data name="Catalog.New" xml:space="preserve"><value>Neues Produkt</value></data>
+  <data name="Catalog.New.Tip" xml:space="preserve"><value>Beginnen Sie ein neues Produkt mit einer leeren Variante.</value></data>
   <data name="Catalog.Empty" xml:space="preserve"><value>Keine Produkte.</value></data>
+  <data name="Catalog.Col.Title" xml:space="preserve"><value>Titel</value></data>
+  <data name="Catalog.Col.Brand" xml:space="preserve"><value>Marke</value></data>
+  <data name="Catalog.Col.Type" xml:space="preserve"><value>Typ</value></data>
+  <data name="Catalog.Col.Variants" xml:space="preserve"><value>Varianten</value></data>
+  <data name="Catalog.Col.From" xml:space="preserve"><value>Ab</value></data>
+  <data name="Catalog.Col.Stock" xml:space="preserve"><value>Bestand</value></data>
+  <data name="Catalog.Edit.Tip" xml:space="preserve"><value>Dieses Produkt bearbeiten.</value></data>
+  <data name="Catalog.Delete.Tip" xml:space="preserve"><value>Dieses Produkt dauerhaft löschen.</value></data>
+  <data name="Catalog.EditProduct" xml:space="preserve"><value>Produkt bearbeiten</value></data>
+  <data name="Catalog.Field.Title" xml:space="preserve"><value>Titel</value></data>
+  <data name="Catalog.Field.Title.Tip" xml:space="preserve"><value>Der Produktname, den Kunden sehen. Klar und spezifisch (z. B. „Borealis Ultra Speaker 22“).</value></data>
+  <data name="Catalog.Field.Slug" xml:space="preserve"><value>Slug</value></data>
+  <data name="Catalog.Field.Slug.Tip" xml:space="preserve"><value>URL-freundliche Kennung (Kleinbuchstaben, Bindestriche). Muss eindeutig sein — sie bildet den Storefront-Link.</value></data>
+  <data name="Catalog.Field.Brand" xml:space="preserve"><value>Marke</value></data>
+  <data name="Catalog.Field.Brand.Tip" xml:space="preserve"><value>Hersteller oder Marke, die auf dem Produkt angezeigt wird.</value></data>
+  <data name="Catalog.Field.Description" xml:space="preserve"><value>Beschreibung</value></data>
+  <data name="Catalog.Field.Description.Tip" xml:space="preserve"><value>Kundenseitige Beschreibung, die auf der Produktseite angezeigt wird. Nur-Text.</value></data>
+  <data name="Catalog.Field.Category" xml:space="preserve"><value>Kategorie</value></data>
+  <data name="Catalog.Field.Category.Hint" xml:space="preserve"><value>(erforderlich — Produkte ohne Kategorie sind nicht auffindbar)</value></data>
+  <data name="Catalog.Field.Category.Tip" xml:space="preserve"><value>Die Katalogkategorie, zu der dieses Produkt gehört. Erforderlich: Ein Produkt ohne Kategorie ist nicht auffindbar.</value></data>
+  <data name="Catalog.Field.ProductType" xml:space="preserve"><value>Produkttyp</value></data>
+  <data name="Catalog.Field.ProductType.Hint" xml:space="preserve"><value>(wonach Käufer stöbern/filtern; die Abrechnungsmechanik liegt im Angebot — ADR-0028)</value></data>
+  <data name="Catalog.Field.ProductType.Tip" xml:space="preserve"><value>Die kundenseitige Produktart. Abonnement-/nutzungsbasierte Produkte werden über ihr Angebot abgerechnet.</value></data>
+  <data name="Catalog.Type.Physical" xml:space="preserve"><value>Physisch</value></data>
+  <data name="Catalog.Type.Digital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Catalog.Type.Service" xml:space="preserve"><value>Dienstleistung</value></data>
+  <data name="Catalog.Type.Bundle" xml:space="preserve"><value>Bündel</value></data>
+  <data name="Catalog.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
+  <data name="Catalog.Type.Usage" xml:space="preserve"><value>Nutzungsbasiert</value></data>
+  <data name="Catalog.Variants" xml:space="preserve"><value>Varianten</value></data>
+  <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
+  <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>Stock-Keeping-Unit — Ihr eindeutiger Code für diese Variante.</value></data>
+  <data name="Catalog.Variant.Price" xml:space="preserve"><value>Preis (Minor)</value></data>
+  <data name="Catalog.Variant.Price.Tip" xml:space="preserve"><value>Basispreis in Minor-Einheiten (Cent): 1999 = 19,99 €. Fallback, wenn kein währungsspezifischer Preis gesetzt ist. Geben Sie den ENDGÜLTIGEN Verkaufspreis ein: Storefront-Preise mit AU GST / EU VAT enthalten die Steuer; US-Storefront-Preise schließen sie aus (Steuer wird beim Checkout hinzugefügt) — ADR-0038.</value></data>
+  <data name="Catalog.Variant.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Catalog.Variant.Stock" xml:space="preserve"><value>Bestand</value></data>
+  <data name="Catalog.Variant.Stock.Tip" xml:space="preserve"><value>Für diese Variante verkaufbare Einheiten.</value></data>
+  <data name="Catalog.Variant.Remove.Tip" xml:space="preserve"><value>Diese Variante entfernen.</value></data>
+  <data name="Catalog.Variant.Add" xml:space="preserve"><value>+ Variante hinzufügen</value></data>
+  <data name="Catalog.Variant.Add.Tip" xml:space="preserve"><value>Fügen Sie diesem Produkt eine weitere verkaufbare Variante (SKU, Preis, Bestand) hinzu.</value></data>
+  <data name="Catalog.Prices.Note" xml:space="preserve"><value>Währungsspezifische Preise (vom Mandanten festgelegt, keine Umrechnung — eine Storefront blendet dieses Produkt aus, wenn für ihre Währung hier kein Preis vorliegt). Geben Sie für jede Währung den ENDGÜLTIGEN Verkaufspreis ein: In AU-GST-/EU-VAT-Storefronts enthält der Preis die Steuer, in US-Storefronts wird die Steuer beim Checkout HINZUGEFÜGT (ADR-0038).</value></data>
+  <data name="Catalog.Prices.Price.Tip" xml:space="preserve"><value>ENDGÜLTIGER Verkaufspreis in Minor-Einheiten für diese Währung: enthält die Steuer in AU-GST-/EU-VAT-Storefronts; schließt die Steuer aus (wird beim Checkout hinzugefügt) in US-Storefronts — ADR-0038.</value></data>
+  <data name="Catalog.Prices.Remove.Tip" xml:space="preserve"><value>Diesen Währungspreis entfernen.</value></data>
+  <data name="Catalog.Prices.Add" xml:space="preserve"><value>+ Währungspreis</value></data>
+  <data name="Catalog.Prices.Add.Tip" xml:space="preserve"><value>Fügen Sie dieser Variante einen Preis für eine weitere Währung hinzu.</value></data>
+  <data name="Catalog.Images" xml:space="preserve"><value>Bild-URLs</value></data>
+  <data name="Catalog.Image.Remove.Tip" xml:space="preserve"><value>Dieses Bild entfernen.</value></data>
+  <data name="Catalog.Image.Add" xml:space="preserve"><value>+ Bild hinzufügen</value></data>
+  <data name="Catalog.Image.Add.Tip" xml:space="preserve"><value>Fügen Sie ein weiteres Produktbild hinzu (URL einfügen oder Datei hochladen).</value></data>
+  <data name="Catalog.Attributes" xml:space="preserve"><value>Attribute</value></data>
+  <data name="Catalog.Attr.Key" xml:space="preserve"><value>Schlüssel</value></data>
+  <data name="Catalog.Attr.Key.Tip" xml:space="preserve"><value>Attributname (z. B. Farbe, Größe). Wird für die Storefront-Filterung verwendet.</value></data>
+  <data name="Catalog.Attr.Value" xml:space="preserve"><value>Wert</value></data>
+  <data name="Catalog.Attr.Value.Tip" xml:space="preserve"><value>Attributwert (z. B. schwarz, groß).</value></data>
+  <data name="Catalog.Attr.Remove.Tip" xml:space="preserve"><value>Dieses Attribut entfernen.</value></data>
+  <data name="Catalog.Attr.Add" xml:space="preserve"><value>+ Attribut hinzufügen</value></data>
+  <data name="Catalog.Attr.Add.Tip" xml:space="preserve"><value>Fügen Sie ein weiteres Schlüssel-Wert-Attribut hinzu.</value></data>
+  <data name="Catalog.Save.Tip" xml:space="preserve"><value>Speichern Sie dieses Produkt und kehren Sie zur Liste zurück.</value></data>
+  <data name="Catalog.Status.NotFound" xml:space="preserve"><value>Produkt nicht gefunden.</value></data>
+  <data name="Catalog.Status.Deleted" xml:space="preserve"><value>Produkt gelöscht.</value></data>
+  <data name="Catalog.Status.DeleteFailed" xml:space="preserve"><value>Löschen fehlgeschlagen ({0}).</value></data>
+  <data name="Catalog.Status.Created" xml:space="preserve"><value>Produkt erstellt.</value></data>
+  <data name="Catalog.Status.Updated" xml:space="preserve"><value>Produkt aktualisiert.</value></data>
+  <data name="Catalog.Status.SaveFailed" xml:space="preserve"><value>Speichern fehlgeschlagen ({0}): {1}</value></data>
+
+  <!-- ===== Offers ===== -->
+  <data name="Offers.Title" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
+  <data name="Offers.Intro" xml:space="preserve"><value>Verwalten Sie Katalogangebote: Produkt/Variante × Lieferantenprofile, Fulfillment-Typ, Preismodell, Abrechnungszeitraum, Priorität und Aktivstatus.</value></data>
+  <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Mandant, dem diese Angebote gehören.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Produkt-ID-Filter</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optionaler Produkt-GUID-Filter — leer lassen für jedes Angebot im Mandanten.</value></data>
+  <data name="Offers.Col.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="Offers.Col.Variant" xml:space="preserve"><value>Variante</value></data>
+  <data name="Offers.Col.Supplier" xml:space="preserve"><value>Lieferant</value></data>
+  <data name="Offers.Col.Supply" xml:space="preserve"><value>Lieferung</value></data>
+  <data name="Offers.Col.Pricing" xml:space="preserve"><value>Preisgestaltung</value></data>
+  <data name="Offers.Col.Price" xml:space="preserve"><value>Preis</value></data>
+  <data name="Offers.Col.Priority" xml:space="preserve"><value>Priorität</value></data>
+  <data name="Offers.Empty" xml:space="preserve"><value>Keine Angebote gefunden.</value></data>
+  <data name="Offers.Edit.Tip" xml:space="preserve"><value>Laden Sie dieses Angebot in das Formular unten.</value></data>
+  <data name="Offers.New" xml:space="preserve"><value>Neues Angebot</value></data>
+  <data name="Offers.EditHeading" xml:space="preserve"><value>Angebot bearbeiten</value></data>
+  <data name="Offers.Field.ProductId" xml:space="preserve"><value>Produkt-ID</value></data>
+  <data name="Offers.Field.ProductId.Tip" xml:space="preserve"><value>Produkt-GUID, die dieses Angebot beliefert.</value></data>
+  <data name="Offers.Field.VariantId" xml:space="preserve"><value>Varianten-ID</value></data>
+  <data name="Offers.Field.VariantId.Tip" xml:space="preserve"><value>Optionale Varianten-GUID. Leer gilt für das Produkt.</value></data>
+  <data name="Offers.Field.SupplierId" xml:space="preserve"><value>Lieferanten-ID</value></data>
+  <data name="Offers.Field.SupplierId.Tip" xml:space="preserve"><value>Lieferanten-Entitäts-GUID.</value></data>
+  <data name="Offers.Field.SupplyCategory" xml:space="preserve"><value>Lieferkategorie</value></data>
+  <data name="Offers.Field.SupplyCategory.Tip" xml:space="preserve"><value>Die Kompatibilität von Physisch/Digital/Dienstleistung wird vom Katalog durchgesetzt.</value></data>
+  <data name="Offers.Field.FulfilmentType" xml:space="preserve"><value>Fulfillment-Typ</value></data>
+  <data name="Offers.Field.FulfilmentType.Tip" xml:space="preserve"><value>Wie dieses Angebot geliefert/erfüllt wird.</value></data>
+  <data name="Offers.Field.PriceMinor" xml:space="preserve"><value>Preis (Minor)</value></data>
+  <data name="Offers.Field.PriceMinor.Tip" xml:space="preserve"><value>Preis in Minor-Einheiten, z. B. 1999.</value></data>
+  <data name="Offers.Field.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Offers.Field.Priority" xml:space="preserve"><value>Priorität</value></data>
+  <data name="Offers.Field.Priority.Tip" xml:space="preserve"><value>Niedrigere Priorität wird zuerst ausgewählt.</value></data>
+  <data name="Offers.Field.PricingModel" xml:space="preserve"><value>Preismodell</value></data>
+  <data name="Offers.Field.PricingModel.Tip" xml:space="preserve"><value>Preismodell des Angebots.</value></data>
+  <data name="Offers.Field.BillingPeriod" xml:space="preserve"><value>Abrechnungszeitraum</value></data>
+  <data name="Offers.Field.BillingPeriod.Tip" xml:space="preserve"><value>Abrechnungsrhythmus.</value></data>
+  <data name="Offers.Field.Active.Tip" xml:space="preserve"><value>Inaktive Angebote werden beim Checkout nie ausgewählt.</value></data>
+  <data name="Offers.Fulfilment.Dropship" xml:space="preserve"><value>Dropshipping</value></data>
+  <data name="Offers.Fulfilment.Warehouse" xml:space="preserve"><value>Lager</value></data>
+  <data name="Offers.Fulfilment.DigitalDownload" xml:space="preserve"><value>Digitaler Download</value></data>
+  <data name="Offers.Fulfilment.Subscription" xml:space="preserve"><value>Abonnement</value></data>
+  <data name="Offers.Fulfilment.Usage" xml:space="preserve"><value>Nutzung</value></data>
+  <data name="Offers.Fulfilment.ManualService" xml:space="preserve"><value>Manuelle Dienstleistung</value></data>
+  <data name="Offers.PricingModel.OneTime" xml:space="preserve"><value>Einmalig</value></data>
+  <data name="Offers.PricingModel.Subscription" xml:space="preserve"><value>Abonnement</value></data>
+  <data name="Offers.PricingModel.UsageBased" xml:space="preserve"><value>Nutzungsbasiert</value></data>
+  <data name="Offers.PricingModel.Tiered" xml:space="preserve"><value>Gestaffelt</value></data>
+  <data name="Offers.BillingPeriod.Once" xml:space="preserve"><value>Einmal</value></data>
+  <data name="Offers.BillingPeriod.Monthly" xml:space="preserve"><value>Monatlich</value></data>
+  <data name="Offers.BillingPeriod.Yearly" xml:space="preserve"><value>Jährlich</value></data>
+  <data name="Offers.Tiers" xml:space="preserve"><value>Gestaffelte Preisstufen</value></data>
+  <data name="Offers.Tier.FromQty" xml:space="preserve"><value>Ab Menge</value></data>
+  <data name="Offers.Tier.FromQty.Tip" xml:space="preserve"><value>Die Menge, ab der der Stückpreis dieser Stufe gilt.</value></data>
+  <data name="Offers.Tier.UnitPrice" xml:space="preserve"><value>Stückpreis (Minor)</value></data>
+  <data name="Offers.Tier.UnitPrice.Tip" xml:space="preserve"><value>Stückpreis in Minor-Einheiten, sobald die Menge dieser Stufe erreicht ist.</value></data>
+  <data name="Offers.Tier.Remove.Tip" xml:space="preserve"><value>Diese Stufe entfernen.</value></data>
+  <data name="Offers.Tier.Add" xml:space="preserve"><value>+ Stufe hinzufügen</value></data>
+  <data name="Offers.Tier.Add.Tip" xml:space="preserve"><value>Eine gestaffelte Preisstufe hinzufügen.</value></data>
+  <data name="Offers.Tier.Summary" xml:space="preserve"><value>({0} Stufen)</value></data>
+  <data name="Offers.Save" xml:space="preserve"><value>Angebot speichern</value></data>
+  <data name="Offers.Save.Tip" xml:space="preserve"><value>Erstellen oder aktualisieren Sie das Angebot aus dem Formular oben.</value></data>
+  <data name="Offers.Status.Saved" xml:space="preserve"><value>Angebot gespeichert.</value></data>
+  <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine gültige GUID sein.</value></data>
+  <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>Die Produkt-ID muss eine gültige GUID sein.</value></data>
+  <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>Die Lieferanten-ID muss eine gültige GUID sein.</value></data>
+
+  <!-- ===== Orders ===== -->
+  <data name="Orders.Title" xml:space="preserve"><value>Bestellungen</value></data>
+  <data name="Orders.Intro" xml:space="preserve"><value>Stornieren Sie eine unbezahlte Bestellung (Ausstehend/Zahlung ausstehend) oder erstatten Sie eine bestätigte (bezahlte). Erstattungen stornieren die Hauptbuchbuchung; der eigene Status der Bestellung bleibt „Bestätigt“.</value></data>
+  <data name="Orders.Empty" xml:space="preserve"><value>Noch keine Bestellungen.</value></data>
+  <data name="Orders.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
+  <data name="Orders.Col.Total" xml:space="preserve"><value>Gesamt</value></data>
+  <data name="Orders.Col.Placed" xml:space="preserve"><value>Aufgegeben</value></data>
+  <data name="Orders.Cancel" xml:space="preserve"><value>Stornieren</value></data>
+  <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Stornieren Sie diese unbezahlte Bestellung (gibt sie frei). Zum Bestätigen zweimal klicken.</value></data>
+  <data name="Orders.Refund" xml:space="preserve"><value>Erstatten</value></data>
+  <data name="Orders.Refund.Tip" xml:space="preserve"><value>Erstatten Sie den vollen Bestellbetrag — storniert die Hauptbuchbuchung. Zum Bestätigen zweimal klicken.</value></data>
+  <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Bestellung storniert.</value></data>
+  <data name="Orders.Status.Refunded" xml:space="preserve"><value>Erstattung angefordert — sie erscheint in der RMA-Warteschlange, und die Bestellung wird nach Abschluss als „Erstattet“ angezeigt.</value></data>
+
+  <!-- ===== RMA queue ===== -->
+  <data name="Rma.Title" xml:space="preserve"><value>RMA-Warteschlange</value></data>
+  <data name="Rma.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
+  <data name="Rma.Col.Amount" xml:space="preserve"><value>Betrag</value></data>
+  <data name="Rma.Col.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Rma.Updating" xml:space="preserve"><value>Wird aktualisiert…</value></data>
+  <data name="Rma.Refresh.Tip" xml:space="preserve"><value>Warteschlange neu laden — die Saga wendet den Übergang asynchron an, sodass die Zeile einen Moment später nachzieht.</value></data>
+  <data name="Rma.Approve" xml:space="preserve"><value>Genehmigen &amp; erstatten</value></data>
+  <data name="Rma.Approve.Tip" xml:space="preserve"><value>Jetzt erstatten — keine physische Rücksendung erforderlich.</value></data>
+  <data name="Rma.ApproveReturn" xml:space="preserve"><value>Genehmigen (Rücksendung erforderlich)</value></data>
+  <data name="Rma.ApproveReturn.Tip" xml:space="preserve"><value>Genehmigen, aber die Rücksendung des Artikels verlangen, bevor die Erstattung erfolgt.</value></data>
+  <data name="Rma.Deny" xml:space="preserve"><value>Ablehnen</value></data>
+  <data name="Rma.Deny.Tip" xml:space="preserve"><value>Diese Rücksendeanfrage ablehnen.</value></data>
+  <data name="Rma.MarkReceived" xml:space="preserve"><value>Rücksendung als erhalten markieren</value></data>
+  <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Markieren Sie den zurückgesendeten Artikel als erhalten — dies gibt die Erstattung frei.</value></data>
+  <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} angenommen.</value></data>
+  <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} fehlgeschlagen ({1}): {2}</value></data>
+
+  <!-- ===== Ledger ===== -->
+  <data name="Ledger.Title" xml:space="preserve"><value>Hauptbuch</value></data>
+  <data name="Ledger.Col.Description" xml:space="preserve"><value>Beschreibung</value></data>
+  <data name="Ledger.Col.Reference" xml:space="preserve"><value>Referenz</value></data>
+  <data name="Ledger.Col.Lines" xml:space="preserve"><value>Zeilen</value></data>
+
+  <!-- ===== Xero sync ===== -->
+  <data name="Xero.Title" xml:space="preserve"><value>Xero-Synchronisierung</value></data>
+  <data name="Xero.PostYesterday" xml:space="preserve"><value>Zusammenfassung von gestern buchen</value></data>
+  <data name="Xero.PostYesterday.Tip" xml:space="preserve"><value>Buchen Sie die Sammelbuchung von gestern an Xero. Wiederholung ist unbedenklich — der Lauf ist nach Datum verschlüsselt.</value></data>
+  <data name="Xero.Col.Reference" xml:space="preserve"><value>Referenz</value></data>
+  <data name="Xero.Col.Journal" xml:space="preserve"><value>Xero-Journal</value></data>
+  <data name="Xero.Status.Posted" xml:space="preserve"><value>Zusammenfassung für {0} gebucht.</value></data>
+  <data name="Xero.Status.Failed" xml:space="preserve"><value>Buchung fehlgeschlagen ({0}): {1}</value></data>
+
+  <!-- ===== Xero mappings ===== -->
+  <data name="XeroMap.Title" xml:space="preserve"><value>Xero-Zuordnungen</value></data>
+  <data name="XeroMap.Intro" xml:space="preserve"><value>Ordnen Sie Hauptbuch-Kontocodes Xero-Kontocodes mit Vorrang nach Mandantenstandard, Storefront, Kategorie, Lieferant oder Produkt zu.</value></data>
+  <data name="XeroMap.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Xero-Zuordnungen Sie verwalten.</value></data>
+  <data name="XeroMap.Col.Ledger" xml:space="preserve"><value>Hauptbuch</value></data>
+  <data name="XeroMap.Col.Xero" xml:space="preserve"><value>Xero</value></data>
+  <data name="XeroMap.Col.Scope" xml:space="preserve"><value>Geltungsbereich</value></data>
+  <data name="XeroMap.Col.Target" xml:space="preserve"><value>Ziel</value></data>
+  <data name="XeroMap.Empty" xml:space="preserve"><value>Noch keine Xero-Zuordnungen.</value></data>
+  <data name="XeroMap.New" xml:space="preserve"><value>Neue Zuordnung</value></data>
+  <data name="XeroMap.EditHeading" xml:space="preserve"><value>Zuordnung bearbeiten</value></data>
+  <data name="XeroMap.Edit.Tip" xml:space="preserve"><value>Laden Sie diese Zuordnung in das Formular unten.</value></data>
+  <data name="XeroMap.Delete.Tip" xml:space="preserve"><value>Diese Zuordnung löschen.</value></data>
+  <data name="XeroMap.Field.Ledger" xml:space="preserve"><value>Hauptbuchkonto</value></data>
+  <data name="XeroMap.Field.Ledger.Tip" xml:space="preserve"><value>Kontocode im Zahlungshauptbuch, z. B. revenue.sales.</value></data>
+  <data name="XeroMap.Field.Xero" xml:space="preserve"><value>Xero-Konto</value></data>
+  <data name="XeroMap.Field.Xero.Tip" xml:space="preserve"><value>Xero-Kontocode.</value></data>
+  <data name="XeroMap.Field.Scope" xml:space="preserve"><value>Geltungsbereich</value></data>
+  <data name="XeroMap.Field.Scope.Tip" xml:space="preserve"><value>Spezifischere Geltungsbereiche haben Vorrang vor Mandantenstandards.</value></data>
+  <data name="XeroMap.Field.Target" xml:space="preserve"><value>Ziel-ID</value></data>
+  <data name="XeroMap.Field.Target.Tip" xml:space="preserve"><value>Storefront-/Kategorie-/Lieferanten-/Produkt-GUID für bereichsbezogene Zuordnungen; leer für Mandantenstandard.</value></data>
+  <data name="XeroMap.Field.Target.NotApplicable" xml:space="preserve"><value>Kein Ziel — der Mandantenstandard-Geltungsbereich gilt für den gesamten Mandanten.</value></data>
+  <data name="XeroMap.Field.Active.Tip" xml:space="preserve"><value>Inaktive Zuordnungen werden beim Buchen an Xero ignoriert.</value></data>
+  <data name="XeroMap.Scope.TenantDefault" xml:space="preserve"><value>Mandantenstandard</value></data>
+  <data name="XeroMap.Scope.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="XeroMap.Scope.Category" xml:space="preserve"><value>Kategorie</value></data>
+  <data name="XeroMap.Scope.Supplier" xml:space="preserve"><value>Lieferant</value></data>
+  <data name="XeroMap.Scope.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="XeroMap.Save" xml:space="preserve"><value>Zuordnung speichern</value></data>
+  <data name="XeroMap.Save.Tip" xml:space="preserve"><value>Erstellen oder aktualisieren Sie die Zuordnung aus dem Formular oben.</value></data>
+  <data name="XeroMap.Status.Saved" xml:space="preserve"><value>Xero-Zuordnung gespeichert.</value></data>
+  <data name="XeroMap.Status.Deleted" xml:space="preserve"><value>Xero-Zuordnung gelöscht.</value></data>
+  <data name="XeroMap.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine gültige GUID sein.</value></data>
+  <data name="XeroMap.Error.TargetRequired" xml:space="preserve"><value>Dieser Geltungsbereich benötigt eine Ziel-GUID (Storefront, Kategorie, Lieferant oder Produkt).</value></data>
+
+  <!-- ===== Imports ===== -->
+  <data name="Imports.Title" xml:space="preserve"><value>Katalogimporte</value></data>
+  <data name="Imports.Template" xml:space="preserve"><value>Importvorlage</value></data>
+  <data name="Imports.Template.Tip" xml:space="preserve"><value>Laden Sie eine Katalog-Importvorlage (CSV) mit zwei Beispielprodukten als Referenz für das erwartete Format herunter.</value></data>
+  <data name="Imports.Run" xml:space="preserve"><value>Beispiel-Importer ausführen</value></data>
+  <data name="Imports.Run.Tip" xml:space="preserve"><value>Starten Sie einen Importlauf mit dem integrierten Beispiel-Importer.</value></data>
+  <data name="Imports.Col.Importer" xml:space="preserve"><value>Importer</value></data>
+  <data name="Imports.Col.Date" xml:space="preserve"><value>Datum</value></data>
+  <data name="Imports.Col.Read" xml:space="preserve"><value>Gelesen</value></data>
+  <data name="Imports.Col.Accepted" xml:space="preserve"><value>Angenommen</value></data>
+  <data name="Imports.Col.Rejected" xml:space="preserve"><value>Abgelehnt</value></data>
+  <data name="Imports.Running" xml:space="preserve"><value> (wird ausgeführt…)</value></data>
+  <data name="Imports.Status.Started" xml:space="preserve"><value>Importlauf gestartet.</value></data>
+  <data name="Imports.Status.Failed" xml:space="preserve"><value>Import fehlgeschlagen ({0}): {1}</value></data>
+
+  <!-- ===== Roles &amp; permissions (RBAC) ===== -->
+  <data name="Rbac.Title" xml:space="preserve"><value>Rollen &amp; Berechtigungen</value></data>
+  <data name="Rbac.Intro" xml:space="preserve"><value>Rollen sind &lt;strong&gt;Daten&lt;/strong&gt; — stellen Sie eine beliebige Teilmenge der im Code definierten Berechtigungen zusammen. Integrierte Rollen werden pro Mandant vorbelegt; Sie können ihre Berechtigungen bearbeiten, sie duplizieren oder durch Auswählen eine neue Rolle aufbauen. Änderungen werden vom Identity-PDP durchgesetzt und für aktive Sitzungen neu bewertet.</value></data>
+  <data name="Rbac.Tenant" xml:space="preserve"><value>Mandant</value></data>
+  <data name="Rbac.Tenant.Tip" xml:space="preserve"><value>Der Mandant, dessen Rollen Sie verwalten (GUID).</value></data>
+  <data name="Rbac.NewRole" xml:space="preserve"><value>+ Neue Rolle</value></data>
+  <data name="Rbac.NewRole.Tip" xml:space="preserve"><value>Bauen Sie eine neue benutzerdefinierte Rolle durch Auswählen von Berechtigungen auf.</value></data>
+  <data name="Rbac.NoRoles" xml:space="preserve"><value>Für diesen Mandanten sind keine Rollen geladen.</value></data>
+  <data name="Rbac.Col.Role" xml:space="preserve"><value>Rolle</value></data>
+  <data name="Rbac.Col.Key" xml:space="preserve"><value>Schlüssel</value></data>
+  <data name="Rbac.Col.Permissions" xml:space="preserve"><value>Berechtigungen</value></data>
+  <data name="Rbac.Badge.System" xml:space="preserve"><value>System</value></data>
+  <data name="Rbac.Badge.BuiltIn" xml:space="preserve"><value>integriert</value></data>
+  <data name="Rbac.Badge.Custom" xml:space="preserve"><value>benutzerdefiniert</value></data>
+  <data name="Rbac.Edit.Tip" xml:space="preserve"><value>Berechtigungen dieser Rolle bearbeiten.</value></data>
+  <data name="Rbac.Edit.SystemTip" xml:space="preserve"><value>Systemrollen werden von der Plattform verwaltet.</value></data>
+  <data name="Rbac.Duplicate" xml:space="preserve"><value>Duplizieren</value></data>
+  <data name="Rbac.Duplicate.Tip" xml:space="preserve"><value>Erstellen Sie eine neue Rolle, vorbelegt mit den Berechtigungen dieser Rolle.</value></data>
+  <data name="Rbac.Delete.Tip" xml:space="preserve"><value>Diese benutzerdefinierte Rolle löschen. Zum Bestätigen zweimal klicken.</value></data>
+  <data name="Rbac.Delete.LockedTip" xml:space="preserve"><value>Integrierte/System-Rollen können nicht gelöscht werden.</value></data>
+  <data name="Rbac.Heading.New" xml:space="preserve"><value>Neue Rolle</value></data>
+  <data name="Rbac.Heading.Edit" xml:space="preserve"><value>Rolle bearbeiten</value></data>
+  <data name="Rbac.Heading.Duplicate" xml:space="preserve"><value>Rolle duplizieren</value></data>
+  <data name="Rbac.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Rbac.Field.Name.Tip" xml:space="preserve"><value>Menschenlesbarer Rollenname, der Betreibern angezeigt wird.</value></data>
+  <data name="Rbac.Field.Key" xml:space="preserve"><value>Schlüssel</value></data>
+  <data name="Rbac.Field.Key.Tip" xml:space="preserve"><value>Stabiler Slug (Kleinbuchstaben, Ziffern, Bindestriche). Einmal bei der Erstellung festgelegt; später nicht mehr änderbar.</value></data>
+  <data name="Rbac.Field.Key.HintNew" xml:space="preserve"><value>Kleinbuchstaben, Ziffern, Bindestriche</value></data>
+  <data name="Rbac.Field.Key.HintFixed" xml:space="preserve"><value>Schlüssel ist nach der Erstellung fest</value></data>
+  <data name="Rbac.Field.Description" xml:space="preserve"><value>Beschreibung</value></data>
+  <data name="Rbac.Field.Description.Tip" xml:space="preserve"><value>Optional: Wofür diese Rolle gedacht ist.</value></data>
+  <data name="Rbac.Permissions" xml:space="preserve"><value>Berechtigungen</value></data>
+  <data name="Rbac.Permissions.Selected" xml:space="preserve"><value>({0} ausgewählt)</value></data>
+  <data name="Rbac.Permissions.Hint" xml:space="preserve"><value>Wählen Sie jede Berechtigung einzeln aus ↓</value></data>
+  <data name="Rbac.Permission.Tip" xml:space="preserve"><value>Diese Berechtigung der Rolle erteilen.</value></data>
+  <data name="Rbac.Save" xml:space="preserve"><value>Rolle speichern</value></data>
+  <data name="Rbac.Save.Tip" xml:space="preserve"><value>Speichern Sie die Rolle und ihre ausgewählten Berechtigungen. Aktive Sitzungen werden neu bewertet.</value></data>
+  <data name="Rbac.Risk.High" xml:space="preserve"><value>Hoch</value></data>
+  <data name="Rbac.Risk.Medium" xml:space="preserve"><value>Mittel</value></data>
+  <data name="Rbac.Risk.Low" xml:space="preserve"><value>Niedrig</value></data>
+  <data name="Rbac.CopySuffix" xml:space="preserve"><value>{0} (Kopie)</value></data>
+  <data name="Rbac.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine GUID sein.</value></data>
+  <data name="Rbac.Error.SaveFailed" xml:space="preserve"><value>Speichern fehlgeschlagen: {0}</value></data>
+  <data name="Rbac.Status.Deleted" xml:space="preserve"><value>Rolle „{0}“ gelöscht.</value></data>
+  <data name="Rbac.Status.Saved" xml:space="preserve"><value>Rolle „{0}“ gespeichert.</value></data>
+
+  <!-- ===== Operator users ===== -->
+  <data name="Users.Title" xml:space="preserve"><value>Betreiber-Benutzer</value></data>
+  <data name="Users.Subtitle" xml:space="preserve"><value>Master-Administrator · Passwörter zurücksetzen &amp; E-Mails ändern</value></data>
+  <data name="Users.Intro" xml:space="preserve"><value>Verwalten Sie die Konten, die sich bei einem Mandanten anmelden. Beim Zurücksetzen wird ein einmaliges temporäres Passwort zum Vorlesen ausgegeben; das Ändern einer E-Mail erzwingt eine erneute Verifizierung.</value></data>
+  <data name="Users.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Benutzer Sie verwalten.</value></data>
+  <data name="Users.Load" xml:space="preserve"><value>Benutzer laden</value></data>
+  <data name="Users.Load.Tip" xml:space="preserve"><value>Laden Sie die Betreiberkonten für diesen Mandanten.</value></data>
+  <data name="Users.Col.Email" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Users.Col.Role" xml:space="preserve"><value>Rolle</value></data>
+  <data name="Users.Col.Verified" xml:space="preserve"><value>Verifiziert</value></data>
+  <data name="Users.Col.Created" xml:space="preserve"><value>Erstellt</value></data>
+  <data name="Users.Reset" xml:space="preserve"><value>Passwort zurücksetzen</value></data>
+  <data name="Users.Reset.Tip" xml:space="preserve"><value>Ein einmaliges temporäres Passwort ausgeben.</value></data>
+  <data name="Users.ChangeEmail" xml:space="preserve"><value>E-Mail ändern</value></data>
+  <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>Die Anmelde-E-Mail dieses Benutzers ändern.</value></data>
+  <data name="Users.TempPassword" xml:space="preserve"><value>Temporäres Passwort (einmalig vorlesen):</value></data>
+  <data name="Users.NewEmail" xml:space="preserve"><value>neu@email.de</value></data>
+  <data name="Users.NewEmail.Tip" xml:space="preserve"><value>Die neue Anmelde-E-Mail (muss im Mandanten eindeutig sein).</value></data>
+  <data name="Users.SaveEmail.Tip" xml:space="preserve"><value>Speichern Sie die neue Anmelde-E-Mail — der Benutzer muss sie erneut verifizieren.</value></data>
+  <data name="Users.CancelEmail.Tip" xml:space="preserve"><value>Diese E-Mail-Änderung abbrechen.</value></data>
+  <data name="Users.Empty" xml:space="preserve"><value>Noch keine Benutzer in diesem Mandanten.</value></data>
+  <data name="Users.Status.EmailChanged" xml:space="preserve"><value>E-Mail geändert — der Benutzer muss sich erneut verifizieren.</value></data>
+  <data name="Users.Error.ResetFailed" xml:space="preserve"><value>Zurücksetzen fehlgeschlagen ({0}).</value></data>
+
+  <!-- ===== Entities &amp; suppliers ===== -->
+  <data name="Entities.Title" xml:space="preserve"><value>Entitäten &amp; Lieferanten</value></data>
+  <data name="Entities.Intro" xml:space="preserve"><value>Mandantenbezogene Partner-Stammdaten + Lieferanten-Onboarding. Die Warteschlange für Änderungsanträge ist &lt;strong&gt;Maker-Checker&lt;/strong&gt;: Eine sensible Lieferantenänderung (Bankkonto, Kontakt, Zugriff) wird von einem Betreiber &lt;em&gt;beantragt&lt;/em&gt; und muss von &lt;em&gt;einem anderen genehmigt werden&lt;/em&gt; — Funktionstrennung, wobei die Entscheidung auditiert wird.</value></data>
+  <data name="Entities.Tenant" xml:space="preserve"><value>Mandant</value></data>
+  <data name="Entities.Tenant.Tip" xml:space="preserve"><value>Der Mandant, dessen Entitäten Sie verwalten (GUID).</value></data>
+  <data name="Entities.EditHeading" xml:space="preserve"><value>Entität bearbeiten</value></data>
+  <data name="Entities.Field.LegalName" xml:space="preserve"><value>Rechtlicher Name</value></data>
+  <data name="Entities.Field.LegalName.Tip" xml:space="preserve"><value>Eingetragener rechtlicher Name der Entität.</value></data>
+  <data name="Entities.Field.TradingName" xml:space="preserve"><value>Handelsname</value></data>
+  <data name="Entities.Field.TradingName.Tip" xml:space="preserve"><value>Optionaler „Geschäftstätig-als“-Name; wird Betreibern angezeigt, wenn gesetzt.</value></data>
+  <data name="Entities.Field.Type.Tip" xml:space="preserve"><value>Der Entitätstyp ist nach der Erstellung fest.</value></data>
+  <data name="Entities.List" xml:space="preserve"><value>Entitäten</value></data>
+  <data name="Entities.SuspendReason" xml:space="preserve"><value>Sperrgrund</value></data>
+  <data name="Entities.SuspendReason.Tip" xml:space="preserve"><value>Wird beim Sperren eines Lieferanten erfasst (mind. 8 Zeichen).</value></data>
+  <data name="Entities.Empty" xml:space="preserve"><value>Keine Entitäten geladen.</value></data>
+  <data name="Entities.Col.SupplierActions" xml:space="preserve"><value>Lieferantenaktionen</value></data>
+  <data name="Entities.EditSmall" xml:space="preserve"><value>bearbeiten</value></data>
+  <data name="Entities.EditSmall.Tip" xml:space="preserve"><value>Die Namen dieser Entität bearbeiten.</value></data>
+  <data name="Entities.Action.Onboard" xml:space="preserve"><value>Onboarding</value></data>
+  <data name="Entities.Action.Onboard.Tip" xml:space="preserve"><value>Lieferanten-Onboarding beginnen (Zustand: Entwurf).</value></data>
+  <data name="Entities.Action.Verify" xml:space="preserve"><value>Verifizieren</value></data>
+  <data name="Entities.Action.Verify.Tip" xml:space="preserve"><value>Reichen Sie einen Lieferanten im Entwurf zur Verifizierung ein (erfordert eine verifizierte ABN/ACN, einen E-Mail-Kontakt und eine aktuelle Adresse der Entität).</value></data>
+  <data name="Entities.Action.Verified" xml:space="preserve"><value>Verifiziert</value></data>
+  <data name="Entities.Action.Verified.Tip" xml:space="preserve"><value>Verifizierung als abgeschlossen markieren (Zustand: Verifizierung ausstehend → Genehmigung ausstehend).</value></data>
+  <data name="Entities.Action.Activate" xml:space="preserve"><value>Aktivieren</value></data>
+  <data name="Entities.Action.Activate.Tip" xml:space="preserve"><value>Aktivieren Sie einen Lieferanten, dessen Verifizierung abgeschlossen ist (Zustand muss „Genehmigung ausstehend“ sein).</value></data>
+  <data name="Entities.Action.Suspend" xml:space="preserve"><value>Sperren</value></data>
+  <data name="Entities.Action.Suspend.Tip" xml:space="preserve"><value>Sperren Sie einen AKTIVEN Lieferanten — der Grund links wird erfasst (8–500 Zeichen).</value></data>
+  <data name="Entities.Action.Archive" xml:space="preserve"><value>Archivieren</value></data>
+  <data name="Entities.Action.Archive.Tip" xml:space="preserve"><value>Den Lieferanten archivieren.</value></data>
+  <data name="Entities.Create" xml:space="preserve"><value>Entität erstellen</value></data>
+  <data name="Entities.New.LegalName" xml:space="preserve"><value>Rechtlicher Name</value></data>
+  <data name="Entities.New.LegalName.Tip" xml:space="preserve"><value>Eingetragener rechtlicher Name.</value></data>
+  <data name="Entities.New.TradingName" xml:space="preserve"><value>Handelsname (optional)</value></data>
+  <data name="Entities.New.TradingName.Tip" xml:space="preserve"><value>Optionaler „Geschäftstätig-als“-Name.</value></data>
+  <data name="Entities.New.Type.Tip" xml:space="preserve"><value>Entitätstyp — nach der Erstellung fest.</value></data>
+  <data name="Entities.Create.Tip" xml:space="preserve"><value>Erstellen Sie die Entität in diesem Mandanten.</value></data>
+  <data name="Entities.Type.NaturalPerson" xml:space="preserve"><value>Natürliche Person</value></data>
+  <data name="Entities.Type.Company" xml:space="preserve"><value>Gesellschaft</value></data>
+  <data name="Entities.Type.Trust" xml:space="preserve"><value>Trust</value></data>
+  <data name="Entities.Type.Partnership" xml:space="preserve"><value>Personengesellschaft</value></data>
+  <data name="Entities.Type.SoleTrader" xml:space="preserve"><value>Einzelunternehmer</value></data>
+  <data name="Entities.Type.GovernmentBody" xml:space="preserve"><value>Behörde</value></data>
+  <data name="Entities.Type.NonProfit" xml:space="preserve"><value>Gemeinnützig / Verein</value></data>
+  <data name="Entities.Type.Other" xml:space="preserve"><value>Sonstiges</value></data>
+  <data name="Entities.Status.Active" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Entities.Status.Inactive" xml:space="preserve"><value>Inaktiv</value></data>
+  <data name="Entities.Status.Archived" xml:space="preserve"><value>Archiviert</value></data>
+  <data name="Entities.Requests" xml:space="preserve"><value>Ausstehende Lieferanten-Änderungsanträge</value></data>
+  <data name="Entities.DecisionReason" xml:space="preserve"><value>Entscheidungsgrund</value></data>
+  <data name="Entities.DecisionReason.Placeholder" xml:space="preserve"><value>Grund (8–500 Zeichen, zum Ablehnen erforderlich)</value></data>
+  <data name="Entities.DecisionReason.Tip" xml:space="preserve"><value>Wird mit der Entscheidung erfasst; optional bei Genehmigung, erforderlich (8–500 Zeichen) beim Ablehnen.</value></data>
+  <data name="Entities.NoRequests" xml:space="preserve"><value>Keine ausstehenden Änderungsanträge.</value></data>
+  <data name="Entities.RequestedBy" xml:space="preserve"><value>beantragt von {0}</value></data>
+  <data name="Entities.MakerChecker" xml:space="preserve"><value>Sie haben diesen Antrag gestellt — ein anderer Administrator muss darüber entscheiden (Maker-Checker).</value></data>
+  <data name="Entities.Approve" xml:space="preserve"><value>Genehmigen</value></data>
+  <data name="Entities.Approve.Tip" xml:space="preserve"><value>Diesen Änderungsantrag genehmigen.</value></data>
+  <data name="Entities.Approve.OwnTip" xml:space="preserve"><value>Maker-Checker: Der Antragsteller kann seinen eigenen Antrag nicht genehmigen.</value></data>
+  <data name="Entities.Reject" xml:space="preserve"><value>Ablehnen</value></data>
+  <data name="Entities.Reject.Tip" xml:space="preserve"><value>Diesen Änderungsantrag ablehnen — der Entscheidungsgrund oben ist erforderlich (8–500 Zeichen).</value></data>
+  <data name="Entities.Reject.OwnTip" xml:space="preserve"><value>Maker-Checker: Der Antragsteller kann seinen eigenen Antrag nicht ablehnen.</value></data>
+  <data name="Entities.ChangeType.UserAccess" xml:space="preserve"><value>Benutzerzugriff</value></data>
+  <data name="Entities.ChangeType.Contact" xml:space="preserve"><value>Kontakt</value></data>
+  <data name="Entities.ChangeType.BankAccount" xml:space="preserve"><value>Bankkonto</value></data>
+  <data name="Entities.ChangeType.Other" xml:space="preserve"><value>Typ {0}</value></data>
+  <data name="Entities.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine GUID sein.</value></data>
+  <data name="Entities.Error.SuspendReason" xml:space="preserve"><value>Der Sperrgrund muss mindestens 8 Zeichen umfassen.</value></data>
+  <data name="Entities.Error.RejectReason" xml:space="preserve"><value>Zum Ablehnen ist ein Entscheidungsgrund von mindestens 8 Zeichen erforderlich.</value></data>
+  <data name="Entities.Error.ReasonTooLong" xml:space="preserve"><value>Der Entscheidungsgrund darf höchstens 500 Zeichen umfassen.</value></data>
+  <data name="Entities.Error.UpdateFailed" xml:space="preserve"><value>Aktualisierung fehlgeschlagen: {0}</value></data>
+  <data name="Entities.Error.CreateFailed" xml:space="preserve"><value>Erstellen fehlgeschlagen ({0}).</value></data>
+  <data name="Entities.Error.ActionFailed" xml:space="preserve"><value>Aktion fehlgeschlagen: {0}</value></data>
+  <data name="Entities.Error.DecisionFailed" xml:space="preserve"><value>{0} fehlgeschlagen: {1}</value></data>
+  <data name="Entities.Info.Updated" xml:space="preserve"><value>Entität aktualisiert.</value></data>
+  <data name="Entities.Info.Created" xml:space="preserve"><value>„{0}“ erstellt.</value></data>
+  <data name="Entities.Info.SupplierOk" xml:space="preserve"><value>Lieferant „{0}“ in Ordnung.</value></data>
+  <data name="Entities.Info.Approved" xml:space="preserve"><value>Antrag genehmigt.</value></data>
+  <data name="Entities.Info.Rejected" xml:space="preserve"><value>Antrag abgelehnt.</value></data>
+  <data name="Common.Add" xml:space="preserve"><value>Hinzufügen</value></data>
+  <data name="Common.Back" xml:space="preserve"><value>Zurück</value></data>
+  <data name="Common.Back.Tip" xml:space="preserve"><value>Zur Liste zurückkehren.</value></data>
+  <data name="Entities.Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Entities.Details.Tip" xml:space="preserve"><value>Fügen Sie die Kennungen, Kontakte und Adressen hinzu, die diese Entität für das Lieferanten-Onboarding benötigt.</value></data>
+  <data name="Entities.Details.Heading" xml:space="preserve"><value>Onboarding-Details — {0}</value></data>
+  <data name="Entities.Details.Intro" xml:space="preserve"><value>Erforderliche Daten für {0}. Vervollständigen Sie die Checkliste unten und reichen Sie die Entität dann zur Lieferantenverifizierung ein.</value></data>
+  <data name="Entities.Details.Ready" xml:space="preserve"><value>Bereit für die Lieferantenverifizierung — alle erforderlichen Felder sind vorhanden.</value></data>
+  <data name="Entities.Details.Missing" xml:space="preserve"><value>Vor der Verifizierung noch erforderlich:</value></data>
+  <data name="Entities.Ident.Heading" xml:space="preserve"><value>Steuer- &amp; Registrierungskennungen</value></data>
+  <data name="Entities.Ident.None" xml:space="preserve"><value>Noch keine Kennungen. Für Lieferanten ist eine verifizierte ABN oder ACN erforderlich.</value></data>
+  <data name="Entities.Ident.Verify" xml:space="preserve"><value>Verifizieren</value></data>
+  <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>Bestätigen Sie, dass diese Kennung geprüft wurde (markiert sie als verifiziert).</value></data>
+  <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>Art der hinzuzufügenden Kennung.</value></data>
+  <data name="Entities.Ident.Value" xml:space="preserve"><value>Kennungswert</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN hat 11 Ziffern; ACN hat 9 Ziffern.</value></data>
+  <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>Fügen Sie diese Kennung der Entität hinzu.</value></data>
+  <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
+  <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
+  <data name="Entities.IdType.Gst" xml:space="preserve"><value>GST</value></data>
+  <data name="Entities.IdType.Other" xml:space="preserve"><value>Sonstige Steuerregistrierung</value></data>
+  <data name="Entities.VStatus.Unverified" xml:space="preserve"><value>Nicht verifiziert</value></data>
+  <data name="Entities.VStatus.Pending" xml:space="preserve"><value>Ausstehend</value></data>
+  <data name="Entities.VStatus.Verified" xml:space="preserve"><value>Verifiziert</value></data>
+  <data name="Entities.VStatus.Failed" xml:space="preserve"><value>Fehlgeschlagen</value></data>
+  <data name="Entities.Contact.Heading" xml:space="preserve"><value>Kontaktmethoden</value></data>
+  <data name="Entities.Contact.None" xml:space="preserve"><value>Noch keine Kontakte. Für Lieferanten ist eine primäre oder Betriebs-E-Mail erforderlich.</value></data>
+  <data name="Entities.Contact.Purpose.Tip" xml:space="preserve"><value>Wofür dieser Kontakt verwendet wird.</value></data>
+  <data name="Entities.Contact.Kind.Tip" xml:space="preserve"><value>E-Mail, Telefon oder Website.</value></data>
+  <data name="Entities.Contact.Value" xml:space="preserve"><value>Kontaktwert</value></data>
+  <data name="Entities.Contact.Value.Tip" xml:space="preserve"><value>z. B. accounts@supplier.com</value></data>
+  <data name="Entities.Contact.Add.Tip" xml:space="preserve"><value>Fügen Sie diesen Kontakt der Entität hinzu.</value></data>
+  <data name="Entities.CPurpose.Primary" xml:space="preserve"><value>Primär</value></data>
+  <data name="Entities.CPurpose.Accounts" xml:space="preserve"><value>Buchhaltung</value></data>
+  <data name="Entities.CPurpose.Operations" xml:space="preserve"><value>Betrieb</value></data>
+  <data name="Entities.CPurpose.Support" xml:space="preserve"><value>Support</value></data>
+  <data name="Entities.CPurpose.Legal" xml:space="preserve"><value>Recht</value></data>
+  <data name="Entities.CKind.Email" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Entities.CKind.Phone" xml:space="preserve"><value>Telefon</value></data>
+  <data name="Entities.CKind.Website" xml:space="preserve"><value>Website</value></data>
+  <data name="Entities.Addr.Heading" xml:space="preserve"><value>Adressen</value></data>
+  <data name="Entities.Addr.None" xml:space="preserve"><value>Noch keine Adressen. Für Lieferanten ist eine aktuelle Geschäftssitz- oder Lageradresse erforderlich.</value></data>
+  <data name="Entities.Addr.Purpose.Tip" xml:space="preserve"><value>Wofür diese Adresse verwendet wird.</value></data>
+  <data name="Entities.Addr.Line1" xml:space="preserve"><value>Adresszeile 1</value></data>
+  <data name="Entities.Addr.Line1.Tip" xml:space="preserve"><value>Straßenadresse.</value></data>
+  <data name="Entities.Addr.Line2" xml:space="preserve"><value>Adresszeile 2</value></data>
+  <data name="Entities.Addr.Line2.Tip" xml:space="preserve"><value>Einheit, Suite, Etage (optional).</value></data>
+  <data name="Entities.Addr.City" xml:space="preserve"><value>Stadt</value></data>
+  <data name="Entities.Addr.City.Tip" xml:space="preserve"><value>Ort oder Stadt.</value></data>
+  <data name="Entities.Addr.Region" xml:space="preserve"><value>Region</value></data>
+  <data name="Entities.Addr.Region.Tip" xml:space="preserve"><value>Bundesland oder Region (optional).</value></data>
+  <data name="Entities.Addr.Postcode" xml:space="preserve"><value>Postleitzahl</value></data>
+  <data name="Entities.Addr.Postcode.Tip" xml:space="preserve"><value>Post- oder ZIP-Code.</value></data>
+  <data name="Entities.Addr.Country" xml:space="preserve"><value>Land</value></data>
+  <data name="Entities.Addr.Country.Tip" xml:space="preserve"><value>ISO 3166-1 Alpha-2-Code, z. B. AU.</value></data>
+  <data name="Entities.Addr.Add.Tip" xml:space="preserve"><value>Fügen Sie diese Adresse der Entität hinzu.</value></data>
+  <data name="Entities.AddrPurpose.RegisteredOffice" xml:space="preserve"><value>Geschäftssitz</value></data>
+  <data name="Entities.AddrPurpose.Warehouse" xml:space="preserve"><value>Lager</value></data>
+  <data name="Entities.AddrPurpose.Billing" xml:space="preserve"><value>Rechnung</value></data>
+  <data name="Entities.AddrPurpose.Shipping" xml:space="preserve"><value>Versand</value></data>
+  <data name="Entities.AddrPurpose.Returns" xml:space="preserve"><value>Rücksendungen</value></data>
+  <data name="Entities.AddrPurpose.Mailing" xml:space="preserve"><value>Postanschrift</value></data>
+  <data name="Entities.Info.IdentifierAdded" xml:space="preserve"><value>Kennung hinzugefügt.</value></data>
+  <data name="Entities.Info.IdentifierVerified" xml:space="preserve"><value>Kennung verifiziert.</value></data>
+  <data name="Entities.Info.ContactAdded" xml:space="preserve"><value>Kontakt hinzugefügt.</value></data>
+  <data name="Entities.Info.AddressAdded" xml:space="preserve"><value>Adresse hinzugefügt.</value></data>
+
+  <!-- ===== Commerce ops ===== -->
+  <data name="Ops.Title" xml:space="preserve"><value>Storefront-Commerce-Betrieb</value></data>
+  <data name="Ops.Intro" xml:space="preserve"><value>Konfigurationsbereiche für Mandanten-/Storefront-Katalog, Veröffentlichung, Preise, Zahlung, Auszahlung und Xero-Einrichtung. Sensible Werte (Lieferantenkosten, Margen, Bank-Token, Anbieterkontoreferenzen, Buchhaltungszuordnungen) werden hier bewusst zusammengefasst; die feldbezogene Richtlinien-/Audit-Durchsetzung erfolgt durch den zuständigen Dienst / die Admin-API, während diese Änderungsendpunkte erweitert werden.</value></data>
+  <data name="Ops.TenantContext" xml:space="preserve"><value>Mandantenkontext</value></data>
+  <data name="Ops.TenantId.Tip" xml:space="preserve"><value>Der Mandant (rechtlicher Betreiber), dessen Commerce-Konfiguration Sie verwalten (GUID).</value></data>
+  <data name="Ops.LoadStorefronts" xml:space="preserve"><value>Storefronts laden</value></data>
+  <data name="Ops.LoadStorefronts.Tip" xml:space="preserve"><value>Laden Sie jede zu diesem Mandanten gehörende Storefront.</value></data>
+  <data name="Ops.Storefronts" xml:space="preserve"><value>Storefronts</value></data>
+  <data name="Ops.NotReadyIntro" xml:space="preserve"><value>Diese Storefront ist noch nicht bereit für den Livegang:</value></data>
+  <data name="Ops.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Ops.Field.Name.Tip" xml:space="preserve"><value>Interner Name für die Storefront.</value></data>
+  <data name="Ops.Field.PublicUrl" xml:space="preserve"><value>Öffentliche URL</value></data>
+  <data name="Ops.Field.PublicUrl.Tip" xml:space="preserve"><value>Öffentliche Storefront-URL, die in kundenseitigen Links verwendet wird.</value></data>
+  <data name="Ops.Field.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Ops.Field.Currency.Tip" xml:space="preserve"><value>ISO-4217-Währung für diese Storefront. Unabhängig von der Oberflächensprache.</value></data>
+  <data name="Ops.Field.TaxRegime" xml:space="preserve"><value>Steuerregime</value></data>
+  <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Regionale Steuerregel. AU GST / EU VAT sind steuer-INKLUSIVE: Verkaufspreise enthalten die Steuer bereits (Käufer zahlen den angegebenen Preis; die Steuer wird informativ angezeigt). Die US-Verkaufssteuer wird beim Checkout auf die angegebenen Preise HINZUGEFÜGT (ADR-0038).</value></data>
+  <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Steuer (Bps)</value></data>
+  <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Steuersatz in Basispunkten, z. B. 1000 = 10 %. Bei AU GST / EU VAT ist dies der in den Verkaufspreisen ENTHALTENE Satz; bei US wird er beim Checkout HINZUGEFÜGT (ADR-0038).</value></data>
+  <data name="Ops.Field.Visibility" xml:space="preserve"><value>Sichtbarkeit</value></data>
+  <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Wer die Storefront sehen kann: Öffentlich (live) oder Privat (Entwurf).</value></data>
+  <data name="Ops.CreateStorefront" xml:space="preserve"><value>Storefront erstellen</value></data>
+  <data name="Ops.CreateStorefront.Tip" xml:space="preserve"><value>Erstellen Sie die Storefront aus den Feldern links.</value></data>
+  <data name="Ops.TaxRegime.None" xml:space="preserve"><value>Keine</value></data>
+  <data name="Ops.TaxRegime.AuGst" xml:space="preserve"><value>AU GST</value></data>
+  <data name="Ops.TaxRegime.EuVat" xml:space="preserve"><value>EU VAT</value></data>
+  <data name="Ops.TaxRegime.UsSalesTax" xml:space="preserve"><value>US-Verkaufssteuer</value></data>
+  <data name="Ops.TaxRegime.Other" xml:space="preserve"><value>Sonstige</value></data>
+  <data name="Ops.Visibility.Private" xml:space="preserve"><value>Privat</value></data>
+  <data name="Ops.Visibility.Password" xml:space="preserve"><value>Passwort</value></data>
+  <data name="Ops.Visibility.InviteOnly" xml:space="preserve"><value>Nur auf Einladung</value></data>
+  <data name="Ops.Visibility.Public" xml:space="preserve"><value>Öffentlich</value></data>
+  <data name="Ops.LoadPrompt" xml:space="preserve"><value>Laden Sie Storefronts, um zu beginnen.</value></data>
+  <data name="Ops.NoStorefronts" xml:space="preserve"><value>Keine Storefronts für diesen Mandanten.</value></data>
+  <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
+  <data name="Ops.Col.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Ops.Col.Tax" xml:space="preserve"><value>Steuer</value></data>
+  <data name="Ops.Col.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Ops.Col.Visibility" xml:space="preserve"><value>Sichtbarkeit</value></data>
+  <data name="Ops.Col.Domains" xml:space="preserve"><value>Domains</value></data>
+  <data name="Ops.Manage" xml:space="preserve"><value>Verwalten</value></data>
+  <data name="Ops.Manage.Tip" xml:space="preserve"><value>Öffnen Sie die Einstellungen, Domains und Produktveröffentlichung dieser Storefront.</value></data>
+  <data name="Ops.Preview" xml:space="preserve"><value>Vorschau</value></data>
+  <data name="Ops.Preview.Tip" xml:space="preserve"><value>Verschieben Sie die Storefront in die Vorschau (die Bereitschaft wird geprüft).</value></data>
+  <data name="Ops.Activate" xml:space="preserve"><value>Aktivieren</value></data>
+  <data name="Ops.Activate.Tip" xml:space="preserve"><value>Schalten Sie die Storefront live (die Bereitschaft wird geprüft).</value></data>
+  <data name="Ops.Pause" xml:space="preserve"><value>Pausieren</value></data>
+  <data name="Ops.Pause.Tip" xml:space="preserve"><value>Pausieren Sie die Storefront — sie bedient dann keine Käufer mehr.</value></data>
+  <data name="Ops.Archive" xml:space="preserve"><value>Archivieren</value></data>
+  <data name="Ops.Archive.Tip" xml:space="preserve"><value>Die Storefront archivieren.</value></data>
+  <data name="Ops.ManageHeading" xml:space="preserve"><value>{0} verwalten</value></data>
+  <data name="Ops.SaveSettings" xml:space="preserve"><value>Storefront-Einstellungen speichern</value></data>
+  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Speichern Sie Name, URL, Währung, Steuer und Sichtbarkeit oben.</value></data>
+  <data name="Ops.DomainHost" xml:space="preserve"><value>Domain-Host</value></data>
+  <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
+  <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Domain, die dieser Storefront zugeordnet werden soll (nur Host, kein https://).</value></data>
+  <data name="Ops.Canonical" xml:space="preserve"><value>Kanonisch</value></data>
+  <data name="Ops.Canonical.Tip" xml:space="preserve"><value>Die primäre Domain; andere leiten auf sie um (eine kanonische pro Storefront).</value></data>
+  <data name="Ops.AddDomain" xml:space="preserve"><value>Domain hinzufügen</value></data>
+  <data name="Ops.AddDomain.Tip" xml:space="preserve"><value>Ordnen Sie den obigen Host dieser Storefront zu.</value></data>
+  <data name="Ops.CheckReadiness" xml:space="preserve"><value>Bereitschaft prüfen</value></data>
+  <data name="Ops.CheckReadiness.Tip" xml:space="preserve"><value>Listen Sie auf, was diese Storefront noch benötigt, bevor sie live gehen kann.</value></data>
+  <data name="Ops.Readiness" xml:space="preserve"><value>Bereitschaft:</value></data>
+  <data name="Ops.Ready" xml:space="preserve"><value>Bereit</value></data>
+  <data name="Ops.NotReady" xml:space="preserve"><value>Nicht bereit</value></data>
+  <data name="Ops.Publication" xml:space="preserve"><value>Produktveröffentlichung</value></data>
+  <data name="Ops.Field.ProductId" xml:space="preserve"><value>Produkt-ID</value></data>
+  <data name="Ops.Field.ProductId.Tip" xml:space="preserve"><value>Das Mandantenprodukt (GUID), das auf dieser Storefront veröffentlicht werden soll.</value></data>
+  <data name="Ops.Field.SeoTitle" xml:space="preserve"><value>SEO-Titel</value></data>
+  <data name="Ops.Field.SeoTitle.Tip" xml:space="preserve"><value>Optionale SEO-Titelüberschreibung für dieses Produkt auf dieser Storefront.</value></data>
+  <data name="Ops.Field.Fulfillment" xml:space="preserve"><value>Fulfillment</value></data>
+  <data name="Ops.Field.Fulfillment.Tip" xml:space="preserve"><value>Wie dieses Produkt auf dieser Storefront erfüllt wird (Lager, Dropshipping, Digital …).</value></data>
+  <data name="Ops.Fulfillment.Unassigned" xml:space="preserve"><value>Nicht zugewiesen (blockiert Veröffentlichung)</value></data>
+  <data name="Ops.Fulfillment.Dropship" xml:space="preserve"><value>Dropshipping</value></data>
+  <data name="Ops.Fulfillment.OwnWarehouse" xml:space="preserve"><value>Eigenes Lager</value></data>
+  <data name="Ops.AssignProduct" xml:space="preserve"><value>Produkt zuweisen</value></data>
+  <data name="Ops.AssignProduct.Tip" xml:space="preserve"><value>Hängen Sie das obige Produkt an diese Storefront an (es ist noch nicht veröffentlicht).</value></data>
+  <data name="Ops.ProductReadiness" xml:space="preserve"><value>Produktbereitschaft</value></data>
+  <data name="Ops.ProductReadiness.Tip" xml:space="preserve"><value>Listen Sie auf, was dieses Produkt noch benötigt, bevor es hier veröffentlicht werden kann.</value></data>
+  <data name="Ops.Publish" xml:space="preserve"><value>Veröffentlichen</value></data>
+  <data name="Ops.Publish.Tip" xml:space="preserve"><value>Veröffentlichen Sie das Produkt auf dieser Storefront.</value></data>
+  <data name="Ops.Unpublish" xml:space="preserve"><value>Veröffentlichung zurücknehmen</value></data>
+  <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>Entfernen Sie das Produkt von dieser Storefront.</value></data>
+  <data name="Ops.PublicationReadiness" xml:space="preserve"><value>Veröffentlichungsbereitschaft:</value></data>
+  <data name="Ops.Policies" xml:space="preserve"><value>Richtlinienbereiche für Preise, Zahlung, Auszahlung und Xero</value></data>
+  <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>Preise &amp; Aktionen</value></data>
+  <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>SupplierCost, SellingPrice, Steuermodus, Storefront-Überschreibungen, Gutscheine, automatische Rabatte, Bündelrabatte und kostenloser Versand werden in Katalogangeboten + Ordering modelliert. Produktbezogene Angebote enthalten Preismodell + Preisstufen.</value></data>
+  <data name="Ops.Card.Pricing.Link" xml:space="preserve"><value>Angebote &amp; Preise verwalten</value></data>
+  <data name="Ops.Card.Payments.Title" xml:space="preserve"><value>Zahlungskonten</value></data>
+  <data name="Ops.Card.Payments.Body" xml:space="preserve"><value>Payments verwaltet Mandantenstandards, Storefront-Überschreibungen, Anbietermodus, Bereitschaft, Live-Aktivierungsgenehmigung und Checkout-Snapshots. Verwenden Sie nur aktive, geeignete Konten.</value></data>
+  <data name="Ops.Card.Payments.Link" xml:space="preserve"><value>Zahlungskonten verwalten</value></data>
+  <data name="Ops.Card.Payouts.Title" xml:space="preserve"><value>Lieferantenauszahlungen</value></data>
+  <data name="Ops.Card.Payouts.Body" xml:space="preserve"><value>Payments verwaltet maskierte/tokenisierte Bankkonten, genehmigungspflichtige Auszahlungsanweisungen, Verbindlichkeitsrichtlinien und ausgeglichene Lieferantenverbindlichkeits-Abgrenzungen.</value></data>
+  <data name="Ops.Card.Payouts.Link" xml:space="preserve"><value>Lieferantenauszahlungen verwalten</value></data>
+  <data name="Ops.Card.Xero.Title" xml:space="preserve"><value>Xero-Zuordnungen</value></data>
+  <data name="Ops.Card.Xero.Body" xml:space="preserve"><value>Payments verwaltet den Mandantenstandard sowie den Zuordnungsvorrang nach Storefront/Kategorie/Lieferant/Produkt. Xero bleibt nachgelagert zur Hauptbuchwahrheit. Synchronisierungsläufe + die tägliche Buchung sind jetzt bedienbar.</value></data>
+  <data name="Ops.Card.Xero.Link" xml:space="preserve"><value>Xero-Zuordnungen verwalten</value></data>
+  <data name="Ops.Card.Link.Tip" xml:space="preserve"><value>Öffnen Sie die Administrationsseite, die diesen Bereich verwaltet.</value></data>
+  <data name="Ops.Status.StorefrontCreated" xml:space="preserve"><value>Storefront erstellt.</value></data>
+  <data name="Ops.Status.SettingsUpdated" xml:space="preserve"><value>Storefront-Einstellungen aktualisiert.</value></data>
+  <data name="Ops.Status.DomainAdded" xml:space="preserve"><value>Domain hinzugefügt.</value></data>
+  <data name="Ops.Status.ProductAssigned" xml:space="preserve"><value>Produkt zugewiesen.</value></data>
+  <data name="Ops.Status.Transition" xml:space="preserve"><value>Storefront-{0} angefordert.</value></data>
+  <data name="Ops.Status.ProductPublish" xml:space="preserve"><value>Produktveröffentlichung angefordert.</value></data>
+  <data name="Ops.Status.ProductUnpublish" xml:space="preserve"><value>Rücknahme der Produktveröffentlichung angefordert.</value></data>
+  <data name="Ops.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0}): {1}</value></data>
+
+  <!-- ===== Payment accounts ===== -->
+  <data name="Pay.Title" xml:space="preserve"><value>Zahlungskonten</value></data>
+  <data name="Pay.Subtitle" xml:space="preserve"><value>Mandanten- &amp; Storefront-Konten · Lebenszyklus</value></data>
+  <data name="Pay.Intro" xml:space="preserve"><value>Erstellen Sie ein Konto (Entwurf), reichen Sie es zur Genehmigung ein und aktivieren Sie es dann (ein Live-Konto benötigt eine externe Kontoreferenz). Sperren oder archivieren Sie es bei Bedarf. Nur aktive Konten sind beim Checkout geeignet.</value></data>
+  <data name="Pay.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Zahlungskonten Sie verwalten.</value></data>
+  <data name="Pay.Col.Provider" xml:space="preserve"><value>Anbieter</value></data>
+  <data name="Pay.Col.Mode" xml:space="preserve"><value>Modus</value></data>
+  <data name="Pay.Col.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Pay.Col.Default" xml:space="preserve"><value>Standard</value></data>
+  <data name="Pay.Col.ExtRef" xml:space="preserve"><value>Ext. Ref.</value></data>
+  <data name="Pay.Empty" xml:space="preserve"><value>Noch keine Zahlungskonten für diesen Mandanten.</value></data>
+  <data name="Pay.Edit.Tip" xml:space="preserve"><value>Die Details dieses Kontos bearbeiten.</value></data>
+  <data name="Pay.MakeDefault" xml:space="preserve"><value>Als Standard festlegen</value></data>
+  <data name="Pay.MakeDefault.Tip" xml:space="preserve"><value>Legen Sie dieses als Mandantenstandardkonto fest (hebt den aktuellen Standard auf).</value></data>
+  <data name="Pay.Submit" xml:space="preserve"><value>Einreichen</value></data>
+  <data name="Pay.Submit.Tip" xml:space="preserve"><value>Zur Genehmigung einreichen.</value></data>
+  <data name="Pay.Activate" xml:space="preserve"><value>Aktivieren</value></data>
+  <data name="Pay.Activate.Tip" xml:space="preserve"><value>Aktivieren (prüft die Bereitschaft).</value></data>
+  <data name="Pay.Suspend" xml:space="preserve"><value>Sperren</value></data>
+  <data name="Pay.Suspend.Tip" xml:space="preserve"><value>Dieses Konto sperren.</value></data>
+  <data name="Pay.Archive" xml:space="preserve"><value>Archivieren</value></data>
+  <data name="Pay.Archive.Tip" xml:space="preserve"><value>Dieses Konto archivieren.</value></data>
+  <data name="Pay.EditHeading" xml:space="preserve"><value>Zahlungskonto bearbeiten</value></data>
+  <data name="Pay.NewHeading" xml:space="preserve"><value>Neues Zahlungskonto</value></data>
+  <data name="Pay.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Pay.Field.Name.Tip" xml:space="preserve"><value>Eine Bezeichnung für dieses Konto.</value></data>
+  <data name="Pay.Field.Provider" xml:space="preserve"><value>Anbieter</value></data>
+  <data name="Pay.Field.Provider.Tip" xml:space="preserve"><value>Zahlungsanbieter, z. B. Stripe.</value></data>
+  <data name="Pay.Field.Provider.LockedTip" xml:space="preserve"><value>Der Anbieter kann bei einem aktiven Konto nicht geändert werden — sperren Sie es zuerst.</value></data>
+  <data name="Pay.Field.Mode" xml:space="preserve"><value>Modus</value></data>
+  <data name="Pay.Field.Mode.Tip" xml:space="preserve"><value>Test für Sandbox, Live für echte Abbuchungen.</value></data>
+  <data name="Pay.Field.Mode.LockedTip" xml:space="preserve"><value>Der Modus kann bei einem aktiven Konto nicht geändert werden — sperren Sie es zuerst.</value></data>
+  <data name="Pay.Mode.Test" xml:space="preserve"><value>Test</value></data>
+  <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
+  <data name="Pay.Field.ExtRef" xml:space="preserve"><value>Externe Kontoreferenz</value></data>
+  <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>Anbieterkonto-ID — erforderlich, um ein Live-Konto zu aktivieren.</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>Standard für Mandant</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Als Mandantenstandard verwenden.</value></data>
+  <data name="Pay.Create" xml:space="preserve"><value>Erstellen (Entwurf)</value></data>
+  <data name="Pay.Create.Tip" xml:space="preserve"><value>Erstellen Sie das Konto als Entwurf — reichen Sie es anschließend ein und aktivieren Sie es.</value></data>
+  <data name="Pay.Status.Created" xml:space="preserve"><value>Konto erstellt (Entwurf).</value></data>
+  <data name="Pay.Status.Updated" xml:space="preserve"><value>Konto aktualisiert.</value></data>
+  <data name="Pay.Status.Default" xml:space="preserve"><value>Konto ist jetzt der Mandantenstandard.</value></data>
+  <data name="Pay.Status.Submitted" xml:space="preserve"><value>Konto eingereicht.</value></data>
+  <data name="Pay.Status.Activated" xml:space="preserve"><value>Konto aktiviert.</value></data>
+  <data name="Pay.Status.Suspended" xml:space="preserve"><value>Konto gesperrt.</value></data>
+  <data name="Pay.Status.Archived" xml:space="preserve"><value>Konto archiviert.</value></data>
+  <data name="Pay.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0} {1}).</value></data>
+
+  <!-- ===== Supplier payouts ===== -->
+  <data name="Payouts.Title" xml:space="preserve"><value>Lieferantenauszahlungen</value></data>
+  <data name="Payouts.Subtitle" xml:space="preserve"><value>maskierte Bankkonten · Auszahlungsanweisungen</value></data>
+  <data name="Payouts.Intro" xml:space="preserve"><value>Erstellen Sie tokenisierte Lieferanten-Bankkonten aus Ihrer Vault-Referenz, genehmigen oder lehnen Sie sie ab und erstellen Sie die aktive Auszahlungsanweisung für einen Lieferanten. Rohe Bankdaten dürfen hier niemals eingegeben werden.</value></data>
+  <data name="Payouts.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Lieferantenauszahlungs-Einrichtung Sie verwalten.</value></data>
+  <data name="Payouts.Supplier" xml:space="preserve"><value>Lieferant</value></data>
+  <data name="Payouts.Supplier.Tip" xml:space="preserve"><value>Aktive Lieferanten für diesen Mandanten; filtert die Listen und wird vom Formular für neue Bankkonten verwendet.</value></data>
+  <data name="Payouts.Supplier.All" xml:space="preserve"><value>Alle Lieferanten</value></data>
+  <data name="Payouts.SupplierId" xml:space="preserve"><value>Lieferanten-Entitäts-ID</value></data>
+  <data name="Payouts.SupplierId.Tip" xml:space="preserve"><value>Für diesen Mandanten wurden keine aktiven Lieferanten gefunden — geben Sie eine Lieferanten-Entitäts-GUID manuell ein.</value></data>
+  <data name="Payouts.BankAccounts" xml:space="preserve"><value>Bankkonten</value></data>
+  <data name="Payouts.Col.AccountName" xml:space="preserve"><value>Kontoname</value></data>
+  <data name="Payouts.Col.Country" xml:space="preserve"><value>Land</value></data>
+  <data name="Payouts.Col.Routing" xml:space="preserve"><value>Bankleitzahl</value></data>
+  <data name="Payouts.Col.Account" xml:space="preserve"><value>Konto</value></data>
+  <data name="Payouts.Col.State" xml:space="preserve"><value>Zustand</value></data>
+  <data name="Payouts.Approve" xml:space="preserve"><value>Genehmigen</value></data>
+  <data name="Payouts.Approve.Tip" xml:space="preserve"><value>Dieses tokenisierte Bankkonto genehmigen.</value></data>
+  <data name="Payouts.Reject" xml:space="preserve"><value>Ablehnen</value></data>
+  <data name="Payouts.Reject.Tip" xml:space="preserve"><value>Dieses Bankkonto ablehnen.</value></data>
+  <data name="Payouts.EditBank.Tip" xml:space="preserve"><value>Maskierte Details bearbeiten — das Ändern der Bankidentität setzt die Genehmigung auf „ausstehend“ zurück.</value></data>
+  <data name="Payouts.Archive" xml:space="preserve"><value>Archivieren</value></data>
+  <data name="Payouts.Archive.Tip" xml:space="preserve"><value>Dieses Bankkonto archivieren.</value></data>
+  <data name="Payouts.NoBankAccounts" xml:space="preserve"><value>Keine Lieferanten-Bankkonten gefunden.</value></data>
+  <data name="Payouts.EditBank" xml:space="preserve"><value>Bankkonto bearbeiten</value></data>
+  <data name="Payouts.EditBank.Note" xml:space="preserve"><value>Nur maskierte Anzeigewerte und das Vault-Token — niemals rohe Bankdaten. Das Ändern von Land, maskierten Nummern oder dem Token setzt ein genehmigtes Konto auf „Genehmigung ausstehend“ zurück.</value></data>
+  <data name="Payouts.Field.AccountName" xml:space="preserve"><value>Kontoname</value></data>
+  <data name="Payouts.Field.AccountName.Tip" xml:space="preserve"><value>Maskierter Anzeigename des Kontoinhabers aus dem Vault-/KYC-System.</value></data>
+  <data name="Payouts.Field.BankCountry" xml:space="preserve"><value>Bankland</value></data>
+  <data name="Payouts.Field.BankCountry.Tip" xml:space="preserve"><value>ISO 3166-1 Alpha-2-Ländercode, z. B. AU.</value></data>
+  <data name="Payouts.Field.RoutingMasked" xml:space="preserve"><value>Bankleitzahl maskiert</value></data>
+  <data name="Payouts.Field.RoutingMasked.Tip" xml:space="preserve"><value>Nur maskierter BSB-/Bankleitzahl-Anzeigewert.</value></data>
+  <data name="Payouts.Field.AccountMasked" xml:space="preserve"><value>Konto maskiert</value></data>
+  <data name="Payouts.Field.AccountMasked.Tip" xml:space="preserve"><value>Nur maskierter Kontoanzeigewert.</value></data>
+  <data name="Payouts.Field.TokenRef" xml:space="preserve"><value>Vault-Token-Referenz</value></data>
+  <data name="Payouts.Field.TokenRef.Tip" xml:space="preserve"><value>Referenz auf das im Vault gespeicherte/tokenisierte Konto. Fügen Sie keine rohen Bankdaten ein.</value></data>
+  <data name="Payouts.NewBank" xml:space="preserve"><value>Neues Bankkonto</value></data>
+  <data name="Payouts.CreateBank" xml:space="preserve"><value>Erstellen (Genehmigung ausstehend)</value></data>
+  <data name="Payouts.CreateBank.Tip" xml:space="preserve"><value>Erstellen Sie das tokenisierte Bankkonto — es beginnt mit „Genehmigung ausstehend“.</value></data>
+  <data name="Payouts.Instructions" xml:space="preserve"><value>Auszahlungsanweisungen</value></data>
+  <data name="Payouts.Instruction.Bank" xml:space="preserve"><value>Bank</value></data>
+  <data name="Payouts.Instruction.Edit.Tip" xml:space="preserve"><value>Ändern Sie den Rhythmus dieser Anweisung oder leiten Sie sie an ein anderes genehmigtes Bankkonto weiter.</value></data>
+  <data name="Payouts.Instruction.Deactivate" xml:space="preserve"><value>Deaktivieren</value></data>
+  <data name="Payouts.Instruction.Deactivate.Tip" xml:space="preserve"><value>Diese Anweisung deaktivieren.</value></data>
+  <data name="Payouts.NoInstructions" xml:space="preserve"><value>Keine Auszahlungsanweisungen gefunden.</value></data>
+  <data name="Payouts.EditInstruction" xml:space="preserve"><value>Anweisung {0} bearbeiten</value></data>
+  <data name="Payouts.Field.BankAccount" xml:space="preserve"><value>Bankkonto</value></data>
+  <data name="Payouts.Field.BankAccount.Tip" xml:space="preserve"><value>Nur aktive Bankkonten desselben Lieferanten können Auszahlungen empfangen.</value></data>
+  <data name="Payouts.Field.Cadence" xml:space="preserve"><value>Rhythmus</value></data>
+  <data name="Payouts.Field.Cadence.Tip" xml:space="preserve"><value>Wie oft dieser Lieferant bezahlt wird.</value></data>
+  <data name="Payouts.Cadence.Manual" xml:space="preserve"><value>Manuell</value></data>
+  <data name="Payouts.Cadence.Weekly" xml:space="preserve"><value>Wöchentlich</value></data>
+  <data name="Payouts.Cadence.Fortnightly" xml:space="preserve"><value>Zweiwöchentlich</value></data>
+  <data name="Payouts.Cadence.Monthly" xml:space="preserve"><value>Monatlich</value></data>
+  <data name="Payouts.Field.ApprovedBank" xml:space="preserve"><value>Genehmigtes Bankkonto</value></data>
+  <data name="Payouts.Field.ApprovedBank.Tip" xml:space="preserve"><value>Nur aktive Bankkonten können Auszahlungsanweisungen empfangen.</value></data>
+  <data name="Payouts.ChooseBank" xml:space="preserve"><value>Wählen Sie ein aktives Bankkonto</value></data>
+  <data name="Payouts.CreateInstruction" xml:space="preserve"><value>Aktive Anweisung erstellen</value></data>
+  <data name="Payouts.NewInstruction" xml:space="preserve"><value>Neue Auszahlungsanweisung</value></data>
+  <data name="Payouts.Instruction.NeedActiveBank" xml:space="preserve"><value>Genehmigen Sie zuerst ein Bankkonto — eine Auszahlungsanweisung kann nur an ein aktives (genehmigtes) Bankkonto geleitet werden.</value></data>
+  <data name="Payouts.CreateInstruction.Tip" xml:space="preserve"><value>Erstellen Sie die aktive Auszahlungsanweisung für den Lieferanten des ausgewählten Bankkontos.</value></data>
+  <data name="Payouts.Status.BankCreated" xml:space="preserve"><value>Bankkonto erstellt, Genehmigung ausstehend.</value></data>
+  <data name="Payouts.Status.BankApproved" xml:space="preserve"><value>Bankkonto genehmigt.</value></data>
+  <data name="Payouts.Status.BankRejected" xml:space="preserve"><value>Bankkonto abgelehnt.</value></data>
+  <data name="Payouts.Status.BankArchived" xml:space="preserve"><value>Bankkonto archiviert.</value></data>
+  <data name="Payouts.Status.BankUpdated" xml:space="preserve"><value>Bankkonto aktualisiert.</value></data>
+  <data name="Payouts.Status.BankUpdatedPending" xml:space="preserve"><value>Bankkonto aktualisiert — die Bankidentität hat sich geändert, daher ist die Genehmigung wieder ausstehend.</value></data>
+  <data name="Payouts.Status.InstructionCreated" xml:space="preserve"><value>Auszahlungsanweisung erstellt.</value></data>
+  <data name="Payouts.Status.InstructionUpdated" xml:space="preserve"><value>Auszahlungsanweisung aktualisiert.</value></data>
+  <data name="Payouts.Status.InstructionDeactivated" xml:space="preserve"><value>Auszahlungsanweisung deaktiviert.</value></data>
+  <data name="Payouts.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine gültige GUID sein.</value></data>
+  <data name="Payouts.Error.SupplierGuid" xml:space="preserve"><value>Die Lieferanten-Entitäts-ID muss eine gültige GUID sein.</value></data>
+  <data name="Payouts.Error.ChooseSupplier" xml:space="preserve"><value>Wählen Sie zuerst einen Lieferanten.</value></data>
+  <data name="Payouts.Error.ChooseBank" xml:space="preserve"><value>Wählen Sie ein aktives Bankkonto.</value></data>
+  <data name="Payouts.Error.ChooseBankForInstruction" xml:space="preserve"><value>Wählen Sie ein aktives Bankkonto für diese Anweisung.</value></data>
+  <data name="Payouts.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0} {1}).</value></data>
+
+  <!-- ===== Mission control ===== -->
+  <data name="Mc.Title" xml:space="preserve"><value>Mission Control</value></data>
+  <data name="Mc.Subtitle" xml:space="preserve"><value>dienstübergreifender Betrieb · schreibgeschützt</value></data>
+  <data name="Mc.Intro" xml:space="preserve"><value>Die Aktivität stammt aus der zentralen Audit-Projektion; die Jobs vom Workflow-Dienst. Die Daten kommen ausschließlich über die APIs der zuständigen Dienste — niemals durch direktes Lesen der Dienst-Datenbanken (mt6_14).</value></data>
+  <data name="Mc.Kpi.Activity" xml:space="preserve"><value>Aktivität (24 Std.)</value></data>
+  <data name="Mc.Kpi.Activity.Tip" xml:space="preserve"><value>In den letzten 24 Stunden aufgezeichnete Audit-Ereignisse.</value></data>
+  <data name="Mc.Kpi.AuditEvents" xml:space="preserve"><value>Audit-Ereignisse</value></data>
+  <data name="Mc.Kpi.AuditEvents.Tip" xml:space="preserve"><value>Jedes Audit-Ereignis in der Projektion für diesen Mandanten.</value></data>
+  <data name="Mc.Kpi.JobRuns" xml:space="preserve"><value>Job-Läufe</value></data>
+  <data name="Mc.Kpi.JobRuns.Tip" xml:space="preserve"><value>Vom Workflow-Dienst gemeldete geplante Job-Läufe.</value></data>
+  <data name="Mc.Kpi.FailedJobs" xml:space="preserve"><value>Fehlgeschlagene Jobs</value></data>
+  <data name="Mc.Kpi.FailedJobs.Tip" xml:space="preserve"><value>Job-Läufe, die als „Fehlgeschlagen“ endeten — untersuchen Sie sie, bevor sie sich häufen.</value></data>
+  <data name="Mc.Timeline" xml:space="preserve"><value>Aktivitätsverlauf</value></data>
+  <data name="Mc.NoAudit" xml:space="preserve"><value>Noch keine Audit-Aktivität. Sie erscheint, sobald Betreiber handeln (RBAC-, Lieferanten-, Entitätsänderungen …).</value></data>
+  <data name="Mc.Col.When" xml:space="preserve"><value>Wann</value></data>
+  <data name="Mc.Col.Actor" xml:space="preserve"><value>Akteur</value></data>
+  <data name="Mc.Col.Action" xml:space="preserve"><value>Aktion</value></data>
+  <data name="Mc.Col.Outcome" xml:space="preserve"><value>Ergebnis</value></data>
+  <data name="Mc.Jobs" xml:space="preserve"><value>Geplante Jobs</value></data>
+  <data name="Mc.NoJobs" xml:space="preserve"><value>Noch keine Job-Läufe aufgezeichnet (der tägliche Buchungs-Job von Payments meldet hier).</value></data>
+  <data name="Mc.Col.Job" xml:space="preserve"><value>Job</value></data>
+  <data name="Mc.Col.Started" xml:space="preserve"><value>Gestartet</value></data>
+  <data name="Mc.Bus" xml:space="preserve"><value>Nachrichtenbus</value></data>
+  <data name="Mc.Bus.Subtitle" xml:space="preserve"><value>live · RabbitMQ-Management-API · schreibgeschützt</value></data>
+  <data name="Mc.Bus.Unreachable" xml:space="preserve"><value>Management-API nicht erreichbar (Konfiguration &lt;code&gt;MessageBus:ManagementUrl&lt;/code&gt;, Dev-Standard &lt;code&gt;http://localhost:15672&lt;/code&gt;). Warteschlangenstatistiken erscheinen, sobald das Management-Plugin des Brokers aktiv ist.</value></data>
+  <data name="Mc.Bus.Queues" xml:space="preserve"><value>Warteschlangen</value></data>
+  <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Auf dem Broker deklarierte Warteschlangen.</value></data>
+  <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Konsumenten</value></data>
+  <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Derzeit über alle Warteschlangen hinweg angebundene Konsumenten.</value></data>
+  <data name="Mc.Bus.Ready" xml:space="preserve"><value>Bereit</value></data>
+  <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Nachrichten, die auf Zustellung warten. Eine wachsende Zahl bedeutet, dass die Konsumenten hinterherhinken.</value></data>
+  <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Unbestätigt</value></data>
+  <data name="Mc.Bus.Unacked.Tip" xml:space="preserve"><value>Zugestellte, aber noch nicht bestätigte Nachrichten.</value></data>
+  <data name="Mc.Bus.DeadLettered" xml:space="preserve"><value>Dead-Lettered</value></data>
+  <data name="Mc.Bus.DeadLettered.Tip" xml:space="preserve"><value>In Dead-Letter-Warteschlangen geparkte Nachrichten — ein Konsument schlägt fehl.</value></data>
+  <data name="Mc.Bus.DlqWarning" xml:space="preserve"><value>⚠ Dead-Letter-Warteschlangen halten Nachrichten — diese Konsumenten schlagen fehl:</value></data>
+  <data name="Mc.Bus.Busiest" xml:space="preserve"><value>Ausgelastetste Warteschlangen (Top 10 nach Tiefe, dann Publish-Rate)</value></data>
+  <data name="Mc.Bus.Busiest.Tip" xml:space="preserve"><value>Erweitern, um die tiefsten und ausgelastetsten Warteschlangen zu sehen.</value></data>
+  <data name="Mc.Col.Queue" xml:space="preserve"><value>Warteschlange</value></data>
+  <data name="Mc.Col.PublishRate" xml:space="preserve"><value>Publish/s</value></data>
+  <data name="Mc.Consoles" xml:space="preserve"><value>Konsolen</value></data>
+  <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana — Dienste (RED-Metriken)</value></data>
+  <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>Öffnen Sie das Grafana-RED-Metriken-Dashboard in einem neuen Tab.</value></data>
+
+  <!-- ===== Security ===== -->
+  <data name="Sec.Title" xml:space="preserve"><value>Sicherheit</value></data>
+  <data name="Sec.Intro" xml:space="preserve"><value>Zwei-Faktor-Authentifizierung für Ihr Betreiberkonto und die MFA-Richtlinie dieses Mandanten.</value></data>
+  <data name="Sec.Totp" xml:space="preserve"><value>Ihr zweiter Faktor (TOTP)</value></data>
+  <data name="Sec.Enabled" xml:space="preserve"><value>✅ MFA ist für dieses Konto &lt;strong&gt;aktiviert&lt;/strong&gt;. Jede Anmeldung fragt einen Authenticator-Code ab (Wiederherstellungscodes funktionieren ebenfalls).</value></data>
+  <data name="Sec.Required" xml:space="preserve"><value>⚠️ Die effektive MFA-Richtlinie &lt;strong&gt;erfordert&lt;/strong&gt; einen zweiten Faktor für dieses Konto — registrieren Sie sich jetzt.</value></data>
+  <data name="Sec.EnableMfa" xml:space="preserve"><value>MFA aktivieren</value></data>
+  <data name="Sec.EnableMfa.Tip" xml:space="preserve"><value>Erzeugt ein TOTP-Geheimnis. Fügen Sie es einer Authenticator-App hinzu (manuelle Eingabe) und bestätigen Sie dann mit einem Code.</value></data>
+  <data name="Sec.SecretPrompt" xml:space="preserve"><value>Fügen Sie dieses Geheimnis Ihrer Authenticator-App hinzu (manuelle Eingabe / zeitbasiert):</value></data>
+  <data name="Sec.SecretUri" xml:space="preserve"><value>oder verwenden Sie die URI:</value></data>
+  <data name="Sec.Code" xml:space="preserve"><value>Code aus der App</value></data>
+  <data name="Sec.Code.Tip" xml:space="preserve"><value>Der aktuelle 6-stellige Code, den Ihr Authenticator anzeigt — beweist, dass das Geheimnis erfasst wurde.</value></data>
+  <data name="Sec.Confirm" xml:space="preserve"><value>Bestätigen</value></data>
+  <data name="Sec.Confirm.Tip" xml:space="preserve"><value>Bestätigen Sie die Registrierung mit dem obigen Code und zeigen Sie Ihre Wiederherstellungscodes an.</value></data>
+  <data name="Sec.RecoveryCodes" xml:space="preserve"><value>Wiederherstellungscodes — speichern Sie sie jetzt, sie werden nicht erneut angezeigt:</value></data>
+  <data name="Sec.Policy" xml:space="preserve"><value>MFA-Richtlinie des Mandanten</value></data>
+  <data name="Sec.Policy.Summary" xml:space="preserve"><value>Plattformminimum: &lt;strong&gt;{0}&lt;/strong&gt; · Effektiv: &lt;strong&gt;{1}&lt;/strong&gt;. Eine Mandantenrichtlinie kann die Plattformuntergrenze nur verstärken. Hinweis: Benutzer werden erst nach der Registrierung abgefragt — „erforderlich“ fordert nicht registrierte Benutzer zur Registrierung auf, sperrt sie aber nie aus.</value></data>
+  <data name="Sec.Policy.Tip" xml:space="preserve"><value>Wie stark MFA für die Benutzer dieses Mandanten erforderlich ist. „Privilegiert“ zielt auf Administratorkonten.</value></data>
+  <data name="Sec.Policy.Option.Disabled" xml:space="preserve"><value>Deaktiviert — niemand wird abgefragt</value></data>
+  <data name="Sec.Policy.Option.Optional" xml:space="preserve"><value>Optional — registrierte Benutzer werden abgefragt</value></data>
+  <data name="Sec.Policy.Option.Privileged" xml:space="preserve"><value>Erforderlich für privilegierte (Administrator-)Konten</value></data>
+  <data name="Sec.Policy.Option.All" xml:space="preserve"><value>Erforderlich für alle Benutzer</value></data>
+  <data name="Sec.Policy.Save" xml:space="preserve"><value>Richtlinie speichern</value></data>
+  <data name="Sec.Policy.Save.Tip" xml:space="preserve"><value>Wenden Sie die ausgewählte MFA-Richtlinie auf diesen Mandanten an.</value></data>
+  <data name="Sec.Policy.Name.Disabled" xml:space="preserve"><value>Deaktiviert</value></data>
+  <data name="Sec.Policy.Name.Optional" xml:space="preserve"><value>Optional</value></data>
+  <data name="Sec.Policy.Name.Privileged" xml:space="preserve"><value>Erforderlich für privilegierte</value></data>
+  <data name="Sec.Policy.Name.All" xml:space="preserve"><value>Erforderlich für alle</value></data>
+  <data name="Sec.Webhooks" xml:space="preserve"><value>Webhook-Signaturgeheimnisse</value></data>
+  <data name="Sec.Webhooks.Intro" xml:space="preserve"><value>Webhook-Geheimnisse des Anbieters (z. B. Stripes &lt;code&gt;whsec_…&lt;/code&gt;). Werte werden serverseitig gespeichert und immer nur maskiert angezeigt. Zum Rotieren: Fügen Sie das neue Geheimnis hinzu (beide verifizieren), wechseln Sie den Anbieter und deaktivieren Sie dann das alte.</value></data>
+  <data name="Sec.Col.Provider" xml:space="preserve"><value>Anbieter</value></data>
+  <data name="Sec.Col.Secret" xml:space="preserve"><value>Geheimnis</value></data>
+  <data name="Sec.Col.Label" xml:space="preserve"><value>Bezeichnung</value></data>
+  <data name="Sec.Secret.Active" xml:space="preserve"><value>aktiv</value></data>
+  <data name="Sec.Secret.Deactivated" xml:space="preserve"><value>deaktiviert</value></data>
+  <data name="Sec.Deactivate" xml:space="preserve"><value>Deaktivieren</value></data>
+  <data name="Sec.Deactivate.Tip" xml:space="preserve"><value>Akzeptieren Sie keine Webhooks mehr, die mit diesem Geheimnis signiert sind. Tun Sie dies erst, nachdem der Anbieter auf ein neueres umgestellt hat.</value></data>
+  <data name="Sec.NewSecret.Provider.Tip" xml:space="preserve"><value>Der Anbieter, dessen Webhook dieses Geheimnis signiert — entspricht der Route /webhooks/{provider}.</value></data>
+  <data name="Sec.NewSecret.Value" xml:space="preserve"><value>whsec_…</value></data>
+  <data name="Sec.NewSecret.Value.Tip" xml:space="preserve"><value>Fügen Sie das Signaturgeheimnis aus dem Anbieter-Dashboard ein. Es wird nie wieder angezeigt.</value></data>
+  <data name="Sec.NewSecret.Label" xml:space="preserve"><value>Bezeichnung (optional)</value></data>
+  <data name="Sec.NewSecret.Label.Tip" xml:space="preserve"><value>Betreibernotiz, z. B. „Live-Schlüssel 2026-07“.</value></data>
+  <data name="Sec.AddSecret" xml:space="preserve"><value>Geheimnis hinzufügen</value></data>
+  <data name="Sec.AddSecret.Tip" xml:space="preserve"><value>Registrieren Sie das Signaturgeheimnis für den ausgewählten Anbieter.</value></data>
+  <data name="Sec.Status.SecretAdded" xml:space="preserve"><value>Geheimnis registriert.</value></data>
+  <data name="Sec.Status.SecretDeactivated" xml:space="preserve"><value>Geheimnis deaktiviert.</value></data>
+  <data name="Sec.Status.MfaEnabled" xml:space="preserve"><value>MFA aktiviert. Ihre nächste Anmeldung fragt einen Code ab.</value></data>
+  <data name="Sec.Status.PolicySaved" xml:space="preserve"><value>Richtlinie gespeichert.</value></data>
+  <data name="Sec.Error.SecretAdd" xml:space="preserve"><value>Das Geheimnis konnte nicht registriert werden.</value></data>
+  <data name="Sec.Error.SecretDeactivate" xml:space="preserve"><value>Das Geheimnis konnte nicht deaktiviert werden.</value></data>
+  <data name="Sec.Error.EnrollStart" xml:space="preserve"><value>Die Registrierung konnte nicht gestartet werden.</value></data>
+  <data name="Sec.Error.CodeRejected" xml:space="preserve"><value>Code nicht akzeptiert — prüfen Sie den Authenticator und versuchen Sie es erneut.</value></data>
+  <data name="Sec.Error.PolicySave" xml:space="preserve"><value>Die Richtlinie konnte nicht gespeichert werden.</value></data>
+
+  <!-- ===== Shared controls ===== -->
+  <data name="Currency.Tip" xml:space="preserve"><value>Währung (ISO 4217), in der dieser Preis ausgedrückt ist. Aus der vollständigen Liste ausgewählt — niemals frei eingegeben.</value></data>
+  <data name="Currency.Group.Common" xml:space="preserve"><value>Häufig</value></data>
+  <data name="Currency.Group.All" xml:space="preserve"><value>Alle Währungen (ISO 4217)</value></data>
+  <data name="Image.Tip" xml:space="preserve"><value>Fügen Sie eine Bild-URL ein oder laden Sie eine lokale Datei hoch (PNG/JPEG/WebP/GIF, max. 10 MB).</value></data>
+  <data name="Image.Placeholder" xml:space="preserve"><value>https://… oder hochladen →</value></data>
+  <data name="Image.Browse" xml:space="preserve"><value>Durchsuchen…</value></data>
+  <data name="Image.Browse.Tip" xml:space="preserve"><value>Wählen Sie eine lokale Bilddatei zum Hochladen in den Katalog-Objektspeicher.</value></data>
+  <data name="Image.Uploading" xml:space="preserve"><value>Wird hochgeladen…</value></data>
+  <data name="Image.UploadFailed" xml:space="preserve"><value>Hochladen fehlgeschlagen: {0}</value></data>
+
+  <!-- ===== Error page ===== -->
+  <data name="Error.Title" xml:space="preserve"><value>Fehler.</value></data>
+  <data name="Error.Heading" xml:space="preserve"><value>Bei der Verarbeitung Ihrer Anfrage ist ein Fehler aufgetreten.</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>Anfrage-ID:</value></data>
+  <data name="Error.DevMode" xml:space="preserve"><value>Entwicklungsmodus</value></data>
+  <data name="Error.DevMode.Body1" xml:space="preserve"><value>Der Wechsel zur &lt;strong&gt;Entwicklungsumgebung&lt;/strong&gt; zeigt detailliertere Informationen über den aufgetretenen Fehler an.</value></data>
+  <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;Die Entwicklungsumgebung sollte für bereitgestellte Anwendungen nicht aktiviert sein.&lt;/strong&gt; Sie kann dazu führen, dass Endbenutzern sensible Informationen aus Ausnahmen angezeigt werden. Aktivieren Sie für lokales Debugging die &lt;strong&gt;Entwicklungsumgebung&lt;/strong&gt;, indem Sie die Umgebungsvariable &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; auf &lt;strong&gt;Development&lt;/strong&gt; setzen und die App neu starten.</value></data>
 </root>
