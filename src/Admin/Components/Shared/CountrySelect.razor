@@ -1,0 +1,37 @@
+@namespace ThreeCommerce.Admin.Components.Shared
+
+@* Country is always picked from the full ISO 3166 list (Countries.All), never free-typed.
+   Usage: <CountrySelect @bind-Value="address.CountryCode" /> — Value is the alpha-2 code. *@
+<select value="@Value" @onchange="OnChange" title="@(Title ?? L["Country.Tip"])" @attributes="Attributes">
+    <optgroup label="@L["Country.Group.Common"]">
+        @foreach (var cc in Countries.Common)
+        {
+            var c = _byCode.GetValueOrDefault(cc);
+            <option value="@cc">@cc — @(c?.Name)</option>
+        }
+    </optgroup>
+    <optgroup label="@L["Country.Group.All"]">
+        @foreach (var c in Countries.All)
+        {
+            <option value="@c.Code">@c.Code — @c.Name</option>
+        }
+    </optgroup>
+</select>
+
+@code {
+    private static readonly Dictionary<string, Countries.Country> _byCode =
+        Countries.All.ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

@@ -1704,4 +1704,7 @@
   <data name="Nav.Currencies.Tip" xml:space="preserve">
     <value>管理支援嘅貨幣</value>
   </data>
+  <data name="Country.Tip" xml:space="preserve"><value>國家/地區（ISO 3166）。喺完整清單度揀，唔使自己打。</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>常用</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>所有國家/地區（ISO 3166）</value></data>
 </root>
