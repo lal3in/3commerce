@@ -1,11 +1,10 @@
-﻿{
-  "$schema": "https://json.schemastore.org/launchsettings.json",
+{
   "profiles": {
-    "_3commerce.Workers.Notifications": {
+    "http": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5114",
       "environmentVariables": {
-        "DOTNET_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     }
   }
