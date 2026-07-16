@@ -82,7 +82,7 @@ public static class ProfileEndpoints
                 .Where(a => a.UserId == userId)
                 .OrderByDescending(a => a.IsDefault)
                 .ThenBy(a => a.Name)
-                .Select(a => new AddressResponse(a.Id, a.Purpose, a.IsDefault, a.Name, a.Line1, a.Line2, a.City, a.Postcode, a.Country))
+                .Select(a => new AddressResponse(a.Id, a.Purpose, a.IsDefault, a.Name, a.Line1, a.Line2, a.City, a.Region, a.Postcode, a.Country))
                 .ToListAsync(cancellationToken));
         return TypedResults.Ok(addresses);
     }
@@ -103,6 +103,7 @@ public static class ProfileEndpoints
             Line1 = request.Line1,
             Line2 = request.Line2,
             City = request.City,
+            Region = string.IsNullOrWhiteSpace(request.Region) ? null : request.Region.Trim(),
             Postcode = request.Postcode,
             Country = request.Country.ToUpperInvariant(),
         };
@@ -139,6 +140,7 @@ public static class ProfileEndpoints
             address.Line1 = request.Line1;
             address.Line2 = request.Line2;
             address.City = request.City;
+            address.Region = string.IsNullOrWhiteSpace(request.Region) ? null : request.Region.Trim();
             address.Postcode = request.Postcode;
             address.Country = request.Country.ToUpperInvariant();
             if (address.IsDefault)
@@ -189,7 +191,7 @@ public static class ProfileEndpoints
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static AddressResponse ToResponse(Address address) =>
-        new(address.Id, address.Purpose, address.IsDefault, address.Name, address.Line1, address.Line2, address.City, address.Postcode, address.Country);
+        new(address.Id, address.Purpose, address.IsDefault, address.Name, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.Country);
 }
 
 public record ProfileRequest(
@@ -214,6 +216,8 @@ public record AddressRequest(
     [property: MaxLength(200)] string? Line2,
     [property: Required, MaxLength(100)] string City,
     [property: Required, MaxLength(20)] string Postcode,
-    [property: Required, StringLength(2, MinimumLength = 2)] string Country);
+    [property: Required, StringLength(2, MinimumLength = 2)] string Country,
+    // Sub-national region (state/province/county/…) — optional; not every country's address has one.
+    [property: MaxLength(120)] string? Region = null);
 
-public record AddressResponse(Guid Id, AddressPurpose Purpose, bool IsDefault, string Name, string Line1, string? Line2, string City, string Postcode, string Country);
+public record AddressResponse(Guid Id, AddressPurpose Purpose, bool IsDefault, string Name, string Line1, string? Line2, string City, string? Region, string Postcode, string Country);

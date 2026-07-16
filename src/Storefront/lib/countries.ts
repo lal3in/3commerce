@@ -4,6 +4,32 @@ export type Country = { code: string; name: string };
 
 export const COMMON_COUNTRIES = ["AU", "US", "GB", "NZ", "CA", "DE", "FR", "ES", "IT", "NL", "IE", "CN", "JP", "SG", "IN"];
 
+// The country-appropriate term for the sub-national region, so the address form's label adapts to the
+// selected country (Australia → State, Canada → Province, UK → County, Colombia → Department, …).
+// Kept in sync with the admin Countries.RegionLabel.
+export function regionLabel(countryCode: string | null | undefined): string {
+  switch ((countryCode ?? "").trim().toUpperCase()) {
+    case "US": case "AU": case "IN": case "BR": case "MX": case "MY": case "NG": case "MM":
+    case "FM": case "PW": case "SS": case "VE":
+      return "State";
+    case "CA": case "CN": case "VN": case "ID": case "AR": case "PK": case "IR": case "SA":
+    case "KR": case "KP": case "ZA": case "PH": case "TR":
+      return "Province";
+    case "GB": case "IE":
+      return "County";
+    case "CO": case "PE": case "BO": case "PY": case "NI": case "UY": case "HN": case "SV": case "GT":
+      return "Department";
+    case "IT": case "ES": case "CL": case "EC": case "AO": case "MZ":
+      return "Province";
+    case "JP":
+      return "Prefecture";
+    case "DE": case "AT": case "CH": case "NP": case "ET": case "SD":
+      return "State / Province";
+    default:
+      return "State / Region";
+  }
+}
+
 export const COUNTRIES: Country[] = [
   { code: "AF", name: "Afghanistan" },
   { code: "AX", name: "Åland Islands" },

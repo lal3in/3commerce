@@ -169,6 +169,7 @@ public static class CheckoutEndpoints
             ShipName = request.ShippingAddress.Name,
             ShipLine1 = request.ShippingAddress.Line1,
             ShipCity = request.ShippingAddress.City,
+            ShipRegion = string.IsNullOrWhiteSpace(request.ShippingAddress.Region) ? null : request.ShippingAddress.Region.Trim(),
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
             CreatedAt = now,
@@ -229,7 +230,9 @@ public record AddressRequest(
     [property: Required] string Line1,
     [property: Required] string City,
     [property: Required] string Postcode,
-    [property: Required, StringLength(2, MinimumLength = 2)] string Country);
+    [property: Required, StringLength(2, MinimumLength = 2)] string Country,
+    // Sub-national region (state/province/county/…); optional — not every country's address has one.
+    [property: StringLength(120)] string? Region = null);
 
 public record CheckoutRequest(
     [property: Required, EmailAddress] string Email,

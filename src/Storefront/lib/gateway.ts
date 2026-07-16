@@ -169,6 +169,7 @@ export type AddressDto = {
   line1: string;
   line2: string | null;
   city: string;
+  region: string | null;
   postcode: string;
   country: string;
 };

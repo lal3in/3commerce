@@ -31,6 +31,7 @@ public class CheckoutAttempt
     public required string ShipName { get; init; }
     public required string ShipLine1 { get; init; }
     public required string ShipCity { get; init; }
+    public string? ShipRegion { get; init; }
     public required string ShipPostcode { get; init; }
     public required string ShipCountry { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -65,6 +66,7 @@ public class CheckoutAttempt
             ShipName = ShipName,
             ShipLine1 = ShipLine1,
             ShipCity = ShipCity,
+            ShipRegion = ShipRegion,
             ShipPostcode = ShipPostcode,
             ShipCountry = ShipCountry,
             CreatedAt = now,
