@@ -161,6 +161,11 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET | `/entities?tenantId=` | admin/internal claims | List tenant-scoped entity records |
 | POST | `/entities` | admin/internal claims | Create tenant-scoped entity record with type, legal/trading names, and role profiles |
 | PUT | `/entities/{id}` | admin/internal claims | Update an entity record (audited) |
+| GET | `/entities/{id}` | admin/internal claims | Entity detail with its identifiers, contacts, and current addresses |
+| POST | `/entities/{id}/identifiers` | admin/internal claims | Add a tax/registration identifier (ABN/ACN/GST/other) |
+| POST | `/entities/{id}/identifiers/{identifierId}/verify` | admin/internal claims | Mark an identifier verified (operator attestation) — satisfies the supplier ABN/ACN readiness rule |
+| POST | `/entities/{id}/contacts` | admin/internal claims | Add a contact method (email/phone/website) with a purpose |
+| POST | `/entities/{id}/addresses` | admin/internal claims | Add a current address for a given purpose (registered office/warehouse/…) |
 | DELETE | `/entities/{id}` | admin/internal claims | Archive an entity record |
 | POST | `/entities/{id}/duplicate-warnings/scan` | admin/internal claims | Warn on duplicate legal/trading names, ABN/ACN/GST identifiers, and contacts |
 | POST | `/entities/duplicate-warnings/{warningId}/override` | admin/internal claims | Permissioned duplicate-warning override with reason |
@@ -186,6 +191,10 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET | `/orders/{id}/status` | anon | Confirmation-page status polling |
 | GET | `/admin/orders` · `/admin/orders/{id}` | admin | Admin order list / detail |
 | POST | `/admin/orders/{id}/cancel` | admin | Admin order cancel (audited — emits `AuditEntryRecorded`) |
+
+> `RefundCompleted` now carries `FullyRefunded`; `OrderStatusConsumer` moves a Confirmed order to the
+> new `OrderStatus.Refunded` (=5) on a **full** refund only (partial refunds leave it Confirmed). The
+> admin Orders list then shows `Refunded` and drops the Refund action.
 
 > At checkout each line resolves its **offer** (ADR-0028) from the local `OfferCopy` read model
 > (fed by Catalog `OfferChanged`) and is stamped with `FulfilmentType` + `SupplierId` + `BillingMode`.
@@ -279,6 +288,7 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | GET | `/orders/{orderId}/lines` | session | Order-line snapshot for per-line RMA selection (server-derived amounts, BL-8) |
 | POST | `/rma` | session | Request a refund/return — starts the RMA saga |
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state) |
+| POST | `/admin/rmas` | admin | Admin-initiated whole-order refund: opens an **auto-approved, no-return** RMA (saga `AutoApprove`), so the refund travels the single RefundRequested path and appears in the queue as RefundPending → RefundIssued. The admin Orders screen uses this instead of a direct `/payments/admin/refunds` call |
 | POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract |
 
 All current services now have contracts. The admin app (`src/Admin`, Blazor Server) consumes these
