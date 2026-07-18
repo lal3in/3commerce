@@ -238,3 +238,126 @@ spec:
       targetPort: 8080
 {{- end }}
 {{- end }}
+{{- if .Values.pgadmin.enabled }}
+---
+# Optional pgAdmin DB portal (off by default; `pgadmin.enabled=true`). Pre-connected to the in-cluster
+# `postgres` Service so all service DBs appear under one server. dev/kind convenience — not for prod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-servers
+  labels:
+    {{- include "3commerce.labels" . | nindent 4 }}
+data:
+  servers.json: |
+    {
+      "Servers": {
+        "1": {
+          "Name": "3commerce — all service databases",
+          "Group": "3commerce",
+          "Host": "postgres",
+          "Port": 5432,
+          "MaintenanceDB": "postgres",
+          "Username": "postgres",
+          "PassFile": "/pgadmin4/run/pgpass",
+          "SSLMode": "prefer",
+          "Comment": "Local/kind superuser — expand 'Databases' for all service DBs."
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgadmin-pgpass
+  labels:
+    {{- include "3commerce.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  # host:port:db:user:password — '*' db matches every database on the server.
+  pgpass: "postgres:5432:*:postgres:{{ .Values.postgres.password }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  labels:
+    app: pgadmin
+    {{- include "3commerce.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      securityContext:
+        runAsUser: 0   # root: copy+chmod the passfile below, then read the 0600 copy
+      containers:
+        - name: pgadmin
+          image: {{ .Values.pgadmin.image }}
+          # Secret/ConfigMap mounts are read-only, so copy the passfile into a writable emptyDir and
+          # chmod 0600 (pgAdmin refuses a group/world-readable passfile) before the real entrypoint.
+          command: ["/bin/sh", "-c"]
+          args:
+            - "cp /pgadmin4/pgpass-src/pgpass /pgadmin4/run/pgpass && chmod 600 /pgadmin4/run/pgpass; exec /entrypoint.sh"
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: {{ .Values.pgadmin.email | quote }}
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: {{ .Values.pgadmin.password | quote }}
+            - name: PGADMIN_CONFIG_SERVER_MODE
+              value: "True"
+            - name: PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED
+              value: "False"
+            - name: PGADMIN_DISABLE_POSTFIX
+              value: "True"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: servers
+              mountPath: /pgadmin4/servers.json
+              subPath: servers.json
+            - name: pgpass-src
+              mountPath: /pgadmin4/pgpass-src
+              readOnly: true
+            - name: run
+              mountPath: /pgadmin4/run
+            - name: data
+              mountPath: /var/lib/pgadmin
+          readinessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+      volumes:
+        - name: servers
+          configMap:
+            name: pgadmin-servers
+        - name: pgpass-src
+          secret:
+            secretName: pgadmin-pgpass
+        - name: run
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  labels:
+    app: pgadmin
+spec:
+  selector:
+    app: pgadmin
+  ports:
+    - port: {{ .Values.pgadmin.service.port }}
+      targetPort: 80
+{{- end }}
