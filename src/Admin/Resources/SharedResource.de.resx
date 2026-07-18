@@ -1026,4 +1026,7 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>Füllen Sie diese aus, um eine lieferantenbereite Entität zu erstellen (vor der Verifizierung alle erforderlich). Leer lassen, um später über Details hinzuzufügen.</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>Primäre E-Mail (z. B. accounts@company.com)</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Eine primäre oder Betriebs-E-Mail — für die Lieferantenverifizierung erforderlich.</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>Land (ISO 3166). Aus der vollständigen Liste ausgewählt — nie frei eingegeben.</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>Häufig</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>Alle Länder (ISO 3166)</value></data>
 </root>

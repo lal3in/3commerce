@@ -28,7 +28,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             .ToListAsync(cancellationToken);
 
     public async Task<SupplierChangeRequest?> ApproveAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, bool approverIsAdmin, string? reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -38,7 +38,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
         try
         {
-            request.Approve(approverPrincipalId, reason, timeProvider.GetUtcNow());
+            request.Approve(approverPrincipalId, approverIsAdmin, reason, timeProvider.GetUtcNow());
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {
@@ -54,7 +54,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
     }
 
     public async Task<SupplierChangeRequest?> RejectAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, bool approverIsAdmin, string reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -64,7 +64,7 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
         try
         {
-            request.Reject(approverPrincipalId, reason, timeProvider.GetUtcNow());
+            request.Reject(approverPrincipalId, approverIsAdmin, reason, timeProvider.GetUtcNow());
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {

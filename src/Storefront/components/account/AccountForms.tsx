@@ -3,6 +3,7 @@
 import { useState, type InputHTMLAttributes } from "react";
 import { useTranslations } from "next-intl";
 import type { AddressDto } from "@/lib/gateway";
+import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
 
 interface AddressFormsProps {
   addresses: AddressDto[];
@@ -84,6 +85,8 @@ function AddressForm({ address, onCancel }: { address?: AddressDto; onCancel: ()
   const t = useTranslations("account");
   const tc = useTranslations("common");
   const action = address ? `/account/address/${address.id}` : "/account/address";
+  // Country is controlled so the region field's label adapts to the selected country.
+  const [country, setCountry] = useState(address?.country ?? "AU");
   return (
     <form action={action} method="post" className="rounded-md border border-neutral-200 p-4 space-y-3 text-sm">
       <h3 className="font-medium">{address ? t("updateAddress") : t("addAddress")}</h3>
@@ -105,9 +108,32 @@ function AddressForm({ address, onCancel }: { address?: AddressDto; onCancel: ()
       <Field name="line2" label={t("addressLine2")} tip={t("tips.addressLine2")} autoComplete="address-line2" defaultValue={address?.line2 ?? ""} />
       <div className="grid grid-cols-2 gap-3">
         <Field name="city" label={t("city")} tip={t("tips.city")} autoComplete="address-level2" defaultValue={address?.city ?? ""} required />
-        <Field name="postcode" label={t("postcode")} tip={t("tips.postcode")} autoComplete="postal-code" defaultValue={address?.postcode ?? ""} required />
+        <Field name="region" label={regionLabel(country)} tip={regionLabel(country)} autoComplete="address-level1" defaultValue={address?.region ?? ""} />
       </div>
-      <Field name="country" label={t("countryCode")} tip={t("tips.countryCode")} autoComplete="country" defaultValue={address?.country ?? "AU"} maxLength={2} required />
+      <div className="grid grid-cols-2 gap-3">
+        <Field name="postcode" label={t("postcode")} tip={t("tips.postcode")} autoComplete="postal-code" defaultValue={address?.postcode ?? ""} required />
+        <label className="block font-medium" title={t("tips.countryCode")}>
+          {t("countryCode")}
+          <select
+            name="country"
+            value={country}
+            required
+            autoComplete="country"
+            title={t("tips.countryCode")}
+            aria-describedby="country-tip"
+            onChange={(e) => setCountry(e.currentTarget.value)}
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2"
+          >
+            <optgroup label="Common">
+              {COMMON_COUNTRIES.map((c) => <option key={`c-${c}`} value={c}>{COUNTRIES.find((x) => x.code === c)?.name ?? c}</option>)}
+            </optgroup>
+            <optgroup label="All countries">
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </optgroup>
+          </select>
+          <span id="country-tip" className="sr-only">{t("tips.countryCode")}</span>
+        </label>
+      </div>
       <label className="flex items-center gap-2 text-neutral-700" title={t("tips.makeDefaultAddress")}>
         <input
           name="isDefault"

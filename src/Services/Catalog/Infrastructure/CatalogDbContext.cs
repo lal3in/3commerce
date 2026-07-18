@@ -1,5 +1,7 @@
+using System.Text.Json;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ThreeCommerce.Catalog.Domain;
 
 namespace ThreeCommerce.Catalog.Infrastructure;
@@ -20,6 +22,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductPublication> ProductPublications => Set<ProductPublication>();
     public DbSet<ProductPublicationVariant> ProductPublicationVariants => Set<ProductPublicationVariant>();
     public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<TenantCatalogSettings> TenantCatalogSettings => Set<TenantCatalogSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +48,19 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             product.HasIndex(p => new { p.TenantId, p.Slug }).IsUnique();
             product.Property(p => p.Attributes).HasColumnType("jsonb");
             product.Property(p => p.ImageUrls).HasColumnType("jsonb");
+            // Per-country ship rules as jsonb; List<record> needs an explicit ValueComparer so EF
+            // change-tracking compares rules structurally (mirrors the ShipToCountries comparer).
+            product.Property(p => p.ShipRules)
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<ProductShipRule>>(v, (JsonSerializerOptions?)null) ?? new(),
+                    new ValueComparer<List<ProductShipRule>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        v => v.Aggregate(0, (h, r) => HashCode.Combine(h, r.GetHashCode())),
+                        v => v.ToList()))
+                // Existing rows need a valid JSON array (not "") so the deserializer doesn't choke.
+                .HasDefaultValueSql("'[]'::jsonb");
             product.HasMany(p => p.Variants).WithOne().HasForeignKey(v => v.ProductId);
             product.HasMany(p => p.Identifiers).WithOne().HasForeignKey(i => i.ProductId);
             product.HasMany(p => p.BundleComponents).WithOne().HasForeignKey(c => c.BundleProductId);
@@ -88,6 +104,16 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             // BCP-47 default UI language (i18n_0) — independent of Currency/TaxRegime.
             storefront.Property(s => s.DefaultLanguage).HasMaxLength(16).HasDefaultValue(SupportedLanguages.Default);
             storefront.Property(s => s.TaxRegime).HasConversion<string>().HasMaxLength(24);
+            // Ship-to allowlist stored as a comma-joined CSV of ISO codes (empty = worldwide).
+            storefront.Property(s => s.ShipToCountries)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => v.Length == 0 ? new List<string>() : v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    new ValueComparer<List<string>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode(StringComparison.Ordinal))),
+                        v => v.ToList()))
+                .HasMaxLength(1000);
             storefront.HasIndex(s => new { s.TenantId, s.Name }).IsUnique();
             storefront.HasIndex(s => new { s.TenantId, s.State });
             storefront.HasMany(s => s.Domains).WithOne().HasForeignKey(d => d.StorefrontId);
@@ -147,6 +173,12 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             variant.HasKey(v => v.Id);
             variant.Property(v => v.SkuOverride).HasMaxLength(80);
             variant.HasIndex(v => new { v.PublicationId, v.VariantId }).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantCatalogSettings>(settings =>
+        {
+            settings.ToTable("TenantCatalogSettings");
+            settings.HasKey(s => s.TenantId);
         });
 
         // MassTransit transactional outbox + inbox tables (ADR-0007).

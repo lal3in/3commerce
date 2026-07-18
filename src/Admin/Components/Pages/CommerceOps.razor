@@ -82,15 +82,31 @@
                     <td>@(string.IsNullOrWhiteSpace(s.PublicUrl) ? "—" : s.PublicUrl)</td>
                     <td style="text-align:center;">@s.Currency</td>
                     <td style="text-align:center;">@TaxLabel(s)</td>
-                    <td style="text-align:center;">@s.State</td>
+                    <td style="text-align:center;">@StateName(s.State)</td>
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
                     <td style="text-align:right; white-space:nowrap;">
+                        @* Only offer the transitions VALID from the current state — otherwise clicking e.g.
+                           Preview on an already-Preview/Active storefront 400s ("state Preview cannot
+                           perform this transition"). Draft→preview/pause · Preview→activate/pause ·
+                           Active→pause · Paused→preview/activate · Archived→(none). *@
                         <button @onclick="() => SelectStorefront(s)" title="@L["Ops.Manage.Tip"]">@L["Ops.Manage"]</button>
-                        <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
-                        <button @onclick='() => Transition(s.Id, "activate")' title="@L["Ops.Activate.Tip"]">@L["Ops.Activate"]</button>
-                        <button @onclick='() => Transition(s.Id, "pause")' title="@L["Ops.Pause.Tip"]">@L["Ops.Pause"]</button>
-                        <button @onclick='() => Transition(s.Id, "archive")' title="@L["Ops.Archive.Tip"]" style="color:#b91c1c;">@L["Ops.Archive"]</button>
+                        @if (s.State is DraftState or PausedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
+                        }
+                        @if (s.State is PreviewState or PausedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "activate")' title="@L["Ops.Activate.Tip"]">@L["Ops.Activate"]</button>
+                        }
+                        @if (s.State is DraftState or PreviewState or ActiveState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "pause")' title="@L["Ops.Pause.Tip"]">@L["Ops.Pause"]</button>
+                        }
+                        @if (s.State != ArchivedState)
+                        {
+                            <button @onclick='() => Transition(s.Id, "archive")' title="@L["Ops.Archive.Tip"]" style="color:#b91c1c;">@L["Ops.Archive"]</button>
+                        }
                     </td>
                 </tr>
             }
@@ -119,6 +135,26 @@
             <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
             <label>@L["Ops.Field.Visibility"]<br /><select @bind="_editVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]"><option value="1">@L["Ops.Visibility.Private"]</option><option value="2">@L["Ops.Visibility.Password"]</option><option value="3">@L["Ops.Visibility.InviteOnly"]</option><option value="4">@L["Ops.Visibility.Public"]</option></select></label>
             <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
+        </div>
+        <div style="margin-bottom:1rem;">
+            <label style="font-weight:600;">@L["Ops.Field.ShipTo"]
+                <span style="font-weight:400; color:#6b7280;">— @L["Ops.ShipTo.Hint"]</span>
+            </label>
+            <select multiple @bind="_editShipTo" size="7" style="width:100%; padding:.4rem; margin-top:.25rem;" title="@L["Ops.Field.ShipTo.Tip"]">
+                @foreach (var c in Countries.Common)
+                {
+                    <option value="@c">@(Countries.NameOf(c)) (@c)</option>
+                }
+                <option disabled>──────────</option>
+                @foreach (var c in Countries.All.Where(x => !Countries.Common.Contains(x.Code)))
+                {
+                    <option value="@c.Code">@c.Name (@c.Code)</option>
+                }
+            </select>
+            @if (_editShipTo.Length > 0)
+            {
+                <p style="margin:.25rem 0 0; font-size:.85rem; color:#374151;">@L["Ops.ShipTo.Selected"] <strong>@string.Join(", ", _editShipTo)</strong></p>
+            }
         </div>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
             <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
@@ -185,6 +221,14 @@
 </section>
 
 @code {
+    // StorefrontState (Catalog domain) numeric values — enums cross HTTP as numbers.
+    private const int DraftState = 1, PreviewState = 2, ActiveState = 3, PausedState = 4, ArchivedState = 5;
+    private static string StateName(int s) => s switch
+    {
+        DraftState => "Draft", PreviewState => "Preview", ActiveState => "Active",
+        PausedState => "Paused", ArchivedState => "Archived", _ => s.ToString(),
+    };
+
     private string _tenantId = "00000000-0000-0000-0000-000000000001";
     private string _newStorefrontName = string.Empty;
     private int _newVisibility = 1;
@@ -214,6 +258,7 @@
     private int _editTaxRegime;
     private int _editTaxRateBasisPoints;
     private int _editVisibility = 1;
+    private string[] _editShipTo = [];
 
     private async Task LoadStorefronts()
     {
@@ -245,6 +290,7 @@
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
         _editVisibility = storefront.Visibility;
+        _editShipTo = storefront.ShipToCountries?.ToArray() ?? [];
     }
 
     private async Task UpdateStorefront()
@@ -253,7 +299,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, shipToCountries = _editShipTo });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -365,7 +411,7 @@
 
     private string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? L["Ops.TaxRegime.None"] : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
 }

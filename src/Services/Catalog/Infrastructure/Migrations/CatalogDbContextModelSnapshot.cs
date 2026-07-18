@@ -396,6 +396,12 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.Property<int>("ProductType")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ShipRules")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -611,6 +617,11 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("ShipToCountries")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<int>("State")
                         .HasColumnType("integer");
 
@@ -699,6 +710,23 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("TenantId", "StorefrontId", "SortOrder");
 
                     b.ToTable("StorefrontNavigationItems", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.TenantCatalogSettings", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("RequireProductShipRules")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TenantId");
+
+                    b.ToTable("TenantCatalogSettings", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>

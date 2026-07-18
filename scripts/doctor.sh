@@ -23,7 +23,7 @@ for entry in "${EDGE[@]}" "${SERVICES[@]}"; do
 done
 
 echo "── frontends ──"
-for nf in storefront:3000 admin:5200 supplier-portal:5300; do
+for nf in "${FRONTENDS[@]}"; do
   n="${nf%%:*}"; p="${nf##*:}"
   c=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://localhost:$p/" 2>/dev/null); [[ "$c" == 000 || -z "$c" ]] && c=down
   printf '    %-15s :%-5s %s\n' "$n" "$p" "$c"
@@ -40,7 +40,7 @@ if ((${#down[@]})); then
       echo "  ▼ $name  (no $log — not started?)"
     fi
   done
-  echo "Tip: full log = .run/<name>.log · frontends = /tmp/3c-storefront.log, /tmp/3c-admin.log"
+  echo "Tip: full log = .run/<name>.log (history .run/logs/) · review bundle = scripts/collect-logs.sh"
 else
   echo "All services healthy."
 fi

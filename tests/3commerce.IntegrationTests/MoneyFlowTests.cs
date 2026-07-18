@@ -64,6 +64,46 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task Checkout_rejects_a_ship_to_country_outside_the_storefront_allowlist()
+    {
+        var productId = await fixture.SeedProductAsync(9_000);
+        var storefrontId = Guid.CreateVersion7();
+
+        // A storefront that ships to AU only. Rate 0 so it never wins tax resolution for other tests'
+        // EUR carts; the allowlist is keyed by this unique storefront id so only our client sees it.
+        using (var scope = fixture.Ordering.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            db.StorefrontTaxCopies.Add(new ThreeCommerce.Ordering.Domain.StorefrontTaxCopy
+            {
+                StorefrontId = storefrontId,
+                TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Currency = "EUR",
+                IsLive = true,
+                ShipToCountries = ["AU"],
+            });
+            await db.SaveChangesAsync();
+        }
+
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        // DE is outside the allowlist → 400 before any payment intent is created.
+        var rejected = await shopper.PostAsJsonAsync("/checkout", Checkout()); // country = DE
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Contains("does not ship to DE", await rejected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        // AU is in the allowlist → checkout proceeds to a payment intent.
+        var allowed = await shopper.PostAsJsonAsync("/checkout", new
+        {
+            email = "buyer@example.com",
+            shippingAddress = new { name = "B", line1 = "1 St", city = "Sydney", postcode = "2000", country = "AU" },
+        });
+        allowed.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Checkout_uses_the_selected_shipping_quote_amount()
     {
         var productId = await fixture.SeedProductAsync(10_000);
@@ -75,6 +115,90 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(10_000, order.NetMinor);
         Assert.Equal(1_234, order.ShippingMinor);
         Assert.Equal(11_234, order.GrossMinor);
+    }
+
+    [Fact]
+    public async Task Checkout_skips_destination_tax_when_product_rule_exempts_the_country()
+    {
+        // A live tax regime in a currency no other test uses, so this 10% rate never bleeds into
+        // the shared EUR/AUD assertions elsewhere in the collection.
+        await SeedLiveTaxAsync("SGD", 1_000);
+        var exempt = await SeedProductWithRulesAsync(10_000, "SGD",
+            new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: false, ShippingCovered: false));
+        var taxed = await SeedProductWithRulesAsync(10_000, "SGD"); // no rule → taxed (control)
+
+        // Control: no rule → full 10% destination tax (shipping forced to 0 to isolate goods tax).
+        using var control = fixture.Ordering.CreateClient();
+        (await control.PostAsJsonAsync("/cart/items", new { productId = taxed, quantity = 1 })).EnsureSuccessStatusCode();
+        var controlOrder = (await (await control.PostAsJsonAsync("/checkout", CheckoutWithShipping(0))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(1_000, controlOrder.TaxMinor);
+        Assert.Equal(11_000, controlOrder.GrossMinor);
+
+        // Exempt product to DE: destination tax is skipped, but the shopper still pays for the goods.
+        using var shopper = fixture.Ordering.CreateClient();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = exempt, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(0))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(0, order.TaxMinor);
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(10_000, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Checkout_waives_shipping_when_all_lines_are_shipping_covered()
+    {
+        // Distinct currency with no tax copy → tax stays 0, isolating the shipping waive.
+        var covered = await SeedProductWithRulesAsync(10_000, "SEK",
+            new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: true, ShippingCovered: true));
+        using var shopper = fixture.Ordering.CreateClient();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = covered, quantity = 1 })).EnsureSuccessStatusCode();
+
+        // Default checkout would add FlatShippingMinor (499); the covered rule waives it to 0.
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(0, order.ShippingMinor);
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(10_000, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task<Guid> SeedProductWithRulesAsync(long priceMinor, string currency, params ThreeCommerce.Ordering.Domain.ProductShipRule[] rules)
+    {
+        var id = Guid.CreateVersion7();
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+        db.ProductCopies.Add(new ThreeCommerce.Ordering.Domain.ProductCopy
+        {
+            ProductId = id,
+            Slug = $"p-{id:N}",
+            Title = "Rule Product",
+            MinPriceMinor = priceMinor,
+            Currency = currency,
+            ShipRules = rules.ToList(),
+        });
+        await db.SaveChangesAsync();
+        return id;
+    }
+
+    private async Task SeedLiveTaxAsync(string currency, int basisPoints)
+    {
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+        db.StorefrontTaxCopies.Add(new ThreeCommerce.Ordering.Domain.StorefrontTaxCopy
+        {
+            StorefrontId = Guid.CreateVersion7(),
+            TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+            Currency = currency,
+            IsLive = true,
+            TaxRateBasisPoints = basisPoints,
+            TaxInclusive = false,
+        });
+        await db.SaveChangesAsync();
     }
 
     [Fact]

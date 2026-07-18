@@ -90,18 +90,18 @@ public sealed class SupplierChangeRequest
         };
     }
 
-    public void Approve(Guid approverPrincipalId, string? reason, DateTimeOffset now)
+    public void Approve(Guid approverPrincipalId, bool approverIsAdmin, string? reason, DateTimeOffset now)
     {
-        EnsureDecidable(approverPrincipalId);
+        EnsureDecidable(approverPrincipalId, approverIsAdmin);
         Status = SupplierChangeRequestStatus.Approved;
         DecidedByPrincipalId = approverPrincipalId;
         DecisionReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
         DecidedAt = now;
     }
 
-    public void Reject(Guid approverPrincipalId, string reason, DateTimeOffset now)
+    public void Reject(Guid approverPrincipalId, bool approverIsAdmin, string reason, DateTimeOffset now)
     {
-        EnsureDecidable(approverPrincipalId);
+        EnsureDecidable(approverPrincipalId, approverIsAdmin);
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new DomainRuleException("Rejecting a change request requires a reason.");
@@ -113,7 +113,7 @@ public sealed class SupplierChangeRequest
         DecidedAt = now;
     }
 
-    private void EnsureDecidable(Guid approverPrincipalId)
+    private void EnsureDecidable(Guid approverPrincipalId, bool approverIsAdmin)
     {
         if (Status != SupplierChangeRequestStatus.Pending)
         {
@@ -125,8 +125,11 @@ public sealed class SupplierChangeRequest
             throw new DomainRuleException("Deciding principal is required.");
         }
 
-        // Maker-checker (ADR-0025): the requester cannot approve their own request.
-        if (approverPrincipalId == RequestedByPrincipalId)
+        // Maker-checker (ADR-0025): the requester cannot decide their own request — UNLESS the decider is an
+        // admin/operator, who is trusted to self-approve. A request raised by a non-admin therefore still
+        // needs a (different) admin to sign off; a non-admin can never self-decide anyway, since the
+        // approve/reject endpoints require the admin role.
+        if (!approverIsAdmin && approverPrincipalId == RequestedByPrincipalId)
         {
             throw new DomainRuleException("A change request cannot be decided by its requester (maker-checker).");
         }

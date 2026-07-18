@@ -35,6 +35,14 @@ public class Product
     public List<ProductIdentifier> Identifiers { get; init; } = [];
     public List<ProductBundleComponent> BundleComponents { get; init; } = [];
 
+    /// <summary>
+    /// Per-destination ship rules (ADR-0008 projected to Ordering). Each rule targets an ISO 3166-1
+    /// alpha-2 country (or the <c>*</c> whole-world default) and declares whether the destination's tax
+    /// is charged and whether shipping is already covered for this product to that country. EMPTY means
+    /// no per-country overrides (worldwide, taxed, shipping charged as normal).
+    /// </summary>
+    public List<ProductShipRule> ShipRules { get; private set; } = [];
+
     public void EnsureTenantScoped()
     {
         if (TenantId == Guid.Empty)
@@ -89,6 +97,45 @@ public class Product
         };
         BundleComponents.Add(component);
         return component;
+    }
+
+    /// <summary>
+    /// Sets the per-country ship rules. Country codes are normalized to upper-case ISO 3166-1 alpha-2
+    /// (or the <c>*</c> whole-world sentinel) and de-duplicated by country (last rule wins). A null
+    /// argument leaves the current rules untouched so an older admin client that doesn't send the field
+    /// can't silently wipe it (mirrors <see cref="Storefront.SetShipToCountries"/>); an empty list clears.
+    /// </summary>
+    public void SetShipRules(IEnumerable<ProductShipRule>? rules, DateTimeOffset now)
+    {
+        if (rules is null)
+        {
+            return;
+        }
+
+        var byCountry = new Dictionary<string, ProductShipRule>(StringComparer.Ordinal);
+        foreach (var rule in rules)
+        {
+            if (rule is null || string.IsNullOrWhiteSpace(rule.CountryCode))
+            {
+                continue;
+            }
+
+            var code = rule.CountryCode.Trim().ToUpperInvariant();
+            if (code != "*" && (code.Length != 2 || code.Any(c => c is < 'A' or > 'Z')))
+            {
+                throw new CatalogRuleException($"Ship rule country '{rule.CountryCode}' is not a 2-letter ISO country code.");
+            }
+
+            // Last rule for a country wins.
+            byCountry[code] = rule with { CountryCode = code };
+        }
+
+        // '*' (whole-world default) first, then ISO codes in ordinal order.
+        ShipRules = byCountry.Values
+            .OrderBy(r => r.CountryCode == "*" ? 0 : 1)
+            .ThenBy(r => r.CountryCode, StringComparer.Ordinal)
+            .ToList();
+        UpdatedAt = now;
     }
 
     private static string NormalizeIdentifierValue(ProductIdentifierType type, string value)
@@ -358,3 +405,12 @@ public enum ProductStatus
     Active = 1,
     Inactive = 2,
 }
+
+/// <summary>
+/// A per-product, per-destination ship rule. <paramref name="CountryCode"/> is an ISO 3166-1 alpha-2
+/// code or the <c>*</c> whole-world default. <paramref name="ChargeDestinationTax"/> = false means the
+/// destination's tax is NOT charged for this product to that country; <paramref name="ShippingCovered"/>
+/// = true means shipment is already covered so no shipping is charged. A record so EF's
+/// <see cref="ValueComparer{T}"/> compares rules structurally.
+/// </summary>
+public sealed record ProductShipRule(string CountryCode, bool ChargeDestinationTax, bool ShippingCovered);

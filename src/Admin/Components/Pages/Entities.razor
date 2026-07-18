@@ -143,9 +143,9 @@ else if (_details is not null)
             <input @bind="_newAddr.Line1" placeholder="@L["Entities.Addr.Line1"]" title="@L["Entities.Addr.Line1.Tip"]" />
             <input @bind="_newAddr.Line2" placeholder="@L["Entities.Addr.Line2"]" title="@L["Entities.Addr.Line2.Tip"]" />
             <input @bind="_newAddr.City" placeholder="@L["Entities.Addr.City"]" title="@L["Entities.Addr.City.Tip"]" />
-            <input @bind="_newAddr.Region" placeholder="@L["Entities.Addr.Region"]" title="@L["Entities.Addr.Region.Tip"]" />
+            <input @bind="_newAddr.Region" placeholder="@Countries.RegionLabel(_newAddr.CountryCode)" title="@L["Entities.Addr.Region.Tip"]" />
             <input @bind="_newAddr.Postcode" placeholder="@L["Entities.Addr.Postcode"]" title="@L["Entities.Addr.Postcode.Tip"]" />
-            <input @bind="_newAddr.CountryCode" maxlength="2" placeholder="@L["Entities.Addr.Country"]" title="@L["Entities.Addr.Country.Tip"]" />
+            <CountrySelect @bind-Value="_newAddr.CountryCode" title="@L["Entities.Addr.Country.Tip"]" />
             <button @onclick="AddAddress" title="@L["Entities.Addr.Add.Tip"]">@L["Common.Add"]</button>
         </div>
     </section>
@@ -198,8 +198,9 @@ else
 
                 @* Type-aware onboarding prerequisites: filling these creates a supplier-READY entity (a
                    verified ABN/ACN, a primary email, and a registered-office/warehouse address are exactly
-                   what verification checks). Left blank, they can still be added later via Details. *@
-                @if (_newType != OtherType)
+                   what verification checks). Only ORGANISATION types can be suppliers — a natural person is
+                   an individual and is not asked for an ABN. Left blank, they can still be added via Details. *@
+                @if (ShowsOnboardingFields(_newType))
                 {
                     <div style="border:1px solid #e5e7eb; border-radius:8px; padding:.7rem; background:#f9fafb;">
                         <div style="font-weight:600; font-size:.85rem;">@L["Entities.Onboard.Heading", TypeName(_newType)]</div>
@@ -217,8 +218,9 @@ else
                         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr)); gap:.4rem; margin-top:.4rem;">
                             <input @bind="_createAddr.Line1" placeholder="@L["Entities.Addr.Line1"]" title="@L["Entities.Addr.Line1.Tip"]" />
                             <input @bind="_createAddr.City" placeholder="@L["Entities.Addr.City"]" title="@L["Entities.Addr.City.Tip"]" />
+                            <input @bind="_createAddr.Region" placeholder="@Countries.RegionLabel(_createAddr.CountryCode)" title="@L["Entities.Addr.Region.Tip"]" />
                             <input @bind="_createAddr.Postcode" placeholder="@L["Entities.Addr.Postcode"]" title="@L["Entities.Addr.Postcode.Tip"]" />
-                            <input @bind="_createAddr.CountryCode" maxlength="2" placeholder="@L["Entities.Addr.Country"]" title="@L["Entities.Addr.Country.Tip"]" />
+                            <CountrySelect @bind-Value="_createAddr.CountryCode" title="@L["Entities.Addr.Country.Tip"]" />
                         </div>
                     </div>
                 }
@@ -243,14 +245,11 @@ else
                         <div style="font-size:.9rem; margin:.2rem 0;">@r.Summary</div>
                         @if (!string.IsNullOrWhiteSpace(r.Detail)) { <div style="font-size:.82rem; color:#4b5563;">@r.Detail</div> }
                         <div style="font-size:.75rem; color:#9ca3af;">@L["Entities.RequestedBy", r.RequestedByPrincipalId.ToString()[..8]]</div>
-                        @{ var mine = _myPrincipalId is not null && r.RequestedByPrincipalId == _myPrincipalId; }
-                        @if (mine)
-                        {
-                            <div style="font-size:.78rem; color:#92400e; margin-top:.3rem;">@L["Entities.MakerChecker"]</div>
-                        }
+                        @* Admins are trusted to self-approve (maker-checker only binds non-admin requesters,
+                           who can't reach these admin-only actions anyway), so own requests stay actionable. *@
                         <div style="margin-top:.4rem; display:flex; gap:.4rem;">
-                            <button @onclick='() => DecideAsync(r.Id, "approve")' disabled="@mine" title="@(mine ? L["Entities.Approve.OwnTip"] : L["Entities.Approve.Tip"])" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#047857"); color:#fff; border:0; border-radius:4px;">@L["Entities.Approve"]</button>
-                            <button @onclick='() => DecideAsync(r.Id, "reject")' disabled="@mine" title="@(mine ? L["Entities.Reject.OwnTip"] : L["Entities.Reject.Tip"])" style="padding:.25rem .7rem; background:@(mine ? "#9ca3af" : "#b91c1c"); color:#fff; border:0; border-radius:4px;">@L["Entities.Reject"]</button>
+                            <button @onclick='() => DecideAsync(r.Id, "approve")' title="@L["Entities.Approve.Tip"]" style="padding:.25rem .7rem; background:#047857; color:#fff; border:0; border-radius:4px;">@L["Entities.Approve"]</button>
+                            <button @onclick='() => DecideAsync(r.Id, "reject")' title="@L["Entities.Reject.Tip"]" style="padding:.25rem .7rem; background:#b91c1c; color:#fff; border:0; border-radius:4px;">@L["Entities.Reject"]</button>
                         </div>
                     </div>
                 }
@@ -270,6 +269,9 @@ else
     private string _newTradingName = string.Empty;
     private int _newType = 2;
     private const int OtherType = 99; // EntityType.Other — not supplier-capable, so no onboarding fields
+    private const int NaturalPersonType = 1; // an individual — not asked for ABN / supplier onboarding fields
+    // Only organisation entity types act as suppliers, so only they show the ABN/contact/address prerequisites.
+    private static bool ShowsOnboardingFields(int type) => type is not (OtherType or NaturalPersonType);
     // Inline onboarding prerequisites captured on the create form (added to the entity right after create).
     private int _createIdentType = 1; // ABN
     private string _createIdentValue = string.Empty;
@@ -363,7 +365,7 @@ else
         var created = await response.Content.ReadFromJsonAsync<EntitySummary>();
         // Attach the onboarding prerequisites the operator supplied, so a supplier-capable entity is
         // created verification-ready in one step (identifier is auto-verified — operator attestation).
-        if (created is not null && _newType != OtherType)
+        if (created is not null && ShowsOnboardingFields(_newType))
         {
             await AttachOnboardingDetailsAsync(created.Id);
         }

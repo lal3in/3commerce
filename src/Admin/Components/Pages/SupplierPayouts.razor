@@ -92,7 +92,7 @@
                 <p style="color:#6b7280; font-size:.82rem; margin:.2rem 0 .6rem;">@L["Payouts.EditBank.Note"]</p>
                 <div style="display:flex; flex-direction:column; gap:.5rem;">
                     <label>@L["Payouts.Field.AccountName"] <input @bind="_editBank.AccountName" title="@L["Payouts.Field.AccountName.Tip"]" style="width:100%;" /></label>
-                    <label>@L["Payouts.Field.BankCountry"] <input @bind="_editBank.BankCountry" maxlength="2" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
+                    <label>@L["Payouts.Field.BankCountry"] <CountrySelect @bind-Value="_editBank.BankCountry" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
                     <label>@L["Payouts.Field.RoutingMasked"] <input @bind="_editBank.RoutingNumberMasked" title="@L["Payouts.Field.RoutingMasked.Tip"]" style="width:100%;" /></label>
                     <label>@L["Payouts.Field.AccountMasked"] <input @bind="_editBank.AccountNumberMasked" title="@L["Payouts.Field.AccountMasked.Tip"]" style="width:100%;" /></label>
                     <label>@L["Payouts.Field.TokenRef"] <input @bind="_editBank.AccountTokenRef" title="@L["Payouts.Field.TokenRef.Tip"]" style="width:100%;" /></label>
@@ -110,7 +110,7 @@
             <h2 style="margin-top:0; font-size:1.1rem;">@L["Payouts.NewBank"]</h2>
             <div style="display:flex; flex-direction:column; gap:.5rem;">
                 <label>@L["Payouts.Field.AccountName"] <input @bind="_newBank.AccountName" title="@L["Payouts.Field.AccountName.Tip"]" style="width:100%;" /></label>
-                <label>@L["Payouts.Field.BankCountry"] <input @bind="_newBank.BankCountry" maxlength="2" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
+                <label>@L["Payouts.Field.BankCountry"] <CountrySelect @bind-Value="_newBank.BankCountry" title="@L["Payouts.Field.BankCountry.Tip"]" style="width:100%;" /></label>
                 <label>@L["Payouts.Field.RoutingMasked"] <input @bind="_newBank.RoutingNumberMasked" title="@L["Payouts.Field.RoutingMasked.Tip"]" style="width:100%;" /></label>
                 <label>@L["Payouts.Field.AccountMasked"] <input @bind="_newBank.AccountNumberMasked" title="@L["Payouts.Field.AccountMasked.Tip"]" style="width:100%;" /></label>
                 <label>@L["Payouts.Field.TokenRef"] <input @bind="_newBank.AccountTokenRef" title="@L["Payouts.Field.TokenRef.Tip"]" style="width:100%;" /></label>

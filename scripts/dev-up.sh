@@ -8,8 +8,10 @@
 # Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+REPO_ROOT="$(pwd)"
 source scripts/lib/preflight.sh
 source scripts/lib/services.sh
+source scripts/lib/procs.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -51,10 +53,15 @@ scripts/run-all.sh start
 
 if (( WITH_FRONTENDS )); then
   echo "== frontends =="
-  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 npm run dev >/tmp/3c-storefront.log 2>&1 & )
-  ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >/tmp/3c-admin.log 2>&1 & )
-  ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >/tmp/3c-supplier-portal.log 2>&1 & )
-  echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"
+  # Tracked launches: PID files + rotated logs in .run/, idempotent, and they refuse to clobber a
+  # co-resident project's port (scripts/lib/procs.sh). Logs: .run/{storefront,admin,supplier-portal}.log
+  # Absolute paths so each WRAPPER's command line carries the repo root (is_repo_pid recognises it).
+  start_tracked storefront 3000 -- \
+    env GATEWAY_URL=http://localhost:8080 npm --prefix "$REPO_ROOT/src/Storefront" run dev
+  start_tracked admin 5200 -- \
+    env ASPNETCORE_URLS=http://localhost:5200 ASPNETCORE_ENVIRONMENT=Development dotnet run --project "$REPO_ROOT/src/Admin" --no-build
+  start_tracked supplier-portal 5300 -- \
+    env ASPNETCORE_URLS=http://localhost:5300 ASPNETCORE_ENVIRONMENT=Development dotnet run --project "$REPO_ROOT/src/SupplierPortal" --no-build
 fi
 
 echo "== 4/4 health =="
@@ -90,4 +97,5 @@ case "$DATA_PROFILE" in
     exit 2
     ;;
 esac
-echo "Up. Stop with: scripts/dev-down.sh"
+echo "Up. Logs: .run/<name>.log (history: .run/logs/) · manifest: .run/stack.manifest.tsv"
+echo "    Health: scripts/doctor.sh · Review bundle: scripts/collect-logs.sh · Stop: scripts/dev-down.sh"

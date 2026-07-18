@@ -24,6 +24,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
                 SellingPriceMinor = m.MinPriceMinor,
                 Currency = m.Currency,
                 ImageUrl = m.ImageUrl,
+                ShipRules = m.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList() ?? [],
             };
             db.ProductCopies.Add(copy);
         }
@@ -35,6 +36,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
             copy.SellingPriceMinor = m.MinPriceMinor;
             copy.Currency = m.Currency;
             copy.ImageUrl = m.ImageUrl;
+            copy.ShipRules = m.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList() ?? [];
         }
 
         var kept = new HashSet<Guid>();

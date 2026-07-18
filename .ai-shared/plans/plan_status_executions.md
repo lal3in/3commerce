@@ -469,3 +469,31 @@ Plan Path: `.ai-shared/plans/project-review-remediation.md`
 | Publishing persistence/endpoints + scheduled-publish wiring + preview route | mt5_7 | **PARK — post-launch** | Content publishing is not in the MVP sell path; domain primitives are tested and waiting. |
 | Mission-control live bus stats / wiretap timeline / embedded Grafana | mt6_14 | **PARK — post-launch** | Ops observability nicety; doctor.sh + Grafana link cover launch needs. |
 | Dedicated Pricing/Entitlement/Usage services (extraction) | ADR-0028/0029, mt7_* | **PARK — extraction on scale trigger** | Capability-first placement is deliberate; event seams make extraction mechanical when volume demands it. |
+
+---
+
+## Plan: Product Ship-To Country Rules (added 2026-07-18)
+
+Plan Path: `.ai-shared/plans/product-ship-to-country-rules.md`
+
+| Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
+|---------|-----------|-------|--------|-----------|----------|
+| task_1 | ProductShipRule + Product.SetShipRules | 1 Domain | done | .ai-shared/plans/product-ship-to-country-rules.md | value object + validation, mirrors SetShipToCountries |
+| task_2 | TenantCatalogSettings entity | 1 Domain | done | .ai-shared/plans/product-ship-to-country-rules.md | tenant-scoped feature switch |
+| task_3 | CatalogDbContext JSON converter + settings map | 2 Infra | done | .ai-shared/plans/product-ship-to-country-rules.md | jsonb + ValueComparer |
+| task_4 | Catalog migration (ProductShipRules + settings) | 2 Infra | done | .ai-shared/plans/product-ship-to-country-rules.md | dotnet format after add |
+| task_5 | AdminEndpoints DTOs + persist ShipRules | 3 API | done | .ai-shared/plans/product-ship-to-country-rules.md | ProductWriteRequest/EditorDto |
+| task_6 | Settings GET/PUT + mandatory gate | 3 API | done | .ai-shared/plans/product-ship-to-country-rules.md | 400 when required + empty |
+| task_7 | ProductUpserted contract + publish rules | 4 Contract | done | .ai-shared/plans/product-ship-to-country-rules.md | back-compat trailing param |
+| task_8 | ProductCopy.ShipRules + RuleFor | 4 Ordering | done | .ai-shared/plans/product-ship-to-country-rules.md | specific country then * |
+| task_9 | OrderingDbContext JSON converter | 4 Ordering | done | .ai-shared/plans/product-ship-to-country-rules.md | mirror Catalog converter |
+| task_10 | Ordering migration (ProductCopyShipRules) | 4 Ordering | done | .ai-shared/plans/product-ship-to-country-rules.md | dotnet format after add |
+| task_11 | ProductCopyConsumer projects rules | 4 Ordering | done | .ai-shared/plans/product-ship-to-country-rules.md | ?.ToList() ?? [] |
+| task_12 | Checkout applies rules to tax + shipping | 4 Ordering | done | .ai-shared/plans/product-ship-to-country-rules.md | keep trial balance = 0 |
+| task_13 | Admin Catalog.razor ship-rules + toggle | 5 UI | done | .ai-shared/plans/product-ship-to-country-rules.md | fieldset + settings switch |
+| task_14 | Admin resx strings | 5 UI | done | .ai-shared/plans/product-ship-to-country-rules.md | key + .Tip each |
+| task_15 | Catalog unit tests (SetShipRules) | 6 Test | done | .ai-shared/plans/product-ship-to-country-rules.md | mirror StorefrontLifecycleTests |
+| task_16 | Integration: settings gate on create | 6 Test | done | .ai-shared/plans/product-ship-to-country-rules.md | 400 vs 201 |
+| task_17 | Integration: projection + money tests | 6 Test | done | .ai-shared/plans/product-ship-to-country-rules.md | tax exempt + shipping waived |
+| task_18 | Playwright ship-rules.spec.ts | 6 Test | done | .ai-shared/plans/product-ship-to-country-rules.md | mirror ship-to.spec.ts, skip-guard |
+| task_19 | Full validation run (build/format/unit/int/e2e) | 6 Test | done | .ai-shared/plans/product-ship-to-country-rules.md | 2026-07-18 ALL GREEN: L1 build/format×2/lint/tsc clean; L2 Catalog 49 + Ordering 29 unit; L3 21 integration (3 gate + 2 money + 1 projection ship-rule); L4 Playwright ship-rules.spec + ship-to.spec both pass on booted stack. NOTE: format csproj names in plan are ThreeCommerce.* but actual are 3commerce.*. Stack torn down after. |

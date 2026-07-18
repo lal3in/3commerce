@@ -331,6 +331,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ShipRegion")
+                        .HasColumnType("text");
+
                     b.Property<long>("ShippingMinor")
                         .HasColumnType("bigint");
 
@@ -515,6 +518,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ShipRegion")
+                        .HasColumnType("text");
+
                     b.Property<long>("ShippingMinor")
                         .HasColumnType("bigint");
 
@@ -624,6 +630,12 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<long>("SellingPriceMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("ShipRules")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -717,6 +729,11 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<bool>("IsLive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("ShipToCountries")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<bool>("TaxInclusive")
                         .HasColumnType("boolean");

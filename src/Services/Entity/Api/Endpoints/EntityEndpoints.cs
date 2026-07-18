@@ -521,7 +521,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), IsAdmin(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -540,7 +540,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), IsAdmin(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -604,6 +604,11 @@ public static class EntityEndpoints
     // so maker-checker (approver != requester) cannot be spoofed.
     private static Guid ActingPrincipal(HttpContext http) =>
         Guid.TryParse(http.User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
+
+    // Admins/operators are trusted to self-approve their own supplier change requests (maker-checker is
+    // only enforced for non-admin requesters). These endpoints already require the admin role, so this
+    // is true in practice — reading it keeps the rule explicit rather than hard-coded.
+    private static bool IsAdmin(HttpContext http) => http.User.IsInRole("admin");
 
     private static CustomerEntityLinkResponse ToResponse(CustomerEntityLink link) => new(
         link.Id,

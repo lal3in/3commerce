@@ -252,6 +252,26 @@
   <data name="Catalog.Attr.Remove.Tip" xml:space="preserve"><value>Remove this attribute.</value></data>
   <data name="Catalog.Attr.Add" xml:space="preserve"><value>+ Add attribute</value></data>
   <data name="Catalog.Attr.Add.Tip" xml:space="preserve"><value>Add another key/value attribute.</value></data>
+  <data name="Catalog.ShipRules" xml:space="preserve"><value>Ship rules (per country)</value></data>
+  <data name="Catalog.ShipRules.Tip" xml:space="preserve"><value>Per-destination tax &amp; shipping overrides for this product. A specific country wins over the whole-world (*) default.</value></data>
+  <data name="Catalog.ShipRules.Hint" xml:space="preserve"><value>Set whether the destination's tax is charged and whether shipping is already covered, per country.</value></data>
+  <data name="Catalog.ShipRules.Required" xml:space="preserve"><value>At least one ship rule is required for this store.</value></data>
+  <data name="Catalog.ShipRules.Required.Tip" xml:space="preserve"><value>This store requires every product to declare at least one per-country ship rule before it can be saved.</value></data>
+  <data name="Catalog.ShipRule.Country" xml:space="preserve"><value>Country</value></data>
+  <data name="Catalog.ShipRule.Country.Tip" xml:space="preserve"><value>Destination this rule applies to. Choose “All countries (*)” for the whole-world default.</value></data>
+  <data name="Catalog.ShipRule.AllCountries" xml:space="preserve"><value>All countries (*)</value></data>
+  <data name="Catalog.ShipRule.ChargeTax" xml:space="preserve"><value>Charge destination tax</value></data>
+  <data name="Catalog.ShipRule.ChargeTax.Tip" xml:space="preserve"><value>Uncheck to exempt this product from the destination's tax for this country (e.g. courier/area covered).</value></data>
+  <data name="Catalog.ShipRule.ShippingCovered" xml:space="preserve"><value>Shipping already covered</value></data>
+  <data name="Catalog.ShipRule.ShippingCovered.Tip" xml:space="preserve"><value>Check when shipment is already covered for this country — shipping is waived when every line is covered.</value></data>
+  <data name="Catalog.ShipRule.Add" xml:space="preserve"><value>+ Add ship rule</value></data>
+  <data name="Catalog.ShipRule.Add.Tip" xml:space="preserve"><value>Add a per-country tax/shipping rule.</value></data>
+  <data name="Catalog.ShipRule.Remove.Tip" xml:space="preserve"><value>Remove this ship rule.</value></data>
+  <data name="Catalog.Settings.RequireShipRules" xml:space="preserve"><value>Require per-country ship rules on products</value></data>
+  <data name="Catalog.Settings.RequireShipRules.Tip" xml:space="preserve"><value>When on, every product create/update must declare at least one per-country ship rule.</value></data>
+  <data name="Catalog.Settings.Save" xml:space="preserve"><value>Save setting</value></data>
+  <data name="Catalog.Settings.Save.Tip" xml:space="preserve"><value>Save the catalog feature switches for this store.</value></data>
+  <data name="Catalog.Settings.Saved" xml:space="preserve"><value>Catalog settings saved.</value></data>
   <data name="Catalog.Save.Tip" xml:space="preserve"><value>Save this product and return to the list.</value></data>
   <data name="Catalog.Status.NotFound" xml:space="preserve"><value>Product not found.</value></data>
   <data name="Catalog.Status.Deleted" xml:space="preserve"><value>Product deleted.</value></data>
@@ -662,6 +682,10 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Region tax rule. AU GST / EU VAT are tax-INCLUSIVE: shelf prices already contain the tax (shoppers pay the listed price; tax shown informationally). US sales tax is ADDED at checkout on top of listed prices (ADR-0038).</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Tax bps</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Tax rate in basis points, e.g. 1000 = 10%. For AU GST / EU VAT this is the rate CONTAINED in shelf prices; for US it is ADDED at checkout (ADR-0038).</value></data>
+  <data name="Ops.Field.ShipTo" xml:space="preserve"><value>Ships to</value></data>
+  <data name="Ops.Field.ShipTo.Tip" xml:space="preserve"><value>Ctrl/Cmd-click to pick the countries this storefront ships to. Leave everything unselected to ship worldwide. Checkout rejects a destination outside this list and the storefront's country picker is limited to it.</value></data>
+  <data name="Ops.ShipTo.Hint" xml:space="preserve"><value>none selected = ships worldwide</value></data>
+  <data name="Ops.ShipTo.Selected" xml:space="preserve"><value>Allowed:</value></data>
   <data name="Ops.Field.Visibility" xml:space="preserve"><value>Visibility</value></data>
   <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Who can see the storefront: Public (live) or Private (draft).</value></data>
   <data name="Ops.CreateStorefront" xml:space="preserve"><value>Create storefront</value></data>
@@ -1012,6 +1036,9 @@
   <data name="Currency.Tip" xml:space="preserve"><value>Currency (ISO 4217) this price is expressed in. Picked from the full list — never free-typed.</value></data>
   <data name="Currency.Group.Common" xml:space="preserve"><value>Common</value></data>
   <data name="Currency.Group.All" xml:space="preserve"><value>All currencies (ISO 4217)</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>Country (ISO 3166). Picked from the full list — never free-typed.</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>Common</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>All countries (ISO 3166)</value></data>
   <data name="Image.Tip" xml:space="preserve"><value>Paste an image URL, or upload a local file (PNG/JPEG/WebP/GIF, max 10 MB).</value></data>
   <data name="Image.Placeholder" xml:space="preserve"><value>https://… or upload →</value></data>
   <data name="Image.Browse" xml:space="preserve"><value>Browse…</value></data>

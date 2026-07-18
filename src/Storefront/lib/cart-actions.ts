@@ -105,6 +105,7 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
       name: String(formData.get("shippingName") || formData.get("name") || ""),
       line1: String(formData.get("shippingLine1") || formData.get("line1") || ""),
       city: String(formData.get("shippingCity") || formData.get("city") || ""),
+      region: String(formData.get("shippingRegion") || formData.get("region") || "") || null,
       postcode: String(formData.get("shippingPostcode") || formData.get("postcode") || ""),
       country: String(formData.get("shippingCountry") || formData.get("country") || ""),
     },

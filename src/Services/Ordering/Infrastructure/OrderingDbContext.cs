@@ -1,5 +1,7 @@
+using System.Text.Json;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure.Sagas;
 
@@ -40,6 +42,17 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             product.HasKey(p => p.ProductId);
             product.HasIndex(p => p.Slug);
             product.HasMany(p => p.Variants).WithOne().HasForeignKey(v => v.ProductId);
+            // Per-country ship rules as jsonb; List<record> needs an explicit ValueComparer (mirrors Catalog).
+            product.Property(p => p.ShipRules)
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<ProductShipRule>>(v, (JsonSerializerOptions?)null) ?? new(),
+                    new ValueComparer<List<ProductShipRule>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        v => v.Aggregate(0, (h, r) => HashCode.Combine(h, r.GetHashCode())),
+                        v => v.ToList()))
+                .HasDefaultValueSql("'[]'::jsonb");
         });
 
         modelBuilder.Entity<ProductVariantCopy>(variant =>
@@ -61,6 +74,15 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         {
             tax.HasKey(t => t.StorefrontId);
             tax.Property(t => t.Currency).HasMaxLength(3);
+            tax.Property(t => t.ShipToCountries)
+                .HasConversion(
+                    v => string.Join(',', v),
+                    v => v.Length == 0 ? new List<string>() : v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    new ValueComparer<List<string>>(
+                        (a, b) => a!.SequenceEqual(b!),
+                        v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode(StringComparison.Ordinal))),
+                        v => v.ToList()))
+                .HasMaxLength(1000);
             tax.HasIndex(t => new { t.Currency, t.IsLive });
         });
 

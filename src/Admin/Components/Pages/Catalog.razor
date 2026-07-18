@@ -13,6 +13,14 @@
         <button @onclick="NewProduct" title="@L["Catalog.New.Tip"]" style="padding:.4rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">@L["Catalog.New"]</button>
     </div>
 
+    <div style="margin-bottom:1rem; padding:.5rem .6rem; background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; display:flex; align-items:center; gap:.6rem;">
+        <label style="display:flex; align-items:center; gap:.4rem;" title="@L["Catalog.Settings.RequireShipRules.Tip"]">
+            <input type="checkbox" @bind="_requireShipRules" />
+            <span>@L["Catalog.Settings.RequireShipRules"]</span>
+        </label>
+        <button @onclick="SaveSettings" disabled="@_savingSettings" title="@L["Catalog.Settings.Save.Tip"]" style="padding:.3rem .7rem;">@L["Catalog.Settings.Save"]</button>
+    </div>
+
     @if (_status is not null)
     {
         <p style="color:#047857;">@_status</p>
@@ -143,6 +151,42 @@ else
             <button @onclick="() => _attributes.Add(new())" title="@L["Catalog.Attr.Add.Tip"]">@L["Catalog.Attr.Add"]</button>
         </fieldset>
 
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
+            <legend title="@L["Catalog.ShipRules.Tip"]">@L["Catalog.ShipRules"]</legend>
+            <p style="margin:0 0 .4rem; font-size:.8rem; color:#6b7280;">@L["Catalog.ShipRules.Hint"]</p>
+            @if (_requireShipRules)
+            {
+                <p style="margin:0 0 .4rem; font-size:.8rem; color:#b45309;" title="@L["Catalog.ShipRules.Required.Tip"]">@L["Catalog.ShipRules.Required"]</p>
+            }
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left;">@L["Catalog.ShipRule.Country"]</th><th>@L["Catalog.ShipRule.ChargeTax"]</th><th>@L["Catalog.ShipRule.ShippingCovered"]</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var r in _editing.ShipRules)
+                {
+                    <tr>
+                        <td>
+                            <select @bind="r.CountryCode" style="width:100%; padding:.3rem;" title="@L["Catalog.ShipRule.Country.Tip"]">
+                                <option value="*">@L["Catalog.ShipRule.AllCountries"]</option>
+                                @foreach (var c in Countries.Common)
+                                {
+                                    <option value="@c">@(Countries.NameOf(c)) (@c)</option>
+                                }
+                                @foreach (var c in Countries.All.Where(x => !Countries.Common.Contains(x.Code)))
+                                {
+                                    <option value="@c.Code">@c.Name (@c.Code)</option>
+                                }
+                            </select>
+                        </td>
+                        <td style="text-align:center;"><input type="checkbox" @bind="r.ChargeDestinationTax" title="@L["Catalog.ShipRule.ChargeTax.Tip"]" /></td>
+                        <td style="text-align:center;"><input type="checkbox" @bind="r.ShippingCovered" title="@L["Catalog.ShipRule.ShippingCovered.Tip"]" /></td>
+                        <td style="text-align:right;"><button @onclick="() => _editing.ShipRules.Remove(r)" title="@L["Catalog.ShipRule.Remove.Tip"]" style="color:#b91c1c;">✕</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+            <button @onclick="AddShipRule" title="@L["Catalog.ShipRule.Add.Tip"]" style="margin-top:.4rem;">@L["Catalog.ShipRule.Add"]</button>
+        </fieldset>
+
         <div style="display:flex; gap:.5rem;">
             <button @onclick="Save" disabled="@_saving" title="@L["Catalog.Save.Tip"]" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:4px;">@(_saving ? L["Common.Saving"] : L["Common.Save"])</button>
             <button @onclick="Cancel" title="@L["Common.Cancel.Tip"]" style="padding:.4rem 1rem;">@L["Common.Cancel"]</button>
@@ -163,11 +207,27 @@ else
     private bool _isNew;
     private readonly List<KeyValueRow> _attributes = [];
 
+    private const string SettingsBase = "/api/catalog/admin/settings";
+    private bool _requireShipRules;
+    private bool _savingSettings;
+
     protected override async Task OnInitializedAsync()
     {
         _categories = await Gateway.GetListAsync<CategoryDto>("/api/catalog/categories");
+        var settings = await Gateway.GetAsync<CatalogSettingsDto>(SettingsBase);
+        _requireShipRules = settings?.RequireProductShipRules ?? false;
         await LoadList();
     }
+
+    private async Task SaveSettings()
+    {
+        _savingSettings = true;
+        var resp = await Gateway.PutAsync(SettingsBase, new { requireProductShipRules = _requireShipRules });
+        _savingSettings = false;
+        _status = resp.IsSuccessStatusCode ? L["Catalog.Settings.Saved"] : L["Catalog.Status.SaveFailed", (int)resp.StatusCode, string.Empty];
+    }
+
+    private void AddShipRule() => _editing!.ShipRules.Add(new ShipRuleEditor());
 
     private async Task LoadList()
     {
@@ -228,6 +288,12 @@ else
     private async Task Save()
     {
         if (_editing is null) return;
+        if (_requireShipRules && _editing.ShipRules.Count == 0)
+        {
+            _error = L["Catalog.ShipRules.Required"];
+            return;
+        }
+
         _saving = true;
         _error = null;
         _editing.Attributes = _attributes
@@ -265,6 +331,7 @@ else
 
     public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
+    public record CatalogSettingsDto(Guid TenantId, bool RequireProductShipRules);
 
     public sealed class ProductEditor
     {
@@ -278,6 +345,14 @@ else
         public Dictionary<string, string> Attributes { get; set; } = [];
         public List<string> ImageUrls { get; set; } = [];
         public List<VariantEditor> Variants { get; set; } = [];
+        public List<ShipRuleEditor> ShipRules { get; set; } = [];
+    }
+
+    public sealed class ShipRuleEditor
+    {
+        public string CountryCode { get; set; } = "*";
+        public bool ChargeDestinationTax { get; set; } = true;
+        public bool ShippingCovered { get; set; }
     }
 
     public sealed class VariantEditor

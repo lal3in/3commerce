@@ -1026,4 +1026,7 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>Complételos para crear una entidad lista para ser proveedor (todos obligatorios antes de la verificación). Déjelos en blanco para añadirlos luego en Detalles.</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>Correo principal (p. ej. accounts@company.com)</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Un correo principal o de operaciones — requerido para la verificación de proveedor.</value></data>
+  <data name="Country.Tip" xml:space="preserve"><value>País (ISO 3166). Elegido de la lista completa, nunca escrito a mano.</value></data>
+  <data name="Country.Group.Common" xml:space="preserve"><value>Frecuentes</value></data>
+  <data name="Country.Group.All" xml:space="preserve"><value>Todos los países (ISO 3166)</value></data>
 </root>

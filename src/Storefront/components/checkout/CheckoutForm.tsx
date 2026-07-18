@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
 import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
+import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
 
 interface CheckoutFormProps {
   cart: CartDto;
@@ -17,6 +18,9 @@ interface CheckoutFormProps {
   // ADR-0038: inclusive regimes (AU GST / EU VAT) — prices already contain the tax; it is shown
   // informationally and NOT added to the total. Exclusive regimes add it.
   taxInclusive: boolean;
+  // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = worldwide. Restricts the SHIPPING country picker
+  // (a billing address is a card's address, not a shipment destination, so it stays unrestricted).
+  shipToCountries: string[];
 }
 
 // Wire values are fixed; the visible label comes from the `checkout.methods.*` catalog (i18n_1).
@@ -28,7 +32,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -129,7 +133,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
             onChange={setShippingId}
           />
         )}
-        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} />
+        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} allowedCountries={shipToCountries} />
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -331,17 +335,62 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
   );
 }
 
-function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string }) {
+function AddressFields({ prefix, defaults, fallbackName, allowedCountries = [] }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string; allowedCountries?: string[] }) {
   const t = useTranslations("checkout");
+  // Country is controlled so the region field's label adapts to the selected country (State/Province/…).
+  // When an allowlist is set, the initial value must be a member of it (a saved default outside the
+  // allowlist would otherwise pre-select an un-shippable country).
+  const inAllowlist = (c: string) => allowedCountries.length === 0 || allowedCountries.includes(c);
+  const initialCountry = defaults?.country && inAllowlist(defaults.country) ? defaults.country : (allowedCountries[0] ?? defaults?.country ?? "AU");
+  const [country, setCountry] = useState(initialCountry);
   return (
     <div className="space-y-3">
       <Field name={`${prefix}Name`} label={t("fullName")} autoComplete="name" defaultValue={defaults?.name ?? fallbackName} required title={t("tips.fullName")} />
       <Field name={`${prefix}Line1`} label={t("address")} autoComplete="address-line1" defaultValue={defaults?.line1 ?? ""} required title={t("tips.address")} />
       <div className="grid grid-cols-2 gap-3">
         <Field name={`${prefix}City`} label={t("city")} autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title={t("tips.city")} />
-        <Field name={`${prefix}Postcode`} label={t("postcode")} autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title={t("tips.postcode")} />
+        <Field name={`${prefix}Region`} label={regionLabel(country)} autoComplete="address-level1" defaultValue={defaults?.region ?? ""} title={regionLabel(country)} />
       </div>
-      <Field name={`${prefix}Country`} label={t("country")} autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title={t("tips.country")} />
+      <div className="grid grid-cols-2 gap-3">
+        <Field name={`${prefix}Postcode`} label={t("postcode")} autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title={t("tips.postcode")} />
+        <CountryField name={`${prefix}Country`} label={t("country")} value={country} onChange={setCountry} title={t("tips.country")} allowedCountries={allowedCountries} />
+      </div>
+    </div>
+  );
+}
+
+function CountryField({ name, label, value, onChange, title, allowedCountries = [] }: { name: string; label: string; value: string; onChange: (v: string) => void; title: string; allowedCountries?: string[] }) {
+  const countryName = (c: string) => COUNTRIES.find((x) => x.code === c)?.name ?? c;
+  // A non-empty allowlist collapses the picker to exactly the countries this storefront ships to.
+  const restricted = allowedCountries.length > 0;
+  return (
+    <div>
+      <label htmlFor={name} className="block text-sm font-medium" title={title}>{label}</label>
+      <select
+        id={name}
+        name={name}
+        value={value}
+        required
+        autoComplete="country"
+        title={title}
+        aria-describedby={`${name}-tip`}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+      >
+        {restricted ? (
+          allowedCountries.map((c) => <option key={c} value={c}>{countryName(c)}</option>)
+        ) : (
+          <>
+            <optgroup label="Common">
+              {COMMON_COUNTRIES.map((c) => <option key={`c-${c}`} value={c}>{countryName(c)}</option>)}
+            </optgroup>
+            <optgroup label="All countries">
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </optgroup>
+          </>
+        )}
+      </select>
+      <span id={`${name}-tip`} className="sr-only">{title}</span>
     </div>
   );
 }

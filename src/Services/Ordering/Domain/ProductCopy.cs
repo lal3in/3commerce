@@ -17,7 +17,28 @@ public class ProductCopy
     public required string Currency { get; set; }
     public string? ImageUrl { get; set; }
     public List<ProductVariantCopy> Variants { get; init; } = [];
+
+    /// <summary>
+    /// Per-destination ship rules projected from Catalog (ADR-0008). EMPTY = no per-country overrides
+    /// (worldwide, taxed, shipping charged as normal). Checkout resolves the rule via <see cref="RuleFor"/>.
+    /// </summary>
+    public List<ProductShipRule> ShipRules { get; set; } = [];
+
+    /// <summary>
+    /// Resolves the ship rule for <paramref name="country"/> (caller pre-uppercases): a specific-country
+    /// rule wins over the <c>*</c> whole-world default; null when neither is present.
+    /// </summary>
+    public ProductShipRule? RuleFor(string country) =>
+        ShipRules.FirstOrDefault(r => r.CountryCode == country)
+        ?? ShipRules.FirstOrDefault(r => r.CountryCode == "*");
 }
+
+/// <summary>
+/// Ordering-side copy of a Catalog <c>ProductShipRule</c>. Record so EF's ValueComparer compares
+/// structurally. <see cref="ChargeDestinationTax"/> = false excludes the line from the tax base;
+/// <see cref="ShippingCovered"/> = true waives shipping when every line is covered.
+/// </summary>
+public sealed record ProductShipRule(string CountryCode, bool ChargeDestinationTax, bool ShippingCovered);
 
 public class ProductVariantCopy
 {
