@@ -1,8 +1,10 @@
+using System.Globalization;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Ordering.Domain;
 
 namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
@@ -12,7 +14,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// the rich OrderConfirmed (with line items) — sourced from the aggregate, so downstream
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
-public sealed class OrderStatusConsumer(OrderingDbContext db) :
+public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit) :
     IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>
 {
     /// <summary>
@@ -73,6 +75,13 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
             await db.SaveChangesAsync(context.CancellationToken);
         }
 
+        // A purchase is timeline-worthy activity (mt6_1): without this, the Mission Control
+        // "Activity timeline" only ever shows admin mutations and confirmed orders are invisible.
+        // Recorded here — the single place an order becomes Confirmed — and delivered through the
+        // same consumer outbox as OrderConfirmed below, so it lands iff the confirmation does.
+        // Guarded by the idempotency checks above: a redelivered CheckoutCompleted returns early.
+        await audit.RecordAsync(PurchaseAudit(order), context.CancellationToken);
+
         await context.Publish(new OrderConfirmed(
             order.Id, order.TenantId, order.Email, order.GrossMinor, order.Currency,
             new ShipToInfo(order.ShipName, order.ShipLine1, order.ShipCity, order.ShipPostcode, order.ShipCountry),
@@ -86,6 +95,22 @@ public sealed class OrderStatusConsumer(OrderingDbContext db) :
                 order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency));
         }
     }
+
+    /// <summary>
+    /// The audit draft for a confirmed purchase — this is what the Mission Control activity
+    /// timeline renders. The actor is the shopper (or "guest" when the order has no owner yet);
+    /// the summary carries order number + amount only — the shopper's email is PII and stays out
+    /// of the audit store (mt6_2 GOTCHA).
+    /// </summary>
+    public static AuditDraft PurchaseAudit(Order order) =>
+        AuditCategories.Mutation(
+            order.TenantId,
+            order.UserId,
+            order.UserId is null ? "guest" : "customer",
+            "Order",
+            order.Id.ToString(),
+            "ordering.order.confirm",
+            string.Create(CultureInfo.InvariantCulture, $"#{order.PublicOrderNumber} {order.GrossMinor / 100m:0.00} {order.Currency}"));
 
     /// <summary>
     /// FR-7 (both directions): a guest order confirming AFTER the shopper already verified an
