@@ -47,6 +47,19 @@ postgres:
 rabbitmq:
   image: rabbitmq:4-management
 
+# Optional in-cluster pgAdmin DB portal (mirrors the local docker-compose one), pre-connected to the
+# Postgres instance so all service DBs appear under one server. OFF by default — flip per environment
+# with `pgadmin.enabled=true` (or `--set pgadmin.enabled=true`). dev/kind convenience only: it ships a
+# saved passfile carrying the dev superuser password, so do NOT enable in prod without locking it down
+# (network policy / auth) and swapping the credentials.
+pgadmin:
+  enabled: false
+  image: dpage/pgadmin4:9.13
+  email: admin@3commerce.dev        # portal login; pgAdmin rejects reserved domains like .local
+  password: pgadmin_dev             # portal login (local/kind only)
+  service:
+    port: 80
+
 kafka:
   enabled: false         # enables EventStreaming config for apps; core workflows do not depend on Kafka
   deploy: false          # dev/kind only. Production should prefer managed Kafka and externalBootstrapServers.

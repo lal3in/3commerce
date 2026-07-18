@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "3commerce — all service databases",
+      "Group": "3commerce",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "postgres",
+      "PassFile": "/pgpass",
+      "SSLMode": "prefer",
+      "Comment": "Local-dev superuser. Expand 'Databases' to reach all 14 service DBs: identity_db, catalog_db, entity_db, ordering_db, payments_db, fulfillment_db, support_db, marketing_db, pricing_db, audit_db, workflow_db, entitlement_db, usage_db, notifications_db."
+    }
+  }
+}
