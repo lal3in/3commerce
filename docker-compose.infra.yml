@@ -32,5 +32,37 @@ services:
       timeout: 3s
       retries: 10
 
+  # Web DB admin portal (http://localhost:5050), pre-connected to the Postgres instance so all 14
+  # service DBs appear under one server. Local-dev only — never deploy this (creds are the dev creds).
+  # Runs as root + chmods the mounted passfile to 0600 (pgAdmin refuses a group/world-readable one),
+  # which lets servers.json auto-import the saved password on first boot (no manual connect step).
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: 3commerce-pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # NB: pgAdmin rejects reserved domains like .local — use a real-TLD dev address.
+      PGADMIN_DEFAULT_EMAIL: admin@3commerce.dev
+      PGADMIN_DEFAULT_PASSWORD: pgadmin_dev
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_DISABLE_POSTFIX: "True"
+    ports:
+      - "5480:80"
+    user: root
+    entrypoint: ["/bin/sh", "-c", "chmod 600 /pgpass 2>/dev/null || true; exec /entrypoint.sh"]
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./infra/pgadmin/pgpass:/pgpass
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/misc/ping >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
 volumes:
   pgdata:
+  pgadmin_data:

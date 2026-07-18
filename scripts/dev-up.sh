@@ -35,9 +35,10 @@ if (( FRESH )); then
   scripts/dev-down.sh --clean >/dev/null 2>&1 || true
 fi
 
-echo "== 1/4 infra (Postgres + RabbitMQ) =="
+echo "== 1/4 infra (Postgres + RabbitMQ + pgAdmin) =="
 docker compose -f docker-compose.infra.yml up -d
 for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
+echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 
 echo "== 2/4 build + migrate =="
 dotnet build 3commerce.sln >/dev/null
