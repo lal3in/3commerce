@@ -29,6 +29,15 @@ EDGE=(
   "notifications:src/Workers/Notifications:5114"
 )
 
+# Host-process frontends (started by dev-up --with-frontends). Format: "name:path:port".
+# The launch command differs per entry (npm vs dotnet run) so dev-up maps it; this array is the
+# single source of truth for their NAMES + PORTS, used for isolation-safe stop and health checks.
+FRONTENDS=(
+  "storefront:src/Storefront:3000"
+  "admin:src/Admin:5200"
+  "supplier-portal:src/SupplierPortal:5300"
+)
+
 # PascalCase service folders that have EF migrations (derive from SERVICES paths).
 ef_projects() {
   local entry name
