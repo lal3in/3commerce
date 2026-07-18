@@ -71,7 +71,10 @@ term_tree() {
 
 # rotate_log <name> — archive the previous run's log so history is never lost, prune to $LOG_KEEP.
 rotate_log() {
-  local name="$1" log="$RUN_DIR/$name.log" ts
+  # NB: separate declarations — a single `local a=$1 b=$RUN_DIR/$a` expands $a before it is
+  # assigned (bash evaluates all `local` args first), which trips `set -u` in our entrypoints.
+  local name="$1" ts
+  local log="$RUN_DIR/$name.log"
   [[ -s "$log" ]] || return 0
   ts="$(date +%Y%m%d-%H%M%S)"
   mv "$log" "$LOG_ARCHIVE/$name.$ts.log" 2>/dev/null || return 0
@@ -82,7 +85,9 @@ rotate_log() {
 
 # stop_tracked <name> [port] — orphan-proof, isolation-safe stop of one app.
 stop_tracked() {
-  local name="$1" port="${2:-}" pidfile="$RUN_DIR/$name.pid" pid
+  # Separate declarations so $name is assigned before $pidfile expands it (see rotate_log note; set -u).
+  local name="$1" port="${2:-}" pid
+  local pidfile="$RUN_DIR/$name.pid"
   if [[ -f "$pidfile" ]]; then
     pid="$(cat "$pidfile" 2>/dev/null)"
     is_repo_pid "$pid" && term_tree "$pid"
@@ -92,6 +97,9 @@ stop_tracked() {
     pid="$(repo_listener "$port" || true)"
     [[ -n "$pid" ]] && term_tree "$pid"
   fi
+  # Explicit success: a free port leaves the trailing `&&` at exit status 1, which would trip the
+  # caller's `set -e` (start_tracked runs stop_tracked before every launch).
+  return 0
 }
 
 # start_tracked <name> <port> -- <command...>
