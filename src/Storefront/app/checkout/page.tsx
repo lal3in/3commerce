@@ -24,6 +24,8 @@ export default async function CheckoutPage() {
   const taxRateBasisPoints = taxSource?.taxRateBasisPoints ?? 0;
   // ADR-0038: AU GST / EU VAT shelf prices already include tax; US adds it at checkout.
   const taxInclusive = taxSource?.taxRegime === "AuGst" || taxSource?.taxRegime === "EuVat";
+  // Ship-to allowlist (empty = worldwide) restricts the checkout country picker to served destinations.
+  const shipToCountries = taxSource?.shipToCountries ?? [];
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -35,7 +37,7 @@ export default async function CheckoutPage() {
         </div>
         <p className="mt-1 text-neutral-500">{t("taxNote")}</p>
       </div>
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} />
     </div>
   );
 }

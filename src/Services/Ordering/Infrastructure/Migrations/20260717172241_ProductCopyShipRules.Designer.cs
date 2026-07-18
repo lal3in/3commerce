@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -11,9 +12,11 @@ using ThreeCommerce.Ordering.Infrastructure;
 namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 {
     [DbContext(typeof(OrderingDbContext))]
-    partial class OrderingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717172241_ProductCopyShipRules")]
+    partial class ProductCopyShipRules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -271,9 +274,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<bool>("CollectAtWarehouse")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -355,21 +355,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("WarehouseCity")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseCountry")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseLine1")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehousePostcode")
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
 
                     b.HasIndex("StorefrontId", "Status");
@@ -436,27 +421,13 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTimeOffset?>("ActiveFrom")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("ActiveUntil")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("BillingPeriod")
                         .HasColumnType("integer");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
 
                     b.Property<string>("FulfilmentType")
                         .IsRequired()
                         .HasMaxLength(24)
                         .HasColumnType("character varying(24)");
-
-                    b.Property<long>("PriceMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<int>("PricingModel")
                         .HasColumnType("integer");
@@ -466,15 +437,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
-
-                    b.Property<int>("ProductType")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("StorefrontId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("SupplierCostMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uuid");
@@ -498,9 +460,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("CollectAtWarehouse")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -512,9 +471,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<long>("DiscountMinor")
                         .HasColumnType("bigint");
 
-                    b.Property<bool>("Disputed")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
@@ -524,9 +480,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<long>("NetMinor")
                         .HasColumnType("bigint");
-
-                    b.Property<bool>("PartiallyRefunded")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("PaymentInstrumentSummary")
                         .HasMaxLength(120)
@@ -588,21 +541,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("WarehouseCity")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseCountry")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseLine1")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehouseName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WarehousePostcode")
-                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -725,22 +663,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.ToTable("ProductCopies", "ordering");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.ProductTypeShippingPolicyCopy", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("RequiresShippingTypes")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("TenantId");
-
-                    b.ToTable("ProductTypeShippingPolicyCopies", "ordering");
-                });
-
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.ProductVariantCopy", b =>
                 {
                     b.Property<Guid>("VariantId")
@@ -830,76 +752,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.HasIndex("Currency", "IsLive");
 
                     b.ToTable("StorefrontTaxCopies", "ordering");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.SupplierApprovalCopy", b =>
-                {
-                    b.Property<Guid>("SupplierId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("Approved")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SupplierId");
-
-                    b.ToTable("SupplierApprovalCopies", "ordering");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.SupplierWarehouseCopy", b =>
-                {
-                    b.Property<Guid>("SupplierId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("CountryCode")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)");
-
-                    b.Property<string>("Line1")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Line2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Postcode")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Region")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SupplierId");
-
-                    b.ToTable("SupplierWarehouseCopies", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.VerifiedCustomerCopy", b =>

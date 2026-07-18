@@ -72,8 +72,9 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/admin/storefronts/{id}/products` | admin | Assign tenant product to storefront with SEO/fulfillment overrides |
 | GET | `/admin/storefronts/{id}/products/{productId}/readiness` | admin | Check publication readiness before live publish |
 | POST | `/admin/storefronts/{id}/products/{productId}/publish|unpublish` | admin | Explicit storefront product publication transitions |
-| GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants |
-| GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
+| GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants. Create/update accept a trailing `shipRules: [{ countryCode, chargeDestinationTax, shippingCovered }]` (`countryCode` = ISO-2 or `*` whole-world default); **400** (`ValidationProblem`, key `ShipRules`) when the tenant switch requires rules and none are supplied |
+| GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove (GET/response echo `shipRules`) |
+| GET/PUT | `/admin/settings` | admin | Tenant catalog settings (`CatalogSettingsResponse/Request` = `{ tenantId, requireProductShipRules }`). The switch makes ≥1 per-product ship rule mandatory at product write; PUT audits `catalog.settings.update` |
 | GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
 | PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
 | GET | `/admin/product-types?tenantId=...` | admin | The tenant's product-type shipping policy: all six `ProductType`s with a `requiresShipping` flag (ADR-0042). Default: Physical only |

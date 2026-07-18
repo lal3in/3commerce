@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -12,9 +13,11 @@ using ThreeCommerce.Catalog.Infrastructure;
 namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    partial class CatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717072800_StorefrontShipToCountries")]
+    partial class StorefrontShipToCountries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -263,12 +266,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset?>("ActiveFrom")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("ActiveUntil")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("BillingPeriod")
                         .IsRequired()
                         .HasMaxLength(12)
@@ -305,12 +302,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
-
-                    b.Property<Guid?>("StorefrontId")
-                        .HasColumnType("uuid");
-
-                    b.Property<long>("SupplierCostMinor")
-                        .HasColumnType("bigint");
 
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uuid");
@@ -407,12 +398,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.Property<int>("ProductType")
                         .HasColumnType("integer");
-
-                    b.Property<string>("ShipRules")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -591,77 +576,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.ToTable("ProductPublicationVariants", "catalog");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductReview", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("Rating")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.HasIndex("ProductId");
-
-                    b.HasIndex("ProductId", "UserId")
-                        .IsUnique()
-                        .HasFilter("\"ParentId\" IS NULL AND \"Rating\" IS NOT NULL");
-
-                    b.ToTable("ProductReviews", "catalog");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.ProductTypeShippingPolicy", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("RequiresShippingTypes")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId")
-                        .IsUnique();
-
-                    b.ToTable("ProductTypeShippingPolicies", "catalog");
-                });
-
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Storefront", b =>
                 {
                     b.Property<Guid>("Id")
@@ -674,13 +588,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset?>("ActivatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CostAssumptionsJson")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasDefaultValue("");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -707,38 +614,13 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
-                    b.Property<string>("ReceivableAccountCode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasDefaultValue("");
-
-                    b.Property<string>("RevenueAccountCode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasDefaultValue("");
-
                     b.Property<string>("ShipToCountries")
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("ShippingAccountCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int>("State")
                         .HasColumnType("integer");
-
-                    b.Property<string>("TaxAccountCode")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasDefaultValue("");
 
                     b.Property<int>("TaxRateBasisPoints")
                         .HasColumnType("integer");
@@ -750,13 +632,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ThemeJson")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasDefaultValue("");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -834,96 +709,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.ToTable("StorefrontNavigationItems", "catalog");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.StorefrontServiceReadiness", b =>
-                {
-                    b.Property<Guid>("StorefrontId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("HasActiveCarrier")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasActivePaymentAccount")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("StorefrontId");
-
-                    b.ToTable("StorefrontServiceReadiness", "catalog");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.SupplierApprovalCopy", b =>
-                {
-                    b.Property<Guid>("SupplierId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("Approved")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("SupplierId");
-
-                    b.ToTable("SupplierApprovalCopies", "catalog");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.SupportedCurrency", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Code")
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
-
-                    b.Property<int>("DecimalPlaces")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("Enabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TenantId", "Code");
-
-                    b.ToTable("SupportedCurrencies", "catalog");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.TenantCatalogSettings", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("RequireProductShipRules")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TenantId");
-
-                    b.ToTable("TenantCatalogSettings", "catalog");
-                });
-
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -943,18 +728,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LengthMm")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PackageHeightMm")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PackageLengthMm")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PackageWeightGrams")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PackageWidthMm")
                         .HasColumnType("integer");
 
                     b.Property<long>("PriceMinor")

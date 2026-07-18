@@ -11,6 +11,13 @@ public static class Countries
     /// <summary>A few common codes surfaced first in the dropdown.</summary>
     public static readonly string[] Common = ["AU", "US", "GB", "NZ", "CA", "DE", "FR", "ES", "IT", "NL", "IE", "CN", "JP", "SG", "IN"];
 
+    /// <summary>Display name for an ISO code (falls back to the code itself for anything unmapped).</summary>
+    public static string NameOf(string? code)
+    {
+        var c = code?.Trim().ToUpperInvariant();
+        return All.FirstOrDefault(x => x.Code == c)?.Name ?? c ?? string.Empty;
+    }
+
     /// <summary>
     /// The country-appropriate term for the sub-national region, so the address form's label adapts to the
     /// selected country (Australia → State, Canada → Province, UK → County, Colombia → Department, …).

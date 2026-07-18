@@ -180,6 +180,26 @@
             <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
         </div>
 
+        <div style="margin-bottom:1rem;">
+            <label style="font-weight:600;">@L["Ops.Field.ShipTo"]
+                <span style="font-weight:400; color:#6b7280;">— @L["Ops.ShipTo.Hint"]</span>
+            </label>
+            <select multiple @bind="_editShipTo" size="7" style="width:100%; padding:.4rem; margin-top:.25rem;" title="@L["Ops.Field.ShipTo.Tip"]">
+                @foreach (var c in Countries.Common)
+                {
+                    <option value="@c">@(Countries.NameOf(c)) (@c)</option>
+                }
+                <option disabled>──────────</option>
+                @foreach (var c in Countries.All.Where(x => !Countries.Common.Contains(x.Code)))
+                {
+                    <option value="@c.Code">@c.Name (@c.Code)</option>
+                }
+            </select>
+            @if (_editShipTo.Length > 0)
+            {
+                <p style="margin:.25rem 0 0; font-size:.85rem; color:#374151;">@L["Ops.ShipTo.Selected"] <strong>@string.Join(", ", _editShipTo)</strong></p>
+            }
+        </div>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-top:.6rem;">
             <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
             <label><input type="checkbox" @bind="_domainCanonical" title="@L["Ops.Canonical.Tip"]" /> @L["Ops.Canonical"]</label>
@@ -359,6 +379,7 @@
     private int _editTaxRegime;
     private int _editTaxRateBasisPoints;
     private int _editVisibility = 1;
+    private string[] _editShipTo = [];
 
     // Per-storefront theme tokens (mt5_6), edited on the Manage surface. Blank = leave that token defaulted.
     private string _themeColorPrimary = string.Empty;
@@ -410,6 +431,7 @@
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
         _editVisibility = storefront.Visibility;
+        _editShipTo = storefront.ShipToCountries?.ToArray() ?? [];
         _themeColorPrimary = ThemeValue(storefront, "colorPrimary");
         _themeColorBg = ThemeValue(storefront, "colorBg");
         _themeColorText = ThemeValue(storefront, "colorText");
@@ -506,7 +528,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict() });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -638,7 +660,7 @@
         _ => state.ToString(),
     };
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

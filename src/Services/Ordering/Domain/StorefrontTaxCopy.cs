@@ -22,4 +22,10 @@ public class StorefrontTaxCopy
     /// regimes (US sales tax) add it on top.
     /// </summary>
     public bool TaxInclusive { get; set; }
+
+    /// <summary>
+    /// Ship-to allowlist (ISO 3166-1 alpha-2) projected from Catalog. EMPTY = ships worldwide;
+    /// non-empty = checkout rejects a ship-to country not in this list.
+    /// </summary>
+    public List<string> ShipToCountries { get; set; } = [];
 }
