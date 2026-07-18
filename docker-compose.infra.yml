@@ -32,6 +32,56 @@ services:
       timeout: 3s
       retries: 10
 
+  # Kafka broker (KRaft, single node) — mirrors the Helm kafka config (ADR-0034 durable-stream lane).
+  # In-cluster clients use kafka:9092; host clients use localhost:29092 (the EXTERNAL advertised listener).
+  kafka:
+    # bitnamilegacy = Bitnami's frozen mirror; the public bitnami/kafka:3.9 tag was pulled from Docker
+    # Hub in the 2025 "Bitnami Secure Images" migration. Keeps the KAFKA_CFG_* env convention.
+    image: bitnamilegacy/kafka:3.9
+    container_name: 3commerce-kafka
+    ports:
+      - "29092:29092"  # host-facing PLAINTEXT (advertised as localhost:29092)
+    environment:
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Kafka UI (http://localhost:8090) — always on in local dev, pre-pointed at the broker above.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: 3commerce-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"    # host 8090 (8080 is the gateway); container serves on 8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   # Web DB admin portal (http://localhost:5050), pre-connected to the Postgres instance so all 14
   # service DBs appear under one server. Local-dev only — never deploy this (creds are the dev creds).
   # Runs as root + chmods the mounted passfile to 0600 (pgAdmin refuses a group/world-readable one),
@@ -66,3 +116,4 @@ services:
 volumes:
   pgdata:
   pgadmin_data:
+  kafka_data:
