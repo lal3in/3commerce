@@ -42,7 +42,7 @@
             @foreach (var p in _list)
             {
                 <tr style="border-top:1px solid #e5e7eb;">
-                    <td>@if (!string.IsNullOrWhiteSpace(p.ImageUrl)) { <img src="@p.ImageUrl" alt="" style="width:2.6rem; height:2.6rem; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb;" /> } else { <span style="color:#d1d5db;">—</span> }</td>
+                    <td>@if (!string.IsNullOrWhiteSpace(p.ImageUrl)) { <img src="@p.ImageUrl" alt="" onerror="this.onerror=null;this.src='/img/image-placeholder.svg'" style="width:2.6rem; height:2.6rem; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb;" /> } else { <span style="color:#d1d5db;">—</span> }</td>
                     <td>@p.Title<br /><span style="color:#6b7280; font-size:.8rem;">@p.Slug</span></td>
                     <td>@p.Brand</td>
                     <td style="text-align:center;"><span style="background:#f3f4f6; border-radius:4px; padding:.1rem .4rem; font-size:.78rem;">@ProductTypeLabel(p.ProductType)</span></td>
