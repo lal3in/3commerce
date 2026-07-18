@@ -116,6 +116,36 @@ public class StorefrontLifecycleTests
     }
 
     [Fact]
+    public void StorefrontLifecycle_rejects_preview_when_already_in_preview()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+        storefront.MoveToPreview(DateTimeOffset.UtcNow);
+
+        var ex = Assert.Throws<CatalogRuleException>(() => storefront.MoveToPreview(DateTimeOffset.UtcNow));
+
+        Assert.Contains("cannot perform this transition", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(StorefrontState.Preview, storefront.State);
+    }
+
+    [Fact]
+    public void StorefrontLifecycle_active_must_pause_before_returning_to_preview()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", now);
+        storefront.SetVisibility(StorefrontVisibility.Public, null, now);
+        storefront.AddDomain("shop.example.test", canonical: true, now);
+        storefront.MoveToPreview(now);
+        storefront.Activate(now);
+
+        Assert.Throws<CatalogRuleException>(() => storefront.MoveToPreview(now));
+
+        storefront.Pause(now);
+        storefront.MoveToPreview(now);
+
+        Assert.Equal(StorefrontState.Preview, storefront.State);
+    }
+
+    [Fact]
     public void StorefrontLifecycle_paused_blocks_checkout_but_can_preview()
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
