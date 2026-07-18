@@ -68,7 +68,40 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
         }
 
+        // Ship-to allowlist (cross-border guardrail): reject a destination the storefront doesn't serve
+        // BEFORE authorizing any payment. Empty allowlist / no projected config = ships worldwide.
+        var storefrontId = HeaderGuid(http, "X-3C-Storefront-Id")
+            ?? HeaderGuid(http, "X-3C-Tenant-Id")
+            ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var shipToCountry = request.ShippingAddress.Country.Trim().ToUpperInvariant();
+        // Fetch the copy entity (not a .Select of the property) so EF applies the ShipToCountries value
+        // converter on materialization — a projected converted collection comes back empty.
+        var storefrontCopy = await db.StorefrontTaxCopies.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.StorefrontId == storefrontId, ct);
+        if (storefrontCopy is { ShipToCountries.Count: > 0 } && !storefrontCopy.ShipToCountries.Contains(shipToCountry))
+        {
+            return TypedResults.BadRequest($"This storefront does not ship to {shipToCountry}.");
+        }
+
+        // Per-product, per-country ship rules (projected from Catalog via ProductUpserted, ADR-0008).
+        // Load the copies as entities (not a .Select of the property) so EF applies the jsonb ShipRules
+        // value converter on materialization — a projected converted collection comes back empty.
+        var cartProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+        var ruleCopies = await db.ProductCopies.AsNoTracking()
+            .Where(p => cartProductIds.Contains(p.ProductId))
+            .ToListAsync(ct);
+        ProductShipRule? RuleFor(Guid productId) =>
+            ruleCopies.FirstOrDefault(c => c.ProductId == productId)?.RuleFor(shipToCountry);
+
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
+        // Goods subject to destination tax: a rule with ChargeDestinationTax=false exempts the line
+        // (no resolved rule = taxed as normal). The full subtotal is still charged; only tax shrinks.
+        var taxableSubtotal = cart.Items
+            .Where(i => RuleFor(i.ProductId) is not { ChargeDestinationTax: false })
+            .Sum(i => i.UnitPriceMinor * i.Quantity);
+        // Shipping is waived only when EVERY line's resolved rule marks shipping already covered.
+        var allShippingCovered = cart.Items.All(i => RuleFor(i.ProductId)?.ShippingCovered == true);
+
         var discountMinor = 0L;
         var shippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
         if (shippingMinor < 0)
@@ -87,6 +120,12 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
         }
 
+        // Waive shipping AFTER the selected-shipping guards so a covered order still validates its quote.
+        if (allShippingCovered)
+        {
+            shippingMinor = 0;
+        }
+
         // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
         // the cart's currency. Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already
         // CONTAIN the tax — the shopper pays exactly the listed amount and the contained portion is
@@ -97,17 +136,20 @@ public static class CheckoutEndpoints
             .Select(t => new { t.TaxRateBasisPoints, t.TaxInclusive })
             .FirstOrDefaultAsync(ct);
         var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
-        var baseMinor = subtotal - discountMinor + shippingMinor;
+        // Tax base excludes ship-rule-exempt goods; the charge base always keeps the full subtotal so the
+        // shopper still pays for exempt lines — only the tax portion shrinks (see ProductShipRule).
+        var taxBaseMinor = taxableSubtotal - discountMinor + shippingMinor;
+        var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
         long taxMinor, netMinor;
         if (taxConfig?.TaxInclusive == true)
         {
-            taxMinor = (long)Math.Round(baseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
-            netMinor = baseMinor; // listed price IS the charge
+            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
+            netMinor = chargeBaseMinor; // listed price IS the charge
         }
         else
         {
-            taxMinor = (long)Math.Round(baseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
-            netMinor = baseMinor + taxMinor;
+            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
+            netMinor = chargeBaseMinor + taxMinor;
         }
 
         if (priceChanged)
@@ -137,13 +179,11 @@ public static class CheckoutEndpoints
 
         var now = time.GetUtcNow();
         var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
-        var storefrontId = HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
 
         // Resolve each line's fulfilment from its offer (ADR-0028 / mt7_1-lite): the OfferCopy read
         // model is fed by Catalog's OfferChanged events. No offer → Unassigned (no shipment/inventory).
-        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
         var offerCopies = await db.OfferCopies.AsNoTracking()
-            .Where(o => o.TenantId == tenantId && productIds.Contains(o.ProductId))
+            .Where(o => o.TenantId == tenantId && cartProductIds.Contains(o.ProductId))
             .ToListAsync(ct);
 
         var attempt = new CheckoutAttempt

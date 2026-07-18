@@ -106,6 +106,45 @@ public class StorefrontLifecycleTests
     }
 
     [Fact]
+    public void ShipToCountries_default_is_empty_meaning_worldwide()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+        Assert.Empty(storefront.ShipToCountries);
+    }
+
+    [Fact]
+    public void ShipToCountries_normalizes_uppercases_dedupes_and_sorts()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+
+        storefront.SetShipToCountries(["nz", "AU", " au ", "us", "NZ"], DateTimeOffset.UtcNow);
+
+        Assert.Equal(["AU", "NZ", "US"], storefront.ShipToCountries);
+    }
+
+    [Fact]
+    public void ShipToCountries_null_keeps_current_and_empty_clears_to_worldwide()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+        storefront.SetShipToCountries(["AU", "NZ"], DateTimeOffset.UtcNow);
+
+        storefront.SetShipToCountries(null, DateTimeOffset.UtcNow); // an older client PUT omits the field
+        Assert.Equal(["AU", "NZ"], storefront.ShipToCountries);
+
+        storefront.SetShipToCountries([], DateTimeOffset.UtcNow); // explicit empty = back to worldwide
+        Assert.Empty(storefront.ShipToCountries);
+    }
+
+    [Fact]
+    public void ShipToCountries_rejects_non_two_letter_codes()
+    {
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
+
+        Assert.Throws<CatalogRuleException>(() => storefront.SetShipToCountries(["AUS"], DateTimeOffset.UtcNow));
+        Assert.Throws<CatalogRuleException>(() => storefront.SetShipToCountries(["A1"], DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
     public void StorefrontLifecycle_can_pause_a_draft_or_preview_storefront()
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "EUR store", DateTimeOffset.UtcNow);

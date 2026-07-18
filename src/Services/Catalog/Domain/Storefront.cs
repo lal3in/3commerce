@@ -24,6 +24,12 @@ public sealed class Storefront
     public DateTimeOffset? ActivatedAt { get; private set; }
     public List<StorefrontDomain> Domains { get; private set; } = [];
 
+    /// <summary>
+    /// ISO 3166-1 alpha-2 codes this storefront ships to. EMPTY means it ships worldwide (no restriction);
+    /// a non-empty list is an allowlist — checkout rejects a ship-to country that is not in it.
+    /// </summary>
+    public List<string> ShipToCountries { get; private set; } = [];
+
     private Storefront()
     {
     }
@@ -78,6 +84,43 @@ public sealed class Storefront
         }
 
         DefaultLanguage = SupportedLanguages.Normalize(language);
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Sets the ship-to allowlist. Codes are normalized to upper-case ISO 3166-1 alpha-2 and de-duplicated;
+    /// null/empty clears the restriction (worldwide). A null argument leaves the current list untouched so an
+    /// older admin client that doesn't send the field can't silently wipe it (mirrors <see cref="SetDefaultLanguage"/>).
+    /// </summary>
+    public void SetShipToCountries(IEnumerable<string>? countries, DateTimeOffset now)
+    {
+        if (countries is null)
+        {
+            return;
+        }
+
+        var normalized = new List<string>();
+        foreach (var raw in countries)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var code = raw.Trim().ToUpperInvariant();
+            if (code.Length != 2 || code.Any(c => c is < 'A' or > 'Z'))
+            {
+                throw new CatalogRuleException($"Ship-to country '{raw}' is not a 2-letter ISO country code.");
+            }
+
+            if (!normalized.Contains(code))
+            {
+                normalized.Add(code);
+            }
+        }
+
+        normalized.Sort(StringComparer.Ordinal);
+        ShipToCountries = normalized;
         UpdatedAt = now;
     }
 

@@ -29,6 +29,10 @@ public static class AdminEndpoints
         group.MapPut("/products/{id:guid}", UpdateProduct);
         group.MapDelete("/products/{id:guid}", DeleteProduct);
 
+        // Tenant-scoped catalog feature switches (mandatory per-country ship rules).
+        group.MapGet("/settings", GetSettings);
+        group.MapPut("/settings", UpdateSettings);
+
         return app;
     }
 
@@ -103,6 +107,11 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? DefaultTenantId(config);
+        if (await RequireShipRulesProblem(db, tenantId, request, cancellationToken) is { } shipRuleProblem)
+        {
+            return shipRuleProblem;
+        }
+
         if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
@@ -157,6 +166,8 @@ public static class AdminEndpoints
             product.Variants.Add(variant);
         }
 
+        product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), now);
+
         db.Products.Add(product);
         await PublishUpsertedAsync(publisher, product, defaultCurrency, cancellationToken);
         await audit.RecordAsync(user.Mutation(
@@ -182,6 +193,11 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? product.TenantId;
+        if (await RequireShipRulesProblem(db, tenantId, request, cancellationToken) is { } shipRuleProblem)
+        {
+            return shipRuleProblem;
+        }
+
         if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug && p.Id != id, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
@@ -207,6 +223,7 @@ public static class AdminEndpoints
         product.Status = request.Status ?? product.Status; // preserve current status when the editor omits it
         product.ProductType = request.ProductType ?? product.ProductType; // preserve type when omitted
         product.UpdatedAt = time.GetUtcNow();
+        product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), product.UpdatedAt);
 
         // Reconcile variants: update matched, add new (Id null/empty), remove the rest.
         var keptIds = new HashSet<Guid>();
@@ -292,6 +309,50 @@ public static class AdminEndpoints
         return TypedResults.NoContent();
     }
 
+    private static async Task<Ok<CatalogSettingsResponse>> GetSettings(
+        CatalogDbContext db, IConfiguration config, Guid? tenantId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId ?? DefaultTenantId(config);
+        var settings = await db.TenantCatalogSettings.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant, cancellationToken);
+        return TypedResults.Ok(new CatalogSettingsResponse(tenant, settings?.RequireProductShipRules ?? false));
+    }
+
+    private static async Task<Ok<CatalogSettingsResponse>> UpdateSettings(
+        CatalogSettingsRequest request, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user,
+        IConfiguration config, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var tenant = request.TenantId ?? DefaultTenantId(config);
+        var settings = await db.TenantCatalogSettings.SingleOrDefaultAsync(s => s.TenantId == tenant, cancellationToken);
+        if (settings is null)
+        {
+            settings = new TenantCatalogSettings { TenantId = tenant };
+            db.TenantCatalogSettings.Add(settings);
+        }
+
+        settings.RequireProductShipRules = request.RequireProductShipRules;
+        settings.UpdatedAt = time.GetUtcNow();
+        await audit.RecordAsync(user.Mutation(
+            tenant, "CatalogSettings", tenant.ToString(), "catalog.settings.update", $"RequireProductShipRules={request.RequireProductShipRules}"), cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(new CatalogSettingsResponse(tenant, settings.RequireProductShipRules));
+    }
+
+    // When the tenant's mandatory gate is on, a product write must carry at least one ship rule.
+    private static async Task<ValidationProblem?> RequireShipRulesProblem(
+        CatalogDbContext db, Guid tenantId, ProductWriteRequest request, CancellationToken cancellationToken)
+    {
+        var settings = await db.TenantCatalogSettings.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+        if (settings?.RequireProductShipRules == true && (request.ShipRules is null || request.ShipRules.Count == 0))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["ShipRules"] = ["At least one per-country ship rule is required."],
+            });
+        }
+
+        return null;
+    }
+
     private static Task PublishUpsertedAsync(IPublishEndpoint publisher, Product product, string fallbackCurrency, CancellationToken ct) =>
         publisher.Publish(new ProductUpserted(
             product.Id,
@@ -302,7 +363,8 @@ public static class AdminEndpoints
             product.ImageUrls.FirstOrDefault(),
             product.Variants.Select(v => new ProductVariantUpserted(
                 v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity,
-                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList()), ct);
+                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList(),
+            product.ShipRules.Select(r => new ProductShipRuleContract(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList()), ct);
 
     // Normalize tenant-entered per-currency prices: 3-letter upper ISO, last write wins per currency, drop blanks.
     private static IEnumerable<(string Currency, long PriceMinor)> NormalizePrices(List<CurrencyPriceDto>? prices)
@@ -354,7 +416,8 @@ public static class AdminEndpoints
         p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls, p.Status,
         p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
             v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList(),
-        p.ProductType == 0 ? ProductType.Physical : p.ProductType);
+        p.ProductType == 0 ? ProductType.Physical : p.ProductType,
+        p.ShipRules.Select(r => new ProductShipRuleDto(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList());
 }
 
 public record ImportRunResponse(
@@ -374,16 +437,24 @@ public record ProductListItem(
 public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
     Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants,
-    ProductType ProductType);
+    ProductType ProductType, List<ProductShipRuleDto> ShipRules);
 
 public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, List<CurrencyPriceDto> Prices);
 
 // Tenant-authored explicit price per currency (no FX).
 public record CurrencyPriceDto(string Currency, long PriceMinor);
 
+// Per-product, per-destination ship rule (ISO-2 country or '*' whole-world default).
+public record ProductShipRuleDto(string CountryCode, bool ChargeDestinationTax, bool ShippingCovered);
+
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants,
-    ProductStatus? Status = null, ProductType? ProductType = null);
+    ProductStatus? Status = null, ProductType? ProductType = null, List<ProductShipRuleDto>? ShipRules = null);
+
+// Tenant-scoped catalog feature switches surfaced to the Admin portal.
+public record CatalogSettingsResponse(Guid TenantId, bool RequireProductShipRules);
+
+public record CatalogSettingsRequest(Guid? TenantId, bool RequireProductShipRules);
 
 public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, List<CurrencyPriceDto>? Prices = null);

@@ -112,6 +112,9 @@ export type StorefrontConfig = {
   // BCP-47 UI language this storefront defaults to (i18n_0). A shopper's `3c_locale` cookie overrides
   // it for their session. Independent of currency/tax — see i18n/request.ts.
   defaultLanguage: string;
+  // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = ships worldwide; non-empty = checkout limits the
+  // country picker to these and the checkout API rejects anything outside the list.
+  shipToCountries: string[];
 };
 
 // Enum ordinals from Catalog StorefrontTaxRegime (System.Text.Json serializes enums as numbers).
@@ -134,15 +137,18 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
-  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage"> & {
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "shipToCountries"> & {
     taxRegime: StorefrontTaxRegime | number;
     defaultLanguage?: string;
+    shipToCountries?: string[];
   };
   return {
     ...raw,
     taxRegime: typeof raw.taxRegime === "number" ? (STOREFRONT_TAX_REGIME[raw.taxRegime] ?? "Other") : raw.taxRegime,
     // Pre-i18n_0 storefronts (or an older Catalog) simply have no language configured → English.
     defaultLanguage: raw.defaultLanguage ?? "en",
+    // Older Catalog with no allowlist field → empty (ships worldwide).
+    shipToCountries: raw.shipToCountries ?? [],
   };
 }
 

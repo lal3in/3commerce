@@ -89,7 +89,7 @@ public static class StorefrontEndpoints
             ? TypedResults.NotFound()
             : TypedResults.Ok(new PublicStorefrontResponse(
                 storefront.Id, storefront.TenantId, storefront.Name, storefront.PublicUrl, storefront.Currency,
-                storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage));
+                storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage, storefront.ShipToCountries));
     }
 
     // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
@@ -138,6 +138,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
+            storefront.SetShipToCountries(request.ShipToCountries, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -181,6 +182,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
+            storefront.SetShipToCountries(request.ShipToCountries, now); // null = leave as-is (older client can't wipe it)
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -289,7 +291,8 @@ public static class StorefrontEndpoints
         publisher.Publish(new StorefrontConfigChanged(
             s.Id, s.TenantId, s.Name, s.Currency, s.TaxRateBasisPoints,
             s.State is StorefrontState.Active or StorefrontState.Preview,
-            TaxInclusive: s.TaxRegime is StorefrontTaxRegime.AuGst or StorefrontTaxRegime.EuVat), ct); // ADR-0038
+            TaxInclusive: s.TaxRegime is StorefrontTaxRegime.AuGst or StorefrontTaxRegime.EuVat, // ADR-0038
+            ShipToCountries: s.ShipToCountries.ToArray()), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
@@ -411,6 +414,7 @@ public static class StorefrontEndpoints
         storefront.TaxRateBasisPoints,
         storefront.DefaultLanguage,
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
+        storefront.ShipToCountries.ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
         storefront.ActivatedAt);
@@ -426,7 +430,9 @@ public sealed record CreateStorefrontRequest(
     StorefrontTaxRegime TaxRegime = StorefrontTaxRegime.None,
     int TaxRateBasisPoints = 0,
     // BCP-47 default UI language (i18n_0); omit → "en". Independent of Currency/TaxRegime.
-    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
+    // Ship-to allowlist (ISO 3166-1 alpha-2); omit/empty → ships worldwide.
+    IReadOnlyList<string>? ShipToCountries = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -437,7 +443,9 @@ public sealed record UpdateStorefrontRequest(
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
     // Optional: omitted → the storefront keeps its current language (a currency/tax edit never resets it).
-    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
+    // Optional: null → the storefront keeps its current ship-to allowlist; [] → clears it (worldwide).
+    IReadOnlyList<string>? ShipToCountries = null);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -455,6 +463,7 @@ public sealed record StorefrontResponse(
     int TaxRateBasisPoints,
     string DefaultLanguage,
     IReadOnlyList<StorefrontDomainResponse> Domains,
+    IReadOnlyList<string> ShipToCountries,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ActivatedAt);
@@ -472,7 +481,10 @@ public sealed record PublicStorefrontResponse(
     string Currency,
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
-    string DefaultLanguage);
+    string DefaultLanguage,
+    // Ship-to allowlist (ISO 3166-1 alpha-2); empty = worldwide. The storefront app filters its checkout
+    // country picker to these and the checkout API rejects a ship-to country outside the list.
+    IReadOnlyList<string> ShipToCountries);
 
 // The languages a storefront's UI can be set to (i18n_0). Label is an endonym ("中文"), not a translation.
 public sealed record SupportedLanguageResponse(string Code, string Label);

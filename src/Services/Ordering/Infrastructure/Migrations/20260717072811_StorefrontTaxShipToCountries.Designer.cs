@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -11,9 +12,11 @@ using ThreeCommerce.Ordering.Infrastructure;
 namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 {
     [DbContext(typeof(OrderingDbContext))]
-    partial class OrderingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717072811_StorefrontTaxShipToCountries")]
+    partial class StorefrontTaxShipToCountries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -629,12 +632,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<long>("SellingPriceMinor")
                         .HasColumnType("bigint");
-
-                    b.Property<string>("ShipRules")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'[]'::jsonb");
 
                     b.Property<string>("Slug")
                         .IsRequired()

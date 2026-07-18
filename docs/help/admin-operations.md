@@ -141,6 +141,58 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   when overage is off and the allowance is spent), then **bill-overage** to charge the
   unbilled overage via the rail (idempotent — re-billing without new usage is a no-op).
 
+### Ship-to allowlist & per-country ship rules
+
+Two layers control **where** a storefront ships and **how tax/shipping are charged
+per product per destination**. Both are tenant-scoped and both flow Catalog → Ordering
+via events (ADR-0008: no cross-service reads) — Ordering applies them at checkout from
+its own local read copies.
+
+- **Ship-to allowlist (storefront-wide, all-or-nothing).** Each storefront carries a
+  `ShipToCountries` list (ISO-2 codes; empty = ship anywhere). Set it on the
+  **Commerce ops** storefront **Manage** form. Checkout **rejects** an order whose
+  ship-to country is outside a non-empty allowlist, and the storefront checkout country
+  picker is limited to served countries. The list rides `StorefrontConfigChanged` into
+  Ordering's `StorefrontTaxCopy`.
+
+- **Per-country ship rules (per-product, finer-grained).** For logistics/tax treatment
+  that varies by destination (courier already covers shipping, a destination is
+  tax-exempt for that product), each product carries a `ShipRules` collection. A rule
+  targets one destination — an **ISO-2 country**, or **`*`** meaning the whole-world
+  default — and declares two booleans:
+  - `ChargeDestinationTax` — when **false**, that product's line is **excluded from the
+    destination tax base** for that country.
+  - `ShippingCovered` — when **true**, shipping is already covered for that product to
+    that country; when **every** line in the cart resolves to a covered rule, the
+    order's shipping is **waived** (all-or-nothing at order level — order-flat shipping
+    can't be partially attributed).
+
+  **Rule precedence (`RuleFor`)**: a specific-country rule wins over the `*` default;
+  no matching rule ⇒ normal tax + shipping. Rules are **advisory to tax/shipping only** —
+  they never widen the ship-to allowlist; a destination must still pass the allowlist
+  guard first.
+
+- **Mandatory-rules feature switch.** A tenant switch **"Require per-country ship
+  rules on products"** (`TenantCatalogSettings.RequireProductShipRules`) makes at least
+  one rule **mandatory** at product create/update. When ON, a product write with no
+  rules returns **400** (`ValidationProblem`, key `ShipRules`); with a rule it saves
+  normally. Toggle it on the **Catalog** editor (`Components/Pages/Catalog.razor`), which
+  also edits the per-product rule rows (country `<select>` incl. "All countries" `*`,
+  the two checkboxes, add/remove).
+
+**Operator flow**: Admin → Catalog → toggle *Require per-country ship rules* → new
+product with no rule ⇒ save blocked → add a `*` rule with `ChargeDestinationTax=false`
+⇒ saves → that product at storefront checkout shows a **0 tax** line for the destination.
+The money math stays integer-minor-unit and trial-balanced (the payment intent total is
+unchanged; only the tax/shipping **inputs** are recomputed).
+
+**Endpoints / contracts** (see `docs/api/api_contracts_index.md`):
+`GET/PUT /api/catalog/admin/settings` (`CatalogSettingsResponse/Request`,
+`{ tenantId, requireProductShipRules }`); product writes accept a trailing
+`shipRules: [{ countryCode, chargeDestinationTax, shippingCovered }]`; the rules ride
+`ProductUpserted.ShipRules` (optional/back-compatible — null = a publisher predating the
+field, treated as "no overrides") into Ordering's `ProductCopy.ShipRules`.
+
 ---
 
 ## 1. Login — `/login`

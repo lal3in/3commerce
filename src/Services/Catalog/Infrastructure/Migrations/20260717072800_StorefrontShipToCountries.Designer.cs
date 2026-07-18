@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -12,9 +13,11 @@ using ThreeCommerce.Catalog.Infrastructure;
 namespace ThreeCommerce.Catalog.Infrastructure.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    partial class CatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717072800_StorefrontShipToCountries")]
+    partial class StorefrontShipToCountries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -396,12 +399,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.Property<int>("ProductType")
                         .HasColumnType("integer");
 
-                    b.Property<string>("ShipRules")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValueSql("'[]'::jsonb");
-
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -710,23 +707,6 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasIndex("TenantId", "StorefrontId", "SortOrder");
 
                     b.ToTable("StorefrontNavigationItems", "catalog");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.TenantCatalogSettings", b =>
-                {
-                    b.Property<Guid>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("RequireProductShipRules")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TenantId");
-
-                    b.ToTable("TenantCatalogSettings", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
