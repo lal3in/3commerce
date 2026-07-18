@@ -36,7 +36,7 @@ if (( FRESH )); then
 fi
 
 echo "== 1/4 infra (Postgres + RabbitMQ + Kafka + Kafka-UI + pgAdmin) =="
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f docker-compose.infra.yml --profile portals up -d
 for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"

@@ -1,5 +1,9 @@
 # Local infrastructure ONLY (ADR-0009): services run bare via `dotnet run`.
-# Usage: docker compose -f docker-compose.infra.yml up -d
+# Usage:
+#   docker compose -f docker-compose.infra.yml up -d                     # core: Postgres + RabbitMQ (CI uses this)
+#   docker compose -f docker-compose.infra.yml --profile portals up -d   # + Kafka, Kafka UI, pgAdmin (dev-up.sh default)
+# The `portals` profile keeps the dev portals out of CI runners (e2e-verify boots the plain core;
+# the extra JVMs starved the shared runner and flaked unrelated browser tests).
 name: 3commerce-infra
 
 services:
@@ -39,6 +43,7 @@ services:
     # Hub in the 2025 "Bitnami Secure Images" migration. Keeps the KAFKA_CFG_* env convention.
     image: bitnamilegacy/kafka:3.9
     container_name: 3commerce-kafka
+    profiles: ["portals"]
     ports:
       - "29092:29092"  # host-facing PLAINTEXT (advertised as localhost:29092)
     environment:
@@ -63,10 +68,11 @@ services:
       timeout: 5s
       retries: 12
 
-  # Kafka UI (http://localhost:8090) — always on in local dev, pre-pointed at the broker above.
+  # Kafka UI (http://localhost:8090) — always on in local dev (dev-up.sh), pre-pointed at the broker above.
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
     container_name: 3commerce-kafka-ui
+    profiles: ["portals"]
     depends_on:
       kafka:
         condition: service_healthy
@@ -87,8 +93,10 @@ services:
   # Runs as root + chmods the mounted passfile to 0600 (pgAdmin refuses a group/world-readable one),
   # which lets servers.json auto-import the saved password on first boot (no manual connect step).
   pgadmin:
-    image: dpage/pgadmin4:latest
+    # Pinned: the portal-verification e2e was validated against 9.13; `latest` drifts (tree/DOM changes).
+    image: dpage/pgadmin4:9.13
     container_name: 3commerce-pgadmin
+    profiles: ["portals"]
     depends_on:
       postgres:
         condition: service_healthy

@@ -54,7 +54,7 @@ rabbitmq:
 # (network policy / auth) and swapping the credentials.
 pgadmin:
   enabled: false
-  image: dpage/pgadmin4:latest
+  image: dpage/pgadmin4:9.13
   email: admin@3commerce.dev        # portal login; pgAdmin rejects reserved domains like .local
   password: pgadmin_dev             # portal login (local/kind only)
   service:
