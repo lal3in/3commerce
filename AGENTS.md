@@ -18,6 +18,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 - Always provide verification steps (tests run, commands, expected output).
 - If a task references product scope/UX/requirements: consult PRD (see below) and produce a Working Brief before coding.
 - Track execution status in the canonical tracker `.ai-shared/plans/plan_status_executions.md` AS YOU WORK (start → in_progress, finish → done) — see the Rules entry. Don't park status only in todos/TaskCreate, and never spin up a side 'followups'/'notes' doc.
+- Long-running subagents in this environment can trip the harness's 600s no-progress stream watchdog and get killed mid-task (observed 4× on one investigation agent). Mitigations that work: (1) every long-running agent maintains a **checkpoint file** in the scratchpad from the very start (diagnosis, evidence, remaining checklist) and updates it after each step — resumes via SendMessage are then lossless; (2) keep individual commands short with explicit timeouts, scope test runs narrowly (`--filter`), and avoid anything that streams silently for >5 minutes; (3) the supervisor resumes a stalled agent with a message pointing at its checkpoint rather than respawning fresh.
 
 ---
 

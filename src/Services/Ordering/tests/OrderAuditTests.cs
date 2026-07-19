@@ -21,7 +21,11 @@ public class OrderAuditTests
         Status = OrderStatus.Confirmed,
         GrossMinor = 362966,
         Currency = "AUD",
-        ShipName = "S", ShipLine1 = "1 St", ShipCity = "C", ShipPostcode = "0000", ShipCountry = "AU",
+        ShipName = "S",
+        ShipLine1 = "1 St",
+        ShipCity = "C",
+        ShipPostcode = "0000",
+        ShipCountry = "AU",
     };
 
     [Fact]
