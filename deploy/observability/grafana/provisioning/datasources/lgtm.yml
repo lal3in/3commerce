@@ -1,0 +1,42 @@
+# Grafana datasource provisioning: the LGTM backends behind the collector fan-out. Fixed uids so
+# the cross-links below (and dashboards) survive re-provisioning. Prometheus (prometheus.yml)
+# stays the default — the existing RED dashboard queries it.
+apiVersion: 1
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      # OTLP ingest lands trace_id as structured metadata, not in the log line — a label
+      # matcher (not a line regex) is what makes the log→trace link appear.
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: "$${__value.raw}"
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        # Logs around a span rarely share its exact window — pad both sides.
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags: [{ key: "service.name", value: "service_name" }]
+        filterByTraceID: true
+
+  - name: Mimir
+    type: prometheus
+    uid: mimir
+    access: proxy
+    url: http://mimir:9009/prometheus
+    editable: false

@@ -50,6 +50,24 @@ builder.Services.AddHttpClient("rabbitmq-mgmt", c =>
     c.Timeout = TimeSpan.FromSeconds(5);
 });
 builder.Services.AddScoped<BusStatsService>();
+// Mission-control observability stats: Loki/Tempo/Mimir HTTP APIs, read-only + best-effort.
+// Short timeouts so a dead backend degrades its tiles instead of stalling the dashboard.
+builder.Services.AddHttpClient("loki", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["Observability:LokiUrl"] ?? "http://localhost:3100");
+    c.Timeout = TimeSpan.FromSeconds(3);
+});
+builder.Services.AddHttpClient("tempo", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["Observability:TempoUrl"] ?? "http://localhost:3200");
+    c.Timeout = TimeSpan.FromSeconds(3);
+});
+builder.Services.AddHttpClient("mimir", c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["Observability:MimirUrl"] ?? "http://localhost:9009");
+    c.Timeout = TimeSpan.FromSeconds(3);
+});
+builder.Services.AddScoped<ObservabilityStatsService>();
 builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();

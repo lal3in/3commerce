@@ -3,6 +3,7 @@
 @inject IConfiguration Config
 @inject GatewayClient Gateway
 @inject BusStatsService BusStats
+@inject ObservabilityStatsService ObsStats
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <div style="display:flex; align-items:baseline; gap:1rem;">
@@ -155,10 +156,28 @@
     }
 </section>
 
+@* Observability backends (LGTM): up/down per backend plus signal-volume KPIs, read straight from
+   the Loki/Tempo/Mimir HTTP APIs — same best-effort philosophy as the bus section above. *@
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
+    <h2 style="margin-top:0;">@L["Mc.Obs"] <span style="color:#6b7280; font-size:.75rem; font-weight:400;">@L["Mc.Obs.Subtitle"]</span></h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem;">
+        @KpiCard(L["Mc.Obs.Loki"], (_obs?.LokiUp == true ? L["Mc.Obs.Up"] : L["Mc.Obs.Down"]).Value, _obs?.LokiUp == true ? "#059669" : "#dc2626", L["Mc.Obs.Loki.Tip"])
+        @KpiCard(L["Mc.Obs.Tempo"], (_obs?.TempoUp == true ? L["Mc.Obs.Up"] : L["Mc.Obs.Down"]).Value, _obs?.TempoUp == true ? "#059669" : "#dc2626", L["Mc.Obs.Tempo.Tip"])
+        @KpiCard(L["Mc.Obs.Mimir"], (_obs?.MimirUp == true ? L["Mc.Obs.Up"] : L["Mc.Obs.Down"]).Value, _obs?.MimirUp == true ? "#059669" : "#dc2626", L["Mc.Obs.Mimir.Tip"])
+        @KpiCard(L["Mc.Obs.LogLines"], (_obs?.LogLines1h ?? 0).ToString(), "#0891b2", L["Mc.Obs.LogLines.Tip"])
+        @KpiCard(L["Mc.Obs.ErrorLogs"], (_obs?.ErrorLogs1h ?? 0).ToString(), (_obs?.ErrorLogs1h ?? 0) > 0 ? "#b45309" : "#059669", L["Mc.Obs.ErrorLogs.Tip"])
+        @KpiCard(L["Mc.Obs.Traces"], (_obs?.Traces1h ?? 0).ToString(), "#4f46e5", L["Mc.Obs.Traces.Tip"])
+        @KpiCard(L["Mc.Obs.Services"], (_obs?.ServicesReporting ?? 0).ToString(), "#0891b2", L["Mc.Obs.Services.Tip"])
+    </div>
+</section>
+
 <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-top:1.2rem;">
     <h2 style="margin-top:0;">@L["Mc.Consoles"]</h2>
     <div style="display:flex; gap:1.5rem; flex-wrap:wrap;">
         <a href="@GrafanaUrl" target="_blank" rel="noopener" title="@L["Mc.Link.Grafana.Tip"]">📊 @L["Mc.Link.Grafana"]</a>
+        <a href="@ExploreUrl("loki")" target="_blank" rel="noopener" title="@L["Mc.Link.Loki.Tip"]">📜 @L["Mc.Link.Loki"]</a>
+        <a href="@ExploreUrl("tempo")" target="_blank" rel="noopener" title="@L["Mc.Link.Tempo.Tip"]">🧵 @L["Mc.Link.Tempo"]</a>
+        <a href="@ExploreUrl("mimir")" target="_blank" rel="noopener" title="@L["Mc.Link.Mimir.Tip"]">📈 @L["Mc.Link.Mimir"]</a>
         <NavLink href="/rbac" title="@L["Nav.Rbac.Tip"]">🔐 @L["Nav.Rbac"]</NavLink>
         <NavLink href="/entities" title="@L["Nav.Entities.Tip"]">🏢 @L["Nav.Entities"]</NavLink>
         <NavLink href="/ledger" title="@L["Nav.Ledger.Tip"]">📒 @L["Nav.Ledger"]</NavLink>
@@ -176,6 +195,7 @@
     private List<DropshipKpiDto> _dropship = [];
     private NotifSummaryDto? _notif;
     private BusStatsService.BusSnapshot? _bus;
+    private ObservabilityStatsService.ObsSnapshot? _obs;
     private string _tenant = "00000000-0000-0000-0000-000000000001";
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -194,6 +214,7 @@
         _dropship = await SafeList<DropshipKpiDto>("/api/fulfillment/admin/dropship/orders");
         _notif = await SafeGet<NotifSummaryDto>("/api/notifications/admin/notifications");
         _bus = await BusStats.GetSnapshotAsync();
+        _obs = await ObsStats.GetSnapshotAsync();
     }
 
     // A single failing read model must not blank the whole monitor — degrade that tile to 0/empty.
@@ -217,6 +238,13 @@
     private int DropshipWith(params string[] statuses) => _dropship.Count(d => statuses.Contains(d.Status));
 
     private string GrafanaUrl => Config["Observability:GrafanaUrl"] ?? "http://localhost:3001";
+
+    // Grafana Explore deep link preselecting a provisioned datasource over the last hour. The uids
+    // are pinned in deploy/observability/grafana/provisioning/datasources/lgtm.yml (loki/tempo/mimir);
+    // Grafana migrates this legacy `left` shape to the current panes format on load.
+    private string ExploreUrl(string datasourceUid) =>
+        $"{GrafanaUrl}/explore?left=" + Uri.EscapeDataString(
+            $"{{\"datasource\":\"{datasourceUid}\",\"queries\":[{{\"refId\":\"A\"}}],\"range\":{{\"from\":\"now-1h\",\"to\":\"now\"}}}}");
 
     // label/tip come from the resx (trusted); value is our own ToString of a count — nothing user-supplied.
     private RenderFragment KpiCard(string label, string value, string color, string tip) => builder =>

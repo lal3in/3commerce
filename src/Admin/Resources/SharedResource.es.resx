@@ -914,6 +914,30 @@
   <data name="Mc.Consoles" xml:space="preserve"><value>Consolas</value></data>
   <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana — Servicios (métricas RED)</value></data>
   <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>Abra el panel de métricas RED de Grafana en una pestaña nueva.</value></data>
+  <data name="Mc.Link.Loki" xml:space="preserve"><value>Grafana Explore — Logs (Loki)</value></data>
+  <data name="Mc.Link.Loki.Tip" xml:space="preserve"><value>Abra Grafana Explore con la fuente de datos de Loki en una pestaña nueva.</value></data>
+  <data name="Mc.Link.Tempo" xml:space="preserve"><value>Grafana Explore — Trazas (Tempo)</value></data>
+  <data name="Mc.Link.Tempo.Tip" xml:space="preserve"><value>Abra Grafana Explore con la fuente de datos de Tempo en una pestaña nueva.</value></data>
+  <data name="Mc.Link.Mimir" xml:space="preserve"><value>Grafana Explore — Métricas (Mimir)</value></data>
+  <data name="Mc.Link.Mimir.Tip" xml:space="preserve"><value>Abra Grafana Explore con la fuente de datos de Mimir en una pestaña nueva.</value></data>
+  <data name="Mc.Obs" xml:space="preserve"><value>Observabilidad</value></data>
+  <data name="Mc.Obs.Subtitle" xml:space="preserve"><value>en vivo · APIs HTTP de Loki / Tempo / Mimir · solo lectura</value></data>
+  <data name="Mc.Obs.Loki" xml:space="preserve"><value>Loki (logs)</value></data>
+  <data name="Mc.Obs.Loki.Tip" xml:space="preserve"><value>Disponibilidad del almacén de logs Loki (/ready). Rojo significa que no se están ingiriendo logs.</value></data>
+  <data name="Mc.Obs.Tempo" xml:space="preserve"><value>Tempo (trazas)</value></data>
+  <data name="Mc.Obs.Tempo.Tip" xml:space="preserve"><value>Disponibilidad del almacén de trazas Tempo (/ready). Rojo significa que no se están ingiriendo trazas.</value></data>
+  <data name="Mc.Obs.Mimir" xml:space="preserve"><value>Mimir (métricas)</value></data>
+  <data name="Mc.Obs.Mimir.Tip" xml:space="preserve"><value>Disponibilidad del almacén de métricas Mimir (/ready). Rojo significa que no se están ingiriendo métricas.</value></data>
+  <data name="Mc.Obs.Up" xml:space="preserve"><value>activo</value></data>
+  <data name="Mc.Obs.Down" xml:space="preserve"><value>caído</value></data>
+  <data name="Mc.Obs.LogLines" xml:space="preserve"><value>Líneas de log (1 h)</value></data>
+  <data name="Mc.Obs.LogLines.Tip" xml:space="preserve"><value>Líneas de log ingeridas por Loki en todos los servicios durante la última hora.</value></data>
+  <data name="Mc.Obs.ErrorLogs" xml:space="preserve"><value>Logs de error (1 h)</value></data>
+  <data name="Mc.Obs.ErrorLogs.Tip" xml:space="preserve"><value>Líneas de log de nivel error en todos los servicios durante la última hora. Cualquier valor por encima de cero merece un vistazo.</value></data>
+  <data name="Mc.Obs.Traces" xml:space="preserve"><value>Trazas (1 h)</value></data>
+  <data name="Mc.Obs.Traces.Tip" xml:space="preserve"><value>Trazas recientes encontradas por la búsqueda de Tempo en la última hora (máximo 50).</value></data>
+  <data name="Mc.Obs.Services" xml:space="preserve"><value>Servicios informando</value></data>
+  <data name="Mc.Obs.Services.Tip" xml:space="preserve"><value>Servicios cuyas métricas de solicitudes HTTP están llegando a Mimir.</value></data>
 
   <!-- ===== Security ===== -->
   <data name="Sec.Title" xml:space="preserve"><value>Seguridad</value></data>

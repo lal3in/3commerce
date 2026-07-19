@@ -1,0 +1,46 @@
+# Mimir (monolithic `-target=all`, filesystem storage) — local dev only. Single instance, so
+# every ring is a one-member inmemory-ish ring pinned to loopback; no tenants (the collector
+# remote-writes without an org id, Grafana queries /prometheus without headers).
+multitenancy_enabled: false
+
+server:
+  # Mimir's default HTTP port is 8080 (taken by the gateway convention here) — use the
+  # conventional Mimir demo port 9009 everywhere instead.
+  http_listen_port: 9009
+  log_level: warn
+
+common:
+  storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/storage
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/tsdb
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    instance_addr: 127.0.0.1
+    replication_factor: 1

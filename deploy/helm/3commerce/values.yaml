@@ -60,6 +60,24 @@ pgadmin:
   service:
     port: 80
 
+# Optional in-cluster LGTM observability stack (mirrors the local docker-compose `observability`
+# profile): one OTel Collector fans OTLP out — traces → Tempo, logs → Loki, metrics → Mimir
+# remote-write (query via Mimir's /prometheus API). OFF by default — flip per environment with
+# `--set observability.enabled=true`. dev/kind convenience only: emptyDir storage and no
+# auth/multitenancy — production wants the upstream Loki/Tempo/Mimir charts with object storage.
+# When enabled, every service/worker/gateway gets OTEL_EXPORTER_OTLP_ENDPOINT injected, which is
+# the switch OtelExtensions keys OTLP export on.
+observability:
+  enabled: false
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+  loki:
+    image: grafana/loki:3.3.2
+  tempo:
+    image: grafana/tempo:2.6.1
+  mimir:
+    image: grafana/mimir:2.14.1
+
 kafka:
   enabled: false         # enables EventStreaming config for apps; core workflows do not depend on Kafka
   deploy: false          # dev/kind only. Production should prefer managed Kafka and externalBootstrapServers.

@@ -38,6 +38,10 @@ start_all() {
   for entry in "${APPS[@]}"; do
     name="${entry%%:*}"; rest="${entry#*:}"; path="${rest%:*}"; port="${rest##*:}"
     local -a e=( "${LOGENV[@]}" )
+    # Export OTLP to the collector's published port (observability profile, always on via dev-up),
+    # so bare-run traces/metrics land in Grafana instead of the console. `-` (not `:-`) so an
+    # explicitly-empty OTEL_EXPORTER_OTLP_ENDPOINT= still opts a run back out to console traces.
+    e+=( "OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" )
     [[ -n "$port" ]] && e+=( "ASPNETCORE_URLS=http://localhost:$port" )
     nohup env "${e[@]}" dotnet run --project "$path" --no-build >"$RUN_DIR/$name.log" 2>&1 &
     echo $! >"$RUN_DIR/$name.pid"; disown; echo "started $name${port:+ (:$port)} (pid $!)"

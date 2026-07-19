@@ -914,6 +914,30 @@
   <data name="Mc.Consoles" xml:space="preserve"><value>控制台</value></data>
   <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana——服务（RED 指标）</value></data>
   <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>在新标签页中打开 Grafana RED 指标仪表板。</value></data>
+  <data name="Mc.Link.Loki" xml:space="preserve"><value>Grafana Explore——日志（Loki）</value></data>
+  <data name="Mc.Link.Loki.Tip" xml:space="preserve"><value>在新标签页中使用 Loki 数据源打开 Grafana Explore。</value></data>
+  <data name="Mc.Link.Tempo" xml:space="preserve"><value>Grafana Explore——链路追踪（Tempo）</value></data>
+  <data name="Mc.Link.Tempo.Tip" xml:space="preserve"><value>在新标签页中使用 Tempo 数据源打开 Grafana Explore。</value></data>
+  <data name="Mc.Link.Mimir" xml:space="preserve"><value>Grafana Explore——指标（Mimir）</value></data>
+  <data name="Mc.Link.Mimir.Tip" xml:space="preserve"><value>在新标签页中使用 Mimir 数据源打开 Grafana Explore。</value></data>
+  <data name="Mc.Obs" xml:space="preserve"><value>可观测性</value></data>
+  <data name="Mc.Obs.Subtitle" xml:space="preserve"><value>实时 · Loki / Tempo / Mimir HTTP API · 只读</value></data>
+  <data name="Mc.Obs.Loki" xml:space="preserve"><value>Loki（日志）</value></data>
+  <data name="Mc.Obs.Loki.Tip" xml:space="preserve"><value>Loki 日志存储的就绪状态（/ready）。红色表示日志未在写入。</value></data>
+  <data name="Mc.Obs.Tempo" xml:space="preserve"><value>Tempo（链路追踪）</value></data>
+  <data name="Mc.Obs.Tempo.Tip" xml:space="preserve"><value>Tempo 链路追踪存储的就绪状态（/ready）。红色表示追踪数据未在写入。</value></data>
+  <data name="Mc.Obs.Mimir" xml:space="preserve"><value>Mimir（指标）</value></data>
+  <data name="Mc.Obs.Mimir.Tip" xml:space="preserve"><value>Mimir 指标存储的就绪状态（/ready）。红色表示指标未在写入。</value></data>
+  <data name="Mc.Obs.Up" xml:space="preserve"><value>正常</value></data>
+  <data name="Mc.Obs.Down" xml:space="preserve"><value>宕机</value></data>
+  <data name="Mc.Obs.LogLines" xml:space="preserve"><value>日志行数（1 小时）</value></data>
+  <data name="Mc.Obs.LogLines.Tip" xml:space="preserve"><value>过去一小时内所有服务写入 Loki 的日志行数。</value></data>
+  <data name="Mc.Obs.ErrorLogs" xml:space="preserve"><value>错误日志（1 小时）</value></data>
+  <data name="Mc.Obs.ErrorLogs.Tip" xml:space="preserve"><value>过去一小时内所有服务的错误级别日志行数。大于零就值得关注。</value></data>
+  <data name="Mc.Obs.Traces" xml:space="preserve"><value>链路追踪（1 小时）</value></data>
+  <data name="Mc.Obs.Traces.Tip" xml:space="preserve"><value>Tempo 搜索在过去一小时内找到的链路追踪（上限 50 条）。</value></data>
+  <data name="Mc.Obs.Services" xml:space="preserve"><value>上报中的服务</value></data>
+  <data name="Mc.Obs.Services.Tip" xml:space="preserve"><value>HTTP 请求指标正在写入 Mimir 的服务。</value></data>
 
   <!-- ===== Security ===== -->
   <data name="Sec.Title" xml:space="preserve"><value>安全</value></data>

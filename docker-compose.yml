@@ -225,17 +225,77 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── Observability stack (mt6_13) — opt-in: `docker compose --profile observability up`.
-  # Services push OTLP metrics+traces to the collector when OTEL_EXPORTER_OTLP_ENDPOINT=
-  # http://otel-collector:4317 is set (deploy/.env.*). Ops data only — never financial truth;
-  # keep Grafana behind admin auth / a private network (GOTCHA).
+  # ── Observability stack (mt6_13 + LGTM) — `docker compose --profile observability up`
+  # (dev-up.sh does this on every start). One collector fans OTLP out per signal: traces → Tempo,
+  # logs → Loki (native /otlp ingest), metrics → Prometheus scrape + Mimir remote-write; Grafana
+  # fronts all four with provisioned datasources + trace↔log links. Services push OTLP when
+  # OTEL_EXPORTER_OTLP_ENDPOINT is set — containerized: http://otel-collector:4317 (deploy/.env.*);
+  # bare-run: http://localhost:4317 via the published collector ports (scripts/run-all.sh sets it).
+  # Ops data only — never financial truth; keep Grafana behind admin auth / a private network (GOTCHA).
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.110.0
     container_name: 3commerce-otel-collector
     profiles: ["observability"]
     command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"    # OTLP gRPC — bare-run services (ADR-0009) can only reach a published port
+      - "4318:4318"    # OTLP HTTP
     volumes:
       - ./deploy/observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: 3commerce-loki
+    profiles: ["observability"]
+    command: ["-config.file=/etc/loki/config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: 3commerce-tempo
+    profiles: ["observability"]
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"    # HTTP query API; OTLP 4317/4318 stay compose-internal (collector-only)
+    volumes:
+      - ./deploy/observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mimir:
+    image: grafana/mimir:2.14.1
+    container_name: 3commerce-mimir
+    profiles: ["observability"]
+    command: ["-config.file=/etc/mimir.yaml"]
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./deploy/observability/mimir.yaml:/etc/mimir.yaml:ro
+      - mimir_data:/data
+    # No healthcheck: the mimir image is shell-less (no /bin/sh, wget, or curl) — probe
+    # http://localhost:9009/ready from the host instead.
     restart: unless-stopped
 
   prometheus:
@@ -262,7 +322,16 @@ services:
       - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+      - loki
+      - tempo
+      - mimir
     restart: unless-stopped
+
+# Telemetry survives observability-stack restarts (plain `down` keeps named volumes).
+volumes:
+  loki_data:
+  tempo_data:
+  mimir_data:
 
 # The app's default network IS the external Postgres network (docker-compose.db.yml), so
 # every app container plus the external `postgres` resolve each other by name.

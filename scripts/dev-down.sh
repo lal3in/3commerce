@@ -19,4 +19,7 @@ pkill -f "next dev -p 3000" 2>/dev/null || true
 pkill -f "3commerce.Admin" 2>/dev/null || true
 pkill -f "3commerce.SupplierPortal" 2>/dev/null || true
 docker compose -f docker-compose.infra.yml --profile portals down $DOWN_ARGS
+# Observability rides the app compose file — `rm -sf` (not `down`) so a containerized full stack
+# (launch.sh), if one is running, is left alone. Telemetry volumes are kept, mirroring pgdata.
+docker compose rm -sf otel-collector prometheus grafana loki tempo mimir >/dev/null 2>&1 || true
 echo "down${DOWN_ARGS:+ (data volume removed)}"
