@@ -26,6 +26,10 @@ spec:
               value: "true"
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.environment | quote }}
+            {{- if .Values.observability.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317
+            {{- end }}
             {{- if and (ne .Values.environment "Development") .Values.secret.name }}
             - name: InternalAuth__PrivateKey
               valueFrom:

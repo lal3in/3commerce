@@ -953,6 +953,30 @@
   <data name="Mc.Consoles" xml:space="preserve"><value>Consoles</value></data>
   <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana — Services (RED metrics)</value></data>
   <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>Open the Grafana RED-metrics dashboard in a new tab.</value></data>
+  <data name="Mc.Link.Loki" xml:space="preserve"><value>Grafana Explore — Logs (Loki)</value></data>
+  <data name="Mc.Link.Loki.Tip" xml:space="preserve"><value>Open Grafana Explore on the Loki datasource in a new tab.</value></data>
+  <data name="Mc.Link.Tempo" xml:space="preserve"><value>Grafana Explore — Traces (Tempo)</value></data>
+  <data name="Mc.Link.Tempo.Tip" xml:space="preserve"><value>Open Grafana Explore on the Tempo datasource in a new tab.</value></data>
+  <data name="Mc.Link.Mimir" xml:space="preserve"><value>Grafana Explore — Metrics (Mimir)</value></data>
+  <data name="Mc.Link.Mimir.Tip" xml:space="preserve"><value>Open Grafana Explore on the Mimir datasource in a new tab.</value></data>
+  <data name="Mc.Obs" xml:space="preserve"><value>Observability</value></data>
+  <data name="Mc.Obs.Subtitle" xml:space="preserve"><value>live · Loki / Tempo / Mimir HTTP APIs · read-only</value></data>
+  <data name="Mc.Obs.Loki" xml:space="preserve"><value>Loki (logs)</value></data>
+  <data name="Mc.Obs.Loki.Tip" xml:space="preserve"><value>Loki log store readiness (/ready). Red means logs are not being ingested.</value></data>
+  <data name="Mc.Obs.Tempo" xml:space="preserve"><value>Tempo (traces)</value></data>
+  <data name="Mc.Obs.Tempo.Tip" xml:space="preserve"><value>Tempo trace store readiness (/ready). Red means traces are not being ingested.</value></data>
+  <data name="Mc.Obs.Mimir" xml:space="preserve"><value>Mimir (metrics)</value></data>
+  <data name="Mc.Obs.Mimir.Tip" xml:space="preserve"><value>Mimir metric store readiness (/ready). Red means metrics are not being ingested.</value></data>
+  <data name="Mc.Obs.Up" xml:space="preserve"><value>up</value></data>
+  <data name="Mc.Obs.Down" xml:space="preserve"><value>down</value></data>
+  <data name="Mc.Obs.LogLines" xml:space="preserve"><value>Log lines (1h)</value></data>
+  <data name="Mc.Obs.LogLines.Tip" xml:space="preserve"><value>Log lines ingested by Loki across all services in the last hour.</value></data>
+  <data name="Mc.Obs.ErrorLogs" xml:space="preserve"><value>Error logs (1h)</value></data>
+  <data name="Mc.Obs.ErrorLogs.Tip" xml:space="preserve"><value>Error-level log lines across all services in the last hour. Anything above zero deserves a look.</value></data>
+  <data name="Mc.Obs.Traces" xml:space="preserve"><value>Traces (1h)</value></data>
+  <data name="Mc.Obs.Traces.Tip" xml:space="preserve"><value>Recent traces found by Tempo search over the last hour (capped at 50).</value></data>
+  <data name="Mc.Obs.Services" xml:space="preserve"><value>Services reporting</value></data>
+  <data name="Mc.Obs.Services.Tip" xml:space="preserve"><value>Services with HTTP request metrics landing in Mimir.</value></data>
 
   <!-- ===== Security ===== -->
   <data name="Sec.Title" xml:space="preserve"><value>Security</value></data>

@@ -1,5 +1,6 @@
-# OTel Collector (mt6_13): receives OTLP from the services and exposes a Prometheus scrape target.
-# Traces could be fanned out here too (Jaeger/Tempo) later; metrics are the Phase 6 focus.
+# OTel Collector (mt6_13): the single OTLP door for every service; fans each signal out to the
+# LGTM stack — traces → Tempo, logs → Loki, metrics → Prometheus scrape + Mimir remote-write.
+# Prometheus stays alongside Mimir because the existing RED dashboard queries it.
 receivers:
   otlp:
     protocols:
@@ -17,10 +18,29 @@ exporters:
     # Keep the service.name resource attribute as a label so dashboards can break down per service.
     resource_to_telemetry_conversion:
       enabled: true
+  prometheusremotewrite:
+    endpoint: http://mimir:9009/api/v1/push
+    resource_to_telemetry_conversion:
+      enabled: true
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true  # plain gRPC inside the compose network
+  otlphttp/loki:
+    # Loki 3 native OTLP ingest — no Loki exporter/promtail hop needed.
+    endpoint: http://loki:3100/otlp
 
 service:
   pipelines:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus]
+      exporters: [prometheus, prometheusremotewrite]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

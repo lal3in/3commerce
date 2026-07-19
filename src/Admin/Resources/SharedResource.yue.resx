@@ -914,6 +914,30 @@
   <data name="Mc.Consoles" xml:space="preserve"><value>主控台</value></data>
   <data name="Mc.Link.Grafana" xml:space="preserve"><value>Grafana — 服務（RED 指標）</value></data>
   <data name="Mc.Link.Grafana.Tip" xml:space="preserve"><value>喺新分頁打開 Grafana RED 指標儀表板。</value></data>
+  <data name="Mc.Link.Loki" xml:space="preserve"><value>Grafana Explore — 日誌（Loki）</value></data>
+  <data name="Mc.Link.Loki.Tip" xml:space="preserve"><value>喺新分頁用 Loki 數據源打開 Grafana Explore。</value></data>
+  <data name="Mc.Link.Tempo" xml:space="preserve"><value>Grafana Explore — 追蹤（Tempo）</value></data>
+  <data name="Mc.Link.Tempo.Tip" xml:space="preserve"><value>喺新分頁用 Tempo 數據源打開 Grafana Explore。</value></data>
+  <data name="Mc.Link.Mimir" xml:space="preserve"><value>Grafana Explore — 指標（Mimir）</value></data>
+  <data name="Mc.Link.Mimir.Tip" xml:space="preserve"><value>喺新分頁用 Mimir 數據源打開 Grafana Explore。</value></data>
+  <data name="Mc.Obs" xml:space="preserve"><value>可觀測性</value></data>
+  <data name="Mc.Obs.Subtitle" xml:space="preserve"><value>即時 · Loki / Tempo / Mimir HTTP API · 唯讀</value></data>
+  <data name="Mc.Obs.Loki" xml:space="preserve"><value>Loki（日誌）</value></data>
+  <data name="Mc.Obs.Loki.Tip" xml:space="preserve"><value>Loki 日誌儲存庫嘅就緒狀態（/ready）。紅色即係冇日誌寫入緊。</value></data>
+  <data name="Mc.Obs.Tempo" xml:space="preserve"><value>Tempo（追蹤）</value></data>
+  <data name="Mc.Obs.Tempo.Tip" xml:space="preserve"><value>Tempo 追蹤儲存庫嘅就緒狀態（/ready）。紅色即係冇追蹤寫入緊。</value></data>
+  <data name="Mc.Obs.Mimir" xml:space="preserve"><value>Mimir（指標）</value></data>
+  <data name="Mc.Obs.Mimir.Tip" xml:space="preserve"><value>Mimir 指標儲存庫嘅就緒狀態（/ready）。紅色即係冇指標寫入緊。</value></data>
+  <data name="Mc.Obs.Up" xml:space="preserve"><value>正常</value></data>
+  <data name="Mc.Obs.Down" xml:space="preserve"><value>連唔到</value></data>
+  <data name="Mc.Obs.LogLines" xml:space="preserve"><value>日誌行數（1 小時）</value></data>
+  <data name="Mc.Obs.LogLines.Tip" xml:space="preserve"><value>過去一個鐘所有服務寫入 Loki 嘅日誌行數。</value></data>
+  <data name="Mc.Obs.ErrorLogs" xml:space="preserve"><value>錯誤日誌（1 小時）</value></data>
+  <data name="Mc.Obs.ErrorLogs.Tip" xml:space="preserve"><value>過去一個鐘所有服務嘅錯誤級別日誌行數。多過零就值得睇下。</value></data>
+  <data name="Mc.Obs.Traces" xml:space="preserve"><value>追蹤（1 小時）</value></data>
+  <data name="Mc.Obs.Traces.Tip" xml:space="preserve"><value>Tempo 搜尋喺過去一個鐘搵到嘅追蹤（上限 50 條）。</value></data>
+  <data name="Mc.Obs.Services" xml:space="preserve"><value>回報中嘅服務</value></data>
+  <data name="Mc.Obs.Services.Tip" xml:space="preserve"><value>HTTP 請求指標有落到 Mimir 嘅服務。</value></data>
 
   <!-- ===== Security ===== -->
   <data name="Sec.Title" xml:space="preserve"><value>保安</value></data>

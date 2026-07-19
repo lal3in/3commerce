@@ -35,11 +35,20 @@ if (( FRESH )); then
   scripts/dev-down.sh --clean >/dev/null 2>&1 || true
 fi
 
-echo "== 1/4 infra (Postgres + RabbitMQ + Kafka + Kafka-UI + pgAdmin) =="
+echo "== 1/4 infra (Postgres + RabbitMQ + Kafka + Kafka-UI + pgAdmin + LGTM observability) =="
 docker compose -f docker-compose.infra.yml --profile portals up -d
 for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
+# The observability profile lives in the app compose file, whose default network is the EXTERNAL
+# 3commerce-data one (owned by docker-compose.db.yml) — bare-run dev never runs that file, so
+# create the network here or compose refuses to start. Named services only: a bare
+# `--profile observability up` would also build/start the 13 app containers (they carry no
+# profile), which is exactly what bare-run dev must not do.
+docker network inspect 3commerce-data >/dev/null 2>&1 || docker network create 3commerce-data >/dev/null
+docker compose up -d --no-deps otel-collector prometheus grafana loki tempo mimir
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"
+echo "  Grafana (LGTM):       http://localhost:3001  (admin/admin)  ·  OTLP in: localhost:4317"
+echo "  Loki: http://localhost:3100 · Tempo: http://localhost:3200 · Mimir: http://localhost:9009"
 
 echo "== 2/4 build + migrate =="
 dotnet build 3commerce.sln >/dev/null

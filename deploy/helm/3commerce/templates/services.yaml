@@ -45,6 +45,10 @@ spec:
                   name: {{ $.Values.secret.name }}
                   key: InternalAuth__PublicKey
             {{- end }}
+            {{- if $.Values.observability.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317
+            {{- end }}
             - name: EventStreaming__Enabled
               value: {{ $.Values.kafka.enabled | quote }}
             - name: EventStreaming__BootstrapServers
