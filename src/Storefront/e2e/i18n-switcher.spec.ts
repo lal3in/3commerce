@@ -24,15 +24,16 @@ test.describe("Storefront i18n language switcher", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "zh");
     await expect(page.getByRole("heading", { name: "万物皆备，为您甄选。" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "商店" })).toBeVisible(); // header "Shop" → 商店
+    await expect(page.getByRole("link", { name: "商城" })).toBeVisible(); // header "Shop" → 商城 (messages/zh.json header.shop)
 
     // The choice persists across navigation for the session (cookie-backed, not URL-backed).
     await page.goto("/cart");
     await expect(page.locator("html")).toHaveAttribute("lang", "zh");
 
     // Switch back to English so the run leaves no sticky locale cookie for later specs.
+    // The page is still in Chinese here, so the switcher's accessible label is the zh one (语言).
     await page.goto("/");
-    await page.getByLabel("Language").selectOption("en");
+    await page.getByLabel("语言").selectOption("en");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 });
