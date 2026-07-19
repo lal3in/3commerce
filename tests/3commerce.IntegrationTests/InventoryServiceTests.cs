@@ -1,4 +1,6 @@
+using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
+using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.Fulfillment.Domain;
 using ThreeCommerce.Fulfillment.Infrastructure;
 
@@ -34,6 +36,54 @@ public class InventoryServiceTests(Phase4Fixture fixture)
         var rows = await WithServiceAsync(s => s.ListStockAsync(tenant, product, default));
         Assert.Equal(2, rows.Count);
         Assert.Equal(25, rows.Single(r => r.VariantId == variant).QuantityOnHand);
+    }
+
+    [Fact]
+    public async Task Stock_feed_publishes_availability_to_the_broker()
+    {
+        // Regression: AvailabilityNotifier runs AFTER its caller's SaveChangesAsync, and the bus
+        // outbox (UseBusOutbox) only ships publishes when the DbContext is saved — without the
+        // notifier's own save, the event stayed in unsaved outbox rows and Catalog's stock mirror
+        // never updated. This asserts the event actually reaches RabbitMQ, not just the DbContext.
+        var tenant = Guid.NewGuid();
+        var product = Guid.NewGuid();
+        var variant = Guid.NewGuid();
+
+        var received = new TaskCompletionSource<InventoryAvailabilityChanged>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probe = Bus.Factory.CreateUsingRabbitMq(cfg =>
+        {
+            cfg.Host(new Uri(fixture.RabbitMqUri));
+            cfg.ReceiveEndpoint($"availability-probe-{Guid.NewGuid():N}", endpoint =>
+            {
+                endpoint.AutoDelete = true;
+                endpoint.Durable = false;
+                endpoint.Handler<InventoryAvailabilityChanged>(context =>
+                {
+                    if (context.Message.VariantId == variant)
+                    {
+                        received.TrySetResult(context.Message);
+                    }
+
+                    return Task.CompletedTask;
+                });
+            });
+        });
+        await probe.StartAsync();
+        try
+        {
+            var location = await WithServiceAsync(s =>
+                s.CreateLocationAsync(tenant, Guid.NewGuid(), null, "DC-probe", LocationKind.TenantWarehouse, default));
+            await WithServiceAsync(s => s.SetStockAsync(tenant, location.Id, product, variant, 42, default));
+
+            // The outbox delivery service polls; give it a generous window before calling it dropped.
+            var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.Equal(42, message.Available);
+            Assert.Equal(product, message.ProductId);
+        }
+        finally
+        {
+            await probe.StopAsync();
+        }
     }
 
     [Fact]
