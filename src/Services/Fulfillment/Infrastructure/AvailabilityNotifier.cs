@@ -25,5 +25,12 @@ public sealed class AvailabilityNotifier(FulfillmentDbContext db, IPublishEndpoi
             var available = rows.Sum(r => Math.Max(0, r.QuantityOnHand - r.QuantityReserved));
             await publisher.Publish(new InventoryAvailabilityChanged(tenantId, key.ProductId, key.VariantId, available), ct);
         }
+
+        // The bus outbox (AddServiceBus<TDbContext> → UseBusOutbox) captures Publish into outbox
+        // rows on THIS DbContext — they only reach the broker when the context is saved. Every
+        // caller invokes this notifier AFTER its own SaveChangesAsync (it must: availability is
+        // computed from committed rows), so without this save the events are silently dropped
+        // and Catalog's stock mirror never updates.
+        await db.SaveChangesAsync(ct);
     }
 }
