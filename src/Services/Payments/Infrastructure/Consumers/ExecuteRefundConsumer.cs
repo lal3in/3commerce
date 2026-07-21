@@ -61,7 +61,9 @@ public sealed class ExecuteRefundConsumer(
             Status = RefundStatus.Completed,
             CreatedAt = time.GetUtcNow(),
         });
-        db.JournalEntries.Add(Ledger.Refund(msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow()));
+        db.JournalEntries.Add(Ledger.Refund(
+            msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow(),
+            payment.MethodKind, payment.Provider));
 
         payment.RefundedMinor += msg.AmountMinor;
         var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;

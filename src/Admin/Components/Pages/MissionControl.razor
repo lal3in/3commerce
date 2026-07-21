@@ -28,7 +28,19 @@
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem;">
         @KpiCard(L["Mc.Kpi.Orders"], _orders.Count.ToString(), "#4f46e5", L["Mc.Kpi.Orders.Tip"])
         @KpiCard(L["Mc.Kpi.Confirmed"], OrdersWith("Confirmed").ToString(), "#059669", L["Mc.Kpi.Confirmed.Tip"])
-        @KpiCard(L["Mc.Kpi.Revenue"], $"{RevenueMinor / 100m:0.00}", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
+        @* Revenue is per-currency — summing minor units across currencies is meaningless, so one
+           tile per currency present (code-prefixed, e.g. "EUR 59.05"). *@
+        @if (RevenueByCurrency.Count == 0)
+        {
+            @KpiCard(L["Mc.Kpi.Revenue"], "0.00", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
+        }
+        else
+        {
+            @foreach (var (currency, minor) in RevenueByCurrency)
+            {
+                @KpiCard(L["Mc.Kpi.Revenue"], $"{currency} {minor / 100m:0.00}", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
+            }
+        }
         @KpiCard(L["Mc.Kpi.Refunded"], OrdersWith("Refunded").ToString(), _orders.Any(o => o.Status == "Refunded") ? "#b45309" : "#059669", L["Mc.Kpi.Refunded.Tip"])
         @KpiCard(L["Mc.Kpi.Cancelled"], OrdersWith("Cancelled").ToString(), "#6b7280", L["Mc.Kpi.Cancelled.Tip"])
         @KpiCard(L["Mc.Kpi.RmasOpen"], RmasWith("Requested", "AwaitingReturn", "RefundPending").ToString(), RmasWith("Requested", "AwaitingReturn", "RefundPending") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasOpen.Tip"])
@@ -232,7 +244,13 @@
 
     private int OrdersWith(params string[] statuses) => _orders.Count(o => statuses.Contains(o.Status));
     private int RmasWith(params string[] states) => _rmas.Count(r => states.Contains(r.State));
-    private long RevenueMinor => _orders.Where(o => o.Status is "Confirmed" or "Refunded").Sum(o => o.GrossMinor);
+    // Gross of confirmed/refunded orders grouped by currency — never summed across currencies.
+    private List<(string Currency, long Minor)> RevenueByCurrency => _orders
+        .Where(o => o.Status is "Confirmed" or "Refunded")
+        .GroupBy(o => o.Currency)
+        .OrderBy(g => g.Key, StringComparer.Ordinal)
+        .Select(g => (g.Key, g.Sum(o => o.GrossMinor)))
+        .ToList();
     private int CheckoutsInState(params string[] states) => _checkouts.Where(c => states.Contains(c.State)).Sum(c => c.Count);
     private int SubsWith(params string[] statuses) => _subs.Count(s => statuses.Contains(s.Status));
     private int DropshipWith(params string[] statuses) => _dropship.Count(d => statuses.Contains(d.Status));
@@ -257,7 +275,7 @@
 
     private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
     private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
-    private record OrderKpiDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+    private record OrderKpiDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null);
     private record RmaKpiDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
     private record CheckoutCountDto(string State, int Count);
     private record SubKpiDto(Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);

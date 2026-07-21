@@ -333,6 +333,13 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>Commande</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>Total</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>Passée le</value></data>
+  <data name="Orders.Col.Payment" xml:space="preserve"><value>Paiement</value></data>
+  <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>Comment l'acheteur a choisi de payer lors du passage en caisse.</value></data>
+  <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>
+  <data name="Payment.Method.CreditCard" xml:space="preserve"><value>Carte de crédit</value></data>
+  <data name="Payment.Method.ApplePay" xml:space="preserve"><value>Apple Pay</value></data>
+  <data name="Payment.Method.GooglePay" xml:space="preserve"><value>Google Pay</value></data>
+  <data name="Payment.Method.PayPal" xml:space="preserve"><value>PayPal</value></data>
   <data name="Orders.Cancel" xml:space="preserve"><value>Annuler</value></data>
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Annulez cette commande non payée (la libère). Cliquez deux fois pour confirmer.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Rembourser</value></data>
@@ -363,6 +370,8 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>Description</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>Référence</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>Lignes</value></data>
+  <data name="Ledger.Col.When" xml:space="preserve"><value>Quand</value></data>
+  <data name="Ledger.Col.Currency" xml:space="preserve"><value>Devise</value></data>
 
   <!-- ===== Xero sync ===== -->
   <data name="Xero.Title" xml:space="preserve"><value>Synchronisation Xero</value></data>
@@ -1018,7 +1027,7 @@
   <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Confirmées</value></data>
   <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Commandes dont le paiement a été capturé.</value></data>
   <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Chiffre d'affaires</value></data>
-  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Total brut des commandes confirmées et remboursées (unités principales).</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Total brut des commandes confirmées et remboursées dans cette devise (unités principales) ; une tuile par devise.</value></data>
   <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Remboursées</value></data>
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Commandes intégralement remboursées.</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Annulées</value></data>

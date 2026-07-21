@@ -69,6 +69,11 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             p.HasIndex(x => x.OrderId).IsUnique();
             p.HasIndex(x => x.PaymentIntentId);
             p.Property(x => x.Currency).HasMaxLength(3);
+
+            // Numeric enum on the wire and at rest (platform invariant); legacy rows backfill to
+            // Card / stripe, which is exactly what they were before the column existed.
+            p.Property(x => x.MethodKind).HasDefaultValue(PaymentMethodKind.Card);
+            p.Property(x => x.Provider).HasMaxLength(40).HasDefaultValue(LedgerProviders.Default);
         });
 
         modelBuilder.Entity<Refund>(r => r.HasIndex(x => x.OrderId));

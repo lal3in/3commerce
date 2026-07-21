@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
+using ThreeCommerce.Payments.Api;
+using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure;
 
@@ -40,6 +42,76 @@ public class LedgerInvariantTests : IAsyncLifetime
         var debits = await db.JournalLines.SumAsync(l => l.DebitMinor);
         var credits = await db.JournalLines.SumAsync(l => l.CreditMinor);
         Assert.Equal(debits, credits); // trial balance zero
+    }
+
+    [Fact]
+    public async Task Provider_scoped_postings_commit_and_keep_the_trial_balance_zero()
+    {
+        await using var db = NewContext();
+        await db.Database.MigrateAsync();
+
+        // Two PSPs settling side by side: each keeps its own cash/fee accounts, and the whole
+        // book still nets to zero (attribution must never cost us NFR-1).
+        var now = DateTimeOffset.UtcNow;
+        var stripeOrder = Guid.CreateVersion7();
+        var paypalOrder = Guid.CreateVersion7();
+        db.JournalEntries.Add(Ledger.Sale(stripeOrder, 11_900, 1_900, 350, "EUR", now, PaymentMethodKind.GooglePay, "stripe"));
+        db.JournalEntries.Add(Ledger.Sale(paypalOrder, 8_000, 0, 200, "EUR", now, PaymentMethodKind.PayPal, "paypal"));
+        await db.SaveChangesAsync();
+
+        Assert.Equal(
+            await db.JournalLines.SumAsync(l => l.DebitMinor),
+            await db.JournalLines.SumAsync(l => l.CreditMinor));
+
+        var postedCodes = await db.JournalLines.Select(l => l.AccountCode).Distinct().ToListAsync();
+        Assert.Contains("cash.paypal", postedCodes);
+        Assert.Contains("expense.paypal_fees", postedCodes);
+        Assert.Contains(Accounts.CashStripe, postedCodes);
+
+        // The PaymentMethodKind migration backfills the pay_4 provider accounts into the chart, so
+        // an already-seeded database gets them without a reseed.
+        var chart = await db.LedgerAccounts.Select(a => a.Code).ToListAsync();
+        Assert.Contains("cash.paypal", chart);
+        Assert.Contains("cash.polar", chart);
+        Assert.Contains("cash.afterpay", chart);
+        Assert.Contains("expense.paypal_fees", chart);
+
+        var descriptions = await db.JournalEntries.Select(e => e.Description).ToListAsync();
+        Assert.Contains(descriptions, d => d.Contains("via GooglePay"));
+        Assert.Contains(descriptions, d => d.Contains("via PayPal"));
+    }
+
+    [Fact]
+    public async Task Seeder_repairs_a_chart_the_migration_backfill_already_populated()
+    {
+        await using var db = NewContext();
+        await db.Database.MigrateAsync();
+
+        // A freshly-migrated database does NOT have an empty chart: the PaymentMethodKind migration
+        // backfills the per-provider cash/fee accounts. Migrations always run before the app starts
+        // (dev-up, the Helm migrator job, CI), so this IS the first-boot state everywhere — an
+        // "any rows means seeded" guard would skip here and leave the base accounts missing, and
+        // every sale posting would fail against an account that does not exist.
+        var afterMigrate = await db.LedgerAccounts.Select(a => a.Code).ToListAsync();
+        Assert.NotEmpty(afterMigrate);
+        Assert.DoesNotContain(Accounts.RevenueSales, afterMigrate);
+
+        Assert.True(await ChartOfAccountsSeeder.SeedMissingAsync(db) > 0);
+
+        var chart = await db.LedgerAccounts.Select(a => a.Code).ToListAsync();
+        Assert.Contains(Accounts.RevenueSales, chart);
+        Assert.Contains(Accounts.CashStripe, chart);
+        Assert.Contains(Accounts.LiabilityTaxCollected, chart);
+        Assert.Contains("cash.paypal", chart);                    // backfilled rows survive…
+        Assert.Equal(chart.Count, chart.Distinct().Count());      // …and are not duplicated
+        Assert.Equal(0, await ChartOfAccountsSeeder.SeedMissingAsync(db)); // idempotent second pass
+
+        // Proof it is actually usable: a sale now posts and balances.
+        db.JournalEntries.Add(Ledger.Sale(Guid.CreateVersion7(), 11900, 1900, 350, "EUR", DateTimeOffset.UtcNow));
+        await db.SaveChangesAsync();
+        Assert.Equal(
+            await db.JournalLines.SumAsync(l => l.DebitMinor),
+            await db.JournalLines.SumAsync(l => l.CreditMinor));
     }
 
     [Fact]

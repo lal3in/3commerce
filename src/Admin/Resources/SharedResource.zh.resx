@@ -333,6 +333,13 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>订单</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>总计</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>下单时间</value></data>
+  <data name="Orders.Col.Payment" xml:space="preserve"><value>付款方式</value></data>
+  <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>买家在结账时选择的付款方式。</value></data>
+  <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>
+  <data name="Payment.Method.CreditCard" xml:space="preserve"><value>信用卡</value></data>
+  <data name="Payment.Method.ApplePay" xml:space="preserve"><value>Apple Pay</value></data>
+  <data name="Payment.Method.GooglePay" xml:space="preserve"><value>Google Pay</value></data>
+  <data name="Payment.Method.PayPal" xml:space="preserve"><value>PayPal</value></data>
   <data name="Orders.Cancel" xml:space="preserve"><value>取消</value></data>
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>取消此未付款订单（释放它）。点击两次以确认。</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>退款</value></data>
@@ -363,6 +370,8 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>描述</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>参考</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>明细行</value></data>
+  <data name="Ledger.Col.When" xml:space="preserve"><value>时间</value></data>
+  <data name="Ledger.Col.Currency" xml:space="preserve"><value>货币</value></data>
 
   <!-- ===== Xero sync ===== -->
   <data name="Xero.Title" xml:space="preserve"><value>Xero 同步</value></data>
@@ -1018,7 +1027,7 @@
   <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>已确认</value></data>
   <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>已完成付款扣款的订单。</value></data>
   <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>收入</value></data>
-  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>已确认和已退款订单的总额（主单位）。</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>该货币下已确认和已退款订单的总额（主单位）；每种货币一个卡片。</value></data>
   <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>已退款</value></data>
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>全额退款的订单。</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>已取消</value></data>

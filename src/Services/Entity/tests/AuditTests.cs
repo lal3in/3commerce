@@ -1,7 +1,10 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Streams;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Streams;
+using ThreeCommerce.Entity.Domain;
+using ThreeCommerce.Entity.Infrastructure;
 
 namespace ThreeCommerce.Entity.Tests;
 
@@ -178,6 +181,89 @@ public class SensitiveAuditTests
 
         Assert.True((await recorder.VerifyAsync(Tenant, default)).Intact);
         Assert.Equal(AuditOutcome.Denied, store.Entries[1].Outcome);
+    }
+}
+
+/// <summary>
+/// mt6_1: the supplier change-request service must record the DECIDING principal's role on every
+/// audit entry it writes — approved, rejected, and the maker-checker denial. The role used to be a
+/// hard-coded null, which made "who, in which role, approved this payout change" unanswerable.
+/// </summary>
+public class SupplierChangeRequestAuditTests
+{
+    private static readonly Guid Tenant = Guid.NewGuid();
+    private static readonly Guid Requester = Guid.NewGuid();
+    private static readonly Guid Approver = Guid.NewGuid();
+
+    private sealed record Harness(SupplierChangeRequestService Service, FakeAuditStore Store, EntityDbContext Db);
+
+    private static Harness NewHarness()
+    {
+        var db = new EntityDbContext(new DbContextOptionsBuilder<EntityDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+        var store = new FakeAuditStore();
+        var service = new SupplierChangeRequestService(db, new AuditRecorder(store, TimeProvider.System), TimeProvider.System);
+        return new Harness(service, store, db);
+    }
+
+    private static async Task<SupplierChangeRequest> OpenAsync(Harness harness) =>
+        await harness.Service.OpenAsync(
+            Tenant, Guid.NewGuid(), SupplierChangeRequestType.BankAccount, "Update payout account", "BSB ****123", Requester, default);
+
+    [Fact]
+    public async Task Approval_records_the_deciding_principals_role()
+    {
+        var harness = NewHarness();
+        var request = await OpenAsync(harness);
+
+        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "looks good", default);
+
+        var entry = Assert.Single(harness.Store.Entries);
+        Assert.Equal("supplier.change_request.approved", entry.Action);
+        Assert.Equal(Approver, entry.ActorId);
+        Assert.Equal("tenant_admin", entry.ActorRole);
+    }
+
+    [Fact]
+    public async Task Rejection_records_the_deciding_principals_role()
+    {
+        var harness = NewHarness();
+        var request = await OpenAsync(harness);
+
+        await harness.Service.RejectAsync(Tenant, request.Id, Approver, "compliance", "incomplete details", default);
+
+        var entry = Assert.Single(harness.Store.Entries);
+        Assert.Equal("supplier.change_request.rejected", entry.Action);
+        Assert.Equal("compliance", entry.ActorRole);
+    }
+
+    [Fact]
+    public async Task A_maker_checker_denial_records_the_attempting_principals_role()
+    {
+        var harness = NewHarness();
+        var request = await OpenAsync(harness);
+
+        // The requester deciding their own request is denied (ADR-0025) and audited as such.
+        await Assert.ThrowsAsync<DomainRuleException>(() =>
+            harness.Service.ApproveAsync(Tenant, request.Id, Requester, "tenant_admin", null, default));
+
+        var entry = Assert.Single(harness.Store.Entries);
+        Assert.Equal(AuditOutcome.Denied, entry.Outcome);
+        Assert.Equal(Requester, entry.ActorId);
+        Assert.Equal("tenant_admin", entry.ActorRole);
+        Assert.Contains("maker-checker", entry.Summary);
+    }
+
+    [Fact]
+    public async Task An_unauthenticated_actor_still_records_a_null_role_rather_than_failing()
+    {
+        var harness = NewHarness();
+        var request = await OpenAsync(harness);
+
+        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, null, null, default);
+
+        Assert.Null(Assert.Single(harness.Store.Entries).ActorRole);
     }
 }
 

@@ -36,6 +36,9 @@ services:
   rabbitmq:
     image: rabbitmq:4-management
     container_name: 3commerce-rabbitmq
+    volumes:
+      # Named, or the image's VOLUME /var/lib/rabbitmq leaks a new anonymous volume per recreate.
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 5s
@@ -304,6 +307,9 @@ services:
     profiles: ["observability"]
     volumes:
       - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Same anonymous-volume leak as rabbitmq (the image declares VOLUME /prometheus), and without
+      # it the scrape history dies with the container while Loki/Tempo/Mimir keep theirs.
+      - prometheus_data:/prometheus
     depends_on:
       - otel-collector
     restart: unless-stopped
@@ -327,11 +333,15 @@ services:
       - mimir
     restart: unless-stopped
 
-# Telemetry survives observability-stack restarts (plain `down` keeps named volumes).
+# Telemetry survives observability-stack restarts (plain `down` keeps named volumes). Every
+# stateful service here is named on purpose: an unmapped image VOLUME silently orphans a fresh
+# anonymous volume on each recreate, which accumulates as unattributable disk.
 volumes:
   loki_data:
   tempo_data:
   mimir_data:
+  prometheus_data:
+  rabbitmq_data:
 
 # The app's default network IS the external Postgres network (docker-compose.db.yml), so
 # every app container plus the external `postgres` resolve each other by name.
