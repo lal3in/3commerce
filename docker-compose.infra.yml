@@ -30,6 +30,12 @@ services:
     ports:
       - "5672:5672"    # AMQP
       - "15672:15672"  # management UI (guest/guest)
+    volumes:
+      # The image declares VOLUME /var/lib/rabbitmq, so WITHOUT this Docker mints a fresh anonymous
+      # volume on every container recreate and orphans the previous one — a slow disk leak that
+      # `docker volume ls` shows only as unreadable hashes. Naming it also keeps queue state across
+      # a normal `down`/`up`, matching how pgdata and kafka_data are treated here.
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 5s
@@ -125,3 +131,4 @@ volumes:
   pgdata:
   pgadmin_data:
   kafka_data:
+  rabbitmq_data:
