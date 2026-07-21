@@ -26,7 +26,7 @@ else if (_orders.Count == 0)
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">@L["Orders.Col.Order"]</th><th>@L["Common.Status"]</th><th>@L["Orders.Col.Total"]</th><th>@L["Orders.Col.Placed"]</th><th>@L["Common.Actions"]</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Orders.Col.Order"]</th><th>@L["Common.Status"]</th><th>@L["Orders.Col.Total"]</th><th title="@L["Orders.Col.Payment.Tip"]">@L["Orders.Col.Payment"]</th><th>@L["Orders.Col.Placed"]</th><th>@L["Common.Actions"]</th></tr></thead>
         <tbody>
         @foreach (var o in _orders)
         {
@@ -34,6 +34,7 @@ else
                 <td style="font-family:monospace;">@o.Id</td>
                 <td>@o.Status</td>
                 <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
+                <td>@PaymentLabel(o.PaymentOption)</td>
                 <td>@o.CreatedAt.LocalDateTime.ToString("g")</td>
                 <td>
                     @if (o.Status is "Pending" or "AwaitingPayment")
@@ -100,5 +101,16 @@ else
         }
     }
 
-    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+    // Localized label for the checkout payment option; unknown/legacy values fall back sensibly.
+    private string PaymentLabel(string? option) => option switch
+    {
+        "Stripe" => L["Payment.Method.Stripe"],
+        "ApplePay" => L["Payment.Method.ApplePay"],
+        "GooglePay" => L["Payment.Method.GooglePay"],
+        "PayPal" => L["Payment.Method.PayPal"],
+        null or "" or "CreditCard" => L["Payment.Method.CreditCard"],
+        _ => option, // future/unknown option — show the raw value rather than hiding it
+    };
+
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null);
 }

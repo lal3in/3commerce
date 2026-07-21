@@ -1,6 +1,6 @@
 # Grafana datasource provisioning: the LGTM backends behind the collector fan-out. Fixed uids so
-# the cross-links below (and dashboards) survive re-provisioning. Prometheus (prometheus.yml)
-# stays the default — the existing RED dashboard queries it.
+# the cross-links below (and dashboards) survive re-provisioning. All provisioned dashboards query
+# these uids — Prometheus (prometheus.yml) stays the default for ad-hoc exploration only.
 apiVersion: 1
 datasources:
   - name: Loki

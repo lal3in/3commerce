@@ -10,6 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/preflight.sh
 source scripts/lib/services.sh
+source scripts/lib/procs.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -62,9 +63,20 @@ scripts/run-all.sh start
 
 if (( WITH_FRONTENDS )); then
   echo "== frontends =="
-  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 npm run dev >/tmp/3c-storefront.log 2>&1 & )
-  ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >/tmp/3c-admin.log 2>&1 & )
-  ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >/tmp/3c-supplier-portal.log 2>&1 & )
+  mkdir -p .run
+  # These were fire-and-forget subshells with no .pid file, so `run-all.sh stop` could never reach
+  # them: every restart left the previous generation alive and holding the port, invisible to all
+  # the bookkeeping. Clear the port first, then record the pid like every other stack process.
+  reap_port 3000 storefront
+  reap_port 5200 admin
+  reap_port 5300 supplier-portal
+  # The pid redirection is set up by the parent shell, so `.run/...` still resolves after the cd.
+  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 nohup npm run dev >/tmp/3c-storefront.log 2>&1 & echo $! ) >.run/storefront.pid
+  nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >/tmp/3c-admin.log 2>&1 &
+  echo $! >.run/admin.pid
+  nohup env ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >/tmp/3c-supplier-portal.log 2>&1 &
+  echo $! >.run/supplier-portal.pid
+  disown -a 2>/dev/null || true
   echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"
 fi
 

@@ -7,16 +7,26 @@ namespace ThreeCommerce.Payments.Domain.Ledger;
 public static class Ledger
 {
     /// <summary>
-    /// A sale: cash in = net revenue + tax collected. Stripe fee (if any) is a
-    /// separate expense reducing cash.
+    /// A sale: cash in = net revenue + tax collected. The processing fee (if any) is a separate
+    /// expense reducing cash. Cash and fees post to the settling provider's accounts
+    /// (<c>cash.{provider}</c> / <c>expense.{provider}_fees</c>), and the description records the
+    /// shopper's method as "via {MethodKind}" so the admin ledger shows what was actually used.
     /// </summary>
     public static JournalEntry Sale(
-        Guid orderId, long grossMinor, long taxMinor, long feeMinor, string currency, DateTimeOffset now)
+        Guid orderId,
+        long grossMinor,
+        long taxMinor,
+        long feeMinor,
+        string currency,
+        DateTimeOffset now,
+        PaymentMethodKind methodKind = PaymentMethodKind.Card,
+        string? provider = null)
     {
         var netMinor = grossMinor - taxMinor;
-        var entry = NewEntry($"Sale for order {orderId}", orderId.ToString(), currency, now);
+        var cash = Accounts.CashFor(provider);
+        var entry = NewEntry($"Sale for order {orderId} via {methodKind}", orderId.ToString(), currency, now);
 
-        Debit(entry, Accounts.CashStripe, grossMinor);
+        Debit(entry, cash, grossMinor);
         Credit(entry, Accounts.RevenueSales, netMinor);
         if (taxMinor > 0)
         {
@@ -25,8 +35,8 @@ public static class Ledger
 
         if (feeMinor > 0)
         {
-            Debit(entry, Accounts.ExpenseStripeFees, feeMinor);
-            Credit(entry, Accounts.CashStripe, feeMinor);
+            Debit(entry, Accounts.FeesFor(provider), feeMinor);
+            Credit(entry, cash, feeMinor);
         }
 
         return entry;
@@ -34,10 +44,17 @@ public static class Ledger
 
     /// <summary>A refund reverses the sale: money out of cash, contra-revenue and tax back.</summary>
     public static JournalEntry Refund(
-        Guid refundId, Guid orderId, long grossMinor, long taxMinor, string currency, DateTimeOffset now)
+        Guid refundId,
+        Guid orderId,
+        long grossMinor,
+        long taxMinor,
+        string currency,
+        DateTimeOffset now,
+        PaymentMethodKind methodKind = PaymentMethodKind.Card,
+        string? provider = null)
     {
         var netMinor = grossMinor - taxMinor;
-        var entry = NewEntry($"Refund {refundId} for order {orderId}", refundId.ToString(), currency, now);
+        var entry = NewEntry($"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
 
         Debit(entry, Accounts.RevenueRefunds, netMinor);
         if (taxMinor > 0)
@@ -45,7 +62,7 @@ public static class Ledger
             Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
         }
 
-        Credit(entry, Accounts.CashStripe, grossMinor);
+        Credit(entry, Accounts.CashFor(provider), grossMinor);
         return entry;
     }
 

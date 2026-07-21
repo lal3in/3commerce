@@ -1,8 +1,11 @@
 # Grafana datasource provisioning (mt6_13): the Prometheus that scrapes the collector.
+# Without an explicit uid Grafana mints a random one per provisioning run, so no dashboard JSON
+# (and no deep link) can reference this datasource stably — pin it like the LGTM ones in lgtm.yml.
 apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true

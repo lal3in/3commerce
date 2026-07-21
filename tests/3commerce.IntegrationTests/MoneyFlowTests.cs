@@ -4,6 +4,8 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -258,6 +260,61 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         }
 
         throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+    }
+
+    [Theory]
+    [InlineData("GooglePay")]
+    [InlineData("ApplePay")]
+    [InlineData("PayPal")]
+    [InlineData("CreditCard")]
+    public async Task The_chosen_payment_method_survives_checkout_and_is_attributed_on_the_ledger(string paymentOption)
+    {
+        var productId = await fixture.SeedProductAsync(6_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+
+        var checkout = await shopper.PostAsJsonAsync("/checkout", new
+        {
+            email = "buyer@example.com",
+            shippingAddress = new { name = "B", line1 = "1 St", city = "Berlin", postcode = "10115", country = "DE" },
+            paymentOption,
+        });
+        checkout.EnsureSuccessStatusCode();
+        var order = (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        // "CreditCard" is the card default; the wallets/PSP options map to their own kind (ADR-0039).
+        var expectedKind = paymentOption == "CreditCard" ? PaymentMethodKind.Card : Enum.Parse<PaymentMethodKind>(paymentOption);
+
+        // The AuthorizePayment consumer persisted the method — it used to be dropped entirely.
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.Payments.Where(p => p.OrderId == order.OrderId));
+            Assert.Equal(expectedKind, payment.MethodKind);
+            Assert.Equal("stripe", payment.Provider); // the dev tenant's default PSP settles every wallet
+        }
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.JournalEntries.Where(e => e.Reference == order.OrderId.ToString()));
+            var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                db.JournalLines.Where(l => l.EntryId == entry.Id));
+
+            // The admin ledger renders Description — the method must be readable there.
+            Assert.Contains($"via {expectedKind}", entry.Description);
+
+            // Stripe settles, so cash stays on the seeded stripe accounts.
+            Assert.Contains(lines, l => l.AccountCode == Accounts.CashStripe && l.DebitMinor == order.GrossMinor);
+            Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
+        }
+
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
     private async Task<int> CountEntriesForAsync(Guid orderId)

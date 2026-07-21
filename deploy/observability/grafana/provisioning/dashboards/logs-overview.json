@@ -1,0 +1,71 @@
+{
+  "uid": "3commerce-logs-overview",
+  "title": "3commerce — Logs (Loki)",
+  "description": "Log volume and errors per service, straight off the OTLP ingest path. Ranges are literal ([5m]) rather than $__auto/$__interval so the exact panel expression is runnable as-is by the observability e2e spec, which asserts these queries return data. Only service_name/service_instance_id are stream labels; level and trace_id arrive as structured metadata, hence the `|` filters instead of label matchers.",
+  "tags": ["3commerce", "observability", "logs"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Log volume (lines/5m) by service",
+      "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum by (service_name) (count_over_time({service_name=~\".+\"}[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error-level volume (lines/5m) by service",
+      "type": "timeseries",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum by (service_name) (count_over_time({service_name=~\".+\"} | detected_level =~ \"error|critical\" [5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Live tail — all services",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "{service_name=~\".+\"}",
+          "maxLines": 200
+        }
+      ]
+    }
+  ]
+}

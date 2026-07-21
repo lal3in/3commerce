@@ -521,7 +521,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            var decided = await service.ApproveAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -540,7 +540,7 @@ public static class EntityEndpoints
     {
         try
         {
-            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), request.Reason, cancellationToken);
+            var decided = await service.RejectAsync(tenantId, requestId, ActingPrincipal(http), ActingRole(http), request.Reason, cancellationToken);
             return decided is null ? TypedResults.NotFound() : TypedResults.Ok(ToResponse(decided));
         }
         catch (DomainRuleException ex)
@@ -604,6 +604,10 @@ public static class EntityEndpoints
     // so maker-checker (approver != requester) cannot be spoofed.
     private static Guid ActingPrincipal(HttpContext http) =>
         Guid.TryParse(http.User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
+
+    // The acting ROLE for the audit entry, from the same internal claims the AuditActor convention
+    // uses (mt6_1) — so a maker-checker decision records who decided AND in which role.
+    private static string? ActingRole(HttpContext http) => http.User.AuditActor().ActorRole;
 
     private static CustomerEntityLinkResponse ToResponse(CustomerEntityLink link) => new(
         link.Id,

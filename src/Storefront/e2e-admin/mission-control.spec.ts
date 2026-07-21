@@ -30,6 +30,12 @@ test.describe("Mission Control monitors", () => {
       await expect(page.getByText(label, { exact: false }).first()).toBeVisible();
     }
 
+    // Revenue is per-currency: each Revenue tile's value is prefixed with its ISO currency code
+    // (e.g. "EUR 59.05"); with no confirmed orders a single "0.00" placeholder tile renders.
+    const revenueTile = page.locator("div[title]", { hasText: "Revenue" }).first();
+    await expect(revenueTile).toBeVisible();
+    await expect(revenueTile).toContainText(/[A-Z]{3} [\d,]+\.\d\d|0\.00/);
+
     // No raw resource keys leaked (localization resolved).
     await expect(page.locator("body")).not.toContainText("Mc.Kpi");
     await expect(page.locator("body")).not.toContainText("Mc.Commerce");

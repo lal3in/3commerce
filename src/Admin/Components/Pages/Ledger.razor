@@ -8,11 +8,11 @@
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Lines"]</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th>@L["Ledger.Col.Lines"]</th></tr></thead>
         <tbody>
         @foreach (var e in _entries)
         {
-            <tr style="border-top:1px solid #e5e7eb;"><td>@e.Description</td><td>@e.Reference</td>
+            <tr style="border-top:1px solid #e5e7eb;"><td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td><td>@e.Description</td><td>@e.Reference</td><td style="text-align:center;">@e.Currency</td>
                 <td>@string.Join(", ", e.Lines.Select(l => $"{l.AccountCode} {(l.DebitMinor>0?"D":"C")}{(l.DebitMinor>0?l.DebitMinor:l.CreditMinor)/100m:0.00}"))</td></tr>
         }
         </tbody>

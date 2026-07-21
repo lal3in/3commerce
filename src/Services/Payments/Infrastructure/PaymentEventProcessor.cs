@@ -44,7 +44,8 @@ public sealed class PaymentEventProcessor(
             case PaymentWebhookKind.PaymentSucceeded when payment.Status != PaymentStatus.Succeeded:
                 payment.Status = PaymentStatus.Succeeded;
                 db.JournalEntries.Add(Ledger.Sale(
-                    payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow()));
+                    payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
+                    payment.MethodKind, payment.Provider));
                 await publisher.Publish(new PaymentSucceeded(payment.OrderId, payment.PaymentIntentId, payment.AmountMinor), ct);
                 break;
 

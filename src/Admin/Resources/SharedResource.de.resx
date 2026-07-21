@@ -333,6 +333,13 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>Gesamt</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>Aufgegeben</value></data>
+  <data name="Orders.Col.Payment" xml:space="preserve"><value>Zahlung</value></data>
+  <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>Wie der Käufer beim Checkout bezahlen wollte.</value></data>
+  <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>
+  <data name="Payment.Method.CreditCard" xml:space="preserve"><value>Kreditkarte</value></data>
+  <data name="Payment.Method.ApplePay" xml:space="preserve"><value>Apple Pay</value></data>
+  <data name="Payment.Method.GooglePay" xml:space="preserve"><value>Google Pay</value></data>
+  <data name="Payment.Method.PayPal" xml:space="preserve"><value>PayPal</value></data>
   <data name="Orders.Cancel" xml:space="preserve"><value>Stornieren</value></data>
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Stornieren Sie diese unbezahlte Bestellung (gibt sie frei). Zum Bestätigen zweimal klicken.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Erstatten</value></data>
@@ -363,6 +370,8 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>Beschreibung</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>Referenz</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>Zeilen</value></data>
+  <data name="Ledger.Col.When" xml:space="preserve"><value>Wann</value></data>
+  <data name="Ledger.Col.Currency" xml:space="preserve"><value>Währung</value></data>
 
   <!-- ===== Xero sync ===== -->
   <data name="Xero.Title" xml:space="preserve"><value>Xero-Synchronisierung</value></data>
@@ -1018,7 +1027,7 @@
   <data name="Mc.Kpi.Confirmed" xml:space="preserve"><value>Bestätigt</value></data>
   <data name="Mc.Kpi.Confirmed.Tip" xml:space="preserve"><value>Bestellungen, deren Zahlung eingezogen wurde.</value></data>
   <data name="Mc.Kpi.Revenue" xml:space="preserve"><value>Umsatz</value></data>
-  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Bruttosumme bestätigter und rückerstatteter Bestellungen (Haupteinheiten).</value></data>
+  <data name="Mc.Kpi.Revenue.Tip" xml:space="preserve"><value>Bruttosumme bestätigter und rückerstatteter Bestellungen in dieser Währung (Haupteinheiten); eine Kachel pro Währung.</value></data>
   <data name="Mc.Kpi.Refunded" xml:space="preserve"><value>Rückerstattet</value></data>
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Vollständig rückerstattete Bestellungen.</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Storniert</value></data>

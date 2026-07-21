@@ -1,6 +1,7 @@
 # OTel Collector (mt6_13): the single OTLP door for every service; fans each signal out to the
 # LGTM stack — traces → Tempo, logs → Loki, metrics → Prometheus scrape + Mimir remote-write.
-# Prometheus stays alongside Mimir because the existing RED dashboard queries it.
+# Both metric exporters stay: Mimir is what the dashboards query (durable, host-reachable), while
+# the Prometheus scrape target remains a zero-dependency local view for debugging the collector.
 receivers:
   otlp:
     protocols:

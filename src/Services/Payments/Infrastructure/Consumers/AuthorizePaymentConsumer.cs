@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
@@ -41,6 +42,17 @@ public sealed class AuthorizePaymentConsumer(
                     existing.ProviderCustomerId,
                     existing.ProviderPaymentMethodId),
                 context.CancellationToken);
+
+            // A retried checkout may carry a different paymentOption (the shopper switched wallet):
+            // keep the persisted method in step so the ledger attributes what was actually used.
+            var settlingProvider = LedgerProviders.Normalize(account.Provider);
+            if (existing.MethodKind != methodKind || existing.Provider != settlingProvider)
+            {
+                existing.MethodKind = methodKind;
+                existing.Provider = settlingProvider;
+                await db.SaveChangesAsync(context.CancellationToken);
+            }
+
             await context.RespondAsync(new AuthorizePaymentResult(
                 existing.PaymentIntentId, existingIntent.ClientSecret ?? string.Empty, existing.AmountMinor, existing.TaxMinor));
             return;
@@ -77,6 +89,10 @@ public sealed class AuthorizePaymentConsumer(
             TaxMinor = 0, // tax lives on the Ordering attempt/order, not the payment
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
+            // The shopper's chosen method and the settling PSP, both persisted so the ledger can
+            // attribute the sale (cash.{provider}, "via {MethodKind}") instead of assuming Stripe.
+            MethodKind = methodKind,
+            Provider = LedgerProviders.Normalize(account.Provider),
             ProviderCustomerId = providerCustomerId,
             ProviderPaymentMethodId = providerPaymentMethodId,
             SavePaymentMethodRequested = msg.SavePaymentMethod,

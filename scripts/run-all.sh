@@ -5,17 +5,31 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh
+source scripts/lib/procs.sh
 
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH"
 RUN_DIR=.run; mkdir -p "$RUN_DIR"
 APPS=( "${EDGE[@]}" "${SERVICES[@]}" )
 
+# Started by dev-up.sh --with-frontends rather than here, but `stop` must still reach them or they
+# linger holding :3000/:5200/:5300 — exactly how three-day-old orphans survived a whole reboot.
+FRONTENDS=( "storefront:3000" "admin:5200" "supplier-portal:5300" )
+
 stop_all() {
   for entry in "${APPS[@]}"; do
-    name="${entry%%:*}"
-    [[ -f "$RUN_DIR/$name.pid" ]] && { kill "$(cat "$RUN_DIR/$name.pid")" 2>/dev/null || true; rm -f "$RUN_DIR/$name.pid"; }
+    name="${entry%%:*}"; rest="${entry#*:}"; port="${rest##*:}"
+    [[ -f "$RUN_DIR/$name.pid" ]] && { kill -TERM "$(cat "$RUN_DIR/$name.pid")" 2>/dev/null || true; rm -f "$RUN_DIR/$name.pid"; }
+    # The recorded pid is only the `dotnet run` wrapper — confirm the port actually came free
+    # instead of trusting the kill, or the app child lives on untracked.
+    reap_port "$port" "$name"
   done
+  for entry in "${FRONTENDS[@]}"; do
+    name="${entry%%:*}"; port="${entry##*:}"
+    [[ -f "$RUN_DIR/$name.pid" ]] && { kill -TERM "$(cat "$RUN_DIR/$name.pid")" 2>/dev/null || true; rm -f "$RUN_DIR/$name.pid"; }
+    reap_port "$port" "$name"
+  done
+  prune_stale_pids "$RUN_DIR"
   echo "stopped"
 }
 
@@ -43,6 +57,10 @@ start_all() {
     # explicitly-empty OTEL_EXPORTER_OTLP_ENDPOINT= still opts a run back out to console traces.
     e+=( "OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" )
     [[ -n "$port" ]] && e+=( "ASPNETCORE_URLS=http://localhost:$port" )
+    # Clear the port BEFORE overwriting the .pid file below: whatever still holds it is a stray
+    # from an earlier run that would otherwise become untrackable (and would win the bind, leaving
+    # this generation dead on arrival while the stale code keeps serving).
+    reap_port "$port" "$name"
     nohup env "${e[@]}" dotnet run --project "$path" --no-build >"$RUN_DIR/$name.log" 2>&1 &
     echo $! >"$RUN_DIR/$name.pid"; disown; echo "started $name${port:+ (:$port)} (pid $!)"
   done

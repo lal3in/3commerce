@@ -1,0 +1,77 @@
+{
+  "uid": "3commerce-traces-overview",
+  "title": "3commerce — Traces (Tempo)",
+  "description": "Recent, slow and failed traces via TraceQL search. Tempo runs without a metrics-generator here (no span metrics, no service graph), so latency is shown as the slowest traces rather than a generated histogram — the request-duration histogram already lives on the Services (RED) dashboard. Click a Trace ID to open the trace; tracesToLogsV2 (see lgtm.yml) jumps from a span to its Loki logs. Grafana runs TraceQL search in the browser, not in the Tempo backend plugin, so /api/ds/query cannot execute these panels — the e2e spec verifies them through the datasource proxy to Tempo's /api/search instead.",
+  "tags": ["3commerce", "observability", "traces"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "tempo", "uid": "tempo" },
+        "query": { "type": "tagValues", "tag": "resource.service.name" },
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": false,
+        "refresh": 2,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recent traces — $service",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{resource.service.name=~\"$service\"}",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Slowest traces (> 200ms)",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{duration > 200ms}",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Failed traces (span status = error)",
+      "type": "table",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{status = error}",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ]
+    }
+  ]
+}

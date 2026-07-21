@@ -27,8 +27,12 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    /// <param name="approverRole">
+    /// The deciding principal's <c>role</c> claim (mt6_1) — recorded on the audit entry so a
+    /// maker-checker decision shows WHO, in WHICH role, decided. Null only when unauthenticated.
+    /// </param>
     public async Task<SupplierChangeRequest?> ApproveAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, string? reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -42,19 +46,20 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {
-            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, "supplier.change_request.approve", ex.Message, cancellationToken);
+            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, approverRole, "supplier.change_request.approve", ex.Message, cancellationToken);
             throw;
         }
 
         await audit.RecordAsync(AuditCategories.Mutation(
-            tenantId, approverPrincipalId, null, "SupplierChangeRequest", requestId.ToString(),
+            tenantId, approverPrincipalId, approverRole, "SupplierChangeRequest", requestId.ToString(),
             "supplier.change_request.approved", request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
     }
 
+    /// <param name="approverRole">The deciding principal's <c>role</c> claim — recorded on the audit entry (mt6_1).</param>
     public async Task<SupplierChangeRequest?> RejectAsync(
-        Guid tenantId, Guid requestId, Guid approverPrincipalId, string reason, CancellationToken cancellationToken)
+        Guid tenantId, Guid requestId, Guid approverPrincipalId, string? approverRole, string reason, CancellationToken cancellationToken)
     {
         var request = await LoadAsync(tenantId, requestId, cancellationToken);
         if (request is null)
@@ -68,22 +73,22 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
         }
         catch (DomainRuleException ex) when (approverPrincipalId == request.RequestedByPrincipalId)
         {
-            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, "supplier.change_request.reject", ex.Message, cancellationToken);
+            await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, approverRole, "supplier.change_request.reject", ex.Message, cancellationToken);
             throw;
         }
 
         await audit.RecordAsync(AuditCategories.Mutation(
-            tenantId, approverPrincipalId, null, "SupplierChangeRequest", requestId.ToString(),
+            tenantId, approverPrincipalId, approverRole, "SupplierChangeRequest", requestId.ToString(),
             "supplier.change_request.rejected", request.Type.ToString()), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return request;
     }
 
     // Record a high-risk denied attempt (mt6_2) — e.g. a requester trying to decide their own request.
-    private async Task RecordDeniedAsync(Guid tenantId, Guid requestId, Guid actorId, string action, string reason, CancellationToken ct)
+    private async Task RecordDeniedAsync(Guid tenantId, Guid requestId, Guid actorId, string? actorRole, string action, string reason, CancellationToken ct)
     {
         await audit.RecordAsync(AuditCategories.DeniedAttempt(
-            tenantId, actorId, null, "SupplierChangeRequest", requestId.ToString(), action, reason), ct);
+            tenantId, actorId, actorRole, "SupplierChangeRequest", requestId.ToString(), action, reason), ct);
         await db.SaveChangesAsync(ct);
     }
 
