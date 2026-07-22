@@ -285,14 +285,20 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         // "CreditCard" is the card default; the wallets/PSP options map to their own kind (ADR-0039).
         var expectedKind = paymentOption == "CreditCard" ? PaymentMethodKind.Card : Enum.Parse<PaymentMethodKind>(paymentOption);
 
-        // The AuthorizePayment consumer persisted the method — it used to be dropped entirely.
+        // Card / Apple Pay / Google Pay are tokenized through the card PSP, so they still settle on the
+        // tenant default (stripe → cash.stripe). PayPal is a standalone PSP: it routes to paypal and the
+        // sale must post to cash.paypal (ADR-0039 payment-method routing).
+        var expectedProvider = paymentOption == "PayPal" ? "paypal" : "stripe";
+        var expectedCash = Accounts.CashFor(expectedProvider);
+
+        // The AuthorizePayment consumer persisted the method AND the routed settling provider.
         using (var scope = fixture.Payments.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
             var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
                 db.Payments.Where(p => p.OrderId == order.OrderId));
             Assert.Equal(expectedKind, payment.MethodKind);
-            Assert.Equal("stripe", payment.Provider); // the dev tenant's default PSP settles every wallet
+            Assert.Equal(expectedProvider, payment.Provider);
         }
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
@@ -309,8 +315,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
             // The admin ledger renders Description — the method must be readable there.
             Assert.Contains($"via {expectedKind}", entry.Description);
 
-            // Stripe settles, so cash stays on the seeded stripe accounts.
-            Assert.Contains(lines, l => l.AccountCode == Accounts.CashStripe && l.DebitMinor == order.GrossMinor);
+            // The sale debits the settling provider's cash account: cash.stripe for the card PSP,
+            // cash.paypal when PayPal settled it.
+            Assert.Contains(lines, l => l.AccountCode == expectedCash && l.DebitMinor == order.GrossMinor);
             Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
         }
 

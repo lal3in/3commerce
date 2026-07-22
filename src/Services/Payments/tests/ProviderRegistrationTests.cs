@@ -86,6 +86,61 @@ public class ProviderRegistrationTests
         Assert.Equal(PaymentMethodKind.ApplePay, PaymentMethodKindMapper.From("ApplePay"));
     }
 
+    // ---------------------------------------- method → settling-provider routing (ADR-0039 PSP routing)
+
+    [Theory]
+    [InlineData(PaymentMethodKind.Card, null)]        // card PSP → default account provider
+    [InlineData(PaymentMethodKind.ApplePay, null)]    // wallet through the card PSP
+    [InlineData(PaymentMethodKind.GooglePay, null)]   // wallet through the card PSP
+    [InlineData(PaymentMethodKind.PayPal, "paypal")]  // standalone PSP → cash.paypal
+    [InlineData(PaymentMethodKind.Afterpay, "afterpay")]
+    [InlineData(PaymentMethodKind.Polar, "polar")]
+    public void Method_kinds_route_to_their_settling_provider(PaymentMethodKind kind, string? expected)
+    {
+        Assert.Equal(expected, PaymentMethodKindMapper.SettlingProviderFor(kind));
+    }
+
+    [Theory]
+    [InlineData("paypal")]
+    [InlineData("afterpay")]
+    [InlineData("polar")]
+    public void Account_for_provider_carries_the_routed_key_with_mode_from_host(string provider)
+    {
+        // Sandbox host → Test account mode; the routed provider is carried verbatim so the registry
+        // keys on it (and the persisted Payment.Provider becomes that PSP → cash.{provider}).
+        var resolver = new PaymentModeResolver(
+            PaymentTestSupport.Config(("Payments:Mode", "Sandbox")), PaymentTestSupport.Env(Environments.Production));
+        var account = resolver.AccountForProvider(provider);
+
+        Assert.Equal(provider, account.Provider);
+        Assert.Equal(PaymentProviderMode.Test, account.Mode);
+        Assert.Equal(PaymentMode.Sandbox, resolver.Resolve(account)); // does not throw for the routed path
+
+        // Production host → Live account mode (mirrors DefaultAccountForHost exactly).
+        var prod = new PaymentModeResolver(
+            PaymentTestSupport.Config(("Payments:Mode", "Production")), PaymentTestSupport.Env(Environments.Production));
+        Assert.Equal(PaymentProviderMode.Live, prod.AccountForProvider(provider).Mode);
+    }
+
+    [Fact]
+    public void Account_for_provider_resolves_the_mock_adapter_in_localmock()
+    {
+        // Dev safety: LocalMock overrides the declared provider, so a routed paypal/afterpay/polar
+        // account still processes through the mock while Payment.Provider becomes the routed PSP.
+        var config = PaymentTestSupport.Config(("Payments:Mode", "LocalMock"));
+        var resolver = new PaymentModeResolver(config, PaymentTestSupport.Env(Environments.Development));
+        var registry = new PaymentProviderRegistry(
+        [
+            new FakePaymentProvider(),
+            new StripePaymentProvider(config),
+            new PayPalPaymentProvider(config),
+        ], resolver);
+        var account = resolver.AccountForProvider("paypal");
+
+        Assert.Equal(PaymentMode.LocalMock, resolver.Resolve(account)); // never throws in dev
+        Assert.Equal("mock", registry.Resolve(account).ProviderKey);
+    }
+
     // -------------------------------------------------------- sandbox/production endpoint gating
 
     [Theory]

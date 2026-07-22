@@ -69,4 +69,20 @@ public sealed class PaymentModeResolver(IConfiguration configuration, IHostEnvir
         var accountMode = host == PaymentMode.Production ? PaymentProviderMode.Live : PaymentProviderMode.Test;
         return new PaymentAccountSnapshot(Guid.Empty, Guid.Empty, null, provider, accountMode, null);
     }
+
+    /// <summary>
+    /// A synthetic account for a SPECIFIC settling provider (payment-method routing, ADR-0039), used
+    /// when the shopper's chosen method maps to a standalone PSP (PayPal/Afterpay/Polar) rather than
+    /// the tenant default. Mirrors <see cref="DefaultAccountForHost"/> exactly — same host→mode logic
+    /// (Production→Live, else Test) so <see cref="Resolve"/> never throws for the routed path — but
+    /// carries <paramref name="providerKey"/> instead of <c>Payments:DefaultProvider</c>. Dev has zero
+    /// rows in <c>payments.PaymentAccounts</c>, so a synthetic snapshot keeps dev working with no
+    /// seeding (in LocalMock the mock adapter settles regardless of the declared provider).
+    /// </summary>
+    public PaymentAccountSnapshot AccountForProvider(string providerKey)
+    {
+        var host = ResolveHostMode();
+        var accountMode = host == PaymentMode.Production ? PaymentProviderMode.Live : PaymentProviderMode.Test;
+        return new PaymentAccountSnapshot(Guid.Empty, Guid.Empty, null, providerKey, accountMode, null);
+    }
 }

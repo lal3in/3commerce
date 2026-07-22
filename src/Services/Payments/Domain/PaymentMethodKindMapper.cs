@@ -19,4 +19,20 @@ public static class PaymentMethodKindMapper
         "Polar" => PaymentMethodKind.Polar,
         _ => PaymentMethodKind.Card, // "Stripe" / "CreditCard" / unknown → card
     };
+
+    /// <summary>
+    /// Routes a <see cref="PaymentMethodKind"/> to the provider key that should SETTLE it (ADR-0039).
+    /// Card / Apple Pay / Google Pay are card-PSP methods — Apple/Google Pay are wallet UIs tokenized
+    /// THROUGH the card PSP — so they return <c>null</c>, meaning "settle on the card PSP / the tenant
+    /// default account's provider" (today stripe). PayPal, Afterpay and Polar are standalone PSPs, so
+    /// they settle on their own provider and post to <c>cash.{provider}</c>. Keys are lowercase and
+    /// consistent with <c>LedgerProviders.Known</c> and each adapter's <c>ProviderKey</c>.
+    /// </summary>
+    public static string? SettlingProviderFor(PaymentMethodKind methodKind) => methodKind switch
+    {
+        PaymentMethodKind.PayPal => "paypal",
+        PaymentMethodKind.Afterpay => "afterpay",
+        PaymentMethodKind.Polar => "polar",
+        _ => null, // Card / ApplePay / GooglePay → the card PSP (default account provider)
+    };
 }
