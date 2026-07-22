@@ -23,11 +23,13 @@ public sealed class AuthorizePaymentConsumer(
     public async Task Consume(ConsumeContext<AuthorizePayment> context)
     {
         var msg = context.Message;
-        var account = modeResolver.DefaultAccountForHost();
-        var provider = registry.Resolve(account);
-        // Map checkout's paymentOption → numeric PaymentMethodKind (ADR-0039). Apple/Google Pay are
-        // wallets tokenized through the account's PSP, so the kind is recorded but the PSP is unchanged.
+        // Map checkout's paymentOption → numeric PaymentMethodKind (ADR-0039), then route the method to
+        // the PSP that settles it. Card/Apple Pay/Google Pay stay on the card PSP (the tenant default
+        // account); PayPal/Afterpay/Polar are standalone PSPs and settle on their own provider so the
+        // ledger posts to cash.{provider}. Applies to both the create and the retry branch below, so a
+        // shopper switching wallet on retry re-attributes correctly.
         var methodKind = PaymentMethodKindMapper.From(msg.PaymentOption);
+        var (account, provider) = ResolveSettlement(methodKind);
         var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         if (existing is not null)
         {
@@ -101,5 +103,33 @@ public sealed class AuthorizePaymentConsumer(
         await db.SaveChangesAsync(context.CancellationToken);
 
         await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret ?? string.Empty, grossMinor, TaxMinor: 0));
+    }
+
+    /// <summary>
+    /// Selects the settling account + adapter for <paramref name="methodKind"/> (ADR-0039 routing).
+    /// A standalone PSP (PayPal/Afterpay/Polar) settles on its own account; everything else (and any
+    /// routed PSP that cannot be resolved) settles on the tenant default (the card PSP). The fallback
+    /// keeps a shopper's PayPal click from crashing checkout when the routed provider has no usable
+    /// adapter/account/creds in a non-mock mode — we degrade to the default rather than throwing. In
+    /// LocalMock the mock adapter is returned regardless of the routed provider, so dev still processes
+    /// through the mock while the persisted provider becomes the routed PSP (ledger → cash.paypal).
+    /// </summary>
+    private (PaymentAccountSnapshot Account, IPaymentProvider Provider) ResolveSettlement(PaymentMethodKind methodKind)
+    {
+        if (PaymentMethodKindMapper.SettlingProviderFor(methodKind) is { Length: > 0 } routedKey)
+        {
+            var routed = modeResolver.AccountForProvider(routedKey);
+            try
+            {
+                return (routed, registry.Resolve(routed));
+            }
+            catch (Exception ex) when (ex is PaymentConfigurationException or PaymentModeException)
+            {
+                // No usable adapter/account for the routed PSP in this mode — fall back to the default.
+            }
+        }
+
+        var fallback = modeResolver.DefaultAccountForHost();
+        return (fallback, registry.Resolve(fallback));
     }
 }
