@@ -14,10 +14,11 @@ case "${1:-}" in
   *) echo "Unknown argument: $1 (expected --clean|-v)" >&2; exit 2 ;;
 esac
 
+# run-all.sh stop now reaps the frontends too (by pid file, then by port). The `pkill -f` calls
+# that used to live here were both a documented hazard (a pattern can match unrelated processes)
+# and quietly ineffective: "next dev -p 3000" never matched the real command line, so every
+# teardown left the storefront running — the source of orphans that survived for days.
 scripts/run-all.sh stop || true
-pkill -f "next dev -p 3000" 2>/dev/null || true
-pkill -f "3commerce.Admin" 2>/dev/null || true
-pkill -f "3commerce.SupplierPortal" 2>/dev/null || true
 docker compose -f docker-compose.infra.yml --profile portals down $DOWN_ARGS
 # Observability rides the app compose file — `rm -sf` (not `down`) so a containerized full stack
 # (launch.sh), if one is running, is left alone. Telemetry volumes are kept, mirroring pgdata.
