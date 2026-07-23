@@ -58,8 +58,12 @@ public static class OfferEndpoints
             db.Offers.Add(offer);
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.create", offer.ProductId.ToString()), ct);
-            await db.SaveChangesAsync(ct);
+            // Publish BEFORE Save so the OfferChanged outbox row commits in the same transaction and
+            // is actually delivered. Publishing after SaveChanges strands it in the change tracker
+            // (never flushed) — Ordering's OfferCopy projection then never fires, so subscription/usage
+            // offers silently degrade to OneTime/Once at checkout (same outbox trap as the RMA/availability paths).
             await publisher.Publish(ToEvent(offer), ct);
+            await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/admin/offers/{offer.Id}", ToDto(offer));
         }
         catch (CatalogRuleException ex)
@@ -114,8 +118,9 @@ public static class OfferEndpoints
 
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.update", offer.ProductId.ToString()), ct);
-            await db.SaveChangesAsync(ct);
+            // Publish before Save (see Create) so the OfferChanged outbox row is committed and delivered.
             await publisher.Publish(ToEvent(offer), ct);
+            await db.SaveChangesAsync(ct);
             return TypedResults.Ok(ToDto(offer));
         }
         catch (CatalogRuleException ex)
