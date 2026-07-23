@@ -15,6 +15,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 public sealed class ExecuteRefundConsumer(
     PaymentsDbContext db,
     IPaymentProviderRegistry registry,
+    PaymentModeResolver modeResolver,
     TimeProvider time,
     ILogger<ExecuteRefundConsumer> logger) : IConsumer<RefundRequested>
 {
@@ -40,7 +41,10 @@ public sealed class ExecuteRefundConsumer(
             return;
         }
 
-        var provider = registry.ResolveDefault();
+        // Refund through the PSP that actually settled the sale (payment.Provider), not the host
+        // default — otherwise a PayPal/Polar/Afterpay sale is refunded down Stripe's rail while the
+        // ledger credits cash.{provider}, so rail and books disagree (ADR-0039).
+        var provider = RefundProviderResolver.ForPayment(registry, modeResolver, payment.Provider);
         var result = await provider.RefundAsync(payment.PaymentIntentId, msg.AmountMinor, msg.RefundId.ToString(), context.CancellationToken);
         if (!result.Succeeded)
         {
