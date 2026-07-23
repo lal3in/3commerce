@@ -1078,4 +1078,57 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>Füllen Sie diese aus, um eine lieferantenbereite Entität zu erstellen (vor der Verifizierung alle erforderlich). Leer lassen, um später über Details hinzuzufügen.</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>Primäre E-Mail (z. B. accounts@company.com)</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Eine primäre oder Betriebs-E-Mail — für die Lieferantenverifizierung erforderlich.</value></data>
+  <data name="Nav.Subscriptions" xml:space="preserve"><value>Abonnements</value></data>
+  <data name="Nav.Subscriptions.Tip" xml:space="preserve"><value>Wiederkehrende Abonnements — Verlängerungsverlauf, verlängern oder kündigen.</value></data>
+  <data name="Subs.Title" xml:space="preserve"><value>Abonnements</value></data>
+  <data name="Subs.Intro" xml:space="preserve"><value>Wiederkehrende Abrechnungen — Status, aktueller Zeitraum und vollständiger Verlängerungsverlauf.</value></data>
+  <data name="Subs.Filter.Label" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Filter.Tip" xml:space="preserve"><value>Nur Abonnements mit dem gewählten Status anzeigen.</value></data>
+  <data name="Subs.Filter.All" xml:space="preserve"><value>Alle</value></data>
+  <data name="Subs.Filter.Active" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Subs.Filter.PastDue" xml:space="preserve"><value>Überfällig</value></data>
+  <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>Gekündigt</value></data>
+  <data name="Subs.Col.Subscriber" xml:space="preserve"><value>Abonnent</value></data>
+  <data name="Subs.Col.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="Subs.Col.Product.Tip" xml:space="preserve"><value>Kennung des abonnierten Produkts.</value></data>
+  <data name="Subs.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Col.Billing" xml:space="preserve"><value>Abrechnungszyklus</value></data>
+  <data name="Subs.Col.Period" xml:space="preserve"><value>Aktueller Zeitraum</value></data>
+  <data name="Subs.Col.Price" xml:space="preserve"><value>Preis</value></data>
+  <data name="Subs.Col.Created" xml:space="preserve"><value>Erstellt</value></data>
+  <data name="Subs.Expand.Tip" xml:space="preserve"><value>Abonnent, Abonnement und Verlängerungsverlauf anzeigen.</value></data>
+  <data name="Subs.Renew" xml:space="preserve"><value>Verlängern</value></data>
+  <data name="Subs.Renew.Tip" xml:space="preserve"><value>Den nächsten Zeitraum über den Zahlungsweg belasten und das Abonnement fortschreiben.</value></data>
+  <data name="Subs.Cancel" xml:space="preserve"><value>Kündigen</value></data>
+  <data name="Subs.Cancel.Tip" xml:space="preserve"><value>Dieses Abonnement beenden — keine weiteren Verlängerungen.</value></data>
+  <data name="Subs.Updating" xml:space="preserve"><value>Wird aktualisiert…</value></data>
+  <data name="Subs.Empty" xml:space="preserve"><value>Noch keine Abonnements.</value></data>
+  <data name="Subs.Status.Active" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Subs.Status.Trialing" xml:space="preserve"><value>Testphase</value></data>
+  <data name="Subs.Status.PastDue" xml:space="preserve"><value>Überfällig</value></data>
+  <data name="Subs.Status.Cancelled" xml:space="preserve"><value>Gekündigt</value></data>
+  <data name="Subs.Billing.Monthly" xml:space="preserve"><value>Monatlich</value></data>
+  <data name="Subs.Billing.Yearly" xml:space="preserve"><value>Jährlich</value></data>
+  <data name="Subs.Billing.Once" xml:space="preserve"><value>Einmalig</value></data>
+  <data name="Subs.Detail.Subscriber" xml:space="preserve"><value>Abonnentendetails</value></data>
+  <data name="Subs.Detail.Email" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Subs.Detail.Tenant" xml:space="preserve"><value>Mandant</value></data>
+  <data name="Subs.Detail.Subscription" xml:space="preserve"><value>Abonnementdetails</value></data>
+  <data name="Subs.Detail.Id" xml:space="preserve"><value>Abonnement-ID</value></data>
+  <data name="Subs.Detail.OrderId" xml:space="preserve"><value>Bestell-ID</value></data>
+  <data name="Subs.Detail.Product" xml:space="preserve"><value>Produkt-ID</value></data>
+  <data name="Subs.Detail.Variant" xml:space="preserve"><value>Varianten-ID</value></data>
+  <data name="Subs.Detail.Price" xml:space="preserve"><value>Preis</value></data>
+  <data name="Subs.Detail.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Detail.Created" xml:space="preserve"><value>Erstellt</value></data>
+  <data name="Subs.Detail.Updated" xml:space="preserve"><value>Aktualisiert</value></data>
+  <data name="Subs.Detail.History" xml:space="preserve"><value>Verlängerungsverlauf</value></data>
+  <data name="Subs.History.Seq" xml:space="preserve"><value>Nr.</value></data>
+  <data name="Subs.History.Period" xml:space="preserve"><value>Zeitraum</value></data>
+  <data name="Subs.History.Amount" xml:space="preserve"><value>Betrag</value></data>
+  <data name="Subs.History.Recorded" xml:space="preserve"><value>Erfasst</value></data>
+  <data name="Subs.History.Empty" xml:space="preserve"><value>Noch kein Verlängerungsverlauf erfasst.</value></data>
+  <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement verlängert.</value></data>
+  <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement gekündigt.</value></data>
+  <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} fehlgeschlagen ({1}): {2}</value></data>
 </root>

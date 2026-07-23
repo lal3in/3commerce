@@ -26,6 +26,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<PaymentCustomer> PaymentCustomers => Set<PaymentCustomer>();
     public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
 
@@ -42,6 +43,17 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             subscription.Property(x => x.CustomerEmail).HasMaxLength(256);
             subscription.HasIndex(x => new { x.OrderId, x.ProductId, x.VariantId }).IsUnique();
             subscription.HasIndex(x => new { x.TenantId, x.CustomerEmail });
+            // Renewal history hangs off the aggregate's backing field, saved in the same unit of work.
+            subscription.HasMany(x => x.Renewals).WithOne().HasForeignKey(r => r.SubscriptionId);
+            subscription.Metadata.FindNavigation(nameof(Subscription.Renewals))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<SubscriptionRenewal>(renewal =>
+        {
+            renewal.Property(x => x.Currency).HasMaxLength(3);
+            renewal.HasIndex(x => x.SubscriptionId);
+            renewal.HasIndex(x => new { x.SubscriptionId, x.Sequence }).IsUnique();
         });
 
         modelBuilder.HasDefaultSchema("payments");

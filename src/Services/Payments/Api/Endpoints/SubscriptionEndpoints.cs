@@ -35,6 +35,7 @@ public static class SubscriptionEndpoints
             .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
 
         group.MapGet("/", List);
+        group.MapGet("/{id:guid}", Detail);
         group.MapPost("/{id:guid}/renew", Renew);
         group.MapPost("/{id:guid}/cancel", Cancel);
 
@@ -63,6 +64,13 @@ public static class SubscriptionEndpoints
         return TypedResults.Ok(list.Select(ToDto).ToList());
     }
 
+    private static async Task<Results<Ok<SubscriptionDetailDto>, NotFound>> Detail(
+        Guid id, Guid? tenantId, SubscriptionService subscriptions, IConfiguration config, CancellationToken ct)
+    {
+        var subscription = await subscriptions.GetAsync(tenantId ?? DefaultTenantId(config), id, ct);
+        return subscription is null ? TypedResults.NotFound() : TypedResults.Ok(ToDetailDto(subscription));
+    }
+
     private static async Task<Results<Ok<SubscriptionDto>, NotFound>> Renew(
         Guid id, Guid? tenantId, SubscriptionService subscriptions, IConfiguration config, CancellationToken ct)
     {
@@ -84,9 +92,23 @@ public static class SubscriptionEndpoints
 
     private static SubscriptionDto ToDto(Subscription s) =>
         new(s.Id, s.OrderId, s.CustomerEmail, s.ProductId, s.VariantId, s.BillingPeriod.ToString(), s.PriceMinor, s.Currency,
-            s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd);
+            s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt);
+
+    private static SubscriptionDetailDto ToDetailDto(Subscription s) =>
+        new(s.Id, s.TenantId, s.OrderId, s.CustomerEmail, s.ProductId, s.VariantId, s.BillingPeriod.ToString(), s.PriceMinor,
+            s.Currency, s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt,
+            s.Renewals.OrderBy(r => r.Sequence)
+                .Select(r => new RenewalDto(r.Sequence, r.PeriodStart, r.PeriodEnd, r.AmountMinor, r.Currency, r.RecordedAt))
+                .ToList());
 }
 
 public record SubscriptionDto(
     Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency,
-    string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);
+    string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+public record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
+
+public record SubscriptionDetailDto(
+    Guid Id, Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
+    string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt, IReadOnlyList<RenewalDto> Renewals);

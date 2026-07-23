@@ -26,6 +26,11 @@ public sealed class Subscription
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    // Renewal history (mt7_3): one row per period opened, kept on the aggregate so it saves in the same
+    // SaveChanges as the state change. Read-only to callers; the aggregate is the sole writer.
+    private readonly List<SubscriptionRenewal> _renewals = [];
+    public IReadOnlyList<SubscriptionRenewal> Renewals => _renewals;
+
     public bool IsActive => Status is SubscriptionStatus.Active or SubscriptionStatus.Trialing;
 
     private Subscription() { }
@@ -39,7 +44,7 @@ public sealed class Subscription
             throw new SubscriptionRuleException("A subscription needs a recurring billing period.");
         }
 
-        return new Subscription
+        var subscription = new Subscription
         {
             Id = Guid.CreateVersion7(),
             TenantId = tenantId,
@@ -55,6 +60,8 @@ public sealed class Subscription
             CreatedAt = now,
             UpdatedAt = now,
         };
+        subscription.RecordPeriod(now); // Sequence 1 — the first period, paid with the order at checkout
+        return subscription;
     }
 
     /// <summary>Advance to the next period after a successful renewal charge.</summary>
@@ -69,6 +76,7 @@ public sealed class Subscription
         CurrentPeriodEnd = Advance(CurrentPeriodEnd, BillingPeriod);
         Status = SubscriptionStatus.Active;
         UpdatedAt = now;
+        RecordPeriod(now); // append the newly-opened period (Sequence n+1)
     }
 
     public void MarkPastDue(DateTimeOffset now)
@@ -85,6 +93,19 @@ public sealed class Subscription
         Status = SubscriptionStatus.Cancelled;
         UpdatedAt = now;
     }
+
+    private void RecordPeriod(DateTimeOffset now) =>
+        _renewals.Add(new SubscriptionRenewal
+        {
+            Id = Guid.CreateVersion7(),
+            SubscriptionId = Id,
+            Sequence = _renewals.Count + 1,
+            PeriodStart = CurrentPeriodStart,
+            PeriodEnd = CurrentPeriodEnd,
+            AmountMinor = PriceMinor,
+            Currency = Currency,
+            RecordedAt = now,
+        });
 
     private static DateTimeOffset Advance(DateTimeOffset from, BillingPeriod period) => period switch
     {

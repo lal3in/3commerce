@@ -29,7 +29,9 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
 
     public async Task<Subscription?> RenewAsync(Guid tenantId, Guid id, CancellationToken ct)
     {
-        var subscription = await db.Subscriptions.SingleOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, ct);
+        // Load the history so Renew() appends the next Sequence (n+1), not a duplicate first period.
+        var subscription = await db.Subscriptions.Include(s => s.Renewals)
+            .SingleOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, ct);
         if (subscription is null)
         {
             return null;
@@ -46,6 +48,10 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
                     $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account),
                 ct);
             subscription.Renew(now);
+            // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
+            // DetectChanges infers such a child Modified (UPDATE → 0 rows → DbUpdateConcurrencyException),
+            // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
+            db.SubscriptionRenewals.Add(subscription.Renewals[^1]);
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
         {
@@ -66,6 +72,14 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
 
         subscription.Cancel(clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
+        return subscription;
+    }
+
+    /// <summary>A single subscription with its full renewal history (ordered by Sequence), or null.</summary>
+    public async Task<Subscription?> GetAsync(Guid tenantId, Guid id, CancellationToken ct)
+    {
+        var subscription = await db.Subscriptions.AsNoTracking().Include(s => s.Renewals)
+            .SingleOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, ct);
         return subscription;
     }
 

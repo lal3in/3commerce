@@ -1078,4 +1078,57 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>填写这些内容以创建可作为供应商的实体（验证前均为必填）。留空可稍后通过“详情”添加。</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要邮箱（例如 accounts@company.com）</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或运营邮箱 — 供应商验证所需。</value></data>
+  <data name="Nav.Subscriptions" xml:space="preserve"><value>订阅</value></data>
+  <data name="Nav.Subscriptions.Tip" xml:space="preserve"><value>经常性订阅——续订记录，续订或取消。</value></data>
+  <data name="Subs.Title" xml:space="preserve"><value>订阅</value></data>
+  <data name="Subs.Intro" xml:space="preserve"><value>经常性计费安排——状态、当前周期以及完整的续订记录。</value></data>
+  <data name="Subs.Filter.Label" xml:space="preserve"><value>状态</value></data>
+  <data name="Subs.Filter.Tip" xml:space="preserve"><value>仅显示所选状态的订阅。</value></data>
+  <data name="Subs.Filter.All" xml:space="preserve"><value>全部</value></data>
+  <data name="Subs.Filter.Active" xml:space="preserve"><value>生效中</value></data>
+  <data name="Subs.Filter.PastDue" xml:space="preserve"><value>逾期</value></data>
+  <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Subs.Col.Subscriber" xml:space="preserve"><value>订阅者</value></data>
+  <data name="Subs.Col.Product" xml:space="preserve"><value>产品</value></data>
+  <data name="Subs.Col.Product.Tip" xml:space="preserve"><value>所订阅产品的标识符。</value></data>
+  <data name="Subs.Col.Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Subs.Col.Billing" xml:space="preserve"><value>计费周期</value></data>
+  <data name="Subs.Col.Period" xml:space="preserve"><value>当前周期</value></data>
+  <data name="Subs.Col.Price" xml:space="preserve"><value>价格</value></data>
+  <data name="Subs.Col.Created" xml:space="preserve"><value>创建日期</value></data>
+  <data name="Subs.Expand.Tip" xml:space="preserve"><value>显示订阅者、订阅和续订记录。</value></data>
+  <data name="Subs.Renew" xml:space="preserve"><value>续订</value></data>
+  <data name="Subs.Renew.Tip" xml:space="preserve"><value>通过支付通道收取下一周期费用并推进订阅。</value></data>
+  <data name="Subs.Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Subs.Cancel.Tip" xml:space="preserve"><value>结束此订阅——不再续订。</value></data>
+  <data name="Subs.Updating" xml:space="preserve"><value>更新中…</value></data>
+  <data name="Subs.Empty" xml:space="preserve"><value>暂无订阅。</value></data>
+  <data name="Subs.Status.Active" xml:space="preserve"><value>生效中</value></data>
+  <data name="Subs.Status.Trialing" xml:space="preserve"><value>试用中</value></data>
+  <data name="Subs.Status.PastDue" xml:space="preserve"><value>逾期</value></data>
+  <data name="Subs.Status.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Subs.Billing.Monthly" xml:space="preserve"><value>每月</value></data>
+  <data name="Subs.Billing.Yearly" xml:space="preserve"><value>每年</value></data>
+  <data name="Subs.Billing.Once" xml:space="preserve"><value>一次性</value></data>
+  <data name="Subs.Detail.Subscriber" xml:space="preserve"><value>订阅者详情</value></data>
+  <data name="Subs.Detail.Email" xml:space="preserve"><value>电子邮件</value></data>
+  <data name="Subs.Detail.Tenant" xml:space="preserve"><value>租户</value></data>
+  <data name="Subs.Detail.Subscription" xml:space="preserve"><value>订阅详情</value></data>
+  <data name="Subs.Detail.Id" xml:space="preserve"><value>订阅 ID</value></data>
+  <data name="Subs.Detail.OrderId" xml:space="preserve"><value>订单 ID</value></data>
+  <data name="Subs.Detail.Product" xml:space="preserve"><value>产品 ID</value></data>
+  <data name="Subs.Detail.Variant" xml:space="preserve"><value>款式 ID</value></data>
+  <data name="Subs.Detail.Price" xml:space="preserve"><value>价格</value></data>
+  <data name="Subs.Detail.Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Subs.Detail.Created" xml:space="preserve"><value>创建</value></data>
+  <data name="Subs.Detail.Updated" xml:space="preserve"><value>更新</value></data>
+  <data name="Subs.Detail.History" xml:space="preserve"><value>续订记录</value></data>
+  <data name="Subs.History.Seq" xml:space="preserve"><value>序号</value></data>
+  <data name="Subs.History.Period" xml:space="preserve"><value>周期</value></data>
+  <data name="Subs.History.Amount" xml:space="preserve"><value>金额</value></data>
+  <data name="Subs.History.Recorded" xml:space="preserve"><value>记录时间</value></data>
+  <data name="Subs.History.Empty" xml:space="preserve"><value>暂无续订记录。</value></data>
+  <data name="Subs.Msg.Renewed" xml:space="preserve"><value>订阅已续订。</value></data>
+  <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>订阅已取消。</value></data>
+  <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} 失败（{1}）：{2}</value></data>
 </root>

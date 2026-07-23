@@ -1078,4 +1078,57 @@
   <data name="Error.DevMode" xml:space="preserve"><value>Development Mode</value></data>
   <data name="Error.DevMode.Body1" xml:space="preserve"><value>Swapping to &lt;strong&gt;Development&lt;/strong&gt; environment will display more detailed information about the error that occurred.</value></data>
   <data name="Error.DevMode.Body2" xml:space="preserve"><value>&lt;strong&gt;The Development environment shouldn't be enabled for deployed applications.&lt;/strong&gt; It can result in displaying sensitive information from exceptions to end users. For local debugging, enable the &lt;strong&gt;Development&lt;/strong&gt; environment by setting the &lt;strong&gt;ASPNETCORE_ENVIRONMENT&lt;/strong&gt; environment variable to &lt;strong&gt;Development&lt;/strong&gt; and restarting the app.</value></data>
+  <data name="Nav.Subscriptions" xml:space="preserve"><value>Subscriptions</value></data>
+  <data name="Nav.Subscriptions.Tip" xml:space="preserve"><value>Recurring subscriptions — renewal history, renew or cancel.</value></data>
+  <data name="Subs.Title" xml:space="preserve"><value>Subscriptions</value></data>
+  <data name="Subs.Intro" xml:space="preserve"><value>Recurring billing arrangements — their status, current period, and full renewal history.</value></data>
+  <data name="Subs.Filter.Label" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Filter.Tip" xml:space="preserve"><value>Show only subscriptions in the chosen status.</value></data>
+  <data name="Subs.Filter.All" xml:space="preserve"><value>All</value></data>
+  <data name="Subs.Filter.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Subs.Filter.PastDue" xml:space="preserve"><value>Past due</value></data>
+  <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Subs.Col.Subscriber" xml:space="preserve"><value>Subscriber</value></data>
+  <data name="Subs.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Subs.Col.Product.Tip" xml:space="preserve"><value>The subscribed product's identifier.</value></data>
+  <data name="Subs.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Col.Billing" xml:space="preserve"><value>Billing cycle</value></data>
+  <data name="Subs.Col.Period" xml:space="preserve"><value>Current period</value></data>
+  <data name="Subs.Col.Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Subs.Col.Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Subs.Expand.Tip" xml:space="preserve"><value>Show subscriber, subscription, and renewal history.</value></data>
+  <data name="Subs.Renew" xml:space="preserve"><value>Renew</value></data>
+  <data name="Subs.Renew.Tip" xml:space="preserve"><value>Charge the next period via the payment rail and advance the subscription.</value></data>
+  <data name="Subs.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Subs.Cancel.Tip" xml:space="preserve"><value>End this subscription — no further renewals.</value></data>
+  <data name="Subs.Updating" xml:space="preserve"><value>Updating…</value></data>
+  <data name="Subs.Empty" xml:space="preserve"><value>No subscriptions yet.</value></data>
+  <data name="Subs.Status.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Subs.Status.Trialing" xml:space="preserve"><value>Trialing</value></data>
+  <data name="Subs.Status.PastDue" xml:space="preserve"><value>Past due</value></data>
+  <data name="Subs.Status.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Subs.Billing.Monthly" xml:space="preserve"><value>Monthly</value></data>
+  <data name="Subs.Billing.Yearly" xml:space="preserve"><value>Yearly</value></data>
+  <data name="Subs.Billing.Once" xml:space="preserve"><value>One-time</value></data>
+  <data name="Subs.Detail.Subscriber" xml:space="preserve"><value>Subscriber details</value></data>
+  <data name="Subs.Detail.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Subs.Detail.Tenant" xml:space="preserve"><value>Tenant</value></data>
+  <data name="Subs.Detail.Subscription" xml:space="preserve"><value>Subscription details</value></data>
+  <data name="Subs.Detail.Id" xml:space="preserve"><value>Subscription ID</value></data>
+  <data name="Subs.Detail.OrderId" xml:space="preserve"><value>Order ID</value></data>
+  <data name="Subs.Detail.Product" xml:space="preserve"><value>Product ID</value></data>
+  <data name="Subs.Detail.Variant" xml:space="preserve"><value>Variant ID</value></data>
+  <data name="Subs.Detail.Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Subs.Detail.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Subs.Detail.Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Subs.Detail.Updated" xml:space="preserve"><value>Updated</value></data>
+  <data name="Subs.Detail.History" xml:space="preserve"><value>Renewal history</value></data>
+  <data name="Subs.History.Seq" xml:space="preserve"><value>#</value></data>
+  <data name="Subs.History.Period" xml:space="preserve"><value>Period</value></data>
+  <data name="Subs.History.Amount" xml:space="preserve"><value>Amount</value></data>
+  <data name="Subs.History.Recorded" xml:space="preserve"><value>Recorded</value></data>
+  <data name="Subs.History.Empty" xml:space="preserve"><value>No renewal history recorded yet.</value></data>
+  <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Subscription renewed.</value></data>
+  <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Subscription cancelled.</value></data>
+  <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} failed ({1}): {2}</value></data>
 </root>
