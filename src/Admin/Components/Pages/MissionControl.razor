@@ -41,6 +41,19 @@
                 @KpiCard(L["Mc.Kpi.Revenue"], $"{currency} {minor / 100m:0.00}", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
             }
         }
+        @* Refunds as money (off the ledger's revenue.refunds), per currency — reflects every refund path
+           the moment RefundCompleted posts, alongside the refunded-order count below. *@
+        @if (RefundsByCurrency.Count == 0)
+        {
+            @KpiCard(L["Mc.Kpi.RefundsValue"], "0.00", "#059669", L["Mc.Kpi.RefundsValue.Tip"])
+        }
+        else
+        {
+            @foreach (var (currency, minor) in RefundsByCurrency)
+            {
+                @KpiCard(L["Mc.Kpi.RefundsValue"], $"{currency} {minor / 100m:0.00}", minor > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RefundsValue.Tip"])
+            }
+        }
         @KpiCard(L["Mc.Kpi.Refunded"], OrdersWith("Refunded").ToString(), _orders.Any(o => o.Status == "Refunded") ? "#b45309" : "#059669", L["Mc.Kpi.Refunded.Tip"])
         @KpiCard(L["Mc.Kpi.Cancelled"], OrdersWith("Cancelled").ToString(), "#6b7280", L["Mc.Kpi.Cancelled.Tip"])
         @* RMA lifecycle broken out so each waiting state is distinguishable (was one lumped "open" tile):
@@ -207,6 +220,7 @@
     private List<RunDto> _runs = [];
     private List<OrderKpiDto> _orders = [];
     private List<RmaKpiDto> _rmas = [];
+    private List<LedgerEntryDto> _ledger = [];
     private List<CheckoutCountDto> _checkouts = [];
     private List<SubKpiDto> _subs = [];
     private List<DropshipKpiDto> _dropship = [];
@@ -225,6 +239,7 @@
         // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
         _orders = await SafeList<OrderKpiDto>("/api/ordering/admin/orders");
         _rmas = await SafeList<RmaKpiDto>("/api/support/admin/rmas");
+        _ledger = await SafeList<LedgerEntryDto>("/api/payments/admin/ledger/entries");
         // Per-process monitors (mc_proc): checkout saga, subscription renewals, dropship forwarding.
         _checkouts = await SafeList<CheckoutCountDto>("/api/ordering/admin/checkouts");
         _subs = await SafeList<SubKpiDto>("/api/payments/admin/subscriptions");
@@ -256,6 +271,15 @@
         .OrderBy(g => g.Key, StringComparer.Ordinal)
         .Select(g => (g.Key, g.Sum(o => o.GrossMinor)))
         .ToList();
+    // Refunds as money, per currency: revenue.refunds debits off the ledger (the single source of truth
+    // for every refund path). Never summed across currencies, mirroring revenue.
+    private List<(string Currency, long Minor)> RefundsByCurrency => _ledger
+        .Select(e => (e.Currency, Minor: e.Lines.Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor)))
+        .Where(x => x.Minor > 0)
+        .GroupBy(x => x.Currency)
+        .OrderBy(g => g.Key, StringComparer.Ordinal)
+        .Select(g => (g.Key, g.Sum(x => x.Minor)))
+        .ToList();
     private int CheckoutsInState(params string[] states) => _checkouts.Where(c => states.Contains(c.State)).Sum(c => c.Count);
     private int SubsWith(params string[] statuses) => _subs.Count(s => statuses.Contains(s.Status));
     private int DropshipWith(params string[] statuses) => _dropship.Count(d => statuses.Contains(d.Status));
@@ -286,4 +310,6 @@
     private record SubKpiDto(Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);
     private record DropshipKpiDto(Guid Id, Guid OrderId, Guid SupplierId, string Status, string? ExternalReference, string? TrackingNumber, string? Carrier, string? FailureReason);
     private record NotifSummaryDto(int Total, int Sent24h, int Failed);
+    private record LedgerLineDto(string AccountCode, long DebitMinor, long CreditMinor);
+    private record LedgerEntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LedgerLineDto> Lines);
 }
