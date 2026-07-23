@@ -362,6 +362,19 @@
   <data name="Rma.Deny.Tip" xml:space="preserve"><value>Diese Rücksendeanfrage ablehnen.</value></data>
   <data name="Rma.MarkReceived" xml:space="preserve"><value>Rücksendung als erhalten markieren</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Markieren Sie den zurückgesendeten Artikel als erhalten — dies gibt die Erstattung frei.</value></data>
+  <data name="Rma.Restock" xml:space="preserve"><value>Wieder einlagern…</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Wählen Sie optional aus, welche zurückgesendeten Artikel wieder in den Bestand aufgenommen werden, bevor Sie die Rücksendung als erhalten markieren.</value></data>
+  <data name="Rma.Restock.Heading" xml:space="preserve"><value>Artikel wieder einlagern (optional)</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Lassen Sie alles unmarkiert, um die Rücksendung ohne Wiedereinlagerung als erhalten zu markieren.</value></data>
+  <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>Einlagern</value></data>
+  <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>Artikel</value></data>
+  <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>Menge</value></data>
+  <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>Lagerort</value></data>
+  <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>Lagerort auswählen…</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Erhalten markieren &amp; einlagern</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Markieren Sie die Rücksendung als erhalten und buchen Sie die ausgewählten Artikel am gewählten Lagerort wieder in den Bestand.</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Bestellpositionen sind nicht verfügbar — Sie können die Rücksendung trotzdem als erhalten markieren.</value></data>
+  <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>Keine Lagerorte gefunden. Legen Sie zuerst einen an, bevor Sie einlagern.</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} angenommen.</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} fehlgeschlagen ({1}): {2}</value></data>
 
@@ -1032,8 +1045,14 @@
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Vollständig rückerstattete Bestellungen.</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Storniert</value></data>
   <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Vor der Zahlung stornierte Bestellungen.</value></data>
-  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>Offene RMAs</value></data>
-  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Laufende Rücksendungen (angefragt, Rücksendung ausstehend oder Rückerstattung ausstehend).</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision" xml:space="preserve"><value>RMAs mit offener Entscheidung</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision.Tip" xml:space="preserve"><value>Rücksendeanfragen, die noch von einem Operator genehmigt oder abgelehnt werden müssen.</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn" xml:space="preserve"><value>RMAs mit ausstehender Rücksendung</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn.Tip" xml:space="preserve"><value>Genehmigte Rücksendungen, die auf das Eintreffen des Artikels warten.</value></data>
+  <data name="Mc.Kpi.RmasRefundPending" xml:space="preserve"><value>RMAs mit ausstehender Erstattung</value></data>
+  <data name="Mc.Kpi.RmasRefundPending.Tip" xml:space="preserve"><value>Erstattung angefragt und in Bearbeitung — noch nicht abgeschlossen.</value></data>
+  <data name="Mc.Kpi.RmasDenied" xml:space="preserve"><value>Abgelehnte RMAs</value></data>
+  <data name="Mc.Kpi.RmasDenied.Tip" xml:space="preserve"><value>Abgelehnte Rücksendeanfragen.</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Rückerstattungen ausgeführt</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs, deren Rückerstattung abgeschlossen ist.</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>Prozessmonitore</value></data>

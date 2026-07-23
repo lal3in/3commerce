@@ -362,6 +362,19 @@
   <data name="Rma.Deny.Tip" xml:space="preserve"><value>Rechace esta solicitud de devolución.</value></data>
   <data name="Rma.MarkReceived" xml:space="preserve"><value>Marcar devolución recibida</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Marque el artículo devuelto como recibido: esto libera el reembolso.</value></data>
+  <data name="Rma.Restock" xml:space="preserve"><value>Reponer stock…</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Opcionalmente, elija qué artículos devueltos vuelven al stock antes de marcar la devolución como recibida.</value></data>
+  <data name="Rma.Restock.Heading" xml:space="preserve"><value>Devolver artículos al stock (opcional)</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Deje todo sin marcar para marcar la devolución como recibida sin reponer stock.</value></data>
+  <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>Reponer</value></data>
+  <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>Artículo</value></data>
+  <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>Cant.</value></data>
+  <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>Ubicación</value></data>
+  <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>Seleccione una ubicación…</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Marcar recibido y reponer</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Marque la devolución como recibida y vuelva a poner los artículos seleccionados en existencias en la ubicación elegida.</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Las líneas del pedido no están disponibles: aún puede marcar la devolución como recibida.</value></data>
+  <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>No se encontraron ubicaciones de inventario. Cree una antes de reponer stock.</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} aceptado.</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} falló ({1}): {2}</value></data>
 
@@ -1032,8 +1045,14 @@
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Pedidos totalmente reembolsados.</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Cancelados</value></data>
   <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Pedidos cancelados antes del pago.</value></data>
-  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>RMA abiertos</value></data>
-  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Devoluciones en curso (solicitada, esperando devolución o reembolso pendiente).</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision" xml:space="preserve"><value>RMA en espera de decisión</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision.Tip" xml:space="preserve"><value>Solicitudes de devolución que aún requieren que un operador las apruebe o rechace.</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn" xml:space="preserve"><value>RMA esperando devolución</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn.Tip" xml:space="preserve"><value>Devoluciones aprobadas a la espera de que llegue el artículo físico.</value></data>
+  <data name="Mc.Kpi.RmasRefundPending" xml:space="preserve"><value>RMA con reembolso pendiente</value></data>
+  <data name="Mc.Kpi.RmasRefundPending.Tip" xml:space="preserve"><value>Reembolso solicitado y en curso, aún no completado.</value></data>
+  <data name="Mc.Kpi.RmasDenied" xml:space="preserve"><value>RMA rechazados</value></data>
+  <data name="Mc.Kpi.RmasDenied.Tip" xml:space="preserve"><value>Solicitudes de devolución que fueron rechazadas.</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Reembolsos emitidos</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMA cuyo reembolso se ha completado.</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>Monitores de procesos</value></data>

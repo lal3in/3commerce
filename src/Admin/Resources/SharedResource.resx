@@ -362,6 +362,19 @@
   <data name="Rma.Deny.Tip" xml:space="preserve"><value>Reject this return request.</value></data>
   <data name="Rma.MarkReceived" xml:space="preserve"><value>Mark return received</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Mark the returned item received — this releases the refund.</value></data>
+  <data name="Rma.Restock" xml:space="preserve"><value>Restock…</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Optionally choose which returned items go back into stock before marking the return received.</value></data>
+  <data name="Rma.Restock.Heading" xml:space="preserve"><value>Return items to stock (optional)</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Leave everything unchecked to mark the return received without restocking.</value></data>
+  <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>Restock</value></data>
+  <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>Item</value></data>
+  <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>Qty</value></data>
+  <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>Location</value></data>
+  <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>Select a location…</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Mark received &amp; restock</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Mark the return received and put the selected items back on hand at the chosen location.</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Order lines are unavailable — you can still mark the return received.</value></data>
+  <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>No inventory locations found. Create one before restocking.</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} accepted.</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} failed ({1}): {2}</value></data>
 
@@ -903,8 +916,14 @@
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>Fully refunded orders.</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
   <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>Orders cancelled before payment.</value></data>
-  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>RMAs open</value></data>
-  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>Returns in progress (requested, awaiting return, or refund pending).</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision" xml:space="preserve"><value>RMAs awaiting decision</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision.Tip" xml:space="preserve"><value>Return requests that still need an operator to approve or deny.</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn" xml:space="preserve"><value>RMAs awaiting return</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn.Tip" xml:space="preserve"><value>Approved returns waiting for the physical item to arrive.</value></data>
+  <data name="Mc.Kpi.RmasRefundPending" xml:space="preserve"><value>RMAs refund pending</value></data>
+  <data name="Mc.Kpi.RmasRefundPending.Tip" xml:space="preserve"><value>Refund requested and in-flight — not yet completed.</value></data>
+  <data name="Mc.Kpi.RmasDenied" xml:space="preserve"><value>RMAs denied</value></data>
+  <data name="Mc.Kpi.RmasDenied.Tip" xml:space="preserve"><value>Return requests that were rejected.</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>Refunds issued</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>RMAs whose refund has completed.</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>Process monitors</value></data>
