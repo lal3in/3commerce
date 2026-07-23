@@ -206,6 +206,24 @@ api_noauth() {
   api "$name" "$method" "$path" "$jar" "$data" "$expectation"
 }
 
+# Poll the admin RMA list until <rma_id> reaches <target_state> (RMA saga transitions are eventually
+# consistent, so acting immediately can 409). Returns 0 when reached, 1 on timeout.
+rma_wait_state() {
+  local rid="$1" want="$2" i body st
+  for i in $(seq 1 20); do
+    body=$(api "rma-wait-${rid:0:8}-$i" GET "/api/support/admin/rmas" "$ADMIN_JAR" "" "allow_4xx")
+    st=$(printf '%s' "$body" | python3 -c "import sys,json
+try:
+    d=json.load(sys.stdin)
+    print(next((r.get('state','') for r in d if r.get('id')=='$rid'), ''))
+except Exception:
+    print('')")
+    [[ "$st" == "$want" ]] && return 0
+    sleep 1
+  done
+  return 1
+}
+
 upsert_demo_storefront() {
   local key="$1" name="$2" public_url="$3" currency="$4" tax_regime="$5" tax_bps="$6"
   local body result storefront_id existing
@@ -434,11 +452,24 @@ checkout_scenario() {
   rma_id=$(printf '%s' "$rma_body" | json_get rmaId)
   if [[ -n "$rma_id" ]]; then
     manifest_set "support.rmas.$code.id" "$(json_string "$rma_id")"
-    if [[ "$code" == "physical-warehouse-flat" ]]; then
-      api "history-$code-rma-approve" POST "/api/support/admin/rmas/$rma_id/approve" "$ADMIN_JAR" '{"requireReturn":false}' "allow_4xx" >/dev/null
-    elif [[ "$code" == "out-of-stock-hold" ]]; then
-      api "history-$code-rma-deny" POST "/api/support/admin/rmas/$rma_id/deny" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
-    fi
+    # Seed a spread of RMA lifecycle states so the queue + Mission Control show every stage and button
+    # (open / awaiting return / declined / issued). Wait for Requested first so the action never 409s.
+    case "$code" in
+      physical-warehouse-flat)
+        # Approve REQUIRING a physical return → sits in AwaitingReturn (shows "Mark received" + restock).
+        rma_wait_state "$rma_id" "Requested" &&
+          api "history-$code-rma-approve-return" POST "/api/support/admin/rmas/$rma_id/approve" "$ADMIN_JAR" '{"requireReturn":true}' "allow_4xx" >/dev/null ;;
+      physical-dropship-flat)
+        # Approve with NO return → refund travels the whole way to RefundIssued.
+        rma_wait_state "$rma_id" "Requested" &&
+          api "history-$code-rma-approve" POST "/api/support/admin/rmas/$rma_id/approve" "$ADMIN_JAR" '{"requireReturn":false}' "allow_4xx" >/dev/null ;;
+      out-of-stock-hold)
+        # Deny → Denied.
+        rma_wait_state "$rma_id" "Requested" &&
+          api "history-$code-rma-deny" POST "/api/support/admin/rmas/$rma_id/deny" "$ADMIN_JAR" "" "allow_4xx" >/dev/null ;;
+      *)
+        : ;; # leave in Requested (open) — digital / subscription / usage scenarios
+    esac
   fi
 
   shipments=$(api "history-$code-shipments" GET "/api/fulfillment/admin/shipments?orderId=$order_id" "$ADMIN_JAR" "" "allow_4xx")

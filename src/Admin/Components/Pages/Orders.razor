@@ -44,6 +44,7 @@ else
                     else if (o.Status == "Confirmed")
                     {
                         <button @onclick="() => Refund(o)" title="@L["Orders.Refund.Tip"]">@(_confirm == $"{o.Id}:refund" ? L["Common.Confirm"] : L["Orders.Refund"])</button>
+                        <button @onclick="() => Return(o)" title="@L["Orders.Return.Tip"]">@(_confirm == $"{o.Id}:return" ? L["Common.Confirm"] : L["Orders.Return"])</button>
                     }
                 </td>
             </tr>
@@ -94,6 +95,25 @@ else
         {
             await LoadAsync();
             _status = L["Orders.Status.Refunded"]; // after LoadAsync — it clears _status on refresh
+        }
+        else
+        {
+            _error = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private async Task Return(OrderDto o)
+    {
+        if (_confirm != $"{o.Id}:return") { _confirm = $"{o.Id}:return"; return; }
+        _confirm = null;
+        // Open a NON-auto-approved RMA: it lands in Requested so the operator walks the full lifecycle
+        // (Approve / Approve + physical return → AwaitingReturn → Mark received → refund) in the RMA queue.
+        // The order stays Confirmed until the refund is issued, so both actions remain available meanwhile.
+        var response = await Gateway.PostAsync("/api/support/admin/rmas", new { orderId = o.Id, reason = "return requested by admin", autoApprove = false }, idempotencyKey: $"return-{o.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = L["Orders.Status.ReturnOpened"]; // after LoadAsync — it clears _status on refresh
         }
         else
         {

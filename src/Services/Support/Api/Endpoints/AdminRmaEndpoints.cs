@@ -17,7 +17,7 @@ public static class AdminRmaEndpoints
         var group = app.MapGroup("/admin/rmas").WithTags("RMA").RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         group.MapGet("/", ListRmas);
         group.MapPost("/", CreateAdminRefund)
-            .WithSummary("Admin-initiated whole-order refund via an auto-approved RMA.");
+            .WithSummary("Admin-opened RMA for a whole order: auto-approved instant refund (default), or a Requested RMA the operator walks through the lifecycle when AutoApprove=false.");
         group.MapPost("/{id:guid}/approve", Approve);
         group.MapPost("/{id:guid}/deny", Deny);
         group.MapPost("/{id:guid}/return-received", ReturnReceivedAction);
@@ -38,9 +38,12 @@ public static class AdminRmaEndpoints
         return TypedResults.Ok(rmas);
     }
 
-    // Admin refunds an order straight from the Orders screen: this opens an auto-approved, no-return RMA
-    // for the whole order so the refund travels the single RMA/refund path AND appears in the RMA queue,
-    // rather than a side-channel direct refund that the queue never saw.
+    // Admin opens an RMA for a whole order straight from the Orders screen, so it travels the single
+    // RMA/refund path AND appears in the RMA queue (not a side-channel refund the queue never saw):
+    //   AutoApprove=true  (default) → instant, no-return refund → RefundPending → RefundIssued.
+    //   AutoApprove=false           → a customer-style Requested RMA the operator then walks through
+    //                                 Approve/Approve+Return → AwaitingReturn → Received → refund, so the
+    //                                 whole lifecycle is drivable from the admin without a storefront round-trip.
     private static async Task<Results<Accepted<RmaDto>, NotFound>> CreateAdminRefund(
         AdminRefundRequest request, SupportDbContext db, IPublishEndpoint publisher,
         IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
@@ -52,11 +55,15 @@ public static class AdminRmaEndpoints
         }
 
         var rmaId = Guid.CreateVersion7();
-        var reason = string.IsNullOrWhiteSpace(request.Reason) ? "refunded by admin" : request.Reason.Trim();
-        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, AutoApprove: true), ct);
-        await audit.RecordAsync(user.Mutation(DefaultTenantId(config), "Rma", rmaId.ToString(), "support.rma.admin_refund", reason), ct);
+        var reason = string.IsNullOrWhiteSpace(request.Reason)
+            ? (request.AutoApprove ? "refunded by admin" : "return requested by admin")
+            : request.Reason.Trim();
+        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, request.AutoApprove), ct);
+        var action = request.AutoApprove ? "support.rma.admin_refund" : "support.rma.admin_return";
+        await audit.RecordAsync(user.Mutation(DefaultTenantId(config), "Rma", rmaId.ToString(), action, reason), ct);
         await db.SaveChangesAsync(ct);
-        return TypedResults.Accepted((string?)null, new RmaDto(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, "RefundPending", DateTimeOffset.UtcNow));
+        var state = request.AutoApprove ? "RefundPending" : "Requested";
+        return TypedResults.Accepted((string?)null, new RmaDto(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, state, DateTimeOffset.UtcNow));
     }
 
     /// <summary>Idempotent: approving an already-approved RMA is a no-op (FR-10).</summary>
@@ -141,7 +148,7 @@ public static class AdminRmaEndpoints
             : new Guid("00000000-0000-0000-0000-000000000001");
 }
 
-public record AdminRefundRequest(Guid OrderId, string? Reason);
+public record AdminRefundRequest(Guid OrderId, string? Reason, bool AutoApprove = true);
 public record ApproveRequest(bool RequireReturn);
 public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
 public record ReturnReceivedRequest(Guid? TenantId, List<RestockLineRequest>? Restock);

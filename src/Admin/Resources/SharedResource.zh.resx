@@ -1131,4 +1131,55 @@
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>订阅已续订。</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>订阅已取消。</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} 失败（{1}）：{2}</value></data>
+  <data name="Orders.Return" xml:space="preserve">
+    <value>退货</value>
+  </data>
+  <data name="Orders.Return.Tip" xml:space="preserve">
+    <value>开启退货单（RMA），客户寄回后再退款，在 RMA 队列中逐步处理。</value>
+  </data>
+  <data name="Orders.Status.ReturnOpened" xml:space="preserve">
+    <value>已开启退货单 — 在 RMA 队列中跟进。</value>
+  </data>
+  <data name="Home.Kpi.Refunds" xml:space="preserve">
+    <value>退款</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Sub" xml:space="preserve">
+    <value>{0} 笔已退款订单</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Tip" xml:space="preserve">
+    <value>所有退款途径的退款总额（账簿 revenue.refunds）。</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue" xml:space="preserve">
+    <value>净收入</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Sub" xml:space="preserve">
+    <value>毛收入 − 退款</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Tip" xml:space="preserve">
+    <value>毛收入减去退款。</value>
+  </data>
+  <data name="Home.Chart.Gross" xml:space="preserve">
+    <value>毛收入</value>
+  </data>
+  <data name="Home.Chart.Refunds" xml:space="preserve">
+    <value>退款</value>
+  </data>
+  <data name="Home.LedgerFeed" xml:space="preserve">
+    <value>最近账簿变动</value>
+  </data>
+  <data name="Home.LedgerFeed.All" xml:space="preserve">
+    <value>查看账簿 →</value>
+  </data>
+  <data name="Home.NoLedger" xml:space="preserve">
+    <value>暂无账簿活动。</value>
+  </data>
+  <data name="Home.Col.Entry" xml:space="preserve">
+    <value>分录</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue" xml:space="preserve">
+    <value>退款</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
+    <value>每种货币的退款总额（账簿 revenue.refunds）— 反映所有退款途径。</value>
+  </data>
 </root>

@@ -1131,4 +1131,55 @@
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement verlängert.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement gekündigt.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} fehlgeschlagen ({1}): {2}</value></data>
+  <data name="Orders.Return" xml:space="preserve">
+    <value>Rücksendung</value>
+  </data>
+  <data name="Orders.Return.Tip" xml:space="preserve">
+    <value>Eine Rücksendung (RMA) eröffnen, die der Kunde vor der Erstattung zurückschickt – in der RMA-Warteschlange bearbeiten.</value>
+  </data>
+  <data name="Orders.Status.ReturnOpened" xml:space="preserve">
+    <value>Rücksendung eröffnet – in der RMA-Warteschlange verfolgen.</value>
+  </data>
+  <data name="Home.Kpi.Refunds" xml:space="preserve">
+    <value>Erstattungen</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Sub" xml:space="preserve">
+    <value>{0} erstattete Bestellungen</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Tip" xml:space="preserve">
+    <value>Gesamte Erstattungen (Ledger revenue.refunds) über alle Erstattungswege.</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue" xml:space="preserve">
+    <value>Nettoumsatz</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Sub" xml:space="preserve">
+    <value>Brutto − Erstattungen</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Tip" xml:space="preserve">
+    <value>Bruttoumsatz abzüglich Erstattungen.</value>
+  </data>
+  <data name="Home.Chart.Gross" xml:space="preserve">
+    <value>Brutto</value>
+  </data>
+  <data name="Home.Chart.Refunds" xml:space="preserve">
+    <value>Erstattungen</value>
+  </data>
+  <data name="Home.LedgerFeed" xml:space="preserve">
+    <value>Letzte Buchungen</value>
+  </data>
+  <data name="Home.LedgerFeed.All" xml:space="preserve">
+    <value>Ledger ansehen →</value>
+  </data>
+  <data name="Home.NoLedger" xml:space="preserve">
+    <value>Noch keine Buchungen.</value>
+  </data>
+  <data name="Home.Col.Entry" xml:space="preserve">
+    <value>Buchung</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue" xml:space="preserve">
+    <value>Erstattungen</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
+    <value>Gesamte Erstattungen je Währung (Ledger revenue.refunds) – über alle Erstattungswege.</value>
+  </data>
 </root>

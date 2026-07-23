@@ -1131,4 +1131,55 @@
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement renouvelé.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement annulé.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} a échoué ({1}) : {2}</value></data>
+  <data name="Orders.Return" xml:space="preserve">
+    <value>Retour</value>
+  </data>
+  <data name="Orders.Return.Tip" xml:space="preserve">
+    <value>Ouvrir un retour (RMA) que le client renvoie avant le remboursement — à traiter dans la file RMA.</value>
+  </data>
+  <data name="Orders.Status.ReturnOpened" xml:space="preserve">
+    <value>Retour ouvert — suivez-le dans la file RMA.</value>
+  </data>
+  <data name="Home.Kpi.Refunds" xml:space="preserve">
+    <value>Remboursements</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Sub" xml:space="preserve">
+    <value>{0} commandes remboursées</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Tip" xml:space="preserve">
+    <value>Total remboursé (revenue.refunds du grand livre) sur toutes les voies.</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue" xml:space="preserve">
+    <value>Revenu net</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Sub" xml:space="preserve">
+    <value>Brut − remboursements</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Tip" xml:space="preserve">
+    <value>Revenu brut moins les remboursements.</value>
+  </data>
+  <data name="Home.Chart.Gross" xml:space="preserve">
+    <value>Brut</value>
+  </data>
+  <data name="Home.Chart.Refunds" xml:space="preserve">
+    <value>Remboursements</value>
+  </data>
+  <data name="Home.LedgerFeed" xml:space="preserve">
+    <value>Mouvements récents du grand livre</value>
+  </data>
+  <data name="Home.LedgerFeed.All" xml:space="preserve">
+    <value>Voir le grand livre →</value>
+  </data>
+  <data name="Home.NoLedger" xml:space="preserve">
+    <value>Aucune activité du grand livre pour l'instant.</value>
+  </data>
+  <data name="Home.Col.Entry" xml:space="preserve">
+    <value>Écriture</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue" xml:space="preserve">
+    <value>Remboursements</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
+    <value>Total remboursé par devise (revenue.refunds du grand livre) — toutes les voies.</value>
+  </data>
 </root>

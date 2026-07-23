@@ -1131,4 +1131,55 @@
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Subscription renewed.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Subscription cancelled.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} failed ({1}): {2}</value></data>
+  <data name="Orders.Return" xml:space="preserve">
+    <value>Return</value>
+  </data>
+  <data name="Orders.Return.Tip" xml:space="preserve">
+    <value>Open a return (RMA) the customer sends back before refunding — walk it through the RMA queue.</value>
+  </data>
+  <data name="Orders.Status.ReturnOpened" xml:space="preserve">
+    <value>Return opened — track it in the RMA queue.</value>
+  </data>
+  <data name="Home.Kpi.Refunds" xml:space="preserve">
+    <value>Refunds</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Sub" xml:space="preserve">
+    <value>{0} refunded orders</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Tip" xml:space="preserve">
+    <value>Total refunded (ledger revenue.refunds) across all refund paths.</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue" xml:space="preserve">
+    <value>Net revenue</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Sub" xml:space="preserve">
+    <value>Gross − refunds</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Tip" xml:space="preserve">
+    <value>Gross revenue minus refunds.</value>
+  </data>
+  <data name="Home.Chart.Gross" xml:space="preserve">
+    <value>Gross</value>
+  </data>
+  <data name="Home.Chart.Refunds" xml:space="preserve">
+    <value>Refunds</value>
+  </data>
+  <data name="Home.LedgerFeed" xml:space="preserve">
+    <value>Recent ledger movements</value>
+  </data>
+  <data name="Home.LedgerFeed.All" xml:space="preserve">
+    <value>View ledger →</value>
+  </data>
+  <data name="Home.NoLedger" xml:space="preserve">
+    <value>No ledger activity yet.</value>
+  </data>
+  <data name="Home.Col.Entry" xml:space="preserve">
+    <value>Entry</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue" xml:space="preserve">
+    <value>Refunds</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
+    <value>Total refunded per currency (ledger revenue.refunds) — reflects every refund path.</value>
+  </data>
 </root>

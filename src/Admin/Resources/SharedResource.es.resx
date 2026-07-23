@@ -1131,4 +1131,55 @@
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Suscripción renovada.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Suscripción cancelada.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} falló ({1}): {2}</value></data>
+  <data name="Orders.Return" xml:space="preserve">
+    <value>Devolución</value>
+  </data>
+  <data name="Orders.Return.Tip" xml:space="preserve">
+    <value>Abrir una devolución (RMA) que el cliente envía de vuelta antes del reembolso; gestiónela en la cola de RMA.</value>
+  </data>
+  <data name="Orders.Status.ReturnOpened" xml:space="preserve">
+    <value>Devolución abierta: síguela en la cola de RMA.</value>
+  </data>
+  <data name="Home.Kpi.Refunds" xml:space="preserve">
+    <value>Reembolsos</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Sub" xml:space="preserve">
+    <value>{0} pedidos reembolsados</value>
+  </data>
+  <data name="Home.Kpi.Refunds.Tip" xml:space="preserve">
+    <value>Total reembolsado (revenue.refunds del libro mayor) en todas las vías.</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue" xml:space="preserve">
+    <value>Ingresos netos</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Sub" xml:space="preserve">
+    <value>Bruto − reembolsos</value>
+  </data>
+  <data name="Home.Kpi.NetRevenue.Tip" xml:space="preserve">
+    <value>Ingresos brutos menos reembolsos.</value>
+  </data>
+  <data name="Home.Chart.Gross" xml:space="preserve">
+    <value>Bruto</value>
+  </data>
+  <data name="Home.Chart.Refunds" xml:space="preserve">
+    <value>Reembolsos</value>
+  </data>
+  <data name="Home.LedgerFeed" xml:space="preserve">
+    <value>Movimientos recientes del libro mayor</value>
+  </data>
+  <data name="Home.LedgerFeed.All" xml:space="preserve">
+    <value>Ver libro mayor →</value>
+  </data>
+  <data name="Home.NoLedger" xml:space="preserve">
+    <value>Aún no hay actividad en el libro mayor.</value>
+  </data>
+  <data name="Home.Col.Entry" xml:space="preserve">
+    <value>Asiento</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue" xml:space="preserve">
+    <value>Reembolsos</value>
+  </data>
+  <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
+    <value>Total reembolsado por moneda (revenue.refunds del libro mayor); refleja todas las vías.</value>
+  </data>
 </root>

@@ -18,6 +18,8 @@ else
 {
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-top:1.2rem;">
         @KpiCard(L["Home.Kpi.Revenue"], Money(_revenueMinor), "#4f46e5", L["Home.Kpi.Revenue.Sub", _orders.Count], L["Home.Kpi.Revenue.Tip"])
+        @KpiCard(L["Home.Kpi.Refunds"], Money(_refundsMinor), _refundsMinor > 0 ? "#b45309" : "#059669", L["Home.Kpi.Refunds.Sub", _refundCount], L["Home.Kpi.Refunds.Tip"])
+        @KpiCard(L["Home.Kpi.NetRevenue"], Money(_netRevenueMinor), "#0e7490", L["Home.Kpi.NetRevenue.Sub"], L["Home.Kpi.NetRevenue.Tip"])
         @KpiCard(L["Home.Kpi.Orders"], _orders.Count.ToString(), "#0891b2", L["Home.Kpi.Orders.Sub", _ordersToday], L["Home.Kpi.Orders.Tip"])
         @KpiCard(L["Home.Kpi.Products"], _productCount.ToString(), "#059669", L["Home.Kpi.Products.Sub"], L["Home.Kpi.Products.Tip"])
         @KpiCard(L["Home.Kpi.OpenRmas"], _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", L["Home.Kpi.OpenRmas.Sub", _rmas.Count], L["Home.Kpi.OpenRmas.Tip"])
@@ -26,7 +28,11 @@ else
 
     <div style="display:grid; grid-template-columns:2fr 1fr; gap:1.2rem; margin-top:1.4rem;">
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
-            <h3 style="margin:0 0 .6rem;">@L["Home.Revenue14"]</h3>
+            <div style="display:flex; align-items:baseline; gap:1rem; margin:0 0 .6rem;">
+                <h3 style="margin:0;">@L["Home.Revenue14"]</h3>
+                <span style="flex:1;"></span>
+                <span style="font-size:.75rem; color:#6b7280;"><span style="color:#6366f1;">■</span> @L["Home.Chart.Gross"] &nbsp; <span style="color:#f59e0b;">■</span> @L["Home.Chart.Refunds"]</span>
+            </div>
             @if (_revByDay.Count == 0)
             {
                 <p style="color:#9ca3af;">@L["Home.NoOrders"]</p>
@@ -81,20 +87,55 @@ else
             </table>
         }
     </div>
+
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff; margin-top:1.2rem;">
+        <div style="display:flex; align-items:baseline; gap:1rem;">
+            <h3 style="margin:0 0 .6rem;">@L["Home.LedgerFeed"]</h3>
+            <span style="flex:1;"></span>
+            <a href="/ledger" style="font-size:.8rem;" title="@L["Nav.Ledger.Tip"]">@L["Home.LedgerFeed.All"]</a>
+        </div>
+        @if (_ledger.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Home.NoLedger"]</p>
+        }
+        else
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                <thead><tr><th style="text-align:left;">@L["Home.Col.When"]</th><th style="text-align:left;">@L["Home.Col.Entry"]</th><th style="text-align:right;">@L["Home.Col.Amount"]</th></tr></thead>
+                <tbody>
+                @foreach (var e in _ledger.OrderByDescending(e => e.CreatedAt).Take(8))
+                {
+                    var isRefund = e.Lines.Any(l => l.AccountCode == "revenue.refunds");
+                    var total = e.Lines.Sum(l => l.DebitMinor);
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                        <td>@e.Description</td>
+                        <td style="text-align:right; @(isRefund ? "color:#b45309;" : "color:#047857;")">@(isRefund ? "−" : "")@($"{total / 100m:0.00} {e.Currency}")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
 }
 
 @code {
     private bool _loading = true;
     private List<OrderDto> _orders = [];
     private List<RmaDto> _rmas = [];
+    private List<EntryDto> _ledger = [];
     private int _productCount;
     private long _revenueMinor;
+    private long _refundsMinor;
+    private long _netRevenueMinor;
     private long _trialBalanceMinor;
+    private int _refundCount;
     private int _openRmas;
     private int _ordersToday;
     private string _currency = "EUR";
     private Dictionary<string, int> _byStatus = [];
     private Dictionary<DateTime, long> _revByDay = [];
+    private Dictionary<DateTime, long> _refByDay = [];
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -109,21 +150,31 @@ else
 
         _orders = await ordersTask;
         _rmas = await rmasTask;
-        var ledger = await ledgerTask;
+        _ledger = await ledgerTask;
         _productCount = (await productsTask).Count;
 
         _revenueMinor = _orders.Sum(o => o.GrossMinor);
         _currency = _orders.Select(o => o.Currency).FirstOrDefault() ?? "EUR";
         _ordersToday = _orders.Count(o => o.CreatedAt.LocalDateTime.Date == DateTime.Now.Date);
         _openRmas = _rmas.Count(r => r.State is "Requested" or "Pending" or "Open");
-        _trialBalanceMinor = ledger.SelectMany(e => e.Lines).Sum(l => l.DebitMinor) - ledger.SelectMany(e => e.Lines).Sum(l => l.CreditMinor);
+        _trialBalanceMinor = _ledger.SelectMany(e => e.Lines).Sum(l => l.DebitMinor) - _ledger.SelectMany(e => e.Lines).Sum(l => l.CreditMinor);
         _byStatus = _orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
 
+        // Refunds come off the ledger (the single source of truth): revenue.refunds is debited for the
+        // net refunded, so it reflects every refund path — admin instant, RMA-return, or storefront —
+        // and nets against gross revenue. Refunded-order count is a friendlier companion figure.
+        _refundsMinor = _ledger.SelectMany(e => e.Lines).Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor);
+        _netRevenueMinor = _revenueMinor - _refundsMinor;
+        _refundCount = _orders.Count(o => o.Status == "Refunded");
+
         _revByDay = [];
+        _refByDay = [];
         for (var d = 13; d >= 0; d--)
         {
             var day = DateTime.Now.Date.AddDays(-d);
             _revByDay[day] = _orders.Where(o => o.CreatedAt.LocalDateTime.Date == day).Sum(o => o.GrossMinor);
+            _refByDay[day] = _ledger.Where(e => e.CreatedAt.LocalDateTime.Date == day)
+                .SelectMany(e => e.Lines).Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor);
         }
 
         _loading = false;
@@ -136,13 +187,22 @@ else
             return default;
         }
 
-        var max = Math.Max(1, _revByDay.Values.Max());
+        var max = Math.Max(1, Math.Max(_revByDay.Values.Max(), _refByDay.Values.DefaultIfEmpty(0).Max()));
         var parts = _revByDay.Select((kv, i) =>
         {
             var h = kv.Value * 130.0 / max;
             var x = (i * 40) + 14;
-            return $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {Money(kv.Value)}</title></rect>"
-                 + $"<text x=\"{x + 13}\" y=\"158\" font-size=\"9\" text-anchor=\"middle\" fill=\"#9ca3af\">{kv.Key:dd}</text>";
+            var refund = _refByDay.TryGetValue(kv.Key, out var r) ? r : 0;
+            var rh = refund * 130.0 / max;
+            // Gross bar (indigo) with the day's refunds overlaid as a narrower amber bar on the same scale,
+            // so a refund shows against the sale it reverses even on a day with no new orders.
+            var bars = $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {Money(kv.Value)}</title></rect>";
+            if (rh > 0)
+            {
+                bars += $"<rect x=\"{x + 7}\" y=\"{140 - rh:0.#}\" width=\"12\" height=\"{rh:0.#}\" rx=\"2\" fill=\"#f59e0b\"><title>{kv.Key:dd MMM} · {Money(refund)} refunded</title></rect>";
+            }
+
+            return bars + $"<text x=\"{x + 13}\" y=\"158\" font-size=\"9\" text-anchor=\"middle\" fill=\"#9ca3af\">{kv.Key:dd}</text>";
         });
         return (MarkupString)string.Concat(parts);
     }
