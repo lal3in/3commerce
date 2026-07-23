@@ -30,6 +30,12 @@ test.describe("Mission Control monitors", () => {
       await expect(page.getByText(label, { exact: false }).first()).toBeVisible();
     }
 
+    // RMA lifecycle is broken out into distinguishable tiles (was one lumped "open" tile): every
+    // waiting state plus Denied and Refunds issued render with localized labels.
+    for (const label of ["awaiting decision", "awaiting return", "refund pending", "denied", "Refunds issued"]) {
+      await expect(page.getByText(label, { exact: false }).first()).toBeVisible();
+    }
+
     // Revenue is per-currency: each Revenue tile's value is prefixed with its ISO currency code
     // (e.g. "EUR 59.05"); with no confirmed orders a single "0.00" placeholder tile renders.
     const revenueTile = page.locator("div[title]", { hasText: "Revenue" }).first();

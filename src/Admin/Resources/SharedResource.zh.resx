@@ -362,6 +362,19 @@
   <data name="Rma.Deny.Tip" xml:space="preserve"><value>驳回此退货请求。</value></data>
   <data name="Rma.MarkReceived" xml:space="preserve"><value>标记已收到退货</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>标记已收到退回的商品——这将放行退款。</value></data>
+  <data name="Rma.Restock" xml:space="preserve"><value>重新入库…</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>在标记退货已收到之前，可选择哪些退回的商品重新入库。</value></data>
+  <data name="Rma.Restock.Heading" xml:space="preserve"><value>将商品重新入库（可选）</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>全部不勾选即可标记退货已收到而不重新入库。</value></data>
+  <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>入库</value></data>
+  <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>商品</value></data>
+  <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>数量</value></data>
+  <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>库存地点</value></data>
+  <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>选择一个库存地点…</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>标记已收到并重新入库</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>标记退货已收到，并将所选商品重新计入所选地点的在手库存。</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>订单行数据不可用——您仍可标记退货已收到。</value></data>
+  <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>未找到库存地点。请先创建一个再重新入库。</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} 已受理。</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} 失败（{1}）：{2}</value></data>
 
@@ -1032,8 +1045,14 @@
   <data name="Mc.Kpi.Refunded.Tip" xml:space="preserve"><value>全额退款的订单。</value></data>
   <data name="Mc.Kpi.Cancelled" xml:space="preserve"><value>已取消</value></data>
   <data name="Mc.Kpi.Cancelled.Tip" xml:space="preserve"><value>付款前取消的订单。</value></data>
-  <data name="Mc.Kpi.RmasOpen" xml:space="preserve"><value>待处理退货</value></data>
-  <data name="Mc.Kpi.RmasOpen.Tip" xml:space="preserve"><value>处理中的退货（已申请、等待退回或待退款）。</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision" xml:space="preserve"><value>待决定的退货</value></data>
+  <data name="Mc.Kpi.RmasAwaitingDecision.Tip" xml:space="preserve"><value>仍需操作员批准或拒绝的退货申请。</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn" xml:space="preserve"><value>等待退回的退货</value></data>
+  <data name="Mc.Kpi.RmasAwaitingReturn.Tip" xml:space="preserve"><value>已批准的退货，等待实物商品送达。</value></data>
+  <data name="Mc.Kpi.RmasRefundPending" xml:space="preserve"><value>待退款的退货</value></data>
+  <data name="Mc.Kpi.RmasRefundPending.Tip" xml:space="preserve"><value>已申请退款并处理中——尚未完成。</value></data>
+  <data name="Mc.Kpi.RmasDenied" xml:space="preserve"><value>已拒绝的退货</value></data>
+  <data name="Mc.Kpi.RmasDenied.Tip" xml:space="preserve"><value>被拒绝的退货申请。</value></data>
   <data name="Mc.Kpi.RmasIssued" xml:space="preserve"><value>已发放退款</value></data>
   <data name="Mc.Kpi.RmasIssued.Tip" xml:space="preserve"><value>退款已完成的退货。</value></data>
   <data name="Mc.Process" xml:space="preserve"><value>流程监控</value></data>

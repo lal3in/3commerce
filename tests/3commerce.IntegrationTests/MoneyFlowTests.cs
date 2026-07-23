@@ -324,6 +324,108 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
+    [Fact]
+    public async Task Card_payment_acquires_through_the_tenant_default_account_then_falls_back_to_stripe()
+    {
+        // psp_acquirer_rma: the acquiring PSP for card / Apple Pay / Google Pay is chosen at the
+        // tenant/admin level. AuthorizePayment carries no tenant in dev, so the consumer scopes the
+        // default-account lookup to Tenancy:DefaultTenantId (unset here → the seeded default tenant).
+        var tenant = new Guid("00000000-0000-0000-0000-000000000001");
+
+        // Configure a Polar account as the tenant default acquirer (Draft → submit → activate).
+        Guid accountId;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var now = DateTimeOffset.UtcNow;
+            var account = PaymentAccount.Create(tenant, null, "Polar acquirer", "polar", PaymentProviderMode.Test, isDefaultForTenant: true, null, now);
+            account.SubmitForApproval(now);
+            account.Activate(now);
+            db.PaymentAccounts.Add(account);
+            await db.SaveChangesAsync();
+            accountId = account.Id;
+        }
+
+        try
+        {
+            // A plain card checkout now settles through Polar and posts to cash.polar with Provider=polar.
+            var routed = await CardCheckoutAsync(6_000);
+            await AssertCardSettledAsync(routed, "polar");
+
+            // Remove the configured default: card checkout reverts to the synthetic stripe acquirer.
+            await RemovePaymentAccountAsync(accountId);
+            var fallback = await CardCheckoutAsync(6_000);
+            await AssertCardSettledAsync(fallback, "stripe");
+        }
+        finally
+        {
+            // Never leave a default account behind — the shared Phase-3 DB would then route every other
+            // test's card payment through Polar.
+            await RemovePaymentAccountAsync(accountId);
+        }
+    }
+
+    private async Task<CheckoutResponseDto> CardCheckoutAsync(long priceMinor)
+    {
+        var productId = await fixture.SeedProductAsync(priceMinor);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var checkout = await shopper.PostAsJsonAsync("/checkout", new
+        {
+            email = "buyer@example.com",
+            shippingAddress = new { name = "B", line1 = "1 St", city = "Berlin", postcode = "10115", country = "DE" },
+            paymentOption = "CreditCard",
+        });
+        checkout.EnsureSuccessStatusCode();
+        return (await checkout.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+    }
+
+    private async Task AssertCardSettledAsync(CheckoutResponseDto order, string expectedProvider)
+    {
+        // The AuthorizePayment consumer persisted the card method AND the acquiring provider.
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.Payments.Where(p => p.OrderId == order.OrderId));
+            Assert.Equal(PaymentMethodKind.Card, payment.MethodKind);
+            Assert.Equal(expectedProvider, payment.Provider);
+        }
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        using var shopper = fixture.Ordering.CreateClient();
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.JournalEntries.Where(e => e.Reference == order.OrderId.ToString()));
+            var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                db.JournalLines.Where(l => l.EntryId == entry.Id));
+
+            // The sale debits the acquiring provider's cash account: cash.polar under a Polar default,
+            // cash.stripe once no default account is configured.
+            Assert.Contains(lines, l => l.AccountCode == Accounts.CashFor(expectedProvider) && l.DebitMinor == order.GrossMinor);
+            Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
+        }
+
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task RemovePaymentAccountAsync(Guid accountId)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        var rows = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.PaymentAccounts.Where(a => a.Id == accountId));
+        if (rows.Count > 0)
+        {
+            db.PaymentAccounts.RemoveRange(rows);
+            await db.SaveChangesAsync();
+        }
+    }
+
     private async Task<int> CountEntriesForAsync(Guid orderId)
     {
         using var scope = fixture.Payments.Services.CreateScope();

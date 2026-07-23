@@ -43,7 +43,12 @@
         }
         @KpiCard(L["Mc.Kpi.Refunded"], OrdersWith("Refunded").ToString(), _orders.Any(o => o.Status == "Refunded") ? "#b45309" : "#059669", L["Mc.Kpi.Refunded.Tip"])
         @KpiCard(L["Mc.Kpi.Cancelled"], OrdersWith("Cancelled").ToString(), "#6b7280", L["Mc.Kpi.Cancelled.Tip"])
-        @KpiCard(L["Mc.Kpi.RmasOpen"], RmasWith("Requested", "AwaitingReturn", "RefundPending").ToString(), RmasWith("Requested", "AwaitingReturn", "RefundPending") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasOpen.Tip"])
+        @* RMA lifecycle broken out so each waiting state is distinguishable (was one lumped "open" tile):
+           attention states go amber while > 0, Denied stays neutral, issued refunds green. *@
+        @KpiCard(L["Mc.Kpi.RmasAwaitingDecision"], RmasWith("Requested").ToString(), RmasWith("Requested") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasAwaitingDecision.Tip"])
+        @KpiCard(L["Mc.Kpi.RmasAwaitingReturn"], RmasWith("AwaitingReturn").ToString(), RmasWith("AwaitingReturn") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasAwaitingReturn.Tip"])
+        @KpiCard(L["Mc.Kpi.RmasRefundPending"], RmasWith("RefundPending").ToString(), RmasWith("RefundPending") > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RmasRefundPending.Tip"])
+        @KpiCard(L["Mc.Kpi.RmasDenied"], RmasWith("Denied").ToString(), "#6b7280", L["Mc.Kpi.RmasDenied.Tip"])
         @KpiCard(L["Mc.Kpi.RmasIssued"], RmasWith("RefundIssued").ToString(), "#059669", L["Mc.Kpi.RmasIssued.Tip"])
     </div>
 </section>

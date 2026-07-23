@@ -40,6 +40,66 @@ else
                     else if (r.State == "AwaitingReturn")
                     {
                         <button disabled="@_busy" @onclick="() => Post(r.Id, ReturnReceivedAction, _empty)" title="@L["Rma.MarkReceived.Tip"]">@L["Rma.MarkReceived"]</button>
+                        <button disabled="@_busy" @onclick="() => ToggleRestock(r)" title="@L["Rma.Restock.Tip"]">@L["Rma.Restock"]</button>
+                        @if (_panels.TryGetValue(r.Id, out var panel))
+                        {
+                            @* Optional partial restock (mt4_8): pick which returned lines go back on hand and where,
+                               then mark received. Leaving everything unchecked marks received with no restock. *@
+                            <div style="margin-top:.6rem; padding:.7rem .9rem; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb;">
+                                <div style="font-weight:600; margin-bottom:.2rem;">@L["Rma.Restock.Heading"]</div>
+                                <div style="color:#6b7280; font-size:.8rem; margin-bottom:.6rem;">@L["Rma.Restock.Hint"]</div>
+                                @if (!panel.Loaded)
+                                {
+                                    <p style="color:#6b7280;">@L["Common.Loading"]</p>
+                                }
+                                else if (panel.Error is not null)
+                                {
+                                    <p style="color:#b45309;">@panel.Error</p>
+                                }
+                                else if (panel.Lines.Count == 0)
+                                {
+                                    <p style="color:#6b7280;">@L["Rma.Restock.NoLines"]</p>
+                                }
+                                else if (_locations.Count == 0)
+                                {
+                                    <p style="color:#b45309;">@L["Rma.Restock.NoLocations"]</p>
+                                }
+                                else
+                                {
+                                    <div style="margin-bottom:.6rem;">
+                                        <label>@L["Rma.Restock.Col.Location"]:
+                                            <select @bind="panel.LocationId">
+                                                <option value="">@L["Rma.Restock.SelectLocation"]</option>
+                                                @foreach (var loc in _locations)
+                                                {
+                                                    <option value="@loc.Id">@loc.Name</option>
+                                                }
+                                            </select>
+                                        </label>
+                                    </div>
+                                    <table style="border-collapse:collapse; font-size:.85rem;">
+                                        <thead><tr>
+                                            <th style="text-align:left;">@L["Rma.Restock.Col.Include"]</th>
+                                            <th style="text-align:left;">@L["Rma.Restock.Col.Item"]</th>
+                                            <th>@L["Rma.Restock.Col.Qty"]</th>
+                                        </tr></thead>
+                                        <tbody>
+                                        @foreach (var line in panel.Lines)
+                                        {
+                                            <tr style="border-top:1px solid #f3f4f6;">
+                                                <td style="text-align:center;"><input type="checkbox" @bind="line.Include" /></td>
+                                                <td>@line.Label</td>
+                                                <td style="text-align:center;"><input type="number" min="1" max="@line.MaxQty" style="width:4rem;" @bind="line.Quantity" /></td>
+                                            </tr>
+                                        }
+                                        </tbody>
+                                    </table>
+                                    <div style="margin-top:.6rem;">
+                                        <button disabled="@_busy" @onclick="() => SubmitRestock(r, panel)" title="@L["Rma.Restock.Submit.Tip"]">@L["Rma.Restock.Submit"]</button>
+                                    </div>
+                                }
+                            </div>
+                        }
                     }
                 </td>
             </tr>
@@ -52,6 +112,9 @@ else
     private const string DenyAction = "deny";
     private const string ReturnReceivedAction = "return-received";
     private static readonly object _empty = new();
+    // The RMA saga carries no tenant, so restock (and audit) land under the configured default tenant —
+    // the same fallback AdminRmaEndpoints/Fulfillment use and that Mission Control reads.
+    private static readonly Guid _tenant = new("00000000-0000-0000-0000-000000000001");
     private List<RmaDto>? _rmas;
     private bool _busy;
     private string? _error;
@@ -60,6 +123,10 @@ else
     // eventually consistent). Maps RMA id → the state it showed when the action was accepted;
     // buttons stay suppressed until a reload observes a DIFFERENT state (the transition landed).
     private readonly Dictionary<Guid, string> _acted = [];
+    // Open restock panels keyed by RMA id; tenant inventory locations are loaded once and shared.
+    private readonly Dictionary<Guid, RestockPanel> _panels = [];
+    private List<LocationDto> _locations = [];
+    private bool _locationsLoaded;
 
     protected override Task OnInitializedAsync() => Refresh();
 
@@ -79,6 +146,78 @@ else
     }
 
     private Task Approve(Guid id, bool requireReturn) => Post(id, "approve", new { requireReturn });
+
+    // Toggle the restock panel for a row; on open, lazy-load the tenant's inventory locations (once)
+    // and this order's lines. Failures degrade gracefully — the plain "Mark received" button stays usable.
+    private async Task ToggleRestock(RmaDto r)
+    {
+        if (_panels.Remove(r.Id))
+        {
+            return;
+        }
+
+        var panel = new RestockPanel();
+        _panels[r.Id] = panel;
+        await EnsureLocations();
+        await LoadLines(r, panel);
+    }
+
+    private async Task EnsureLocations()
+    {
+        if (_locationsLoaded)
+        {
+            return;
+        }
+
+        _locationsLoaded = true;
+        try { _locations = await Gateway.GetListAsync<LocationDto>($"/api/fulfillment/admin/inventory/locations?tenantId={_tenant}"); }
+        catch { _locations = []; }
+    }
+
+    private async Task LoadLines(RmaDto r, RestockPanel panel)
+    {
+        try
+        {
+            var order = await Gateway.GetAsync<OrderDetailDto>($"/api/ordering/admin/orders/{r.OrderId}");
+            panel.Lines = (order?.Lines ?? [])
+                .Select(l => new LineDraft
+                {
+                    ProductId = l.ProductId,
+                    VariantId = l.VariantId,
+                    Label = string.IsNullOrEmpty(l.VariantSku) ? l.Title : $"{l.Title} ({l.VariantSku})",
+                    MaxQty = l.Quantity,
+                    Quantity = l.Quantity,
+                })
+                .ToList();
+        }
+        catch
+        {
+            // No cross-service dependency to invent: if the order read fails, note it and let the
+            // operator still mark received without restocking.
+            panel.Error = L["Rma.Restock.NoLines"];
+        }
+
+        panel.Loaded = true;
+    }
+
+    private async Task SubmitRestock(RmaDto r, RestockPanel panel)
+    {
+        var included = panel.Lines.Where(l => l.Include && l.Quantity > 0).ToList();
+        Guid locationId = Guid.Empty;
+        if (included.Count > 0 && !Guid.TryParse(panel.LocationId, out locationId))
+        {
+            _error = L["Rma.Restock.SelectLocation"];
+            return;
+        }
+
+        var body = new
+        {
+            TenantId = _tenant,
+            Restock = included.Select(l => new { l.ProductId, l.VariantId, LocationId = locationId, l.Quantity }).ToList(),
+        };
+        await Post(r.Id, ReturnReceivedAction, body);
+        _panels.Remove(r.Id);
+    }
 
     private async Task Post(Guid id, string action, object? body)
     {
@@ -108,4 +247,26 @@ else
     }
 
     public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+    private record OrderDetailDto(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineDto> Lines);
+    private record OrderLineDto(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
+    private record LocationDto(Guid Id, Guid TenantId, Guid EntityId, Guid? AddressId, string Name, string Kind, string Status);
+
+    // Mutable per-line restock draft (checkbox + quantity), and the panel that owns the selected location.
+    private sealed class LineDraft
+    {
+        public Guid ProductId { get; set; }
+        public Guid? VariantId { get; set; }
+        public string Label { get; set; } = "";
+        public int MaxQty { get; set; }
+        public bool Include { get; set; }
+        public int Quantity { get; set; }
+    }
+
+    private sealed class RestockPanel
+    {
+        public bool Loaded { get; set; }
+        public string? Error { get; set; }
+        public string LocationId { get; set; } = "";
+        public List<LineDraft> Lines { get; set; } = [];
+    }
 }

@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -18,8 +19,11 @@ public sealed class AuthorizePaymentConsumer(
     PaymentsDbContext db,
     IPaymentProviderRegistry registry,
     PaymentModeResolver modeResolver,
+    IConfiguration configuration,
     TimeProvider time) : IConsumer<AuthorizePayment>
 {
+    private static readonly Guid FallbackTenantId = new("00000000-0000-0000-0000-000000000001");
+
     public async Task Consume(ConsumeContext<AuthorizePayment> context)
     {
         var msg = context.Message;
@@ -29,7 +33,7 @@ public sealed class AuthorizePaymentConsumer(
         // ledger posts to cash.{provider}. Applies to both the create and the retry branch below, so a
         // shopper switching wallet on retry re-attributes correctly.
         var methodKind = PaymentMethodKindMapper.From(msg.PaymentOption);
-        var (account, provider) = ResolveSettlement(methodKind);
+        var (account, provider) = await ResolveSettlementAsync(methodKind, context.CancellationToken);
         var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         if (existing is not null)
         {
@@ -106,30 +110,77 @@ public sealed class AuthorizePaymentConsumer(
     }
 
     /// <summary>
-    /// Selects the settling account + adapter for <paramref name="methodKind"/> (ADR-0039 routing).
-    /// A standalone PSP (PayPal/Afterpay/Polar) settles on its own account; everything else (and any
-    /// routed PSP that cannot be resolved) settles on the tenant default (the card PSP). The fallback
-    /// keeps a shopper's PayPal click from crashing checkout when the routed provider has no usable
-    /// adapter/account/creds in a non-mock mode — we degrade to the default rather than throwing. In
-    /// LocalMock the mock adapter is returned regardless of the routed provider, so dev still processes
-    /// through the mock while the persisted provider becomes the routed PSP (ledger → cash.paypal).
+    /// Selects the settling account + adapter for <paramref name="methodKind"/> (ADR-0039 routing),
+    /// now honouring the operator's configured tenant <see cref="PaymentAccount"/>s (psp_acquirer_rma):
+    /// <list type="bullet">
+    /// <item>Card / Apple Pay / Google Pay (<see cref="PaymentMethodKindMapper.SettlingProviderFor"/> →
+    /// null) are card-PSP methods, so the ACQUIRER is whichever active account is the tenant default. A
+    /// Polar default therefore makes card payments settle through Polar and post to cash.polar. With no
+    /// configured default we keep the synthetic <see cref="PaymentModeResolver.DefaultAccountForHost"/>
+    /// (stripe) fallback exactly.</item>
+    /// <item>PayPal / Afterpay / Polar are standalone PSPs: prefer an active account whose provider
+    /// matches the routed key, else the synthetic <see cref="PaymentModeResolver.AccountForProvider"/>
+    /// (the prior behavior).</item>
+    /// </list>
+    /// The account lookup is tenant-scoped: <see cref="AuthorizePayment"/> carries no tenant in dev, so
+    /// we resolve it exactly as the rest of Payments does — config <c>Tenancy:DefaultTenantId</c>, else
+    /// the seeded default tenant. Every DB-backed resolution keeps the try/catch degradation to the
+    /// synthetic default so an unsafe host×account mode combination can never crash checkout; in
+    /// LocalMock the mock adapter is returned regardless of the declared provider, while the persisted
+    /// provider becomes the routed/acquiring PSP (ledger → cash.{provider}).
     /// </summary>
-    private (PaymentAccountSnapshot Account, IPaymentProvider Provider) ResolveSettlement(PaymentMethodKind methodKind)
+    private async Task<(PaymentAccountSnapshot Account, IPaymentProvider Provider)> ResolveSettlementAsync(
+        PaymentMethodKind methodKind, CancellationToken ct)
     {
+        var tenantId = DefaultTenantId();
+
         if (PaymentMethodKindMapper.SettlingProviderFor(methodKind) is { Length: > 0 } routedKey)
         {
-            var routed = modeResolver.AccountForProvider(routedKey);
-            try
+            // Standalone PSP: prefer a configured active account on that provider (a real snapshot),
+            // else the synthetic account for the routed provider.
+            var configured = await db.PaymentAccounts.AsNoTracking()
+                .Where(a => a.TenantId == tenantId && a.State == PaymentAccountState.Active && a.Provider.ToLower() == routedKey)
+                .OrderByDescending(a => a.IsDefaultForTenant)
+                .FirstOrDefaultAsync(ct);
+            var routed = configured is not null ? SnapshotOf(configured) : modeResolver.AccountForProvider(routedKey);
+            if (TryResolve(routed) is { } routedResult)
             {
-                return (routed, registry.Resolve(routed));
+                return routedResult;
             }
-            catch (Exception ex) when (ex is PaymentConfigurationException or PaymentModeException)
+        }
+        else
+        {
+            // Card family: the acquirer is the tenant's default active account, if one is configured.
+            var acquirer = await db.PaymentAccounts.AsNoTracking()
+                .Where(a => a.TenantId == tenantId && a.IsDefaultForTenant && a.State == PaymentAccountState.Active)
+                .FirstOrDefaultAsync(ct);
+            if (acquirer is not null && TryResolve(SnapshotOf(acquirer)) is { } acquirerResult)
             {
-                // No usable adapter/account for the routed PSP in this mode — fall back to the default.
+                return acquirerResult;
             }
         }
 
         var fallback = modeResolver.DefaultAccountForHost();
         return (fallback, registry.Resolve(fallback));
     }
+
+    /// <summary>Resolves the adapter for <paramref name="account"/>, or null when the host×account mode
+    /// combination is unsafe / the provider has no adapter — the caller then degrades to the default.</summary>
+    private (PaymentAccountSnapshot Account, IPaymentProvider Provider)? TryResolve(PaymentAccountSnapshot account)
+    {
+        try
+        {
+            return (account, registry.Resolve(account));
+        }
+        catch (Exception ex) when (ex is PaymentConfigurationException or PaymentModeException)
+        {
+            return null;
+        }
+    }
+
+    private static PaymentAccountSnapshot SnapshotOf(PaymentAccount account) =>
+        new(account.Id, account.TenantId, account.StorefrontId, account.Provider, account.Mode, account.ExternalAccountRef);
+
+    private Guid DefaultTenantId() =>
+        Guid.TryParse(configuration["Tenancy:DefaultTenantId"], out var tenantId) ? tenantId : FallbackTenantId;
 }
