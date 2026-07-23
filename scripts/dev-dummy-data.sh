@@ -701,6 +701,16 @@ MSG
     ;;
 esac
 
+# Populate the last few Mission Control tiles a happy-path run leaves at 0 (cancelled / refund-pending /
+# past-due / dropship states / failed notification) so every monitor shows data. Best-effort, non-fatal.
+case "$PROFILE" in
+  full|exhaustive)
+    if [[ -x scripts/seed-monitor-demo.sh ]]; then
+      GATEWAY="$GATEWAY" TENANT_ID="$TENANT_ID" scripts/seed-monitor-demo.sh \
+        || echo "monitor-demo seed skipped/failed (non-fatal)"
+    fi ;;
+esac
+
 manifest_set "summaryPath" "$(json_string "$SUMMARY")"
 
 echo "== summary =="

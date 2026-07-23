@@ -1182,4 +1182,61 @@
   <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
     <value>Gesamte Erstattungen je Währung (Ledger revenue.refunds) – über alle Erstattungswege.</value>
   </data>
+  <data name="Nav.Notifications" xml:space="preserve">
+    <value>Benachrichtigungen</value>
+  </data>
+  <data name="Nav.Notifications.Tip" xml:space="preserve">
+    <value>Zustellprotokoll: gesendete Benachrichtigungen samt Fehlern.</value>
+  </data>
+  <data name="Notif.Title" xml:space="preserve">
+    <value>Benachrichtigungen</value>
+  </data>
+  <data name="Notif.Intro" xml:space="preserve">
+    <value>Zustellprotokoll zur Nachverfolgung &amp; Überwachung</value>
+  </data>
+  <data name="Notif.Kpi.Total" xml:space="preserve">
+    <value>Gesamt</value>
+  </data>
+  <data name="Notif.Kpi.Total.Tip" xml:space="preserve">
+    <value>Alle erfassten Benachrichtigungszustellungen.</value>
+  </data>
+  <data name="Notif.Kpi.Sent" xml:space="preserve">
+    <value>Gesendet (24h)</value>
+  </data>
+  <data name="Notif.Kpi.Sent.Tip" xml:space="preserve">
+    <value>In den letzten 24 Stunden erfolgreich zugestellt.</value>
+  </data>
+  <data name="Notif.Kpi.Failed" xml:space="preserve">
+    <value>Fehlgeschlagen</value>
+  </data>
+  <data name="Notif.Kpi.Failed.Tip" xml:space="preserve">
+    <value>Vom Anbieter abgelehnte oder fehlerhafte Zustellungen.</value>
+  </data>
+  <data name="Notif.Filter.All" xml:space="preserve">
+    <value>Alle</value>
+  </data>
+  <data name="Notif.Status.Sent" xml:space="preserve">
+    <value>Gesendet</value>
+  </data>
+  <data name="Notif.Status.Failed" xml:space="preserve">
+    <value>Fehlgeschlagen</value>
+  </data>
+  <data name="Notif.Col.When" xml:space="preserve">
+    <value>Wann</value>
+  </data>
+  <data name="Notif.Col.Channel" xml:space="preserve">
+    <value>Kanal</value>
+  </data>
+  <data name="Notif.Col.Recipient" xml:space="preserve">
+    <value>Empfänger</value>
+  </data>
+  <data name="Notif.Col.Subject" xml:space="preserve">
+    <value>Betreff</value>
+  </data>
+  <data name="Notif.Col.Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Notif.Empty" xml:space="preserve">
+    <value>Noch keine Benachrichtigungen erfasst.</value>
+  </data>
 </root>
