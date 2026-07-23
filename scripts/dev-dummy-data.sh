@@ -285,7 +285,7 @@ meta = {
     "bundle-mixed-physical": ("Physical", "Warehouse", "OneTime", "Once", 5999, []),
     "digital-download-onetime": ("Digital", "DigitalDownload", "OneTime", "Once", 1299, []),
     "subscription-monthly-flat": ("Digital", "DigitalDownload", "Subscription", "Monthly", 999, []),
-    "subscription-yearly-tiered": ("Service", "ManualService", "Tiered", "Yearly", 9999, [{"fromQuantity":1,"unitPriceMinor":9999},{"fromQuantity":10,"unitPriceMinor":8499}]),
+    "subscription-yearly-tiered": ("Service", "ManualService", "Subscription", "Yearly", 9999, []),
     "usage-api-meter": ("Digital", "Usage", "UsageBased", "Monthly", 0, []),
     "manual-service-onetime": ("Service", "ManualService", "OneTime", "Once", 7500, []),
     "out-of-stock-hold": ("Physical", "Warehouse", "OneTime", "Once", 1899, []),
@@ -469,8 +469,49 @@ seed_historical_flows() {
   checkout_scenario "physical-dropship-flat" 1
   checkout_scenario "digital-download-onetime" 1
   checkout_scenario "subscription-monthly-flat" 1
+  checkout_scenario "subscription-yearly-tiered" 1
   checkout_scenario "usage-api-meter" 3
   checkout_scenario "out-of-stock-hold" 1
+}
+
+# Subscription examples: a mix of active and "expired" subscriptions so the monitors show real data.
+# An instance is created when an order with a recurring line confirms (the offer's pricingModel is
+# Subscription). The domain has no "Expired" status — an ended subscription is Cancelled — so we
+# create a few more via extra subscription checkouts and cancel a subset to represent ended terms.
+seed_subscription_examples() {
+  echo "== subscription examples (active + expired) =="
+  local sub_pid sub_vid n jar ck oid intent st sid cancelled=0
+  sub_pid=$(manifest_get "products.subscription-monthly-flat.id")
+  sub_vid=$(manifest_get "products.subscription-monthly-flat.variantId")
+  if [[ -z "$sub_pid" || -z "$sub_vid" ]]; then
+    manifest_append "warnings" "$(json_string "subscription examples skipped: monthly subscription fixture missing")"
+    return
+  fi
+
+  # A few more active subscriptions, each its own guest order (subscription is keyed per order).
+  for n in 1 2 3; do
+    jar="$OUT_DIR/sub-example-$n.cookie"; cp "$CUSTOMER_JAR" "$jar" 2>/dev/null || true
+    api "sub-example-$n-cart" POST "/api/ordering/cart/items" "$jar" \
+      "{\"productId\":\"$sub_pid\",\"variantId\":\"$sub_vid\",\"quantity\":1}" "allow_4xx" >/dev/null
+    ck=$(api "sub-example-$n-checkout" POST "/api/ordering/checkout" "$jar" \
+      "{\"email\":\"subscriber$n@example.test\",\"paymentOption\":\"CreditCard\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
+    oid=$(printf '%s' "$ck" | json_get orderId)
+    [[ -z "$oid" ]] && continue
+    intent="pi_fake_${oid//-/}"
+    api "sub-example-$n-pay" POST "/api/payments/dev/simulate-payment/$intent" "$jar" "" "allow_4xx" >/dev/null
+    for _ in $(seq 1 15); do sleep 1; st=$(printf '%s' "$(api "sub-example-$n-status" GET "/api/ordering/orders/$oid/status" "$jar" "" "allow_4xx")" | json_get status); [[ "$st" == "Confirmed" ]] && break; done
+  done
+
+  # Cancel a subset so the data carries ended ("expired") subscriptions alongside the active ones.
+  sleep 3
+  local ids
+  ids=$(api "sub-examples-list" GET "/api/payments/admin/subscriptions?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  for sid in $(printf '%s' "$ids" | python3 -c "import json,sys; rows=json.load(sys.stdin); print(' '.join(r['id'] for r in rows if r.get('status')=='Active'))" 2>/dev/null); do
+    [[ "$cancelled" -ge 2 ]] && break
+    api "sub-example-cancel-$sid" POST "/api/payments/admin/subscriptions/$sid/cancel" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    cancelled=$((cancelled + 1))
+  done
+  manifest_set "subscriptions.examplesCancelled" "$cancelled"
 }
 
 login_admin() {
@@ -594,6 +635,7 @@ except Exception:
   # driving customer flows that depend on ProductCopy/OfferCopy/OrderSnapshot read models.
   sleep 5
   seed_historical_flows
+  seed_subscription_examples
 
   product_json=$(api "catalog-products" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")
   product_id=$(printf '%s' "$product_json" | json_get '0.id')
