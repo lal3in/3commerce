@@ -20,6 +20,7 @@ else
             <select @bind="_filter" title="@L["Subs.Filter.Tip"]" style="margin-left:.4rem; padding:.3rem;">
                 <option value="">@L["Subs.Filter.All"]</option>
                 <option value="Active">@L["Subs.Filter.Active"]</option>
+                <option value="Trialing">@L["Subs.Filter.Trialing"]</option>
                 <option value="PastDue">@L["Subs.Filter.PastDue"]</option>
                 <option value="Cancelled">@L["Subs.Filter.Cancelled"]</option>
             </select>
@@ -47,7 +48,7 @@ else
                     <button @onclick="() => ToggleAsync(s.Id)" title="@L["Subs.Expand.Tip"]" style="border:0; background:none; cursor:pointer; font-size:.9rem;">@(_expanded.ContainsKey(s.Id) ? "▾" : "▸")</button>
                 </td>
                 <td style="padding:.4rem;">@s.CustomerEmail</td>
-                <td><code title="@L["Subs.Col.Product.Tip"]">@Short(s.ProductId)</code></td>
+                <td title="@s.ProductId">@ProductLabel(s.ProductId)</td>
                 <td><span style="color:@StatusColor(s.Status); font-weight:600;">@StatusLabel(s.Status)</span></td>
                 <td>@BillingLabel(s.BillingPeriod)</td>
                 <td>@Period(s.CurrentPeriodStart, s.CurrentPeriodEnd)</td>
@@ -143,6 +144,8 @@ else
     private const string TenantId = "00000000-0000-0000-0000-000000000001";
 
     private List<SubscriptionDto>? _subs;
+    // ProductId → title, loaded from the Catalog admin list so the table shows names, not GUIDs.
+    private Dictionary<Guid, string> _productTitles = [];
     private string _filter = "";
     private bool _busy;
     private string? _error;
@@ -164,6 +167,19 @@ else
         try
         {
             _subs = await Gateway.GetListAsync<SubscriptionDto>($"/api/payments/admin/subscriptions/?tenantId={TenantId}");
+            // Resolve product titles by id (Catalog owns them) so the table reads names, not GUIDs.
+            // Fetch only the distinct products actually referenced — the admin list is paged (~200) and
+            // would miss these, and there are only a handful of subscribed products. Best-effort per id:
+            // a failed lookup just leaves the short id, and must never blank the page.
+            foreach (var pid in _subs.Select(s => s.ProductId).Distinct().Where(p => !_productTitles.ContainsKey(p)))
+            {
+                try
+                {
+                    var product = await Gateway.GetAsync<ProductRow>($"/api/catalog/admin/products/{pid}");
+                    if (product is not null) { _productTitles[pid] = product.Title; }
+                }
+                catch { /* leave unresolved; ProductLabel falls back to the short id */ }
+            }
             _acted.Clear();
             // Refresh any open detail panel so its history reflects a renewal just performed.
             foreach (var id in _expanded.Keys.ToList())
@@ -209,6 +225,8 @@ else
     }
 
     private string Short(Guid id) => id.ToString()[..8];
+    // The product's title when Catalog resolved it, else the short id (the full id is in the cell tooltip).
+    private string ProductLabel(Guid id) => _productTitles.TryGetValue(id, out var title) ? title : Short(id);
     private string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
     private string Period(DateTimeOffset start, DateTimeOffset end) =>
         $"{start.LocalDateTime:dd MMM yyyy} – {end.LocalDateTime:dd MMM yyyy}";
@@ -243,6 +261,9 @@ else
     private record SubscriptionDto(
         Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
         string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+    // Minimal projection of Catalog's admin product list — only what the Product column needs.
+    private record ProductRow(Guid Id, string Title);
 
     private record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
 

@@ -1086,11 +1086,11 @@
   <data name="Subs.Filter.Tip" xml:space="preserve"><value>Nur Abonnements mit dem gewählten Status anzeigen.</value></data>
   <data name="Subs.Filter.All" xml:space="preserve"><value>Alle</value></data>
   <data name="Subs.Filter.Active" xml:space="preserve"><value>Aktiv</value></data>
+  <data name="Subs.Filter.Trialing" xml:space="preserve"><value>Testphase</value></data>
   <data name="Subs.Filter.PastDue" xml:space="preserve"><value>Überfällig</value></data>
   <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>Gekündigt</value></data>
   <data name="Subs.Col.Subscriber" xml:space="preserve"><value>Abonnent</value></data>
   <data name="Subs.Col.Product" xml:space="preserve"><value>Produkt</value></data>
-  <data name="Subs.Col.Product.Tip" xml:space="preserve"><value>Kennung des abonnierten Produkts.</value></data>
   <data name="Subs.Col.Status" xml:space="preserve"><value>Status</value></data>
   <data name="Subs.Col.Billing" xml:space="preserve"><value>Abrechnungszyklus</value></data>
   <data name="Subs.Col.Period" xml:space="preserve"><value>Aktueller Zeitraum</value></data>

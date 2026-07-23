@@ -1086,11 +1086,11 @@
   <data name="Subs.Filter.Tip" xml:space="preserve"><value>仅显示所选状态的订阅。</value></data>
   <data name="Subs.Filter.All" xml:space="preserve"><value>全部</value></data>
   <data name="Subs.Filter.Active" xml:space="preserve"><value>生效中</value></data>
+  <data name="Subs.Filter.Trialing" xml:space="preserve"><value>试用中</value></data>
   <data name="Subs.Filter.PastDue" xml:space="preserve"><value>逾期</value></data>
   <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>已取消</value></data>
   <data name="Subs.Col.Subscriber" xml:space="preserve"><value>订阅者</value></data>
   <data name="Subs.Col.Product" xml:space="preserve"><value>产品</value></data>
-  <data name="Subs.Col.Product.Tip" xml:space="preserve"><value>所订阅产品的标识符。</value></data>
   <data name="Subs.Col.Status" xml:space="preserve"><value>状态</value></data>
   <data name="Subs.Col.Billing" xml:space="preserve"><value>计费周期</value></data>
   <data name="Subs.Col.Period" xml:space="preserve"><value>当前周期</value></data>
