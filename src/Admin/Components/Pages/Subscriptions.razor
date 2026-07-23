@@ -1,0 +1,274 @@
+@page "/subscriptions"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>@L["Subs.Title"]</h1>
+<p style="color:#6b7280;">@L["Subs.Intro"]</p>
+
+@if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+@if (_subs is null)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else
+{
+    <div style="display:flex; gap:.6rem; align-items:center; margin:1rem 0;">
+        <label>@L["Subs.Filter.Label"]
+            <select @bind="_filter" title="@L["Subs.Filter.Tip"]" style="margin-left:.4rem; padding:.3rem;">
+                <option value="">@L["Subs.Filter.All"]</option>
+                <option value="Active">@L["Subs.Filter.Active"]</option>
+                <option value="Trialing">@L["Subs.Filter.Trialing"]</option>
+                <option value="PastDue">@L["Subs.Filter.PastDue"]</option>
+                <option value="Cancelled">@L["Subs.Filter.Cancelled"]</option>
+            </select>
+        </label>
+        <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">@L["Common.Refresh"]</button>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+            <th style="padding:.4rem; width:1.5rem;"></th>
+            <th style="padding:.4rem;">@L["Subs.Col.Subscriber"]</th>
+            <th>@L["Subs.Col.Product"]</th>
+            <th>@L["Subs.Col.Status"]</th>
+            <th>@L["Subs.Col.Billing"]</th>
+            <th>@L["Subs.Col.Period"]</th>
+            <th>@L["Subs.Col.Price"]</th>
+            <th>@L["Subs.Col.Created"]</th>
+            <th>@L["Common.Actions"]</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var s in Filtered)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem; text-align:center;">
+                    <button @onclick="() => ToggleAsync(s.Id)" title="@L["Subs.Expand.Tip"]" style="border:0; background:none; cursor:pointer; font-size:.9rem;">@(_expanded.ContainsKey(s.Id) ? "▾" : "▸")</button>
+                </td>
+                <td style="padding:.4rem;">@s.CustomerEmail</td>
+                <td title="@s.ProductId">@ProductLabel(s.ProductId)</td>
+                <td><span style="color:@StatusColor(s.Status); font-weight:600;">@StatusLabel(s.Status)</span></td>
+                <td>@BillingLabel(s.BillingPeriod)</td>
+                <td>@Period(s.CurrentPeriodStart, s.CurrentPeriodEnd)</td>
+                <td>@Money(s.PriceMinor, s.Currency)</td>
+                <td>@s.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
+                <td>
+                    @if (_acted.Contains(s.Id))
+                    {
+                        <span style="color:#6b7280;">@L["Subs.Updating"]</span>
+                    }
+                    else
+                    {
+                        <button disabled="@_busy" @onclick="() => RenewRow(s.Id)" title="@L["Subs.Renew.Tip"]">@L["Subs.Renew"]</button>
+                        @if (s.Status != "Cancelled")
+                        {
+                            <button disabled="@_busy" @onclick="() => CancelRow(s.Id)" title="@L["Subs.Cancel.Tip"]" style="color:#b91c1c;">@L["Subs.Cancel"]</button>
+                        }
+                    }
+                </td>
+            </tr>
+            @if (_expanded.TryGetValue(s.Id, out var detail))
+            {
+                <tr><td></td><td colspan="8" style="padding:.4rem .4rem 1.2rem;">
+                    @if (detail is null)
+                    {
+                        <p style="color:#6b7280;">@L["Common.Loading"]</p>
+                    }
+                    else
+                    {
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; max-width:820px;">
+                            <section style="border:1px solid #e5e7eb; border-radius:8px; padding:.8rem; background:#fff;">
+                                <h3 style="margin:0 0 .5rem; font-size:.95rem;">@L["Subs.Detail.Subscriber"]</h3>
+                                <dl style="margin:0; font-size:.85rem; display:grid; grid-template-columns:auto 1fr; gap:.2rem .6rem;">
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Email"]</dt><dd style="margin:0;">@detail.CustomerEmail</dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Tenant"]</dt><dd style="margin:0;"><code>@detail.TenantId</code></dd>
+                                </dl>
+                            </section>
+                            <section style="border:1px solid #e5e7eb; border-radius:8px; padding:.8rem; background:#fff;">
+                                <h3 style="margin:0 0 .5rem; font-size:.95rem;">@L["Subs.Detail.Subscription"]</h3>
+                                <dl style="margin:0; font-size:.85rem; display:grid; grid-template-columns:auto 1fr; gap:.2rem .6rem;">
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Id"]</dt><dd style="margin:0;"><code>@detail.Id</code></dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.OrderId"]</dt><dd style="margin:0;"><code>@detail.OrderId</code></dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Product"]</dt><dd style="margin:0;"><code>@detail.ProductId</code></dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Variant"]</dt><dd style="margin:0;"><code>@(detail.VariantId?.ToString() ?? "—")</code></dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Price"]</dt><dd style="margin:0;">@Money(detail.PriceMinor, detail.Currency) · @BillingLabel(detail.BillingPeriod)</dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Status"]</dt><dd style="margin:0;"><span style="color:@StatusColor(detail.Status); font-weight:600;">@StatusLabel(detail.Status)</span></dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Created"]</dt><dd style="margin:0;">@detail.CreatedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Updated"]</dt><dd style="margin:0;">@detail.UpdatedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</dd>
+                                </dl>
+                            </section>
+                        </div>
+                        <section style="margin-top:1rem; max-width:820px;">
+                            <h3 style="margin:0 0 .5rem; font-size:.95rem;">@L["Subs.Detail.History"]</h3>
+                            @if (detail.Renewals.Count == 0)
+                            {
+                                <p style="color:#9ca3af; font-size:.85rem;">@L["Subs.History.Empty"]</p>
+                            }
+                            else
+                            {
+                                <table style="border-collapse:collapse; font-size:.83rem; width:100%;">
+                                    <thead><tr style="text-align:left; border-bottom:1px solid #e5e7eb; color:#6b7280;">
+                                        <th style="padding:.3rem;">@L["Subs.History.Seq"]</th>
+                                        <th>@L["Subs.History.Period"]</th>
+                                        <th>@L["Subs.History.Amount"]</th>
+                                        <th>@L["Subs.History.Recorded"]</th>
+                                    </tr></thead>
+                                    <tbody>
+                                    @foreach (var r in detail.Renewals)
+                                    {
+                                        <tr style="border-bottom:1px solid #f3f4f6;">
+                                            <td style="padding:.3rem;">#@r.Sequence</td>
+                                            <td>@Period(r.PeriodStart, r.PeriodEnd)</td>
+                                            <td>@Money(r.AmountMinor, r.Currency)</td>
+                                            <td>@r.RecordedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            }
+                        </section>
+                    }
+                </td></tr>
+            }
+        }
+        </tbody>
+    </table>
+    @if (Filtered.Count == 0) { <p style="color:#9ca3af;">@L["Subs.Empty"]</p> }
+}
+
+@code {
+    // The subscription endpoints carry no tenant, so they fall back to the configured default tenant —
+    // the same one Mission Control and the RMA queue read.
+    private const string TenantId = "00000000-0000-0000-0000-000000000001";
+
+    private List<SubscriptionDto>? _subs;
+    // ProductId → title, loaded from the Catalog admin list so the table shows names, not GUIDs.
+    private Dictionary<Guid, string> _productTitles = [];
+    private string _filter = "";
+    private bool _busy;
+    private string? _error;
+    private string? _status;
+    // Expanded rows → their lazily-loaded detail (null while the fetch is in flight).
+    private readonly Dictionary<Guid, SubscriptionDetailDto?> _expanded = [];
+    // Rows whose renew/cancel was accepted; buttons stay suppressed until the next reload (mirrors the
+    // eventually-consistent guard the RMA queue uses against a double-click landing a stale-state error).
+    private readonly HashSet<Guid> _acted = [];
+
+    private List<SubscriptionDto> Filtered =>
+        (_subs ?? []).Where(s => _filter.Length == 0 || s.Status == _filter).ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            _subs = await Gateway.GetListAsync<SubscriptionDto>($"/api/payments/admin/subscriptions/?tenantId={TenantId}");
+            // Resolve product titles by id (Catalog owns them) so the table reads names, not GUIDs.
+            // Fetch only the distinct products actually referenced — the admin list is paged (~200) and
+            // would miss these, and there are only a handful of subscribed products. Best-effort per id:
+            // a failed lookup just leaves the short id, and must never blank the page.
+            foreach (var pid in _subs.Select(s => s.ProductId).Distinct().Where(p => !_productTitles.ContainsKey(p)))
+            {
+                try
+                {
+                    var product = await Gateway.GetAsync<ProductRow>($"/api/catalog/admin/products/{pid}");
+                    if (product is not null) { _productTitles[pid] = product.Title; }
+                }
+                catch { /* leave unresolved; ProductLabel falls back to the short id */ }
+            }
+            _acted.Clear();
+            // Refresh any open detail panel so its history reflects a renewal just performed.
+            foreach (var id in _expanded.Keys.ToList())
+            {
+                _expanded[id] = await Gateway.GetAsync<SubscriptionDetailDto>($"/api/payments/admin/subscriptions/{id}?tenantId={TenantId}");
+            }
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task ToggleAsync(Guid id)
+    {
+        if (_expanded.Remove(id))
+        {
+            return;
+        }
+
+        _expanded[id] = null; // show the loading state, then fetch the detail + history lazily
+        _expanded[id] = await Gateway.GetAsync<SubscriptionDetailDto>($"/api/payments/admin/subscriptions/{id}?tenantId={TenantId}");
+    }
+
+    private Task RenewRow(Guid id) => ActAsync(id, "renew", L["Subs.Msg.Renewed"]);
+    private Task CancelRow(Guid id) => ActAsync(id, "cancel", L["Subs.Msg.Cancelled"]);
+
+    private async Task ActAsync(Guid id, string action, string okMessage)
+    {
+        _error = _status = null;
+        _busy = true;
+        var response = await Gateway.PostAsync(
+            $"/api/payments/admin/subscriptions/{id}/{action}?tenantId={TenantId}", idempotencyKey: $"{action}-{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            _acted.Add(id);
+            await LoadAsync(); // clears _acted, then re-reads the row (and any open history) in its new state
+            _status = okMessage;
+        }
+        else
+        {
+            _error = L["Subs.Msg.Failed", action, (int)response.StatusCode, await GatewayError.ReadAsync(response)];
+        }
+
+        _busy = false;
+    }
+
+    private string Short(Guid id) => id.ToString()[..8];
+    // The product's title when Catalog resolved it, else the short id (the full id is in the cell tooltip).
+    private string ProductLabel(Guid id) => _productTitles.TryGetValue(id, out var title) ? title : Short(id);
+    private string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
+    private string Period(DateTimeOffset start, DateTimeOffset end) =>
+        $"{start.LocalDateTime:dd MMM yyyy} – {end.LocalDateTime:dd MMM yyyy}";
+
+    // Status carries the enum NAME over the wire; colour and localize it for the operator.
+    private static string StatusColor(string status) => status switch
+    {
+        "Active" or "Trialing" => "#059669",
+        "PastDue" => "#b45309",
+        _ => "#6b7280",
+    };
+
+    private string StatusLabel(string status) => status switch
+    {
+        "Active" => L["Subs.Status.Active"],
+        "Trialing" => L["Subs.Status.Trialing"],
+        "PastDue" => L["Subs.Status.PastDue"],
+        "Cancelled" => L["Subs.Status.Cancelled"],
+        _ => status,
+    };
+
+    // The domain has only Once/Monthly/Yearly; render friendly localized labels for the real values.
+    // Other cadences (e.g. Weekly) would need a domain enum + Advance() change, out of scope here.
+    private string BillingLabel(string period) => period switch
+    {
+        "Monthly" => L["Subs.Billing.Monthly"],
+        "Yearly" => L["Subs.Billing.Yearly"],
+        "Once" => L["Subs.Billing.Once"],
+        _ => period,
+    };
+
+    private record SubscriptionDto(
+        Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
+        string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+    // Minimal projection of Catalog's admin product list — only what the Product column needs.
+    private record ProductRow(Guid Id, string Title);
+
+    private record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
+
+    private record SubscriptionDetailDto(
+        Guid Id, Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
+        string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt,
+        DateTimeOffset UpdatedAt, IReadOnlyList<RenewalDto> Renewals);
+}

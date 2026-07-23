@@ -1078,4 +1078,57 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>Renseignez-les pour créer une entité prête à devenir fournisseur (tous requis avant vérification). Laissez vide pour ajouter plus tard via Détails.</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>E-mail principal (p. ex. accounts@company.com)</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>Un e-mail principal ou d'exploitation — requis pour la vérification fournisseur.</value></data>
+  <data name="Nav.Subscriptions" xml:space="preserve"><value>Abonnements</value></data>
+  <data name="Nav.Subscriptions.Tip" xml:space="preserve"><value>Abonnements récurrents — historique des renouvellements, renouveler ou annuler.</value></data>
+  <data name="Subs.Title" xml:space="preserve"><value>Abonnements</value></data>
+  <data name="Subs.Intro" xml:space="preserve"><value>Facturations récurrentes — leur statut, la période en cours et l'historique complet des renouvellements.</value></data>
+  <data name="Subs.Filter.Label" xml:space="preserve"><value>Statut</value></data>
+  <data name="Subs.Filter.Tip" xml:space="preserve"><value>Afficher uniquement les abonnements ayant le statut choisi.</value></data>
+  <data name="Subs.Filter.All" xml:space="preserve"><value>Toutes</value></data>
+  <data name="Subs.Filter.Active" xml:space="preserve"><value>Actives</value></data>
+  <data name="Subs.Filter.Trialing" xml:space="preserve"><value>En essai</value></data>
+  <data name="Subs.Filter.PastDue" xml:space="preserve"><value>En retard</value></data>
+  <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>Annulées</value></data>
+  <data name="Subs.Col.Subscriber" xml:space="preserve"><value>Abonné</value></data>
+  <data name="Subs.Col.Product" xml:space="preserve"><value>Produit</value></data>
+  <data name="Subs.Col.Status" xml:space="preserve"><value>Statut</value></data>
+  <data name="Subs.Col.Billing" xml:space="preserve"><value>Cycle de facturation</value></data>
+  <data name="Subs.Col.Period" xml:space="preserve"><value>Période en cours</value></data>
+  <data name="Subs.Col.Price" xml:space="preserve"><value>Prix</value></data>
+  <data name="Subs.Col.Created" xml:space="preserve"><value>Créée</value></data>
+  <data name="Subs.Expand.Tip" xml:space="preserve"><value>Afficher l'abonné, l'abonnement et l'historique des renouvellements.</value></data>
+  <data name="Subs.Renew" xml:space="preserve"><value>Renouveler</value></data>
+  <data name="Subs.Renew.Tip" xml:space="preserve"><value>Débiter la période suivante via le circuit de paiement et faire avancer l'abonnement.</value></data>
+  <data name="Subs.Cancel" xml:space="preserve"><value>Annuler</value></data>
+  <data name="Subs.Cancel.Tip" xml:space="preserve"><value>Mettre fin à cet abonnement — plus aucun renouvellement.</value></data>
+  <data name="Subs.Updating" xml:space="preserve"><value>Mise à jour…</value></data>
+  <data name="Subs.Empty" xml:space="preserve"><value>Aucun abonnement pour l'instant.</value></data>
+  <data name="Subs.Status.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Subs.Status.Trialing" xml:space="preserve"><value>En essai</value></data>
+  <data name="Subs.Status.PastDue" xml:space="preserve"><value>En retard</value></data>
+  <data name="Subs.Status.Cancelled" xml:space="preserve"><value>Annulée</value></data>
+  <data name="Subs.Billing.Monthly" xml:space="preserve"><value>Mensuel</value></data>
+  <data name="Subs.Billing.Yearly" xml:space="preserve"><value>Annuel</value></data>
+  <data name="Subs.Billing.Once" xml:space="preserve"><value>Unique</value></data>
+  <data name="Subs.Detail.Subscriber" xml:space="preserve"><value>Détails de l'abonné</value></data>
+  <data name="Subs.Detail.Email" xml:space="preserve"><value>E-mail</value></data>
+  <data name="Subs.Detail.Tenant" xml:space="preserve"><value>Locataire</value></data>
+  <data name="Subs.Detail.Subscription" xml:space="preserve"><value>Détails de l'abonnement</value></data>
+  <data name="Subs.Detail.Id" xml:space="preserve"><value>ID de l'abonnement</value></data>
+  <data name="Subs.Detail.OrderId" xml:space="preserve"><value>ID de commande</value></data>
+  <data name="Subs.Detail.Product" xml:space="preserve"><value>ID de produit</value></data>
+  <data name="Subs.Detail.Variant" xml:space="preserve"><value>ID de variante</value></data>
+  <data name="Subs.Detail.Price" xml:space="preserve"><value>Prix</value></data>
+  <data name="Subs.Detail.Status" xml:space="preserve"><value>Statut</value></data>
+  <data name="Subs.Detail.Created" xml:space="preserve"><value>Créée</value></data>
+  <data name="Subs.Detail.Updated" xml:space="preserve"><value>Mise à jour</value></data>
+  <data name="Subs.Detail.History" xml:space="preserve"><value>Historique des renouvellements</value></data>
+  <data name="Subs.History.Seq" xml:space="preserve"><value>N°</value></data>
+  <data name="Subs.History.Period" xml:space="preserve"><value>Période</value></data>
+  <data name="Subs.History.Amount" xml:space="preserve"><value>Montant</value></data>
+  <data name="Subs.History.Recorded" xml:space="preserve"><value>Enregistré</value></data>
+  <data name="Subs.History.Empty" xml:space="preserve"><value>Aucun historique de renouvellement enregistré pour l'instant.</value></data>
+  <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement renouvelé.</value></data>
+  <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement annulé.</value></data>
+  <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} a échoué ({1}) : {2}</value></data>
 </root>

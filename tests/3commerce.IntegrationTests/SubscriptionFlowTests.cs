@@ -24,6 +24,12 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         return cancel ? await service.CancelAsync(tenant, id, default) : await service.RenewAsync(tenant, id, default);
     }
 
+    private async Task<Subscription?> GetAsync(Guid tenant, Guid id)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<SubscriptionService>().GetAsync(tenant, id, default);
+    }
+
     [Fact]
     public async Task SubscriptionRequested_sets_up_then_renew_advances_then_cancel_ends()
     {
@@ -52,12 +58,31 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         Assert.Equal(SubscriptionStatus.Active, subscription.Status);
         var firstPeriodEnd = subscription.CurrentPeriodEnd;
 
+        // Setup records the first period (Sequence 1) so the timeline begins at signup.
+        var afterSetup = await GetAsync(tenant, subscription.Id);
+        var firstPeriod = Assert.Single(afterSetup!.Renewals);
+        Assert.Equal(1, firstPeriod.Sequence);
+        Assert.Equal(subscription.CurrentPeriodStart, firstPeriod.PeriodStart);
+        Assert.Equal(1500, firstPeriod.AmountMinor);
+
         // Renew charges the next period via the rail (Fake) and advances.
         var renewed = await ActAsync(tenant, subscription.Id, cancel: false);
         Assert.Equal(SubscriptionStatus.Active, renewed!.Status);
         Assert.True(renewed.CurrentPeriodEnd > firstPeriodEnd);
 
+        // Renew appends a history row: the sequence increments and the new period is recorded.
+        var afterRenew = await GetAsync(tenant, subscription.Id);
+        Assert.Equal(2, afterRenew!.Renewals.Count);
+        Assert.Equal(new[] { 1, 2 }, afterRenew.Renewals.OrderBy(r => r.Sequence).Select(r => r.Sequence).ToArray());
+        var secondPeriod = afterRenew.Renewals.Single(r => r.Sequence == 2);
+        Assert.Equal(firstPeriodEnd, secondPeriod.PeriodStart);
+        Assert.Equal(renewed.CurrentPeriodEnd, secondPeriod.PeriodEnd);
+
         var cancelled = await ActAsync(tenant, subscription.Id, cancel: true);
         Assert.Equal(SubscriptionStatus.Cancelled, cancelled!.Status);
+
+        // Cancel writes no new history — the period count is unchanged after ending.
+        var afterCancel = await GetAsync(tenant, subscription.Id);
+        Assert.Equal(2, afterCancel!.Renewals.Count);
     }
 }

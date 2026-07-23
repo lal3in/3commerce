@@ -37,6 +37,46 @@ public class SubscriptionTests
     }
 
     [Fact]
+    public void Start_records_the_first_period_in_history()
+    {
+        var sub = Start(BillingPeriod.Monthly);
+        var first = Assert.Single(sub.Renewals);
+        Assert.Equal(1, first.Sequence);
+        Assert.Equal(sub.CurrentPeriodStart, first.PeriodStart);
+        Assert.Equal(sub.CurrentPeriodEnd, first.PeriodEnd);
+        Assert.Equal(sub.PriceMinor, first.AmountMinor);
+        Assert.Equal(sub.Currency, first.Currency);
+        Assert.Equal(sub.Id, first.SubscriptionId);
+    }
+
+    [Fact]
+    public void Renew_appends_a_history_row_with_the_next_sequence()
+    {
+        var sub = Start(BillingPeriod.Monthly);
+        var openedEnd = sub.CurrentPeriodEnd;
+
+        sub.Renew(openedEnd);
+
+        Assert.Equal(2, sub.Renewals.Count);
+        var second = sub.Renewals[1];
+        Assert.Equal(2, second.Sequence);
+        Assert.Equal(openedEnd, second.PeriodStart);
+        Assert.Equal(openedEnd.AddMonths(1), second.PeriodEnd);
+
+        sub.Renew(sub.CurrentPeriodEnd);
+        Assert.Equal(new[] { 1, 2, 3 }, sub.Renewals.Select(r => r.Sequence).ToArray());
+    }
+
+    [Fact]
+    public void Past_due_does_not_record_history()
+    {
+        var sub = Start(BillingPeriod.Monthly);
+        sub.MarkPastDue(Now);
+        // Only the first period exists; a failed charge that never advanced writes no history.
+        Assert.Single(sub.Renewals);
+    }
+
+    [Fact]
     public void Past_due_then_renew_recovers()
     {
         var sub = Start();

@@ -1078,4 +1078,57 @@
   <data name="Entities.Onboard.Note" xml:space="preserve"><value>填寫呢啲內容以建立可以做供應商嘅實體（驗證前全部必填）。留空可以稍後喺「詳情」度加。</value></data>
   <data name="Entities.Onboard.Email" xml:space="preserve"><value>主要電郵（例如 accounts@company.com）</value></data>
   <data name="Entities.Onboard.Email.Tip" xml:space="preserve"><value>主要或營運電郵 — 供應商驗證需要。</value></data>
+  <data name="Nav.Subscriptions" xml:space="preserve"><value>訂閱</value></data>
+  <data name="Nav.Subscriptions.Tip" xml:space="preserve"><value>經常性訂閱——續訂記錄，續訂或取消。</value></data>
+  <data name="Subs.Title" xml:space="preserve"><value>訂閱</value></data>
+  <data name="Subs.Intro" xml:space="preserve"><value>經常性收費安排——狀態、當前週期同完整嘅續訂記錄。</value></data>
+  <data name="Subs.Filter.Label" xml:space="preserve"><value>狀態</value></data>
+  <data name="Subs.Filter.Tip" xml:space="preserve"><value>只顯示所選狀態嘅訂閱。</value></data>
+  <data name="Subs.Filter.All" xml:space="preserve"><value>全部</value></data>
+  <data name="Subs.Filter.Active" xml:space="preserve"><value>生效中</value></data>
+  <data name="Subs.Filter.Trialing" xml:space="preserve"><value>試用中</value></data>
+  <data name="Subs.Filter.PastDue" xml:space="preserve"><value>逾期</value></data>
+  <data name="Subs.Filter.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Subs.Col.Subscriber" xml:space="preserve"><value>訂閱者</value></data>
+  <data name="Subs.Col.Product" xml:space="preserve"><value>產品</value></data>
+  <data name="Subs.Col.Status" xml:space="preserve"><value>狀態</value></data>
+  <data name="Subs.Col.Billing" xml:space="preserve"><value>收費週期</value></data>
+  <data name="Subs.Col.Period" xml:space="preserve"><value>當前週期</value></data>
+  <data name="Subs.Col.Price" xml:space="preserve"><value>價格</value></data>
+  <data name="Subs.Col.Created" xml:space="preserve"><value>建立日期</value></data>
+  <data name="Subs.Expand.Tip" xml:space="preserve"><value>顯示訂閱者、訂閱同續訂記錄。</value></data>
+  <data name="Subs.Renew" xml:space="preserve"><value>續訂</value></data>
+  <data name="Subs.Renew.Tip" xml:space="preserve"><value>經付款通道收取下一個週期費用並推進訂閱。</value></data>
+  <data name="Subs.Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Subs.Cancel.Tip" xml:space="preserve"><value>結束呢個訂閱——唔會再續訂。</value></data>
+  <data name="Subs.Updating" xml:space="preserve"><value>更新緊…</value></data>
+  <data name="Subs.Empty" xml:space="preserve"><value>暫時未有訂閱。</value></data>
+  <data name="Subs.Status.Active" xml:space="preserve"><value>生效中</value></data>
+  <data name="Subs.Status.Trialing" xml:space="preserve"><value>試用中</value></data>
+  <data name="Subs.Status.PastDue" xml:space="preserve"><value>逾期</value></data>
+  <data name="Subs.Status.Cancelled" xml:space="preserve"><value>已取消</value></data>
+  <data name="Subs.Billing.Monthly" xml:space="preserve"><value>每月</value></data>
+  <data name="Subs.Billing.Yearly" xml:space="preserve"><value>每年</value></data>
+  <data name="Subs.Billing.Once" xml:space="preserve"><value>一次性</value></data>
+  <data name="Subs.Detail.Subscriber" xml:space="preserve"><value>訂閱者詳情</value></data>
+  <data name="Subs.Detail.Email" xml:space="preserve"><value>電郵</value></data>
+  <data name="Subs.Detail.Tenant" xml:space="preserve"><value>租戶</value></data>
+  <data name="Subs.Detail.Subscription" xml:space="preserve"><value>訂閱詳情</value></data>
+  <data name="Subs.Detail.Id" xml:space="preserve"><value>訂閱 ID</value></data>
+  <data name="Subs.Detail.OrderId" xml:space="preserve"><value>訂單 ID</value></data>
+  <data name="Subs.Detail.Product" xml:space="preserve"><value>產品 ID</value></data>
+  <data name="Subs.Detail.Variant" xml:space="preserve"><value>款式 ID</value></data>
+  <data name="Subs.Detail.Price" xml:space="preserve"><value>價格</value></data>
+  <data name="Subs.Detail.Status" xml:space="preserve"><value>狀態</value></data>
+  <data name="Subs.Detail.Created" xml:space="preserve"><value>建立</value></data>
+  <data name="Subs.Detail.Updated" xml:space="preserve"><value>更新</value></data>
+  <data name="Subs.Detail.History" xml:space="preserve"><value>續訂記錄</value></data>
+  <data name="Subs.History.Seq" xml:space="preserve"><value>序號</value></data>
+  <data name="Subs.History.Period" xml:space="preserve"><value>週期</value></data>
+  <data name="Subs.History.Amount" xml:space="preserve"><value>金額</value></data>
+  <data name="Subs.History.Recorded" xml:space="preserve"><value>記錄時間</value></data>
+  <data name="Subs.History.Empty" xml:space="preserve"><value>暫時未有續訂記錄。</value></data>
+  <data name="Subs.Msg.Renewed" xml:space="preserve"><value>訂閱已續訂。</value></data>
+  <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>訂閱已取消。</value></data>
+  <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} 失敗（{1}）：{2}</value></data>
 </root>
