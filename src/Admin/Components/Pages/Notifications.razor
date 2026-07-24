@@ -1,0 +1,100 @@
+@page "/notifications"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">@L["Notif.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Notif.Intro"]</span>
+    <span style="flex:1;"></span>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
+</div>
+
+@if (_loading)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else
+{
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin:1.2rem 0;">
+        @KpiCard(L["Notif.Kpi.Total"], (_summary?.Total ?? 0).ToString(), "#4f46e5", L["Notif.Kpi.Total.Tip"])
+        @KpiCard(L["Notif.Kpi.Sent"], (_summary?.Sent24h ?? 0).ToString(), "#059669", L["Notif.Kpi.Sent.Tip"])
+        @KpiCard(L["Notif.Kpi.Failed"], (_summary?.Failed ?? 0).ToString(), (_summary?.Failed ?? 0) > 0 ? "#dc2626" : "#059669", L["Notif.Kpi.Failed.Tip"])
+    </div>
+
+    <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.8rem;">
+        <span style="font-size:.85rem; color:#6b7280;">@L["Common.Status"]:</span>
+        <button @onclick="@(() => SetFilter(null))" style="@FilterStyle(null)">@L["Notif.Filter.All"]</button>
+        <button @onclick="@(() => SetFilter("Sent"))" style="@FilterStyle("Sent")">@L["Notif.Status.Sent"]</button>
+        <button @onclick="@(() => SetFilter("Failed"))" style="@FilterStyle("Failed")">@L["Notif.Status.Failed"]</button>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <p style="color:#9ca3af;">@L["Notif.Empty"]</p>
+    }
+    else
+    {
+        <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+            <thead><tr>
+                <th style="text-align:left;">@L["Notif.Col.When"]</th>
+                <th style="text-align:left;">@L["Notif.Col.Channel"]</th>
+                <th style="text-align:left;">@L["Notif.Col.Recipient"]</th>
+                <th style="text-align:left;">@L["Notif.Col.Subject"]</th>
+                <th style="text-align:left;">@L["Common.Status"]</th>
+                <th style="text-align:left;">@L["Notif.Col.Error"]</th>
+            </tr></thead>
+            <tbody>
+            @foreach (var d in Filtered)
+            {
+                <tr style="border-top:1px solid #f3f4f6;">
+                    <td>@d.OccurredAt.LocalDateTime.ToString("dd MMM HH:mm:ss")</td>
+                    <td>@d.Channel</td>
+                    <td style="font-family:monospace;">@d.Recipient</td>
+                    <td>@d.Subject</td>
+                    <td style="@(d.Status == "Failed" ? "color:#b91c1c; font-weight:600;" : "color:#047857;")">@d.Status</td>
+                    <td style="color:#b45309;">@(d.Error ?? "")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private NotifSummaryDto? _summary;
+    private List<DeliveryDto> _deliveries = [];
+    private string? _filter;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _summary = await Gateway.GetAsync<NotifSummaryDto>("/api/notifications/admin/notifications");
+        _deliveries = await Gateway.GetListAsync<DeliveryDto>("/api/notifications/admin/notifications/recent");
+        _loading = false;
+    }
+
+    private void SetFilter(string? status) => _filter = status;
+
+    private List<DeliveryDto> Filtered =>
+        _filter is null ? _deliveries : _deliveries.Where(d => d.Status == _filter).ToList();
+
+    private string FilterStyle(string? status) =>
+        "padding:.25rem .7rem; cursor:pointer; border:1px solid #d1d5db; border-radius:6px; " +
+        (_filter == status ? "background:#4f46e5; color:#fff;" : "background:#fff; color:#374151;");
+
+    // label/tip come from the resx (trusted); value is our own ToString of a count — nothing user-supplied.
+    private RenderFragment KpiCard(string label, string value, string color, string tip) => builder =>
+    {
+        builder.AddMarkupContent(0,
+            $"<div title=\"{tip}\" style=\"border:1px solid #e5e7eb; border-left:4px solid {color}; border-radius:10px; padding:1rem 1.1rem; background:#fff;\">" +
+            $"<div style=\"font-size:.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em;\">{label}</div>" +
+            $"<div style=\"font-size:1.7rem; font-weight:700; color:#111827; margin:.2rem 0;\">{value}</div></div>");
+    };
+
+    private record NotifSummaryDto(int Total, int Sent24h, int Failed);
+    private record DeliveryDto(Guid Id, string Channel, string Recipient, string Subject, string Status, string? Error, DateTimeOffset OccurredAt);
+}

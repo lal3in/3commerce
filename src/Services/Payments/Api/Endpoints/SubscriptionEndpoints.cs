@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.Payments.Domain;
@@ -72,17 +73,39 @@ public static class SubscriptionEndpoints
     }
 
     private static async Task<Results<Ok<SubscriptionDto>, NotFound>> Renew(
-        Guid id, Guid? tenantId, SubscriptionService subscriptions, IConfiguration config, CancellationToken ct)
+        Guid id, Guid? tenantId, SubscriptionService subscriptions, PaymentsDbContext db, IConfiguration config,
+        IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var subscription = await subscriptions.RenewAsync(tenantId ?? DefaultTenantId(config), id, ct);
-        return subscription is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(subscription));
+        if (subscription is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Timeline visibility (mc1): a manual renew records an audit event carrying the resulting status, so
+        // both a successful renewal and a dunning past-due land on Mission Control's activity timeline.
+        // RenewAsync already saved the renewal, so the audit publish is flushed by our own SaveChanges here
+        // (same scoped DbContext + bus outbox — publishing without a following Save would strand the row).
+        await audit.RecordAsync(user.Mutation(
+            subscription.TenantId, "Subscription", subscription.Id.ToString(), "payments.subscription.renew", subscription.Status.ToString()), ct);
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(subscription));
     }
 
     private static async Task<Results<Ok<SubscriptionDto>, NotFound>> Cancel(
-        Guid id, Guid? tenantId, SubscriptionService subscriptions, IConfiguration config, CancellationToken ct)
+        Guid id, Guid? tenantId, SubscriptionService subscriptions, PaymentsDbContext db, IConfiguration config,
+        IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
         var subscription = await subscriptions.CancelAsync(tenantId ?? DefaultTenantId(config), id, ct);
-        return subscription is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(subscription));
+        if (subscription is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        await audit.RecordAsync(user.Mutation(
+            subscription.TenantId, "Subscription", subscription.Id.ToString(), "payments.subscription.cancel", subscription.Status.ToString()), ct);
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(ToDto(subscription));
     }
 
     private static Guid DefaultTenantId(IConfiguration config) =>

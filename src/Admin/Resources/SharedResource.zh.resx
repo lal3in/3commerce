@@ -1182,4 +1182,61 @@
   <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
     <value>每种货币的退款总额（账簿 revenue.refunds）— 反映所有退款途径。</value>
   </data>
+  <data name="Nav.Notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="Nav.Notifications.Tip" xml:space="preserve">
+    <value>发送记录：已发送的通知及失败情况。</value>
+  </data>
+  <data name="Notif.Title" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="Notif.Intro" xml:space="preserve">
+    <value>用于追踪与监督的发送记录</value>
+  </data>
+  <data name="Notif.Kpi.Total" xml:space="preserve">
+    <value>总数</value>
+  </data>
+  <data name="Notif.Kpi.Total.Tip" xml:space="preserve">
+    <value>所有已记录的通知发送。</value>
+  </data>
+  <data name="Notif.Kpi.Sent" xml:space="preserve">
+    <value>已发送（24小时）</value>
+  </data>
+  <data name="Notif.Kpi.Sent.Tip" xml:space="preserve">
+    <value>过去24小时内成功送达。</value>
+  </data>
+  <data name="Notif.Kpi.Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="Notif.Kpi.Failed.Tip" xml:space="preserve">
+    <value>供应商拒绝或出错的发送。</value>
+  </data>
+  <data name="Notif.Filter.All" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="Notif.Status.Sent" xml:space="preserve">
+    <value>已发送</value>
+  </data>
+  <data name="Notif.Status.Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="Notif.Col.When" xml:space="preserve">
+    <value>时间</value>
+  </data>
+  <data name="Notif.Col.Channel" xml:space="preserve">
+    <value>渠道</value>
+  </data>
+  <data name="Notif.Col.Recipient" xml:space="preserve">
+    <value>收件人</value>
+  </data>
+  <data name="Notif.Col.Subject" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Notif.Col.Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Notif.Empty" xml:space="preserve">
+    <value>暂无通知记录。</value>
+  </data>
 </root>

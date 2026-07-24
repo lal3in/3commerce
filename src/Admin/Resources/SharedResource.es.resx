@@ -1182,4 +1182,61 @@
   <data name="Mc.Kpi.RefundsValue.Tip" xml:space="preserve">
     <value>Total reembolsado por moneda (revenue.refunds del libro mayor); refleja todas las vías.</value>
   </data>
+  <data name="Nav.Notifications" xml:space="preserve">
+    <value>Notificaciones</value>
+  </data>
+  <data name="Nav.Notifications.Tip" xml:space="preserve">
+    <value>Registro de envíos: notificaciones enviadas y sus fallos.</value>
+  </data>
+  <data name="Notif.Title" xml:space="preserve">
+    <value>Notificaciones</value>
+  </data>
+  <data name="Notif.Intro" xml:space="preserve">
+    <value>Registro de envíos para seguimiento y supervisión</value>
+  </data>
+  <data name="Notif.Kpi.Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Notif.Kpi.Total.Tip" xml:space="preserve">
+    <value>Todos los envíos de notificaciones registrados.</value>
+  </data>
+  <data name="Notif.Kpi.Sent" xml:space="preserve">
+    <value>Enviadas (24 h)</value>
+  </data>
+  <data name="Notif.Kpi.Sent.Tip" xml:space="preserve">
+    <value>Entregadas correctamente en las últimas 24 horas.</value>
+  </data>
+  <data name="Notif.Kpi.Failed" xml:space="preserve">
+    <value>Fallidas</value>
+  </data>
+  <data name="Notif.Kpi.Failed.Tip" xml:space="preserve">
+    <value>Envíos rechazados o con error del proveedor.</value>
+  </data>
+  <data name="Notif.Filter.All" xml:space="preserve">
+    <value>Todas</value>
+  </data>
+  <data name="Notif.Status.Sent" xml:space="preserve">
+    <value>Enviada</value>
+  </data>
+  <data name="Notif.Status.Failed" xml:space="preserve">
+    <value>Fallida</value>
+  </data>
+  <data name="Notif.Col.When" xml:space="preserve">
+    <value>Cuándo</value>
+  </data>
+  <data name="Notif.Col.Channel" xml:space="preserve">
+    <value>Canal</value>
+  </data>
+  <data name="Notif.Col.Recipient" xml:space="preserve">
+    <value>Destinatario</value>
+  </data>
+  <data name="Notif.Col.Subject" xml:space="preserve">
+    <value>Asunto</value>
+  </data>
+  <data name="Notif.Col.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Notif.Empty" xml:space="preserve">
+    <value>Aún no hay notificaciones registradas.</value>
+  </data>
 </root>
