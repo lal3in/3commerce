@@ -22,22 +22,11 @@ code=$(curl -s -c "$JAR" -X POST "$GATEWAY/api/identity/login" -H 'content-type:
   -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null -w '%{http_code}')
 [[ "$code" == 2* ]] || { echo "admin login failed ($code) — is the stack up?"; exit 1; }
 
-# ---- (1) Cancelled order: check out WITHOUT paying, then admin-cancel while AwaitingPayment ----
-pid=$(curl -s -b "$JAR" "$GATEWAY/api/catalog/products?pageSize=1" | jget "d[0]['id']")
-if [[ -n "$pid" ]]; then
-  curl -s -b "$JAR" -X POST "$GATEWAY/api/ordering/cart/items" -H 'content-type: application/json' \
-    -d "{\"productId\":\"$pid\",\"quantity\":1}" -o /dev/null
-  oid=$(curl -s -b "$JAR" -X POST "$GATEWAY/api/ordering/checkout" -H 'content-type: application/json' \
-    -d '{"email":"cancel-demo@example.com","shippingAddress":{"name":"Cancel Demo","line1":"1 St","city":"Berlin","postcode":"10115","country":"DE"}}' | jget "d['orderId']")
-  if [[ -n "$oid" ]]; then
-    sleep 3 # let the saga reach AwaitingPayment
-    cc=$(curl -s -b "$JAR" -X POST "$GATEWAY/api/ordering/admin/orders/$oid/cancel" -H 'content-type: application/json' \
-      -d '{"reason":"demo — abandoned before payment"}' -o /dev/null -w '%{http_code}')
-    say "cancelled order" "$oid ($cc)"
-  fi
-fi
+# NOTE: a Cancelled order is seeded via psql below — Ordering only materializes an Order row at
+# confirmation, and a Confirmed order can't be cancelled (it must be refunded), so there is no gateway
+# path that yields OrderStatus.Cancelled for the demo.
 
-# ---- (2) Stuck Refund-pending: open an auto-approved RMA on an already-Refunded order. The refund
+# ---- Stuck Refund-pending: open an auto-approved RMA on an already-Refunded order. The refund
 #          exceeds the remaining balance (0), so ExecuteRefundConsumer rejects it and never emits
 #          RefundCompleted — the RMA legitimately parks in RefundPending (a real dunning/stuck case). ----
 refunded=$(curl -s -b "$JAR" "$GATEWAY/api/ordering/admin/orders" | jget "next((o['id'] for o in d if o['status']=='Refunded'), '')")
@@ -56,6 +45,20 @@ if ! command -v docker >/dev/null 2>&1 || ! docker ps --format '{{.Names}}' | gr
   echo "== monitor demo seed done (flows only) =="; exit 0
 fi
 psql() { docker exec -i "$PG_CONTAINER" psql -U postgres -d "$1" -v ON_ERROR_STOP=1 -qtA -c "$2"; }
+
+# (1) Cancelled order: copy one Confirmed order into a fresh Cancelled row (new Id + PublicOrderNumber),
+#     since no gateway flow can cancel a materialized (Confirmed) order.
+psql ordering_db "INSERT INTO ordering.\"Orders\"
+  (\"Id\",\"UserId\",\"Email\",\"Status\",\"NetMinor\",\"TaxMinor\",\"ShippingMinor\",\"GrossMinor\",\"Currency\",
+   \"PaymentIntentId\",\"ShipName\",\"ShipLine1\",\"ShipCity\",\"ShipPostcode\",\"ShipCountry\",\"CreatedAt\",
+   \"PublicOrderNumber\",\"StorefrontId\",\"DiscountMinor\",\"TenantId\",\"PaymentInstrumentSummary\",\"PaymentOption\",\"PaymentProvider\")
+  SELECT gen_random_uuid(), NULL, 'cancel-demo@example.com', 4, o.\"NetMinor\", o.\"TaxMinor\", o.\"ShippingMinor\",
+    o.\"GrossMinor\", o.\"Currency\", NULL, o.\"ShipName\", o.\"ShipLine1\", o.\"ShipCity\", o.\"ShipPostcode\",
+    o.\"ShipCountry\", now(), (SELECT COALESCE(MAX(\"PublicOrderNumber\"),0)+1 FROM ordering.\"Orders\"),
+    o.\"StorefrontId\", o.\"DiscountMinor\", o.\"TenantId\", NULL, o.\"PaymentOption\", o.\"PaymentProvider\"
+  FROM ordering.\"Orders\" o
+  WHERE o.\"Status\"=3 AND NOT EXISTS (SELECT 1 FROM ordering.\"Orders\" WHERE \"Status\"=4)
+  ORDER BY o.\"CreatedAt\" LIMIT 1;" >/dev/null && say "cancelled order" "ok"
 
 # (3) Past-due subscription: the mock rail never declines, so flip one Active subscription to PastDue.
 psql payments_db "UPDATE payments.\"Subscriptions\" SET \"Status\"='PastDue', \"UpdatedAt\"=now()
