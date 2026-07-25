@@ -95,8 +95,12 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
   const savedPaymentMethodId = String(formData.get("savedPaymentMethodId") ?? "");
   const paymentOption = String(formData.get("paymentOption") || "CreditCard");
   const cardNumber = String(formData.get("paymentCardNumber") || "").replace(/\D/g, "");
+  // Resolve the active storefront up front so it can ride both the (gateway-stripped) headers and the
+  // request body — the body hint is what attributes path-based demo stores (rev_5 / phase 2).
+  const storefront = await resolveStorefront();
   const body = {
     email,
+    storefrontId: storefront?.id ?? null,
     savedPaymentMethodId: savedPaymentMethodId && savedPaymentMethodId !== "new" ? savedPaymentMethodId : null,
     savePaymentMethod: Boolean(profile) && formData.get("savePaymentMethod") === "on",
     paymentOption,
@@ -112,9 +116,8 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     selectedShippingAmountMinor: Number(formData.get("selectedShippingAmountMinor") || "") || null,
     selectedShippingExpiresAt: String(formData.get("selectedShippingExpiresAt") || "") || null,
   };
-  // Attribute the order to the active storefront (rev_5): Ordering reads these headers into
-  // CheckoutAttempt.TenantId/StorefrontId; without them it falls back to the default tenant.
-  const storefront = await resolveStorefront();
+  // Attribute the order to the active storefront (rev_5): Ordering reads these headers (and the body
+  // storefrontId above) into CheckoutAttempt.TenantId/StorefrontId; else it falls back to the default.
   const checkoutHeaders: Record<string, string> = { ...(headers as Record<string, string>) };
   if (storefront) {
     checkoutHeaders["X-3C-Tenant-Id"] = storefront.tenantId;

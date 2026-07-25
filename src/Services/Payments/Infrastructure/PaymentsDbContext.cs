@@ -29,6 +29,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
+    public DbSet<StorefrontLedgerAccounts> StorefrontLedgerAccounts => Set<StorefrontLedgerAccounts>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,14 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
                 t.HasCheckConstraint("ck_line_nonneg", "\"DebitMinor\" >= 0 AND \"CreditMinor\" >= 0");
                 t.HasCheckConstraint("ck_line_one_side", "(\"DebitMinor\" = 0) <> (\"CreditMinor\" = 0)");
             });
+        });
+
+        modelBuilder.Entity<StorefrontLedgerAccounts>(s =>
+        {
+            s.HasKey(x => x.StorefrontId);
+            s.Property(x => x.ReceivableAccountCode).HasMaxLength(80);
+            s.Property(x => x.RevenueAccountCode).HasMaxLength(80);
+            s.Property(x => x.TaxAccountCode).HasMaxLength(80);
         });
 
         modelBuilder.Entity<Payment>(p =>

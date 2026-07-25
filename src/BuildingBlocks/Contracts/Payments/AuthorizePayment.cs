@@ -16,6 +16,9 @@ public record AuthorizePayment(
     string? ShipCountry = null,
     // Checkout's normalized paymentOption (Stripe|CreditCard|ApplePay|GooglePay|PayPal). Payments maps
     // it to the numeric PaymentMethodKind server-side (pay_4/ADR-0039); wallets settle through the PSP.
-    string? PaymentOption = null);
+    string? PaymentOption = null,
+    // The storefront this order belongs to (phase 2). Persisted on the Payment so the sale posts to the
+    // storefront's own revenue/tax ledger accounts (per-storefront books). Optional → back-compatible.
+    Guid? StorefrontId = null);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);

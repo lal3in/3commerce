@@ -20,17 +20,24 @@ public static class Ledger
         string currency,
         DateTimeOffset now,
         PaymentMethodKind methodKind = PaymentMethodKind.Card,
-        string? provider = null)
+        string? provider = null,
+        string? revenueAccount = null,
+        string? taxAccount = null)
     {
         var netMinor = grossMinor - taxMinor;
         var cash = Accounts.CashFor(provider);
+        // Per-storefront books (phase 2): revenue and tax post to the storefront's own accounts when
+        // known; otherwise the shared revenue.sales / liability.tax_collected. Cash stays on the
+        // settling provider's account (cash.{provider}) — money settles per PSP, not per storefront.
+        var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueSales : revenueAccount;
+        var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
         var entry = NewEntry($"Sale for order {orderId} via {methodKind}", orderId.ToString(), currency, now);
 
         Debit(entry, cash, grossMinor);
-        Credit(entry, Accounts.RevenueSales, netMinor);
+        Credit(entry, revenue, netMinor);
         if (taxMinor > 0)
         {
-            Credit(entry, Accounts.LiabilityTaxCollected, taxMinor);
+            Credit(entry, taxLiability, taxMinor);
         }
 
         if (feeMinor > 0)

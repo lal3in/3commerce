@@ -90,6 +90,7 @@ public sealed class AuthorizePaymentConsumer(
         {
             Id = Guid.CreateVersion7(),
             OrderId = msg.OrderId,
+            StorefrontId = msg.StorefrontId, // per-storefront ledger attribution (phase 2)
             PaymentIntentId = intent.PaymentIntentId,
             AmountMinor = grossMinor,
             TaxMinor = 0, // tax lives on the Ordering attempt/order, not the payment
