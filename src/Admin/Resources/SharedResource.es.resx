@@ -1284,4 +1284,76 @@
   <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
     <value>Cuenta por cobrar por tienda (derivada automáticamente salvo que se sobrescriba).</value>
   </data>
+  <data name="Nav.Financials" xml:space="preserve">
+    <value>Finanzas</value>
+  </data>
+  <data name="Nav.Financials.Tip" xml:space="preserve">
+    <value>P&amp;L y balance por tienda/moneda.</value>
+  </data>
+  <data name="Fin.Title" xml:space="preserve">
+    <value>Finanzas</value>
+  </data>
+  <data name="Fin.Intro" xml:space="preserve">
+    <value>P&amp;L y posición financiera, por moneda y tienda</value>
+  </data>
+  <data name="Fin.Empty" xml:space="preserve">
+    <value>Aún no hay actividad contable.</value>
+  </data>
+  <data name="Fin.PnL" xml:space="preserve">
+    <value>Pérdidas y ganancias</value>
+  </data>
+  <data name="Fin.Revenue" xml:space="preserve">
+    <value>Ingresos</value>
+  </data>
+  <data name="Fin.Refunds" xml:space="preserve">
+    <value>Reembolsos</value>
+  </data>
+  <data name="Fin.Fees" xml:space="preserve">
+    <value>Comisiones</value>
+  </data>
+  <data name="Fin.NetResult" xml:space="preserve">
+    <value>Resultado neto</value>
+  </data>
+  <data name="Fin.Position" xml:space="preserve">
+    <value>Posición financiera</value>
+  </data>
+  <data name="Fin.Assets" xml:space="preserve">
+    <value>Activos</value>
+  </data>
+  <data name="Fin.Receivable" xml:space="preserve">
+    <value>Por cobrar</value>
+  </data>
+  <data name="Fin.TotalAssets" xml:space="preserve">
+    <value>Activos totales</value>
+  </data>
+  <data name="Fin.Liabilities" xml:space="preserve">
+    <value>Pasivos</value>
+  </data>
+  <data name="Fin.TaxCollected" xml:space="preserve">
+    <value>Impuestos cobrados</value>
+  </data>
+  <data name="Fin.TotalLiabilities" xml:space="preserve">
+    <value>Pasivos totales</value>
+  </data>
+  <data name="Fin.ByStorefront" xml:space="preserve">
+    <value>Por tienda</value>
+  </data>
+  <data name="Fin.Col.Storefront" xml:space="preserve">
+    <value>Tienda</value>
+  </data>
+  <data name="Fin.Col.NetRevenue" xml:space="preserve">
+    <value>Ingresos netos</value>
+  </data>
+  <data name="Fin.Col.Tax" xml:space="preserve">
+    <value>Impuesto</value>
+  </data>
+  <data name="Fin.Col.Receivable" xml:space="preserve">
+    <value>Por cobrar</value>
+  </data>
+  <data name="Fin.Col.Account" xml:space="preserve">
+    <value>Cuenta de ingresos</value>
+  </data>
+  <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
+    <value>La moneda en que se registraron realmente las ventas (moneda de pago); puede diferir de la configurada.</value>
+  </data>
 </root>

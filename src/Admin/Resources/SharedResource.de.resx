@@ -1284,4 +1284,76 @@
   <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
     <value>Storefront-spezifisches Forderungskonto (automatisch abgeleitet, sofern nicht überschrieben).</value>
   </data>
+  <data name="Nav.Financials" xml:space="preserve">
+    <value>Finanzen</value>
+  </data>
+  <data name="Nav.Financials.Tip" xml:space="preserve">
+    <value>P&amp;L und Bilanz je Storefront/Währung.</value>
+  </data>
+  <data name="Fin.Title" xml:space="preserve">
+    <value>Finanzen</value>
+  </data>
+  <data name="Fin.Intro" xml:space="preserve">
+    <value>GuV und Finanzlage, je Währung und Storefront</value>
+  </data>
+  <data name="Fin.Empty" xml:space="preserve">
+    <value>Noch keine Buchungen.</value>
+  </data>
+  <data name="Fin.PnL" xml:space="preserve">
+    <value>Gewinn &amp; Verlust</value>
+  </data>
+  <data name="Fin.Revenue" xml:space="preserve">
+    <value>Umsatz</value>
+  </data>
+  <data name="Fin.Refunds" xml:space="preserve">
+    <value>Erstattungen</value>
+  </data>
+  <data name="Fin.Fees" xml:space="preserve">
+    <value>Bearbeitungsgebühren</value>
+  </data>
+  <data name="Fin.NetResult" xml:space="preserve">
+    <value>Nettoergebnis</value>
+  </data>
+  <data name="Fin.Position" xml:space="preserve">
+    <value>Finanzlage</value>
+  </data>
+  <data name="Fin.Assets" xml:space="preserve">
+    <value>Aktiva</value>
+  </data>
+  <data name="Fin.Receivable" xml:space="preserve">
+    <value>Forderungen</value>
+  </data>
+  <data name="Fin.TotalAssets" xml:space="preserve">
+    <value>Summe Aktiva</value>
+  </data>
+  <data name="Fin.Liabilities" xml:space="preserve">
+    <value>Passiva</value>
+  </data>
+  <data name="Fin.TaxCollected" xml:space="preserve">
+    <value>Vereinnahmte Steuer</value>
+  </data>
+  <data name="Fin.TotalLiabilities" xml:space="preserve">
+    <value>Summe Passiva</value>
+  </data>
+  <data name="Fin.ByStorefront" xml:space="preserve">
+    <value>Nach Storefront</value>
+  </data>
+  <data name="Fin.Col.Storefront" xml:space="preserve">
+    <value>Storefront</value>
+  </data>
+  <data name="Fin.Col.NetRevenue" xml:space="preserve">
+    <value>Nettoumsatz</value>
+  </data>
+  <data name="Fin.Col.Tax" xml:space="preserve">
+    <value>Steuer</value>
+  </data>
+  <data name="Fin.Col.Receivable" xml:space="preserve">
+    <value>Forderungen</value>
+  </data>
+  <data name="Fin.Col.Account" xml:space="preserve">
+    <value>Umsatzkonto</value>
+  </data>
+  <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
+    <value>Die Währung, in der die Verkäufe des Shops tatsächlich gebucht wurden (Checkout-Währung); kann von der konfigurierten Währung abweichen.</value>
+  </data>
 </root>
