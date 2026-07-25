@@ -922,6 +922,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>喺代理上宣告嘅隊列。</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>消費者</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>目前接駁喺所有隊列嘅消費者。</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>已處理</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>由 broker 啟動以嚟總共派送畀消費者嘅訊息 — 證明就算隊列清空咗（就緒/未確認 0），匯流排都仲喺度運作。</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>就緒</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>等緊派送嘅訊息。數目一路增長即係消費者跟唔上。</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>未確認</value></data>

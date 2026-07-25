@@ -922,6 +922,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>在消息代理上声明的队列。</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>消费者</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>当前附加到所有队列的消费者。</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>已处理</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>自代理启动以来投递给消费者的消息总数——即使队列已清空（就绪/未确认 0），也证明总线仍在正常工作。</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>就绪</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>等待投递的消息。数量增长意味着消费者处理滞后。</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>未确认</value></data>

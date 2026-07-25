@@ -967,6 +967,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Queues declared on the broker.</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Consumers</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Consumers currently attached across all queues.</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>Processed</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>Total messages delivered to consumers since the broker started — proof the bus is working even when the queues are drained (Ready/Unacked 0).</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>Ready</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Messages waiting to be delivered. A growing number means consumers are behind.</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Unacked</value></data>

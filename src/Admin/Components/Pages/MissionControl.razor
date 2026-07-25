@@ -161,6 +161,9 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1rem;">
             @KpiCard(L["Mc.Bus.Queues"], _bus.Queues.ToString(), "#4f46e5", L["Mc.Bus.Queues.Tip"])
             @KpiCard(L["Mc.Bus.Consumers"], _bus.Consumers.ToString(), "#0891b2", L["Mc.Bus.Consumers.Tip"])
+            @* Cumulative throughput — non-zero even when the queues are drained, so an idle-but-healthy bus
+               (ready/unacked/dead all 0) reads as "processed N messages" rather than looking dead. *@
+            @KpiCard(L["Mc.Bus.Processed"], _bus.Processed.ToString("N0"), "#0891b2", L["Mc.Bus.Processed.Tip"])
             @KpiCard(L["Mc.Bus.Ready"], _bus.Ready.ToString(), _bus.Ready > 0 ? "#b45309" : "#059669", L["Mc.Bus.Ready.Tip"])
             @KpiCard(L["Mc.Bus.Unacked"], _bus.Unacked.ToString(), "#059669", L["Mc.Bus.Unacked.Tip"])
             @KpiCard(L["Mc.Bus.DeadLettered"], _bus.DeadLettered.ToString(), _bus.DeadLettered > 0 ? "#dc2626" : "#059669", L["Mc.Bus.DeadLettered.Tip"])
