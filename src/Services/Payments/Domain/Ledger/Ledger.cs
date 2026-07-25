@@ -22,7 +22,8 @@ public static class Ledger
         PaymentMethodKind methodKind = PaymentMethodKind.Card,
         string? provider = null,
         string? revenueAccount = null,
-        string? taxAccount = null)
+        string? taxAccount = null,
+        string? receivableAccount = null)
     {
         var netMinor = grossMinor - taxMinor;
         var cash = Accounts.CashFor(provider);
@@ -33,11 +34,31 @@ public static class Ledger
         var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
         var entry = NewEntry($"Sale for order {orderId} via {methodKind}", orderId.ToString(), currency, now);
 
-        Debit(entry, cash, grossMinor);
-        Credit(entry, revenue, netMinor);
-        if (taxMinor > 0)
+        if (string.IsNullOrWhiteSpace(receivableAccount))
         {
-            Credit(entry, taxLiability, taxMinor);
+            // Legacy / no storefront: cash-basis directly against revenue.
+            Debit(entry, cash, grossMinor);
+            Credit(entry, revenue, netMinor);
+            if (taxMinor > 0)
+            {
+                Credit(entry, taxLiability, taxMinor);
+            }
+        }
+        else
+        {
+            // Per-storefront settlement bridge: recognize the store's revenue + tax against its
+            // receivable (the store is owed the gross), then clear the receivable with the cash the
+            // platform collected on its behalf into the PSP account. Receivable nets to zero when cash
+            // settles with the sale, and carries a balance only while a settlement is outstanding.
+            Debit(entry, receivableAccount, grossMinor);
+            Credit(entry, revenue, netMinor);
+            if (taxMinor > 0)
+            {
+                Credit(entry, taxLiability, taxMinor);
+            }
+
+            Debit(entry, cash, grossMinor);
+            Credit(entry, receivableAccount, grossMinor);
         }
 
         if (feeMinor > 0)
@@ -49,7 +70,12 @@ public static class Ledger
         return entry;
     }
 
-    /// <summary>A refund reverses the sale: money out of cash, contra-revenue and tax back.</summary>
+    /// <summary>
+    /// A refund reverses the sale: money out of cash, revenue + tax back. Legacy/no-storefront refunds
+    /// post the reversal to the shared contra-revenue (revenue.refunds); a storefront refund reverses
+    /// the store's OWN revenue/tax through its receivable bridge (mirroring <see cref="Sale"/>), so a
+    /// store's books net sales against refunds in the same accounts.
+    /// </summary>
     public static JournalEntry Refund(
         Guid refundId,
         Guid orderId,
@@ -58,18 +84,40 @@ public static class Ledger
         string currency,
         DateTimeOffset now,
         PaymentMethodKind methodKind = PaymentMethodKind.Card,
-        string? provider = null)
+        string? provider = null,
+        string? revenueAccount = null,
+        string? taxAccount = null,
+        string? receivableAccount = null)
     {
         var netMinor = grossMinor - taxMinor;
+        var cash = Accounts.CashFor(provider);
         var entry = NewEntry($"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
 
-        Debit(entry, Accounts.RevenueRefunds, netMinor);
-        if (taxMinor > 0)
+        if (string.IsNullOrWhiteSpace(receivableAccount))
         {
-            Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
+            Debit(entry, Accounts.RevenueRefunds, netMinor);
+            if (taxMinor > 0)
+            {
+                Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
+            }
+
+            Credit(entry, cash, grossMinor);
+        }
+        else
+        {
+            var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueRefunds : revenueAccount;
+            var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
+            Debit(entry, revenue, netMinor);
+            if (taxMinor > 0)
+            {
+                Debit(entry, taxLiability, taxMinor);
+            }
+
+            Credit(entry, receivableAccount, grossMinor);
+            Debit(entry, receivableAccount, grossMinor);
+            Credit(entry, cash, grossMinor);
         }
 
-        Credit(entry, Accounts.CashFor(provider), grossMinor);
         return entry;
     }
 

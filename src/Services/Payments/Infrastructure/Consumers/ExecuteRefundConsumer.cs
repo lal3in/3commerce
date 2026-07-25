@@ -65,9 +65,14 @@ public sealed class ExecuteRefundConsumer(
             Status = RefundStatus.Completed,
             CreatedAt = time.GetUtcNow(),
         });
+        // Reverse into the storefront's own revenue/tax via its receivable bridge (phase 2c) when the
+        // sale was storefront-attributed; otherwise the shared contra-revenue accounts.
+        var accounts = payment.StorefrontId is { } sid
+            ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, context.CancellationToken)
+            : null;
         db.JournalEntries.Add(Ledger.Refund(
             msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow(),
-            payment.MethodKind, payment.Provider));
+            payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode));
 
         payment.RefundedMinor += msg.AmountMinor;
         var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;
