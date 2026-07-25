@@ -1284,4 +1284,76 @@
   <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
     <value>Per-storefront receivable ledger account (auto-derived unless overridden).</value>
   </data>
+  <data name="Nav.Financials" xml:space="preserve">
+    <value>Financials</value>
+  </data>
+  <data name="Nav.Financials.Tip" xml:space="preserve">
+    <value>Per-storefront / per-currency P&amp;L and balance sheet.</value>
+  </data>
+  <data name="Fin.Title" xml:space="preserve">
+    <value>Financials</value>
+  </data>
+  <data name="Fin.Intro" xml:space="preserve">
+    <value>P&amp;L and financial position, per currency and per storefront</value>
+  </data>
+  <data name="Fin.Empty" xml:space="preserve">
+    <value>No ledger activity yet.</value>
+  </data>
+  <data name="Fin.PnL" xml:space="preserve">
+    <value>Profit &amp; loss</value>
+  </data>
+  <data name="Fin.Revenue" xml:space="preserve">
+    <value>Revenue</value>
+  </data>
+  <data name="Fin.Refunds" xml:space="preserve">
+    <value>Refunds</value>
+  </data>
+  <data name="Fin.Fees" xml:space="preserve">
+    <value>Processing fees</value>
+  </data>
+  <data name="Fin.NetResult" xml:space="preserve">
+    <value>Net result</value>
+  </data>
+  <data name="Fin.Position" xml:space="preserve">
+    <value>Financial position</value>
+  </data>
+  <data name="Fin.Assets" xml:space="preserve">
+    <value>Assets</value>
+  </data>
+  <data name="Fin.Receivable" xml:space="preserve">
+    <value>Receivable</value>
+  </data>
+  <data name="Fin.TotalAssets" xml:space="preserve">
+    <value>Total assets</value>
+  </data>
+  <data name="Fin.Liabilities" xml:space="preserve">
+    <value>Liabilities</value>
+  </data>
+  <data name="Fin.TaxCollected" xml:space="preserve">
+    <value>Tax collected</value>
+  </data>
+  <data name="Fin.TotalLiabilities" xml:space="preserve">
+    <value>Total liabilities</value>
+  </data>
+  <data name="Fin.ByStorefront" xml:space="preserve">
+    <value>By storefront</value>
+  </data>
+  <data name="Fin.Col.Storefront" xml:space="preserve">
+    <value>Storefront</value>
+  </data>
+  <data name="Fin.Col.NetRevenue" xml:space="preserve">
+    <value>Net revenue</value>
+  </data>
+  <data name="Fin.Col.Tax" xml:space="preserve">
+    <value>Tax</value>
+  </data>
+  <data name="Fin.Col.Receivable" xml:space="preserve">
+    <value>Receivable</value>
+  </data>
+  <data name="Fin.Col.Account" xml:space="preserve">
+    <value>Revenue account</value>
+  </data>
+  <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
+    <value>The currency the store's sales actually posted in (the checkout currency), which may differ from its configured currency until per-store checkout currency ships.</value>
+  </data>
 </root>

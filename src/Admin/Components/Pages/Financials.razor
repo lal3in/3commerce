@@ -1,0 +1,169 @@
+@page "/financials"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">@L["Fin.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Fin.Intro"]</span>
+    <span style="flex:1;"></span>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
+</div>
+
+@if (_loading)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else if (_balances.Count == 0)
+{
+    <p style="color:#9ca3af;">@L["Fin.Empty"]</p>
+}
+else
+{
+    @* Profit & loss and financial position are computed PER CURRENCY — minor units are not comparable
+       across currencies, so each currency is its own report (no FX consolidation without a rate feed). *@
+    @foreach (var cur in Currencies)
+    {
+        <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1.2rem;">
+            <h2 style="margin:0 0 .2rem;">@cur</h2>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin-top:.6rem;">
+                <div>
+                    <h3 style="margin:.2rem 0 .5rem;">@L["Fin.PnL"]</h3>
+                    <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                        @Line(L["Fin.Revenue"], Revenue(cur), false)
+                        @Line(L["Fin.Refunds"], -Refunds(cur), false)
+                        @Line(L["Fin.Fees"], -Fees(cur), false)
+                        @TotalLine(L["Fin.NetResult"], Revenue(cur) - Refunds(cur) - Fees(cur), cur)
+                    </table>
+                </div>
+                <div>
+                    <h3 style="margin:.2rem 0 .5rem;">@L["Fin.Position"]</h3>
+                    <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                        <tr><td colspan="2" style="font-weight:600; color:#6b7280; padding-top:.2rem;">@L["Fin.Assets"]</td></tr>
+                        @foreach (var (code, amount) in CashByAccount(cur))
+                        {
+                            @Line(code, amount, true)
+                        }
+                        @Line(L["Fin.Receivable"], Receivable(cur), true)
+                        @TotalLine(L["Fin.TotalAssets"], Cash(cur) + Receivable(cur), cur)
+                        <tr><td colspan="2" style="font-weight:600; color:#6b7280; padding-top:.5rem;">@L["Fin.Liabilities"]</td></tr>
+                        @Line(L["Fin.TaxCollected"], TaxLiability(cur), true)
+                        @TotalLine(L["Fin.TotalLiabilities"], TaxLiability(cur), cur)
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+    <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
+        <h2 style="margin:0 0 .5rem;">@L["Fin.ByStorefront"]</h2>
+        @if (_storefronts.Count == 0)
+        {
+            <p style="color:#9ca3af;">—</p>
+        }
+        else
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                <thead><tr>
+                    <th style="text-align:left;">@L["Fin.Col.Storefront"]</th>
+                    <th>@L["Ledger.Col.Currency"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.NetRevenue"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.Tax"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.Receivable"]</th>
+                    <th style="text-align:left;">@L["Fin.Col.Account"]</th>
+                </tr></thead>
+                <tbody>
+                @foreach (var s in _storefronts)
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@s.Name</td>
+                        <td style="text-align:center;" title="@L["Fin.PostingCurrency.Tip"]">@PostingCurrency(s)</td>
+                        <td style="text-align:right;">@Money(AccountAmount(s.RevenueAccountCode, creditNormal: true))</td>
+                        <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
+                        <td style="text-align:right;">@Money(AccountAmount(s.ReceivableAccountCode, creditNormal: false))</td>
+                        <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+
+@code {
+    private const string Tenant = "00000000-0000-0000-0000-000000000001";
+    private bool _loading = true;
+    private List<BalanceDto> _balances = [];
+    private List<StorefrontDto> _storefronts = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _balances = await SafeList<BalanceDto>("/api/payments/admin/ledger/balances");
+        _storefronts = await SafeList<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Tenant}");
+        _loading = false;
+    }
+
+    private async Task<List<T>> SafeList<T>(string path)
+    {
+        try { return await Gateway.GetListAsync<T>(path); }
+        catch { return []; }
+    }
+
+    private IEnumerable<string> Currencies => _balances.Select(b => b.Currency).Distinct().OrderBy(c => c, StringComparer.Ordinal);
+
+    // Credit-normal (revenue/liability): positive = Credit − Debit. Debit-normal (cash/receivable/expense): Debit − Credit.
+    private long Sum(string currency, Func<string, bool> match, bool creditNormal) =>
+        _balances.Where(b => b.Currency == currency && match(b.AccountCode))
+            .Sum(b => creditNormal ? b.CreditMinor - b.DebitMinor : b.DebitMinor - b.CreditMinor);
+
+    private long Revenue(string c) => Sum(c, a => a.StartsWith("revenue.", StringComparison.Ordinal) && a != "revenue.refunds", creditNormal: true);
+    private long Refunds(string c) => Sum(c, a => a == "revenue.refunds", creditNormal: false); // contra-revenue (debit-normal)
+    private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal), creditNormal: false);
+    private long Cash(string c) => Sum(c, a => a.StartsWith("cash.", StringComparison.Ordinal), creditNormal: false);
+    private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);
+    private long TaxLiability(string c) => Sum(c, a => a.StartsWith("tax.", StringComparison.Ordinal) || a == "liability.tax_collected", creditNormal: true);
+
+    private IEnumerable<(string Code, long Amount)> CashByAccount(string currency) => _balances
+        .Where(b => b.Currency == currency && b.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
+        .OrderBy(b => b.AccountCode, StringComparer.Ordinal)
+        .Select(b => (b.AccountCode, b.DebitMinor - b.CreditMinor));
+
+    // Match a storefront account by code across ALL currencies it posted in — a store's revenue lands in
+    // the checkout (posting) currency, which may differ from its configured currency until per-store
+    // checkout currency ships. Amounts are shown in the posting currency (see PostingCurrency).
+    private long AccountAmount(string code, bool creditNormal) =>
+        _balances.Where(b => b.AccountCode == code)
+            .Sum(b => creditNormal ? b.CreditMinor - b.DebitMinor : b.DebitMinor - b.CreditMinor);
+
+    // The currency the store's revenue actually posted in (distinct), else its configured currency.
+    private string PostingCurrency(StorefrontDto s)
+    {
+        var posted = _balances
+            .Where(b => b.AccountCode == s.RevenueAccountCode || b.AccountCode == s.TaxAccountCode || b.AccountCode == s.ReceivableAccountCode)
+            .Select(b => b.Currency).Distinct().ToList();
+        return posted.Count > 0 ? string.Join("/", posted.OrderBy(c => c, StringComparer.Ordinal)) : s.Currency;
+    }
+
+    private static string Money(long minor) => $"{minor / 100m:N2}";
+
+    private RenderFragment Line(string label, long minor, bool asset) => builder =>
+    {
+        builder.AddMarkupContent(0,
+            $"<tr><td style=\"padding:.15rem 0; color:#374151;\">{label}</td>" +
+            $"<td style=\"text-align:right; font-variant-numeric:tabular-nums;\">{Money(minor)}</td></tr>");
+    };
+
+    private RenderFragment TotalLine(string label, long minor, string currency) => builder =>
+    {
+        var color = minor >= 0 ? "#047857" : "#b91c1c";
+        builder.AddMarkupContent(0,
+            $"<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:.3rem 0; font-weight:700;\">{label}</td>" +
+            $"<td style=\"text-align:right; font-weight:700; color:{color};\">{Money(minor)} {currency}</td></tr>");
+    };
+
+    public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
+    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode);
+}

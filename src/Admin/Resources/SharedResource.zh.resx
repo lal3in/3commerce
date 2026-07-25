@@ -1284,4 +1284,76 @@
   <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
     <value>每个店铺的应收账户（除非覆盖，否则自动生成）。</value>
   </data>
+  <data name="Nav.Financials" xml:space="preserve">
+    <value>财务</value>
+  </data>
+  <data name="Nav.Financials.Tip" xml:space="preserve">
+    <value>按店铺/货币的损益与资产负债表。</value>
+  </data>
+  <data name="Fin.Title" xml:space="preserve">
+    <value>财务</value>
+  </data>
+  <data name="Fin.Intro" xml:space="preserve">
+    <value>按货币与店铺的损益与财务状况</value>
+  </data>
+  <data name="Fin.Empty" xml:space="preserve">
+    <value>暂无账簿活动。</value>
+  </data>
+  <data name="Fin.PnL" xml:space="preserve">
+    <value>损益</value>
+  </data>
+  <data name="Fin.Revenue" xml:space="preserve">
+    <value>收入</value>
+  </data>
+  <data name="Fin.Refunds" xml:space="preserve">
+    <value>退款</value>
+  </data>
+  <data name="Fin.Fees" xml:space="preserve">
+    <value>手续费</value>
+  </data>
+  <data name="Fin.NetResult" xml:space="preserve">
+    <value>净利润</value>
+  </data>
+  <data name="Fin.Position" xml:space="preserve">
+    <value>财务状况</value>
+  </data>
+  <data name="Fin.Assets" xml:space="preserve">
+    <value>资产</value>
+  </data>
+  <data name="Fin.Receivable" xml:space="preserve">
+    <value>应收</value>
+  </data>
+  <data name="Fin.TotalAssets" xml:space="preserve">
+    <value>资产总额</value>
+  </data>
+  <data name="Fin.Liabilities" xml:space="preserve">
+    <value>负债</value>
+  </data>
+  <data name="Fin.TaxCollected" xml:space="preserve">
+    <value>已收税款</value>
+  </data>
+  <data name="Fin.TotalLiabilities" xml:space="preserve">
+    <value>负债总额</value>
+  </data>
+  <data name="Fin.ByStorefront" xml:space="preserve">
+    <value>按店铺</value>
+  </data>
+  <data name="Fin.Col.Storefront" xml:space="preserve">
+    <value>店铺</value>
+  </data>
+  <data name="Fin.Col.NetRevenue" xml:space="preserve">
+    <value>净收入</value>
+  </data>
+  <data name="Fin.Col.Tax" xml:space="preserve">
+    <value>税款</value>
+  </data>
+  <data name="Fin.Col.Receivable" xml:space="preserve">
+    <value>应收</value>
+  </data>
+  <data name="Fin.Col.Account" xml:space="preserve">
+    <value>收入账户</value>
+  </data>
+  <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
+    <value>店铺销售实际入账的货币（结账货币），可能与配置货币不同。</value>
+  </data>
 </root>
