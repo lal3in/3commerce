@@ -582,6 +582,31 @@ seed_smoke() {
   done
 }
 
+# Publish a distinct handful of image-having, currency-matching products to each storefront, so every
+# storefront shows ONLY its own published catalog (its merchandising scope) instead of the whole catalog.
+# Distinct page per storefront keeps the published sets non-overlapping, which makes isolation obvious.
+seed_storefront_publications() {
+  echo "== storefront product publications =="
+  local sfs page=0 sid cur pid hits
+  sfs=$(api "sf-pub-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  while IFS='|' read -r sid cur; do
+    [[ -n "$sid" && -n "$cur" ]] || continue
+    page=$((page + 1))
+    hits=$(api "sf-pub-$cur-list" GET "/api/catalog/products?currency=$cur&pageSize=5&page=$page" "$ADMIN_JAR" "" "allow_4xx")
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] || continue
+      # fulfillmentSource=2 (Warehouse) + an image + a visible priced variant satisfy publish readiness.
+      api "sf-pub-$cur-assign" POST "/api/catalog/admin/storefronts/$sid/products" "$ADMIN_JAR" \
+        "{\"productId\":\"$pid\",\"fulfillmentSource\":2}" "allow_4xx" >/dev/null
+      api "sf-pub-$cur-publish" POST "/api/catalog/admin/storefronts/$sid/products/$pid/publish" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    done < <(printf '%s' "$hits" | python3 -c "import sys,json
+try: print('\n'.join(h['id'] for h in json.load(sys.stdin) if h.get('imageUrl')))
+except Exception: pass")
+  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
+try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
+except Exception: pass")
+}
+
 seed_full() {
   seed_smoke
   echo "== full best-effort operator data =="
@@ -666,6 +691,7 @@ except Exception:
   # driving customer flows that depend on ProductCopy/OfferCopy/OrderSnapshot read models.
   sleep 5
   seed_historical_flows
+  seed_storefront_publications
   seed_subscription_examples
 
   product_json=$(api "catalog-products" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")

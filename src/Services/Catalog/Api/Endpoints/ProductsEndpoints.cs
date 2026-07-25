@@ -27,6 +27,7 @@ public static class ProductsEndpoints
         string? attrs,
         string? currency = null,
         int? type = null,
+        Guid? storefrontId = null,
         int page = 1,
         int pageSize = 24,
         CancellationToken cancellationToken = default)
@@ -34,15 +35,16 @@ public static class ProductsEndpoints
         var filters = ParseAttributeFilters(attrs);
         // type is the numeric ProductType (enums cross HTTP as numbers); ignore unknown values.
         var productType = type is { } t && Enum.IsDefined((ProductType)t) ? (ProductType?)t : null;
+        // storefrontId scopes a public listing to that storefront's PUBLISHED catalog (merchandising).
         var result = await search.SearchAsync(
-            new SearchQuery(q, category, filters, page, pageSize, currency, productType), cancellationToken);
+            new SearchQuery(q, category, filters, page, pageSize, currency, productType, storefrontId), cancellationToken);
 
         httpContext.Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
         return TypedResults.Ok(result.Hits.ToList());
     }
 
     private static async Task<Results<Ok<ProductDetailResponse>, NotFound>> GetBySlug(
-        string slug, CatalogDbContext db, string? currency, CancellationToken cancellationToken)
+        string slug, CatalogDbContext db, string? currency, Guid? storefrontId, CancellationToken cancellationToken)
     {
         // Public detail gate: an Inactive product is treated as non-existent here (404). Admin
         // GetProduct (by id) stays unfiltered so the catalog editor can still load/edit it.
@@ -50,6 +52,14 @@ public static class ProductsEndpoints
             .Include(p => p.Variants).ThenInclude(v => v.Prices)
             .SingleOrDefaultAsync(p => p.Slug == slug && p.Status == ProductStatus.Active, cancellationToken);
         if (product is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Storefront-scoped detail: a product not PUBLISHED to this storefront is 404 here too, so a
+        // direct link can't reach an unpublished product (matches the storefront-scoped listing).
+        if (storefrontId is { } sid && !await db.Set<ProductPublication>().AsNoTracking().AnyAsync(
+            pub => pub.ProductId == product.Id && pub.StorefrontId == sid && pub.State == PublicationState.Published, cancellationToken))
         {
             return TypedResults.NotFound();
         }

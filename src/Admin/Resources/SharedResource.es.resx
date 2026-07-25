@@ -1239,4 +1239,10 @@
   <data name="Notif.Empty" xml:space="preserve">
     <value>Aún no hay notificaciones registradas.</value>
   </data>
+  <data name="Home.Kpi.Cash" xml:space="preserve">
+    <value>Efectivo disponible</value>
+  </data>
+  <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
+    <value>Efectivo neto por moneda en todas las cuentas de caja: cambia con cada venta, reembolso y pago. Borde verde = libros cuadrados (balance de comprobación 0).</value>
+  </data>
 </root>

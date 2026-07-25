@@ -25,7 +25,9 @@ export default async function LocalStorefrontPage({ params }: { params: Promise<
   const [t, th, tc] = await Promise.all([getTranslations("storefrontLanding"), getTranslations("home"), getTranslations("categories")]);
   const config = await getStorefrontConfig({ slug });
   const [featured, categories] = await Promise.all([
-    searchProducts({ pageSize: 8, currency: config?.currency }),
+    config
+      ? searchProducts({ pageSize: 8, currency: config.currency, storefrontId: config.id })
+      : Promise.resolve({ hits: [], total: 0 }),
     listCategories(),
   ]);
 
