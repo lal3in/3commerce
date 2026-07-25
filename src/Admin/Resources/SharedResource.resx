@@ -1269,4 +1269,19 @@
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>out of balance</value>
   </data>
+  <data name="Ops.Field.Receivable" xml:space="preserve">
+    <value>Receivable account</value>
+  </data>
+  <data name="Ops.Field.Receivable.Placeholder" xml:space="preserve">
+    <value>auto (receivable.store-…)</value>
+  </data>
+  <data name="Ops.Field.Receivable.Tip" xml:space="preserve">
+    <value>Ledger account this store's sales post to. Leave blank to auto-derive from the store id; editable later.</value>
+  </data>
+  <data name="Ops.Col.Receivable" xml:space="preserve">
+    <value>Receivable</value>
+  </data>
+  <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
+    <value>Per-storefront receivable ledger account (auto-derived unless overridden).</value>
+  </data>
 </root>

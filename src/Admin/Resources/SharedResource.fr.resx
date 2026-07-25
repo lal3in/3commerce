@@ -1269,4 +1269,19 @@
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>déséquilibré</value>
   </data>
+  <data name="Ops.Field.Receivable" xml:space="preserve">
+    <value>Compte client</value>
+  </data>
+  <data name="Ops.Field.Receivable.Placeholder" xml:space="preserve">
+    <value>auto (receivable.store-…)</value>
+  </data>
+  <data name="Ops.Field.Receivable.Tip" xml:space="preserve">
+    <value>Compte du grand livre où sont enregistrées les ventes de cette boutique. Laissez vide pour dériver de l'id ; modifiable ensuite.</value>
+  </data>
+  <data name="Ops.Col.Receivable" xml:space="preserve">
+    <value>Client</value>
+  </data>
+  <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
+    <value>Compte client par boutique (dérivé automatiquement sauf remplacement).</value>
+  </data>
 </root>

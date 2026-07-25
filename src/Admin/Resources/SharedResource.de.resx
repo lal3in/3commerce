@@ -1269,4 +1269,19 @@
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>nicht ausgeglichen</value>
   </data>
+  <data name="Ops.Field.Receivable" xml:space="preserve">
+    <value>Forderungskonto</value>
+  </data>
+  <data name="Ops.Field.Receivable.Placeholder" xml:space="preserve">
+    <value>auto (receivable.store-…)</value>
+  </data>
+  <data name="Ops.Field.Receivable.Tip" xml:space="preserve">
+    <value>Ledger-Konto, auf das die Verkäufe dieses Shops gebucht werden. Leer lassen für automatische Ableitung aus der Shop-ID; später änderbar.</value>
+  </data>
+  <data name="Ops.Col.Receivable" xml:space="preserve">
+    <value>Forderung</value>
+  </data>
+  <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
+    <value>Storefront-spezifisches Forderungskonto (automatisch abgeleitet, sofern nicht überschrieben).</value>
+  </data>
 </root>
