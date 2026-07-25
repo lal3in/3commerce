@@ -607,6 +607,41 @@ try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load
 except Exception: pass")
 }
 
+# Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
+# per-storefront dashboard/Financials show real revenue for every store — not just the tenant default.
+# (checkout_scenario's generic orders carry no storefront, so they land on the gateway default store.)
+seed_storefront_orders() {
+  echo "== per-storefront attributed orders =="
+  local sfs sid cur pid jar body oid gross opt idx=0
+  sfs=$(api "sf-ord-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  while IFS='|' read -r sid cur; do
+    [[ -n "$sid" && -n "$cur" ]] || continue
+    for n in 1 2; do
+      idx=$((idx + 1))
+      case $((idx % 3)) in 0) opt=CreditCard ;; 1) opt=PayPal ;; 2) opt=Polar ;; esac
+      pid=$(api "sf-ord-$cur-prod-$n" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=5&page=$n" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin); print(d[0]['id'] if d else '')
+except Exception: print('')")
+      [[ -n "$pid" ]] || continue
+      # Fresh session (no leftover cart) so each order's single-currency cart is clean; admin satisfies
+      # the customer policy for cart/checkout. StorefrontId in the body attributes the order to the store.
+      jar="$OUT_DIR/sf-ord-$cur-$n.cookie"; : >"$jar"
+      api_noauth "sf-ord-login-$cur-$n" POST "/api/identity/login" "$jar" \
+        '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' "allow_4xx" >/dev/null
+      api "sf-ord-cart-$cur-$n" POST "/api/ordering/cart/items" "$jar" \
+        "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "allow_4xx" >/dev/null
+      body=$(api "sf-ord-checkout-$cur-$n" POST "/api/ordering/checkout" "$jar" \
+        "{\"email\":\"store-$cur@example.test\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Store Demo\",\"line1\":\"1 Demo St\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
+      oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
+      [[ -n "$oid" ]] || continue
+      api "sf-ord-pay-$cur-$n" POST "/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross" "$jar" "" "allow_4xx" >/dev/null
+    done
+  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
+try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
+except Exception: pass")
+}
+
 seed_full() {
   seed_smoke
   echo "== full best-effort operator data =="
@@ -692,6 +727,7 @@ except Exception:
   sleep 5
   seed_historical_flows
   seed_storefront_publications
+  seed_storefront_orders
   seed_subscription_examples
 
   product_json=$(api "catalog-products" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")

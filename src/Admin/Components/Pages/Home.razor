@@ -219,9 +219,23 @@ else
     private bool IsScopedCash(string code) =>
         SelectedStore is { } s ? code == s.ReceivableAccountCode : code.StartsWith("cash.", StringComparison.Ordinal);
 
-    private List<string> MoneyCurrencies => _balances
-        .Where(b => IsScopedRevenue(b.AccountCode) || IsScopedCash(b.AccountCode))
-        .Select(b => b.Currency).Distinct().OrderBy(c => c, StringComparer.Ordinal).ToList();
+    private List<string> MoneyCurrencies
+    {
+        get
+        {
+            var currencies = _balances
+                .Where(b => IsScopedRevenue(b.AccountCode) || IsScopedCash(b.AccountCode))
+                .Select(b => b.Currency);
+            // A selected store always shows its own currency block (0.00 if it has no sales yet) rather
+            // than a blank section, so filtering to a store never looks empty/broken.
+            if (SelectedStore is { } s)
+            {
+                currencies = currencies.Append(s.Currency);
+            }
+
+            return currencies.Distinct().OrderBy(c => c, StringComparer.Ordinal).ToList();
+        }
+    }
 
     // Revenue credited (net of tax) / refunds debited on the scoped revenue accounts, per currency.
     private long Revenue(string cur) => _balances.Where(b => b.Currency == cur && IsScopedRevenue(b.AccountCode)).Sum(b => b.CreditMinor);
