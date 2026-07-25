@@ -416,8 +416,11 @@ checkout_scenario() {
   cp "$CUSTOMER_JAR" "$jar" 2>/dev/null || true
   api "history-$code-cart-add" POST "/api/ordering/cart/items" "$jar" \
     "{\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"quantity\":$quantity}" "allow_4xx" >/dev/null
+  # Attribute these EUR demo orders to the EU storefront so revenue posts to its own account (never the
+  # shared revenue.sales) — otherwise every generic order shows up as "unassigned (no storefront)".
+  local eu_store; eu_store=$(manifest_get "storefronts.demoEu.id")
   order_body=$(api "history-$code-checkout" POST "/api/ordering/checkout" "$jar" \
-    "{\"email\":\"$customer_email\",\"shippingAddress\":{\"name\":\"Demo Customer\",\"line1\":\"42 Example Street\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"},\"selectedShippingService\":\"Fake Ground\",\"selectedShippingAmountMinor\":499,\"selectedShippingExpiresAt\":\"2999-01-01T00:00:00Z\"}" "allow_4xx")
+    "{\"email\":\"$customer_email\",\"storefrontId\":\"$eu_store\",\"shippingAddress\":{\"name\":\"Demo Customer\",\"line1\":\"42 Example Street\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"},\"selectedShippingService\":\"Fake Ground\",\"selectedShippingAmountMinor\":499,\"selectedShippingExpiresAt\":\"2999-01-01T00:00:00Z\"}" "allow_4xx")
   order_id=$(printf '%s' "$order_body" | json_get orderId)
   client_secret=$(printf '%s' "$order_body" | json_get clientSecret)
   if [[ -z "$order_id" ]]; then
@@ -520,12 +523,13 @@ seed_subscription_examples() {
   fi
 
   # A few more active subscriptions, each its own guest order (subscription is keyed per order).
+  local eu_store; eu_store=$(manifest_get "storefronts.demoEu.id")
   for n in 1 2 3; do
     jar="$OUT_DIR/sub-example-$n.cookie"; cp "$CUSTOMER_JAR" "$jar" 2>/dev/null || true
     api "sub-example-$n-cart" POST "/api/ordering/cart/items" "$jar" \
       "{\"productId\":\"$sub_pid\",\"variantId\":\"$sub_vid\",\"quantity\":1}" "allow_4xx" >/dev/null
     ck=$(api "sub-example-$n-checkout" POST "/api/ordering/checkout" "$jar" \
-      "{\"email\":\"subscriber$n@example.test\",\"paymentOption\":\"CreditCard\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
+      "{\"email\":\"subscriber$n@example.test\",\"storefrontId\":\"$eu_store\",\"paymentOption\":\"CreditCard\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
     oid=$(printf '%s' "$ck" | json_get orderId)
     [[ -z "$oid" ]] && continue
     intent="pi_fake_${oid//-/}"
