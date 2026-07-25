@@ -87,6 +87,33 @@ public class LedgerAttributionTests
     }
 
     [Fact]
+    public void A_storefront_sale_posts_revenue_and_tax_to_the_storefronts_accounts_but_cash_to_the_provider()
+    {
+        var entry = Ledger.Sale(
+            Guid.CreateVersion7(), 11_000, 1_000, 0, "AUD", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe",
+            revenueAccount: "revenue.store-au", taxAccount: "tax.store-au");
+
+        // Revenue + tax land on the storefront's own accounts (per-storefront books)...
+        Assert.Equal(10_000, Credits(entry, "revenue.store-au"));
+        Assert.Equal(1_000, Credits(entry, "tax.store-au"));
+        // ...while cash still settles on the provider's account, and the shared accounts are untouched.
+        Assert.Equal(11_000, Debits(entry, Accounts.CashStripe));
+        Assert.Equal(0, Credits(entry, Accounts.RevenueSales));
+        Assert.Equal(0, Credits(entry, Accounts.LiabilityTaxCollected));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_sale_without_storefront_accounts_keeps_the_shared_revenue_and_tax_accounts()
+    {
+        var entry = Ledger.Sale(Guid.CreateVersion7(), 5_000, 500, 0, "EUR", DateTimeOffset.UtcNow);
+
+        Assert.Equal(4_500, Credits(entry, Accounts.RevenueSales));
+        Assert.Equal(500, Credits(entry, Accounts.LiabilityTaxCollected));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
     public void The_default_posting_is_unchanged_stripe_card_so_legacy_rows_stay_coherent()
     {
         var entry = Ledger.Sale(Guid.CreateVersion7(), 1_000, 0, 0, "EUR", DateTimeOffset.UtcNow);

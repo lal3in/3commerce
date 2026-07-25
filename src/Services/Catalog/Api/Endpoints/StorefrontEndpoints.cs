@@ -291,7 +291,10 @@ public static class StorefrontEndpoints
         publisher.Publish(new StorefrontConfigChanged(
             s.Id, s.TenantId, s.Name, s.Currency, s.TaxRateBasisPoints,
             s.State is StorefrontState.Active or StorefrontState.Preview,
-            TaxInclusive: s.TaxRegime is StorefrontTaxRegime.AuGst or StorefrontTaxRegime.EuVat), ct); // ADR-0038
+            TaxInclusive: s.TaxRegime is StorefrontTaxRegime.AuGst or StorefrontTaxRegime.EuVat, // ADR-0038
+            ReceivableAccountCode: s.ReceivableAccountCode,
+            RevenueAccountCode: s.RevenueAccountCode,
+            TaxAccountCode: s.TaxAccountCode), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,

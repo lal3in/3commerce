@@ -43,9 +43,14 @@ public sealed class PaymentEventProcessor(
         {
             case PaymentWebhookKind.PaymentSucceeded when payment.Status != PaymentStatus.Succeeded:
                 payment.Status = PaymentStatus.Succeeded;
+                // Route revenue/tax to the storefront's own accounts when we know the storefront and
+                // have its projected codes (phase 2); otherwise the shared revenue.sales / tax accounts.
+                var accounts = payment.StorefrontId is { } sid
+                    ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
+                    : null;
                 db.JournalEntries.Add(Ledger.Sale(
                     payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
-                    payment.MethodKind, payment.Provider));
+                    payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode));
                 await publisher.Publish(new PaymentSucceeded(payment.OrderId, payment.PaymentIntentId, payment.AmountMinor), ct);
                 break;
 

@@ -9,6 +9,13 @@ public class Payment
 {
     public Guid Id { get; init; }
     public Guid OrderId { get; init; }
+
+    /// <summary>
+    /// The storefront this order belongs to (phase 2), carried on AuthorizePayment. Drives the
+    /// per-storefront revenue/tax ledger accounts the sale posts to. Null for legacy/non-storefront
+    /// payments (subscriptions, older rows) — those keep the shared revenue.sales / tax accounts.
+    /// </summary>
+    public Guid? StorefrontId { get; set; }
     public required string PaymentIntentId { get; set; }
     public long AmountMinor { get; init; }
     public long TaxMinor { get; init; }

@@ -122,12 +122,19 @@ public static class CheckoutEndpoints
 
         var orderId = Guid.CreateVersion7();
         var idempotencyKey = orderId.ToString();
+        // Resolve tenant/storefront up front (gateway-trusted headers) so the storefront rides the
+        // AuthorizePayment request → Payment, letting the sale post to the storefront's own accounts.
+        var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        // The first-party storefront app resolves the exact active store and sends it in the body, so it
+        // wins for attribution; the gateway's host-derived header is only a fallback (it collapses all
+        // path-based demo stores to one configured default), then the tenant default.
+        var storefrontId = request.StorefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
 
         AuthorizePaymentResult intent;
         try
         {
             var response = await authorize.GetResponse<AuthorizePaymentResult>(
-                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption), ct);
+                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId), ct);
             intent = response.Message;
         }
         catch (RequestTimeoutException)
@@ -136,8 +143,6 @@ public static class CheckoutEndpoints
         }
 
         var now = time.GetUtcNow();
-        var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
-        var storefrontId = HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
 
         // Resolve each line's fulfilment from its offer (ADR-0028 / mt7_1-lite): the OfferCopy read
         // model is fed by Catalog's OfferChanged events. No offer → Unassigned (no shipment/inventory).
@@ -241,6 +246,10 @@ public record CheckoutRequest(
     string? PaymentInstrumentSummary = null,
     string? SelectedShippingService = null,
     long? SelectedShippingAmountMinor = null,
-    DateTimeOffset? SelectedShippingExpiresAt = null);
+    DateTimeOffset? SelectedShippingExpiresAt = null,
+    // The active storefront (phase 2). The gateway derives the trusted X-3C-Storefront-Id from the host,
+    // which can't distinguish path-based demo storefronts, so the first-party storefront app also sends
+    // it here for per-storefront order/ledger attribution. Header wins when present.
+    Guid? StorefrontId = null);
 
 public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
