@@ -63,6 +63,8 @@ export async function searchProducts(params: {
   currency?: string;
   // Numeric ProductType filter (browse-by-type).
   type?: number;
+  // When set, results are scoped to products PUBLISHED to this storefront (per-storefront merchandising).
+  storefrontId?: string;
 }): Promise<SearchResult> {
   const query = new URLSearchParams();
   if (params.q) query.set("q", params.q);
@@ -70,6 +72,7 @@ export async function searchProducts(params: {
   if (params.attrs) query.set("attrs", params.attrs);
   if (params.currency) query.set("currency", params.currency);
   if (params.type) query.set("type", String(params.type));
+  if (params.storefrontId) query.set("storefrontId", params.storefrontId);
   query.set("page", String(params.page ?? 1));
   query.set("pageSize", String(params.pageSize ?? 24));
 
@@ -84,10 +87,14 @@ export async function searchProducts(params: {
   return { hits, total };
 }
 
-export async function getProduct(slug: string, currency?: string): Promise<ProductDetail | null> {
-  // Product pages are cacheable/ISR-friendly; revalidate periodically. Currency-specific when set.
-  const query = currency ? `?currency=${encodeURIComponent(currency)}` : "";
-  const response = await gatewayFetch(`/api/catalog/products/${encodeURIComponent(slug)}${query}`, {
+export async function getProduct(slug: string, currency?: string, storefrontId?: string): Promise<ProductDetail | null> {
+  // Product pages are cacheable/ISR-friendly; revalidate periodically. Currency-specific when set, and
+  // storefront-scoped when set (an unpublished product 404s just like it's hidden from the listing).
+  const query = new URLSearchParams();
+  if (currency) query.set("currency", currency);
+  if (storefrontId) query.set("storefrontId", storefrontId);
+  const qs = query.toString();
+  const response = await gatewayFetch(`/api/catalog/products/${encodeURIComponent(slug)}${qs ? `?${qs}` : ""}`, {
     next: { revalidate: 300 },
   });
   return response.ok ? ((await response.json()) as ProductDetail) : null;

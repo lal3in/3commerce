@@ -1239,4 +1239,10 @@
   <data name="Notif.Empty" xml:space="preserve">
     <value>暂无通知记录。</value>
   </data>
+  <data name="Home.Kpi.Cash" xml:space="preserve">
+    <value>现金余额</value>
+  </data>
+  <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
+    <value>每种货币在所有现金账户的净现金 — 随每笔销售、退款、付款变动。绿边 = 账目平衡（试算平衡表为0）。</value>
+  </data>
 </root>

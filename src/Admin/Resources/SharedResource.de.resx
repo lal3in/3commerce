@@ -1239,4 +1239,10 @@
   <data name="Notif.Empty" xml:space="preserve">
     <value>Noch keine Benachrichtigungen erfasst.</value>
   </data>
+  <data name="Home.Kpi.Cash" xml:space="preserve">
+    <value>Barbestand</value>
+  </data>
+  <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
+    <value>Nettobarbestand je Währung über alle Kassenkonten – bewegt sich mit jedem Verkauf, jeder Erstattung und Auszahlung. Grüner Rand = Bücher ausgeglichen (Probebilanz 0).</value>
+  </data>
 </root>

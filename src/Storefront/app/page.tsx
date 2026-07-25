@@ -14,8 +14,12 @@ export default async function HomePage() {
   // so a new category never renders blank.
   const tc = await getTranslations("categories");
   const storefront = await resolveStorefront();
+  // Storefront-scoped: only a resolved storefront's PUBLISHED products are listed. With no storefront
+  // (bare root, no host/slug/STOREFRONT_SLUG mapping) the catalog is NOT dumped — the grid is empty.
   const [featured, categories] = await Promise.all([
-    searchProducts({ pageSize: 8, currency: storefront?.currency }),
+    storefront
+      ? searchProducts({ pageSize: 8, currency: storefront.currency, storefrontId: storefront.id })
+      : Promise.resolve({ hits: [], total: 0 }),
     listCategories(),
   ]);
 

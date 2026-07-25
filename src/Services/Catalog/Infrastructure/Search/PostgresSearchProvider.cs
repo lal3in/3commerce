@@ -65,6 +65,16 @@ public sealed class PostgresSearchProvider(CatalogDbContext db) : ISearchProvide
             sql += $" AND p.\"ProductType\" = {(int)type}";
         }
 
+        // Storefront merchandising scope: only products PUBLISHED (State=Published, not just assigned as a
+        // Draft) to this storefront are publicly listed. Absent = unscoped (admin/global search).
+        if (query.StorefrontId is { } storefrontId)
+        {
+            var schema = db.Model.GetDefaultSchema() ?? "public";
+            sql += $" AND EXISTS (SELECT 1 FROM {schema}.\"ProductPublications\" pub WHERE pub.\"ProductId\" = p.\"Id\""
+                 + $" AND pub.\"StorefrontId\" = @storefrontId AND pub.\"State\" = {(int)PublicationState.Published})";
+            parameters.Add(new NpgsqlParameter("storefrontId", storefrontId));
+        }
+
         var i = 0;
         foreach (var (key, value) in query.AttributeFilters)
         {

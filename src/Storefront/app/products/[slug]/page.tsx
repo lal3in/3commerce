@@ -16,7 +16,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const storefront = await resolveStorefront();
+  const product = await getProduct(slug, storefront?.currency, storefront?.id);
   if (!product) {
     const t = await getTranslations("product");
     return { title: t("notFound"), robots: { index: false } };
@@ -48,7 +49,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     getTranslations("productTypes"),
     resolveStorefront(),
   ]);
-  const product = await getProduct(slug, storefront?.currency);
+  const product = await getProduct(slug, storefront?.currency, storefront?.id);
   if (!product) {
     notFound();
   }

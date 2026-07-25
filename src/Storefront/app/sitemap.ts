@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { searchProducts } from "@/lib/gateway";
+import { resolveStorefront } from "@/lib/storefront-context";
 import { isPrivateStorefront, siteUrl } from "@/lib/seo";
 
 // XML sitemap (mt5_8). Private storefronts emit nothing. Product fetch is best-effort so the build
@@ -15,7 +16,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const { hits } = await searchProducts({ pageSize: 200 });
+    // Only a resolved storefront's published catalog is crawlable; no storefront → core URLs only.
+    const storefront = await resolveStorefront();
+    if (!storefront) return core;
+    const { hits } = await searchProducts({ pageSize: 200, currency: storefront.currency, storefrontId: storefront.id });
     return [
       ...core,
       ...hits.map((hit) => ({

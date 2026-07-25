@@ -1239,4 +1239,10 @@
   <data name="Notif.Empty" xml:space="preserve">
     <value>No notifications recorded yet.</value>
   </data>
+  <data name="Home.Kpi.Cash" xml:space="preserve">
+    <value>Cash on hand</value>
+  </data>
+  <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
+    <value>Net cash per currency across all cash accounts — moves with every sale, refund and payout. Green border = books balanced (trial balance 0).</value>
+  </data>
 </root>

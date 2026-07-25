@@ -21,15 +21,20 @@ export default async function SearchPage({
     getTranslations("productTypes"),
     resolveStorefront(),
   ]);
-  const { hits, total } = await searchProducts({
-    q: params.q,
-    category: params.category,
-    attrs: params.attrs,
-    currency: storefront?.currency,
-    type: activeType,
-    page,
-    pageSize,
-  });
+  // Scoped to the resolved storefront's published catalog; with no storefront resolved, list nothing
+  // rather than the whole catalog (matches the home grid).
+  const { hits, total } = storefront
+    ? await searchProducts({
+        q: params.q,
+        category: params.category,
+        attrs: params.attrs,
+        currency: storefront.currency,
+        storefrontId: storefront.id,
+        type: activeType,
+        page,
+        pageSize,
+      })
+    : { hits: [], total: 0 };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const heading = params.q

@@ -18,7 +18,10 @@ public record SearchQuery(
     // When set, prices are returned in this currency and products with no tenant-set price in it are hidden.
     string? Currency = null,
     // When set, only products of this type are returned (browse-by-type).
-    ProductType? ProductType = null);
+    ProductType? ProductType = null,
+    // When set, only products PUBLISHED (not merely assigned) to this storefront are returned — public
+    // storefront listings are scoped to their own published catalog. Null = unscoped (admin/global).
+    Guid? StorefrontId = null);
 
 public record ProductHit(
     Guid Id,

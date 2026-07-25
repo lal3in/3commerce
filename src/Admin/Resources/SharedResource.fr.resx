@@ -1239,4 +1239,10 @@
   <data name="Notif.Empty" xml:space="preserve">
     <value>Aucune notification enregistrée pour l'instant.</value>
   </data>
+  <data name="Home.Kpi.Cash" xml:space="preserve">
+    <value>Trésorerie</value>
+  </data>
+  <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
+    <value>Trésorerie nette par devise sur tous les comptes de caisse — évolue à chaque vente, remboursement et versement. Bordure verte = comptes équilibrés (balance de vérification 0).</value>
+  </data>
 </root>

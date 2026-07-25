@@ -23,7 +23,19 @@ else
         @KpiCard(L["Home.Kpi.Orders"], _orders.Count.ToString(), "#0891b2", L["Home.Kpi.Orders.Sub", _ordersToday], L["Home.Kpi.Orders.Tip"])
         @KpiCard(L["Home.Kpi.Products"], _productCount.ToString(), "#059669", L["Home.Kpi.Products.Sub"], L["Home.Kpi.Products.Tip"])
         @KpiCard(L["Home.Kpi.OpenRmas"], _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", L["Home.Kpi.OpenRmas.Sub", _rmas.Count], L["Home.Kpi.OpenRmas.Tip"])
-        @KpiCard(L["Home.Kpi.Ledger"], Money(_trialBalanceMinor), _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Ledger.Tip"])
+        @* Cash on hand per currency — cash.* accounts are debit-normal, so net debit = money held. Never
+           summed across currencies (minor units differ); border green = books balanced (trial balance 0). *@
+        @if (_cashByCurrency.Count == 0)
+        {
+            @KpiCard(L["Home.Kpi.Cash"], "0.00", _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Cash.Tip"])
+        }
+        else
+        {
+            @foreach (var (currency, minor) in _cashByCurrency)
+            {
+                @KpiCard($"{L["Home.Kpi.Cash"].Value} ({currency})", $"{minor / 100m:N2} {currency}", _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Cash.Tip"])
+            }
+        }
     </div>
 
     <div style="display:grid; grid-template-columns:2fr 1fr; gap:1.2rem; margin-top:1.4rem;">
@@ -136,6 +148,7 @@ else
     private Dictionary<string, int> _byStatus = [];
     private Dictionary<DateTime, long> _revByDay = [];
     private Dictionary<DateTime, long> _refByDay = [];
+    private List<(string Currency, long Minor)> _cashByCurrency = [];
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -166,6 +179,17 @@ else
         _refundsMinor = _ledger.SelectMany(e => e.Lines).Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor);
         _netRevenueMinor = _revenueMinor - _refundsMinor;
         _refundCount = _orders.Count(o => o.Status == "Refunded");
+
+        // Cash on hand grouped by the entry's currency (cash.* is debit-normal). Per-currency because
+        // minor units are not comparable across currencies — summing EUR+AUD+USD would be meaningless.
+        _cashByCurrency = _ledger
+            .SelectMany(e => e.Lines
+                .Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
+                .Select(l => (e.Currency, Net: l.DebitMinor - l.CreditMinor)))
+            .GroupBy(x => x.Currency)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => (g.Key, g.Sum(x => x.Net)))
+            .ToList();
 
         _revByDay = [];
         _refByDay = [];
