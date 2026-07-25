@@ -1365,4 +1365,7 @@
   <data name="Home.Filter.AllStores" xml:space="preserve">
     <value>Todas las tiendas</value>
   </data>
+  <data name="Home.Filter.Unassigned" xml:space="preserve">
+    <value>Sin asignar (sin tienda)</value>
+  </data>
 </root>

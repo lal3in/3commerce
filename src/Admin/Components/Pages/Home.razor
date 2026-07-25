@@ -14,6 +14,7 @@
             {
                 <option value="@s.Id">@s.Name (@s.Currency)</option>
             }
+            <option value="unassigned">@L["Home.Filter.Unassigned"]</option>
         </select>
     </label>
     <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
@@ -51,7 +52,10 @@ else
                         @MoneyRow(L["Home.Kpi.Revenue"], Revenue(cur), cur, "#111827")
                         @MoneyRow(L["Home.Kpi.Refunds"], -Refunds(cur), cur, Refunds(cur) > 0 ? "#b45309" : "#6b7280")
                         @MoneyRow(L["Home.Kpi.NetRevenue"], Revenue(cur) - Refunds(cur), cur, "#0e7490", bold: true)
-                        @MoneyRow(SelectedStoreId is null ? L["Home.Kpi.Cash"] : L["Home.Kpi.Receivable"], CashOrReceivable(cur), cur, "#4f46e5")
+                        @if (!IsUnassigned)
+                        {
+                            @MoneyRow(SelectedStoreId is null ? L["Home.Kpi.Cash"] : L["Home.Kpi.Receivable"], CashOrReceivable(cur), cur, "#4f46e5")
+                        }
                     </table>
                 </div>
             }
@@ -198,14 +202,23 @@ else
         _loading = false;
     }
 
-    // ---- storefront scope ----
+    // ---- storefront scope: "" = all, a guid = that store, "unassigned" = revenue not owned by any
+    // storefront (default-storefront orders → revenue.sales, legacy refunds → revenue.refunds). So
+    // All == Σ(stores) + Unassigned, which is why per-store totals don't sum to All on their own. ----
     private Guid? SelectedStoreId => Guid.TryParse(_selectedStore, out var id) ? id : null;
+    private bool IsUnassigned => _selectedStore == "unassigned";
     private StorefrontDto? SelectedStore => _storefronts.FirstOrDefault(s => s.Id == SelectedStoreId);
-    private List<OrderDto> Orders => SelectedStoreId is { } id ? _orders.Where(o => o.StorefrontId == id).ToList() : _orders;
-    private List<EntryDto> ScopedLedger => SelectedStore is { } s
-        ? _ledger.Where(e => e.Lines.Any(l => l.AccountCode == s.RevenueAccountCode || l.AccountCode == s.ReceivableAccountCode || l.AccountCode == s.TaxAccountCode)).ToList()
+    private HashSet<string> StoreRevenueAccounts => _storefronts.Select(s => s.RevenueAccountCode).ToHashSet(StringComparer.Ordinal);
+
+    private List<OrderDto> Orders =>
+        IsUnassigned ? _orders.Where(o => o.StorefrontId is null || _storefronts.All(s => s.Id != o.StorefrontId)).ToList()
+        : SelectedStoreId is { } id ? _orders.Where(o => o.StorefrontId == id).ToList()
+        : _orders;
+    private List<EntryDto> ScopedLedger =>
+        SelectedStore is { } s ? _ledger.Where(e => e.Lines.Any(l => l.AccountCode == s.RevenueAccountCode || l.AccountCode == s.ReceivableAccountCode || l.AccountCode == s.TaxAccountCode)).ToList()
+        : IsUnassigned ? _ledger.Where(e => e.Lines.Any(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) && !StoreRevenueAccounts.Contains(l.AccountCode))).ToList()
         : _ledger;
-    private List<RmaDto> ScopedRmas => SelectedStoreId is { } id
+    private List<RmaDto> ScopedRmas => (SelectedStoreId is not null || IsUnassigned)
         ? _rmas.Where(r => Orders.Any(o => o.Id == r.OrderId)).ToList()
         : _rmas;
     private int OpenRmas => ScopedRmas.Count(r => r.State is "Requested" or "Pending" or "Open");
@@ -215,9 +228,13 @@ else
     // ---- money, per currency, from the full ledger balances ----
     // Revenue accounts in scope: all revenue.* for "all", else the selected store's revenue account.
     private bool IsScopedRevenue(string code) =>
-        SelectedStore is { } s ? code == s.RevenueAccountCode : code.StartsWith("revenue.", StringComparison.Ordinal);
+        IsUnassigned ? code.StartsWith("revenue.", StringComparison.Ordinal) && !StoreRevenueAccounts.Contains(code)
+        : SelectedStore is { } s ? code == s.RevenueAccountCode
+        : code.StartsWith("revenue.", StringComparison.Ordinal);
     private bool IsScopedCash(string code) =>
-        SelectedStore is { } s ? code == s.ReceivableAccountCode : code.StartsWith("cash.", StringComparison.Ordinal);
+        IsUnassigned ? false // unattributed orders post cash directly; cash is platform-level (see All)
+        : SelectedStore is { } s ? code == s.ReceivableAccountCode
+        : code.StartsWith("cash.", StringComparison.Ordinal);
 
     private List<string> MoneyCurrencies
     {

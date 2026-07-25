@@ -1365,4 +1365,7 @@
   <data name="Home.Filter.AllStores" xml:space="preserve">
     <value>所有店舖</value>
   </data>
+  <data name="Home.Filter.Unassigned" xml:space="preserve">
+    <value>未分配（無店舖）</value>
+  </data>
 </root>
