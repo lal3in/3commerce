@@ -20,6 +20,14 @@ public class JournalLine
     public Guid Id { get; init; }
     public Guid EntryId { get; init; }
     public required string AccountCode { get; init; }
+
+    /// <summary>
+    /// The line's currency, denormalized from the owning entry. An account accumulates postings in
+    /// several currencies, so a balance is only meaningful per (AccountCode, Currency) — minor units
+    /// are not comparable across currencies. Carried on the line so balances group without a join.
+    /// </summary>
+    public string Currency { get; init; } = "";
+
     /// <summary>Exactly one of Debit/Credit is non-zero; both are non-negative minor units.</summary>
     public long DebitMinor { get; init; }
     public long CreditMinor { get; init; }

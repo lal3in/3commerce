@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>Trésorerie nette par devise sur tous les comptes de caisse — évolue à chaque vente, remboursement et versement. Bordure verte = comptes équilibrés (balance de vérification 0).</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>Soldes par devise</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>Écritures</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>Compte</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>Débit</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>Crédit</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>Net</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>équilibré ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>déséquilibré</value>
+  </data>
 </root>

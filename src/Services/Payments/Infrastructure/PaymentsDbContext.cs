@@ -69,6 +69,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         modelBuilder.Entity<JournalLine>(l =>
         {
             l.HasIndex(x => x.AccountCode);
+            l.Property(x => x.Currency).HasMaxLength(3);
+            l.HasIndex(x => new { x.AccountCode, x.Currency }); // per-(account,currency) balance rollups
             l.ToTable(t =>
             {
                 t.HasCheckConstraint("ck_line_nonneg", "\"DebitMinor\" >= 0 AND \"CreditMinor\" >= 0");

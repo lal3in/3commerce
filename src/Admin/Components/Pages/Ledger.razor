@@ -4,6 +4,44 @@
 @inject GatewayClient Gateway
 
 <h1>@L["Ledger.Title"]</h1>
+
+@* Balances per (account, currency): a balance is only meaningful within one currency (minor units are
+   not comparable across currencies), so accounts are grouped by currency and the trial balance
+   (Σ debits = Σ credits) is checked PER currency. *@
+<h2 style="margin:1.2rem 0 .4rem;">@L["Ledger.Balances"]</h2>
+@if (_balances is null) { <p>@L["Common.Loading"]</p> }
+else if (_balances.Count == 0) { <p style="color:#9ca3af;">—</p> }
+else
+{
+    @foreach (var grp in _balances.GroupBy(b => b.Currency))
+    {
+        var dr = grp.Sum(b => b.DebitMinor);
+        var cr = grp.Sum(b => b.CreditMinor);
+        var balanced = dr == cr;
+        <div style="margin-bottom:1rem; border:1px solid #e5e7eb; border-radius:8px; padding:.6rem .9rem;">
+            <div style="display:flex; gap:.6rem; align-items:baseline; margin-bottom:.3rem;">
+                <strong>@grp.Key</strong>
+                <span style="font-size:.8rem; color:@(balanced ? "#047857" : "#b91c1c");">@(balanced ? L["Ledger.Balanced"] : L["Ledger.OutOfBalance"])</span>
+            </div>
+            <table style="border-collapse:collapse; width:100%; font-size:.88rem;">
+                <thead><tr><th style="text-align:left;">@L["Ledger.Col.Account"]</th><th style="text-align:right;">@L["Ledger.Col.Debit"]</th><th style="text-align:right;">@L["Ledger.Col.Credit"]</th><th style="text-align:right;">@L["Ledger.Col.Net"]</th></tr></thead>
+                <tbody>
+                @foreach (var b in grp)
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td><code style="font-size:.8rem;">@b.AccountCode</code></td>
+                        <td style="text-align:right;">@Money(b.DebitMinor)</td>
+                        <td style="text-align:right;">@Money(b.CreditMinor)</td>
+                        <td style="text-align:right; font-weight:600;">@Money(b.NetMinor) @grp.Key</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<h2 style="margin:1.4rem 0 .4rem;">@L["Ledger.Entries"]</h2>
 @if (_entries is null) { <p>@L["Common.Loading"]</p> }
 else
 {
@@ -20,7 +58,17 @@ else
 }
 @code {
     private List<EntryDto>? _entries;
-    protected override async Task OnInitializedAsync() => _entries = await Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+    private List<BalanceDto>? _balances;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _balances = await Gateway.GetListAsync<BalanceDto>("/api/payments/admin/ledger/balances");
+        _entries = await Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+    }
+
+    private static string Money(long minor) => $"{minor / 100m:N2}";
+
+    public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
     public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
 }

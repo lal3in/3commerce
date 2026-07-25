@@ -19,6 +19,7 @@ public static class AdminEndpoints
 
         group.MapGet("/ledger/accounts", ListAccounts);
         group.MapGet("/ledger/entries", ListEntries);
+        group.MapGet("/ledger/balances", ListBalances);
         group.MapPost("/refunds", RequestRefund);
         return app;
     }
@@ -45,6 +46,28 @@ public static class AdminEndpoints
                 e.Lines.Select(l => new LineDto(l.AccountCode, l.DebitMinor, l.CreditMinor)).ToList()))
             .ToListAsync(ct);
         return TypedResults.Ok(entries);
+    }
+
+    /// <summary>
+    /// Account balances grouped by (account, currency). A balance is only meaningful per currency —
+    /// minor units are not comparable across currencies — so every row carries its currency and totals
+    /// are never summed across them. The trial balance holds PER currency (Σ debits = Σ credits).
+    /// </summary>
+    private static async Task<Ok<List<BalanceDto>>> ListBalances(PaymentsDbContext db, CancellationToken ct)
+    {
+        var rows = await db.JournalLines.AsNoTracking()
+            .GroupBy(l => new { l.AccountCode, l.Currency })
+            .Select(g => new BalanceDto(
+                g.Key.AccountCode,
+                g.Key.Currency,
+                g.Sum(x => x.DebitMinor),
+                g.Sum(x => x.CreditMinor),
+                g.Sum(x => x.DebitMinor) - g.Sum(x => x.CreditMinor)))
+            .ToListAsync(ct);
+        return TypedResults.Ok(rows
+            .OrderBy(b => b.Currency, StringComparer.Ordinal)
+            .ThenBy(b => b.AccountCode, StringComparer.Ordinal)
+            .ToList());
     }
 
     /// <summary>
@@ -90,6 +113,7 @@ public static class AdminEndpoints
 }
 
 public record AccountDto(string Code, string Name, string Type);
+public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
 public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
 public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
 public record RefundRequest([property: Required] Guid OrderId, [property: Range(1, long.MaxValue)] long AmountMinor, [property: Required] string Reason);

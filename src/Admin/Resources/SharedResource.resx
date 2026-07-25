@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>Net cash per currency across all cash accounts — moves with every sale, refund and payout. Green border = books balanced (trial balance 0).</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>Balances by currency</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>Journal entries</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>Debit</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>Credit</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>Net</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>balanced ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>out of balance</value>
+  </data>
 </root>
