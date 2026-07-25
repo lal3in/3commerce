@@ -217,7 +217,10 @@ public static class CheckoutEndpoints
         var normalized = (option ?? "CreditCard").Trim();
         return normalized switch
         {
-            "Stripe" or "CreditCard" or "ApplePay" or "GooglePay" or "PayPal" => normalized,
+            // Pass through every method Payments knows how to route (PaymentMethodKindMapper / ADR-0039):
+            // wallets settle through the card PSP, while PayPal / Afterpay / Polar are standalone PSPs and
+            // must reach Payments as-is — dropping them to CreditCard mis-settled them to the card acquirer.
+            "Stripe" or "CreditCard" or "ApplePay" or "GooglePay" or "PayPal" or "Afterpay" or "Polar" => normalized,
             _ => "CreditCard",
         };
     }
