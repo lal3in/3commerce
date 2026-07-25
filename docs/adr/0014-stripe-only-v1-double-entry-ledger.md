@@ -1,6 +1,6 @@
 # ADR-0014: Stripe-only v1 behind IPaymentProvider; custom double-entry ledger as source of truth
 
-- **Status:** Accepted
+- **Status:** Accepted (payments generalized by [ADR-0039](./0039-payment-provider-architecture.md); ledger extended to multi-currency / per-storefront by [ADR-0040](./0040-per-currency-per-storefront-ledger.md))
 - **Date:** 2026-06-12
 - **Source:** PRD design interview (decision log #14, `docs/prd/3commerce/15-appendix.md`)
 

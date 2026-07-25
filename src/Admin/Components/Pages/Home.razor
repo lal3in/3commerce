@@ -117,8 +117,11 @@ else
                 <tbody>
                 @foreach (var e in _ledger.OrderByDescending(e => e.CreatedAt).Take(8))
                 {
-                    var isRefund = e.Lines.Any(l => l.AccountCode == "revenue.refunds");
-                    var total = e.Lines.Sum(l => l.DebitMinor);
+                    var isRefund = e.Description.StartsWith("Refund ", StringComparison.Ordinal);
+                    // Gross cash movement (avoids double-counting the receivable-bridge legs): cash in for
+                    // a sale, cash out for a refund.
+                    var cashLines = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal));
+                    var total = isRefund ? cashLines.Sum(l => l.CreditMinor) : cashLines.Sum(l => l.DebitMinor);
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
                         <td>@e.Description</td>
@@ -173,10 +176,12 @@ else
         _trialBalanceMinor = _ledger.SelectMany(e => e.Lines).Sum(l => l.DebitMinor) - _ledger.SelectMany(e => e.Lines).Sum(l => l.CreditMinor);
         _byStatus = _orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
 
-        // Refunds come off the ledger (the single source of truth): revenue.refunds is debited for the
-        // net refunded, so it reflects every refund path — admin instant, RMA-return, or storefront —
-        // and nets against gross revenue. Refunded-order count is a friendlier companion figure.
-        _refundsMinor = _ledger.SelectMany(e => e.Lines).Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor);
+        // Refunds off the ledger (the single source of truth): a refund entry debits a revenue account
+        // for the net reversed — the shared revenue.refunds (legacy) OR the storefront's own revenue
+        // account (per-store refunds). Summing revenue-account debits on refund entries counts every
+        // refund path and nets against gross revenue. Refunded-order count is a friendlier companion.
+        _refundsMinor = RefundEntries(_ledger).SelectMany(e => e.Lines)
+            .Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
         _netRevenueMinor = _revenueMinor - _refundsMinor;
         _refundCount = _orders.Count(o => o.Status == "Refunded");
 
@@ -197,8 +202,8 @@ else
         {
             var day = DateTime.Now.Date.AddDays(-d);
             _revByDay[day] = _orders.Where(o => o.CreatedAt.LocalDateTime.Date == day).Sum(o => o.GrossMinor);
-            _refByDay[day] = _ledger.Where(e => e.CreatedAt.LocalDateTime.Date == day)
-                .SelectMany(e => e.Lines).Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor);
+            _refByDay[day] = RefundEntries(_ledger.Where(e => e.CreatedAt.LocalDateTime.Date == day))
+                .SelectMany(e => e.Lines).Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
         }
 
         _loading = false;
@@ -232,6 +237,12 @@ else
     }
 
     private string Money(long minor) => $"{minor / 100m:N2} {_currency}";
+
+    // A refund posts a journal entry described "Refund …" (legacy shared contra-revenue OR a storefront's
+    // own revenue account); its revenue-account debits are the net reversed. Detect by the entry, not one
+    // fixed account, so per-store refunds are counted too.
+    private static IEnumerable<EntryDto> RefundEntries(IEnumerable<EntryDto> entries) =>
+        entries.Where(e => e.Description.StartsWith("Refund ", StringComparison.Ordinal));
 
     // label/sub/tip come from the resx (trusted, developer-authored), value from our own formatting — nothing
     // user-supplied reaches this markup.

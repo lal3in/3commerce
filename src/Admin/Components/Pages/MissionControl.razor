@@ -271,10 +271,12 @@
         .OrderBy(g => g.Key, StringComparer.Ordinal)
         .Select(g => (g.Key, g.Sum(o => o.GrossMinor)))
         .ToList();
-    // Refunds as money, per currency: revenue.refunds debits off the ledger (the single source of truth
-    // for every refund path). Never summed across currencies, mirroring revenue.
+    // Refunds as money, per currency: a refund entry ("Refund …") debits a revenue account for the net
+    // reversed — shared revenue.refunds (legacy) or the storefront's own revenue account (per-store).
+    // Detect by the entry so every refund path counts. Never summed across currencies, mirroring revenue.
     private List<(string Currency, long Minor)> RefundsByCurrency => _ledger
-        .Select(e => (e.Currency, Minor: e.Lines.Where(l => l.AccountCode == "revenue.refunds").Sum(l => l.DebitMinor)))
+        .Where(e => e.Description.StartsWith("Refund ", StringComparison.Ordinal))
+        .Select(e => (e.Currency, Minor: e.Lines.Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor)))
         .Where(x => x.Minor > 0)
         .GroupBy(x => x.Currency)
         .OrderBy(g => g.Key, StringComparer.Ordinal)

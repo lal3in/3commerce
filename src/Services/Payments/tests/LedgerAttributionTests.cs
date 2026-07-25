@@ -104,6 +104,39 @@ public class LedgerAttributionTests
     }
 
     [Fact]
+    public void A_storefront_sale_with_a_receivable_bridges_cash_through_it_and_nets_it_to_zero()
+    {
+        var entry = Ledger.Sale(
+            Guid.CreateVersion7(), 11_000, 1_000, 0, "AUD", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe",
+            revenueAccount: "revenue.store-au", taxAccount: "tax.store-au", receivableAccount: "receivable.store-au");
+
+        Assert.Equal(10_000, Credits(entry, "revenue.store-au"));
+        Assert.Equal(1_000, Credits(entry, "tax.store-au"));
+        Assert.Equal(11_000, Debits(entry, Accounts.CashStripe));
+        // The receivable is the settlement bridge: debited (recognition) then credited (cash in) → nets 0.
+        Assert.Equal(11_000, Debits(entry, "receivable.store-au"));
+        Assert.Equal(11_000, Credits(entry, "receivable.store-au"));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_storefront_refund_reverses_the_stores_own_revenue_and_tax_not_the_shared_contra()
+    {
+        var entry = Ledger.Refund(
+            Guid.CreateVersion7(), Guid.CreateVersion7(), 11_000, 1_000, "AUD", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe",
+            revenueAccount: "revenue.store-au", taxAccount: "tax.store-au", receivableAccount: "receivable.store-au");
+
+        // Reverses the store's OWN revenue + tax (its books net sales against refunds), cash goes out.
+        Assert.Equal(10_000, Debits(entry, "revenue.store-au"));
+        Assert.Equal(1_000, Debits(entry, "tax.store-au"));
+        Assert.Equal(11_000, Credits(entry, Accounts.CashStripe));
+        Assert.Equal(0, Debits(entry, Accounts.RevenueRefunds)); // shared contra untouched for a store refund
+        Assert.Equal(11_000, Debits(entry, "receivable.store-au"));
+        Assert.Equal(11_000, Credits(entry, "receivable.store-au"));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
     public void A_sale_without_storefront_accounts_keeps_the_shared_revenue_and_tax_accounts()
     {
         var entry = Ledger.Sale(Guid.CreateVersion7(), 5_000, 500, 0, "EUR", DateTimeOffset.UtcNow);
