@@ -88,6 +88,10 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             // BCP-47 default UI language (i18n_0) — independent of Currency/TaxRegime.
             storefront.Property(s => s.DefaultLanguage).HasMaxLength(16).HasDefaultValue(SupportedLanguages.Default);
             storefront.Property(s => s.TaxRegime).HasConversion<string>().HasMaxLength(24);
+            // Per-storefront ledger accounts (phase 2); default '' at rest, auto-derived by the domain.
+            storefront.Property(s => s.ReceivableAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
+            storefront.Property(s => s.RevenueAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
+            storefront.Property(s => s.TaxAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
             storefront.HasIndex(s => new { s.TenantId, s.Name }).IsUnique();
             storefront.HasIndex(s => new { s.TenantId, s.State });
             storefront.HasMany(s => s.Domains).WithOne().HasForeignKey(d => d.StorefrontId);

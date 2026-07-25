@@ -19,6 +19,17 @@ public sealed class Storefront
     public string DefaultLanguage { get; private set; } = SupportedLanguages.Default;
     public StorefrontTaxRegime TaxRegime { get; private set; } = StorefrontTaxRegime.None;
     public int TaxRateBasisPoints { get; private set; }
+
+    /// <summary>
+    /// The ledger accounts this storefront's sales post to (per-storefront books, phase 2). Each store
+    /// keeps its own receivable / revenue / tax accounts in its own currency, so balances and P&amp;L are
+    /// per-storefront. Auto-derived from the storefront id when left blank and editable at create/update
+    /// (<see cref="SetLedgerAccounts"/>). Cash stays per settling provider+currency, not per storefront.
+    /// </summary>
+    public string ReceivableAccountCode { get; private set; } = string.Empty;
+    public string RevenueAccountCode { get; private set; } = string.Empty;
+    public string TaxAccountCode { get; private set; } = string.Empty;
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
@@ -62,6 +73,43 @@ public sealed class Storefront
         TaxRegime = taxRegime;
         TaxRateBasisPoints = taxRegime == StorefrontTaxRegime.None ? 0 : taxRateBasisPoints;
         UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Sets the storefront's ledger accounts (phase 2). A null/blank code auto-derives a stable default
+    /// from the storefront id (<c>{kind}.store-{id8}</c>), so a store always has all three; a non-blank
+    /// code is normalized (trimmed, lowercased) and overrides the default. Safe to call at create and on
+    /// every update — an omitted (null) code re-derives the default rather than wiping it.
+    /// </summary>
+    public void SetLedgerAccounts(string? receivable, string? revenue, string? tax, DateTimeOffset now)
+    {
+        ReceivableAccountCode = NormalizeAccount(receivable) ?? DefaultAccountCode("receivable");
+        RevenueAccountCode = NormalizeAccount(revenue) ?? DefaultAccountCode("revenue");
+        TaxAccountCode = NormalizeAccount(tax) ?? DefaultAccountCode("tax");
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// The auto-derived default account code for a kind (receivable/revenue/tax) — stable and UNIQUE per
+    /// store. Uses the full id (UUIDv7's first hex chars are a shared creation-time prefix, so a short
+    /// slice collides for stores created together); operators typically override to a friendly code.
+    /// </summary>
+    public string DefaultAccountCode(string kind) => $"{kind}.store-{Id:N}";
+
+    private static string? NormalizeAccount(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var normalized = code.Trim().ToLowerInvariant();
+        if (normalized.Length > 80 || !normalized.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_'))
+        {
+            throw new CatalogRuleException("Ledger account code must be up to 80 chars of letters, digits, '.', '-' or '_'.");
+        }
+
+        return normalized;
     }
 
     /// <summary>

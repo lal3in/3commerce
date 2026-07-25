@@ -1269,4 +1269,19 @@
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>descuadrado</value>
   </data>
+  <data name="Ops.Field.Receivable" xml:space="preserve">
+    <value>Cuenta por cobrar</value>
+  </data>
+  <data name="Ops.Field.Receivable.Placeholder" xml:space="preserve">
+    <value>auto (receivable.store-…)</value>
+  </data>
+  <data name="Ops.Field.Receivable.Tip" xml:space="preserve">
+    <value>Cuenta contable donde se registran las ventas de esta tienda. Déjela en blanco para derivarla del id de la tienda; editable después.</value>
+  </data>
+  <data name="Ops.Col.Receivable" xml:space="preserve">
+    <value>Por cobrar</value>
+  </data>
+  <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
+    <value>Cuenta por cobrar por tienda (derivada automáticamente salvo que se sobrescriba).</value>
+  </data>
 </root>

@@ -138,6 +138,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
+            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -181,6 +182,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
+            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -410,6 +412,9 @@ public static class StorefrontEndpoints
         storefront.TaxRegime,
         storefront.TaxRateBasisPoints,
         storefront.DefaultLanguage,
+        storefront.ReceivableAccountCode,
+        storefront.RevenueAccountCode,
+        storefront.TaxAccountCode,
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -426,7 +431,11 @@ public sealed record CreateStorefrontRequest(
     StorefrontTaxRegime TaxRegime = StorefrontTaxRegime.None,
     int TaxRateBasisPoints = 0,
     // BCP-47 default UI language (i18n_0); omit → "en". Independent of Currency/TaxRegime.
-    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
+    // Per-storefront ledger accounts (phase 2); omit → auto-derived from the storefront id.
+    [property: StringLength(80)] string? ReceivableAccountCode = null,
+    [property: StringLength(80)] string? RevenueAccountCode = null,
+    [property: StringLength(80)] string? TaxAccountCode = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -437,7 +446,11 @@ public sealed record UpdateStorefrontRequest(
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
     // Optional: omitted → the storefront keeps its current language (a currency/tax edit never resets it).
-    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null);
+    [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
+    // Per-storefront ledger accounts (phase 2); omit any → re-derived from the storefront id.
+    [property: StringLength(80)] string? ReceivableAccountCode = null,
+    [property: StringLength(80)] string? RevenueAccountCode = null,
+    [property: StringLength(80)] string? TaxAccountCode = null);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -454,6 +467,9 @@ public sealed record StorefrontResponse(
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
     string DefaultLanguage,
+    string ReceivableAccountCode,
+    string RevenueAccountCode,
+    string TaxAccountCode,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,

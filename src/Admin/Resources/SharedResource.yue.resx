@@ -1269,4 +1269,19 @@
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>不平衡</value>
   </data>
+  <data name="Ops.Field.Receivable" xml:space="preserve">
+    <value>應收帳戶</value>
+  </data>
+  <data name="Ops.Field.Receivable.Placeholder" xml:space="preserve">
+    <value>自動 (receivable.store-…)</value>
+  </data>
+  <data name="Ops.Field.Receivable.Tip" xml:space="preserve">
+    <value>呢間店嘅銷售會入去嘅帳戶。留空會根據店舖 id 自動產生；之後可改。</value>
+  </data>
+  <data name="Ops.Col.Receivable" xml:space="preserve">
+    <value>應收</value>
+  </data>
+  <data name="Ops.Col.Receivable.Tip" xml:space="preserve">
+    <value>每間店嘅應收帳戶（除非覆寫，否則自動產生）。</value>
+  </data>
 </root>

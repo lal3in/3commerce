@@ -41,6 +41,7 @@
         <label>@L["Ops.Field.Name"]<br /><input @bind="_newStorefrontName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
         <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_newPublicUrl" placeholder="http://localhost:3000/au" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
         <label>@L["Ops.Field.Currency"]<br /><CurrencySelect @bind-Value="_newCurrency" style="padding:.4rem;" title="@L["Ops.Field.Currency.Tip"]" /></label>
+        <label>@L["Ops.Field.Receivable"]<br /><input @bind="_newReceivableAccount" placeholder="@L["Ops.Field.Receivable.Placeholder"]" style="padding:.4rem;" title="@L["Ops.Field.Receivable.Tip"]" /></label>
         <label>@L["Ops.Field.TaxRegime"]<br />
             <select @bind="_newTaxRegime" style="padding:.4rem;" title="@L["Ops.Field.TaxRegime.Tip"]">
                 <option value="0">@L["Ops.TaxRegime.None"]</option>
@@ -73,7 +74,7 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">@L["Ops.Field.Name"]</th><th>@L["Ops.Col.Url"]</th><th>@L["Ops.Col.Currency"]</th><th>@L["Ops.Col.Tax"]</th><th>@L["Ops.Col.State"]</th><th>@L["Ops.Col.Visibility"]</th><th>@L["Ops.Col.Domains"]</th><th></th></tr></thead>
+            <thead><tr><th style="text-align:left;">@L["Ops.Field.Name"]</th><th>@L["Ops.Col.Url"]</th><th>@L["Ops.Col.Currency"]</th><th>@L["Ops.Col.Receivable"]</th><th>@L["Ops.Col.Tax"]</th><th>@L["Ops.Col.State"]</th><th>@L["Ops.Col.Visibility"]</th><th>@L["Ops.Col.Domains"]</th><th></th></tr></thead>
             <tbody>
             @foreach (var s in _storefronts)
             {
@@ -81,6 +82,7 @@
                     <td>@s.Name<br /><span style="color:#6b7280; font-size:.8rem;">@s.Id</span></td>
                     <td>@(string.IsNullOrWhiteSpace(s.PublicUrl) ? "—" : s.PublicUrl)</td>
                     <td style="text-align:center;">@s.Currency</td>
+                    <td style="text-align:center;"><code style="font-size:.76rem;" title="@L["Ops.Col.Receivable.Tip"]">@s.ReceivableAccountCode</code></td>
                     <td style="text-align:center;">@TaxLabel(s)</td>
                     <td style="text-align:center;">@StateName(s.State)</td>
                     <td style="text-align:center;">@s.Visibility</td>
@@ -205,6 +207,7 @@
     private int _newVisibility = 1;
     private string _newPublicUrl = "http://localhost:3000/au";
     private string _newCurrency = "AUD";
+    private string _newReceivableAccount = string.Empty; // blank → auto-derived from the storefront id
     private int _newTaxRegime = 1;
     private int _newTaxRateBasisPoints = 1000;
     private List<StorefrontDto>? _storefronts;
@@ -240,7 +243,7 @@
     private async Task CreateStorefront()
     {
         _error = null;
-        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints });
+        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints, receivableAccountCode = string.IsNullOrWhiteSpace(_newReceivableAccount) ? null : _newReceivableAccount });
         // LoadStorefronts clears _error, so refresh FIRST then report the outcome (D3: errors were being wiped).
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.StorefrontCreated"]))
@@ -373,6 +376,7 @@
         _newStorefrontName = string.Empty;
         _newPublicUrl = string.Empty;
         _newCurrency = "AUD";
+        _newReceivableAccount = string.Empty;
         _newTaxRegime = 1;
         _newTaxRateBasisPoints = 1000;
         _newVisibility = 1;
@@ -398,7 +402,7 @@
         _ => state.ToString(),
     };
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
 }
