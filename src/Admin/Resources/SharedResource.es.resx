@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>Efectivo neto por moneda en todas las cuentas de caja: cambia con cada venta, reembolso y pago. Borde verde = libros cuadrados (balance de comprobación 0).</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>Saldos por moneda</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>Asientos</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>Cuenta</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>Debe</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>Haber</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>Neto</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>cuadrado ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>descuadrado</value>
+  </data>
 </root>

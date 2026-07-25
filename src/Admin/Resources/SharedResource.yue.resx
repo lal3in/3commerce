@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>每種貨幣喺所有現金帳戶嘅淨現金 — 隨每筆銷售、退款、付款變動。綠邊 = 帳目平衡（試算表為0）。</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>按貨幣結餘</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>日記賬分錄</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>帳戶</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>借方</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>貸方</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>淨額</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>已平衡 ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>不平衡</value>
+  </data>
 </root>

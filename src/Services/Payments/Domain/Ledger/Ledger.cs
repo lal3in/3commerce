@@ -77,8 +77,8 @@ public static class Ledger
         };
 
     private static void Debit(JournalEntry entry, string account, long minor) =>
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, DebitMinor = minor, CreditMinor = 0 });
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = minor, CreditMinor = 0 });
 
     private static void Credit(JournalEntry entry, string account, long minor) =>
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, DebitMinor = 0, CreditMinor = minor });
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = 0, CreditMinor = minor });
 }

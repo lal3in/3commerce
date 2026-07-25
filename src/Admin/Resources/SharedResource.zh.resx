@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>每种货币在所有现金账户的净现金 — 随每笔销售、退款、付款变动。绿边 = 账目平衡（试算平衡表为0）。</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>按货币余额</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>日记账分录</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>账户</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>借方</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>贷方</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>净额</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>已平衡 ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>不平衡</value>
+  </data>
 </root>

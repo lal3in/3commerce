@@ -1245,4 +1245,28 @@
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>Nettobarbestand je Währung über alle Kassenkonten – bewegt sich mit jedem Verkauf, jeder Erstattung und Auszahlung. Grüner Rand = Bücher ausgeglichen (Probebilanz 0).</value>
   </data>
+  <data name="Ledger.Balances" xml:space="preserve">
+    <value>Salden nach Währung</value>
+  </data>
+  <data name="Ledger.Entries" xml:space="preserve">
+    <value>Buchungen</value>
+  </data>
+  <data name="Ledger.Col.Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="Ledger.Col.Debit" xml:space="preserve">
+    <value>Soll</value>
+  </data>
+  <data name="Ledger.Col.Credit" xml:space="preserve">
+    <value>Haben</value>
+  </data>
+  <data name="Ledger.Col.Net" xml:space="preserve">
+    <value>Netto</value>
+  </data>
+  <data name="Ledger.Balanced" xml:space="preserve">
+    <value>ausgeglichen ✓</value>
+  </data>
+  <data name="Ledger.OutOfBalance" xml:space="preserve">
+    <value>nicht ausgeglichen</value>
+  </data>
 </root>
