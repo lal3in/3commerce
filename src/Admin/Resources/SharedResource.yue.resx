@@ -1356,4 +1356,13 @@
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
     <value>店舖銷售實際入帳嘅貨幣（結帳貨幣），可能同設定貨幣唔同。</value>
   </data>
+  <data name="Home.Kpi.Receivable" xml:space="preserve">
+    <value>應收</value>
+  </data>
+  <data name="Home.Filter.Storefront" xml:space="preserve">
+    <value>店舖</value>
+  </data>
+  <data name="Home.Filter.AllStores" xml:space="preserve">
+    <value>所有店舖</value>
+  </data>
 </root>

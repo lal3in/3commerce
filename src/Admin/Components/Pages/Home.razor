@@ -3,10 +3,19 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
-<div style="display:flex; align-items:baseline; gap:1rem;">
+<div style="display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap;">
     <h1 style="margin:0;">@L["Home.Title"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">@L["Home.Subtitle"]</span>
     <span style="flex:1;"></span>
+    <label style="font-size:.85rem; color:#374151;">@L["Home.Filter.Storefront"]:
+        <select value="@_selectedStore" @onchange="OnStoreChanged" style="padding:.35rem .5rem; margin-left:.3rem;">
+            <option value="">@L["Home.Filter.AllStores"]</option>
+            @foreach (var s in _storefronts)
+            {
+                <option value="@s.Id">@s.Name (@s.Currency)</option>
+            }
+        </select>
+    </label>
     <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
 </div>
 
@@ -16,24 +25,35 @@
 }
 else
 {
+    @* Count KPIs (scoped to the selected storefront where meaningful). Products is catalog-wide. *@
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-top:1.2rem;">
-        @KpiCard(L["Home.Kpi.Revenue"], Money(_revenueMinor), "#4f46e5", L["Home.Kpi.Revenue.Sub", _orders.Count], L["Home.Kpi.Revenue.Tip"])
-        @KpiCard(L["Home.Kpi.Refunds"], Money(_refundsMinor), _refundsMinor > 0 ? "#b45309" : "#059669", L["Home.Kpi.Refunds.Sub", _refundCount], L["Home.Kpi.Refunds.Tip"])
-        @KpiCard(L["Home.Kpi.NetRevenue"], Money(_netRevenueMinor), "#0e7490", L["Home.Kpi.NetRevenue.Sub"], L["Home.Kpi.NetRevenue.Tip"])
-        @KpiCard(L["Home.Kpi.Orders"], _orders.Count.ToString(), "#0891b2", L["Home.Kpi.Orders.Sub", _ordersToday], L["Home.Kpi.Orders.Tip"])
+        @KpiCard(L["Home.Kpi.Orders"], Orders.Count.ToString(), "#0891b2", L["Home.Kpi.Orders.Sub", OrdersToday], L["Home.Kpi.Orders.Tip"])
         @KpiCard(L["Home.Kpi.Products"], _productCount.ToString(), "#059669", L["Home.Kpi.Products.Sub"], L["Home.Kpi.Products.Tip"])
-        @KpiCard(L["Home.Kpi.OpenRmas"], _openRmas.ToString(), _openRmas > 0 ? "#d97706" : "#059669", L["Home.Kpi.OpenRmas.Sub", _rmas.Count], L["Home.Kpi.OpenRmas.Tip"])
-        @* Cash on hand per currency — cash.* accounts are debit-normal, so net debit = money held. Never
-           summed across currencies (minor units differ); border green = books balanced (trial balance 0). *@
-        @if (_cashByCurrency.Count == 0)
+        @KpiCard(L["Home.Kpi.OpenRmas"], OpenRmas.ToString(), OpenRmas > 0 ? "#d97706" : "#059669", L["Home.Kpi.OpenRmas.Sub", ScopedRmas.Count], L["Home.Kpi.OpenRmas.Tip"])
+        @KpiCard(L["Home.Kpi.Ledger"], _trialBalanceMinor == 0 ? "✓" : "!", _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Ledger.Tip"])
+    </div>
+
+    @* Money is ALWAYS per currency (minor units aren't comparable across currencies) and comes from the
+       full ledger balances, not the truncated recent-entries feed — so it matches the Ledger page. When a
+       storefront is selected, revenue/refunds/net are its own accounts and "Cash" becomes its receivable. *@
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-top:1rem;">
+        @if (MoneyCurrencies.Count == 0)
         {
-            @KpiCard(L["Home.Kpi.Cash"], "0.00", _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Cash.Tip"])
+            <p style="color:#9ca3af;">@L["Home.NoLedger"]</p>
         }
         else
         {
-            @foreach (var (currency, minor) in _cashByCurrency)
+            @foreach (var cur in MoneyCurrencies)
             {
-                @KpiCard($"{L["Home.Kpi.Cash"].Value} ({currency})", $"{minor / 100m:N2} {currency}", _trialBalanceMinor == 0 ? "#059669" : "#dc2626", _trialBalanceMinor == 0 ? L["Home.Kpi.Balanced"] : L["Home.Kpi.OutOfBalance"], L["Home.Kpi.Cash.Tip"])
+                <div style="border:1px solid #e5e7eb; border-left:4px solid #4f46e5; border-radius:10px; padding:.8rem 1rem; background:#fff;">
+                    <div style="font-weight:700; margin-bottom:.4rem;">@cur</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+                        @MoneyRow(L["Home.Kpi.Revenue"], Revenue(cur), cur, "#111827")
+                        @MoneyRow(L["Home.Kpi.Refunds"], -Refunds(cur), cur, Refunds(cur) > 0 ? "#b45309" : "#6b7280")
+                        @MoneyRow(L["Home.Kpi.NetRevenue"], Revenue(cur) - Refunds(cur), cur, "#0e7490", bold: true)
+                        @MoneyRow(SelectedStoreId is null ? L["Home.Kpi.Cash"] : L["Home.Kpi.Receivable"], CashOrReceivable(cur), cur, "#4f46e5")
+                    </table>
+                </div>
             }
         }
     </div>
@@ -57,15 +77,15 @@ else
 
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff;">
             <h3 style="margin:0 0 .6rem;">@L["Home.OrdersByStatus"]</h3>
-            @if (_byStatus.Count == 0)
+            @if (ByStatus.Count == 0)
             {
                 <p style="color:#9ca3af;">—</p>
             }
             else
             {
-                @foreach (var kv in _byStatus.OrderByDescending(s => s.Value))
+                @foreach (var kv in ByStatus.OrderByDescending(s => s.Value))
                 {
-                    var pct = _orders.Count > 0 ? kv.Value * 100 / _orders.Count : 0;
+                    var pct = Orders.Count > 0 ? kv.Value * 100 / Orders.Count : 0;
                     <div style="margin-bottom:.5rem;">
                         <div style="display:flex; justify-content:space-between; font-size:.85rem;"><span>@kv.Key</span><span style="color:#6b7280;">@kv.Value</span></div>
                         <div style="background:#f3f4f6; border-radius:6px; height:8px; overflow:hidden;"><div style="width:@(pct)%; height:100%; background:#0891b2;"></div></div>
@@ -77,7 +97,7 @@ else
 
     <div style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; background:#fff; margin-top:1.2rem;">
         <h3 style="margin:0 0 .6rem;">@L["Home.RecentOrders"]</h3>
-        @if (_orders.Count == 0)
+        @if (Orders.Count == 0)
         {
             <p style="color:#9ca3af;">@L["Home.NoOrders"]</p>
         }
@@ -86,7 +106,7 @@ else
             <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
                 <thead><tr><th style="text-align:left;">@L["Home.Col.When"]</th><th style="text-align:left;">@L["Home.Col.Order"]</th><th style="text-align:left;">@L["Home.Col.Status"]</th><th style="text-align:right;">@L["Home.Col.Amount"]</th></tr></thead>
                 <tbody>
-                @foreach (var o in _orders.OrderByDescending(o => o.CreatedAt).Take(8))
+                @foreach (var o in Orders.OrderByDescending(o => o.CreatedAt).Take(8))
                 {
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td>@o.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
@@ -106,7 +126,7 @@ else
             <span style="flex:1;"></span>
             <a href="/ledger" style="font-size:.8rem;" title="@L["Nav.Ledger.Tip"]">@L["Home.LedgerFeed.All"]</a>
         </div>
-        @if (_ledger.Count == 0)
+        @if (ScopedLedger.Count == 0)
         {
             <p style="color:#9ca3af;">@L["Home.NoLedger"]</p>
         }
@@ -115,11 +135,9 @@ else
             <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
                 <thead><tr><th style="text-align:left;">@L["Home.Col.When"]</th><th style="text-align:left;">@L["Home.Col.Entry"]</th><th style="text-align:right;">@L["Home.Col.Amount"]</th></tr></thead>
                 <tbody>
-                @foreach (var e in _ledger.OrderByDescending(e => e.CreatedAt).Take(8))
+                @foreach (var e in ScopedLedger.OrderByDescending(e => e.CreatedAt).Take(8))
                 {
                     var isRefund = e.Description.StartsWith("Refund ", StringComparison.Ordinal);
-                    // Gross cash movement (avoids double-counting the receivable-bridge legs): cash in for
-                    // a sale, cash out for a refund.
                     var cashLines = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal));
                     var total = isRefund ? cashLines.Sum(l => l.CreditMinor) : cashLines.Sum(l => l.DebitMinor);
                     <tr style="border-top:1px solid #f3f4f6;">
@@ -135,25 +153,26 @@ else
 }
 
 @code {
+    private const string Tenant = "00000000-0000-0000-0000-000000000001";
     private bool _loading = true;
     private List<OrderDto> _orders = [];
     private List<RmaDto> _rmas = [];
-    private List<EntryDto> _ledger = [];
+    private List<EntryDto> _ledger = [];        // recent entries (feed + 14-day chart)
+    private List<BalanceDto> _balances = [];    // full per-(account,currency) balances (authoritative money)
+    private List<StorefrontDto> _storefronts = [];
     private int _productCount;
-    private long _revenueMinor;
-    private long _refundsMinor;
-    private long _netRevenueMinor;
     private long _trialBalanceMinor;
-    private int _refundCount;
-    private int _openRmas;
-    private int _ordersToday;
-    private string _currency = "EUR";
-    private Dictionary<string, int> _byStatus = [];
+    private string _selectedStore = ""; // "" = all storefronts
     private Dictionary<DateTime, long> _revByDay = [];
     private Dictionary<DateTime, long> _refByDay = [];
-    private List<(string Currency, long Minor)> _cashByCurrency = [];
 
     protected override Task OnInitializedAsync() => LoadAsync();
+
+    private void OnStoreChanged(ChangeEventArgs e)
+    {
+        _selectedStore = e.Value?.ToString() ?? "";
+        RecomputeChart();
+    }
 
     private async Task LoadAsync()
     {
@@ -161,52 +180,67 @@ else
         var ordersTask = Gateway.GetListAsync<OrderDto>("/api/ordering/admin/orders");
         var rmasTask = Gateway.GetListAsync<RmaDto>("/api/support/admin/rmas");
         var ledgerTask = Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+        var balancesTask = Gateway.GetListAsync<BalanceDto>("/api/payments/admin/ledger/balances");
+        var storesTask = Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Tenant}");
         var productsTask = Gateway.GetListAsync<ProductDto>("/api/catalog/admin/products?pageSize=200");
-        await Task.WhenAll(ordersTask, rmasTask, ledgerTask, productsTask);
+        await Task.WhenAll(ordersTask, rmasTask, ledgerTask, balancesTask, storesTask, productsTask);
 
         _orders = await ordersTask;
         _rmas = await rmasTask;
         _ledger = await ledgerTask;
+        _balances = await balancesTask;
+        _storefronts = await storesTask;
         _productCount = (await productsTask).Count;
+        // Trial balance is a global books-health check (across every currency each entry balances).
+        _trialBalanceMinor = _balances.Sum(b => b.DebitMinor - b.CreditMinor);
 
-        _revenueMinor = _orders.Sum(o => o.GrossMinor);
-        _currency = _orders.Select(o => o.Currency).FirstOrDefault() ?? "EUR";
-        _ordersToday = _orders.Count(o => o.CreatedAt.LocalDateTime.Date == DateTime.Now.Date);
-        _openRmas = _rmas.Count(r => r.State is "Requested" or "Pending" or "Open");
-        _trialBalanceMinor = _ledger.SelectMany(e => e.Lines).Sum(l => l.DebitMinor) - _ledger.SelectMany(e => e.Lines).Sum(l => l.CreditMinor);
-        _byStatus = _orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
+        RecomputeChart();
+        _loading = false;
+    }
 
-        // Refunds off the ledger (the single source of truth): a refund entry debits a revenue account
-        // for the net reversed — the shared revenue.refunds (legacy) OR the storefront's own revenue
-        // account (per-store refunds). Summing revenue-account debits on refund entries counts every
-        // refund path and nets against gross revenue. Refunded-order count is a friendlier companion.
-        _refundsMinor = RefundEntries(_ledger).SelectMany(e => e.Lines)
-            .Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
-        _netRevenueMinor = _revenueMinor - _refundsMinor;
-        _refundCount = _orders.Count(o => o.Status == "Refunded");
+    // ---- storefront scope ----
+    private Guid? SelectedStoreId => Guid.TryParse(_selectedStore, out var id) ? id : null;
+    private StorefrontDto? SelectedStore => _storefronts.FirstOrDefault(s => s.Id == SelectedStoreId);
+    private List<OrderDto> Orders => SelectedStoreId is { } id ? _orders.Where(o => o.StorefrontId == id).ToList() : _orders;
+    private List<EntryDto> ScopedLedger => SelectedStore is { } s
+        ? _ledger.Where(e => e.Lines.Any(l => l.AccountCode == s.RevenueAccountCode || l.AccountCode == s.ReceivableAccountCode || l.AccountCode == s.TaxAccountCode)).ToList()
+        : _ledger;
+    private List<RmaDto> ScopedRmas => SelectedStoreId is { } id
+        ? _rmas.Where(r => Orders.Any(o => o.Id == r.OrderId)).ToList()
+        : _rmas;
+    private int OpenRmas => ScopedRmas.Count(r => r.State is "Requested" or "Pending" or "Open");
+    private int OrdersToday => Orders.Count(o => o.CreatedAt.LocalDateTime.Date == DateTime.Now.Date);
+    private Dictionary<string, int> ByStatus => Orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
 
-        // Cash on hand grouped by the entry's currency (cash.* is debit-normal). Per-currency because
-        // minor units are not comparable across currencies — summing EUR+AUD+USD would be meaningless.
-        _cashByCurrency = _ledger
-            .SelectMany(e => e.Lines
-                .Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
-                .Select(l => (e.Currency, Net: l.DebitMinor - l.CreditMinor)))
-            .GroupBy(x => x.Currency)
-            .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .Select(g => (g.Key, g.Sum(x => x.Net)))
-            .ToList();
+    // ---- money, per currency, from the full ledger balances ----
+    // Revenue accounts in scope: all revenue.* for "all", else the selected store's revenue account.
+    private bool IsScopedRevenue(string code) =>
+        SelectedStore is { } s ? code == s.RevenueAccountCode : code.StartsWith("revenue.", StringComparison.Ordinal);
+    private bool IsScopedCash(string code) =>
+        SelectedStore is { } s ? code == s.ReceivableAccountCode : code.StartsWith("cash.", StringComparison.Ordinal);
 
+    private List<string> MoneyCurrencies => _balances
+        .Where(b => IsScopedRevenue(b.AccountCode) || IsScopedCash(b.AccountCode))
+        .Select(b => b.Currency).Distinct().OrderBy(c => c, StringComparer.Ordinal).ToList();
+
+    // Revenue credited (net of tax) / refunds debited on the scoped revenue accounts, per currency.
+    private long Revenue(string cur) => _balances.Where(b => b.Currency == cur && IsScopedRevenue(b.AccountCode)).Sum(b => b.CreditMinor);
+    private long Refunds(string cur) => _balances.Where(b => b.Currency == cur && IsScopedRevenue(b.AccountCode)).Sum(b => b.DebitMinor);
+    // Cash held per provider (all) is debit-normal; the store's receivable is also debit-normal.
+    private long CashOrReceivable(string cur) => _balances.Where(b => b.Currency == cur && IsScopedCash(b.AccountCode)).Sum(b => b.DebitMinor - b.CreditMinor);
+
+    private void RecomputeChart()
+    {
         _revByDay = [];
         _refByDay = [];
         for (var d = 13; d >= 0; d--)
         {
             var day = DateTime.Now.Date.AddDays(-d);
-            _revByDay[day] = _orders.Where(o => o.CreatedAt.LocalDateTime.Date == day).Sum(o => o.GrossMinor);
-            _refByDay[day] = RefundEntries(_ledger.Where(e => e.CreatedAt.LocalDateTime.Date == day))
+            _revByDay[day] = Orders.Where(o => o.CreatedAt.LocalDateTime.Date == day).Sum(o => o.GrossMinor);
+            _refByDay[day] = ScopedLedger
+                .Where(e => e.CreatedAt.LocalDateTime.Date == day && e.Description.StartsWith("Refund ", StringComparison.Ordinal))
                 .SelectMany(e => e.Lines).Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
         }
-
-        _loading = false;
     }
 
     private MarkupString ChartSvg()
@@ -223,12 +257,10 @@ else
             var x = (i * 40) + 14;
             var refund = _refByDay.TryGetValue(kv.Key, out var r) ? r : 0;
             var rh = refund * 130.0 / max;
-            // Gross bar (indigo) with the day's refunds overlaid as a narrower amber bar on the same scale,
-            // so a refund shows against the sale it reverses even on a day with no new orders.
-            var bars = $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {Money(kv.Value)}</title></rect>";
+            var bars = $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {kv.Value / 100m:N2}</title></rect>";
             if (rh > 0)
             {
-                bars += $"<rect x=\"{x + 7}\" y=\"{140 - rh:0.#}\" width=\"12\" height=\"{rh:0.#}\" rx=\"2\" fill=\"#f59e0b\"><title>{kv.Key:dd MMM} · {Money(refund)} refunded</title></rect>";
+                bars += $"<rect x=\"{x + 7}\" y=\"{140 - rh:0.#}\" width=\"12\" height=\"{rh:0.#}\" rx=\"2\" fill=\"#f59e0b\"><title>{kv.Key:dd MMM} · {refund / 100m:N2} refunded</title></rect>";
             }
 
             return bars + $"<text x=\"{x + 13}\" y=\"158\" font-size=\"9\" text-anchor=\"middle\" fill=\"#9ca3af\">{kv.Key:dd}</text>";
@@ -236,16 +268,7 @@ else
         return (MarkupString)string.Concat(parts);
     }
 
-    private string Money(long minor) => $"{minor / 100m:N2} {_currency}";
-
-    // A refund posts a journal entry described "Refund …" (legacy shared contra-revenue OR a storefront's
-    // own revenue account); its revenue-account debits are the net reversed. Detect by the entry, not one
-    // fixed account, so per-store refunds are counted too.
-    private static IEnumerable<EntryDto> RefundEntries(IEnumerable<EntryDto> entries) =>
-        entries.Where(e => e.Description.StartsWith("Refund ", StringComparison.Ordinal));
-
-    // label/sub/tip come from the resx (trusted, developer-authored), value from our own formatting — nothing
-    // user-supplied reaches this markup.
+    // label/tip from resx (trusted); value is our own formatting — nothing user-supplied reaches this markup.
     private RenderFragment KpiCard(string label, string value, string color, string sub, string tip) => builder =>
     {
         builder.AddMarkupContent(0,
@@ -255,9 +278,20 @@ else
             $"<div style=\"font-size:.8rem; color:#9ca3af;\">{sub}</div></div>");
     };
 
-    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt);
+    private RenderFragment MoneyRow(string label, long minor, string currency, string color, bool bold = false) => builder =>
+    {
+        var weight = bold ? "700" : "400";
+        var border = bold ? "border-top:1px solid #e5e7eb;" : "";
+        builder.AddMarkupContent(0,
+            $"<tr style=\"{border}\"><td style=\"padding:.2rem 0; color:#374151; font-weight:{weight};\">{label}</td>" +
+            $"<td style=\"text-align:right; font-weight:{weight}; color:{color}; font-variant-numeric:tabular-nums;\">{minor / 100m:N2} {currency}</td></tr>");
+    };
+
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, Guid? StorefrontId = null);
     public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
     public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
+    public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
+    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode);
     public record ProductDto(Guid Id);
 }

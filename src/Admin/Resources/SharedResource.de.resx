@@ -1356,4 +1356,13 @@
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
     <value>Die Währung, in der die Verkäufe des Shops tatsächlich gebucht wurden (Checkout-Währung); kann von der konfigurierten Währung abweichen.</value>
   </data>
+  <data name="Home.Kpi.Receivable" xml:space="preserve">
+    <value>Forderungen</value>
+  </data>
+  <data name="Home.Filter.Storefront" xml:space="preserve">
+    <value>Storefront</value>
+  </data>
+  <data name="Home.Filter.AllStores" xml:space="preserve">
+    <value>Alle Storefronts</value>
+  </data>
 </root>

@@ -83,7 +83,7 @@ public static class OrdersEndpoints
             .Where(o => o.UserId == uid)
             .OrderByDescending(o => o.CreatedAt)
             .Select(o => new OrderSummary(o.Id, o.Status.ToString(), o.GrossMinor, o.Currency, o.CreatedAt,
-                string.IsNullOrEmpty(o.PaymentOption) ? "CreditCard" : o.PaymentOption))
+                string.IsNullOrEmpty(o.PaymentOption) ? "CreditCard" : o.PaymentOption, o.StorefrontId))
             .ToListAsync(ct);
         return TypedResults.Ok(orders);
     }
@@ -123,7 +123,7 @@ public static class OrdersEndpoints
 
         var orders = await query.OrderByDescending(o => o.CreatedAt).Take(200)
             .Select(o => new OrderSummary(o.Id, o.Status.ToString(), o.GrossMinor, o.Currency, o.CreatedAt,
-                string.IsNullOrEmpty(o.PaymentOption) ? "CreditCard" : o.PaymentOption))
+                string.IsNullOrEmpty(o.PaymentOption) ? "CreditCard" : o.PaymentOption, o.StorefrontId))
             .ToListAsync(ct);
         return TypedResults.Ok(orders);
     }
@@ -142,7 +142,7 @@ public static class OrdersEndpoints
 
 // PaymentOption defaults for legacy rows: the column is NOT NULL with a "CreditCard" DB default,
 // but guard against empty strings so consumers always get a real option name.
-public record OrderSummary(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string PaymentOption = "CreditCard");
+public record OrderSummary(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string PaymentOption = "CreditCard", Guid? StorefrontId = null);
 public record OrderLineResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
 public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
 public record OrderStatusResponse(Guid Id, string Status);
