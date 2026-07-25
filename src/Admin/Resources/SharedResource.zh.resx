@@ -1356,4 +1356,13 @@
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
     <value>店铺销售实际入账的货币（结账货币），可能与配置货币不同。</value>
   </data>
+  <data name="Home.Kpi.Receivable" xml:space="preserve">
+    <value>应收</value>
+  </data>
+  <data name="Home.Filter.Storefront" xml:space="preserve">
+    <value>店铺</value>
+  </data>
+  <data name="Home.Filter.AllStores" xml:space="preserve">
+    <value>所有店铺</value>
+  </data>
 </root>

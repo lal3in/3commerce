@@ -1356,4 +1356,13 @@
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
     <value>La moneda en que se registraron realmente las ventas (moneda de pago); puede diferir de la configurada.</value>
   </data>
+  <data name="Home.Kpi.Receivable" xml:space="preserve">
+    <value>Por cobrar</value>
+  </data>
+  <data name="Home.Filter.Storefront" xml:space="preserve">
+    <value>Tienda</value>
+  </data>
+  <data name="Home.Filter.AllStores" xml:space="preserve">
+    <value>Todas las tiendas</value>
+  </data>
 </root>

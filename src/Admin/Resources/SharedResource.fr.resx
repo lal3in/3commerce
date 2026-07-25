@@ -1356,4 +1356,13 @@
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
     <value>La devise dans laquelle les ventes ont été comptabilisées (devise de paiement) ; peut différer de la devise configurée.</value>
   </data>
+  <data name="Home.Kpi.Receivable" xml:space="preserve">
+    <value>Créances</value>
+  </data>
+  <data name="Home.Filter.Storefront" xml:space="preserve">
+    <value>Boutique</value>
+  </data>
+  <data name="Home.Filter.AllStores" xml:space="preserve">
+    <value>Toutes les boutiques</value>
+  </data>
 </root>
