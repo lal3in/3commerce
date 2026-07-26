@@ -60,6 +60,16 @@ psql ordering_db "INSERT INTO ordering.\"Orders\"
   WHERE o.\"Status\"=3 AND NOT EXISTS (SELECT 1 FROM ordering.\"Orders\" WHERE \"Status\"=4)
   ORDER BY o.\"CreatedAt\" LIMIT 1;" >/dev/null && say "cancelled order" "ok"
 
+# The copy above assigned a PublicOrderNumber out of band without advancing the per-storefront
+# OrderNumberSequence, so that store's sequence now trails its max order number — the next real checkout
+# would reserve a duplicate and 23505-fault on IX_Orders_StorefrontId_PublicOrderNumber, so the order
+# never confirms. Resync every sequence to just past its store's max so live checkouts keep flowing.
+psql ordering_db "UPDATE ordering.\"OrderNumberSequences\" seq
+  SET \"NextNumber\" = sub.maxnum + 1
+  FROM (SELECT \"StorefrontId\", MAX(\"PublicOrderNumber\") AS maxnum FROM ordering.\"Orders\" GROUP BY \"StorefrontId\") sub
+  WHERE seq.\"StorefrontId\" = sub.\"StorefrontId\" AND seq.\"NextNumber\" <= sub.maxnum;" >/dev/null \
+  && say "order-number sequences resynced" "ok"
+
 # (3) Past-due subscription: the mock rail never declines, so flip one Active subscription to PastDue.
 psql payments_db "UPDATE payments.\"Subscriptions\" SET \"Status\"='PastDue', \"UpdatedAt\"=now()
   WHERE \"Id\"=(SELECT \"Id\" FROM payments.\"Subscriptions\" WHERE \"Status\"='Active' ORDER BY \"CreatedAt\" LIMIT 1)

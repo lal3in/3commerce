@@ -29,7 +29,8 @@ test.describe("Commerce ops storefront lifecycle", () => {
     await expect(row).toBeVisible();
     // Assert on the State cell, not the whole row — button captions like "Preview" would
     // otherwise satisfy a row-level substring match before the state actually changed.
-    const stateCell = row.locator("td").nth(4);
+    // Columns: Name(0) Url(1) Currency(2) Receivable(3) Tax(4) State(5) Visibility(6) Domains(7) Actions(8).
+    const stateCell = row.locator("td").nth(5);
 
     // Draft: Preview/Pause/Archive are offered, Activate is not (Draft cannot activate).
     await expect(stateCell).toHaveText("Draft");

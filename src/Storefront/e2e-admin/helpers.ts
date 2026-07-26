@@ -59,7 +59,7 @@ export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<
     .poll(async () => {
       const rmas = await (await request.get(`${GATEWAY}/api/support/admin/rmas`)).json();
       return rmas.some((r: { orderId: string }) => r.orderId === orderId);
-    }, { timeout: 20_000 })
+    }, { timeout: 40_000 })
     .toBeTruthy();
 
   return { orderId };

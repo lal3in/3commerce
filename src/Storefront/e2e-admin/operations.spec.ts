@@ -32,8 +32,10 @@ test.describe("Admin operations surfaces", () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText("Confirmed");
 
-    // Two-click confirm: first arms the button, second sends the refund.
-    const action = row.getByRole("button");
+    // Two-click confirm: first arms the button, second sends the refund. A Confirmed order row now
+    // offers both Refund (first) and Return, so target the first button — its caption flips to
+    // "Confirm?" after the first click, so a name-based locator wouldn't stay stable.
+    const action = row.getByRole("button").first();
     await action.click();
     await expect(action).toHaveText(/confirm\?/i);
     await action.click();

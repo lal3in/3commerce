@@ -10,24 +10,18 @@ test.describe("Subscriptions", () => {
     await page.goto("/subscriptions");
     await expect(page.getByRole("heading", { name: /subscriptions/i })).toBeVisible();
 
-    // The list is fetched after the Blazor circuit connects: wait for either the table (subscriptions
-    // exist) or the empty-state paragraph. Retry across the pre-circuit window like the other specs.
-    await expect(async () => {
-      const ready = await page
-        .locator("table thead, p:has-text('No subscriptions yet')")
-        .first()
-        .isVisible();
-      expect(ready).toBeTruthy();
-    }).toPass({ timeout: 20_000 });
+    // The table (with its header row) always renders once the Blazor circuit connects — the tbody is
+    // simply empty when there are no subscriptions. Wait for the thead across the pre-circuit window.
+    await expect(page.locator("table thead")).toBeVisible({ timeout: 30_000 });
 
-    // No rows in this environment (the CI stack may seed none) — headers aren't rendered, so stop here,
-    // exactly as the orders spec skips when there are no orders.
-    test.skip((await page.locator("table").count()) === 0, "no subscriptions in this environment");
-
-    // Localized column headers are present.
+    // Localized column headers are present regardless of row count (real coverage even on an empty seed).
     for (const header of [/subscriber/i, /product/i, /status/i, /billing cycle/i, /current period/i]) {
       await expect(page.getByRole("columnheader", { name: header })).toBeVisible();
     }
+
+    // No rows in this environment (e.g. an import-only CI seed) — the row-level assertions below don't
+    // apply, so stop here after verifying the page + headers render.
+    test.skip((await page.locator("table tbody tr").count()) === 0, "no subscriptions in this environment");
 
     // At least one row shows one of the known (localized-EN) statuses.
     const firstRow = page.locator("table tbody tr").first();
