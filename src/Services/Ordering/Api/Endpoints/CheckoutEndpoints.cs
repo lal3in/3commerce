@@ -33,6 +33,7 @@ public static class CheckoutEndpoints
         IRequestClient<AuthorizePayment> authorize,
         IPublishEndpoint publisher,
         TimeProvider time,
+        IConfiguration config,
         CancellationToken ct)
     {
         var userId = CartEndpoints.UserId(http.User);
@@ -129,6 +130,19 @@ public static class CheckoutEndpoints
         // wins for attribution; the gateway's host-derived header is only a fallback (it collapses all
         // path-based demo stores to one configured default), then the tenant default.
         var storefrontId = request.StorefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
+
+        // Every order must belong to a real storefront (rev_5). The gateway stamps its synthetic
+        // DefaultStorefrontId when a request carries no resolvable store context (no /{slug}, no
+        // domain) — that is not a real storefront (no published catalog, no ledger accounts), so
+        // reject rather than book an orphan order that lands on the shared revenue.sales /
+        // liability.tax_collected accounts. The first-party app always sends the active store.
+        var defaultStorefrontId = Guid.TryParse(config["Tenancy:DefaultStorefrontId"], out var d)
+            ? d
+            : Guid.Parse("00000000-0000-0000-0000-000000000101");
+        if (storefrontId == defaultStorefrontId)
+        {
+            return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
+        }
 
         AuthorizePaymentResult intent;
         try
