@@ -14,6 +14,10 @@ test("Financials by-storefront table reconciles: gross = net revenue + tax", asy
   const byStore = page.locator("section", { hasText: "By storefront" }).last();
   await expect(byStore).toBeVisible();
 
+  // The by-storefront table (and its column headers) only render when storefronts exist; an import-only
+  // environment (no --data full demo stores) shows an em-dash placeholder, so skip there.
+  test.skip((await byStore.locator("tbody tr").count()) === 0, "no storefronts configured (needs --data full)");
+
   // The dead "Receivable" column is gone; Gross / Net revenue / Tax are present.
   for (const col of ["Gross", "Net revenue", "Tax"]) {
     await expect(byStore.getByRole("columnheader", { name: col })).toBeVisible();

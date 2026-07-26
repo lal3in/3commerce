@@ -14,16 +14,17 @@ import { test, expect, type Page } from "@playwright/test";
  * browser-e2e boots via the importer only (no demo storefronts), exactly like currency-tax.spec.
  */
 test.describe("Storefront home + listing render (placehold.co image host)", () => {
-  test("default home `/` renders 200 with a populated product grid", async ({ page }) => {
+  test("default home `/` renders 200 with the page shell (empty grid until a store is pinned)", async ({ page }) => {
     test.skip(!(await demoStorefrontsSeeded(page)), "AU/EU/US demo storefronts not seeded (needs --data full)");
 
     // The seed probe visits /au, which pins the AU storefront cookie. Clear it so `/` exercises the
-    // no-cookie default path (base currency) — the one that surfaces the placehold.co products.
+    // no-cookie default path. rev_5: with no storefront pinned the product grid is intentionally EMPTY,
+    // but SSR must still render 200 (not the old placehold.co next/image 500). The populated-grid +
+    // placehold.co image-host guard lives in the /eu listing below, where those products surface.
     await page.context().clearCookies();
     const response = await page.goto("/");
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Featured" })).toBeVisible();
-    await expect(page.locator('a[href^="/products/"]').first()).toBeVisible();
   });
 
   test("EUR storefront `/eu` renders 200 with a populated product grid", async ({ page }) => {
