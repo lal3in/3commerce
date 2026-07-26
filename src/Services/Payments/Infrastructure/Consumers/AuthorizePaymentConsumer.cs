@@ -93,7 +93,7 @@ public sealed class AuthorizePaymentConsumer(
             StorefrontId = msg.StorefrontId, // per-storefront ledger attribution (phase 2)
             PaymentIntentId = intent.PaymentIntentId,
             AmountMinor = grossMinor,
-            TaxMinor = 0, // tax lives on the Ordering attempt/order, not the payment
+            TaxMinor = msg.TaxMinor, // tax portion of the charge → ledger books it as a tax liability (not revenue)
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
             // The shopper's chosen method and the settling PSP, both persisted so the ledger can
@@ -107,7 +107,7 @@ public sealed class AuthorizePaymentConsumer(
         });
         await db.SaveChangesAsync(context.CancellationToken);
 
-        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret ?? string.Empty, grossMinor, TaxMinor: 0));
+        await context.RespondAsync(new AuthorizePaymentResult(intent.PaymentIntentId, intent.ClientSecret ?? string.Empty, grossMinor, msg.TaxMinor));
     }
 
     /// <summary>

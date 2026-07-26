@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -63,6 +64,74 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
 
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Taxed_checkout_splits_net_revenue_from_the_tax_liability_on_the_ledger()
+    {
+        // fin_tax: a live tax rate for the cart's currency makes checkout charge tax on top (exclusive
+        // regime). The tax portion must ride AuthorizePayment → Payment.TaxMinor so the sale books NET
+        // revenue plus a separate tax-collected liability — not the whole gross as revenue (which left
+        // the Financials tax column and the P&L tax liability empty). A distinct currency isolates this
+        // live tax copy from every other test.
+        const string currency = "SGD";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Tax Store", currency, 2_000, IsLive: true, TaxInclusive: false));
+        await WaitForLiveTaxCopyAsync(currency, 2_000);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        // 20% exclusive tax was applied on goods + shipping (exact minor depends on the default shipping),
+        // so gross carries a non-zero tax portion. Relationships below are asserted rather than magic
+        // numbers so the test stays robust to shipping/rounding.
+        Assert.True(order.TaxMinor > 0, $"expected tax to be charged, got {order.TaxMinor}");
+        var expectedNet = order.GrossMinor - order.TaxMinor;
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+
+        // The tax rode through to the Payment (was hard-coded 0 before)...
+        var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.Payments.Where(p => p.OrderId == order.OrderId));
+        Assert.Equal(order.TaxMinor, payment.TaxMinor);
+
+        // ...and the sale split NET revenue from the tax liability (not the whole gross as revenue).
+        // Default-storefront order → shared revenue.sales / liability.tax_collected accounts.
+        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.JournalEntries.Where(e => e.Reference == order.OrderId.ToString()));
+        var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.JournalLines.Where(l => l.EntryId == entry.Id));
+        Assert.Equal(expectedNet, lines.Where(l => l.AccountCode == Accounts.RevenueSales).Sum(l => l.CreditMinor));
+        Assert.Equal(order.TaxMinor, lines.Where(l => l.AccountCode == Accounts.LiabilityTaxCollected).Sum(l => l.CreditMinor));
+        Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task WaitForLiveTaxCopyAsync(string currency, int bps)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                    db.StorefrontTaxCopies.Where(c => c.Currency == currency && c.IsLive && c.TaxRateBasisPoints == bps)))
+            {
+                return;
+            }
+
+            await Task.Delay(250);
+        }
+
+        throw new TimeoutException($"Live tax copy for {currency} did not project.");
     }
 
     [Fact]

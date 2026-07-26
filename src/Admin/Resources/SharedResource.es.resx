@@ -1346,6 +1346,12 @@
   <data name="Fin.Col.NetRevenue" xml:space="preserve">
     <value>Ingresos netos</value>
   </data>
+  <data name="Fin.Col.Gross" xml:space="preserve">
+    <value>Bruto</value>
+  </data>
+  <data name="Fin.ByStorefront.Note" xml:space="preserve">
+    <value>Los ingresos netos y el impuesto cuadran con los informes por moneda de arriba (Bruto = Ingresos netos + Impuesto). Las comisiones de procesamiento se liquidan por proveedor de pago, no por tienda, así que los ingresos netos de una tienda se muestran antes de comisiones.</value>
+  </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Impuesto</value>
   </data>
