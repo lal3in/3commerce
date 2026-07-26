@@ -56,7 +56,8 @@ else
     }
 
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
-        <h2 style="margin:0 0 .5rem;">@L["Fin.ByStorefront"]</h2>
+        <h2 style="margin:0 0 .2rem;">@L["Fin.ByStorefront"]</h2>
+        <p style="color:#6b7280; font-size:.8rem; margin:0 0 .6rem;">@L["Fin.ByStorefront.Note"]</p>
         @if (_storefronts.Count == 0)
         {
             <p style="color:#9ca3af;">—</p>
@@ -67,9 +68,9 @@ else
                 <thead><tr>
                     <th style="text-align:left;">@L["Fin.Col.Storefront"]</th>
                     <th>@L["Ledger.Col.Currency"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.Gross"]</th>
                     <th style="text-align:right;">@L["Fin.Col.NetRevenue"]</th>
                     <th style="text-align:right;">@L["Fin.Col.Tax"]</th>
-                    <th style="text-align:right;">@L["Fin.Col.Receivable"]</th>
                     <th style="text-align:left;">@L["Fin.Col.Account"]</th>
                 </tr></thead>
                 <tbody>
@@ -78,9 +79,9 @@ else
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td>@s.Name</td>
                         <td style="text-align:center;" title="@L["Fin.PostingCurrency.Tip"]">@PostingCurrency(s)</td>
+                        <td style="text-align:right;">@Money(StoreGross(s))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.RevenueAccountCode, creditNormal: true))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
-                        <td style="text-align:right;">@Money(AccountAmount(s.ReceivableAccountCode, creditNormal: false))</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
                     </tr>
                 }
@@ -137,6 +138,11 @@ else
     private long AccountAmount(string code, bool creditNormal) =>
         _balances.Where(b => b.AccountCode == code)
             .Sum(b => creditNormal ? b.CreditMinor - b.DebitMinor : b.DebitMinor - b.CreditMinor);
+
+    // Total sales the storefront brought in = net revenue + tax collected (both credit-normal). Ties the
+    // row together: Gross = Net revenue + Tax, and per currency these sum to the P&L revenue + tax above.
+    private long StoreGross(StorefrontDto s) =>
+        AccountAmount(s.RevenueAccountCode, creditNormal: true) + AccountAmount(s.TaxAccountCode, creditNormal: true);
 
     // The currency the store's revenue actually posted in (distinct), else its configured currency.
     private string PostingCurrency(StorefrontDto s)

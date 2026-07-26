@@ -2,8 +2,9 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 
 /// <summary>
 /// Request/response (not fire-and-forget): the checkout endpoint asks Payments to
-/// price tax + create a payment intent, and blocks only until the intent exists (api.md §3).
-/// NetMinor is the pre-tax total (items + shipping); Payments computes tax and the gross.
+/// create a payment intent, and blocks only until the intent exists (api.md §3).
+/// NetMinor is the total to charge (items + shipping + tax); TaxMinor is the tax portion of it,
+/// carried through so the sale can be booked as net revenue + a tax liability (per-storefront books).
 /// </summary>
 public record AuthorizePayment(
     Guid OrderId,
@@ -19,6 +20,9 @@ public record AuthorizePayment(
     string? PaymentOption = null,
     // The storefront this order belongs to (phase 2). Persisted on the Payment so the sale posts to the
     // storefront's own revenue/tax ledger accounts (per-storefront books). Optional → back-compatible.
-    Guid? StorefrontId = null);
+    Guid? StorefrontId = null,
+    // Tax portion of NetMinor (computed by Ordering at checkout). Persisted on the Payment so the ledger
+    // splits revenue (net) from tax collected (liability) instead of booking the whole gross as revenue.
+    long TaxMinor = 0);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);

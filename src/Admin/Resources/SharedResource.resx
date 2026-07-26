@@ -1346,6 +1346,12 @@
   <data name="Fin.Col.NetRevenue" xml:space="preserve">
     <value>Net revenue</value>
   </data>
+  <data name="Fin.Col.Gross" xml:space="preserve">
+    <value>Gross</value>
+  </data>
+  <data name="Fin.ByStorefront.Note" xml:space="preserve">
+    <value>Net revenue and Tax reconcile with the per-currency reports above (Gross = Net revenue + Tax). Processing fees settle per payment provider, not per storefront, so a store's net revenue is shown before fees.</value>
+  </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Tax</value>
   </data>
