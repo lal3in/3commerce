@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, seedPaidOrderWithRma, rmaState } from "./helpers";
+import { loginAsAdmin, seedPaidOrderWithRma, rmaState, demoStorefrontId } from "./helpers";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 
@@ -38,6 +38,7 @@ test.describe("Admin console", () => {
   });
 
   test("operator approves an RMA and the refund completes (RefundIssued)", async ({ page, request }) => {
+    test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
     const { orderId } = await seedPaidOrderWithRma(request);
 
     await loginAsAdmin(page);

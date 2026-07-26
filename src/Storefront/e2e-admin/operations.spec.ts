@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, seedPaidOrderWithRma } from "./helpers";
+import { loginAsAdmin, seedPaidOrderWithRma, demoStorefrontId } from "./helpers";
 
 const operationalPages = [
   { href: "/catalog", heading: /catalog/i, copy: /product/i },
@@ -25,6 +25,7 @@ test.describe("Admin operations surfaces", () => {
   }
 
   test("refunding a confirmed order succeeds and renders the result", async ({ page, request }) => {
+    test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
     const { orderId } = await seedPaidOrderWithRma(request);
 
     await page.goto("/orders");
@@ -47,6 +48,7 @@ test.describe("Admin operations surfaces", () => {
   });
 
   test("RMA queue exposes both immediate-refund and require-return actions for requested RMAs", async ({ page, request }) => {
+    test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
     const { orderId } = await seedPaidOrderWithRma(request);
 
     await page.goto("/rmas");

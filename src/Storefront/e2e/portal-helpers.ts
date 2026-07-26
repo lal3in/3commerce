@@ -4,6 +4,18 @@ import { request as pwRequest } from "@playwright/test";
  *  real-traffic generator). Kept out of the spec files so importing it never re-registers tests. */
 export const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 
+/** Resolve a live demo storefront's id (au/eu/us) to attribute a checkout to — every order must belong
+ *  to a storefront. Returns null when none is published (import-only stack), so callers skip. */
+export async function resolveDemoStorefrontId(
+  ctx: Awaited<ReturnType<typeof pwRequest.newContext>>,
+): Promise<string | null> {
+  for (const slug of ["eu", "au", "us"]) {
+    const r = await ctx.get(`${GATEWAY}/api/catalog/storefronts/public?slug=${slug}`);
+    if (r.ok()) return ((await r.json()) as { id: string }).id;
+  }
+  return null;
+}
+
 export async function reachable(url: string): Promise<boolean> {
   const ctx = await pwRequest.newContext();
   try {
@@ -22,6 +34,11 @@ export async function reachable(url: string): Promise<boolean> {
 export async function driveCheckout(): Promise<boolean> {
   const ctx = await pwRequest.newContext(); // cookie jar carries the anonymous cart session
   try {
+    // Every order must belong to a storefront (no orphan/default-storefront orders), so resolve a demo
+    // store to attribute this checkout to; without one (import-only stack) there's nothing to drive.
+    const storefrontId = await resolveDemoStorefrontId(ctx);
+    if (!storefrontId) return false;
+
     const search = await ctx.get(`${GATEWAY}/api/catalog/products?pageSize=1`);
     if (!search.ok()) return false;
     const hits = (await search.json()) as Array<{ slug: string }>;
@@ -39,6 +56,7 @@ export async function driveCheckout(): Promise<boolean> {
     const checkout = await ctx.post(`${GATEWAY}/api/ordering/checkout`, {
       data: {
         email: `portal-check-${Date.now()}@example.test`,
+        storefrontId,
         shippingAddress: { name: "Portal Check", line1: "42 Example Street", city: "Melbourne", postcode: "3000", country: "AU" },
         selectedShippingService: "Fake Ground",
         selectedShippingAmountMinor: 499,
