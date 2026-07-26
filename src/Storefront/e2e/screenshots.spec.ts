@@ -1,4 +1,5 @@
 import { test } from "./fixtures";
+import { pinStorefront } from "./fixtures";
 
 // Captures storefront screenshots for the Operations Wiki. Run against a live stack:
 //   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=storefront -g screenshots
@@ -14,12 +15,17 @@ test.describe("storefront screenshots", () => {
   test("capture pages", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
 
+    // Pin a demo storefront so the catalog renders (rev_5); skip when none is browsable.
+    test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
+
     await page.goto("/");
     await shot(page, "home");
 
-    await page.goto("/search?q=speaker");
+    // The store's full catalog (no query term, so it never depends on a specific product being published).
+    await page.goto("/search");
     await shot(page, "search");
 
+    await page.goto("/");
     await page.locator('a[href^="/products/"]').first().click();
     await page.waitForURL(/\/products\//);
     await shot(page, "product");

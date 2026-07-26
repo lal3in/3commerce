@@ -141,6 +141,7 @@ declare -a FAILED=()
 pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
 fail() { printf '  \033[31m✗ %s\033[0m\n' "$1"; FAIL=$((FAIL+1)); FAILED+=("$1"); }
 stage() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
+skip() { printf '  \033[33m- %s (skipped)\033[0m\n' "$1"; }
 # check "<label>" <expected_substring> <command...>  — passes if command output contains substring
 check() {
   local label="$1" want="$2"; shift 2
@@ -289,9 +290,25 @@ run_live() {
 
   stage "L14  Storefront SSR"
   wait_http "$STOREFRONT/" || fail "L14 storefront did not come up"
-  check "L14a home renders products" "</h3>" bash -c "curl -fsS $STOREFRONT/"
-  check "L14b search renders" "items" bash -c "curl -fsS '$STOREFRONT/search?q=speaker'"
-  check "L14c product detail renders" "<h1" bash -c "curl -fsS '$STOREFRONT/products/$slug'"
+  # rev_5/F5: the bare root lists nothing until a storefront is pinned (locally via a /{slug} landing that
+  # sets the 3c_storefront cookie; in prod by Host). Pin the first demo store the public config resolves,
+  # then browse WITH that cookie against the store's OWN published catalog. When no demo storefront is
+  # published (e.g. an import-only seed), skip the SSR product checks rather than fail on an empty root.
+  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug=""
+  for s in au eu us; do
+    if curl -fsS "$GATEWAY/api/catalog/storefronts/public?slug=$s" >/dev/null 2>&1; then
+      curl -s -c "$sfjar" "$STOREFRONT/$s" >/dev/null; sfslug="$s"; break
+    fi
+  done
+  if [[ -n "$sfslug" ]]; then
+    # Derive the product slug from THIS store's home so the PDP check uses a product it actually publishes.
+    local sfprod; sfprod="$(curl -fsS -b "$sfjar" "$STOREFRONT/" | grep -oE 'href="/products/[^"]+"' | head -1 | sed -E 's#href="/products/([^"]+)"#\1#')"
+    check "L14a home renders products" "</h3>" bash -c "curl -fsS -b '$sfjar' $STOREFRONT/"
+    check "L14b search renders" "/products/" bash -c "curl -fsS -b '$sfjar' '$STOREFRONT/search'"
+    check "L14c product detail renders" "<h1" bash -c "curl -fsS -b '$sfjar' '$STOREFRONT/products/$sfprod'"
+  else
+    skip "L14a-c storefront SSR — no demo storefront published (needs --data full)"
+  fi
   check "L14d account redirects unauth" "307" bash -c "curl -s -o /dev/null -w '%{http_code}' $STOREFRONT/account"
 
   stage "L15-L19  Money flow: cart → checkout saga → ledger → refund"

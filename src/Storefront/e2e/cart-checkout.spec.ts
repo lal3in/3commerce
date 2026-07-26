@@ -1,9 +1,11 @@
-import { test, expect } from "./fixtures";
+import { test, expect, pinStorefront } from "./fixtures";
 
 // The money journey in a real browser: add to cart → checkout → confirmation.
+// A storefront must be pinned first (rev_5): the root lists a store's PUBLISHED catalog, so we browse
+// from the home grid rather than searching for terms that may not be published to the demo store.
 test.describe("Cart & checkout", () => {
   test("add a product to the cart and see it listed", async ({ page }) => {
-    await page.goto("/search?q=keyboard");
+    test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
     await page.locator('a[href^="/products/"]').first().click();
     await page.getByRole("button", { name: /add to cart/i }).click();
 
@@ -14,8 +16,8 @@ test.describe("Cart & checkout", () => {
   });
 
   test("complete a guest checkout end to end (test payment)", async ({ page }) => {
-    await page.goto("/search?q=lamp");
-    await page.locator('a[href^="/products/"]').first().click();
+    test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
+    await page.locator('a[href*="physical-warehouse"]').first().click();
     await page.getByRole("button", { name: /add to cart/i }).click();
     await expect(page).toHaveURL(/\/cart/);
 
@@ -48,8 +50,8 @@ test.describe("Cart & checkout", () => {
   // click must (a) visibly select the tile, (b) survive even when the native radio was already
   // checked (pre-hydration click), and (c) carry the chosen option through the checkout POST.
   test("select a non-default payment method and check out with it", async ({ page }) => {
-    await page.goto("/search?q=lamp");
-    await page.locator('a[href^="/products/"]').first().click();
+    test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
+    await page.locator('a[href*="physical-warehouse"]').first().click();
     await page.getByRole("button", { name: /add to cart/i }).click();
     await expect(page).toHaveURL(/\/cart/);
 
