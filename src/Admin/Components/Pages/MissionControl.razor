@@ -41,8 +41,8 @@
                 @KpiCard(L["Mc.Kpi.Revenue"], $"{currency} {minor / 100m:0.00}", "#0891b2", L["Mc.Kpi.Revenue.Tip"])
             }
         }
-        @* Refunds as money (off the ledger's revenue.refunds), per currency — reflects every refund path
-           the moment RefundCompleted posts, alongside the refunded-order count below. *@
+        @* Refunds as money (debits to revenue accounts on the ledger), per currency — reflects every
+           refund path the moment RefundCompleted posts, alongside the refunded-order count below. *@
         @if (RefundsByCurrency.Count == 0)
         {
             @KpiCard(L["Mc.Kpi.RefundsValue"], "0.00", "#059669", L["Mc.Kpi.RefundsValue.Tip"])
@@ -52,6 +52,19 @@
             @foreach (var (currency, minor) in RefundsByCurrency)
             {
                 @KpiCard(L["Mc.Kpi.RefundsValue"], $"{currency} {minor / 100m:0.00}", minor > 0 ? "#b45309" : "#059669", L["Mc.Kpi.RefundsValue.Tip"])
+            }
+        }
+        @* Net revenue (revenue − refunds) per currency — same bottom line as the dashboard, so a fully
+           refunded order reads as 0.00 here instead of its gross counting as revenue. *@
+        @if (NetRevenueByCurrency.Count == 0)
+        {
+            @KpiCard(L["Home.Kpi.NetRevenue"], "0.00", "#0e7490", L["Home.Kpi.NetRevenue.Tip"])
+        }
+        else
+        {
+            @foreach (var (currency, minor) in NetRevenueByCurrency)
+            {
+                @KpiCard(L["Home.Kpi.NetRevenue"], $"{currency} {minor / 100m:0.00}", "#0e7490", L["Home.Kpi.NetRevenue.Tip"])
             }
         }
         @KpiCard(L["Mc.Kpi.Refunded"], OrdersWith("Refunded").ToString(), _orders.Any(o => o.Status == "Refunded") ? "#b45309" : "#059669", L["Mc.Kpi.Refunded.Tip"])
@@ -148,6 +161,9 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1rem;">
             @KpiCard(L["Mc.Bus.Queues"], _bus.Queues.ToString(), "#4f46e5", L["Mc.Bus.Queues.Tip"])
             @KpiCard(L["Mc.Bus.Consumers"], _bus.Consumers.ToString(), "#0891b2", L["Mc.Bus.Consumers.Tip"])
+            @* Cumulative throughput — non-zero even when the queues are drained, so an idle-but-healthy bus
+               (ready/unacked/dead all 0) reads as "processed N messages" rather than looking dead. *@
+            @KpiCard(L["Mc.Bus.Processed"], _bus.Processed.ToString("N0"), "#0891b2", L["Mc.Bus.Processed.Tip"])
             @KpiCard(L["Mc.Bus.Ready"], _bus.Ready.ToString(), _bus.Ready > 0 ? "#b45309" : "#059669", L["Mc.Bus.Ready.Tip"])
             @KpiCard(L["Mc.Bus.Unacked"], _bus.Unacked.ToString(), "#059669", L["Mc.Bus.Unacked.Tip"])
             @KpiCard(L["Mc.Bus.DeadLettered"], _bus.DeadLettered.ToString(), _bus.DeadLettered > 0 ? "#dc2626" : "#059669", L["Mc.Bus.DeadLettered.Tip"])
@@ -220,7 +236,7 @@
     private List<RunDto> _runs = [];
     private List<OrderKpiDto> _orders = [];
     private List<RmaKpiDto> _rmas = [];
-    private List<LedgerEntryDto> _ledger = [];
+    private List<BalanceDto> _balances = [];
     private List<CheckoutCountDto> _checkouts = [];
     private List<SubKpiDto> _subs = [];
     private List<DropshipKpiDto> _dropship = [];
@@ -239,7 +255,10 @@
         // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
         _orders = await SafeList<OrderKpiDto>("/api/ordering/admin/orders");
         _rmas = await SafeList<RmaKpiDto>("/api/support/admin/rmas");
-        _ledger = await SafeList<LedgerEntryDto>("/api/payments/admin/ledger/entries");
+        // Money comes off the ledger BALANCES (complete per account+currency), not /entries — the entries
+        // feed is Take(200)-capped and would undercount once history grows. This is the same source the
+        // dashboard uses, so Revenue/Refunds/Net agree across the two surfaces.
+        _balances = await SafeList<BalanceDto>("/api/payments/admin/ledger/balances");
         // Per-process monitors (mc_proc): checkout saga, subscription renewals, dropship forwarding.
         _checkouts = await SafeList<CheckoutCountDto>("/api/ordering/admin/checkouts");
         _subs = await SafeList<SubKpiDto>("/api/payments/admin/subscriptions");
@@ -264,23 +283,30 @@
 
     private int OrdersWith(params string[] statuses) => _orders.Count(o => statuses.Contains(o.Status));
     private int RmasWith(params string[] states) => _rmas.Count(r => states.Contains(r.State));
-    // Gross of confirmed/refunded orders grouped by currency — never summed across currencies.
-    private List<(string Currency, long Minor)> RevenueByCurrency => _orders
-        .Where(o => o.Status is "Confirmed" or "Refunded")
-        .GroupBy(o => o.Currency)
+    // Money is read off the ledger (revenue.* balances), identical to the dashboard, so the two surfaces
+    // never disagree. Revenue = credits to revenue accounts; refunds = debits (a revenue account is only
+    // ever debited by a refund reversal); net = revenue − refunds. All per-currency — minor units are
+    // never summed across currencies.
+    private List<BalanceDto> RevenueBalances => _balances
+        .Where(b => b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).ToList();
+    private List<(string Currency, long Minor)> RevenueByCurrency => RevenueBalances
+        .GroupBy(b => b.Currency)
         .OrderBy(g => g.Key, StringComparer.Ordinal)
-        .Select(g => (g.Key, g.Sum(o => o.GrossMinor)))
+        .Select(g => (g.Key, g.Sum(b => b.CreditMinor)))
+        .Where(x => x.Item2 != 0)
         .ToList();
-    // Refunds as money, per currency: a refund entry ("Refund …") debits a revenue account for the net
-    // reversed — shared revenue.refunds (legacy) or the storefront's own revenue account (per-store).
-    // Detect by the entry so every refund path counts. Never summed across currencies, mirroring revenue.
-    private List<(string Currency, long Minor)> RefundsByCurrency => _ledger
-        .Where(e => e.Description.StartsWith("Refund ", StringComparison.Ordinal))
-        .Select(e => (e.Currency, Minor: e.Lines.Where(l => l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(l => l.DebitMinor)))
-        .Where(x => x.Minor > 0)
-        .GroupBy(x => x.Currency)
+    private List<(string Currency, long Minor)> RefundsByCurrency => RevenueBalances
+        .GroupBy(b => b.Currency)
         .OrderBy(g => g.Key, StringComparer.Ordinal)
-        .Select(g => (g.Key, g.Sum(x => x.Minor)))
+        .Select(g => (g.Key, g.Sum(b => b.DebitMinor)))
+        .Where(x => x.Item2 > 0)
+        .ToList();
+    // Net revenue per currency (revenue less refunds) — mirrors the dashboard's "Net revenue" line so a
+    // fully-refunded order reads as 0 here too, instead of its gross showing as revenue.
+    private List<(string Currency, long Minor)> NetRevenueByCurrency => RevenueBalances
+        .GroupBy(b => b.Currency)
+        .OrderBy(g => g.Key, StringComparer.Ordinal)
+        .Select(g => (g.Key, g.Sum(b => b.CreditMinor - b.DebitMinor)))
         .ToList();
     private int CheckoutsInState(params string[] states) => _checkouts.Where(c => states.Contains(c.State)).Sum(c => c.Count);
     private int SubsWith(params string[] statuses) => _subs.Count(s => statuses.Contains(s.Status));
@@ -312,6 +338,5 @@
     private record SubKpiDto(Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd);
     private record DropshipKpiDto(Guid Id, Guid OrderId, Guid SupplierId, string Status, string? ExternalReference, string? TrackingNumber, string? Carrier, string? FailureReason);
     private record NotifSummaryDto(int Total, int Sent24h, int Failed);
-    private record LedgerLineDto(string AccountCode, long DebitMinor, long CreditMinor);
-    private record LedgerEntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LedgerLineDto> Lines);
+    private record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
 }

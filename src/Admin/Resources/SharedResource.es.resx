@@ -922,6 +922,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Colas declaradas en el broker.</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Consumidores</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Consumidores actualmente conectados en todas las colas.</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>Procesados</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>Total de mensajes entregados a los consumidores desde que se inició el broker: prueba de que el bus funciona aunque las colas estén vacías (Listos/Sin confirmar 0).</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>Listos</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Mensajes en espera de ser entregados. Un número creciente significa que los consumidores están retrasados.</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Sin confirmar</value></data>

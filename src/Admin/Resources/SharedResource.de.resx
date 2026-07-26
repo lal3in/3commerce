@@ -922,6 +922,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Auf dem Broker deklarierte Warteschlangen.</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Konsumenten</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Derzeit über alle Warteschlangen hinweg angebundene Konsumenten.</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>Verarbeitet</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>Seit dem Start des Brokers insgesamt an Konsumenten zugestellte Nachrichten – Beleg, dass der Bus arbeitet, selbst wenn die Warteschlangen leer sind (Bereit/Unbestätigt 0).</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>Bereit</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Nachrichten, die auf Zustellung warten. Eine wachsende Zahl bedeutet, dass die Konsumenten hinterherhinken.</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Unbestätigt</value></data>

@@ -12,10 +12,10 @@ namespace ThreeCommerce.Admin.Services;
 /// </summary>
 public sealed class BusStatsService(IHttpClientFactory factory, IConfiguration config)
 {
-    public sealed record QueueStat(string Name, long Ready, long Unacked, long Consumers, double PublishRate, bool IsDeadLetter);
+    public sealed record QueueStat(string Name, long Ready, long Unacked, long Consumers, long Delivered, double PublishRate, bool IsDeadLetter);
 
     public sealed record BusSnapshot(
-        int Queues, long Consumers, long Ready, long Unacked, long DeadLettered, List<QueueStat> TopQueues, List<QueueStat> DeadLetterQueues);
+        int Queues, long Consumers, long Ready, long Unacked, long DeadLettered, long Processed, List<QueueStat> TopQueues, List<QueueStat> DeadLetterQueues);
 
     public async Task<BusSnapshot?> GetSnapshotAsync(CancellationToken ct = default)
     {
@@ -44,6 +44,7 @@ public sealed class BusStatsService(IHttpClientFactory factory, IConfiguration c
                     Ready: Int64Of(q, "messages_ready"),
                     Unacked: Int64Of(q, "messages_unacknowledged"),
                     Consumers: Int64Of(q, "consumers"),
+                    Delivered: DeliveredOf(q),
                     PublishRate: PublishRateOf(q),
                     IsDeadLetter: name.EndsWith("_error", StringComparison.Ordinal) || name.EndsWith("_skipped", StringComparison.Ordinal)));
             }
@@ -56,6 +57,9 @@ public sealed class BusStatsService(IHttpClientFactory factory, IConfiguration c
                 Ready: queues.Sum(q => q.Ready),
                 Unacked: queues.Sum(q => q.Unacked),
                 DeadLettered: queues.Where(q => q.IsDeadLetter).Sum(q => q.Ready + q.Unacked),
+                // Cumulative messages delivered to consumers since the broker started — the throughput
+                // signal that shows the bus is alive even when depth (ready/unacked) is 0 at snapshot time.
+                Processed: queues.Sum(q => q.Delivered),
                 TopQueues: queues.Where(q => !q.IsDeadLetter)
                     .OrderByDescending(q => q.Ready + q.Unacked).ThenByDescending(q => q.PublishRate).Take(10).ToList(),
                 DeadLetterQueues: deadLetter);
@@ -68,6 +72,13 @@ public sealed class BusStatsService(IHttpClientFactory factory, IConfiguration c
 
     private static long Int64Of(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetInt64() : 0;
+
+    private static long DeliveredOf(JsonElement queue) =>
+        queue.TryGetProperty("message_stats", out var stats)
+        && stats.TryGetProperty("deliver_get", out var delivered)
+        && delivered.ValueKind == JsonValueKind.Number
+            ? delivered.GetInt64()
+            : 0;
 
     private static double PublishRateOf(JsonElement queue) =>
         queue.TryGetProperty("message_stats", out var stats)

@@ -922,6 +922,8 @@
   <data name="Mc.Bus.Queues.Tip" xml:space="preserve"><value>Files déclarées sur le broker.</value></data>
   <data name="Mc.Bus.Consumers" xml:space="preserve"><value>Consommateurs</value></data>
   <data name="Mc.Bus.Consumers.Tip" xml:space="preserve"><value>Consommateurs actuellement attachés sur l'ensemble des files.</value></data>
+  <data name="Mc.Bus.Processed" xml:space="preserve"><value>Traités</value></data>
+  <data name="Mc.Bus.Processed.Tip" xml:space="preserve"><value>Nombre total de messages livrés aux consommateurs depuis le démarrage du broker — preuve que le bus fonctionne même quand les files sont vides (Prêts/Non acquittés 0).</value></data>
   <data name="Mc.Bus.Ready" xml:space="preserve"><value>Prêts</value></data>
   <data name="Mc.Bus.Ready.Tip" xml:space="preserve"><value>Messages en attente de livraison. Un nombre croissant signifie que les consommateurs sont en retard.</value></data>
   <data name="Mc.Bus.Unacked" xml:space="preserve"><value>Non acquittés</value></data>
