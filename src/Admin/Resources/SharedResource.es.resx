@@ -1268,6 +1268,12 @@
   <data name="Ledger.Balanced" xml:space="preserve">
     <value>cuadrado ✓</value>
   </data>
+  <data name="Ledger.Refunds" xml:space="preserve">
+    <value>Reembolsos (imp. incl.)</value>
+  </data>
+  <data name="Ledger.Refunds.Tip" xml:space="preserve">
+    <value>Total reembolsado a los clientes en esta moneda: débitos que revierten los ingresos y el impuesto de la tienda (ADR-0040), incluida la parte de impuesto.</value>
+  </data>
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>descuadrado</value>
   </data>

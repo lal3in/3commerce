@@ -1268,6 +1268,12 @@
   <data name="Ledger.Balanced" xml:space="preserve">
     <value>équilibré ✓</value>
   </data>
+  <data name="Ledger.Refunds" xml:space="preserve">
+    <value>Remboursements (taxe comprise)</value>
+  </data>
+  <data name="Ledger.Refunds.Tip" xml:space="preserve">
+    <value>Total remboursé aux clients dans cette devise — débits annulant le revenu et la taxe de la boutique (ADR-0040), part de taxe comprise.</value>
+  </data>
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>déséquilibré</value>
   </data>

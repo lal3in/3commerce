@@ -1268,6 +1268,12 @@
   <data name="Ledger.Balanced" xml:space="preserve">
     <value>已平衡 ✓</value>
   </data>
+  <data name="Ledger.Refunds" xml:space="preserve">
+    <value>退款（連稅）</value>
+  </data>
+  <data name="Ledger.Refunds.Tip" xml:space="preserve">
+    <value>喺呢種貨幣退返畀客戶嘅總額 — 沖返店舖自己收入同稅款嘅借方（ADR-0040），包埋稅款部分。</value>
+  </data>
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>不平衡</value>
   </data>
