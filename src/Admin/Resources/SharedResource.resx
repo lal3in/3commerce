@@ -1268,6 +1268,12 @@
   <data name="Ledger.Balanced" xml:space="preserve">
     <value>balanced ✓</value>
   </data>
+  <data name="Ledger.Refunds" xml:space="preserve">
+    <value>Refunds (incl. tax)</value>
+  </data>
+  <data name="Ledger.Refunds.Tip" xml:space="preserve">
+    <value>Total refunded to customers in this currency — debits that reverse the storefront's own revenue and tax (ADR-0040), including the tax portion.</value>
+  </data>
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>out of balance</value>
   </data>

@@ -1268,6 +1268,12 @@
   <data name="Ledger.Balanced" xml:space="preserve">
     <value>ausgeglichen ✓</value>
   </data>
+  <data name="Ledger.Refunds" xml:space="preserve">
+    <value>Erstattungen (inkl. Steuer)</value>
+  </data>
+  <data name="Ledger.Refunds.Tip" xml:space="preserve">
+    <value>Gesamter an Kunden erstatteter Betrag in dieser Währung – Soll-Buchungen, die Umsatz und Steuer des Shops zurücknehmen (ADR-0040), inkl. Steueranteil.</value>
+  </data>
   <data name="Ledger.OutOfBalance" xml:space="preserve">
     <value>nicht ausgeglichen</value>
   </data>

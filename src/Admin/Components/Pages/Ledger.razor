@@ -37,6 +37,19 @@ else
                 }
                 </tbody>
             </table>
+            @{
+                // Per-store refunds reverse the store's OWN revenue/tax accounts (ADR-0040) — they show
+                // as debits on revenue.*/tax.* rather than a separate account, so surface the total here.
+                var refunds = grp.Where(b => b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)
+                        || b.AccountCode.StartsWith("tax.", StringComparison.Ordinal))
+                    .Sum(b => b.DebitMinor);
+            }
+            @if (refunds > 0)
+            {
+                <div style="font-size:.8rem; color:#b45309; margin-top:.35rem;" title="@L["Ledger.Refunds.Tip"]">
+                    @L["Ledger.Refunds"]: @Money(refunds) @grp.Key
+                </div>
+            }
         </div>
     }
 }
