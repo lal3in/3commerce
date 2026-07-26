@@ -120,8 +120,15 @@ else
         _balances.Where(b => b.Currency == currency && match(b.AccountCode))
             .Sum(b => creditNormal ? b.CreditMinor - b.DebitMinor : b.DebitMinor - b.CreditMinor);
 
-    private long Revenue(string c) => Sum(c, a => a.StartsWith("revenue.", StringComparison.Ordinal) && a != "revenue.refunds", creditNormal: true);
-    private long Refunds(string c) => Sum(c, a => a == "revenue.refunds", creditNormal: false); // contra-revenue (debit-normal)
+    // Gross sales revenue = credits to revenue accounts (net of tax — tax posts to tax.*). Refunds =
+    // debits to revenue accounts: per-storefront refunds reverse the store's OWN revenue.store (ADR-0040),
+    // and legacy/shared refunds hit revenue.refunds — both are debits, so this contra-revenue captures
+    // every refund path (was previously only the shared revenue.refunds, so per-store refunds read 0).
+    // Net result still = Revenue − Refunds − Fees; the refunded tax reduces the tax-collected liability.
+    private long Revenue(string c) => _balances
+        .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.CreditMinor);
+    private long Refunds(string c) => _balances
+        .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.DebitMinor);
     private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal), creditNormal: false);
     private long Cash(string c) => Sum(c, a => a.StartsWith("cash.", StringComparison.Ordinal), creditNormal: false);
     private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);
