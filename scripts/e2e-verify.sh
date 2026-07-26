@@ -294,9 +294,11 @@ run_live() {
   # sets the 3c_storefront cookie; in prod by Host). Pin the first demo store the public config resolves,
   # then browse WITH that cookie against the store's OWN published catalog. When no demo storefront is
   # published (e.g. an import-only seed), skip the SSR product checks rather than fail on an empty root.
-  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug=""
+  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug="" sfid=""
   for s in au eu us; do
-    if curl -fsS "$GATEWAY/api/catalog/storefronts/public?slug=$s" >/dev/null 2>&1; then
+    local cfg; cfg="$(curl -fsS "$GATEWAY/api/catalog/storefronts/public?slug=$s" 2>/dev/null)" || continue
+    if [[ -n "$cfg" ]]; then
+      sfid="$(grep -oE '"id":"[^"]+"' <<<"$cfg" | head -1 | cut -d'"' -f4)"
       curl -s -c "$sfjar" "$STOREFRONT/$s" >/dev/null; sfslug="$s"; break
     fi
   done
@@ -319,11 +321,13 @@ run_live() {
   # Pick a product known to the Ordering projection (populated from the import via events).
   local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM ordering."ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
   local cartjar=/tmp/3c-e2e-cart.txt; rm -f "$cartjar"
-  if [[ -n "$prod" ]]; then
+  # Every order must belong to a storefront (checkout now rejects the synthetic default), so the money
+  # flow needs a real demo store to attribute to — skip when none is published (import-only stack).
+  if [[ -n "$prod" && -n "$sfid" ]]; then
     local addcode; addcode="$(curl -s -o /dev/null -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2}")"
     [[ "$addcode" == "200" ]] && pass "L15 add to cart" || fail "L15 add to cart ($addcode)"
 
-    local co; co="$(curl -s -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d '{"email":"e2e@example.com","shippingAddress":{"name":"E","line1":"1 St","city":"Berlin","postcode":"10115","country":"DE"}}')"
+    local co; co="$(curl -s -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d "{\"email\":\"e2e@example.com\",\"storefrontId\":\"$sfid\",\"shippingAddress\":{\"name\":\"E\",\"line1\":\"1 St\",\"city\":\"Berlin\",\"postcode\":\"10115\",\"country\":\"DE\"}}")"
     local oid gross secret
     oid="$(grep -oE '"orderId":"[^"]+"' <<<"$co" | cut -d'"' -f4)"
     gross="$(grep -oE '"grossMinor":[0-9]+' <<<"$co" | grep -oE '[0-9]+')"
@@ -349,8 +353,10 @@ run_live() {
     local refTb; refTb="$(pay_scalar "$trialbal")"
     local refunded; refunded="$(pay_scalar "SELECT count(*) FROM payments.\"Refunds\" WHERE \"OrderId\"='$oid'")"
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
-  else
+  elif [[ -z "$prod" ]]; then
     fail "L15-L19 no product in Ordering projection (import may not have propagated)"
+  else
+    skip "L15-L19 money flow — no demo storefront to attribute the order (needs --data full)"
   fi
 
   stage "L20  Storefront + Admin E2E (Playwright, real browser)"

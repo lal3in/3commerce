@@ -13,11 +13,25 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
 }
 
+/** Resolve a live demo storefront id (au/eu/us) so seeded orders belong to a storefront (never the
+ *  synthetic default). Returns null when none is published — callers should test.skip in that case. */
+export async function demoStorefrontId(request: APIRequestContext): Promise<string | null> {
+  for (const slug of ["eu", "au", "us"]) {
+    const r = await request.get(`${GATEWAY}/api/catalog/storefronts/public?slug=${slug}`);
+    if (r.ok()) return ((await r.json()) as { id: string }).id;
+  }
+  return null;
+}
+
 /**
  * Seeds a confirmed, paid order and an open RMA via the gateway API, returning the orderId.
  * Stands in for the customer journey so the admin UI test can focus on approve → refund.
+ * The order is attributed to a demo storefront (every order must belong to one); callers guard with
+ * demoStorefrontId(...) + test.skip when no demo store is published (import-only stack).
  */
 export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<{ orderId: string }> {
+  const storefrontId = await demoStorefrontId(request);
+  expect(storefrontId, "a demo storefront must be published to attribute the order (dev-up --data full)").toBeTruthy();
   // Admin session also satisfies the customer policy (cart/checkout/rma).
   const login = await request.post(`${GATEWAY}/api/identity/login`, {
     data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
@@ -32,6 +46,7 @@ export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<
   const checkout = await request.post(`${GATEWAY}/api/ordering/checkout`, {
     data: {
       email: "buyer@example.com",
+      storefrontId,
       shippingAddress: { name: "B", line1: "1 St", city: "Berlin", postcode: "10115", country: "DE" },
     },
   });
