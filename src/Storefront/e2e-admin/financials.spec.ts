@@ -11,11 +11,13 @@ test("Financials by-storefront table reconciles: gross = net revenue + tax", asy
   await expect(page.getByRole("heading", { name: /financials/i })).toBeVisible();
   await page.waitForTimeout(2000); // let the Blazor circuit load balances/storefronts
 
+  // With no ledger activity (import-only CI) the page shows an empty-state and renders NO sections at
+  // all — so the "By storefront" section is absent; skip rather than time out waiting for it.
   const byStore = page.locator("section", { hasText: "By storefront" }).last();
+  test.skip((await byStore.count()) === 0, "no ledger activity in this environment (needs --data full)");
   await expect(byStore).toBeVisible();
 
-  // The by-storefront table (and its column headers) only render when storefronts exist; an import-only
-  // environment (no --data full demo stores) shows an em-dash placeholder, so skip there.
+  // The by-storefront table (and its column headers) only render when storefronts exist; skip if empty.
   test.skip((await byStore.locator("tbody tr").count()) === 0, "no storefronts configured (needs --data full)");
 
   // The dead "Receivable" column is gone; Gross / Net revenue / Tax are present.
