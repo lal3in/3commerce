@@ -24,17 +24,24 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
     /// </summary>
     public async Task Consume(ConsumeContext<RefundCompleted> context)
     {
-        if (!context.Message.FullyRefunded)
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
+        if (order is null || order.Status != OrderStatus.Confirmed)
         {
-            return;
+            return; // idempotent: only a Confirmed order transitions
         }
 
-        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
-        if (order is not null && order.Status == OrderStatus.Confirmed)
+        if (context.Message.FullyRefunded)
         {
             order.Status = OrderStatus.Refunded;
-            await db.SaveChangesAsync(context.CancellationToken);
         }
+        else
+        {
+            // Partial refund: the order still stands (stays Confirmed) but is flagged so the admin can
+            // tell it apart — this is why "RefundIssued RMAs" can exceed "Refunded orders". Idempotent.
+            order.PartiallyRefunded = true;
+        }
+
+        await db.SaveChangesAsync(context.CancellationToken);
     }
 
     public async Task Consume(ConsumeContext<CheckoutCompleted> context)

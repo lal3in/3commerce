@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>未分配（無店舖）</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>部分退款</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>已發出部分退款 — 訂單維持已確認（全額退款先會變成已退款）。</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>部分退款</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>有部分退款嘅已確認訂單。已退款 + 部分退款 加埋等於 RMA 隊列嘅 RefundIssued 數目。</value>
+  </data>
 </root>

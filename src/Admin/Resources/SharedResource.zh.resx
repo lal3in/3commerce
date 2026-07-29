@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>未分配（无店铺）</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>部分退款</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>已发出部分退款——订单仍为已确认（全额退款才会变为已退款）。</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>部分退款</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>有部分退款的已确认订单。已退款 + 部分退款 之和等于 RMA 队列的 RefundIssued 数量。</value>
+  </data>
 </root>
