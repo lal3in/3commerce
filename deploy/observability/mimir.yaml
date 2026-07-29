@@ -44,3 +44,8 @@ store_gateway:
   sharding_ring:
     instance_addr: 127.0.0.1
     replication_factor: 1
+
+limits:
+  # Exemplar storage is off by default — enable it so the trace_id exemplars the Tempo metrics
+  # generator sends (send_exemplars) are retained and Grafana can link metric → trace.
+  max_global_exemplars_per_user: 100000

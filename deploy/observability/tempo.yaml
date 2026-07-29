@@ -26,3 +26,25 @@ compactor:
   compaction:
     # Keep dev traces short-lived so the named volume can't grow unbounded.
     block_retention: 48h
+
+# Metrics generator: derive RED span-metrics + the service-graph from incoming spans and remote-write
+# them to Mimir, so Grafana can (a) draw the Service Graph (Tempo datasource serviceMap → Mimir) and
+# (b) jump trace→metrics. send_exemplars stamps the generated series with a trace_id so Mimir panels
+# can link back to Tempo (exemplars). Processors are enabled for the (single, anonymous) dev tenant
+# via overrides.defaults.
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://mimir:9009/api/v1/push
+        send_exemplars: true
+  traces_storage:
+    path: /var/tempo/generator/traces
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]
