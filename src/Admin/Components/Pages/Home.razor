@@ -99,6 +99,14 @@ else
                         <div style="background:#f3f4f6; border-radius:6px; height:8px; overflow:hidden;"><div style="width:@(pct)%; height:100%; background:#0891b2;"></div></div>
                     </div>
                 }
+                @if (PartiallyRefundedCount > 0)
+                {
+                    var ppct = Orders.Count > 0 ? PartiallyRefundedCount * 100 / Orders.Count : 0;
+                    <div style="margin-bottom:.5rem;">
+                        <div style="display:flex; justify-content:space-between; font-size:.85rem;"><span title="@L["Home.PartiallyRefunded.Tip"]">@L["Home.PartiallyRefunded"]</span><span style="color:#b45309;">@PartiallyRefundedCount</span></div>
+                        <div style="background:#f3f4f6; border-radius:6px; height:8px; overflow:hidden;"><div style="width:@(ppct)%; height:100%; background:#f59e0b;"></div></div>
+                    </div>
+                }
             }
         </div>
     </div>
@@ -228,6 +236,9 @@ else
     private int OpenRmas => ScopedRmas.Count(r => r.State is "Requested" or "Pending" or "Open");
     private int OrdersToday => Orders.Count(o => o.CreatedAt.LocalDateTime.Date == DateTime.Now.Date);
     private Dictionary<string, int> ByStatus => Orders.GroupBy(o => o.Status).ToDictionary(g => g.Key, g => g.Count());
+    // Partial refunds leave the order Confirmed, so they aren't in the "Refunded" bar — surface them
+    // separately so Refunded + Partially refunded reconciles with the RMA queue's RefundIssued count.
+    private int PartiallyRefundedCount => Orders.Count(o => o.PartiallyRefunded && o.Status == "Confirmed");
 
     // ---- money, per currency, from the full ledger balances ----
     // Revenue accounts in scope: all revenue.* for "all", else the selected store's revenue account.
@@ -348,7 +359,7 @@ else
             $"<td style=\"text-align:right; font-weight:{weight}; color:{color}; font-variant-numeric:tabular-nums;\">{minor / 100m:N2} {currency}</td></tr>");
     };
 
-    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, Guid? StorefrontId = null);
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, Guid? StorefrontId = null, bool PartiallyRefunded = false);
     public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
     public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);

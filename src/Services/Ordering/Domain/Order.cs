@@ -15,6 +15,9 @@ public class Order
     public Guid? UserId { get; set; }
     public required string Email { get; set; }
     public OrderStatus Status { get; set; }
+    // A partial refund moves money but leaves the order Confirmed (a full refund → Refunded). This flag
+    // lets the admin distinguish a partially-refunded order from an untouched one (rma_partial).
+    public bool PartiallyRefunded { get; set; }
     public long NetMinor { get; set; }
     public long TaxMinor { get; set; }
     public long ShippingMinor { get; set; }

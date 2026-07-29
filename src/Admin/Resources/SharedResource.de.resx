@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>Nicht zugeordnet (kein Storefront)</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>Teilweise erstattet</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Eine Teilerstattung wurde ausgeführt – die Bestellung bleibt Bestätigt (eine vollständige Erstattung würde sie auf Erstattet setzen).</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>Teilweise erstattet</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Bestätigte Bestellungen mit einer Teilerstattung. Erstattet + Teilweise erstattet entsprechen zusammen der Anzahl RefundIssued in der RMA-Warteschlange.</value>
+  </data>
 </root>

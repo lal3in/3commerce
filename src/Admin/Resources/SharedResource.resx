@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>Unassigned (no storefront)</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>Partially refunded</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>A partial refund was issued — the order stays Confirmed (a full refund would move it to Refunded).</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>Partially refunded</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Confirmed orders with a partial refund. Refunded + Partially refunded together match the RMA queue's RefundIssued count.</value>
+  </data>
 </root>

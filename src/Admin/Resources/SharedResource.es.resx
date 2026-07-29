@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>Sin asignar (sin tienda)</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>Reembolsado parcialmente</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Se emitió un reembolso parcial: el pedido sigue Confirmado (un reembolso total lo pasaría a Reembolsado).</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>Reembolsado parcialmente</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Pedidos confirmados con un reembolso parcial. Reembolsado + Reembolsado parcialmente coinciden con el recuento RefundIssued de la cola de RMA.</value>
+  </data>
 </root>

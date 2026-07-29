@@ -32,7 +32,13 @@ else
         {
             <tr style="border-top:1px solid #e5e7eb;">
                 <td style="font-family:monospace;">@o.Id</td>
-                <td>@o.Status</td>
+                <td>
+                    @o.Status
+                    @if (o.PartiallyRefunded && o.Status == "Confirmed")
+                    {
+                        <span title="@L["Orders.Badge.PartiallyRefunded.Tip"]" style="display:inline-block; margin-left:.4rem; padding:.05rem .4rem; border-radius:999px; font-size:.7rem; font-weight:600; color:#b45309; background:#fef3c7;">@L["Orders.Badge.PartiallyRefunded"]</span>
+                    }
+                </td>
                 <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
                 <td>@PaymentLabel(o.PaymentOption)</td>
                 <td>@o.CreatedAt.LocalDateTime.ToString("g")</td>
@@ -132,5 +138,5 @@ else
         _ => option, // future/unknown option — show the raw value rather than hiding it
     };
 
-    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null);
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, bool PartiallyRefunded = false);
 }

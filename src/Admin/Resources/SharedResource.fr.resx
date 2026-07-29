@@ -1391,4 +1391,16 @@
   <data name="Home.Filter.Unassigned" xml:space="preserve">
     <value>Non attribué (sans boutique)</value>
   </data>
+  <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
+    <value>Partiellement remboursé</value>
+  </data>
+  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Un remboursement partiel a été émis — la commande reste Confirmée (un remboursement total la passerait à Remboursée).</value>
+  </data>
+  <data name="Home.PartiallyRefunded" xml:space="preserve">
+    <value>Partiellement remboursé</value>
+  </data>
+  <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
+    <value>Commandes confirmées avec un remboursement partiel. Remboursée + Partiellement remboursée correspondent au nombre RefundIssued de la file RMA.</value>
+  </data>
 </root>
