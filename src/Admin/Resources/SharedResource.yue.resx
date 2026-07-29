@@ -1244,6 +1244,15 @@
   <data name="Home.Kpi.Cash" xml:space="preserve">
     <value>現金結存</value>
   </data>
+  <data name="Home.Cash.Breakdown" xml:space="preserve">
+    <value>點樣加埋</value>
+  </data>
+  <data name="Home.Cash.TaxCollected" xml:space="preserve">
+    <value>已收稅款</value>
+  </data>
+  <data name="Home.Cash.Fees" xml:space="preserve">
+    <value>手續費</value>
+  </data>
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>每種貨幣喺所有現金帳戶嘅淨現金 — 隨每筆銷售、退款、付款變動。綠邊 = 帳目平衡（試算表為0）。</value>
   </data>

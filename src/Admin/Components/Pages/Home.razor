@@ -55,6 +55,10 @@ else
                         @if (!IsUnassigned)
                         {
                             @MoneyRow(SelectedStoreId is null ? L["Home.Kpi.Cash"] : L["Home.Kpi.Receivable"], CashOrReceivable(cur), cur, "#4f46e5")
+                            @if (SelectedStoreId is null)
+                            {
+                                @CashBreakdownRow(cur)
+                            }
                         }
                     </table>
                 </div>
@@ -259,6 +263,10 @@ else
     private long Refunds(string cur) => _balances.Where(b => b.Currency == cur && IsScopedRevenue(b.AccountCode)).Sum(b => b.DebitMinor);
     // Cash held per provider (all) is debit-normal; the store's receivable is also debit-normal.
     private long CashOrReceivable(string cur) => _balances.Where(b => b.Currency == cur && IsScopedCash(b.AccountCode)).Sum(b => b.DebitMinor - b.CreditMinor);
+    // Cash-on-hand breakdown components (all-storefronts scope, per currency): cash = net revenue held
+    // + tax collected (a liability sitting in cash) − processing fees (an expense paid out of cash).
+    private long TaxCollected(string cur) => _balances.Where(b => b.Currency == cur && (b.AccountCode.StartsWith("tax.", StringComparison.Ordinal) || b.AccountCode == "liability.tax_collected")).Sum(b => b.CreditMinor - b.DebitMinor);
+    private long Fees(string cur) => _balances.Where(b => b.Currency == cur && b.AccountCode.StartsWith("expense.", StringComparison.Ordinal)).Sum(b => b.DebitMinor - b.CreditMinor);
 
     private void RecomputeChart()
     {
@@ -307,6 +315,28 @@ else
             $"<div style=\"font-size:.8rem; color:#6b7280; text-transform:uppercase; letter-spacing:.03em;\">{label}</div>" +
             $"<div style=\"font-size:1.7rem; font-weight:700; color:#111827; margin:.2rem 0;\">{value}</div>" +
             $"<div style=\"font-size:.8rem; color:#9ca3af;\">{sub}</div></div>");
+    };
+
+    // Expandable "how cash on hand adds up" row: Net revenue + Tax collected − Processing fees = Cash.
+    // Native <details> disclosure — no interactivity/state needed. Labels come from resx (trusted).
+    private RenderFragment CashBreakdownRow(string cur) => builder =>
+    {
+        var net = Revenue(cur) - Refunds(cur);
+        var tax = TaxCollected(cur);
+        var fees = Fees(cur);
+        string cell(string lbl, long minor, string color) =>
+            $"<tr><td style=\"padding:.1rem 0 .1rem .8rem; color:#6b7280;\">{lbl}</td>" +
+            $"<td style=\"text-align:right; color:{color}; font-variant-numeric:tabular-nums;\">{minor / 100m:N2} {cur}</td></tr>";
+        builder.AddMarkupContent(0,
+            "<tr><td colspan=\"2\" style=\"padding:0;\">" +
+            $"<details style=\"margin:.1rem 0 .3rem;\"><summary style=\"cursor:pointer; font-size:.75rem; color:#6b7280;\">{L["Home.Cash.Breakdown"]}</summary>" +
+            "<table style=\"width:100%; border-collapse:collapse; font-size:.82rem; margin-top:.2rem;\">" +
+            cell(L["Home.Kpi.NetRevenue"], net, "#0e7490") +
+            cell("+ " + L["Home.Cash.TaxCollected"], tax, "#374151") +
+            cell("− " + L["Home.Cash.Fees"], fees, "#b45309") +
+            $"<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:.15rem 0 .1rem .8rem; font-weight:700;\">= {L["Home.Kpi.Cash"]}</td>" +
+            $"<td style=\"text-align:right; font-weight:700; color:#4f46e5; font-variant-numeric:tabular-nums;\">{(net + tax - fees) / 100m:N2} {cur}</td></tr>" +
+            "</table></details></td></tr>");
     };
 
     private RenderFragment MoneyRow(string label, long minor, string currency, string color, bool bold = false) => builder =>
