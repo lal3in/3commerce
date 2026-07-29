@@ -12,6 +12,15 @@ receivers:
 
 processors:
   batch: {}
+  # Declutter the Loki log view: drop the high-volume BACKGROUND logs that carry no trace context —
+  # EF SQL from outbox/inbox polling and MassTransit bus polling run outside any request span, so they
+  # have an empty trace_id and can never link to a trace. Guarded on trace_id == 0 so in-request
+  # EF/MassTransit logs (which DO carry a trace_id) are kept and stay trace-linkable in Loki.
+  filter/loki_noise:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'trace_id == TraceID(0x00000000000000000000000000000000) and (instrumentation_scope.name == "Microsoft.EntityFrameworkCore.Database.Command" or IsMatch(instrumentation_scope.name, "^MassTransit"))'
 
 exporters:
   prometheus:
@@ -43,5 +52,5 @@ service:
       exporters: [otlp/tempo]
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [filter/loki_noise, batch]
       exporters: [otlphttp/loki]
