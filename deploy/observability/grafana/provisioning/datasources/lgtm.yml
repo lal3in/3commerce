@@ -33,6 +33,23 @@ datasources:
         spanEndTimeShift: "5m"
         tags: [{ key: "service.name", value: "service_name" }]
         filterByTraceID: true
+      # Trace → metrics: from a span, jump to the RED span-metrics the generator writes to Mimir,
+      # scoped to the same service. (traces_spanmetrics_* are produced by Tempo's span-metrics processor.)
+      tracesToMetrics:
+        datasourceUid: mimir
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags: [{ key: "service.name", value: "service" }]
+        queries:
+          - name: "Request rate"
+            query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
+          - name: "p95 latency"
+            query: "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m])) by (le))"
+      # Service Graph tab + node graph — driven by the service-graph metrics in Mimir.
+      serviceMap:
+        datasourceUid: mimir
+      nodeGraph:
+        enabled: true
 
   - name: Mimir
     type: prometheus
@@ -40,3 +57,8 @@ datasources:
     access: proxy
     url: http://mimir:9009/prometheus
     editable: false
+    jsonData:
+      # Metric → trace: span-metrics carry a trace_id exemplar, so panels link back to Tempo.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo

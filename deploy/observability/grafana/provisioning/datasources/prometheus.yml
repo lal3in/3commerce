@@ -10,3 +10,8 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    jsonData:
+      # Metric → trace: link exemplars (trace_id) back to Tempo, same as the Mimir datasource.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
