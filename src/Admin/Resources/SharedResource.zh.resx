@@ -1244,6 +1244,15 @@
   <data name="Home.Kpi.Cash" xml:space="preserve">
     <value>现金余额</value>
   </data>
+  <data name="Home.Cash.Breakdown" xml:space="preserve">
+    <value>构成明细</value>
+  </data>
+  <data name="Home.Cash.TaxCollected" xml:space="preserve">
+    <value>已收税款</value>
+  </data>
+  <data name="Home.Cash.Fees" xml:space="preserve">
+    <value>手续费</value>
+  </data>
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>每种货币在所有现金账户的净现金 — 随每笔销售、退款、付款变动。绿边 = 账目平衡（试算平衡表为0）。</value>
   </data>

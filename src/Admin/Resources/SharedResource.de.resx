@@ -1244,6 +1244,15 @@
   <data name="Home.Kpi.Cash" xml:space="preserve">
     <value>Barbestand</value>
   </data>
+  <data name="Home.Cash.Breakdown" xml:space="preserve">
+    <value>Zusammensetzung</value>
+  </data>
+  <data name="Home.Cash.TaxCollected" xml:space="preserve">
+    <value>Vereinnahmte Steuer</value>
+  </data>
+  <data name="Home.Cash.Fees" xml:space="preserve">
+    <value>Bearbeitungsgebühren</value>
+  </data>
   <data name="Home.Kpi.Cash.Tip" xml:space="preserve">
     <value>Nettobarbestand je Währung über alle Kassenkonten – bewegt sich mit jedem Verkauf, jeder Erstattung und Auszahlung. Grüner Rand = Bücher ausgeglichen (Probebilanz 0).</value>
   </data>
