@@ -504,6 +504,10 @@
   <data name="Users.Col.Created" xml:space="preserve"><value>Creado</value></data>
   <data name="Users.Reset" xml:space="preserve"><value>Restablecer contraseña</value></data>
   <data name="Users.Reset.Tip" xml:space="preserve"><value>Emita una contraseña temporal de un solo uso.</value></data>
+  <data name="Users.Verify" xml:space="preserve"><value>Verificar correo</value></data>
+  <data name="Users.Verify.Tip" xml:space="preserve"><value>Marca manualmente el correo de este usuario como verificado (vincula pedidos de invitado anteriores).</value></data>
+  <data name="Users.Status.Verified" xml:space="preserve"><value>Correo verificado: los pedidos de invitado anteriores ya están vinculados.</value></data>
+  <data name="Users.Error.VerifyFailed" xml:space="preserve"><value>La verificación falló ({0}).</value></data>
   <data name="Users.ChangeEmail" xml:space="preserve"><value>Cambiar correo</value></data>
   <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>Cambie el correo electrónico de inicio de sesión de este usuario.</value></data>
   <data name="Users.TempPassword" xml:space="preserve"><value>Contraseña temporal (léala en voz alta una sola vez):</value></data>

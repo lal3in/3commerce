@@ -504,6 +504,10 @@
   <data name="Users.Col.Created" xml:space="preserve"><value>Créé le</value></data>
   <data name="Users.Reset" xml:space="preserve"><value>Réinitialiser le mot de passe</value></data>
   <data name="Users.Reset.Tip" xml:space="preserve"><value>Émettez un mot de passe temporaire à usage unique.</value></data>
+  <data name="Users.Verify" xml:space="preserve"><value>Vérifier l’e-mail</value></data>
+  <data name="Users.Verify.Tip" xml:space="preserve"><value>Marque manuellement l’e-mail de cet utilisateur comme vérifié (rattache les commandes invité antérieures).</value></data>
+  <data name="Users.Status.Verified" xml:space="preserve"><value>E-mail vérifié — les commandes invité antérieures sont désormais rattachées.</value></data>
+  <data name="Users.Error.VerifyFailed" xml:space="preserve"><value>Échec de la vérification ({0}).</value></data>
   <data name="Users.ChangeEmail" xml:space="preserve"><value>Changer l'e-mail</value></data>
   <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>Changez l'e-mail de connexion de cet utilisateur.</value></data>
   <data name="Users.TempPassword" xml:space="preserve"><value>Mot de passe temporaire (communiqué une seule fois) :</value></data>

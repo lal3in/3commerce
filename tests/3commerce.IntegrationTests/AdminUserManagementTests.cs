@@ -1,6 +1,8 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
+using ThreeCommerce.BuildingBlocks.Contracts.Identity;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Domain.Tenancy;
 using ThreeCommerce.Identity.Infrastructure;
@@ -61,7 +63,8 @@ public class AdminUserManagementTests : IAsyncLifetime
     private IdentityDbContext NewContext() =>
         new(new DbContextOptionsBuilder<IdentityDbContext>().UseNpgsql(_cs).Options);
 
-    private static AdminUserService Service(IdentityDbContext db) => new(db, new FakeHasher(), new NoOpAuditRecorder());
+    private static AdminUserService Service(IdentityDbContext db, IPublishEndpoint? publisher = null) =>
+        new(db, new FakeHasher(), new NoOpAuditRecorder(), publisher ?? new FakePublishEndpoint());
 
     [Fact]
     public async Task Lists_users_in_the_tenant()
@@ -103,6 +106,52 @@ public class AdminUserManagementTests : IAsyncLifetime
         Assert.Null(await Service(db).ResetPasswordAsync(Tenant, Guid.NewGuid(), null, null, default));
     }
 
+    [Fact]
+    public async Task Verify_email_sets_flag_and_publishes_event_for_guest_order_attach()
+    {
+        // Seed an UNVERIFIED user to flip.
+        var unverifiedId = Guid.CreateVersion7();
+        await using (var seed = NewContext())
+        {
+            var principal = new Principal { Id = Guid.NewGuid(), Type = PrincipalType.Human, CreatedAt = DateTimeOffset.UtcNow };
+            seed.Principals.Add(principal);
+            seed.Users.Add(new User
+            {
+                Id = unverifiedId,
+                TenantId = Tenant,
+                PrincipalId = principal.Id,
+                Email = "unverified@example.test",
+                PasswordHash = "H",
+                Role = "customer",
+                EmailVerified = false,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var publisher = new FakePublishEndpoint();
+        await using (var db = NewContext())
+        {
+            Assert.True(await Service(db, publisher).VerifyEmailAsync(Tenant, unverifiedId, null, null, default));
+        }
+
+        await using var verify = NewContext();
+        var user = await verify.Users.AsNoTracking().SingleAsync(u => u.Id == unverifiedId);
+        Assert.True(user.EmailVerified);
+
+        // The SAME event the self-service flow publishes — this is what drives guest-order attachment (FR-7).
+        var evt = Assert.Single(publisher.Published.OfType<EmailVerified>());
+        Assert.Equal(unverifiedId, evt.UserId);
+        Assert.Equal("unverified@example.test", evt.Email);
+    }
+
+    [Fact]
+    public async Task Verify_unknown_user_returns_false()
+    {
+        await using var db = NewContext();
+        Assert.False(await Service(db).VerifyEmailAsync(Tenant, Guid.NewGuid(), null, null, default));
+    }
+
     private sealed class FakeHasher : IPasswordHasher
     {
         public string Hash(string password) => $"H:{password}";
@@ -113,5 +162,39 @@ public class AdminUserManagementTests : IAsyncLifetime
     private sealed class NoOpAuditRecorder : ThreeCommerce.BuildingBlocks.Infrastructure.Audit.IAuditRecorder
     {
         public Task RecordAsync(ThreeCommerce.BuildingBlocks.Infrastructure.Audit.AuditDraft draft, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    /// <summary>Minimal fake: captures typed publishes so the verify test can assert the EmailVerified event.</summary>
+    private sealed class FakePublishEndpoint : IPublishEndpoint
+    {
+        public readonly List<object> Published = [];
+
+        public Task Publish<T>(T message, CancellationToken cancellationToken = default) where T : class
+        {
+            Published.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task Publish<T>(T message, IPipe<PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class =>
+            Publish(message, cancellationToken);
+
+        public Task Publish<T>(T message, IPipe<PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class =>
+            Publish(message, cancellationToken);
+
+        public Task Publish(object message, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task Publish(object message, Type messageType, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task Publish(object message, IPipe<PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task Publish(object message, Type messageType, IPipe<PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task Publish<T>(object values, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+
+        public Task Publish<T>(object values, IPipe<PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+
+        public Task Publish<T>(object values, IPipe<PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+
+        public ConnectHandle ConnectPublishObserver(IPublishObserver observer) => throw new NotSupportedException();
     }
 }
