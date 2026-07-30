@@ -505,6 +505,10 @@
   <data name="Users.Col.Created" xml:space="preserve"><value>Created</value></data>
   <data name="Users.Reset" xml:space="preserve"><value>Reset password</value></data>
   <data name="Users.Reset.Tip" xml:space="preserve"><value>Issue a one-time temporary password.</value></data>
+  <data name="Users.Verify" xml:space="preserve"><value>Verify email</value></data>
+  <data name="Users.Verify.Tip" xml:space="preserve"><value>Manually mark this user's email verified (attaches any prior guest orders).</value></data>
+  <data name="Users.Status.Verified" xml:space="preserve"><value>Email verified — any prior guest orders are now attached.</value></data>
+  <data name="Users.Error.VerifyFailed" xml:space="preserve"><value>Verify failed ({0}).</value></data>
   <data name="Users.ChangeEmail" xml:space="preserve"><value>Change email</value></data>
   <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>Change this user's sign-in email.</value></data>
   <data name="Users.TempPassword" xml:space="preserve"><value>Temporary password (read out once):</value></data>

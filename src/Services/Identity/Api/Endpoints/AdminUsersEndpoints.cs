@@ -17,6 +17,7 @@ public static class AdminUsersEndpoints
 
         group.MapGet("/", List).WithSummary("List users in a tenant.");
         group.MapPost("/{id:guid}/reset-password", ResetPassword).WithSummary("Issue a one-time temporary password.");
+        group.MapPost("/{id:guid}/verify-email", VerifyEmail).WithSummary("Manually mark a user's email verified (operator fallback; attaches prior guest orders).");
         group.MapPut("/{id:guid}/email", ChangeEmail).WithSummary("Change a user's email (re-verification required).");
         return app;
     }
@@ -42,6 +43,20 @@ public static class AdminUsersEndpoints
         var (actorId, actorRole) = principal.AuditActor();
         var temporary = await service.ResetPasswordAsync(tenantId, id, actorId, actorRole, ct);
         return temporary is null ? TypedResults.NotFound() : TypedResults.Ok(new ResetPasswordResponse(temporary));
+    }
+
+    private static async Task<Results<NoContent, NotFound, ForbidHttpResult>> VerifyEmail(
+        Guid id, Guid tenantId, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct)
+    {
+        if (!InternalClaimsAuth.CanActForTenant(principal, tenantId))
+        {
+            return TypedResults.Forbid();
+        }
+
+        var (actorId, actorRole) = principal.AuditActor();
+        return await service.VerifyEmailAsync(tenantId, id, actorId, actorRole, ct)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
     }
 
     private static async Task<Results<NoContent, BadRequest<string>, ForbidHttpResult>> ChangeEmail(

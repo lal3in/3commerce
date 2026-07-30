@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Identity;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
@@ -14,7 +16,7 @@ namespace ThreeCommerce.Identity.Infrastructure;
 /// NOTE: gated by the admin role + an explicit tenantId today. True cross-tenant *global master* control
 /// should additionally require MasterGlobal (platform scope) — tracked as a follow-up.
 /// </summary>
-public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher, IAuditRecorder audit)
+public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher, IAuditRecorder audit, IPublishEndpoint publisher)
 {
     public async Task<List<AdminUserDto>> ListAsync(Guid tenantId, CancellationToken ct)
     {
@@ -47,6 +49,34 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
         return temporary;
+    }
+
+    /// <summary>
+    /// Operator fallback (aui_8): manually marks a user's email verified when the shopper can't complete
+    /// the emailed link. Publishes the SAME <see cref="EmailVerified"/> event the self-service flow does
+    /// (<c>AuthService.VerifyEmailAsync</c>), so any prior guest orders for this email are attached to the
+    /// account (FR-7). A raw DB flag flip skips that event and leaves order history out of sync — this
+    /// path is the safe one. Idempotent: re-verifying re-publishes (harmless; the sweep only claims orders
+    /// that are still unowned). Returns false only when the user isn't found in the tenant.
+    /// </summary>
+    public async Task<bool> VerifyEmailAsync(Guid tenantId, Guid userId, Guid? actorId, string? actorRole, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenantId), ct);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, ct);
+        if (user is null)
+        {
+            await scope.CommitAsync(ct);
+            return false;
+        }
+
+        user.EmailVerified = true;
+        // Enlisted in the EF outbox and flushed by SaveChangesAsync below — same ordering as AuthService.
+        await publisher.Publish(new EmailVerified(user.Id, user.Email), ct);
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, actorId, actorRole, "User", userId.ToString(), "identity.user.verify_email"), ct);
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return true;
     }
 
     /// <summary>Changes the user's email and marks it unverified (a fresh verification must follow).</summary>

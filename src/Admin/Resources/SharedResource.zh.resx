@@ -504,6 +504,10 @@
   <data name="Users.Col.Created" xml:space="preserve"><value>创建时间</value></data>
   <data name="Users.Reset" xml:space="preserve"><value>重置密码</value></data>
   <data name="Users.Reset.Tip" xml:space="preserve"><value>签发一个一次性临时密码。</value></data>
+  <data name="Users.Verify" xml:space="preserve"><value>验证邮箱</value></data>
+  <data name="Users.Verify.Tip" xml:space="preserve"><value>手动将该用户的邮箱标记为已验证（会关联之前的访客订单）。</value></data>
+  <data name="Users.Status.Verified" xml:space="preserve"><value>邮箱已验证 — 之前的访客订单已关联。</value></data>
+  <data name="Users.Error.VerifyFailed" xml:space="preserve"><value>验证失败（{0}）。</value></data>
   <data name="Users.ChangeEmail" xml:space="preserve"><value>更改邮箱</value></data>
   <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>更改此用户的登录邮箱。</value></data>
   <data name="Users.TempPassword" xml:space="preserve"><value>临时密码（仅读出一次）：</value></data>

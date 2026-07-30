@@ -504,6 +504,10 @@
   <data name="Users.Col.Created" xml:space="preserve"><value>建立日期</value></data>
   <data name="Users.Reset" xml:space="preserve"><value>重設密碼</value></data>
   <data name="Users.Reset.Tip" xml:space="preserve"><value>發出一個一次性臨時密碼。</value></data>
+  <data name="Users.Verify" xml:space="preserve"><value>驗證電郵</value></data>
+  <data name="Users.Verify.Tip" xml:space="preserve"><value>手動將此用戶嘅電郵標記為已驗證（會連結之前嘅訪客訂單）。</value></data>
+  <data name="Users.Status.Verified" xml:space="preserve"><value>電郵已驗證 — 之前嘅訪客訂單已連結。</value></data>
+  <data name="Users.Error.VerifyFailed" xml:space="preserve"><value>驗證失敗（{0}）。</value></data>
   <data name="Users.ChangeEmail" xml:space="preserve"><value>更改電郵</value></data>
   <data name="Users.ChangeEmail.Tip" xml:space="preserve"><value>更改呢個用戶嘅登入電郵。</value></data>
   <data name="Users.TempPassword" xml:space="preserve"><value>臨時密碼（只讀出一次）：</value></data>

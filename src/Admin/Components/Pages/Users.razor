@@ -43,6 +43,10 @@
                 <td style="text-align:center;">@(u.EmailVerified ? "✓" : "—")</td>
                 <td>@u.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
                 <td>
+                    @if (!u.EmailVerified)
+                    {
+                        <button @onclick="() => Verify(u.Id)" title="@L["Users.Verify.Tip"]" style="margin-right:.4rem;">@L["Users.Verify"]</button>
+                    }
                     <button @onclick="() => ResetPassword(u.Id)" title="@L["Users.Reset.Tip"]" style="margin-right:.4rem;">@L["Users.Reset"]</button>
                     <button @onclick="() => ToggleEmail(u.Id)" title="@L["Users.ChangeEmail.Tip"]">@L["Users.ChangeEmail"]</button>
                     @if (_resetFor == u.Id && _tempPassword is not null)
@@ -103,6 +107,19 @@
             _tempPassword = body?.TemporaryPassword;
         }
         else { _error = L["Users.Error.ResetFailed", (int)response.StatusCode]; }
+    }
+
+    private async Task Verify(Guid id)
+    {
+        _error = _status = _tempPassword = null;
+        _resetFor = _emailFor = null;
+        var response = await Gateway.PostAsync($"/api/identity/admin/users/{id}/verify-email?tenantId={Uri.EscapeDataString(_tenantId)}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync(); // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+            _status = L["Users.Status.Verified"];
+        }
+        else { _error = L["Users.Error.VerifyFailed", (int)response.StatusCode]; }
     }
 
     private void ToggleEmail(Guid id)
