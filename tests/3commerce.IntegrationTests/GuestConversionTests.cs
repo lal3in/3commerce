@@ -39,6 +39,29 @@ public class GuestConversionTests(Phase3Fixture fixture)
         Assert.Null(await fixture.OrderUserIdAsync(notMine));
     }
 
+    /// <summary>
+    /// The long-gap case: a guest buys, then registers an account with the same email a MONTH and a
+    /// YEAR later. Both old guest orders still attach on verification — the sweep matches on email +
+    /// "no owner yet", never on recency, so elapsed time is irrelevant.
+    /// </summary>
+    [Fact]
+    public async Task EmailVerified_attaches_guest_orders_placed_long_before_the_account_existed()
+    {
+        var email = $"late-signup-{Guid.NewGuid():N}@example.com";
+        var userId = Guid.CreateVersion7();
+
+        var aYearAgo = await fixture.SeedGuestOrderAsync(email, DateTimeOffset.UtcNow.AddYears(-1));
+        var aMonthAgo = await fixture.SeedGuestOrderAsync(email, DateTimeOffset.UtcNow.AddMonths(-1));
+
+        // The account is created and its email verified long after those orders were placed.
+        await fixture.PublishAsync(new EmailVerified(userId, email));
+
+        await WaitUntilAsync(async () => await fixture.OrderUserIdAsync(aYearAgo) is not null);
+
+        Assert.Equal(userId, await fixture.OrderUserIdAsync(aYearAgo));
+        Assert.Equal(userId, await fixture.OrderUserIdAsync(aMonthAgo));
+    }
+
     [Fact]
     public async Task EmailVerified_is_case_insensitive_on_email()
     {
