@@ -80,8 +80,12 @@ public sealed class Phase3Fixture : IAsyncLifetime
         _ = Ordering.Services;
     }
 
-    /// <summary>Seeds a guest order (no user) with a given email; returns its id.</summary>
-    public async Task<Guid> SeedGuestOrderAsync(string email)
+    /// <summary>
+    /// Seeds a guest order (no user) with a given email; returns its id. <paramref name="createdAt"/>
+    /// lets a test place the order in the past (e.g. a year before the account is created) to prove the
+    /// attach sweep is time-agnostic.
+    /// </summary>
+    public async Task<Guid> SeedGuestOrderAsync(string email, DateTimeOffset? createdAt = null)
     {
         var id = Guid.CreateVersion7();
         using var scope = Ordering.Services.CreateScope();
@@ -101,7 +105,7 @@ public sealed class Phase3Fixture : IAsyncLifetime
             ShipCity = "Berlin",
             ShipPostcode = "10115",
             ShipCountry = "DE",
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
         });
         await db.SaveChangesAsync();
         return id;
