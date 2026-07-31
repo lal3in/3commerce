@@ -36,10 +36,17 @@ export function RefundRequests({ orderId, refunds: initial }: { orderId: string;
         /* transient — try again next tick */
       }
     };
-    const id = setInterval(poll, 12000);
+    // Poll on an interval AND the moment the tab regains focus — so a status changed in another tab
+    // (e.g. an operator denying it in the admin portal) shows on return without waiting a full tick.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    const id = setInterval(poll, 8000);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [orderId]);
 

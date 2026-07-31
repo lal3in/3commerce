@@ -182,8 +182,12 @@ public static class TicketEndpoints
 
         static RmaRequestLine NewLine(Guid rmaId, OrderSnapshotLine l, int qty) => new()
         {
-            Id = Guid.CreateVersion7(), RmaId = rmaId, ProductId = l.ProductId,
-            Title = l.Title, Quantity = qty, UnitPriceMinor = l.UnitPriceMinor,
+            Id = Guid.CreateVersion7(),
+            RmaId = rmaId,
+            ProductId = l.ProductId,
+            Title = l.Title,
+            Quantity = qty,
+            UnitPriceMinor = l.UnitPriceMinor,
         };
     }
 

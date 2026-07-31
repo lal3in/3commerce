@@ -28,10 +28,17 @@ export function TicketHistory({ orderId, tickets: initialTickets }: { orderId: s
         /* transient — try again next tick */
       }
     };
-    const id = setInterval(poll, 12000);
+    // Poll on an interval AND the moment the tab regains focus — so an operator reply posted while the
+    // shopper was on another tab (e.g. the admin console) shows on return without waiting a full tick.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    const id = setInterval(poll, 8000);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [orderId]);
 
