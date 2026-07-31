@@ -1,0 +1,162 @@
+@page "/tickets"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>@L["Tickets.Title"]</h1>
+<p style="color:#6b7280;">@L["Tickets.Intro"]</p>
+
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+<div style="display:flex; gap:.5rem; align-items:center; margin:.8rem 0;">
+    <label>@L["Tickets.Filter"]
+        <select @bind="_filter" @bind:after="LoadAsync" title="@L["Tickets.Filter.Tip"]">
+            <option value="">@L["Tickets.Filter.All"]</option>
+            <option value="Open">@L["Tickets.Status.Open"]</option>
+            <option value="Closed">@L["Tickets.Status.Closed"]</option>
+        </select>
+    </label>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]">@L["Common.Refresh"]</button>
+</div>
+
+@if (_tickets is null)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else if (_tickets.Count == 0)
+{
+    <p style="color:#9ca3af;">@L["Tickets.Empty"]</p>
+}
+else
+{
+    <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">@L["Tickets.Col.Order"]</th><th>@L["Tickets.Col.Email"]</th><th>@L["Tickets.Col.Reason"]</th><th>@L["Tickets.Col.Status"]</th><th>@L["Tickets.Col.Messages"]</th><th>@L["Tickets.Col.Created"]</th><th>@L["Common.Actions"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var ticket in _tickets)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem; font-family:monospace; font-size:.8rem;">@ticket.OrderId.ToString()[..8]…</td>
+                <td>@ticket.Email</td>
+                <td>@ReasonLabel(ticket.Reason)</td>
+                <td>@StatusBadge(ticket)</td>
+                <td style="text-align:center;">@ticket.Messages.Count</td>
+                <td>@ticket.CreatedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</td>
+                <td><button @onclick="() => Toggle(ticket.Id)" title="@L["Tickets.View.Tip"]">@(_openId == ticket.Id ? L["Tickets.Hide"] : L["Tickets.View"])</button></td>
+            </tr>
+            @if (_openId == ticket.Id)
+            {
+                <tr><td colspan="7" style="background:#f9fafb; padding:.8rem;">
+                    <div style="max-width:52rem;">
+                        <div style="display:flex; flex-direction:column; gap:.5rem; margin-bottom:.8rem;">
+                            @foreach (var m in ticket.Messages)
+                            {
+                                var mine = m.Author == "Operator";
+                                <div style="align-self:@(mine ? "flex-end" : "flex-start"); max-width:80%; background:@(mine ? "#dbeafe" : "#fff"); border:1px solid #e5e7eb; border-radius:8px; padding:.5rem .7rem;">
+                                    <div style="font-size:.7rem; color:#6b7280; margin-bottom:.15rem;">@AuthorLabel(m.Author) · @m.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</div>
+                                    <div style="white-space:pre-wrap;">@m.Body</div>
+                                </div>
+                            }
+                        </div>
+                        <div style="display:flex; gap:.4rem; align-items:flex-start;">
+                            <textarea @bind="_reply" @bind:event="oninput" placeholder="@L["Tickets.Reply.Placeholder"]" title="@L["Tickets.Reply.Tip"]" rows="2" style="flex:1; padding:.4rem; border:1px solid #d1d5db; border-radius:6px;"></textarea>
+                            <button disabled="@(_busy || string.IsNullOrWhiteSpace(_reply))" @onclick="() => Reply(ticket.Id)" title="@L["Tickets.Reply.Send.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Tickets.Reply.Send"]</button>
+                            @if (ticket.Status == "Open")
+                            {
+                                <button disabled="@_busy" @onclick="() => SetStatus(ticket.Id, TicketClosed)" title="@L["Tickets.Close.Tip"]" style="padding:.45rem .8rem;">@L["Tickets.Close"]</button>
+                            }
+                            else
+                            {
+                                <button disabled="@_busy" @onclick="() => SetStatus(ticket.Id, TicketOpen)" title="@L["Tickets.Reopen.Tip"]" style="padding:.45rem .8rem;">@L["Tickets.Reopen"]</button>
+                            }
+                        </div>
+                    </div>
+                </td></tr>
+            }
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private const string TicketOpen = "Open";
+    private const string TicketClosed = "Closed";
+    private List<TicketDto>? _tickets;
+    private string _filter = string.Empty;
+    private Guid? _openId;
+    private string _reply = string.Empty;
+    private bool _busy;
+    private string? _error;
+    private string? _status;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        var url = "/api/support/admin/tickets" + (string.IsNullOrEmpty(_filter) ? "" : $"?status={_filter}");
+        try { _tickets = await Gateway.GetListAsync<TicketDto>(url); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void Toggle(Guid id)
+    {
+        _openId = _openId == id ? null : id;
+        _reply = string.Empty;
+    }
+
+    private async Task Reply(Guid id)
+    {
+        if (string.IsNullOrWhiteSpace(_reply)) { return; }
+        _busy = true; _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/support/admin/tickets/{id}/reply", new { body = _reply });
+        if (response.IsSuccessStatusCode)
+        {
+            _reply = string.Empty;
+            await LoadAsync();
+            _status = L["Tickets.Status.Replied"]; // set AFTER LoadAsync, which clears _status
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+        _busy = false;
+    }
+
+    private async Task SetStatus(Guid id, string status)
+    {
+        _busy = true; _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/support/admin/tickets/{id}/status", new { status });
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = L[status == "Closed" ? "Tickets.Status.Closed.Done" : "Tickets.Status.Reopened.Done"];
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+        _busy = false;
+    }
+
+    private string ReasonLabel(string reason) => reason switch
+    {
+        "WhereIsIt" => L["Tickets.Reason.WhereIsIt"],
+        "Damaged" => L["Tickets.Reason.Damaged"],
+        "RefundRequest" => L["Tickets.Reason.RefundRequest"],
+        _ => L["Tickets.Reason.Other"],
+    };
+
+    private string AuthorLabel(string author) =>
+        author == "Operator" ? L["Tickets.Author.Operator"] : L["Tickets.Author.Customer"];
+
+    private RenderFragment StatusBadge(TicketDto t) => builder =>
+    {
+        var open = t.Status == "Open";
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "style", $"display:inline-block; padding:.05rem .45rem; border-radius:999px; font-size:.72rem; font-weight:600; color:{(open ? "#047857" : "#6b7280")}; background:{(open ? "#d1fae5" : "#f3f4f6")};");
+        builder.AddContent(2, open ? L["Tickets.Status.Open"] : L["Tickets.Status.Closed"]);
+        builder.CloseElement();
+    };
+
+    public record MessageDto(string Author, string Body, DateTimeOffset CreatedAt);
+    public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages);
+}

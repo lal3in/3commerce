@@ -1407,4 +1407,40 @@
   <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
     <value>Commandes confirmées avec un remboursement partiel. Remboursée + Partiellement remboursée correspondent au nombre RefundIssued de la file RMA.</value>
   </data>
+  <data name="Nav.Tickets" xml:space="preserve"><value>Tickets d'assistance</value></data>
+  <data name="Nav.Tickets.Tip" xml:space="preserve"><value>Lire et répondre aux tickets d'assistance client.</value></data>
+  <data name="Tickets.Title" xml:space="preserve"><value>Tickets d'assistance</value></data>
+  <data name="Tickets.Intro" xml:space="preserve"><value>Tous les tickets d'assistance. Ouvrez-en un pour lire le fil, répondre et le fermer.</value></data>
+  <data name="Tickets.Filter" xml:space="preserve"><value>Statut</value></data>
+  <data name="Tickets.Filter.Tip" xml:space="preserve"><value>Filtrer les tickets par statut.</value></data>
+  <data name="Tickets.Filter.All" xml:space="preserve"><value>Tous</value></data>
+  <data name="Tickets.Col.Order" xml:space="preserve"><value>Commande</value></data>
+  <data name="Tickets.Col.Email" xml:space="preserve"><value>Client</value></data>
+  <data name="Tickets.Col.Reason" xml:space="preserve"><value>Motif</value></data>
+  <data name="Tickets.Col.Status" xml:space="preserve"><value>Statut</value></data>
+  <data name="Tickets.Col.Messages" xml:space="preserve"><value>Messages</value></data>
+  <data name="Tickets.Col.Created" xml:space="preserve"><value>Ouvert</value></data>
+  <data name="Tickets.Empty" xml:space="preserve"><value>Aucun ticket.</value></data>
+  <data name="Tickets.View" xml:space="preserve"><value>Voir</value></data>
+  <data name="Tickets.View.Tip" xml:space="preserve"><value>Ouvrir le fil du ticket.</value></data>
+  <data name="Tickets.Hide" xml:space="preserve"><value>Masquer</value></data>
+  <data name="Tickets.Reply.Placeholder" xml:space="preserve"><value>Écrire une réponse au client…</value></data>
+  <data name="Tickets.Reply.Tip" xml:space="preserve"><value>Votre réponse est envoyée au client en tant qu'agent d'assistance.</value></data>
+  <data name="Tickets.Reply.Send" xml:space="preserve"><value>Envoyer la réponse</value></data>
+  <data name="Tickets.Reply.Send.Tip" xml:space="preserve"><value>Publier cette réponse sur le ticket.</value></data>
+  <data name="Tickets.Close" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Tickets.Close.Tip" xml:space="preserve"><value>Marquer ce ticket comme résolu et fermé.</value></data>
+  <data name="Tickets.Reopen" xml:space="preserve"><value>Rouvrir</value></data>
+  <data name="Tickets.Reopen.Tip" xml:space="preserve"><value>Rouvrir ce ticket.</value></data>
+  <data name="Tickets.Status.Open" xml:space="preserve"><value>Ouvert</value></data>
+  <data name="Tickets.Status.Closed" xml:space="preserve"><value>Fermé</value></data>
+  <data name="Tickets.Status.Replied" xml:space="preserve"><value>Réponse envoyée.</value></data>
+  <data name="Tickets.Status.Closed.Done" xml:space="preserve"><value>Ticket fermé.</value></data>
+  <data name="Tickets.Status.Reopened.Done" xml:space="preserve"><value>Ticket rouvert.</value></data>
+  <data name="Tickets.Reason.WhereIsIt" xml:space="preserve"><value>Où est ma commande ?</value></data>
+  <data name="Tickets.Reason.Damaged" xml:space="preserve"><value>Endommagé / défectueux</value></data>
+  <data name="Tickets.Reason.RefundRequest" xml:space="preserve"><value>Demande de remboursement</value></data>
+  <data name="Tickets.Reason.Other" xml:space="preserve"><value>Autre</value></data>
+  <data name="Tickets.Author.Customer" xml:space="preserve"><value>Client</value></data>
+  <data name="Tickets.Author.Operator" xml:space="preserve"><value>Assistance</value></data>
 </root>

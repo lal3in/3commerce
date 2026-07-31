@@ -1407,4 +1407,40 @@
   <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
     <value>有部分退款嘅已確認訂單。已退款 + 部分退款 加埋等於 RMA 隊列嘅 RefundIssued 數目。</value>
   </data>
+  <data name="Nav.Tickets" xml:space="preserve"><value>支援工單</value></data>
+  <data name="Nav.Tickets.Tip" xml:space="preserve"><value>閱讀同回覆客戶支援工單。</value></data>
+  <data name="Tickets.Title" xml:space="preserve"><value>支援工單</value></data>
+  <data name="Tickets.Intro" xml:space="preserve"><value>所有客戶支援工單。開啟一個以閱讀對話、回覆並關閉。</value></data>
+  <data name="Tickets.Filter" xml:space="preserve"><value>狀態</value></data>
+  <data name="Tickets.Filter.Tip" xml:space="preserve"><value>按狀態篩選工單。</value></data>
+  <data name="Tickets.Filter.All" xml:space="preserve"><value>全部</value></data>
+  <data name="Tickets.Col.Order" xml:space="preserve"><value>訂單</value></data>
+  <data name="Tickets.Col.Email" xml:space="preserve"><value>客戶</value></data>
+  <data name="Tickets.Col.Reason" xml:space="preserve"><value>原因</value></data>
+  <data name="Tickets.Col.Status" xml:space="preserve"><value>狀態</value></data>
+  <data name="Tickets.Col.Messages" xml:space="preserve"><value>訊息</value></data>
+  <data name="Tickets.Col.Created" xml:space="preserve"><value>開啟時間</value></data>
+  <data name="Tickets.Empty" xml:space="preserve"><value>冇工單。</value></data>
+  <data name="Tickets.View" xml:space="preserve"><value>檢視</value></data>
+  <data name="Tickets.View.Tip" xml:space="preserve"><value>開啟工單對話。</value></data>
+  <data name="Tickets.Hide" xml:space="preserve"><value>隱藏</value></data>
+  <data name="Tickets.Reply.Placeholder" xml:space="preserve"><value>撰寫回覆畀客戶…</value></data>
+  <data name="Tickets.Reply.Tip" xml:space="preserve"><value>你嘅回覆會以支援人員身份發送畀客戶。</value></data>
+  <data name="Tickets.Reply.Send" xml:space="preserve"><value>發送回覆</value></data>
+  <data name="Tickets.Reply.Send.Tip" xml:space="preserve"><value>將此回覆貼到工單。</value></data>
+  <data name="Tickets.Close" xml:space="preserve"><value>關閉</value></data>
+  <data name="Tickets.Close.Tip" xml:space="preserve"><value>將此工單標記為已解決並關閉。</value></data>
+  <data name="Tickets.Reopen" xml:space="preserve"><value>重新開啟</value></data>
+  <data name="Tickets.Reopen.Tip" xml:space="preserve"><value>重新開啟此工單。</value></data>
+  <data name="Tickets.Status.Open" xml:space="preserve"><value>開啟</value></data>
+  <data name="Tickets.Status.Closed" xml:space="preserve"><value>已關閉</value></data>
+  <data name="Tickets.Status.Replied" xml:space="preserve"><value>回覆已發送。</value></data>
+  <data name="Tickets.Status.Closed.Done" xml:space="preserve"><value>工單已關閉。</value></data>
+  <data name="Tickets.Status.Reopened.Done" xml:space="preserve"><value>工單已重新開啟。</value></data>
+  <data name="Tickets.Reason.WhereIsIt" xml:space="preserve"><value>我嘅訂單喺邊？</value></data>
+  <data name="Tickets.Reason.Damaged" xml:space="preserve"><value>損壞／有缺陷</value></data>
+  <data name="Tickets.Reason.RefundRequest" xml:space="preserve"><value>退款請求</value></data>
+  <data name="Tickets.Reason.Other" xml:space="preserve"><value>其他</value></data>
+  <data name="Tickets.Author.Customer" xml:space="preserve"><value>客戶</value></data>
+  <data name="Tickets.Author.Operator" xml:space="preserve"><value>支援</value></data>
 </root>
