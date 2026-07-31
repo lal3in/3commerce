@@ -7,11 +7,14 @@ name: 3commerce-db
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     container_name: 3commerce-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev
+      # Postgres 18's image moved its default data dir; pin PGDATA to a subdir of our mounted volume so
+      # the layout is explicit and identical across major versions (avoids the "unused mount/volume" refusal).
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:

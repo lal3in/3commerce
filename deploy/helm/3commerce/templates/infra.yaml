@@ -34,6 +34,10 @@ spec:
               value: postgres
             - name: POSTGRES_PASSWORD
               value: {{ .Values.postgres.password | quote }}
+            # Postgres 18's image moved its default data dir; pin PGDATA to a subdir of the mount so the
+            # layout is explicit and identical across major versions (avoids the "unused mount/volume" refusal).
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           ports:
             - containerPort: 5432
           volumeMounts:
