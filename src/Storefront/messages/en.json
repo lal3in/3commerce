@@ -456,5 +456,21 @@
       "marketing": "Turn campaign attribution on or off.",
       "saveChoices": "Apply these choices to this browser immediately."
     }
+  },
+  "reviews": {
+    "title": "Ratings & reviews",
+    "count": "{count, plural, one {# review} other {# reviews}}",
+    "none": "No reviews yet.",
+    "writeTitle": "Write a review",
+    "yourRating": "Your rating",
+    "commentPlaceholder": "Share your experience (optional)…",
+    "submit": "Submit review",
+    "submitting": "Submitting…",
+    "thanks": "Thanks for your review!",
+    "signIn": "Sign in",
+    "notice": {
+      "anon": "to leave a review.",
+      "unverified": "Verify your email address to leave a review."
+    }
   }
 }

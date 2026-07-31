@@ -1,0 +1,76 @@
+@page "/reviews"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>@L["Reviews.Title"]</h1>
+<p style="color:#6b7280;">@L["Reviews.Intro"]</p>
+
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+<div style="margin:.6rem 0;"><button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]">@L["Common.Refresh"]</button></div>
+
+@if (_reviews is null)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else if (_reviews.Count == 0)
+{
+    <p style="color:#9ca3af;">@L["Reviews.Empty"]</p>
+}
+else
+{
+    <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">@L["Reviews.Col.Product"]</th><th>@L["Reviews.Col.Rating"]</th><th>@L["Reviews.Col.Author"]</th><th>@L["Reviews.Col.Comment"]</th><th>@L["Reviews.Col.Created"]</th><th>@L["Common.Actions"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var r in _reviews)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@r.ProductName</td>
+                <td style="color:#f59e0b; white-space:nowrap;">@(new string('★', r.Rating))<span style="color:#d1d5db;">@(new string('★', 5 - r.Rating))</span></td>
+                <td>@r.AuthorName</td>
+                <td style="max-width:24rem;">@r.Comment</td>
+                <td style="white-space:nowrap;">@r.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
+                <td><button @onclick="() => Delete(r.Id)" title="@L["Reviews.Delete.Tip"]" style="color:#b91c1c;">@(_confirm == r.Id ? L["Common.Confirm"] : L["Reviews.Delete"])</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<AdminReviewDto>? _reviews;
+    private Guid? _confirm;
+    private string? _error;
+    private string? _status;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        _confirm = null;
+        try { _reviews = await Gateway.GetListAsync<AdminReviewDto>("/api/catalog/admin/reviews"); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Delete(Guid id)
+    {
+        if (_confirm != id) { _confirm = id; return; }
+        _confirm = null;
+        var response = await Gateway.DeleteAsync($"/api/catalog/admin/reviews/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = L["Reviews.Deleted"]; // after LoadAsync — it clears _status
+        }
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    public record AdminReviewDto(Guid Id, Guid ProductId, string ProductName, string ProductSlug, string AuthorName, int Rating, string? Comment, DateTimeOffset CreatedAt);
+}

@@ -456,5 +456,21 @@
       "marketing": "开启或关闭活动归因。",
       "saveChoices": "立即将这些选择应用到此浏览器。"
     }
+  },
+  "reviews": {
+    "title": "评分与评价",
+    "count": "{count} 条评价",
+    "none": "暂无评价。",
+    "writeTitle": "撰写评价",
+    "yourRating": "您的评分",
+    "commentPlaceholder": "分享您的体验（选填）…",
+    "submit": "提交评价",
+    "submitting": "提交中…",
+    "thanks": "感谢您的评价！",
+    "signIn": "登录",
+    "notice": {
+      "anon": "以留下评价。",
+      "unverified": "请验证您的电子邮箱以留下评价。"
+    }
   }
 }

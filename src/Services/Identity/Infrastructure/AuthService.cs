@@ -260,7 +260,7 @@ public sealed class AuthService(
             .Where(x => x.User.TenantId != null)
             .Select(x => new SessionInfo(
                 x.Session.Id, x.User.Id, x.User.TenantId!.Value, x.User.Role, x.User.Email, x.Session.ExpiresAt,
-                x.Session.StrongAuthAt, x.Session.StrongAuthAt != null ? "pwd otp" : "pwd"))
+                x.Session.StrongAuthAt, x.Session.StrongAuthAt != null ? "pwd otp" : "pwd", x.User.EmailVerified))
             .SingleOrDefaultAsync(ct);
 
         await scope.CommitAsync(ct);

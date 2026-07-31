@@ -1443,4 +1443,17 @@
   <data name="Tickets.Reason.Other" xml:space="preserve"><value>Otro</value></data>
   <data name="Tickets.Author.Customer" xml:space="preserve"><value>Cliente</value></data>
   <data name="Tickets.Author.Operator" xml:space="preserve"><value>Soporte</value></data>
+  <data name="Nav.Reviews" xml:space="preserve"><value>Reseñas</value></data>
+  <data name="Nav.Reviews.Tip" xml:space="preserve"><value>Modera valoraciones y reseñas.</value></data>
+  <data name="Reviews.Title" xml:space="preserve"><value>Reseñas de productos</value></data>
+  <data name="Reviews.Intro" xml:space="preserve"><value>Todas las valoraciones de clientes. Elimina las que infrinjan la política.</value></data>
+  <data name="Reviews.Col.Product" xml:space="preserve"><value>Producto</value></data>
+  <data name="Reviews.Col.Rating" xml:space="preserve"><value>Valoración</value></data>
+  <data name="Reviews.Col.Author" xml:space="preserve"><value>Autor</value></data>
+  <data name="Reviews.Col.Comment" xml:space="preserve"><value>Comentario</value></data>
+  <data name="Reviews.Col.Created" xml:space="preserve"><value>Fecha</value></data>
+  <data name="Reviews.Delete" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Reviews.Delete.Tip" xml:space="preserve"><value>Elimina esta reseña (moderación).</value></data>
+  <data name="Reviews.Empty" xml:space="preserve"><value>Aún no hay reseñas.</value></data>
+  <data name="Reviews.Deleted" xml:space="preserve"><value>Reseña eliminada.</value></data>
 </root>

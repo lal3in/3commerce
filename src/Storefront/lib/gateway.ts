@@ -257,6 +257,15 @@ export async function getRefundableOrder(orderId: string): Promise<RefundableOrd
   return response.ok ? ((await response.json()) as RefundableOrder) : null;
 }
 
+export type ProductReview = { id: string; authorName: string; rating: number; comment: string | null; createdAt: string };
+export type ReviewSummary = { productId: string; average: number; count: number; items: ProductReview[] };
+
+// Public — everyone (incl. guests) sees a product's ratings & reviews.
+export async function getProductReviews(productId: string): Promise<ReviewSummary> {
+  const response = await gatewayFetch(`/api/catalog/products/${productId}/reviews`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as ReviewSummary) : { productId, average: 0, count: 0, items: [] };
+}
+
 export type TicketMessage = { author: string; body: string; createdAt: string };
 export type OrderTicket = { id: string; orderId: string; email: string; reason: string; status: string; createdAt: string; messages: TicketMessage[] };
 
