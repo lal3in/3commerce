@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
 
 // "Report a problem" + refund request (pending-first; components.md). Typed reasons per ADR-0018.
 // The refund amount is derived server-side from the selected lines (BL-8) — never client input.
-export function SupportForms({ orderId, refundable }: { orderId: string; refundable: RefundableOrder | null }) {
+export function SupportForms({ orderId, refundable, email }: { orderId: string; refundable: RefundableOrder | null; email: string }) {
   const t = useTranslations("support");
   const [ticketState, ticketAction, ticketPending] = useActionState<SupportState, FormData>(openTicket, {});
   const [rmaState, rmaAction, rmaPending] = useActionState<SupportState, FormData>(requestRefund, {});
@@ -20,16 +20,22 @@ export function SupportForms({ orderId, refundable }: { orderId: string; refunda
         {ticketState.error && <p className="text-sm text-red-600">{ticketState.error}</p>}
         {ticketState.ok && <p className="text-sm text-green-700">{t("ticketOpened")}</p>}
         <input type="hidden" name="orderId" value={orderId} />
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder={t("yourEmail")}
-          aria-label={t("yourEmail")}
-          title={t("tips.email")}
-          aria-describedby="ticket-email-tip"
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-        />
+        {/* Email is the signed-in customer's verified address — pre-filled and read-only (they can't
+            change who the ticket is from). Still submitted via the field so the server payload is unchanged. */}
+        <label className="block text-sm text-neutral-600" title={t("tips.email")}>
+          {t("yourEmail")}
+          <input
+            name="email"
+            type="email"
+            required
+            readOnly
+            value={email}
+            aria-label={t("yourEmail")}
+            title={t("tips.email")}
+            aria-describedby="ticket-email-tip"
+            className="mt-1 w-full rounded border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm text-neutral-600"
+          />
+        </label>
         <span id="ticket-email-tip" className="sr-only">{t("tips.email")}</span>
         {/* Numeric on the wire (ADR-0018 SupportReason) — only the label is localized. */}
         <select

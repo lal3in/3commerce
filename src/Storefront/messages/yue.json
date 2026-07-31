@@ -403,8 +403,19 @@
       "openTicket": "將呢個傳去客戶服務。你會收到一封有個案編號嘅電郵。",
       "refundQuantity": "呢件貨品要退幾多。全部行留喺 0 就退整張訂單。",
       "refundReason": "你申請退款嘅原因——會由客服人員審核。",
-      "submitRefund": "提交退款要求俾人審核。"
-    }
+      "submitRefund": "提交退款要求俾人審核。",
+      "sendReply": "將此回覆發送畀支援。"
+    },
+    "history": {
+      "title": "你嘅請求"
+    },
+    "statusOpen": "開啟",
+    "statusClosed": "已關閉",
+    "authorYou": "你",
+    "authorSupport": "支援",
+    "replyPlaceholder": "撰寫回覆…",
+    "sendReply": "發送",
+    "threadClosed": "此請求已關閉。如仍需協助，請喺下面開啟新請求。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",

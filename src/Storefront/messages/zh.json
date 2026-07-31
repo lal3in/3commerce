@@ -403,8 +403,19 @@
       "openTicket": "将此发送给客服。您会收到含工单编号的邮件。",
       "refundQuantity": "要退款的此商品数量。将每一条都保留为 0 则退整单。",
       "refundReason": "您申请退款的原因——将由客服人员审核。",
-      "submitRefund": "提交退款申请以供审核。"
-    }
+      "submitRefund": "提交退款申请以供审核。",
+      "sendReply": "将此回复发送给支持。"
+    },
+    "history": {
+      "title": "您的请求"
+    },
+    "statusOpen": "开启",
+    "statusClosed": "已关闭",
+    "authorYou": "您",
+    "authorSupport": "支持",
+    "replyPlaceholder": "撰写回复…",
+    "sendReply": "发送",
+    "threadClosed": "此请求已关闭。如仍需帮助，请在下面开启新请求。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",

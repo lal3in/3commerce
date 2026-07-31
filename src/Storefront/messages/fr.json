@@ -403,8 +403,19 @@
       "openTicket": "Envoyez ceci au support. Vous recevrez un e-mail avec la référence du ticket.",
       "refundQuantity": "Combien d'exemplaires de cet article rembourser. Laissez chaque ligne à 0 pour rembourser toute la commande.",
       "refundReason": "Pourquoi vous demandez un remboursement — ceci est examiné par un agent.",
-      "submitRefund": "Soumettre la demande de remboursement pour examen."
-    }
+      "submitRefund": "Soumettre la demande de remboursement pour examen.",
+      "sendReply": "Envoyer cette réponse à l'assistance."
+    },
+    "history": {
+      "title": "Vos demandes"
+    },
+    "statusOpen": "Ouvert",
+    "statusClosed": "Fermé",
+    "authorYou": "Vous",
+    "authorSupport": "Assistance",
+    "replyPlaceholder": "Écrire une réponse…",
+    "sendReply": "Envoyer",
+    "threadClosed": "Cette demande est fermée. Ouvrez-en une nouvelle ci-dessous si vous avez encore besoin d'aide."
   },
   "consent": {
     "bannerLabel": "Consentement aux cookies",

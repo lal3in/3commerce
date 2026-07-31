@@ -403,8 +403,19 @@
       "openTicket": "Send this to support. You'll get an email with the ticket reference.",
       "refundQuantity": "How many of this item to refund. Leave every line at 0 to refund the whole order.",
       "refundReason": "Why you're requesting a refund — this is reviewed by an agent.",
-      "submitRefund": "Submit the refund request for review."
-    }
+      "submitRefund": "Submit the refund request for review.",
+      "sendReply": "Send this reply to support."
+    },
+    "history": {
+      "title": "Your requests"
+    },
+    "statusOpen": "Open",
+    "statusClosed": "Closed",
+    "authorYou": "You",
+    "authorSupport": "Support",
+    "replyPlaceholder": "Write a reply…",
+    "sendReply": "Send",
+    "threadClosed": "This request is closed. Open a new one below if you still need help."
   },
   "consent": {
     "bannerLabel": "Cookie consent",

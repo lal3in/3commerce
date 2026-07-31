@@ -403,8 +403,19 @@
       "openTicket": "Envíe esto a soporte. Recibirá un correo con la referencia del ticket.",
       "refundQuantity": "Cuántas unidades de este artículo desea reembolsar. Deje cada línea en 0 para reembolsar el pedido completo.",
       "refundReason": "Por qué solicita un reembolso: esto lo revisa un agente.",
-      "submitRefund": "Enviar la solicitud de reembolso para su revisión."
-    }
+      "submitRefund": "Enviar la solicitud de reembolso para su revisión.",
+      "sendReply": "Envía esta respuesta a soporte."
+    },
+    "history": {
+      "title": "Tus solicitudes"
+    },
+    "statusOpen": "Abierto",
+    "statusClosed": "Cerrado",
+    "authorYou": "Tú",
+    "authorSupport": "Soporte",
+    "replyPlaceholder": "Escribe una respuesta…",
+    "sendReply": "Enviar",
+    "threadClosed": "Esta solicitud está cerrada. Abre una nueva abajo si aún necesitas ayuda."
   },
   "consent": {
     "bannerLabel": "Consentimiento de cookies",

@@ -256,3 +256,12 @@ export async function getRefundableOrder(orderId: string): Promise<RefundableOrd
   const response = await gatewayFetch(`/api/support/orders/${orderId}/lines`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as RefundableOrder) : null;
 }
+
+export type TicketMessage = { author: string; body: string; createdAt: string };
+export type OrderTicket = { id: string; orderId: string; email: string; reason: string; status: string; createdAt: string; messages: TicketMessage[] };
+
+// The signed-in customer's support tickets for one order — their "history chat" per request.
+export async function getOrderTickets(orderId: string): Promise<OrderTicket[]> {
+  const response = await gatewayFetch(`/api/support/tickets/by-order/${orderId}`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as OrderTicket[]) : [];
+}
