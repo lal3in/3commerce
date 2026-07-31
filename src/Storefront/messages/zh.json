@@ -417,7 +417,13 @@
     "sendReply": "发送",
     "threadClosed": "此请求已关闭。如仍需帮助，请在下面开启新请求。",
     "attach": "附加文件（选填）",
-    "attachHint": "图片或 PDF，最多 10 MB。"
+    "attachHint": "图片或 PDF，最多 10 MB。",
+    "collapse": "收起",
+    "expand": "展开",
+    "collapseForm": "收起",
+    "expandForm": "新增一个",
+    "messageCount": "{count} 条消息",
+    "fullyRefunded": "此订单的所有商品都已申请退款。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "以留下评价。",
       "unverified": "请验证您的电子邮箱以留下评价。"
+    }
+  },
+  "refunds": {
+    "title": "您的退款申请",
+    "expand": "展开",
+    "collapse": "收起",
+    "reasonLabel": "原因",
+    "status": {
+      "requested": "已申请",
+      "awaitingReturn": "等待退货",
+      "processing": "退款处理中",
+      "denied": "已拒绝",
+      "refunded": "已退款"
     }
   }
 }

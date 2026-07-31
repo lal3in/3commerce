@@ -417,7 +417,13 @@
     "sendReply": "Enviar",
     "threadClosed": "Esta solicitud está cerrada. Abre una nueva abajo si aún necesitas ayuda.",
     "attach": "Adjuntar un archivo (opcional)",
-    "attachHint": "Imágenes o PDF, hasta 10 MB."
+    "attachHint": "Imágenes o PDF, hasta 10 MB.",
+    "collapse": "Contraer",
+    "expand": "Expandir",
+    "collapseForm": "Contraer",
+    "expandForm": "Añadir uno",
+    "messageCount": "{count, plural, one {# mensaje} other {# mensajes}}",
+    "fullyRefunded": "Ya se ha solicitado el reembolso de todos los artículos de este pedido."
   },
   "consent": {
     "bannerLabel": "Consentimiento de cookies",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "para dejar una reseña.",
       "unverified": "Verifica tu correo electrónico para dejar una reseña."
+    }
+  },
+  "refunds": {
+    "title": "Tus solicitudes de reembolso",
+    "expand": "Expandir",
+    "collapse": "Contraer",
+    "reasonLabel": "Motivo",
+    "status": {
+      "requested": "Solicitado",
+      "awaitingReturn": "Esperando devolución",
+      "processing": "Procesando reembolso",
+      "denied": "Denegado",
+      "refunded": "Reembolsado"
     }
   }
 }

@@ -417,7 +417,13 @@
     "sendReply": "發送",
     "threadClosed": "此請求已關閉。如仍需協助，請喺下面開啟新請求。",
     "attach": "附加檔案（選填）",
-    "attachHint": "圖片或 PDF，最多 10 MB。"
+    "attachHint": "圖片或 PDF，最多 10 MB。",
+    "collapse": "收起",
+    "expand": "展開",
+    "collapseForm": "收起",
+    "expandForm": "新增一個",
+    "messageCount": "{count} 則訊息",
+    "fullyRefunded": "呢張訂單所有貨品都已經申請咗退款。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "以留下評價。",
       "unverified": "請驗證你嘅電郵地址以留下評價。"
+    }
+  },
+  "refunds": {
+    "title": "你嘅退款申請",
+    "expand": "展開",
+    "collapse": "收起",
+    "reasonLabel": "原因",
+    "status": {
+      "requested": "已申請",
+      "awaitingReturn": "等緊退貨",
+      "processing": "退款處理中",
+      "denied": "已拒絕",
+      "refunded": "已退款"
     }
   }
 }

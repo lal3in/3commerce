@@ -275,3 +275,21 @@ export async function getOrderTickets(orderId: string): Promise<OrderTicket[]> {
   const response = await gatewayFetch(`/api/support/tickets/by-order/${orderId}`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as OrderTicket[]) : [];
 }
+
+export type CustomerRmaLine = { productId: string; title: string; quantity: number; unitPriceMinor: number };
+// state is the RMA saga state: Requested | AwaitingReturn | RefundPending | Denied | RefundIssued.
+export type CustomerRma = {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  state: string;
+  createdAt: string;
+  lines: CustomerRmaLine[];
+};
+
+// The signed-in customer's refund/return requests for one order, with their live lifecycle status.
+export async function getOrderRefunds(orderId: string): Promise<CustomerRma[]> {
+  const response = await gatewayFetch(`/api/support/tickets/rmas/by-order/${orderId}`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as CustomerRma[]) : [];
+}

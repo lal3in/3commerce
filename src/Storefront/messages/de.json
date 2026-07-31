@@ -417,7 +417,13 @@
     "sendReply": "Senden",
     "threadClosed": "Diese Anfrage ist geschlossen. Öffnen Sie unten eine neue, wenn Sie weiterhin Hilfe benötigen.",
     "attach": "Datei anhängen (optional)",
-    "attachHint": "Bilder oder PDF, bis 10 MB."
+    "attachHint": "Bilder oder PDF, bis 10 MB.",
+    "collapse": "Einklappen",
+    "expand": "Ausklappen",
+    "collapseForm": "Einklappen",
+    "expandForm": "Neu hinzufügen",
+    "messageCount": "{count, plural, one {# Nachricht} other {# Nachrichten}}",
+    "fullyRefunded": "Für alle Artikel dieser Bestellung wurde bereits eine Rückerstattung angefragt."
   },
   "consent": {
     "bannerLabel": "Cookie-Einwilligung",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "um eine Bewertung abzugeben.",
       "unverified": "Verifizieren Sie Ihre E-Mail-Adresse, um eine Bewertung abzugeben."
+    }
+  },
+  "refunds": {
+    "title": "Ihre Rückerstattungsanfragen",
+    "expand": "Ausklappen",
+    "collapse": "Einklappen",
+    "reasonLabel": "Grund",
+    "status": {
+      "requested": "Angefragt",
+      "awaitingReturn": "Warten auf Rücksendung",
+      "processing": "Rückerstattung in Bearbeitung",
+      "denied": "Abgelehnt",
+      "refunded": "Erstattet"
     }
   }
 }

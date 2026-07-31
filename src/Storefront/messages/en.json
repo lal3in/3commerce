@@ -417,7 +417,13 @@
     "sendReply": "Send",
     "threadClosed": "This request is closed. Open a new one below if you still need help.",
     "attach": "Attach a file (optional)",
-    "attachHint": "Images or PDF, up to 10 MB."
+    "attachHint": "Images or PDF, up to 10 MB.",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "collapseForm": "Collapse",
+    "expandForm": "Add one",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "fullyRefunded": "A refund has already been requested for everything on this order."
   },
   "consent": {
     "bannerLabel": "Cookie consent",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "to leave a review.",
       "unverified": "Verify your email address to leave a review."
+    }
+  },
+  "refunds": {
+    "title": "Your refund requests",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "reasonLabel": "Reason",
+    "status": {
+      "requested": "Requested",
+      "awaitingReturn": "Awaiting return",
+      "processing": "Processing refund",
+      "denied": "Denied",
+      "refunded": "Refunded"
     }
   }
 }
