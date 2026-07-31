@@ -417,7 +417,13 @@
     "sendReply": "Envoyer",
     "threadClosed": "Cette demande est fermée. Ouvrez-en une nouvelle ci-dessous si vous avez encore besoin d'aide.",
     "attach": "Joindre un fichier (facultatif)",
-    "attachHint": "Images ou PDF, jusqu'à 10 Mo."
+    "attachHint": "Images ou PDF, jusqu'à 10 Mo.",
+    "collapse": "Réduire",
+    "expand": "Développer",
+    "collapseForm": "Réduire",
+    "expandForm": "En ajouter une",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "fullyRefunded": "Un remboursement a déjà été demandé pour tous les articles de cette commande."
   },
   "consent": {
     "bannerLabel": "Consentement aux cookies",
@@ -473,6 +479,19 @@
     "notice": {
       "anon": "pour laisser un avis.",
       "unverified": "Vérifiez votre adresse e-mail pour laisser un avis."
+    }
+  },
+  "refunds": {
+    "title": "Vos demandes de remboursement",
+    "expand": "Développer",
+    "collapse": "Réduire",
+    "reasonLabel": "Motif",
+    "status": {
+      "requested": "Demandé",
+      "awaitingReturn": "En attente du retour",
+      "processing": "Remboursement en cours",
+      "denied": "Refusé",
+      "refunded": "Remboursé"
     }
   }
 }

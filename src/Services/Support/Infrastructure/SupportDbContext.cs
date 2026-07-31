@@ -13,6 +13,8 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
     public DbSet<OrderSnapshot> OrderSnapshots => Set<OrderSnapshot>();
     public DbSet<OrderSnapshotLine> OrderSnapshotLines => Set<OrderSnapshotLine>();
     public DbSet<SupportAttachment> Attachments => Set<SupportAttachment>();
+    public DbSet<RmaRequestRecord> RmaRequests => Set<RmaRequestRecord>();
+    public DbSet<RmaRequestLine> RmaRequestLines => Set<RmaRequestLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +49,21 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
         {
             o.HasKey(x => x.OrderId);
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
+        });
+
+        modelBuilder.Entity<RmaRequestRecord>(r =>
+        {
+            r.Property(x => x.Email).HasMaxLength(320);
+            r.Property(x => x.Reason).HasMaxLength(1000);
+            r.Property(x => x.Currency).HasMaxLength(3);
+            r.HasIndex(x => x.OrderId);
+            r.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.RmaId);
+        });
+
+        modelBuilder.Entity<RmaRequestLine>(l =>
+        {
+            l.Property(x => x.Title).HasMaxLength(300);
+            l.HasIndex(x => x.RmaId);
         });
 
         modelBuilder.AddInboxStateEntity();

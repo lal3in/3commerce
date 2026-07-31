@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { addTicketMessage, type SupportState } from "@/lib/support-actions";
 import type { OrderTicket } from "@/lib/gateway";
@@ -28,10 +28,17 @@ export function TicketHistory({ orderId, tickets: initialTickets }: { orderId: s
         /* transient — try again next tick */
       }
     };
-    const id = setInterval(poll, 12000);
+    // Poll on an interval AND the moment the tab regains focus — so an operator reply posted while the
+    // shopper was on another tab (e.g. the admin console) shows on return without waiting a full tick.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    const id = setInterval(poll, 8000);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [orderId]);
 
@@ -57,14 +64,33 @@ function TicketThread({ orderId, ticket }: { orderId: string; ticket: OrderTicke
     : ticket.reason === "Damaged" ? "reasons.damaged"
     : ticket.reason === "RefundRequest" ? "reasons.refund"
     : "reasons.other";
+  const lastActivity = useMemo(
+    () => ticket.messages[ticket.messages.length - 1]?.createdAt ?? ticket.createdAt,
+    [ticket],
+  );
+  // Collapsed by default — click the chevron to expand the thread. Open (still-active) requests start
+  // expanded so a customer sees the running conversation without a click.
+  const [expanded, setExpanded] = useState(open);
   return (
-    <li className="rounded-md border border-neutral-100 bg-neutral-50 p-3">
-      <div className="mb-2 flex items-center justify-between text-xs text-neutral-500">
-        <span>{t(reasonKey)}</span>
-        <span className={open ? "text-green-700" : "text-neutral-500"}>
+    <li className="rounded-md border border-neutral-100 bg-neutral-50">
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        title={expanded ? t("collapse") : t("expand")}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-neutral-500"
+      >
+        <span aria-hidden className="text-neutral-400">{expanded ? "▾" : "▸"}</span>
+        <span className="text-neutral-700">{t(reasonKey)}</span>
+        <span className={`rounded-full px-2 py-0.5 font-medium ${open ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
           {open ? t("statusOpen") : t("statusClosed")}
         </span>
-      </div>
+        <span className="ml-auto text-neutral-400">
+          {t("messageCount", { count: ticket.messages.length })} · <LocalTime iso={lastActivity} dateOnly />
+        </span>
+      </button>
+      {expanded && (
+      <div className="px-3 pb-3">
       <div className="space-y-2">
         {ticket.messages.map((m, i) => {
           const mine = m.author === "Customer";
@@ -118,6 +144,8 @@ function TicketThread({ orderId, ticket }: { orderId: string; ticket: OrderTicke
         <p className="mt-2 text-xs text-neutral-500">{t("threadClosed")}</p>
       )}
       {state.error && <p className="mt-1 text-sm text-red-600">{state.error}</p>}
+      </div>
+      )}
     </li>
   );
 }
