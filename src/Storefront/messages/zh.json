@@ -415,7 +415,9 @@
     "authorSupport": "支持",
     "replyPlaceholder": "撰写回复…",
     "sendReply": "发送",
-    "threadClosed": "此请求已关闭。如仍需帮助，请在下面开启新请求。"
+    "threadClosed": "此请求已关闭。如仍需帮助，请在下面开启新请求。",
+    "attach": "附加文件（选填）",
+    "attachHint": "图片或 PDF，最多 10 MB。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",

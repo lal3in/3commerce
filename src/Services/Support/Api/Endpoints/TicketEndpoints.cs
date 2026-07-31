@@ -59,7 +59,7 @@ public static class TicketEndpoints
     {
         var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
             .OrderByDescending(t => t.CreatedAt).Take(100).ToListAsync(ct);
-        return TypedResults.Ok(tickets.Select(ToDto).ToList());
+        return TypedResults.Ok(tickets.Select(t => ToDto(t)).ToList());
     }
 
     // Ticket history for one order (drives the customer's "your requests" thread list on the order
@@ -68,7 +68,24 @@ public static class TicketEndpoints
     {
         var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
             .Where(t => t.OrderId == orderId).OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
-        return TypedResults.Ok(tickets.Select(ToDto).ToList());
+        var attachments = await AttachmentsForTicketsAsync(db, tickets.Select(t => t.Id).ToList(), ct);
+        return TypedResults.Ok(tickets.Select(t => ToDto(t, attachments)).ToList());
+    }
+
+    // Attachments for a set of tickets, grouped by ticket id (OwnerKind = "ticket").
+    internal static async Task<ILookup<Guid, AttachmentDto>> AttachmentsForTicketsAsync(SupportDbContext db, List<Guid> ticketIds, CancellationToken ct)
+    {
+        if (ticketIds.Count == 0)
+        {
+            return Array.Empty<(Guid, AttachmentDto)>().ToLookup(x => x.Item1, x => x.Item2);
+        }
+
+        var rows = await db.Attachments.AsNoTracking()
+            .Where(a => a.OwnerKind == "ticket" && ticketIds.Contains(a.OwnerId))
+            .OrderBy(a => a.CreatedAt)
+            .Select(a => new { a.OwnerId, Dto = new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes) })
+            .ToListAsync(ct);
+        return rows.ToLookup(r => r.OwnerId, r => r.Dto);
     }
 
     private static async Task<Results<Ok<TicketDto>, NotFound>> GetTicket(Guid id, SupportDbContext db, CancellationToken ct)
@@ -149,9 +166,10 @@ public static class TicketEndpoints
                 snap.Lines.Select(l => new RefundableLineDto(l.ProductId, l.Title, l.UnitPriceMinor, l.Quantity)).ToList()));
     }
 
-    private static TicketDto ToDto(Ticket t) => new(
+    private static TicketDto ToDto(Ticket t, ILookup<Guid, AttachmentDto>? attachments = null) => new(
         t.Id, t.OrderId, t.Email, t.Reason.ToString(), t.Status.ToString(), t.CreatedAt,
-        t.Messages.OrderBy(m => m.CreatedAt).Select(m => new MessageDto(m.Author.ToString(), m.Body, m.CreatedAt)).ToList());
+        t.Messages.OrderBy(m => m.CreatedAt).Select(m => new MessageDto(m.Author.ToString(), m.Body, m.CreatedAt)).ToList(),
+        attachments?[t.Id].ToList() ?? []);
 }
 
 public record OpenTicketRequest([property: Required] Guid OrderId, [property: Required, EmailAddress] string Email, [property: Required] TicketReason Reason, [property: Required] string Message);
@@ -161,5 +179,5 @@ public record RmaRequest([property: Required] Guid OrderId, [property: Required]
 public record RefundableLineDto(Guid ProductId, string Title, long UnitPriceMinor, int Quantity);
 public record RefundableOrderDto(Guid OrderId, long GrossMinor, string Currency, List<RefundableLineDto> Lines);
 public record MessageDto(string Author, string Body, DateTimeOffset CreatedAt);
-public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages);
+public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages, List<AttachmentDto> Attachments);
 public record RmaCreatedDto(Guid RmaId);

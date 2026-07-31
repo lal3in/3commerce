@@ -62,6 +62,15 @@ else
                                 </div>
                             }
                         </div>
+                        @if (ticket.Attachments.Count > 0)
+                        {
+                            <div style="display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.6rem;">
+                                @foreach (var a in ticket.Attachments)
+                                {
+                                    <a href="/support-attachment/@a.Id" target="_blank" title="@L["Tickets.Attachment.Tip"]" style="display:inline-flex; align-items:center; gap:.2rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; padding:.15rem .45rem; font-size:.75rem; color:#374151; text-decoration:underline;">📎 @a.FileName</a>
+                                }
+                            </div>
+                        }
                         <div style="display:flex; gap:.4rem; align-items:flex-start;">
                             <textarea @bind="_reply" @bind:event="oninput" placeholder="@L["Tickets.Reply.Placeholder"]" title="@L["Tickets.Reply.Tip"]" rows="2" style="flex:1; padding:.4rem; border:1px solid #d1d5db; border-radius:6px;"></textarea>
                             <button disabled="@(_busy || string.IsNullOrWhiteSpace(_reply))" @onclick="() => Reply(ticket.Id)" title="@L["Tickets.Reply.Send.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Tickets.Reply.Send"]</button>
@@ -158,5 +167,6 @@ else
     };
 
     public record MessageDto(string Author, string Body, DateTimeOffset CreatedAt);
-    public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages);
+    public record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes);
+    public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages, List<AttachmentDto> Attachments);
 }

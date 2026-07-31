@@ -415,7 +415,9 @@
     "authorSupport": "Soporte",
     "replyPlaceholder": "Escribe una respuesta…",
     "sendReply": "Enviar",
-    "threadClosed": "Esta solicitud está cerrada. Abre una nueva abajo si aún necesitas ayuda."
+    "threadClosed": "Esta solicitud está cerrada. Abre una nueva abajo si aún necesitas ayuda.",
+    "attach": "Adjuntar un archivo (opcional)",
+    "attachHint": "Imágenes o PDF, hasta 10 MB."
   },
   "consent": {
     "bannerLabel": "Consentimiento de cookies",

@@ -415,7 +415,9 @@
     "authorSupport": "支援",
     "replyPlaceholder": "撰寫回覆…",
     "sendReply": "發送",
-    "threadClosed": "此請求已關閉。如仍需協助，請喺下面開啟新請求。"
+    "threadClosed": "此請求已關閉。如仍需協助，請喺下面開啟新請求。",
+    "attach": "附加檔案（選填）",
+    "attachHint": "圖片或 PDF，最多 10 MB。"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",
