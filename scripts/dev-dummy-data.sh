@@ -48,6 +48,7 @@ esac
 mkdir -p "$OUT_DIR"
 ADMIN_JAR="$OUT_DIR/admin.cookie"
 CUSTOMER_JAR="$OUT_DIR/customer.cookie"
+SUPPLIER_JAR="$OUT_DIR/supplier.cookie"
 SUMMARY="$OUT_DIR/summary.jsonl"
 MANIFEST="$OUT_DIR/fixtures.json"
 : > "$SUMMARY"
@@ -561,6 +562,51 @@ login_admin() {
   manifest_set "admin.email" "$(json_string "$ADMIN_EMAIL")"
 }
 
+# Look up a user's id by email via the admin users list (echoes the id, or empty). Admin jar required.
+user_id_by_email() {
+  local email="$1" users
+  users=$(api "admin-users-lookup" GET "/api/identity/admin/users?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  printf '%s' "$users" | python3 -c 'import json,sys
+want=sys.argv[1].lower()
+try:
+    for u in json.load(sys.stdin):
+        if str(u.get("email","")).lower()==want:
+            print(u["id"]); break
+except Exception:
+    pass' "$email"
+}
+
+# Ready-to-use test logins (dev only): verify the seeded demo customer (so verified-only features like
+# reviews work), and provision a least-privilege supplier-portal login bound to the demo supplier entity.
+provision_test_logins() {
+  local entity_id="$1"
+  local cust_email="demo.customer.$RUN_ID@example.test"
+  local sup_email="supplier@3commerce.local" sup_pass="Supplier-password-123"
+
+  # Verify the demo customer the proper way (publishes EmailVerified → attaches any prior guest orders).
+  local cust_id
+  cust_id=$(user_id_by_email "$cust_email")
+  if [[ -n "$cust_id" ]]; then
+    api "customer-verify-email" POST "/api/identity/admin/users/$cust_id/verify-email?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    manifest_set "customers.demo.emailVerified" "true"
+  fi
+
+  # Supplier-portal login scoped to the demo supplier (role=supplier, no admin rights).
+  if [[ -n "$entity_id" ]]; then
+    api_noauth "register-supplier-login" POST "/api/identity/register" "$SUPPLIER_JAR" \
+      "{\"email\":\"$sup_email\",\"password\":\"$sup_pass\"}" "allow_4xx" >/dev/null
+    local sup_id
+    sup_id=$(user_id_by_email "$sup_email")
+    if [[ -n "$sup_id" ]]; then
+      api "make-supplier" POST "/api/identity/admin/users/$sup_id/make-supplier?tenantId=$TENANT_ID" "$ADMIN_JAR" \
+        "{\"supplierEntityId\":\"$entity_id\"}" "allow_4xx" >/dev/null
+      manifest_set "suppliers.demo.email" "$(json_string "$sup_email")"
+      manifest_set "suppliers.demo.password" "$(json_string "$sup_pass")"
+      manifest_set "suppliers.demo.entityId" "$(json_string "$entity_id")"
+    fi
+  fi
+}
+
 seed_smoke() {
   echo "== smoke demo data =="
   login_admin
@@ -666,6 +712,9 @@ seed_full() {
     supplier_id="00000000-0000-0000-0000-000000000001"
     manifest_append "warnings" "$(json_string "entity-create-supplier did not return an id; using fallback supplier id")"
   fi
+
+  # Ready-to-use test logins: verified demo customer + a supplier-portal login bound to the demo supplier.
+  provision_test_logins "$entity_id"
 
   # Idempotent: (TenantId, Cid) is unique — only create the demo campaign when absent.
   local campaigns
