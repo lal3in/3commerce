@@ -47,6 +47,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
 app.MapTickets();
+app.MapAdminTickets();
 app.MapAdminRmas();
 
 app.Run();

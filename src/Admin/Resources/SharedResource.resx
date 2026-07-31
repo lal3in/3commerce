@@ -1407,4 +1407,40 @@
   <data name="Home.PartiallyRefunded.Tip" xml:space="preserve">
     <value>Confirmed orders with a partial refund. Refunded + Partially refunded together match the RMA queue's RefundIssued count.</value>
   </data>
+  <data name="Nav.Tickets" xml:space="preserve"><value>Support tickets</value></data>
+  <data name="Nav.Tickets.Tip" xml:space="preserve"><value>Read and reply to customer support tickets.</value></data>
+  <data name="Tickets.Title" xml:space="preserve"><value>Support tickets</value></data>
+  <data name="Tickets.Intro" xml:space="preserve"><value>Every customer support ticket. Open one to read the thread, reply, and close it.</value></data>
+  <data name="Tickets.Filter" xml:space="preserve"><value>Status</value></data>
+  <data name="Tickets.Filter.Tip" xml:space="preserve"><value>Filter tickets by status.</value></data>
+  <data name="Tickets.Filter.All" xml:space="preserve"><value>All</value></data>
+  <data name="Tickets.Col.Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Tickets.Col.Email" xml:space="preserve"><value>Customer</value></data>
+  <data name="Tickets.Col.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Tickets.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Tickets.Col.Messages" xml:space="preserve"><value>Messages</value></data>
+  <data name="Tickets.Col.Created" xml:space="preserve"><value>Opened</value></data>
+  <data name="Tickets.Empty" xml:space="preserve"><value>No tickets.</value></data>
+  <data name="Tickets.View" xml:space="preserve"><value>View</value></data>
+  <data name="Tickets.View.Tip" xml:space="preserve"><value>Open the ticket thread.</value></data>
+  <data name="Tickets.Hide" xml:space="preserve"><value>Hide</value></data>
+  <data name="Tickets.Reply.Placeholder" xml:space="preserve"><value>Write a reply to the customer…</value></data>
+  <data name="Tickets.Reply.Tip" xml:space="preserve"><value>Your reply is posted to the customer as the support operator.</value></data>
+  <data name="Tickets.Reply.Send" xml:space="preserve"><value>Send reply</value></data>
+  <data name="Tickets.Reply.Send.Tip" xml:space="preserve"><value>Post this reply to the ticket.</value></data>
+  <data name="Tickets.Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Tickets.Close.Tip" xml:space="preserve"><value>Mark this ticket resolved and closed.</value></data>
+  <data name="Tickets.Reopen" xml:space="preserve"><value>Reopen</value></data>
+  <data name="Tickets.Reopen.Tip" xml:space="preserve"><value>Reopen this ticket.</value></data>
+  <data name="Tickets.Status.Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Tickets.Status.Closed" xml:space="preserve"><value>Closed</value></data>
+  <data name="Tickets.Status.Replied" xml:space="preserve"><value>Reply sent.</value></data>
+  <data name="Tickets.Status.Closed.Done" xml:space="preserve"><value>Ticket closed.</value></data>
+  <data name="Tickets.Status.Reopened.Done" xml:space="preserve"><value>Ticket reopened.</value></data>
+  <data name="Tickets.Reason.WhereIsIt" xml:space="preserve"><value>Where is my order?</value></data>
+  <data name="Tickets.Reason.Damaged" xml:space="preserve"><value>Damaged / faulty</value></data>
+  <data name="Tickets.Reason.RefundRequest" xml:space="preserve"><value>Refund request</value></data>
+  <data name="Tickets.Reason.Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Tickets.Author.Customer" xml:space="preserve"><value>Customer</value></data>
+  <data name="Tickets.Author.Operator" xml:space="preserve"><value>Support</value></data>
 </root>
