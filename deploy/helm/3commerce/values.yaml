@@ -41,7 +41,7 @@ ingress:
 postgres:
   deploy: true          # in-cluster Postgres (kind/dev). false + externalHost = use an external instance
   externalHost: ""
-  image: postgres:17
+  image: postgres:18
   password: postgres_dev            # local/kind only
 
 rabbitmq:

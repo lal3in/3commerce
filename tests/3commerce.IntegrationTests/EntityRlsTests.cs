@@ -18,7 +18,7 @@ namespace ThreeCommerce.IntegrationTests;
 [Trait("Category", "Integration")]
 public class EntityRlsTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
     private static readonly Guid TenantA = Guid.NewGuid();
     private static readonly Guid TenantB = Guid.NewGuid();
     private Guid _entityAId;
