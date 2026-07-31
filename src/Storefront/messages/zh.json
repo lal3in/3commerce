@@ -195,7 +195,7 @@
     "address": "地址",
     "city": "城市",
     "postcode": "邮政编码",
-    "country": "国家/地区（两位字母）",
+    "country": "国家/地区",
     "placeOrder": "授权并下单",
     "authorizing": "授权中…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "街道地址——门牌号和街道名称。",
       "city": "配送的城镇或城市。",
       "postcode": "邮政编码——用于计算运费。",
-      "country": "两位字母的国家/地区代码（ISO 3166），如 DE、US、AU。",
+      "country": "选择您的国家/地区。",
       "getRates": "为上方配送地址获取实时承运商费率。",
       "shippingRateChoice": "选择用于配送此订单的承运商服务。",
       "paymentOption": "选择您想要的支付方式。支付将在订单授权后扣款。",
@@ -224,7 +224,8 @@
       "billingAddress": "您卡片注册的地址——用于银行的地址验证（AVS）。",
       "quantity": "修改此商品的订购数量。",
       "placeOrder": "授权支付并下单。随后您将看到确认页面。"
-    }
+    },
+    "selectCountry": "选择国家/地区"
   },
   "confirmation": {
     "noOrder": "未指定订单。",
@@ -331,7 +332,7 @@
     "addressLine2": "公寓、套房等",
     "city": "城市",
     "postcode": "邮政编码",
-    "countryCode": "国家/地区代码",
+    "countryCode": "国家/地区",
     "makeDefaultAddress": "设为此用途的默认地址",
     "addressSaved": "地址已保存。",
     "addressUpdated": "地址已更新。",
@@ -358,7 +359,7 @@
       "addressLine2": "单元、公寓或楼栋。选填。",
       "city": "城镇或城市。",
       "postcode": "邮政编码——用于计算运费。",
-      "countryCode": "两位字母的国家/地区代码（ISO 3166），如 AU、DE、US。",
+      "countryCode": "选择您的国家/地区。",
       "makeDefaultAddress": "在结账时按其用途预选此地址。",
       "cardNumber": "服务商测试卡号。在到达我们的支付服务前会被令牌化——绝不存储原始卡号。",
       "expiry": "卡片有效期，格式为 MM/YY。",
@@ -369,7 +370,8 @@
       "deleteCard": "将此已保存的卡片从您的账户中移除。",
       "support": "为此订单开具客服工单或申请退款。",
       "logOut": "从此设备退出登录。"
-    }
+    },
+    "selectCountry": "选择国家/地区"
   },
   "support": {
     "title": "订单支持",

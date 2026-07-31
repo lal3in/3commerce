@@ -195,7 +195,7 @@
     "address": "Adresse",
     "city": "Ville",
     "postcode": "Code postal",
-    "country": "Pays (2 lettres)",
+    "country": "Pays",
     "placeOrder": "Autoriser et passer la commande",
     "authorizing": "Autorisation…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "Adresse — numéro et nom de la rue.",
       "city": "Commune ou ville de livraison.",
       "postcode": "Code postal — utilisé pour calculer la livraison.",
-      "country": "Code pays à 2 lettres (ISO 3166), par ex. DE, US, AU.",
+      "country": "Sélectionnez votre pays.",
       "getRates": "Récupérer les tarifs des transporteurs en direct pour l'adresse de livraison ci-dessus.",
       "shippingRateChoice": "Choisissez le service du transporteur pour expédier cette commande.",
       "paymentOption": "Choisissez votre mode de paiement. Le paiement est prélevé après l'autorisation de la commande.",
@@ -224,7 +224,8 @@
       "billingAddress": "L'adresse à laquelle votre carte est enregistrée — utilisée pour la vérification d'adresse de la banque (AVS).",
       "quantity": "Modifiez le nombre d'exemplaires de cet article que vous commandez.",
       "placeOrder": "Autorisez le paiement et passez la commande. Vous verrez ensuite la confirmation."
-    }
+    },
+    "selectCountry": "Sélectionnez un pays"
   },
   "confirmation": {
     "noOrder": "Aucune commande spécifiée.",
@@ -331,7 +332,7 @@
     "addressLine2": "Appartement, bureau, etc.",
     "city": "Ville",
     "postcode": "Code postal",
-    "countryCode": "Code pays",
+    "countryCode": "Pays",
     "makeDefaultAddress": "Définir par défaut pour cette utilisation",
     "addressSaved": "Adresse enregistrée.",
     "addressUpdated": "Adresse mise à jour.",
@@ -358,7 +359,7 @@
       "addressLine2": "Unité, appartement ou bâtiment. Facultatif.",
       "city": "Commune ou ville.",
       "postcode": "Code postal — utilisé pour calculer la livraison.",
-      "countryCode": "Code pays à 2 lettres (ISO 3166), par ex. AU, DE, US.",
+      "countryCode": "Sélectionnez votre pays.",
       "makeDefaultAddress": "Présélectionner cette adresse au paiement pour son utilisation.",
       "cardNumber": "Un numéro de carte de test du prestataire. Il est converti en jeton avant d'atteindre notre service de paiement — le numéro brut n'est jamais stocké.",
       "expiry": "Expiration de la carte au format MM/AA.",
@@ -369,7 +370,8 @@
       "deleteCard": "Retirer cette carte enregistrée de votre compte.",
       "support": "Ouvrir un ticket de support ou demander un remboursement pour cette commande.",
       "logOut": "Se déconnecter de cet appareil."
-    }
+    },
+    "selectCountry": "Sélectionnez un pays"
   },
   "support": {
     "title": "Support de commande",

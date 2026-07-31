@@ -195,7 +195,7 @@
     "address": "Address",
     "city": "City",
     "postcode": "Postcode",
-    "country": "Country (2-letter)",
+    "country": "Country",
     "placeOrder": "Authorize & place order",
     "authorizing": "Authorizing…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "Street address — number and street name.",
       "city": "Town or city for delivery.",
       "postcode": "Postal/ZIP code — used to calculate shipping.",
-      "country": "2-letter country code (ISO 3166), e.g. DE, US, AU.",
+      "country": "Select your country.",
       "getRates": "Fetch live carrier rates for the shipping address above.",
       "shippingRateChoice": "Choose the carrier service to ship this order with.",
       "paymentOption": "Choose how you want to pay. Payment is captured after the order is authorized.",
@@ -224,7 +224,8 @@
       "billingAddress": "The address your card is registered to — used for the bank's address check (AVS).",
       "quantity": "Change how many of this item you're ordering.",
       "placeOrder": "Authorize payment and place the order. You'll see the confirmation next."
-    }
+    },
+    "selectCountry": "Select a country"
   },
   "confirmation": {
     "noOrder": "No order specified.",
@@ -331,7 +332,7 @@
     "addressLine2": "Apartment, suite, etc.",
     "city": "City",
     "postcode": "Postcode",
-    "countryCode": "Country code",
+    "countryCode": "Country",
     "makeDefaultAddress": "Make default for this use",
     "addressSaved": "Address saved.",
     "addressUpdated": "Address updated.",
@@ -358,7 +359,7 @@
       "addressLine2": "Unit, apartment, or building. Optional.",
       "city": "Town or city.",
       "postcode": "Postal/ZIP code — used to calculate shipping.",
-      "countryCode": "2-letter country code (ISO 3166), e.g. AU, DE, US.",
+      "countryCode": "Select your country.",
       "makeDefaultAddress": "Pre-select this address at checkout for its use.",
       "cardNumber": "A provider test card number. It is tokenized before it reaches our Payments service — the raw number is never stored.",
       "expiry": "Card expiry as MM/YY.",
@@ -369,7 +370,8 @@
       "deleteCard": "Remove this saved card from your account.",
       "support": "Open a support ticket or request a refund for this order.",
       "logOut": "Sign out of this device."
-    }
+    },
+    "selectCountry": "Select a country"
   },
   "support": {
     "title": "Order support",

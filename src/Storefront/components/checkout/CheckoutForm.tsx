@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
 import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
+import { CountrySelect } from "@/components/CountrySelect";
 
 interface CheckoutFormProps {
   cart: CartDto;
@@ -341,7 +342,7 @@ function AddressFields({ prefix, defaults, fallbackName }: { prefix: "shipping" 
         <Field name={`${prefix}City`} label={t("city")} autoComplete="address-level2" defaultValue={defaults?.city ?? ""} required title={t("tips.city")} />
         <Field name={`${prefix}Postcode`} label={t("postcode")} autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title={t("tips.postcode")} />
       </div>
-      <Field name={`${prefix}Country`} label={t("country")} autoComplete="country" maxLength={2} defaultValue={defaults?.country ?? ""} required title={t("tips.country")} />
+      <CountrySelect name={`${prefix}Country`} label={t("country")} title={t("tips.country")} placeholder={t("selectCountry")} defaultValue={defaults?.country ?? ""} required />
     </div>
   );
 }

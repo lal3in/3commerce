@@ -195,7 +195,7 @@
     "address": "Adresse",
     "city": "Stadt",
     "postcode": "Postleitzahl",
-    "country": "Land (2 Buchstaben)",
+    "country": "Land",
     "placeOrder": "Autorisieren & Bestellung aufgeben",
     "authorizing": "Wird autorisiert…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "Straßenadresse — Hausnummer und Straßenname.",
       "city": "Ort oder Stadt für die Lieferung.",
       "postcode": "Postleitzahl — wird zur Berechnung des Versands verwendet.",
-      "country": "2-stelliger Ländercode (ISO 3166), z. B. DE, US, AU.",
+      "country": "Wählen Sie Ihr Land aus.",
       "getRates": "Aktuelle Versandtarife für die obige Lieferadresse abrufen.",
       "shippingRateChoice": "Wählen Sie den Zustelldienst, mit dem diese Bestellung versendet werden soll.",
       "paymentOption": "Wählen Sie, wie Sie bezahlen möchten. Die Zahlung wird nach Autorisierung der Bestellung eingezogen.",
@@ -224,7 +224,8 @@
       "billingAddress": "Die Adresse, auf die Ihre Karte registriert ist — wird für die Adressprüfung der Bank (AVS) verwendet.",
       "quantity": "Ändern Sie, wie viele dieses Artikels Sie bestellen.",
       "placeOrder": "Zahlung autorisieren und Bestellung aufgeben. Anschließend sehen Sie die Bestätigung."
-    }
+    },
+    "selectCountry": "Land auswählen"
   },
   "confirmation": {
     "noOrder": "Keine Bestellung angegeben.",
@@ -331,7 +332,7 @@
     "addressLine2": "Wohnung, Etage usw.",
     "city": "Stadt",
     "postcode": "Postleitzahl",
-    "countryCode": "Ländercode",
+    "countryCode": "Land",
     "makeDefaultAddress": "Als Standard für diese Verwendung festlegen",
     "addressSaved": "Adresse gespeichert.",
     "addressUpdated": "Adresse aktualisiert.",
@@ -358,7 +359,7 @@
       "addressLine2": "Einheit, Wohnung oder Gebäude. Optional.",
       "city": "Ort oder Stadt.",
       "postcode": "Postleitzahl — wird zur Berechnung des Versands verwendet.",
-      "countryCode": "2-stelliger Ländercode (ISO 3166), z. B. AU, DE, US.",
+      "countryCode": "Wählen Sie Ihr Land aus.",
       "makeDefaultAddress": "Diese Adresse beim Checkout für ihre Verwendung vorauswählen.",
       "cardNumber": "Eine Anbieter-Testkartennummer. Sie wird tokenisiert, bevor sie unseren Payments-Dienst erreicht — die unverschlüsselte Nummer wird niemals gespeichert.",
       "expiry": "Kartenablauf als MM/JJ.",
@@ -369,7 +370,8 @@
       "deleteCard": "Diese gespeicherte Karte aus Ihrem Konto entfernen.",
       "support": "Ein Support-Ticket eröffnen oder eine Rückerstattung für diese Bestellung anfordern.",
       "logOut": "Von diesem Gerät abmelden."
-    }
+    },
+    "selectCountry": "Land auswählen"
   },
   "support": {
     "title": "Bestellsupport",

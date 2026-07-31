@@ -3,6 +3,7 @@
 import { useState, type InputHTMLAttributes } from "react";
 import { useTranslations } from "next-intl";
 import type { AddressDto } from "@/lib/gateway";
+import { CountrySelect } from "@/components/CountrySelect";
 
 interface AddressFormsProps {
   addresses: AddressDto[];
@@ -107,7 +108,7 @@ function AddressForm({ address, onCancel }: { address?: AddressDto; onCancel: ()
         <Field name="city" label={t("city")} tip={t("tips.city")} autoComplete="address-level2" defaultValue={address?.city ?? ""} required />
         <Field name="postcode" label={t("postcode")} tip={t("tips.postcode")} autoComplete="postal-code" defaultValue={address?.postcode ?? ""} required />
       </div>
-      <Field name="country" label={t("countryCode")} tip={t("tips.countryCode")} autoComplete="country" defaultValue={address?.country ?? "AU"} maxLength={2} required />
+      <CountrySelect name="country" label={t("countryCode")} title={t("tips.countryCode")} placeholder={t("selectCountry")} defaultValue={address?.country ?? "AU"} required />
       <label className="flex items-center gap-2 text-neutral-700" title={t("tips.makeDefaultAddress")}>
         <input
           name="isDefault"

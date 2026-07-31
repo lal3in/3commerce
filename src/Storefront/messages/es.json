@@ -195,7 +195,7 @@
     "address": "Dirección",
     "city": "Ciudad",
     "postcode": "Código postal",
-    "country": "País (2 letras)",
+    "country": "País",
     "placeOrder": "Autorizar y realizar el pedido",
     "authorizing": "Autorizando…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "Dirección de la calle: número y nombre de la calle.",
       "city": "Localidad o ciudad de entrega.",
       "postcode": "Código postal: se usa para calcular el envío.",
-      "country": "Código de país de 2 letras (ISO 3166), p. ej. DE, US, AU.",
+      "country": "Selecciona tu país.",
       "getRates": "Obtener tarifas de transportista en tiempo real para la dirección de envío indicada arriba.",
       "shippingRateChoice": "Elija el servicio de transportista con el que enviar este pedido.",
       "paymentOption": "Elija cómo desea pagar. El pago se captura después de autorizar el pedido.",
@@ -224,7 +224,8 @@
       "billingAddress": "La dirección a la que está registrada su tarjeta: se usa para la verificación de dirección del banco (AVS).",
       "quantity": "Cambiar cuántas unidades de este artículo está pidiendo.",
       "placeOrder": "Autorizar el pago y realizar el pedido. A continuación verá la confirmación."
-    }
+    },
+    "selectCountry": "Selecciona un país"
   },
   "confirmation": {
     "noOrder": "No se especificó ningún pedido.",
@@ -331,7 +332,7 @@
     "addressLine2": "Apartamento, suite, etc.",
     "city": "Ciudad",
     "postcode": "Código postal",
-    "countryCode": "Código de país",
+    "countryCode": "País",
     "makeDefaultAddress": "Establecer como predeterminada para este uso",
     "addressSaved": "Dirección guardada.",
     "addressUpdated": "Dirección actualizada.",
@@ -358,7 +359,7 @@
       "addressLine2": "Unidad, apartamento o edificio. Opcional.",
       "city": "Localidad o ciudad.",
       "postcode": "Código postal: se usa para calcular el envío.",
-      "countryCode": "Código de país de 2 letras (ISO 3166), p. ej. AU, DE, US.",
+      "countryCode": "Selecciona tu país.",
       "makeDefaultAddress": "Preseleccionar esta dirección al finalizar la compra para su uso.",
       "cardNumber": "Un número de tarjeta de prueba del proveedor. Se tokeniza antes de llegar a nuestro servicio de Pagos: el número sin procesar nunca se almacena.",
       "expiry": "Vencimiento de la tarjeta en formato MM/AA.",
@@ -369,7 +370,8 @@
       "deleteCard": "Quitar esta tarjeta guardada de su cuenta.",
       "support": "Abrir un ticket de soporte o solicitar un reembolso de este pedido.",
       "logOut": "Cerrar sesión en este dispositivo."
-    }
+    },
+    "selectCountry": "Selecciona un país"
   },
   "support": {
     "title": "Soporte de pedidos",
