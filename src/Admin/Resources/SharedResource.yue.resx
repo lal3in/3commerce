@@ -1418,6 +1418,9 @@
   <data name="Tickets.Col.Email" xml:space="preserve"><value>客戶</value></data>
   <data name="Tickets.Col.Reason" xml:space="preserve"><value>原因</value></data>
   <data name="Tickets.Col.Status" xml:space="preserve"><value>狀態</value></data>
+  <data name="Tickets.Col.LastReply" xml:space="preserve"><value>最後回覆</value></data>
+  <data name="Tickets.LastReply.Operator.Tip" xml:space="preserve"><value>支援最後回覆——毋須跟進。</value></data>
+  <data name="Tickets.LastReply.Customer.Tip" xml:space="preserve"><value>客戶最後回覆——等緊支援回應。</value></data>
   <data name="Tickets.Col.Messages" xml:space="preserve"><value>訊息</value></data>
   <data name="Tickets.Col.Created" xml:space="preserve"><value>開啟時間</value></data>
   <data name="Tickets.Empty" xml:space="preserve"><value>冇工單。</value></data>
