@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { submitReview, type ReviewState } from "@/lib/reviews-actions";
 import type { ReviewSummary } from "@/lib/gateway";
+import { LocalTime } from "@/components/LocalTime";
 
 function Stars({ value }: { value: number }) {
   const full = Math.round(value);
@@ -106,7 +107,7 @@ export function ProductReviews({
             <div className="flex items-center gap-2 text-sm">
               <Stars value={r.rating} />
               <span className="font-medium">{r.authorName}</span>
-              <span className="text-neutral-400">· {new Date(r.createdAt).toLocaleDateString()}</span>
+              <span className="text-neutral-400">· <LocalTime iso={r.createdAt} dateOnly /></span>
             </div>
             {r.comment && <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{r.comment}</p>}
           </li>
