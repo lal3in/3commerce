@@ -12,6 +12,7 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
     public DbSet<RmaState> Rmas => Set<RmaState>();
     public DbSet<OrderSnapshot> OrderSnapshots => Set<OrderSnapshot>();
     public DbSet<OrderSnapshotLine> OrderSnapshotLines => Set<OrderSnapshotLine>();
+    public DbSet<SupportAttachment> Attachments => Set<SupportAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,15 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
         {
             t.HasIndex(x => x.OrderId);
             t.HasMany(x => x.Messages).WithOne().HasForeignKey(m => m.TicketId);
+        });
+
+        modelBuilder.Entity<SupportAttachment>(a =>
+        {
+            a.Property(x => x.OwnerKind).HasMaxLength(16);
+            a.Property(x => x.FileName).HasMaxLength(260);
+            a.Property(x => x.ContentType).HasMaxLength(100);
+            a.Property(x => x.StorageKey).HasMaxLength(512);
+            a.HasIndex(x => new { x.OwnerKind, x.OwnerId });
         });
 
         modelBuilder.Entity<RmaState>(s =>

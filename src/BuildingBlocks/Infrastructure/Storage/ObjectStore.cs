@@ -73,4 +73,34 @@ public static class UploadPolicy
 
         return true;
     }
+
+    public const long MaxAttachmentBytes = 10 * 1024 * 1024;
+
+    // Support attachments (photos of a damaged item, a receipt PDF, …): the image types plus PDF.
+    private static readonly HashSet<string> AllowedAttachmentTypes =
+        new(AllowedImageTypes, StringComparer.OrdinalIgnoreCase) { "application/pdf" };
+
+    public static bool ValidateAttachment(string contentType, long sizeBytes, out string? error)
+    {
+        error = null;
+        if (sizeBytes <= 0)
+        {
+            error = "The file is empty.";
+            return false;
+        }
+
+        if (sizeBytes > MaxAttachmentBytes)
+        {
+            error = "The file exceeds the 10 MB limit.";
+            return false;
+        }
+
+        if (!AllowedAttachmentTypes.Contains(contentType))
+        {
+            error = $"Unsupported file type '{contentType}' (images or PDF only).";
+            return false;
+        }
+
+        return true;
+    }
 }

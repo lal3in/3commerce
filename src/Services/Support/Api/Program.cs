@@ -34,6 +34,9 @@ builder.Services.AddServiceHealth<SupportDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddAuditRecorder("support");
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ThreeCommerce.BuildingBlocks.Infrastructure.Storage.IObjectStore>(_ =>
+    new ThreeCommerce.BuildingBlocks.Infrastructure.Storage.LocalFileObjectStore(
+        builder.Configuration["Storage:RootPath"] ?? Path.Combine(builder.Environment.ContentRootPath, "object-store")));
 
 var app = builder.Build();
 
@@ -49,6 +52,7 @@ app.MapServiceHealth();
 app.MapTickets();
 app.MapAdminTickets();
 app.MapAdminRmas();
+app.MapSupportAttachments();
 
 app.Run();
 

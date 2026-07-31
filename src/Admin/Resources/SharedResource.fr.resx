@@ -1456,4 +1456,5 @@
   <data name="Reviews.Delete.Tip" xml:space="preserve"><value>Supprimer cet avis (modération).</value></data>
   <data name="Reviews.Empty" xml:space="preserve"><value>Pas encore d'avis.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Avis supprimé.</value></data>
+  <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Télécharger le fichier joint.</value></data>
 </root>

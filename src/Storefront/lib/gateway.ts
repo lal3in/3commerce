@@ -267,7 +267,8 @@ export async function getProductReviews(productId: string): Promise<ReviewSummar
 }
 
 export type TicketMessage = { author: string; body: string; createdAt: string };
-export type OrderTicket = { id: string; orderId: string; email: string; reason: string; status: string; createdAt: string; messages: TicketMessage[] };
+export type TicketAttachment = { id: string; fileName: string; contentType: string; sizeBytes: number };
+export type OrderTicket = { id: string; orderId: string; email: string; reason: string; status: string; createdAt: string; messages: TicketMessage[]; attachments: TicketAttachment[] };
 
 // The signed-in customer's support tickets for one order — their "history chat" per request.
 export async function getOrderTickets(orderId: string): Promise<OrderTicket[]> {

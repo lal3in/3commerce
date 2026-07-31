@@ -104,6 +104,7 @@ app.UseAntiforgery();
 
 app.MapLoginEndpoints();
 app.MapCultureEndpoints();
+app.MapSupportAttachmentProxy();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();

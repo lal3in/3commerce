@@ -52,6 +52,21 @@ function TicketThread({ orderId, ticket }: { orderId: string; ticket: OrderTicke
           );
         })}
       </div>
+      {ticket.attachments?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {ticket.attachments.map((a) => (
+            <a
+              key={a.id}
+              href={`/api/support/attachment/${a.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-600 underline"
+            >
+              📎 {a.fileName}
+            </a>
+          ))}
+        </div>
+      )}
       {open ? (
         <form action={action} className="mt-2 flex items-start gap-2">
           <input type="hidden" name="ticketId" value={ticket.id} />

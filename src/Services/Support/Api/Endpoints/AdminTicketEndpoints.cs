@@ -35,7 +35,8 @@ public static class AdminTicketEndpoints
         }
 
         var tickets = await query.OrderByDescending(t => t.CreatedAt).Take(200).ToListAsync(ct);
-        return TypedResults.Ok(tickets.Select(ToDto).ToList());
+        var attachments = await TicketEndpoints.AttachmentsForTicketsAsync(db, tickets.Select(t => t.Id).ToList(), ct);
+        return TypedResults.Ok(tickets.Select(t => ToDto(t, attachments)).ToList());
     }
 
     private static async Task<Results<Ok<AdminTicketDto>, NotFound>> Get(Guid id, SupportDbContext db, CancellationToken ct)
@@ -102,12 +103,13 @@ public static class AdminTicketEndpoints
             ? tenantId
             : new Guid("00000000-0000-0000-0000-000000000001");
 
-    private static AdminTicketDto ToDto(Ticket t) => new(
+    private static AdminTicketDto ToDto(Ticket t, ILookup<Guid, AttachmentDto>? attachments = null) => new(
         t.Id, t.OrderId, t.Email, t.Reason.ToString(), t.Status.ToString(), t.CreatedAt,
-        t.Messages.OrderBy(m => m.CreatedAt).Select(m => new AdminTicketMessageDto(m.Author.ToString(), m.Body, m.CreatedAt)).ToList());
+        t.Messages.OrderBy(m => m.CreatedAt).Select(m => new AdminTicketMessageDto(m.Author.ToString(), m.Body, m.CreatedAt)).ToList(),
+        attachments?[t.Id].ToList() ?? []);
 }
 
 public record TicketReplyRequest(string Body);
 public record TicketStatusRequest(string Status);
 public record AdminTicketMessageDto(string Author, string Body, DateTimeOffset CreatedAt);
-public record AdminTicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<AdminTicketMessageDto> Messages);
+public record AdminTicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<AdminTicketMessageDto> Messages, List<AttachmentDto> Attachments);
