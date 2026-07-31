@@ -1,14 +1,40 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { addTicketMessage, type SupportState } from "@/lib/support-actions";
 import type { OrderTicket } from "@/lib/gateway";
+import { LocalTime } from "@/components/LocalTime";
 
 // The customer's support-request history for this order: each ticket is its own chat thread with the
 // full conversation, and an open ticket can be replied to. View-only for closed tickets.
-export function TicketHistory({ orderId, tickets }: { orderId: string; tickets: OrderTicket[] }) {
+export function TicketHistory({ orderId, tickets: initialTickets }: { orderId: string; tickets: OrderTicket[] }) {
   const t = useTranslations("support");
+  const [tickets, setTickets] = useState(initialTickets);
+
+  // Keep the live copy in sync when the server re-renders with fresh props (e.g. after the shopper posts).
+  useEffect(() => setTickets(initialTickets), [initialTickets]);
+
+  // Poll for new operator replies so they appear without a manual refresh — updates local state directly
+  // (keyed by ticket id, so a half-typed reply is preserved). Only while the tab is visible.
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/order-tickets/${orderId}`, { cache: "no-store" });
+        if (res.ok && alive) setTickets((await res.json()) as OrderTicket[]);
+      } catch {
+        /* transient — try again next tick */
+      }
+    };
+    const id = setInterval(poll, 12000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [orderId]);
+
   if (tickets.length === 0) return null;
   return (
     <section className="space-y-3 rounded-md border border-neutral-200 p-4">
@@ -45,7 +71,7 @@ function TicketThread({ orderId, ticket }: { orderId: string; ticket: OrderTicke
           return (
             <div key={i} className={`max-w-[85%] rounded-lg border border-neutral-200 px-3 py-2 text-sm ${mine ? "ml-auto bg-white" : "bg-blue-50"}`}>
               <div className="mb-0.5 text-[0.7rem] text-neutral-500">
-                {mine ? t("authorYou") : t("authorSupport")} · {new Date(m.createdAt).toLocaleString()}
+                {mine ? t("authorYou") : t("authorSupport")} · <LocalTime iso={m.createdAt} />
               </div>
               <div className="whitespace-pre-wrap">{m.body}</div>
             </div>
