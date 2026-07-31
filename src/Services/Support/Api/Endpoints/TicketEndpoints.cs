@@ -20,6 +20,7 @@ public static class TicketEndpoints
         var group = app.MapGroup("/tickets").WithTags("Support").RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         group.MapPost("/", OpenTicket);
         group.MapGet("/", ListTickets);
+        group.MapGet("/by-order/{orderId:guid}", ListByOrder);
         group.MapGet("/{id:guid}", GetTicket);
         group.MapPost("/{id:guid}/messages", AddMessage);
 
@@ -58,6 +59,15 @@ public static class TicketEndpoints
     {
         var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
             .OrderByDescending(t => t.CreatedAt).Take(100).ToListAsync(ct);
+        return TypedResults.Ok(tickets.Select(ToDto).ToList());
+    }
+
+    // Ticket history for one order (drives the customer's "your requests" thread list on the order
+    // support page). Order-scoped: the support page is already the owner's per-order page.
+    private static async Task<Ok<List<TicketDto>>> ListByOrder(Guid orderId, SupportDbContext db, CancellationToken ct)
+    {
+        var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
+            .Where(t => t.OrderId == orderId).OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
         return TypedResults.Ok(tickets.Select(ToDto).ToList());
     }
 

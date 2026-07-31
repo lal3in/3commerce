@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { GATEWAY_URL } from "./gateway";
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -26,6 +27,20 @@ export async function openTicket(_prev: SupportState, formData: FormData): Promi
     }),
   });
   return res.ok ? { ok: true } : { error: "Could not open the ticket." };
+}
+
+export async function addTicketMessage(_prev: SupportState, formData: FormData): Promise<SupportState> {
+  const ticketId = String(formData.get("ticketId"));
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) return { error: "Write a message first." };
+  const res = await fetch(`${GATEWAY_URL}/api/support/tickets/${ticketId}/messages`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) return { error: "Could not send your reply." };
+  revalidatePath(`/orders/${String(formData.get("orderId"))}/support`);
+  return { ok: true };
 }
 
 export async function requestRefund(_prev: SupportState, formData: FormData): Promise<SupportState> {

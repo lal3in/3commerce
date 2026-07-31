@@ -403,8 +403,19 @@
       "openTicket": "Senden Sie dies an den Support. Sie erhalten eine E-Mail mit der Ticket-Referenz.",
       "refundQuantity": "Wie viele dieses Artikels erstattet werden sollen. Lassen Sie jede Position auf 0, um die gesamte Bestellung zu erstatten.",
       "refundReason": "Warum Sie eine Rückerstattung anfordern — dies wird von einem Mitarbeiter geprüft.",
-      "submitRefund": "Die Rückerstattungsanfrage zur Prüfung einreichen."
-    }
+      "submitRefund": "Die Rückerstattungsanfrage zur Prüfung einreichen.",
+      "sendReply": "Diese Antwort an den Support senden."
+    },
+    "history": {
+      "title": "Ihre Anfragen"
+    },
+    "statusOpen": "Offen",
+    "statusClosed": "Geschlossen",
+    "authorYou": "Sie",
+    "authorSupport": "Support",
+    "replyPlaceholder": "Antwort schreiben…",
+    "sendReply": "Senden",
+    "threadClosed": "Diese Anfrage ist geschlossen. Öffnen Sie unten eine neue, wenn Sie weiterhin Hilfe benötigen."
   },
   "consent": {
     "bannerLabel": "Cookie-Einwilligung",
