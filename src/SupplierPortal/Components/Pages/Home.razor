@@ -9,13 +9,42 @@
 <h1>@L["Home_Title"]</h1>
 <p>@L["Home_Intro"]</p>
 
-<div style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
-    <label title="@L["Common_EntityId_Tooltip"]">
-        @L["Common_EntityId"]
-        <input @bind="entityId" title="@L["Common_EntityId_Tooltip"]" style="width:28rem;margin-left:.5rem;" />
-    </label>
-    <button @onclick="LoadReadinessAsync" title="@L["Home_CheckReadiness_Tooltip"]" style="margin-left:.5rem;">@L["Home_CheckReadiness"]</button>
-</div>
+@if (loadingSelf)
+{
+    <p style="color:#6b7280;">@L["Home_Loading"]</p>
+}
+else if (self is not null)
+{
+    <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+        <h2 style="margin-top:0;">@self.LegalName</h2>
+        <p style="color:#6b7280;margin:.25rem 0;">@L["Home_OnboardingState"]: <strong>@self.OnboardingState</strong></p>
+        @if (self.IsReady)
+        {
+            <p style="color:#047857;">@L["Home_Ready"]</p>
+        }
+        else
+        {
+            <p style="color:#b45309;">@L["Home_Missing"]</p>
+            <ul>
+                @foreach (var item in self.MissingRequirements)
+                {
+                    <li>@item</li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+<details style="margin:1rem 0;">
+    <summary style="cursor:pointer;color:#6b7280;">@L["Home_LookupOther"]</summary>
+    <div style="margin-top:.5rem;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+        <label title="@L["Common_EntityId_Tooltip"]">
+            @L["Common_EntityId"]
+            <input @bind="entityId" title="@L["Common_EntityId_Tooltip"]" style="width:28rem;margin-left:.5rem;" />
+        </label>
+        <button @onclick="LoadReadinessAsync" title="@L["Home_CheckReadiness_Tooltip"]" style="margin-left:.5rem;">@L["Home_CheckReadiness"]</button>
+    </div>
+</details>
 
 @if (readiness is not null)
 {
@@ -41,6 +70,17 @@
 @code {
     private string entityId = string.Empty;
     private SupplierReadinessResponse? readiness;
+    private SupplierSelfResponse? self;
+    private bool loadingSelf = true;
+
+    // Auto-load the caller's OWN supplier entity (resolved server-side from the supplier_entity claim) —
+    // a supplier never has to know or type their entity id. Operators without a binding just see the
+    // manual lookup below.
+    protected override async Task OnInitializedAsync()
+    {
+        self = await Gateway.GetAsync<SupplierSelfResponse>("/api/entity/entities/suppliers/me");
+        loadingSelf = false;
+    }
 
     private async Task LoadReadinessAsync()
     {
@@ -58,4 +98,7 @@
     }
 
     private sealed record SupplierReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
+    private sealed record SupplierSelfResponse(
+        Guid EntityId, string LegalName, string? TradingName, string OnboardingState,
+        bool IsReady, IReadOnlyList<string> MissingRequirements);
 }

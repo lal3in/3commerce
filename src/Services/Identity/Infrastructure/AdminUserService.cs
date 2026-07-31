@@ -79,6 +79,44 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
         return true;
     }
 
+    /// <summary>
+    /// Turns a user into a supplier-portal login bound to a supplier entity (sets the <see cref="Roles.Supplier"/>
+    /// role + <see cref="User.SupplierEntityId"/>, and marks the email verified since an operator provisioned it).
+    /// Bumps the principal's ClaimsVersion so any live sessions are invalidated and the new role/scope takes
+    /// effect on the next login. Returns false only when the user isn't found in the tenant.
+    /// </summary>
+    public async Task<bool> MakeSupplierAsync(Guid tenantId, Guid userId, Guid supplierEntityId, Guid? actorId, string? actorRole, CancellationToken ct)
+    {
+        await using var scope = await db.BeginTenantScopeAsync(TenantContext.ForTenant(tenantId), ct);
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, ct);
+        if (user is null)
+        {
+            await scope.CommitAsync(ct);
+            return false;
+        }
+
+        user.Role = Roles.Supplier;
+        user.SupplierEntityId = supplierEntityId;
+        user.EmailVerified = true;
+
+        // Invalidate live sessions: introspection matches Session.ClaimsVersion to the Principal's, so the
+        // user must re-login to receive the supplier role + supplier_entity claim.
+        if (user.PrincipalId is { } principalId)
+        {
+            var principal = await db.Principals.SingleOrDefaultAsync(p => p.Id == principalId, ct);
+            if (principal is not null)
+            {
+                principal.ClaimsVersion++;
+            }
+        }
+
+        await audit.RecordAsync(AuditCategories.Mutation(
+            tenantId, actorId, actorRole, "User", userId.ToString(), "identity.user.make_supplier", supplierEntityId.ToString()), ct);
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return true;
+    }
+
     /// <summary>Changes the user's email and marks it unverified (a fresh verification must follow).</summary>
     public async Task<bool> ChangeEmailAsync(Guid tenantId, Guid userId, string newEmail, Guid? actorId, string? actorRole, CancellationToken ct)
     {

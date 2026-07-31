@@ -186,6 +186,15 @@
   <data name="Home_Missing" xml:space="preserve">
     <value>Exigences manquantes :</value>
   </data>
+  <data name="Home_Loading" xml:space="preserve">
+    <value>Chargement…</value>
+  </data>
+  <data name="Home_OnboardingState" xml:space="preserve">
+    <value>État d'intégration</value>
+  </data>
+  <data name="Home_LookupOther" xml:space="preserve">
+    <value>Rechercher un autre fournisseur par ID</value>
+  </data>
   <data name="Home_LoadFailed" xml:space="preserve">
     <value>Impossible de charger la préparation. Vérifiez votre accès fournisseur.</value>
   </data>

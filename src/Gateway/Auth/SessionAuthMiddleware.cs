@@ -32,7 +32,7 @@ public sealed class SessionAuthMiddleware(
             {
                 context.Request.Headers[ClaimsHeader] = minter.Mint(
                     session.UserId, session.Role, session.SessionId, session.TenantId, session.Email,
-                    session.Amr, session.StrongAuthAt, session.EmailVerified);
+                    session.Amr, session.StrongAuthAt, session.EmailVerified, session.SupplierEntityId);
             }
         }
 
@@ -81,5 +81,5 @@ public sealed class SessionAuthMiddleware(
 
     private sealed record IntrospectedSession(
         Guid SessionId, Guid UserId, Guid TenantId, string Role, string Email, DateTimeOffset ExpiresAt,
-        DateTimeOffset? StrongAuthAt = null, string? Amr = null, bool EmailVerified = false);
+        DateTimeOffset? StrongAuthAt = null, string? Amr = null, bool EmailVerified = false, Guid? SupplierEntityId = null);
 }

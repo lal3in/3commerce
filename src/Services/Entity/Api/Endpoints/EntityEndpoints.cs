@@ -72,6 +72,14 @@ public static class EntityEndpoints
         group.MapDelete("/{id:guid}", Archive)
             .WithSummary("Archive an entity record.");
 
+        // Supplier self-service (supplier portal): a supplier login sees ONLY its own entity, resolved
+        // from the supplier_entity claim — never an id supplied by the client. Mapped outside the
+        // admin-gated group with its own SupplierPolicy.
+        app.MapGet("/entities/suppliers/me", GetMySupplier)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("The caller's own supplier entity summary + onboarding readiness.");
+
         return group;
     }
 
@@ -308,6 +316,37 @@ public static class EntityEndpoints
     {
         var readiness = await suppliers.CheckReadinessAsync(id, cancellationToken);
         return TypedResults.Ok(new SupplierReadinessResponse(readiness.IsReady, readiness.MissingRequirements));
+    }
+
+    // Supplier-self view: resolves the caller's own supplier entity from the supplier_entity claim (an
+    // operator with no binding — or a mismatched tenant — gets 404). No client-supplied id is trusted.
+    private static async Task<Results<Ok<SupplierSelfResponse>, NotFound>> GetMySupplier(
+        ClaimsPrincipal user,
+        EntityDbContext db,
+        SupplierOnboardingService suppliers,
+        CancellationToken cancellationToken)
+    {
+        var entityId = InternalClaimsAuth.SupplierEntityId(user);
+        if (entityId is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var entity = await db.Entities.AsNoTracking().SingleOrDefaultAsync(e => e.Id == entityId.Value, cancellationToken);
+        if (entity is null || !InternalClaimsAuth.CanActForTenant(user, entity.TenantId))
+        {
+            return TypedResults.NotFound();
+        }
+
+        var readiness = await suppliers.CheckReadinessAsync(entityId.Value, cancellationToken);
+        var state = await db.SupplierOnboardings.AsNoTracking()
+            .Where(s => s.EntityId == entityId.Value)
+            .Select(s => (SupplierOnboardingState?)s.State)
+            .SingleOrDefaultAsync(cancellationToken);
+        return TypedResults.Ok(new SupplierSelfResponse(
+            entity.Id, entity.LegalName, entity.TradingName,
+            (state ?? SupplierOnboardingState.Draft).ToString(),
+            readiness.IsReady, readiness.MissingRequirements));
     }
 
     private static async Task<Results<Ok<SupplierOnboardingResponse>, ValidationProblem>> SubmitSupplierVerification(
@@ -696,6 +735,9 @@ public sealed record OverrideDuplicateWarningRequest([property: Required, String
 public sealed record SuspendSupplierRequest([property: Required, StringLength(500, MinimumLength = 8)] string Reason);
 
 public sealed record SupplierReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
+public sealed record SupplierSelfResponse(
+    Guid EntityId, string LegalName, string? TradingName, string OnboardingState,
+    bool IsReady, IReadOnlyList<string> MissingRequirements);
 
 public sealed record SupplierOnboardingResponse(
     Guid Id,

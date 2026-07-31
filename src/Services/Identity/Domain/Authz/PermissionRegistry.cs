@@ -80,5 +80,8 @@ public static class PermissionRegistry
             ["catalog.product.view", "catalog.product.edit", "catalog.product.publish"]),
         // Built-in storefront shopper role; no back-office permissions.
         new("customer", "Customer", "Storefront shopper.", IsBuiltIn: true, []),
+        // Built-in external supplier-portal role; sees only its own supplier entity (scoped by the
+        // supplier_entity claim), no back-office permissions.
+        new("supplier", "Supplier", "External supplier portal access.", IsBuiltIn: true, []),
     ];
 }

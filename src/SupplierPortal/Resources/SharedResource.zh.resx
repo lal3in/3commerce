@@ -186,6 +186,15 @@
   <data name="Home_Missing" xml:space="preserve">
     <value>缺少的要求：</value>
   </data>
+  <data name="Home_Loading" xml:space="preserve">
+    <value>加载中…</value>
+  </data>
+  <data name="Home_OnboardingState" xml:space="preserve">
+    <value>入驻状态</value>
+  </data>
+  <data name="Home_LookupOther" xml:space="preserve">
+    <value>按 ID 查询其他供应商</value>
+  </data>
   <data name="Home_LoadFailed" xml:space="preserve">
     <value>无法加载准备情况。请确认您的供应商访问权限。</value>
   </data>

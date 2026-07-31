@@ -186,6 +186,15 @@
   <data name="Home_Missing" xml:space="preserve">
     <value>Fehlende Anforderungen:</value>
   </data>
+  <data name="Home_Loading" xml:space="preserve">
+    <value>Wird geladen…</value>
+  </data>
+  <data name="Home_OnboardingState" xml:space="preserve">
+    <value>Onboarding-Status</value>
+  </data>
+  <data name="Home_LookupOther" xml:space="preserve">
+    <value>Anderen Lieferanten per ID suchen</value>
+  </data>
   <data name="Home_LoadFailed" xml:space="preserve">
     <value>Bereitschaft konnte nicht geladen werden. Bestätigen Sie Ihren Lieferantenzugang.</value>
   </data>

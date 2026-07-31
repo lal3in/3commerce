@@ -56,7 +56,7 @@ public sealed record LoginResult(string RawSessionToken, Guid UserId, string Rol
 
 public sealed record SessionInfo(
     Guid SessionId, Guid UserId, Guid TenantId, string Role, string Email, DateTimeOffset ExpiresAt,
-    DateTimeOffset? StrongAuthAt = null, string Amr = "pwd", bool EmailVerified = false);
+    DateTimeOffset? StrongAuthAt = null, string Amr = "pwd", bool EmailVerified = false, Guid? SupplierEntityId = null);
 
 /// <summary><paramref name="Required"/>: the effective MfaPolicy demands a factor for this user (nag/enroll signal).</summary>
 public sealed record MfaStatus(bool Enrolled, bool Pending, bool Required);
