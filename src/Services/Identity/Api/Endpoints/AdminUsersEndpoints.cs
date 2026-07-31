@@ -18,6 +18,7 @@ public static class AdminUsersEndpoints
         group.MapGet("/", List).WithSummary("List users in a tenant.");
         group.MapPost("/{id:guid}/reset-password", ResetPassword).WithSummary("Issue a one-time temporary password.");
         group.MapPost("/{id:guid}/verify-email", VerifyEmail).WithSummary("Manually mark a user's email verified (operator fallback; attaches prior guest orders).");
+        group.MapPost("/{id:guid}/make-supplier", MakeSupplier).WithSummary("Turn a user into a supplier-portal login bound to a supplier entity.");
         group.MapPut("/{id:guid}/email", ChangeEmail).WithSummary("Change a user's email (re-verification required).");
         return app;
     }
@@ -59,6 +60,20 @@ public static class AdminUsersEndpoints
             : TypedResults.NotFound();
     }
 
+    private static async Task<Results<NoContent, NotFound, ForbidHttpResult>> MakeSupplier(
+        Guid id, Guid tenantId, MakeSupplierRequest request, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct)
+    {
+        if (!InternalClaimsAuth.CanActForTenant(principal, tenantId))
+        {
+            return TypedResults.Forbid();
+        }
+
+        var (actorId, actorRole) = principal.AuditActor();
+        return await service.MakeSupplierAsync(tenantId, id, request.SupplierEntityId, actorId, actorRole, ct)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
+    }
+
     private static async Task<Results<NoContent, BadRequest<string>, ForbidHttpResult>> ChangeEmail(
         Guid id, Guid tenantId, ChangeEmailRequest request, ClaimsPrincipal principal, AdminUserService service, CancellationToken ct)
     {
@@ -81,3 +96,4 @@ public static class AdminUsersEndpoints
 
 public record ResetPasswordResponse(string TemporaryPassword);
 public record ChangeEmailRequest([property: Required, EmailAddress] string Email);
+public record MakeSupplierRequest([property: Required] Guid SupplierEntityId);

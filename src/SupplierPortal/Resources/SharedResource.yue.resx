@@ -186,6 +186,15 @@
   <data name="Home_Missing" xml:space="preserve">
     <value>欠缺嘅要求：</value>
   </data>
+  <data name="Home_Loading" xml:space="preserve">
+    <value>載入緊…</value>
+  </data>
+  <data name="Home_OnboardingState" xml:space="preserve">
+    <value>入駐狀態</value>
+  </data>
+  <data name="Home_LookupOther" xml:space="preserve">
+    <value>用 ID 查詢其他供應商</value>
+  </data>
   <data name="Home_LoadFailed" xml:space="preserve">
     <value>無法載入準備情況。請確認你嘅供應商權限。</value>
   </data>

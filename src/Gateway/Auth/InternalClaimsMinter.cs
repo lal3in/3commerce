@@ -40,7 +40,7 @@ public sealed class InternalClaimsMinter
     }
 
     public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId, string? email = null,
-        string? amr = null, DateTimeOffset? authTime = null, bool emailVerified = false)
+        string? amr = null, DateTimeOffset? authTime = null, bool emailVerified = false, Guid? supplierEntityId = null)
     {
         var now = DateTime.UtcNow;
         var claims = new Dictionary<string, object>
@@ -56,6 +56,13 @@ public sealed class InternalClaimsMinter
         if (!string.IsNullOrWhiteSpace(email))
         {
             claims["email"] = email;
+        }
+
+        // Scopes a supplier-portal login to its own supplier entity — services compare this against the
+        // entity being accessed (never trust a client-supplied id).
+        if (supplierEntityId is { } supplierId)
+        {
+            claims["supplier_entity"] = supplierId.ToString();
         }
 
         // MFA posture (mt6_10): amr "pwd"/"pwd otp"; auth_time = last strong verification, the

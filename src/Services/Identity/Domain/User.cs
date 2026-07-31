@@ -40,6 +40,13 @@ public class User
 
     /// <summary>Legacy coarse role kept during the Phase-1 migration; dynamic RBAC becomes authoritative in mt1_7.</summary>
     public string Role { get; set; } = Roles.Customer;
+
+    /// <summary>
+    /// The supplier entity this login represents, for <see cref="Roles.Supplier"/> users. Minted as the
+    /// <c>supplier_entity</c> claim so services can scope a supplier to their own entity only. Null for
+    /// everyone else.
+    /// </summary>
+    public Guid? SupplierEntityId { get; set; }
     public int FailedLoginCount { get; set; }
     public DateTimeOffset? LockoutUntil { get; set; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -50,4 +57,7 @@ public static class Roles
 {
     public const string Customer = "customer";
     public const string Admin = "admin";
+
+    /// <summary>External supplier-portal login, scoped to its own supplier entity (see <see cref="User.SupplierEntityId"/>).</summary>
+    public const string Supplier = "supplier";
 }

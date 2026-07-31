@@ -22,8 +22,25 @@ public static class InternalClaimsAuth
     public const string CustomerPolicy = "Customer";
     public const string AdminPolicy = "Admin";
 
+    /// <summary>External supplier-portal surface: supplier logins plus operators (admin/master).</summary>
+    public const string SupplierPolicy = "Supplier";
+
+    public const string SupplierRole = "supplier";
+
     /// <summary>Platform-scope operator role: may act across tenants. No user carries it yet by default.</summary>
     public const string MasterRole = "master";
+
+    /// <summary>
+    /// Supplier self-scope guard: an operator (admin/master) may act on any supplier, but a
+    /// <see cref="SupplierRole"/> login may only touch the entity in its <c>supplier_entity</c> claim.
+    /// </summary>
+    public static bool CanActForSupplier(ClaimsPrincipal principal, Guid entityId) =>
+        principal.IsInRole("admin") || principal.IsInRole(MasterRole)
+        || (Guid.TryParse(principal.FindFirstValue("supplier_entity"), out var own) && own == entityId);
+
+    /// <summary>The supplier entity a supplier login is scoped to, or null (operators carry no binding).</summary>
+    public static Guid? SupplierEntityId(ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue("supplier_entity"), out var id) ? id : null;
 
     /// <summary>
     /// Cross-tenant guard for admin surfaces that take an explicit tenantId (aui_8 note / rev_9):
@@ -77,6 +94,7 @@ public static class InternalClaimsAuth
         {
             options.AddPolicy(CustomerPolicy, policy => policy.RequireRole("customer", "admin", MasterRole));
             options.AddPolicy(AdminPolicy, policy => policy.RequireRole("admin", MasterRole));
+            options.AddPolicy(SupplierPolicy, policy => policy.RequireRole(SupplierRole, "admin", MasterRole));
         });
 
         return services;
