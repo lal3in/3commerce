@@ -1418,6 +1418,9 @@
   <data name="Tickets.Col.Email" xml:space="preserve"><value>Kunde</value></data>
   <data name="Tickets.Col.Reason" xml:space="preserve"><value>Grund</value></data>
   <data name="Tickets.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Tickets.Col.LastReply" xml:space="preserve"><value>Letzte Antwort</value></data>
+  <data name="Tickets.LastReply.Operator.Tip" xml:space="preserve"><value>Support hat zuletzt geantwortet – keine Aktion erforderlich.</value></data>
+  <data name="Tickets.LastReply.Customer.Tip" xml:space="preserve"><value>Kunde hat zuletzt geantwortet – wartet auf eine Support-Antwort.</value></data>
   <data name="Tickets.Col.Messages" xml:space="preserve"><value>Nachrichten</value></data>
   <data name="Tickets.Col.Created" xml:space="preserve"><value>Geöffnet</value></data>
   <data name="Tickets.Empty" xml:space="preserve"><value>Keine Tickets.</value></data>
