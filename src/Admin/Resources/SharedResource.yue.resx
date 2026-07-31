@@ -1443,4 +1443,17 @@
   <data name="Tickets.Reason.Other" xml:space="preserve"><value>其他</value></data>
   <data name="Tickets.Author.Customer" xml:space="preserve"><value>客戶</value></data>
   <data name="Tickets.Author.Operator" xml:space="preserve"><value>支援</value></data>
+  <data name="Nav.Reviews" xml:space="preserve"><value>評價</value></data>
+  <data name="Nav.Reviews.Tip" xml:space="preserve"><value>審核產品評分同評價。</value></data>
+  <data name="Reviews.Title" xml:space="preserve"><value>產品評價</value></data>
+  <data name="Reviews.Intro" xml:space="preserve"><value>所有客戶評分同評價。移除違反規定嘅內容。</value></data>
+  <data name="Reviews.Col.Product" xml:space="preserve"><value>產品</value></data>
+  <data name="Reviews.Col.Rating" xml:space="preserve"><value>評分</value></data>
+  <data name="Reviews.Col.Author" xml:space="preserve"><value>作者</value></data>
+  <data name="Reviews.Col.Comment" xml:space="preserve"><value>評論</value></data>
+  <data name="Reviews.Col.Created" xml:space="preserve"><value>日期</value></data>
+  <data name="Reviews.Delete" xml:space="preserve"><value>移除</value></data>
+  <data name="Reviews.Delete.Tip" xml:space="preserve"><value>移除此評價（審核）。</value></data>
+  <data name="Reviews.Empty" xml:space="preserve"><value>暫時未有評價。</value></data>
+  <data name="Reviews.Deleted" xml:space="preserve"><value>評價已移除。</value></data>
 </root>

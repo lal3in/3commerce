@@ -456,5 +456,21 @@
       "marketing": "開啟或關閉活動歸因。",
       "saveChoices": "即時將呢啲選擇套用到呢個瀏覽器。"
     }
+  },
+  "reviews": {
+    "title": "評分與評價",
+    "count": "{count} 則評價",
+    "none": "暫時未有評價。",
+    "writeTitle": "撰寫評價",
+    "yourRating": "你嘅評分",
+    "commentPlaceholder": "分享你嘅體驗（選填）…",
+    "submit": "提交評價",
+    "submitting": "提交中…",
+    "thanks": "多謝你嘅評價！",
+    "signIn": "登入",
+    "notice": {
+      "anon": "以留下評價。",
+      "unverified": "請驗證你嘅電郵地址以留下評價。"
+    }
   }
 }

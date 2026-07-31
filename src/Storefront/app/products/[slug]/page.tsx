@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { getProduct } from "@/lib/gateway";
+import { getProduct, getProductReviews, getProfile } from "@/lib/gateway";
+import { ProductReviews } from "@/components/product/ProductReviews";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
@@ -53,6 +54,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   if (!product) {
     notFound();
   }
+
+  // Reviews are public; the write form is gated to verified, signed-in customers (server-enforced too).
+  const [reviews, profile] = await Promise.all([getProductReviews(product.id), getProfile()]);
+  const canReview = profile != null && profile.emailVerified;
+  const reviewReason: "anon" | "unverified" | null = profile == null ? "anon" : !profile.emailVerified ? "unverified" : null;
+  const reviewerName = profile
+    ? profile.preferredName || [profile.firstName, profile.lastName].filter(Boolean).join(" ")
+    : "";
 
   const fromPrice = product.variants.length
     ? Math.min(...product.variants.map((v) => v.priceMinor))
@@ -131,6 +140,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
         <AddToCartButton productId={product.id} variants={product.variants} currency={storefront?.currency} />
       </div>
+
+      <ProductReviews
+        productId={product.id}
+        slug={slug}
+        summary={reviews}
+        canReview={canReview}
+        reason={reviewReason}
+        defaultName={reviewerName}
+      />
     </div>
   );
 }

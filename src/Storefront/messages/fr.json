@@ -456,5 +456,21 @@
       "marketing": "Activer ou désactiver l'attribution de campagne.",
       "saveChoices": "Appliquer immédiatement ces choix à ce navigateur."
     }
+  },
+  "reviews": {
+    "title": "Notes et avis",
+    "count": "{count, plural, one {# avis} other {# avis}}",
+    "none": "Pas encore d'avis.",
+    "writeTitle": "Rédiger un avis",
+    "yourRating": "Votre note",
+    "commentPlaceholder": "Partagez votre expérience (facultatif)…",
+    "submit": "Envoyer l'avis",
+    "submitting": "Envoi…",
+    "thanks": "Merci pour votre avis !",
+    "signIn": "Connectez-vous",
+    "notice": {
+      "anon": "pour laisser un avis.",
+      "unverified": "Vérifiez votre adresse e-mail pour laisser un avis."
+    }
   }
 }

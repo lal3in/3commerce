@@ -456,5 +456,21 @@
       "marketing": "Active o desactive la atribución de campañas.",
       "saveChoices": "Aplicar estas preferencias a este navegador de inmediato."
     }
+  },
+  "reviews": {
+    "title": "Valoraciones y reseñas",
+    "count": "{count, plural, one {# reseña} other {# reseñas}}",
+    "none": "Aún no hay reseñas.",
+    "writeTitle": "Escribir una reseña",
+    "yourRating": "Tu valoración",
+    "commentPlaceholder": "Comparte tu experiencia (opcional)…",
+    "submit": "Enviar reseña",
+    "submitting": "Enviando…",
+    "thanks": "¡Gracias por tu reseña!",
+    "signIn": "Inicia sesión",
+    "notice": {
+      "anon": "para dejar una reseña.",
+      "unverified": "Verifica tu correo electrónico para dejar una reseña."
+    }
   }
 }

@@ -456,5 +456,21 @@
       "marketing": "Kampagnen-Zuordnung ein- oder ausschalten.",
       "saveChoices": "Diese Auswahl sofort auf diesen Browser anwenden."
     }
+  },
+  "reviews": {
+    "title": "Bewertungen & Rezensionen",
+    "count": "{count, plural, one {# Bewertung} other {# Bewertungen}}",
+    "none": "Noch keine Bewertungen.",
+    "writeTitle": "Bewertung schreiben",
+    "yourRating": "Ihre Bewertung",
+    "commentPlaceholder": "Teilen Sie Ihre Erfahrung (optional)…",
+    "submit": "Bewertung absenden",
+    "submitting": "Wird gesendet…",
+    "thanks": "Danke für Ihre Bewertung!",
+    "signIn": "Anmelden",
+    "notice": {
+      "anon": "um eine Bewertung abzugeben.",
+      "unverified": "Verifizieren Sie Ihre E-Mail-Adresse, um eine Bewertung abzugeben."
+    }
   }
 }

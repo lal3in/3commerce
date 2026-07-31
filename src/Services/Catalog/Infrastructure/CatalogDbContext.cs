@@ -20,6 +20,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductPublication> ProductPublications => Set<ProductPublication>();
     public DbSet<ProductPublicationVariant> ProductPublicationVariants => Set<ProductPublicationVariant>();
     public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +52,15 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             product.HasIndex(p => new { p.TenantId, p.CategoryId });
             // search_vector (weighted tsvector) + GIN indexes are raw SQL in the
             // SearchSchema migration — deliberately not part of the EF model.
+        });
+
+        modelBuilder.Entity<ProductReview>(review =>
+        {
+            review.Property(r => r.AuthorName).HasMaxLength(60);
+            review.Property(r => r.Comment).HasMaxLength(4000);
+            // One review per customer per product — a re-submit updates the existing row.
+            review.HasIndex(r => new { r.ProductId, r.UserId }).IsUnique();
+            review.HasIndex(r => r.ProductId);
         });
 
         modelBuilder.Entity<Variant>(variant =>

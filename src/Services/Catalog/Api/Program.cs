@@ -52,6 +52,7 @@ app.UseAuthorization();
 app.MapServiceHealth();
 app.MapPing();
 app.MapProducts();
+app.MapReviews();
 app.MapAdmin();
 app.MapStorefrontAdmin();
 app.MapOffers();

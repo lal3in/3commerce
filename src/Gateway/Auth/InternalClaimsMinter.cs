@@ -40,7 +40,7 @@ public sealed class InternalClaimsMinter
     }
 
     public string Mint(Guid userId, string role, Guid sessionId, Guid tenantId, string? email = null,
-        string? amr = null, DateTimeOffset? authTime = null)
+        string? amr = null, DateTimeOffset? authTime = null, bool emailVerified = false)
     {
         var now = DateTime.UtcNow;
         var claims = new Dictionary<string, object>
@@ -49,6 +49,9 @@ public sealed class InternalClaimsMinter
             ["role"] = role,
             ["sid"] = sessionId.ToString(),
             ["tenant"] = tenantId.ToString(),
+            // Lets services gate verified-only actions (e.g. leaving a product review) without a
+            // round-trip to Identity — the freshness is bounded by the 5-minute token lifetime.
+            ["email_verified"] = emailVerified ? "true" : "false",
         };
         if (!string.IsNullOrWhiteSpace(email))
         {
