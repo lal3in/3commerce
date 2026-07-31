@@ -195,7 +195,7 @@
     "address": "地址",
     "city": "城市",
     "postcode": "郵政編碼",
-    "country": "國家（2 個字母）",
+    "country": "國家/地區",
     "placeOrder": "授權並下單",
     "authorizing": "授權緊…",
     "methods": {
@@ -212,7 +212,7 @@
       "address": "街道地址——門牌號同街名。",
       "city": "送貨嘅城鎮或城市。",
       "postcode": "郵政／ZIP 編碼——用嚟計運費。",
-      "country": "2 個字母嘅國家代碼（ISO 3166），例如 DE、US、AU。",
+      "country": "揀選你嘅國家/地區。",
       "getRates": "為上面嘅送貨地址取得即時速遞報價。",
       "shippingRateChoice": "揀用邊間速遞服務寄呢張訂單。",
       "paymentOption": "揀你想點樣付款。訂單授權後先會收款。",
@@ -224,7 +224,8 @@
       "billingAddress": "你張卡登記嘅地址——用嚟做銀行嘅地址核對（AVS）。",
       "quantity": "更改呢件貨品訂購嘅數量。",
       "placeOrder": "授權付款並下單。之後你會見到確認。"
-    }
+    },
+    "selectCountry": "揀選國家/地區"
   },
   "confirmation": {
     "noOrder": "冇指定訂單。",
@@ -331,7 +332,7 @@
     "addressLine2": "單位、樓層等等",
     "city": "城市",
     "postcode": "郵政編碼",
-    "countryCode": "國家代碼",
+    "countryCode": "國家/地區",
     "makeDefaultAddress": "設為呢個用途嘅預設",
     "addressSaved": "地址已儲存。",
     "addressUpdated": "地址已更新。",
@@ -358,7 +359,7 @@
       "addressLine2": "單位、公寓或者大廈。可選填。",
       "city": "城鎮或城市。",
       "postcode": "郵政／ZIP 編碼——用嚟計運費。",
-      "countryCode": "2 個字母嘅國家代碼（ISO 3166），例如 AU、DE、US。",
+      "countryCode": "揀選你嘅國家/地區。",
       "makeDefaultAddress": "喺結帳時為呢個用途預先揀好呢個地址。",
       "cardNumber": "供應商測試卡號。喺去到我哋付款服務之前會先權杖化——原始卡號永遠唔會儲存。",
       "expiry": "信用卡到期日，格式 MM/YY。",
@@ -369,7 +370,8 @@
       "deleteCard": "喺你嘅帳戶移除呢張已儲存嘅卡。",
       "support": "開客戶服務個案或者為呢張訂單申請退款。",
       "logOut": "喺呢部裝置登出。"
-    }
+    },
+    "selectCountry": "揀選國家/地區"
   },
   "support": {
     "title": "訂單支援",
