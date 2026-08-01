@@ -89,9 +89,11 @@ else
                             <tbody>
                             @foreach (var l in e.Lines)
                             {
-                                var isRefundLine = l.DebitMinor > 0
-                                    && (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal));
-                                <tr style="border-top:1px solid #f3f4f6; @(isRefundLine ? "color:#b45309;font-weight:600;" : "")">
+                                // Highlight the line(s) that define this entry, in the entry's own colour —
+                                // matching the Amount: refund = revenue/tax debit (amber), sale = revenue/tax
+                                // credit (green), outgoing = cash credit (red).
+                                var highlight = IsHighlightLine(l, kind);
+                                <tr style="border-top:1px solid #f3f4f6; @(highlight ? $"color:{KindColor(kind)};font-weight:600;" : "")">
                                     <td><code style="font-size:.78rem;">@l.AccountCode</code></td>
                                     <td style="text-align:right;">@(l.DebitMinor > 0 ? Money(l.DebitMinor) : "")</td>
                                     <td style="text-align:right;">@(l.CreditMinor > 0 ? Money(l.CreditMinor) : "")</td>
@@ -179,6 +181,21 @@ else
         }
 
         return net < 0 ? (-net, EntryKind.Outgoing) : (e.Lines.Sum(l => l.DebitMinor), EntryKind.Neutral);
+    }
+
+    // The breakdown line that carries the entry's meaning, coloured to match the Amount: a refund reverses
+    // revenue/tax (debit), a sale posts revenue/tax (credit), an outgoing payment credits cash.
+    private static bool IsHighlightLine(LineDto l, EntryKind kind)
+    {
+        var isRevTax = l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal);
+        var isCash = l.AccountCode.StartsWith("cash.", StringComparison.Ordinal);
+        return kind switch
+        {
+            EntryKind.Refund => isRevTax && l.DebitMinor > 0,
+            EntryKind.Incoming => (isRevTax && l.CreditMinor > 0) || (isCash && l.DebitMinor > 0),
+            EntryKind.Outgoing => isCash && l.CreditMinor > 0,
+            _ => false,
+        };
     }
 
     private static string KindColor(EntryKind kind) => kind switch
