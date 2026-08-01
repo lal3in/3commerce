@@ -59,23 +59,24 @@ else
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th style="text-align:right;">@L["Ledger.Col.Refunded"]</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th style="text-align:right;">@L["Ledger.Col.Amount"]</th></tr></thead>
         <tbody>
         @foreach (var e in _entries)
         {
             var refunded = RefundedMinor(e);
             var open = _expanded.Contains(e.Id);
+            var (amount, kind) = Classify(e);
+            @* Amount coloured by direction: green = money in, red = money out, amber = refund (distinct
+               from an outgoing payment). Expands to a per-line breakdown; refund lines are highlighted. *@
             <tr style="border-top:1px solid #e5e7eb;">
                 <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
                 <td>@e.Description</td>
                 <td style="text-align:center;">@e.Reference</td>
                 <td style="text-align:center;">@e.Currency</td>
-                @* Refunded amount in this entry (debits to revenue.*/tax.* = the ADR-0040 reversal),
-                   with an expandable per-line breakdown. Non-refund entries expand too, to show lines. *@
                 <td style="text-align:right;">
                     <button @onclick="() => Toggle(e.Id)" title="@L["Ledger.Entry.Breakdown.Tip"]"
-                            style="background:none;border:0;cursor:pointer;font:inherit;color:@(refunded > 0 ? "#b45309" : "#6b7280");">
-                        <span aria-hidden>@(open ? "▾" : "▸")</span> @(refunded > 0 ? $"{Money(refunded)} {e.Currency}" : "—")
+                            style="background:none;border:0;cursor:pointer;font:inherit;font-weight:600;color:@KindColor(kind);">
+                        <span aria-hidden style="font-weight:400;color:#9ca3af;">@(open ? "▾" : "▸")</span> @KindSign(kind)@Money(amount) @e.Currency
                     </button>
                 </td>
             </tr>
@@ -136,6 +137,46 @@ else
         .Sum(l => l.DebitMinor);
 
     private static string Money(long minor) => $"{minor / 100m:N2}";
+
+    private enum EntryKind { Refund, Incoming, Outgoing, Neutral }
+
+    // Classify an entry by cash direction, so the Amount can be coloured: a refund (revenue/tax reversal)
+    // stays amber even though it moves cash out; otherwise cash debited = money IN, cash credited = money
+    // OUT. Amount is the entry magnitude (Σ debits, which equals Σ credits in a balanced entry).
+    private static (long Amount, EntryKind Kind) Classify(EntryDto e)
+    {
+        var refunded = RefundedMinor(e);
+        var total = e.Lines.Sum(l => l.DebitMinor);
+        if (refunded > 0)
+        {
+            return (refunded, EntryKind.Refund);
+        }
+
+        var cashDebit = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
+        var cashCredit = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal)).Sum(l => l.CreditMinor);
+        if (cashDebit > cashCredit)
+        {
+            return (total, EntryKind.Incoming);
+        }
+
+        return cashCredit > cashDebit ? (total, EntryKind.Outgoing) : (total, EntryKind.Neutral);
+    }
+
+    private static string KindColor(EntryKind kind) => kind switch
+    {
+        EntryKind.Incoming => "#047857", // green — money in
+        EntryKind.Outgoing => "#b91c1c", // red — money out
+        EntryKind.Refund => "#b45309",   // amber — refund (distinct from a plain outgoing)
+        _ => "#6b7280",                  // grey — no cash movement (e.g. accrual)
+    };
+
+    private static string KindSign(EntryKind kind) => kind switch
+    {
+        EntryKind.Incoming => "+",
+        EntryKind.Outgoing => "−",
+        EntryKind.Refund => "−",
+        _ => "",
+    };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
