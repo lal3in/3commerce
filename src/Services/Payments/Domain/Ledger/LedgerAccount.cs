@@ -21,6 +21,9 @@ public static class Accounts
     public const string CashStripe = "cash.stripe";
     public const string RevenueSales = "revenue.sales";
     public const string RevenueRefunds = "revenue.refunds";
+    // Shipping charged to shoppers, booked as its own income line (NOT under revenue.* so the P&L can
+    // report it separately from product revenue). Credit-normal, reversed proportionally on refund.
+    public const string ShippingIncome = "income.shipping";
     public const string ExpenseStripeFees = "expense.stripe_fees";
     public const string ExpenseCostOfGoodsSold = "expense.cogs";
     public const string CostOfGoodsSold = ExpenseCostOfGoodsSold;

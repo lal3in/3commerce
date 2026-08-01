@@ -90,7 +90,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         // so gross carries a non-zero tax portion. Relationships below are asserted rather than magic
         // numbers so the test stays robust to shipping/rounding.
         Assert.True(order.TaxMinor > 0, $"expected tax to be charged, got {order.TaxMinor}");
-        var expectedNet = order.GrossMinor - order.TaxMinor;
+        // Product revenue = gross − tax − shipping; shipping books to its own income line (income.shipping).
+        var expectedShipping = order.ShippingMinor;
+        var expectedNet = order.GrossMinor - order.TaxMinor - expectedShipping;
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
@@ -110,6 +112,7 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
             db.JournalLines.Where(l => l.EntryId == entry.Id));
         Assert.Equal(expectedNet, lines.Where(l => l.AccountCode == Accounts.RevenueSales).Sum(l => l.CreditMinor));
+        Assert.Equal(expectedShipping, lines.Where(l => l.AccountCode == Accounts.ShippingIncome).Sum(l => l.CreditMinor));
         Assert.Equal(order.TaxMinor, lines.Where(l => l.AccountCode == Accounts.LiabilityTaxCollected).Sum(l => l.CreditMinor));
         Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
         Assert.Equal(0, await fixture.TrialBalanceAsync());

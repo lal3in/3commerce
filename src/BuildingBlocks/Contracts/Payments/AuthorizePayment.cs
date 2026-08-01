@@ -23,6 +23,9 @@ public record AuthorizePayment(
     Guid? StorefrontId = null,
     // Tax portion of NetMinor (computed by Ordering at checkout). Persisted on the Payment so the ledger
     // splits revenue (net) from tax collected (liability) instead of booking the whole gross as revenue.
-    long TaxMinor = 0);
+    long TaxMinor = 0,
+    // Shipping portion of NetMinor. Persisted on the Payment so the ledger books shipping as its own
+    // income line (income.shipping), separate from product revenue. Optional → back-compatible.
+    long ShippingMinor = 0);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);

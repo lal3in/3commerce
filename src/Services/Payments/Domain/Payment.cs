@@ -19,6 +19,8 @@ public class Payment
     public required string PaymentIntentId { get; set; }
     public long AmountMinor { get; init; }
     public long TaxMinor { get; init; }
+    /// <summary>Shipping portion of <see cref="AmountMinor"/> — booked to income.shipping (its own P&amp;L line).</summary>
+    public long ShippingMinor { get; init; }
     public required string Currency { get; init; }
     public PaymentStatus Status { get; set; }
 

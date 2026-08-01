@@ -1393,6 +1393,7 @@
   <data name="Fin.Revenue" xml:space="preserve">
     <value>收入</value>
   </data>
+  <data name="Fin.Shipping" xml:space="preserve"><value>运费收入</value></data>
   <data name="Fin.Refunds" xml:space="preserve">
     <value>退款</value>
   </data>
