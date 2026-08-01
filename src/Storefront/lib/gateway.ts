@@ -249,6 +249,25 @@ export async function getMyOrders(): Promise<OrderSummaryDto[]> {
   return response.ok ? ((await response.json()) as OrderSummaryDto[]) : [];
 }
 
+export type OrderLineDetail = {
+  productId: string; variantId: string | null; variantSku: string | null; title: string;
+  unitPriceMinor: number; discountMinor: number; quantity: number; fulfilmentType: string; billingMode: string;
+};
+export type OrderShippingAddress = { name: string; line1: string; city: string; postcode: string; country: string };
+export type OrderDetail = {
+  id: string; status: string; email: string;
+  netMinor: number; shippingMinor: number; discountMinor: number; taxMinor: number; grossMinor: number; currency: string;
+  createdAt: string; lines: OrderLineDetail[];
+  publicOrderNumber: number; paymentOption: string; paymentInstrumentSummary: string | null; paymentProvider: string;
+  partiallyRefunded: boolean; shippingAddress: OrderShippingAddress | null;
+};
+
+// The signed-in customer's own order, full detail (addresses, payment, items, amount breakdown).
+export async function getMyOrder(orderId: string): Promise<OrderDetail | null> {
+  const response = await gatewayFetch(`/api/ordering/orders/${orderId}`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as OrderDetail) : null;
+}
+
 export type RefundableLine = { productId: string; title: string; unitPriceMinor: number; quantity: number };
 export type RefundableOrder = { orderId: string; grossMinor: number; currency: string; lines: RefundableLine[] };
 

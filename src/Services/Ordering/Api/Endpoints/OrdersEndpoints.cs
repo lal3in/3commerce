@@ -137,14 +137,21 @@ public static class OrdersEndpoints
 
     private static OrderDetail ToDetail(ThreeCommerce.Ordering.Domain.Order o) => new(
         o.Id, o.Status.ToString(), o.Email, o.NetMinor, o.ShippingMinor, o.DiscountMinor, o.TaxMinor, o.GrossMinor, o.Currency, o.CreatedAt,
-        o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.VariantId, l.VariantSku, l.Title, l.UnitPriceMinor, l.DiscountMinor, l.Quantity, l.FulfilmentType.ToString(), l.BillingMode.ToString())).ToList());
+        o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.VariantId, l.VariantSku, l.Title, l.UnitPriceMinor, l.DiscountMinor, l.Quantity, l.FulfilmentType.ToString(), l.BillingMode.ToString())).ToList(),
+        o.PublicOrderNumber, o.PaymentOption, o.PaymentInstrumentSummary, o.PaymentProvider, o.PartiallyRefunded,
+        new ShippingAddressResponse(o.ShipName, o.ShipLine1, o.ShipCity, o.ShipPostcode, o.ShipCountry));
 }
 
 // PaymentOption defaults for legacy rows: the column is NOT NULL with a "CreditCard" DB default,
 // but guard against empty strings so consumers always get a real option name.
 public record OrderSummary(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string PaymentOption = "CreditCard", Guid? StorefrontId = null, bool PartiallyRefunded = false);
 public record OrderLineResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
-public record OrderDetail(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines);
+public record ShippingAddressResponse(string Name, string Line1, string City, string Postcode, string Country);
+public record OrderDetail(
+    Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor,
+    string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines,
+    long PublicOrderNumber = 0, string PaymentOption = "CreditCard", string? PaymentInstrumentSummary = null,
+    string PaymentProvider = "Stripe", bool PartiallyRefunded = false, ShippingAddressResponse? ShippingAddress = null);
 public record OrderStatusResponse(Guid Id, string Status);
 public record CancelOrderRequest(string? Reason);
 public record CheckoutStateCountDto(string State, int Count);

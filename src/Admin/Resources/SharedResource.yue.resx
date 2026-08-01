@@ -346,6 +346,20 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>訂單</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>總額</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>落單時間</value></data>
+  <data name="Orders.Details.Tip" xml:space="preserve"><value>顯示/隱藏完整訂單詳情</value></data>
+  <data name="Orders.Details.Unavailable" xml:space="preserve"><value>訂單詳情暫時攞唔到。</value></data>
+  <data name="Orders.Details.Summary" xml:space="preserve"><value>摘要</value></data>
+  <data name="Orders.Details.Number" xml:space="preserve"><value>訂單編號</value></data>
+  <data name="Orders.Details.Date" xml:space="preserve"><value>日期</value></data>
+  <data name="Orders.Details.Email" xml:space="preserve"><value>電郵</value></data>
+  <data name="Orders.Details.Payment" xml:space="preserve"><value>付款</value></data>
+  <data name="Orders.Details.ShipTo" xml:space="preserve"><value>送貨至</value></data>
+  <data name="Orders.Details.Items" xml:space="preserve"><value>貨品</value></data>
+  <data name="Orders.Details.Subtotal" xml:space="preserve"><value>小計</value></data>
+  <data name="Orders.Details.Discount" xml:space="preserve"><value>折扣</value></data>
+  <data name="Orders.Details.Shipping" xml:space="preserve"><value>運費</value></data>
+  <data name="Orders.Details.Tax" xml:space="preserve"><value>稅項</value></data>
+  <data name="Orders.Details.Total" xml:space="preserve"><value>總計</value></data>
   <data name="Orders.Col.Payment" xml:space="preserve"><value>付款方式</value></data>
   <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>買家喺結帳嗰陣揀嘅付款方式。</value></data>
   <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>

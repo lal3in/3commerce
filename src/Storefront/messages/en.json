@@ -369,9 +369,26 @@
       "makeDefaultCardAction": "Use this card by default at checkout.",
       "deleteCard": "Remove this saved card from your account.",
       "support": "Open a support ticket or request a refund for this order.",
-      "logOut": "Sign out of this device."
+      "logOut": "Sign out of this device.",
+      "orderDetails": "View the full order details",
+      "hideOrderDetails": "Hide order details"
     },
-    "selectCountry": "Select a country"
+    "selectCountry": "Select a country",
+    "orderDetails": "Order details",
+    "orderDetailsLoading": "Loading…",
+    "orderDetailsUnavailable": "Order details are unavailable right now.",
+    "orderNumber": "Order #",
+    "orderDate": "Date",
+    "orderStatus": "Status",
+    "partiallyRefunded": "Partially refunded",
+    "payment": "Payment",
+    "shippingAddress": "Shipping address",
+    "items": "Items",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "shipping": "Shipping",
+    "tax": "Tax",
+    "total": "Total"
   },
   "support": {
     "title": "Order support",

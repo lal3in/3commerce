@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getAddresses, getProfile, getMyOrders, getSavedPaymentMethods } from "@/lib/gateway";
-import { formatMoney } from "@/lib/money";
 import { logout } from "@/lib/auth-actions";
 import { AddressForms } from "@/components/account/AccountForms";
 import { CardEntryForm } from "@/components/account/CardEntryForm";
+import { OrderHistory } from "@/components/account/OrderHistory";
 
 export const metadata = { title: "Account" };
 
@@ -110,18 +109,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       {orders.length === 0 ? (
         !profile.emailVerified ? null : <p className="mt-2 text-sm text-neutral-500">{t("noOrders")}</p>
       ) : (
-        <ul className="mt-2 divide-y divide-neutral-100 text-sm">
-          {orders.map((o) => (
-            <li key={o.id} className="flex items-center justify-between py-2">
-              <span className="font-mono text-xs text-neutral-500">{o.id.slice(0, 8)}…</span>
-              <span>{o.status}</span>
-              <span>{formatMoney(o.grossMinor, o.currency)}</span>
-              <Link href={`/orders/${o.id}/support`} title={t("tips.support")} className="underline text-neutral-500">
-                {t("support")}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <OrderHistory orders={orders} />
       )}
 
       <form action={logout} className="mt-6">

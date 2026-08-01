@@ -346,6 +346,20 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>Order</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>Total</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>Placed</value></data>
+  <data name="Orders.Details.Tip" xml:space="preserve"><value>Show/hide full order details</value></data>
+  <data name="Orders.Details.Unavailable" xml:space="preserve"><value>Order details are unavailable.</value></data>
+  <data name="Orders.Details.Summary" xml:space="preserve"><value>Summary</value></data>
+  <data name="Orders.Details.Number" xml:space="preserve"><value>Order #</value></data>
+  <data name="Orders.Details.Date" xml:space="preserve"><value>Date</value></data>
+  <data name="Orders.Details.Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Orders.Details.Payment" xml:space="preserve"><value>Payment</value></data>
+  <data name="Orders.Details.ShipTo" xml:space="preserve"><value>Ship to</value></data>
+  <data name="Orders.Details.Items" xml:space="preserve"><value>Items</value></data>
+  <data name="Orders.Details.Subtotal" xml:space="preserve"><value>Subtotal</value></data>
+  <data name="Orders.Details.Discount" xml:space="preserve"><value>Discount</value></data>
+  <data name="Orders.Details.Shipping" xml:space="preserve"><value>Shipping</value></data>
+  <data name="Orders.Details.Tax" xml:space="preserve"><value>Tax</value></data>
+  <data name="Orders.Details.Total" xml:space="preserve"><value>Total</value></data>
   <data name="Orders.Col.Payment" xml:space="preserve"><value>Payment</value></data>
   <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>How the shopper chose to pay at checkout.</value></data>
   <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>
