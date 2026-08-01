@@ -363,18 +363,35 @@
   <data name="Rma.MarkReceived" xml:space="preserve"><value>Mark return received</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Mark the returned item received — this releases the refund.</value></data>
   <data name="Rma.Restock" xml:space="preserve"><value>Restock…</value></data>
-  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Optionally choose which returned items go back into stock before marking the return received.</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Return the received items to sellable stock at a location.</value></data>
   <data name="Rma.Restock.Heading" xml:space="preserve"><value>Return items to stock (optional)</value></data>
-  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Leave everything unchecked to mark the return received without restocking.</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Choose which returned items go back on hand and where.</value></data>
   <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>Restock</value></data>
   <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>Item</value></data>
   <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>Qty</value></data>
   <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>Location</value></data>
   <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>Select a location…</value></data>
-  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Mark received &amp; restock</value></data>
-  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Mark the return received and put the selected items back on hand at the chosen location.</value></data>
-  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Order lines are unavailable — you can still mark the return received.</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Restock selected items</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Put the selected items back on hand at the chosen location.</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Order lines are unavailable — you can still record a storage disposition.</value></data>
   <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>No inventory locations found. Create one before restocking.</value></data>
+  <data name="Rma.Disposition" xml:space="preserve"><value>Disposition</value></data>
+  <data name="Rma.Disposition.Choose" xml:space="preserve"><value>How were the returned goods handled?</value></data>
+  <data name="Rma.Disposition.Label.Restock" xml:space="preserve"><value>Restocked</value></data>
+  <data name="Rma.Disposition.Label.Storage" xml:space="preserve"><value>Stored</value></data>
+  <data name="Rma.Disposition.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Rma.Disposition.Edit.Tip" xml:space="preserve"><value>Change the disposition, reason or comments.</value></data>
+  <data name="Rma.Disposition.Saved" xml:space="preserve"><value>Disposition saved.</value></data>
+  <data name="Rma.Storage" xml:space="preserve"><value>Storage…</value></data>
+  <data name="Rma.Storage.Tip" xml:space="preserve"><value>Hold the returned goods in storage instead of restocking — record a reason and comments.</value></data>
+  <data name="Rma.Storage.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Rma.Storage.Reason.Select" xml:space="preserve"><value>Select a reason…</value></data>
+  <data name="Rma.Storage.Reason.Damage" xml:space="preserve"><value>Damage</value></data>
+  <data name="Rma.Storage.Reason.Incomplete" xml:space="preserve"><value>Incomplete</value></data>
+  <data name="Rma.Storage.Reason.UnfitForSale" xml:space="preserve"><value>Unfit for sale</value></data>
+  <data name="Rma.Storage.Comments" xml:space="preserve"><value>Comments</value></data>
+  <data name="Rma.Storage.Submit" xml:space="preserve"><value>Save to storage</value></data>
+  <data name="Rma.Storage.Submit.Tip" xml:space="preserve"><value>Record that the returned goods were placed in storage with this reason.</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} accepted.</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} failed ({1}): {2}</value></data>
 

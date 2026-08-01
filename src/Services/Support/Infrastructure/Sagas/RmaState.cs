@@ -13,4 +13,8 @@ public class RmaState : SagaStateMachineInstance
     public string? Reason { get; set; }
     public Guid RefundId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Set when the operator marks the return received — lets the admin queue offer the
+    /// restock/storage disposition step afterwards, regardless of the refund state.</summary>
+    public DateTimeOffset? ReturnReceivedAt { get; set; }
 }

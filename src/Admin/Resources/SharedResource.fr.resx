@@ -363,18 +363,35 @@
   <data name="Rma.MarkReceived" xml:space="preserve"><value>Marquer le retour comme reçu</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>Marquez l'article retourné comme reçu — cela déclenche le remboursement.</value></data>
   <data name="Rma.Restock" xml:space="preserve"><value>Remettre en stock…</value></data>
-  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Choisissez éventuellement quels articles retournés reviennent en stock avant de marquer le retour comme reçu.</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>Remettre les articles reçus en stock vendable à un emplacement.</value></data>
   <data name="Rma.Restock.Heading" xml:space="preserve"><value>Remettre des articles en stock (facultatif)</value></data>
-  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Laissez tout décoché pour marquer le retour comme reçu sans remise en stock.</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>Choisissez quels articles retournés reviennent en stock et où.</value></data>
   <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>Remettre</value></data>
   <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>Article</value></data>
   <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>Qté</value></data>
   <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>Emplacement</value></data>
   <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>Sélectionnez un emplacement…</value></data>
-  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Marquer reçu et remettre en stock</value></data>
-  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Marquez le retour comme reçu et remettez les articles sélectionnés en stock à l'emplacement choisi.</value></data>
-  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Les lignes de commande sont indisponibles — vous pouvez tout de même marquer le retour comme reçu.</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>Réapprovisionner les articles sélectionnés</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>Remettre les articles sélectionnés en stock à l'emplacement choisi.</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>Les lignes de commande sont indisponibles — vous pouvez tout de même enregistrer une mise en stockage.</value></data>
   <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>Aucun emplacement d'inventaire trouvé. Créez-en un avant de remettre en stock.</value></data>
+  <data name="Rma.Disposition" xml:space="preserve"><value>Traitement</value></data>
+  <data name="Rma.Disposition.Choose" xml:space="preserve"><value>Comment les marchandises retournées ont-elles été traitées ?</value></data>
+  <data name="Rma.Disposition.Label.Restock" xml:space="preserve"><value>Remis en stock</value></data>
+  <data name="Rma.Disposition.Label.Storage" xml:space="preserve"><value>Mis en stockage</value></data>
+  <data name="Rma.Disposition.Edit" xml:space="preserve"><value>Modifier</value></data>
+  <data name="Rma.Disposition.Edit.Tip" xml:space="preserve"><value>Modifier le traitement, le motif ou les commentaires.</value></data>
+  <data name="Rma.Disposition.Saved" xml:space="preserve"><value>Traitement enregistré.</value></data>
+  <data name="Rma.Storage" xml:space="preserve"><value>Stockage…</value></data>
+  <data name="Rma.Storage.Tip" xml:space="preserve"><value>Placer les marchandises retournées en stockage plutôt que de les réapprovisionner — indiquez un motif et des commentaires.</value></data>
+  <data name="Rma.Storage.Reason" xml:space="preserve"><value>Motif</value></data>
+  <data name="Rma.Storage.Reason.Select" xml:space="preserve"><value>Choisir un motif…</value></data>
+  <data name="Rma.Storage.Reason.Damage" xml:space="preserve"><value>Dommage</value></data>
+  <data name="Rma.Storage.Reason.Incomplete" xml:space="preserve"><value>Incomplet</value></data>
+  <data name="Rma.Storage.Reason.UnfitForSale" xml:space="preserve"><value>Impropre à la vente</value></data>
+  <data name="Rma.Storage.Comments" xml:space="preserve"><value>Commentaires</value></data>
+  <data name="Rma.Storage.Submit" xml:space="preserve"><value>Enregistrer en stockage</value></data>
+  <data name="Rma.Storage.Submit.Tip" xml:space="preserve"><value>Enregistrer que les marchandises retournées ont été mises en stockage pour ce motif.</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} accepté.</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} en échec ({1}) : {2}</value></data>
 

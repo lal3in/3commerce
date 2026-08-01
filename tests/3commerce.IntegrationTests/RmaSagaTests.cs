@@ -16,6 +16,9 @@ namespace ThreeCommerce.IntegrationTests;
 public class RmaSagaTests(Phase4Fixture fixture)
 {
     private sealed record RmaCreated(Guid RmaId);
+    private sealed record RmaListDto(
+        Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,
+        DateTimeOffset? ReturnReceivedAt, string? DispositionKind, string? StorageReason, string? DispositionComments);
 
     private HttpClient Customer()
     {
@@ -94,6 +97,48 @@ public class RmaSagaTests(Phase4Fixture fixture)
         Assert.Equal(HttpStatusCode.Accepted, approve.StatusCode);
         await WaitForStateAsync(rmaId, "RefundIssued");
         Assert.Equal(0, await fixture.PaymentsTrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Received_return_is_dispositioned_to_storage_with_reason_then_edited_to_restock()
+    {
+        var orderId = Guid.CreateVersion7();
+        await fixture.SeedSucceededPaymentAsync(orderId, 5000, 0);
+        var rmaId = await RequestRmaAsync(orderId, 5000);
+        using var admin = Admin();
+
+        // Disposition before the return is received is rejected.
+        var early = await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/disposition", new { kind = "Storage", storageReason = "Damage" });
+        Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
+
+        // Approve (require return) → mark received → refund runs to completion.
+        await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/approve", new { requireReturn = true });
+        await WaitForStateAsync(rmaId, "AwaitingReturn");
+        (await admin.PostAsync($"/admin/rmas/{rmaId}/return-received", content: null)).EnsureSuccessStatusCode();
+        await WaitForStateAsync(rmaId, "RefundIssued");
+
+        // Storage with a reason + comments.
+        var store = await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/disposition",
+            new { kind = "Storage", storageReason = "Damage", comments = "box crushed in transit" });
+        Assert.Equal(HttpStatusCode.OK, store.StatusCode);
+
+        var list = await admin.GetFromJsonAsync<List<RmaListDto>>("/admin/rmas");
+        var row = Assert.Single(list!, r => r.Id == rmaId);
+        Assert.NotNull(row.ReturnReceivedAt);
+        Assert.Equal("Storage", row.DispositionKind);
+        Assert.Equal("Damage", row.StorageReason);
+        Assert.Equal("box crushed in transit", row.DispositionComments);
+
+        // Storage without a reason is rejected.
+        var noReason = await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/disposition", new { kind = "Storage" });
+        Assert.Equal(HttpStatusCode.BadRequest, noReason.StatusCode);
+
+        // Editable: switch the disposition to Restock — the reason clears.
+        (await admin.PostAsJsonAsync($"/admin/rmas/{rmaId}/disposition", new { kind = "Restock" })).EnsureSuccessStatusCode();
+        var after = await admin.GetFromJsonAsync<List<RmaListDto>>("/admin/rmas");
+        var edited = Assert.Single(after!, r => r.Id == rmaId);
+        Assert.Equal("Restock", edited.DispositionKind);
+        Assert.Null(edited.StorageReason);
     }
 
     private async Task<long> SagaAmountAsync(Guid rmaId)

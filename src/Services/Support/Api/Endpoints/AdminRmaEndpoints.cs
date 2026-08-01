@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Support.Domain;
 using ThreeCommerce.Support.Infrastructure;
 using ThreeCommerce.Support.Infrastructure.Sagas;
 
@@ -21,6 +22,8 @@ public static class AdminRmaEndpoints
         group.MapPost("/{id:guid}/approve", Approve);
         group.MapPost("/{id:guid}/deny", Deny);
         group.MapPost("/{id:guid}/return-received", ReturnReceivedAction);
+        group.MapPost("/{id:guid}/disposition", SetDisposition)
+            .WithSummary("Record/update the disposition of a received return: restock, or storage (with a reason + comments).");
         return app;
     }
 
@@ -32,10 +35,17 @@ public static class AdminRmaEndpoints
             query = query.Where(r => r.CurrentState == state);
         }
 
-        var rmas = await query.OrderByDescending(r => r.CreatedAt).Take(200)
-            .Select(r => new RmaDto(r.CorrelationId, r.OrderId, r.Email, r.AmountMinor, r.Reason, r.CurrentState, r.CreatedAt))
-            .ToListAsync(ct);
-        return TypedResults.Ok(rmas);
+        var rmas = await query.OrderByDescending(r => r.CreatedAt).Take(200).ToListAsync(ct);
+        var ids = rmas.Select(r => r.CorrelationId).ToList();
+        var dispositions = await db.RmaDispositions.AsNoTracking()
+            .Where(d => ids.Contains(d.RmaId)).ToDictionaryAsync(d => d.RmaId, ct);
+        return TypedResults.Ok(rmas.Select(r =>
+        {
+            dispositions.TryGetValue(r.CorrelationId, out var d);
+            return new RmaDto(
+                r.CorrelationId, r.OrderId, r.Email, r.AmountMinor, r.Reason, r.CurrentState, r.CreatedAt,
+                r.ReturnReceivedAt, d?.Kind.ToString(), d?.StorageReason?.ToString(), d?.Comments);
+        }).ToList());
     }
 
     // Admin opens an RMA for a whole order straight from the Orders screen, so it travels the single
@@ -140,6 +150,72 @@ public static class AdminRmaEndpoints
         return TypedResults.Accepted((string?)null);
     }
 
+    // Disposition of a received return (post-receipt, independent of the refund): Restock puts goods
+    // back to sellable stock (idempotent RestockRequested); Storage records a reason + comments and does
+    // NOT restock. Editable — re-POST to correct the kind/reason/note. Requires the return to be received.
+    private static async Task<Results<Ok<RmaDispositionDto>, NotFound, Conflict<string>, BadRequest<string>>> SetDisposition(
+        Guid id, DispositionRequest request, SupportDbContext db, IPublishEndpoint publisher,
+        IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, TimeProvider time, CancellationToken ct)
+    {
+        var rma = await db.Rmas.AsNoTracking().SingleOrDefaultAsync(r => r.CorrelationId == id, ct);
+        if (rma is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (rma.ReturnReceivedAt is null)
+        {
+            return TypedResults.Conflict("Mark the return received before recording a disposition.");
+        }
+
+        if (!Enum.TryParse<RmaDispositionKind>(request.Kind, ignoreCase: true, out var kind))
+        {
+            return TypedResults.BadRequest("Unknown disposition kind.");
+        }
+
+        RmaStorageReason? storageReason = null;
+        if (kind == RmaDispositionKind.Storage)
+        {
+            if (!Enum.TryParse<RmaStorageReason>(request.StorageReason, ignoreCase: true, out var parsed))
+            {
+                return TypedResults.BadRequest("Storage requires a reason: Damage, Incomplete, or UnfitForSale.");
+            }
+
+            storageReason = parsed;
+        }
+
+        var now = time.GetUtcNow();
+        var disposition = await db.RmaDispositions.SingleOrDefaultAsync(d => d.RmaId == id, ct);
+        if (disposition is null)
+        {
+            disposition = new RmaDisposition { RmaId = id, CreatedAt = now };
+            db.RmaDispositions.Add(disposition);
+        }
+        else
+        {
+            disposition.UpdatedAt = now;
+        }
+
+        disposition.Kind = kind;
+        disposition.StorageReason = storageReason;
+        disposition.Comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments.Trim();
+
+        // Restock returns goods to sellable inventory (idempotent by RMA id downstream); storage records only.
+        if (kind == RmaDispositionKind.Restock && request.Restock is { Count: > 0 } lines && request.TenantId is { } tenant)
+        {
+            await publisher.Publish(new RestockRequested(tenant, id,
+                lines.Select(l => new RestockItemInfo(l.ProductId, l.VariantId, l.LocationId, l.Quantity)).ToList()), ct);
+        }
+
+        var action = kind == RmaDispositionKind.Restock ? "support.rma.disposition.restock" : "support.rma.disposition.storage";
+        await audit.RecordAsync(user.Mutation(
+            request.TenantId ?? DefaultTenantId(config), "Rma", id.ToString(), action,
+            kind == RmaDispositionKind.Storage ? storageReason?.ToString() : null), ct);
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(new RmaDispositionDto(
+            kind.ToString(), storageReason?.ToString(), disposition.Comments, disposition.CreatedAt, disposition.UpdatedAt));
+    }
+
     // The RMA saga carries no tenant, so entries land under the configured default tenant — the same
     // default the Audit search (and Mission Control) falls back to.
     private static Guid DefaultTenantId(IConfiguration config) =>
@@ -150,6 +226,10 @@ public static class AdminRmaEndpoints
 
 public record AdminRefundRequest(Guid OrderId, string? Reason, bool AutoApprove = true);
 public record ApproveRequest(bool RequireReturn);
-public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+public record RmaDto(
+    Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,
+    DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null);
 public record ReturnReceivedRequest(Guid? TenantId, List<RestockLineRequest>? Restock);
 public record RestockLineRequest(Guid ProductId, Guid? VariantId, Guid LocationId, int Quantity);
+public record DispositionRequest(string Kind, string? StorageReason, string? Comments, Guid? TenantId, List<RestockLineRequest>? Restock);
+public record RmaDispositionDto(string Kind, string? StorageReason, string? Comments, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
