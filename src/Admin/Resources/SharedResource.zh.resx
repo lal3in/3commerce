@@ -225,6 +225,19 @@
   <data name="Catalog.Type.Subscription" xml:space="preserve"><value>订阅</value></data>
   <data name="Catalog.Type.Usage" xml:space="preserve"><value>按用量</value></data>
   <data name="Catalog.Variants" xml:space="preserve"><value>变体</value></data>
+  <data name="Catalog.Storefronts" xml:space="preserve"><value>店铺</value></data>
+  <data name="Catalog.Storefronts.None" xml:space="preserve"><value>该产品尚未上架任何店铺。</value></data>
+  <data name="Catalog.Storefronts.Col.Name" xml:space="preserve"><value>店铺</value></data>
+  <data name="Catalog.Storefronts.Col.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Catalog.Storefronts.Col.Store" xml:space="preserve"><value>状态</value></data>
+  <data name="Catalog.Storefronts.Col.Publication" xml:space="preserve"><value>发布</value></data>
+  <data name="Catalog.Storefronts.Col.Pricing" xml:space="preserve"><value>定价</value></data>
+  <data name="Catalog.Storefronts.Priced" xml:space="preserve"><value>已设 {0} 价</value></data>
+  <data name="Catalog.Storefronts.Priced.Tip" xml:space="preserve"><value>已设 {0} 价——在此店铺可见。</value></data>
+  <data name="Catalog.Storefronts.NotPriced" xml:space="preserve"><value>无 {0} 价</value></data>
+  <data name="Catalog.Storefronts.NotPriced.Tip" xml:space="preserve"><value>在上方「变体」中添加 {0} 价格，否则该产品将在此店铺隐藏。</value></data>
+  <data name="Catalog.Storefronts.Enabled" xml:space="preserve"><value>已启用</value></data>
+  <data name="Catalog.Storefronts.Disabled" xml:space="preserve"><value>已停用</value></data>
   <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>库存单位——您为此变体设定的唯一编码。</value></data>
   <data name="Catalog.Variant.Price" xml:space="preserve"><value>价格（最小单位）</value></data>
@@ -767,6 +780,27 @@
   <data name="Ops.Unpublish" xml:space="preserve"><value>取消发布</value></data>
   <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>从此店面移除该商品。</value></data>
   <data name="Ops.PublicationReadiness" xml:space="preserve"><value>发布就绪状态：</value></data>
+  <data name="Ops.Products.Heading" xml:space="preserve"><value>产品 ({0})</value></data>
+  <data name="Ops.Products.None" xml:space="preserve"><value>此店铺尚未分配产品。</value></data>
+  <data name="Ops.Products.Col.Product" xml:space="preserve"><value>产品</value></data>
+  <data name="Ops.Products.Col.Currency" xml:space="preserve"><value>货币</value></data>
+  <data name="Ops.Products.Col.State" xml:space="preserve"><value>状态</value></data>
+  <data name="Ops.Products.Priced" xml:space="preserve"><value>已设 {0} 价</value></data>
+  <data name="Ops.Products.Priced.Tip" xml:space="preserve"><value>该产品已有 {0} 价格，在此店铺可见。</value></data>
+  <data name="Ops.Products.NotPriced" xml:space="preserve"><value>无 {0} 价</value></data>
+  <data name="Ops.Products.NotPriced.Tip" xml:space="preserve"><value>该产品没有 {0} 价格——在添加 {0} 价格之前将在此店铺隐藏。</value></data>
+  <data name="Ops.Products.Rule" xml:space="preserve"><value>产品只有在「启用」且已设 {0} 价时才会在此店铺显示。</value></data>
+  <data name="Ops.Products.Col.Pricing" xml:space="preserve"><value>定价</value></data>
+  <data name="Ops.Products.Col.Enabled" xml:space="preserve"><value>启用</value></data>
+  <data name="Ops.Products.Col.Visible" xml:space="preserve"><value>可见</value></data>
+  <data name="Ops.Products.Enabled" xml:space="preserve"><value>已启用</value></data>
+  <data name="Ops.Products.Disabled" xml:space="preserve"><value>已停用</value></data>
+  <data name="Ops.Products.Enable" xml:space="preserve"><value>启用</value></data>
+  <data name="Ops.Products.Enable.Tip" xml:space="preserve"><value>在店铺启用该产品（仍需店铺货币价格才会显示）。</value></data>
+  <data name="Ops.Products.Disable" xml:space="preserve"><value>停用</value></data>
+  <data name="Ops.Products.Disable.Tip" xml:space="preserve"><value>在店铺隐藏该产品（保留分配）。</value></data>
+  <data name="Ops.Products.Visible.Yes.Tip" xml:space="preserve"><value>已启用且有价——在店铺显示。</value></data>
+  <data name="Ops.Products.Visible.No.Tip" xml:space="preserve"><value>未显示——需要启用且有店铺货币价格。</value></data>
   <data name="Ops.Policies" xml:space="preserve"><value>定价、支付、付款及 Xero 策略界面</value></data>
   <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>定价与促销</value></data>
   <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>供应商成本、售价、税务模式、店面覆盖、优惠券、自动折扣、套装折扣及免运费均在目录供货（Catalog Offers）+ 订单（Ordering）中建模。单商品供货包含价格模型 + 阶梯。</value></data>

@@ -147,6 +147,56 @@ else
             <button @onclick="Save" disabled="@_saving" title="@L["Catalog.Save.Tip"]" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:4px;">@(_saving ? L["Common.Saving"] : L["Common.Save"])</button>
             <button @onclick="Cancel" title="@L["Common.Cancel.Tip"]" style="padding:.4rem 1rem;">@L["Common.Cancel"]</button>
         </div>
+
+        @* Storefronts this product is on. Amber when the product has no price in that store's currency —
+           it would be hidden there until a per-currency price is added under Variants above. *@
+        @if (!_isNew)
+        {
+            <fieldset style="margin-top:1rem; border:1px solid #e5e7eb; border-radius:6px; padding:.6rem .9rem;">
+                <legend>@L["Catalog.Storefronts"]</legend>
+                @if (_productStorefronts is null)
+                {
+                    <p style="color:#6b7280;">@L["Common.Loading"]</p>
+                }
+                else if (_productStorefronts.Count == 0)
+                {
+                    <p style="color:#9ca3af;">@L["Catalog.Storefronts.None"]</p>
+                }
+                else
+                {
+                    <table style="border-collapse:collapse; width:100%; font-size:.88rem;">
+                        <thead><tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
+                            <th style="padding:.3rem;">@L["Catalog.Storefronts.Col.Name"]</th><th>@L["Catalog.Storefronts.Col.Currency"]</th><th>@L["Catalog.Storefronts.Col.Store"]</th><th>@L["Catalog.Storefronts.Col.Publication"]</th><th>@L["Catalog.Storefronts.Col.Pricing"]</th>
+                        </tr></thead>
+                        <tbody>
+                        @foreach (var s in _productStorefronts)
+                        {
+                            <tr style="border-bottom:1px solid #f3f4f6;">
+                                <td style="padding:.3rem;">@s.StorefrontName</td>
+                                <td>@s.Currency</td>
+                                <td>@s.StorefrontState</td>
+                                <td>
+                                    <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:@(s.PublicationState == "Published" ? "#047857" : "#6b7280");background:@(s.PublicationState == "Published" ? "#d1fae5" : "#f3f4f6");">
+                                        @(s.PublicationState == "Published" ? L["Catalog.Storefronts.Enabled"] : L["Catalog.Storefronts.Disabled"])
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (s.CurrencyReady)
+                                    {
+                                        <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:#047857;background:#d1fae5;" title="@L["Catalog.Storefronts.Priced.Tip", s.Currency]">@L["Catalog.Storefronts.Priced", s.Currency]</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:#b45309;background:#fef3c7;" title="@L["Catalog.Storefronts.NotPriced.Tip", s.Currency]">@L["Catalog.Storefronts.NotPriced", s.Currency]</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </fieldset>
+        }
     </div>
 }
 
@@ -162,6 +212,7 @@ else
     private ProductEditor? _editing;
     private bool _isNew;
     private readonly List<KeyValueRow> _attributes = [];
+    private List<ProductStorefrontDto>? _productStorefronts;
 
     protected override async Task OnInitializedAsync()
     {
@@ -209,6 +260,10 @@ else
 
         _isNew = false;
         _editing = dto;
+        _productStorefronts = null;
+        // Which storefronts this product is on, and whether it's priced in each store's currency.
+        try { _productStorefronts = await Gateway.GetListAsync<ProductStorefrontDto>($"/api/catalog/admin/products/{id}/storefronts"); }
+        catch { _productStorefronts = []; }
         _attributes.Clear();
         foreach (var kv in dto.Attributes)
         {
@@ -265,6 +320,7 @@ else
 
     public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
+    public sealed record ProductStorefrontDto(Guid StorefrontId, string StorefrontName, string Currency, string StorefrontState, string PublicationState, bool CurrencyReady);
 
     public sealed class ProductEditor
     {
