@@ -59,12 +59,52 @@ else
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th>@L["Ledger.Col.Lines"]</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th style="text-align:right;">@L["Ledger.Col.Refunded"]</th></tr></thead>
         <tbody>
         @foreach (var e in _entries)
         {
-            <tr style="border-top:1px solid #e5e7eb;"><td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td><td>@e.Description</td><td>@e.Reference</td><td style="text-align:center;">@e.Currency</td>
-                <td>@string.Join(", ", e.Lines.Select(l => $"{l.AccountCode} {(l.DebitMinor>0?"D":"C")}{(l.DebitMinor>0?l.DebitMinor:l.CreditMinor)/100m:0.00}"))</td></tr>
+            var refunded = RefundedMinor(e);
+            var open = _expanded.Contains(e.Id);
+            <tr style="border-top:1px solid #e5e7eb;">
+                <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                <td>@e.Description</td>
+                <td style="text-align:center;">@e.Reference</td>
+                <td style="text-align:center;">@e.Currency</td>
+                @* Refunded amount in this entry (debits to revenue.*/tax.* = the ADR-0040 reversal),
+                   with an expandable per-line breakdown. Non-refund entries expand too, to show lines. *@
+                <td style="text-align:right;">
+                    <button @onclick="() => Toggle(e.Id)" title="@L["Ledger.Entry.Breakdown.Tip"]"
+                            style="background:none;border:0;cursor:pointer;font:inherit;color:@(refunded > 0 ? "#b45309" : "#6b7280");">
+                        <span aria-hidden>@(open ? "▾" : "▸")</span> @(refunded > 0 ? $"{Money(refunded)} {e.Currency}" : "—")
+                    </button>
+                </td>
+            </tr>
+            @if (open)
+            {
+                <tr style="background:#f9fafb;">
+                    <td colspan="5" style="padding:.5rem .9rem;">
+                        <table style="border-collapse:collapse; font-size:.82rem; width:100%; max-width:34rem;">
+                            <thead><tr><th style="text-align:left;">@L["Ledger.Col.Account"]</th><th style="text-align:right;">@L["Ledger.Col.Debit"]</th><th style="text-align:right;">@L["Ledger.Col.Credit"]</th></tr></thead>
+                            <tbody>
+                            @foreach (var l in e.Lines)
+                            {
+                                var isRefundLine = l.DebitMinor > 0
+                                    && (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal));
+                                <tr style="border-top:1px solid #f3f4f6; @(isRefundLine ? "color:#b45309;font-weight:600;" : "")">
+                                    <td><code style="font-size:.78rem;">@l.AccountCode</code></td>
+                                    <td style="text-align:right;">@(l.DebitMinor > 0 ? Money(l.DebitMinor) : "")</td>
+                                    <td style="text-align:right;">@(l.CreditMinor > 0 ? Money(l.CreditMinor) : "")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                        @if (refunded > 0)
+                        {
+                            <div style="font-size:.8rem; color:#b45309; margin-top:.35rem;" title="@L["Ledger.Refunds.Tip"]">@L["Ledger.Refunds"]: @Money(refunded) @e.Currency</div>
+                        }
+                    </td>
+                </tr>
+            }
         }
         </tbody>
     </table>
@@ -72,12 +112,28 @@ else
 @code {
     private List<EntryDto>? _entries;
     private List<BalanceDto>? _balances;
+    private readonly HashSet<Guid> _expanded = [];
 
     protected override async Task OnInitializedAsync()
     {
         _balances = await Gateway.GetListAsync<BalanceDto>("/api/payments/admin/ledger/balances");
         _entries = await Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
     }
+
+    private void Toggle(Guid id)
+    {
+        if (!_expanded.Remove(id))
+        {
+            _expanded.Add(id);
+        }
+    }
+
+    // The refunded amount in an entry: debits to revenue.*/tax.* — how a per-store refund reverses the
+    // store's own revenue/tax accounts (ADR-0040). Zero for sales (which credit those accounts).
+    private static long RefundedMinor(EntryDto e) => e.Lines
+        .Where(l => l.DebitMinor > 0
+            && (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal)))
+        .Sum(l => l.DebitMinor);
 
     private static string Money(long minor) => $"{minor / 100m:N2}";
 

@@ -400,6 +400,8 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>描述</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>參考編號</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>明細</value></data>
+  <data name="Ledger.Col.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Ledger.Entry.Breakdown.Tip" xml:space="preserve"><value>顯示呢筆分錄嘅逐行明細，包括已退款金額。</value></data>
   <data name="Ledger.Col.When" xml:space="preserve"><value>時間</value></data>
   <data name="Ledger.Col.Currency" xml:space="preserve"><value>貨幣</value></data>
 
