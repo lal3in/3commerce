@@ -76,6 +76,7 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
 
         During(AwaitingReturn,
             When(ReturnReceivedEvent)
+                .Then(c => c.Saga.ReturnReceivedAt = DateTimeOffset.UtcNow)
                 .Then(c => c.Saga.RefundId = Guid.CreateVersion7())
                 .Publish(c => new RefundRequested(c.Saga.RefundId, c.Saga.OrderId, c.Saga.AmountMinor, c.Saga.Reason ?? "rma", "rma"))
                 .TransitionTo(RefundPending));

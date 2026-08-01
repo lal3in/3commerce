@@ -363,18 +363,35 @@
   <data name="Rma.MarkReceived" xml:space="preserve"><value>标记已收到退货</value></data>
   <data name="Rma.MarkReceived.Tip" xml:space="preserve"><value>标记已收到退回的商品——这将放行退款。</value></data>
   <data name="Rma.Restock" xml:space="preserve"><value>重新入库…</value></data>
-  <data name="Rma.Restock.Tip" xml:space="preserve"><value>在标记退货已收到之前，可选择哪些退回的商品重新入库。</value></data>
+  <data name="Rma.Restock.Tip" xml:space="preserve"><value>将收到的商品放回某个地点的可售库存。</value></data>
   <data name="Rma.Restock.Heading" xml:space="preserve"><value>将商品重新入库（可选）</value></data>
-  <data name="Rma.Restock.Hint" xml:space="preserve"><value>全部不勾选即可标记退货已收到而不重新入库。</value></data>
+  <data name="Rma.Restock.Hint" xml:space="preserve"><value>选择哪些退回的商品放回库存以及放在哪里。</value></data>
   <data name="Rma.Restock.Col.Include" xml:space="preserve"><value>入库</value></data>
   <data name="Rma.Restock.Col.Item" xml:space="preserve"><value>商品</value></data>
   <data name="Rma.Restock.Col.Qty" xml:space="preserve"><value>数量</value></data>
   <data name="Rma.Restock.Col.Location" xml:space="preserve"><value>库存地点</value></data>
   <data name="Rma.Restock.SelectLocation" xml:space="preserve"><value>选择一个库存地点…</value></data>
-  <data name="Rma.Restock.Submit" xml:space="preserve"><value>标记已收到并重新入库</value></data>
-  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>标记退货已收到，并将所选商品重新计入所选地点的在手库存。</value></data>
-  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>订单行数据不可用——您仍可标记退货已收到。</value></data>
+  <data name="Rma.Restock.Submit" xml:space="preserve"><value>将所选商品重新入库</value></data>
+  <data name="Rma.Restock.Submit.Tip" xml:space="preserve"><value>将所选商品放回所选地点的库存。</value></data>
+  <data name="Rma.Restock.NoLines" xml:space="preserve"><value>订单行不可用——你仍然可以记录入库处置。</value></data>
   <data name="Rma.Restock.NoLocations" xml:space="preserve"><value>未找到库存地点。请先创建一个再重新入库。</value></data>
+  <data name="Rma.Disposition" xml:space="preserve"><value>处置</value></data>
+  <data name="Rma.Disposition.Choose" xml:space="preserve"><value>退回的商品如何处理？</value></data>
+  <data name="Rma.Disposition.Label.Restock" xml:space="preserve"><value>已重新入库</value></data>
+  <data name="Rma.Disposition.Label.Storage" xml:space="preserve"><value>已入库存</value></data>
+  <data name="Rma.Disposition.Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="Rma.Disposition.Edit.Tip" xml:space="preserve"><value>更改处置、原因或备注。</value></data>
+  <data name="Rma.Disposition.Saved" xml:space="preserve"><value>处置已保存。</value></data>
+  <data name="Rma.Storage" xml:space="preserve"><value>入库…</value></data>
+  <data name="Rma.Storage.Tip" xml:space="preserve"><value>将退回的商品入库存而非重新上架——记录原因和备注。</value></data>
+  <data name="Rma.Storage.Reason" xml:space="preserve"><value>原因</value></data>
+  <data name="Rma.Storage.Reason.Select" xml:space="preserve"><value>选择原因…</value></data>
+  <data name="Rma.Storage.Reason.Damage" xml:space="preserve"><value>损坏</value></data>
+  <data name="Rma.Storage.Reason.Incomplete" xml:space="preserve"><value>不完整</value></data>
+  <data name="Rma.Storage.Reason.UnfitForSale" xml:space="preserve"><value>不适合销售</value></data>
+  <data name="Rma.Storage.Comments" xml:space="preserve"><value>备注</value></data>
+  <data name="Rma.Storage.Submit" xml:space="preserve"><value>保存到库存</value></data>
+  <data name="Rma.Storage.Submit.Tip" xml:space="preserve"><value>记录退回的商品以此原因入库。</value></data>
   <data name="Rma.Status.Accepted" xml:space="preserve"><value>RMA {0} 已受理。</value></data>
   <data name="Rma.Status.Failed" xml:space="preserve"><value>RMA {0} 失败（{1}）：{2}</value></data>
 

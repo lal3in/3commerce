@@ -27,8 +27,7 @@ else
                     {
                         // A state-changing action was accepted for this RMA; its saga transition is
                         // eventually consistent, so the row's State may still read stale for a moment.
-                        // Suppress the buttons until the next reload catches up — this is what prevents
-                        // a double-click landing a 409 ("RMA is 'RefundPending', not awaiting a return").
+                        // Suppress the state buttons until the next reload catches up (prevents a 409).
                         <span style="color:#6b7280;">@L["Rma.Updating"] <button disabled="@_busy" @onclick="Refresh" title="@L["Rma.Refresh.Tip"]">@L["Common.Refresh"]</button></span>
                     }
                     else if (r.State == "Requested")
@@ -39,67 +38,119 @@ else
                     }
                     else if (r.State == "AwaitingReturn")
                     {
+                        // Receipt is now its own step; the restock/storage disposition follows below.
                         <button disabled="@_busy" @onclick="() => Post(r.Id, ReturnReceivedAction, _empty)" title="@L["Rma.MarkReceived.Tip"]">@L["Rma.MarkReceived"]</button>
-                        <button disabled="@_busy" @onclick="() => ToggleRestock(r)" title="@L["Rma.Restock.Tip"]">@L["Rma.Restock"]</button>
-                        @if (_panels.TryGetValue(r.Id, out var panel))
-                        {
-                            @* Optional partial restock (mt4_8): pick which returned lines go back on hand and where,
-                               then mark received. Leaving everything unchecked marks received with no restock. *@
-                            <div style="margin-top:.6rem; padding:.7rem .9rem; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb;">
-                                <div style="font-weight:600; margin-bottom:.2rem;">@L["Rma.Restock.Heading"]</div>
-                                <div style="color:#6b7280; font-size:.8rem; margin-bottom:.6rem;">@L["Rma.Restock.Hint"]</div>
-                                @if (!panel.Loaded)
-                                {
-                                    <p style="color:#6b7280;">@L["Common.Loading"]</p>
-                                }
-                                else if (panel.Error is not null)
-                                {
-                                    <p style="color:#b45309;">@panel.Error</p>
-                                }
-                                else if (panel.Lines.Count == 0)
-                                {
-                                    <p style="color:#6b7280;">@L["Rma.Restock.NoLines"]</p>
-                                }
-                                else if (_locations.Count == 0)
-                                {
-                                    <p style="color:#b45309;">@L["Rma.Restock.NoLocations"]</p>
-                                }
-                                else
-                                {
-                                    <div style="margin-bottom:.6rem;">
-                                        <label>@L["Rma.Restock.Col.Location"]:
-                                            <select @bind="panel.LocationId">
-                                                <option value="">@L["Rma.Restock.SelectLocation"]</option>
-                                                @foreach (var loc in _locations)
-                                                {
-                                                    <option value="@loc.Id">@loc.Name</option>
-                                                }
-                                            </select>
-                                        </label>
-                                    </div>
-                                    <table style="border-collapse:collapse; font-size:.85rem;">
-                                        <thead><tr>
-                                            <th style="text-align:left;">@L["Rma.Restock.Col.Include"]</th>
-                                            <th style="text-align:left;">@L["Rma.Restock.Col.Item"]</th>
-                                            <th>@L["Rma.Restock.Col.Qty"]</th>
-                                        </tr></thead>
-                                        <tbody>
-                                        @foreach (var line in panel.Lines)
+                    }
+
+                    @* Disposition — offered once the return is received, regardless of the refund state. *@
+                    @if (r.ReturnReceivedAt is not null)
+                    {
+                        <div style="margin-top:.6rem; padding:.7rem .9rem; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb;">
+                            <div style="font-weight:600; margin-bottom:.4rem;">@L["Rma.Disposition"]</div>
+
+                            @if (r.DispositionKind is not null && !_editing.Contains(r.Id))
+                            {
+                                @* View *@
+                                <div style="font-size:.9rem;">
+                                    <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.75rem;font-weight:600;color:@(r.DispositionKind == KindRestock ? "#047857" : "#b45309");background:@(r.DispositionKind == KindRestock ? "#d1fae5" : "#fef3c7");">
+                                        @(r.DispositionKind == KindRestock ? L["Rma.Disposition.Label.Restock"] : L["Rma.Disposition.Label.Storage"])
+                                    </span>
+                                    @if (r.DispositionKind == KindStorage)
+                                    {
+                                        <span style="margin-left:.5rem;color:#374151;">@L["Rma.Storage.Reason"]: <strong>@ReasonLabel(r.StorageReason)</strong></span>
+                                        @if (!string.IsNullOrWhiteSpace(r.DispositionComments))
                                         {
-                                            <tr style="border-top:1px solid #f3f4f6;">
-                                                <td style="text-align:center;"><input type="checkbox" @bind="line.Include" /></td>
-                                                <td>@line.Label</td>
-                                                <td style="text-align:center;"><input type="number" min="1" max="@line.MaxQty" style="width:4rem;" @bind="line.Quantity" /></td>
-                                            </tr>
+                                            <div style="margin-top:.3rem;color:#6b7280;">@L["Rma.Storage.Comments"]: @r.DispositionComments</div>
                                         }
-                                        </tbody>
-                                    </table>
+                                    }
+                                </div>
+                                <button style="margin-top:.5rem;" disabled="@_busy" @onclick="() => StartEdit(r)" title="@L["Rma.Disposition.Edit.Tip"]">@L["Rma.Disposition.Edit"]</button>
+                            }
+                            else
+                            {
+                                @* Choose / edit: Restock or Storage. *@
+                                <div style="color:#6b7280; font-size:.8rem; margin-bottom:.5rem;">@L["Rma.Disposition.Choose"]</div>
+                                <button disabled="@_busy" @onclick="() => ToggleRestock(r)" title="@L["Rma.Restock.Tip"]">@L["Rma.Restock"]</button>
+                                <button disabled="@_busy" @onclick="() => ToggleStorage(r)" title="@L["Rma.Storage.Tip"]">@L["Rma.Storage"]</button>
+
+                                @if (_restockPanels.TryGetValue(r.Id, out var panel))
+                                {
                                     <div style="margin-top:.6rem;">
-                                        <button disabled="@_busy" @onclick="() => SubmitRestock(r, panel)" title="@L["Rma.Restock.Submit.Tip"]">@L["Rma.Restock.Submit"]</button>
+                                        <div style="color:#6b7280; font-size:.8rem; margin-bottom:.6rem;">@L["Rma.Restock.Hint"]</div>
+                                        @if (!panel.Loaded)
+                                        {
+                                            <p style="color:#6b7280;">@L["Common.Loading"]</p>
+                                        }
+                                        else if (panel.Error is not null)
+                                        {
+                                            <p style="color:#b45309;">@panel.Error</p>
+                                        }
+                                        else if (panel.Lines.Count == 0)
+                                        {
+                                            <p style="color:#6b7280;">@L["Rma.Restock.NoLines"]</p>
+                                        }
+                                        else if (_locations.Count == 0)
+                                        {
+                                            <p style="color:#b45309;">@L["Rma.Restock.NoLocations"]</p>
+                                        }
+                                        else
+                                        {
+                                            <div style="margin-bottom:.6rem;">
+                                                <label>@L["Rma.Restock.Col.Location"]:
+                                                    <select @bind="panel.LocationId">
+                                                        <option value="">@L["Rma.Restock.SelectLocation"]</option>
+                                                        @foreach (var loc in _locations)
+                                                        {
+                                                            <option value="@loc.Id">@loc.Name</option>
+                                                        }
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <table style="border-collapse:collapse; font-size:.85rem;">
+                                                <thead><tr>
+                                                    <th style="text-align:left;">@L["Rma.Restock.Col.Include"]</th>
+                                                    <th style="text-align:left;">@L["Rma.Restock.Col.Item"]</th>
+                                                    <th>@L["Rma.Restock.Col.Qty"]</th>
+                                                </tr></thead>
+                                                <tbody>
+                                                @foreach (var line in panel.Lines)
+                                                {
+                                                    <tr style="border-top:1px solid #f3f4f6;">
+                                                        <td style="text-align:center;"><input type="checkbox" @bind="line.Include" /></td>
+                                                        <td>@line.Label</td>
+                                                        <td style="text-align:center;"><input type="number" min="1" max="@line.MaxQty" style="width:4rem;" @bind="line.Quantity" /></td>
+                                                    </tr>
+                                                }
+                                                </tbody>
+                                            </table>
+                                            <div style="margin-top:.6rem;">
+                                                <button disabled="@_busy" @onclick="() => SubmitRestock(r, panel)" title="@L["Rma.Restock.Submit.Tip"]">@L["Rma.Restock.Submit"]</button>
+                                            </div>
+                                        }
                                     </div>
                                 }
-                            </div>
-                        }
+
+                                @if (_storagePanels.TryGetValue(r.Id, out var storage))
+                                {
+                                    <div style="margin-top:.6rem;">
+                                        <div style="margin-bottom:.5rem;">
+                                            <label>@L["Rma.Storage.Reason"]:
+                                                <select @bind="storage.Reason">
+                                                    <option value="">@L["Rma.Storage.Reason.Select"]</option>
+                                                    <option value="@ReasonDamage">@L["Rma.Storage.Reason.Damage"]</option>
+                                                    <option value="@ReasonIncomplete">@L["Rma.Storage.Reason.Incomplete"]</option>
+                                                    <option value="@ReasonUnfit">@L["Rma.Storage.Reason.UnfitForSale"]</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <div style="margin-bottom:.5rem;">
+                                            <textarea @bind="storage.Comments" placeholder="@L["Rma.Storage.Comments"]" title="@L["Rma.Storage.Comments"]" rows="2" style="width:22rem;max-width:100%;padding:.4rem;border:1px solid #d1d5db;border-radius:6px;"></textarea>
+                                        </div>
+                                        <button disabled="@(_busy || string.IsNullOrEmpty(storage.Reason))" @onclick="() => SubmitStorage(r, storage)" title="@L["Rma.Storage.Submit.Tip"]">@L["Rma.Storage.Submit"]</button>
+                                    </div>
+                                }
+                            }
+                        </div>
                     }
                 </td>
             </tr>
@@ -111,20 +162,22 @@ else
 @code {
     private const string DenyAction = "deny";
     private const string ReturnReceivedAction = "return-received";
+    private const string KindRestock = "Restock";
+    private const string KindStorage = "Storage";
+    private const string ReasonDamage = "Damage";
+    private const string ReasonIncomplete = "Incomplete";
+    private const string ReasonUnfit = "UnfitForSale";
     private static readonly object _empty = new();
-    // The RMA saga carries no tenant, so restock (and audit) land under the configured default tenant —
-    // the same fallback AdminRmaEndpoints/Fulfillment use and that Mission Control reads.
+    // The RMA saga carries no tenant, so restock (and audit) land under the configured default tenant.
     private static readonly Guid _tenant = new("00000000-0000-0000-0000-000000000001");
     private List<RmaDto>? _rmas;
     private bool _busy;
     private string? _error;
     private string? _status;
-    // RMAs whose accepted action hasn't shown up in the read model yet (saga transitions are
-    // eventually consistent). Maps RMA id → the state it showed when the action was accepted;
-    // buttons stay suppressed until a reload observes a DIFFERENT state (the transition landed).
     private readonly Dictionary<Guid, string> _acted = [];
-    // Open restock panels keyed by RMA id; tenant inventory locations are loaded once and shared.
-    private readonly Dictionary<Guid, RestockPanel> _panels = [];
+    private readonly Dictionary<Guid, RestockPanel> _restockPanels = [];
+    private readonly Dictionary<Guid, StoragePanel> _storagePanels = [];
+    private readonly HashSet<Guid> _editing = [];
     private List<LocationDto> _locations = [];
     private bool _locationsLoaded;
 
@@ -145,21 +198,45 @@ else
         _rmas = rmas;
     }
 
+    private string ReasonLabel(string? reason) => reason switch
+    {
+        ReasonDamage => L["Rma.Storage.Reason.Damage"],
+        ReasonIncomplete => L["Rma.Storage.Reason.Incomplete"],
+        ReasonUnfit => L["Rma.Storage.Reason.UnfitForSale"],
+        _ => reason ?? "",
+    };
+
     private Task Approve(Guid id, bool requireReturn) => Post(id, "approve", new { requireReturn });
 
-    // Toggle the restock panel for a row; on open, lazy-load the tenant's inventory locations (once)
-    // and this order's lines. Failures degrade gracefully — the plain "Mark received" button stays usable.
+    private void StartEdit(RmaDto r)
+    {
+        _editing.Add(r.Id);
+        _restockPanels.Remove(r.Id);
+        _storagePanels.Remove(r.Id);
+    }
+
+    // Restock disposition: lazy-load the tenant's locations (once) and this order's lines.
     private async Task ToggleRestock(RmaDto r)
     {
-        if (_panels.Remove(r.Id))
+        _storagePanels.Remove(r.Id);
+        if (_restockPanels.Remove(r.Id))
         {
             return;
         }
 
         var panel = new RestockPanel();
-        _panels[r.Id] = panel;
+        _restockPanels[r.Id] = panel;
         await EnsureLocations();
         await LoadLines(r, panel);
+    }
+
+    private void ToggleStorage(RmaDto r)
+    {
+        _restockPanels.Remove(r.Id);
+        if (!_storagePanels.Remove(r.Id))
+        {
+            _storagePanels[r.Id] = new StoragePanel();
+        }
     }
 
     private async Task EnsureLocations()
@@ -192,8 +269,6 @@ else
         }
         catch
         {
-            // No cross-service dependency to invent: if the order read fails, note it and let the
-            // operator still mark received without restocking.
             panel.Error = L["Rma.Restock.NoLines"];
         }
 
@@ -210,25 +285,26 @@ else
             return;
         }
 
-        var body = new
+        await PostDisposition(r.Id, new
         {
+            Kind = KindRestock,
             TenantId = _tenant,
             Restock = included.Select(l => new { l.ProductId, l.VariantId, LocationId = locationId, l.Quantity }).ToList(),
-        };
-        await Post(r.Id, ReturnReceivedAction, body);
-        _panels.Remove(r.Id);
+        });
     }
 
+    private Task SubmitStorage(RmaDto r, StoragePanel storage) =>
+        PostDisposition(r.Id, new { Kind = KindStorage, StorageReason = storage.Reason, storage.Comments });
+
+    // State-changing saga actions (approve/deny/receive): suppress the row until the new state shows.
     private async Task Post(Guid id, string action, object? body)
     {
         _error = _status = null;
-        _busy = true; // disable buttons during the saga-triggering call (components.md §6)
+        _busy = true;
         var response = await Gateway.PostAsync($"/api/support/admin/rmas/{id}/{action}", body, idempotencyKey: $"{action}-{id}");
         if (response.IsSuccessStatusCode)
         {
             _status = L["Rma.Status.Accepted", action];
-            // The saga applies the transition asynchronously; suppress this row's buttons until
-            // the list shows it in a new state.
             var stateAtAction = _rmas?.FirstOrDefault(r => r.Id == id)?.State;
             if (stateAtAction is not null)
             {
@@ -237,8 +313,6 @@ else
         }
         else
         {
-            // Surface the server's own message (e.g. "RMA is 'RefundPending', not awaiting a return.")
-            // and refresh below so the row shows its true state instead of the stale one.
             _error = L["Rma.Status.Failed", action, (int)response.StatusCode, await GatewayError.ReadAsync(response)];
         }
 
@@ -246,12 +320,36 @@ else
         _busy = false;
     }
 
-    public record RmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+    // Disposition does NOT change the saga state, so it just posts + refreshes (no _acted suppression);
+    // no idempotency key, so edits always apply.
+    private async Task PostDisposition(Guid id, object body)
+    {
+        _error = _status = null;
+        _busy = true;
+        var response = await Gateway.PostAsync($"/api/support/admin/rmas/{id}/disposition", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _status = L["Rma.Disposition.Saved"];
+            _restockPanels.Remove(id);
+            _storagePanels.Remove(id);
+            _editing.Remove(id);
+        }
+        else
+        {
+            _error = L["Rma.Status.Failed", "disposition", (int)response.StatusCode, await GatewayError.ReadAsync(response)];
+        }
+
+        await Refresh();
+        _busy = false;
+    }
+
+    public record RmaDto(
+        Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,
+        DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null);
     private record OrderDetailDto(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineDto> Lines);
     private record OrderLineDto(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
     private record LocationDto(Guid Id, Guid TenantId, Guid EntityId, Guid? AddressId, string Name, string Kind, string Status);
 
-    // Mutable per-line restock draft (checkbox + quantity), and the panel that owns the selected location.
     private sealed class LineDraft
     {
         public Guid ProductId { get; set; }
@@ -268,5 +366,11 @@ else
         public string? Error { get; set; }
         public string LocationId { get; set; } = "";
         public List<LineDraft> Lines { get; set; } = [];
+    }
+
+    private sealed class StoragePanel
+    {
+        public string Reason { get; set; } = "";
+        public string Comments { get; set; } = "";
     }
 }

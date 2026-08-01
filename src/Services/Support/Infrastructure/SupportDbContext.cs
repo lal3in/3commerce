@@ -15,6 +15,7 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
     public DbSet<SupportAttachment> Attachments => Set<SupportAttachment>();
     public DbSet<RmaRequestRecord> RmaRequests => Set<RmaRequestRecord>();
     public DbSet<RmaRequestLine> RmaRequestLines => Set<RmaRequestLine>();
+    public DbSet<RmaDisposition> RmaDispositions => Set<RmaDisposition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +65,14 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
         {
             l.Property(x => x.Title).HasMaxLength(300);
             l.HasIndex(x => x.RmaId);
+        });
+
+        modelBuilder.Entity<RmaDisposition>(d =>
+        {
+            d.HasKey(x => x.RmaId);
+            d.Property(x => x.Kind).HasConversion<string>().HasMaxLength(16);
+            d.Property(x => x.StorageReason).HasConversion<string>().HasMaxLength(16);
+            d.Property(x => x.Comments).HasMaxLength(2000);
         });
 
         modelBuilder.AddInboxStateEntity();
