@@ -188,6 +188,63 @@
                 </ul>
             }
         }
+
+        <h3 style="margin-top:1.2rem;">@L["Ops.Products.Heading", _selectedStorefront.Currency]</h3>
+        <p style="color:#6b7280; font-size:.8rem; margin:.1rem 0 .5rem;">@L["Ops.Products.Rule", _selectedStorefront.Currency]</p>
+        @if (_storefrontProducts is null)
+        {
+            <p style="color:#6b7280;">@L["Common.Loading"]</p>
+        }
+        else if (_storefrontProducts.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Ops.Products.None"]</p>
+        }
+        else
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                <thead><tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:.35rem;">@L["Ops.Products.Col.Product"]</th><th>@L["Ops.Products.Col.Pricing"]</th><th>@L["Ops.Products.Col.Enabled"]</th><th>@L["Ops.Products.Col.Visible"]</th><th>@L["Common.Actions"]</th>
+                </tr></thead>
+                <tbody>
+                @foreach (var p in _storefrontProducts)
+                {
+                    var enabled = p.State == PublishedState;
+                    var visible = enabled && p.CurrencyReady;
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:.35rem;">@p.Title</td>
+                        <td>
+                            @if (p.CurrencyReady)
+                            {
+                                <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:#047857;background:#d1fae5;" title="@L["Ops.Products.Priced.Tip", p.StorefrontCurrency]">@L["Ops.Products.Priced", p.StorefrontCurrency]</span>
+                            }
+                            else
+                            {
+                                <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:#b45309;background:#fef3c7;" title="@L["Ops.Products.NotPriced.Tip", p.StorefrontCurrency]">@L["Ops.Products.NotPriced", p.StorefrontCurrency]</span>
+                            }
+                        </td>
+                        <td>
+                            <span style="display:inline-block;padding:.05rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;color:@(enabled ? "#047857" : "#6b7280");background:@(enabled ? "#d1fae5" : "#f3f4f6");">
+                                @(enabled ? L["Ops.Products.Enabled"] : L["Ops.Products.Disabled"])
+                            </span>
+                        </td>
+                        <td title="@(visible ? L["Ops.Products.Visible.Yes.Tip"] : L["Ops.Products.Visible.No.Tip"])">
+                            @(visible ? "✅" : "—")
+                        </td>
+                        <td>
+                            @if (enabled)
+                            {
+                                <button disabled="@_busy" @onclick="() => RowProductTransition(p.ProductId, UnpublishAction)" title="@L["Ops.Products.Disable.Tip"]">@L["Ops.Products.Disable"]</button>
+                            }
+                            else
+                            {
+                                <button disabled="@_busy" @onclick="() => RowProductTransition(p.ProductId, PublishAction)" title="@L["Ops.Products.Enable.Tip"]">@L["Ops.Products.Enable"]</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
     </section>
 }
 
@@ -226,6 +283,11 @@
     private string? _seoTitle;
     private int _fulfillmentSource;
     private ReadinessDto? _publicationReadiness;
+    private const string PublishAction = "publish";
+    private const string UnpublishAction = "unpublish";
+    private const string PublishedState = "Published";
+    private List<StorefrontProductDto>? _storefrontProducts;
+    private bool _busy;
     private string _editName = string.Empty;
     private string _editPublicUrl = string.Empty;
     private string _editCurrency = "EUR";
@@ -252,7 +314,7 @@
         }
     }
 
-    private void SelectStorefront(StorefrontDto storefront)
+    private async Task SelectStorefront(StorefrontDto storefront)
     {
         _selectedStorefront = storefront;
         _readiness = null;
@@ -263,6 +325,27 @@
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
         _editVisibility = storefront.Visibility;
+        await LoadStorefrontProducts();
+    }
+
+    // The products assigned to the selected storefront, each with its currency-readiness (amber when the
+    // product carries no price in the storefront's currency — it would be hidden there).
+    private async Task LoadStorefrontProducts()
+    {
+        if (_selectedStorefront is null) { return; }
+        _storefrontProducts = null;
+        try { _storefrontProducts = await Gateway.GetListAsync<StorefrontProductDto>($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products"); }
+        catch { _storefrontProducts = []; }
+    }
+
+    private async Task RowProductTransition(Guid productId, string transition)
+    {
+        if (_selectedStorefront is null) { return; }
+        _busy = true;
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_selectedStorefront.Id}/products/{productId}/{transition}");
+        await HandleMutation(response, L["Ops.Status.Transition", transition]);
+        await LoadStorefrontProducts();
+        _busy = false;
     }
 
     private async Task UpdateStorefront()
@@ -338,6 +421,7 @@
             countryOfOrigin = "AU",
         });
         await HandleMutation(response, L["Ops.Status.ProductAssigned"]);
+        await LoadStorefrontProducts();
     }
 
     private async Task CheckProductReadiness()
@@ -405,4 +489,5 @@
     public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
+    public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);
 }

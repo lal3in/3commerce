@@ -30,9 +30,18 @@ public static class StorefrontEndpoints
         group.MapPost("/{id:guid}/pause", Pause);
         group.MapPost("/{id:guid}/archive", Archive);
         group.MapPost("/{id:guid}/products", AssignProduct);
+        group.MapGet("/{id:guid}/products", ListStorefrontProducts)
+            .WithSummary("Products assigned to a storefront, with per-product currency readiness (priced in the storefront's currency?).");
         group.MapGet("/{id:guid}/products/{productId:guid}/readiness", ProductReadiness);
         group.MapPost("/{id:guid}/products/{productId:guid}/publish", PublishProduct);
         group.MapPost("/{id:guid}/products/{productId:guid}/unpublish", UnpublishProduct);
+
+        // A product's storefronts (for the catalog editor): which stores it's assigned to, and whether it
+        // carries a price in each store's currency (amber if not — it would be hidden there).
+        app.MapGet("/admin/products/{productId:guid}/storefronts", ListProductStorefronts)
+            .WithTags("Admin Storefronts")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy)
+            .WithSummary("Storefronts a product is assigned to, with per-storefront currency readiness.");
 
         // Public (anon): the storefront app resolves its active storefront's currency/tax config
         // by canonical domain host (production) or by the PublicUrl path slug (local /{slug} demo).
@@ -388,6 +397,73 @@ public static class StorefrontEndpoints
         }
     }
 
+    // A product is priced for a currency iff EVERY variant resolves a price there — an explicit
+    // per-currency VariantPrice, or the variant's own base currency. Mirrors the storefront's price
+    // resolution (ProductsEndpoints): a variant with no price in the currency is hidden, so a product
+    // that isn't fully priced would be (partly) invisible on that storefront.
+    private static bool IsPricedForCurrency(Product product, string currency) =>
+        product.Variants.Count > 0 && product.Variants.All(v =>
+            string.Equals(v.Currency, currency, StringComparison.OrdinalIgnoreCase)
+            || v.Prices.Any(p => string.Equals(p.Currency, currency, StringComparison.OrdinalIgnoreCase)));
+
+    private static async Task<Results<Ok<List<StorefrontProductResponse>>, NotFound>> ListStorefrontProducts(
+        Guid id, CatalogDbContext db, CancellationToken cancellationToken)
+    {
+        var storefront = await db.Storefronts.AsNoTracking().SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (storefront is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var publications = await db.ProductPublications.AsNoTracking()
+            .Where(p => p.StorefrontId == id).ToListAsync(cancellationToken);
+        var productIds = publications.Select(p => p.ProductId).ToList();
+        var products = await db.Products.AsNoTracking().Include(p => p.Variants).ThenInclude(v => v.Prices)
+            .Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
+
+        var rows = publications
+            .Select(pub =>
+            {
+                products.TryGetValue(pub.ProductId, out var product);
+                return new StorefrontProductResponse(
+                    pub.ProductId, product?.Title ?? "(unknown)", pub.State.ToString(), storefront.Currency,
+                    product is not null && IsPricedForCurrency(product, storefront.Currency));
+            })
+            .OrderBy(r => r.Title)
+            .ToList();
+        return TypedResults.Ok(rows);
+    }
+
+    private static async Task<Results<Ok<List<ProductStorefrontResponse>>, NotFound>> ListProductStorefronts(
+        Guid productId, CatalogDbContext db, CancellationToken cancellationToken)
+    {
+        var product = await db.Products.AsNoTracking().Include(p => p.Variants).ThenInclude(v => v.Prices)
+            .SingleOrDefaultAsync(p => p.Id == productId, cancellationToken);
+        if (product is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var publications = await db.ProductPublications.AsNoTracking()
+            .Where(p => p.ProductId == productId).ToListAsync(cancellationToken);
+        var storefrontIds = publications.Select(p => p.StorefrontId).ToList();
+        var storefronts = await db.Storefronts.AsNoTracking()
+            .Where(s => storefrontIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, cancellationToken);
+
+        var rows = publications
+            .Where(pub => storefronts.ContainsKey(pub.StorefrontId))
+            .Select(pub =>
+            {
+                var s = storefronts[pub.StorefrontId];
+                return new ProductStorefrontResponse(
+                    s.Id, s.Name, s.Currency, s.State.ToString(), pub.State.ToString(),
+                    IsPricedForCurrency(product, s.Currency));
+            })
+            .OrderBy(r => r.StorefrontName)
+            .ToList();
+        return TypedResults.Ok(rows);
+    }
+
     private static ProductPublicationResponse ToPublicationResponse(ProductPublication publication) => new(
         publication.Id,
         publication.TenantId,
@@ -528,3 +604,7 @@ public sealed record ProductPublicationResponse(
 public sealed record ProductPublicationVariantResponse(Guid VariantId, bool Visible, string? SkuOverride);
 
 public sealed record ProductPublicationReadinessResponse(bool IsReady, IReadOnlyList<string> MissingRequirements);
+// Products on a storefront, with whether the product is priced in the storefront's currency (else hidden).
+public sealed record StorefrontProductResponse(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);
+// Storefronts a product is on, with whether it's priced in that store's currency (else amber/hidden).
+public sealed record ProductStorefrontResponse(Guid StorefrontId, string StorefrontName, string Currency, string StorefrontState, string PublicationState, bool CurrencyReady);

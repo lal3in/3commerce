@@ -225,6 +225,19 @@
   <data name="Catalog.Type.Subscription" xml:space="preserve"><value>Subscription</value></data>
   <data name="Catalog.Type.Usage" xml:space="preserve"><value>Usage-based</value></data>
   <data name="Catalog.Variants" xml:space="preserve"><value>Variants</value></data>
+  <data name="Catalog.Storefronts" xml:space="preserve"><value>Storefronts</value></data>
+  <data name="Catalog.Storefronts.None" xml:space="preserve"><value>This product is not on any storefront yet.</value></data>
+  <data name="Catalog.Storefronts.Col.Name" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Catalog.Storefronts.Col.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Catalog.Storefronts.Col.Store" xml:space="preserve"><value>Store</value></data>
+  <data name="Catalog.Storefronts.Col.Publication" xml:space="preserve"><value>Publication</value></data>
+  <data name="Catalog.Storefronts.Col.Pricing" xml:space="preserve"><value>Pricing</value></data>
+  <data name="Catalog.Storefronts.Priced" xml:space="preserve"><value>Priced in {0}</value></data>
+  <data name="Catalog.Storefronts.Priced.Tip" xml:space="preserve"><value>Priced in {0} — visible on this storefront.</value></data>
+  <data name="Catalog.Storefronts.NotPriced" xml:space="preserve"><value>No {0} price</value></data>
+  <data name="Catalog.Storefronts.NotPriced.Tip" xml:space="preserve"><value>Add a {0} price under Variants above, or this product stays hidden on this storefront.</value></data>
+  <data name="Catalog.Storefronts.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Catalog.Storefronts.Disabled" xml:space="preserve"><value>Disabled</value></data>
   <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>Stock-keeping unit — your unique code for this variant.</value></data>
   <data name="Catalog.Variant.Price" xml:space="preserve"><value>Price (minor)</value></data>
@@ -772,6 +785,27 @@
   <data name="Ops.Unpublish" xml:space="preserve"><value>Unpublish</value></data>
   <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>Remove the product from this storefront.</value></data>
   <data name="Ops.PublicationReadiness" xml:space="preserve"><value>Publication readiness:</value></data>
+  <data name="Ops.Products.Heading" xml:space="preserve"><value>Products ({0})</value></data>
+  <data name="Ops.Products.None" xml:space="preserve"><value>No products assigned to this storefront yet.</value></data>
+  <data name="Ops.Products.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Ops.Products.Col.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Ops.Products.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Ops.Products.Priced" xml:space="preserve"><value>Priced in {0}</value></data>
+  <data name="Ops.Products.Priced.Tip" xml:space="preserve"><value>This product has a price in {0} and is visible on this storefront.</value></data>
+  <data name="Ops.Products.NotPriced" xml:space="preserve"><value>No {0} price</value></data>
+  <data name="Ops.Products.NotPriced.Tip" xml:space="preserve"><value>This product has no price in {0} — it is hidden on this storefront until a {0} price is added.</value></data>
+  <data name="Ops.Products.Rule" xml:space="preserve"><value>A product shows on this storefront only when Enabled and priced in {0}.</value></data>
+  <data name="Ops.Products.Col.Pricing" xml:space="preserve"><value>Pricing</value></data>
+  <data name="Ops.Products.Col.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Ops.Products.Col.Visible" xml:space="preserve"><value>Visible</value></data>
+  <data name="Ops.Products.Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Ops.Products.Disabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Ops.Products.Enable" xml:space="preserve"><value>Enable</value></data>
+  <data name="Ops.Products.Enable.Tip" xml:space="preserve"><value>Enable this product on the storefront (still needs a price in the store currency to show).</value></data>
+  <data name="Ops.Products.Disable" xml:space="preserve"><value>Disable</value></data>
+  <data name="Ops.Products.Disable.Tip" xml:space="preserve"><value>Hide this product on the storefront (keeps the assignment).</value></data>
+  <data name="Ops.Products.Visible.Yes.Tip" xml:space="preserve"><value>Enabled and priced — shown on the storefront.</value></data>
+  <data name="Ops.Products.Visible.No.Tip" xml:space="preserve"><value>Not shown — needs to be Enabled and priced in the store currency.</value></data>
   <data name="Ops.Policies" xml:space="preserve"><value>Pricing, payment, payout, and Xero policy surfaces</value></data>
   <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>Pricing &amp; promotions</value></data>
   <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>SupplierCost, SellingPrice, tax mode, storefront overrides, coupons, automatic discounts, bundle discounts, and free shipping are modeled in Catalog Offers + Ordering. Per-product offers include price model + tiers.</value></data>

@@ -225,6 +225,19 @@
   <data name="Catalog.Type.Subscription" xml:space="preserve"><value>訂閱</value></data>
   <data name="Catalog.Type.Usage" xml:space="preserve"><value>用量計費</value></data>
   <data name="Catalog.Variants" xml:space="preserve"><value>款式</value></data>
+  <data name="Catalog.Storefronts" xml:space="preserve"><value>商店</value></data>
+  <data name="Catalog.Storefronts.None" xml:space="preserve"><value>呢件產品未上任何商店。</value></data>
+  <data name="Catalog.Storefronts.Col.Name" xml:space="preserve"><value>商店</value></data>
+  <data name="Catalog.Storefronts.Col.Currency" xml:space="preserve"><value>貨幣</value></data>
+  <data name="Catalog.Storefronts.Col.Store" xml:space="preserve"><value>狀態</value></data>
+  <data name="Catalog.Storefronts.Col.Publication" xml:space="preserve"><value>發佈</value></data>
+  <data name="Catalog.Storefronts.Col.Pricing" xml:space="preserve"><value>定價</value></data>
+  <data name="Catalog.Storefronts.Priced" xml:space="preserve"><value>已定 {0} 價</value></data>
+  <data name="Catalog.Storefronts.Priced.Tip" xml:space="preserve"><value>已定 {0} 價——喺呢間商店可見。</value></data>
+  <data name="Catalog.Storefronts.NotPriced" xml:space="preserve"><value>冇 {0} 價</value></data>
+  <data name="Catalog.Storefronts.NotPriced.Tip" xml:space="preserve"><value>喺上面「變體」加返 {0} 價，否則呢件產品會喺呢間商店隱藏。</value></data>
+  <data name="Catalog.Storefronts.Enabled" xml:space="preserve"><value>已啟用</value></data>
+  <data name="Catalog.Storefronts.Disabled" xml:space="preserve"><value>已停用</value></data>
   <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>存貨單位（SKU）— 呢個款式嘅唯一編碼。</value></data>
   <data name="Catalog.Variant.Price" xml:space="preserve"><value>價錢（最小單位）</value></data>
@@ -767,6 +780,27 @@
   <data name="Ops.Unpublish" xml:space="preserve"><value>取消發佈</value></data>
   <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>將產品由呢個店面移除。</value></data>
   <data name="Ops.PublicationReadiness" xml:space="preserve"><value>發佈就緒狀態：</value></data>
+  <data name="Ops.Products.Heading" xml:space="preserve"><value>產品 ({0})</value></data>
+  <data name="Ops.Products.None" xml:space="preserve"><value>呢間商店暫時未有指派產品。</value></data>
+  <data name="Ops.Products.Col.Product" xml:space="preserve"><value>產品</value></data>
+  <data name="Ops.Products.Col.Currency" xml:space="preserve"><value>貨幣</value></data>
+  <data name="Ops.Products.Col.State" xml:space="preserve"><value>狀態</value></data>
+  <data name="Ops.Products.Priced" xml:space="preserve"><value>已定 {0} 價</value></data>
+  <data name="Ops.Products.Priced.Tip" xml:space="preserve"><value>呢件產品有 {0} 價錢，喺呢間商店可見。</value></data>
+  <data name="Ops.Products.NotPriced" xml:space="preserve"><value>冇 {0} 價</value></data>
+  <data name="Ops.Products.NotPriced.Tip" xml:space="preserve"><value>呢件產品冇 {0} 價錢——喺加返 {0} 價之前會喺呢間商店隱藏。</value></data>
+  <data name="Ops.Products.Rule" xml:space="preserve"><value>產品要「啟用」而且有 {0} 價，先會喺呢間商店顯示。</value></data>
+  <data name="Ops.Products.Col.Pricing" xml:space="preserve"><value>定價</value></data>
+  <data name="Ops.Products.Col.Enabled" xml:space="preserve"><value>啟用</value></data>
+  <data name="Ops.Products.Col.Visible" xml:space="preserve"><value>可見</value></data>
+  <data name="Ops.Products.Enabled" xml:space="preserve"><value>已啟用</value></data>
+  <data name="Ops.Products.Disabled" xml:space="preserve"><value>已停用</value></data>
+  <data name="Ops.Products.Enable" xml:space="preserve"><value>啟用</value></data>
+  <data name="Ops.Products.Enable.Tip" xml:space="preserve"><value>喺商店啟用呢件產品（仍然要有商店貨幣價錢先顯示）。</value></data>
+  <data name="Ops.Products.Disable" xml:space="preserve"><value>停用</value></data>
+  <data name="Ops.Products.Disable.Tip" xml:space="preserve"><value>喺商店隱藏呢件產品（保留指派）。</value></data>
+  <data name="Ops.Products.Visible.Yes.Tip" xml:space="preserve"><value>已啟用又有價——喺商店顯示。</value></data>
+  <data name="Ops.Products.Visible.No.Tip" xml:space="preserve"><value>唔顯示——需要啟用同埋有商店貨幣價錢。</value></data>
   <data name="Ops.Policies" xml:space="preserve"><value>定價、付款、付款出賬同 Xero 政策範圍</value></data>
   <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>定價同促銷</value></data>
   <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>供應商成本、售價、稅務模式、店面覆寫、優惠券、自動折扣、組合折扣同免運費，都喺目錄供應方案 + 訂購入面建模。個別產品供應方案包含價格模式 + 分層。</value></data>

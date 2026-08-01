@@ -225,6 +225,19 @@
   <data name="Catalog.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
   <data name="Catalog.Type.Usage" xml:space="preserve"><value>Nutzungsbasiert</value></data>
   <data name="Catalog.Variants" xml:space="preserve"><value>Varianten</value></data>
+  <data name="Catalog.Storefronts" xml:space="preserve"><value>Shops</value></data>
+  <data name="Catalog.Storefronts.None" xml:space="preserve"><value>Dieses Produkt ist noch in keinem Shop.</value></data>
+  <data name="Catalog.Storefronts.Col.Name" xml:space="preserve"><value>Shop</value></data>
+  <data name="Catalog.Storefronts.Col.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Catalog.Storefronts.Col.Store" xml:space="preserve"><value>Status</value></data>
+  <data name="Catalog.Storefronts.Col.Publication" xml:space="preserve"><value>Veröffentlichung</value></data>
+  <data name="Catalog.Storefronts.Col.Pricing" xml:space="preserve"><value>Preise</value></data>
+  <data name="Catalog.Storefronts.Priced" xml:space="preserve"><value>Preis in {0}</value></data>
+  <data name="Catalog.Storefronts.Priced.Tip" xml:space="preserve"><value>Preis in {0} – in diesem Shop sichtbar.</value></data>
+  <data name="Catalog.Storefronts.NotPriced" xml:space="preserve"><value>Kein {0}-Preis</value></data>
+  <data name="Catalog.Storefronts.NotPriced.Tip" xml:space="preserve"><value>Fügen Sie oben unter Varianten einen {0}-Preis hinzu, sonst bleibt dieses Produkt in diesem Shop ausgeblendet.</value></data>
+  <data name="Catalog.Storefronts.Enabled" xml:space="preserve"><value>Aktiviert</value></data>
+  <data name="Catalog.Storefronts.Disabled" xml:space="preserve"><value>Deaktiviert</value></data>
   <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>Stock-Keeping-Unit — Ihr eindeutiger Code für diese Variante.</value></data>
   <data name="Catalog.Variant.Price" xml:space="preserve"><value>Preis (Minor)</value></data>
@@ -767,6 +780,27 @@
   <data name="Ops.Unpublish" xml:space="preserve"><value>Veröffentlichung zurücknehmen</value></data>
   <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>Entfernen Sie das Produkt von dieser Storefront.</value></data>
   <data name="Ops.PublicationReadiness" xml:space="preserve"><value>Veröffentlichungsbereitschaft:</value></data>
+  <data name="Ops.Products.Heading" xml:space="preserve"><value>Produkte ({0})</value></data>
+  <data name="Ops.Products.None" xml:space="preserve"><value>Diesem Shop sind noch keine Produkte zugewiesen.</value></data>
+  <data name="Ops.Products.Col.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="Ops.Products.Col.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Ops.Products.Col.State" xml:space="preserve"><value>Status</value></data>
+  <data name="Ops.Products.Priced" xml:space="preserve"><value>Preis in {0}</value></data>
+  <data name="Ops.Products.Priced.Tip" xml:space="preserve"><value>Dieses Produkt hat einen Preis in {0} und ist in diesem Shop sichtbar.</value></data>
+  <data name="Ops.Products.NotPriced" xml:space="preserve"><value>Kein {0}-Preis</value></data>
+  <data name="Ops.Products.NotPriced.Tip" xml:space="preserve"><value>Dieses Produkt hat keinen {0}-Preis – es ist in diesem Shop ausgeblendet, bis ein {0}-Preis hinzugefügt wird.</value></data>
+  <data name="Ops.Products.Rule" xml:space="preserve"><value>Ein Produkt erscheint in diesem Shop nur, wenn es aktiviert ist und einen Preis in {0} hat.</value></data>
+  <data name="Ops.Products.Col.Pricing" xml:space="preserve"><value>Preise</value></data>
+  <data name="Ops.Products.Col.Enabled" xml:space="preserve"><value>Aktiviert</value></data>
+  <data name="Ops.Products.Col.Visible" xml:space="preserve"><value>Sichtbar</value></data>
+  <data name="Ops.Products.Enabled" xml:space="preserve"><value>Aktiviert</value></data>
+  <data name="Ops.Products.Disabled" xml:space="preserve"><value>Deaktiviert</value></data>
+  <data name="Ops.Products.Enable" xml:space="preserve"><value>Aktivieren</value></data>
+  <data name="Ops.Products.Enable.Tip" xml:space="preserve"><value>Dieses Produkt im Shop aktivieren (benötigt zum Anzeigen noch einen Preis in der Shop-Währung).</value></data>
+  <data name="Ops.Products.Disable" xml:space="preserve"><value>Deaktivieren</value></data>
+  <data name="Ops.Products.Disable.Tip" xml:space="preserve"><value>Dieses Produkt im Shop ausblenden (Zuweisung bleibt erhalten).</value></data>
+  <data name="Ops.Products.Visible.Yes.Tip" xml:space="preserve"><value>Aktiviert und mit Preis – im Shop sichtbar.</value></data>
+  <data name="Ops.Products.Visible.No.Tip" xml:space="preserve"><value>Nicht sichtbar – muss aktiviert und in der Shop-Währung bepreist sein.</value></data>
   <data name="Ops.Policies" xml:space="preserve"><value>Richtlinienbereiche für Preise, Zahlung, Auszahlung und Xero</value></data>
   <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>Preise &amp; Aktionen</value></data>
   <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>SupplierCost, SellingPrice, Steuermodus, Storefront-Überschreibungen, Gutscheine, automatische Rabatte, Bündelrabatte und kostenloser Versand werden in Katalogangeboten + Ordering modelliert. Produktbezogene Angebote enthalten Preismodell + Preisstufen.</value></data>

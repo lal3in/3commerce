@@ -225,6 +225,19 @@
   <data name="Catalog.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
   <data name="Catalog.Type.Usage" xml:space="preserve"><value>À l'usage</value></data>
   <data name="Catalog.Variants" xml:space="preserve"><value>Variantes</value></data>
+  <data name="Catalog.Storefronts" xml:space="preserve"><value>Boutiques</value></data>
+  <data name="Catalog.Storefronts.None" xml:space="preserve"><value>Ce produit n'est encore sur aucune boutique.</value></data>
+  <data name="Catalog.Storefronts.Col.Name" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Catalog.Storefronts.Col.Currency" xml:space="preserve"><value>Devise</value></data>
+  <data name="Catalog.Storefronts.Col.Store" xml:space="preserve"><value>État</value></data>
+  <data name="Catalog.Storefronts.Col.Publication" xml:space="preserve"><value>Publication</value></data>
+  <data name="Catalog.Storefronts.Col.Pricing" xml:space="preserve"><value>Tarification</value></data>
+  <data name="Catalog.Storefronts.Priced" xml:space="preserve"><value>Prix en {0}</value></data>
+  <data name="Catalog.Storefronts.Priced.Tip" xml:space="preserve"><value>Prix en {0} — visible sur cette boutique.</value></data>
+  <data name="Catalog.Storefronts.NotPriced" xml:space="preserve"><value>Aucun prix en {0}</value></data>
+  <data name="Catalog.Storefronts.NotPriced.Tip" xml:space="preserve"><value>Ajoutez un prix en {0} dans Variantes ci-dessus, sinon ce produit reste masqué sur cette boutique.</value></data>
+  <data name="Catalog.Storefronts.Enabled" xml:space="preserve"><value>Activé</value></data>
+  <data name="Catalog.Storefronts.Disabled" xml:space="preserve"><value>Désactivé</value></data>
   <data name="Catalog.Variant.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Catalog.Variant.Sku.Tip" xml:space="preserve"><value>Unité de gestion des stocks — votre code unique pour cette variante.</value></data>
   <data name="Catalog.Variant.Price" xml:space="preserve"><value>Prix (mineur)</value></data>
@@ -767,6 +780,27 @@
   <data name="Ops.Unpublish" xml:space="preserve"><value>Dépublier</value></data>
   <data name="Ops.Unpublish.Tip" xml:space="preserve"><value>Retirez le produit de cette vitrine.</value></data>
   <data name="Ops.PublicationReadiness" xml:space="preserve"><value>État de préparation de la publication :</value></data>
+  <data name="Ops.Products.Heading" xml:space="preserve"><value>Produits ({0})</value></data>
+  <data name="Ops.Products.None" xml:space="preserve"><value>Aucun produit affecté à cette boutique pour l'instant.</value></data>
+  <data name="Ops.Products.Col.Product" xml:space="preserve"><value>Produit</value></data>
+  <data name="Ops.Products.Col.Currency" xml:space="preserve"><value>Devise</value></data>
+  <data name="Ops.Products.Col.State" xml:space="preserve"><value>État</value></data>
+  <data name="Ops.Products.Priced" xml:space="preserve"><value>Prix en {0}</value></data>
+  <data name="Ops.Products.Priced.Tip" xml:space="preserve"><value>Ce produit a un prix en {0} et est visible sur cette boutique.</value></data>
+  <data name="Ops.Products.NotPriced" xml:space="preserve"><value>Aucun prix en {0}</value></data>
+  <data name="Ops.Products.NotPriced.Tip" xml:space="preserve"><value>Ce produit n'a pas de prix en {0} — il est masqué sur cette boutique tant qu'un prix en {0} n'est pas ajouté.</value></data>
+  <data name="Ops.Products.Rule" xml:space="preserve"><value>Un produit apparaît sur cette boutique uniquement s'il est activé et a un prix en {0}.</value></data>
+  <data name="Ops.Products.Col.Pricing" xml:space="preserve"><value>Tarification</value></data>
+  <data name="Ops.Products.Col.Enabled" xml:space="preserve"><value>Activé</value></data>
+  <data name="Ops.Products.Col.Visible" xml:space="preserve"><value>Visible</value></data>
+  <data name="Ops.Products.Enabled" xml:space="preserve"><value>Activé</value></data>
+  <data name="Ops.Products.Disabled" xml:space="preserve"><value>Désactivé</value></data>
+  <data name="Ops.Products.Enable" xml:space="preserve"><value>Activer</value></data>
+  <data name="Ops.Products.Enable.Tip" xml:space="preserve"><value>Activer ce produit sur la boutique (il faut encore un prix dans la devise de la boutique pour l'afficher).</value></data>
+  <data name="Ops.Products.Disable" xml:space="preserve"><value>Désactiver</value></data>
+  <data name="Ops.Products.Disable.Tip" xml:space="preserve"><value>Masquer ce produit sur la boutique (conserve l'affectation).</value></data>
+  <data name="Ops.Products.Visible.Yes.Tip" xml:space="preserve"><value>Activé et tarifé — affiché sur la boutique.</value></data>
+  <data name="Ops.Products.Visible.No.Tip" xml:space="preserve"><value>Non affiché — doit être activé et tarifé dans la devise de la boutique.</value></data>
   <data name="Ops.Policies" xml:space="preserve"><value>Surfaces de politique de tarification, paiement, versement et Xero</value></data>
   <data name="Ops.Card.Pricing.Title" xml:space="preserve"><value>Tarification et promotions</value></data>
   <data name="Ops.Card.Pricing.Body" xml:space="preserve"><value>Le coût fournisseur, le prix de vente, le mode de taxe, les remplacements de vitrine, les coupons, les remises automatiques, les remises sur lot et la livraison gratuite sont modélisés dans les Offres du catalogue + Ordering. Les offres par produit incluent un modèle de prix + des paliers.</value></data>
