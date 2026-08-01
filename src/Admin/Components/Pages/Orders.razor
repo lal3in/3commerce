@@ -31,7 +31,11 @@ else
         @foreach (var o in _orders)
         {
             <tr style="border-top:1px solid #e5e7eb;">
-                <td style="font-family:monospace;">@o.Id</td>
+                <td style="font-family:monospace;">
+                    <button @onclick="() => ToggleDetails(o.Id)" title="@L["Orders.Details.Tip"]" style="background:none;border:0;cursor:pointer;font:inherit;color:inherit;">
+                        <span aria-hidden style="color:#9ca3af;">@(_expanded.Contains(o.Id) ? "▾" : "▸")</span> @o.Id
+                    </button>
+                </td>
                 <td>
                     @o.Status
                     @if (o.PartiallyRefunded && o.Status == "Confirmed")
@@ -54,6 +58,68 @@ else
                     }
                 </td>
             </tr>
+            @if (_expanded.Contains(o.Id))
+            {
+                <tr style="background:#f9fafb;"><td colspan="6" style="padding:.7rem .9rem;">
+                    @if (!_details.TryGetValue(o.Id, out var d))
+                    {
+                        <p style="color:#6b7280;">@L["Common.Loading"]</p>
+                    }
+                    else if (d is null)
+                    {
+                        <p style="color:#b45309;">@L["Orders.Details.Unavailable"]</p>
+                    }
+                    else
+                    {
+                        <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:.85rem;">
+                            <div style="min-width:15rem;">
+                                <div style="font-weight:600; margin-bottom:.3rem;">@L["Orders.Details.Summary"]</div>
+                                <div>@L["Orders.Details.Number"]: <strong>#@d.PublicOrderNumber</strong></div>
+                                <div>@L["Orders.Details.Date"]: @d.CreatedAt.LocalDateTime.ToString("g")</div>
+                                <div>@L["Common.Status"]: @d.Status@(d.PartiallyRefunded ? $" · {L["Orders.Badge.PartiallyRefunded"]}" : "")</div>
+                                <div>@L["Orders.Details.Email"]: @d.Email</div>
+                                <div>@L["Orders.Details.Payment"]: @PaymentLabel(d.PaymentOption)@(string.IsNullOrEmpty(d.PaymentInstrumentSummary) ? "" : $" · {d.PaymentInstrumentSummary}") (@d.PaymentProvider)</div>
+                            </div>
+                            @if (d.ShippingAddress is not null)
+                            {
+                                <div style="min-width:12rem;">
+                                    <div style="font-weight:600; margin-bottom:.3rem;">@L["Orders.Details.ShipTo"]</div>
+                                    <div>@d.ShippingAddress.Name</div>
+                                    <div>@d.ShippingAddress.Line1</div>
+                                    <div>@d.ShippingAddress.City @d.ShippingAddress.Postcode, @d.ShippingAddress.Country</div>
+                                </div>
+                            }
+                            <div style="flex:1; min-width:18rem;">
+                                <div style="font-weight:600; margin-bottom:.3rem;">@L["Orders.Details.Items"]</div>
+                                <table style="border-collapse:collapse; width:100%;">
+                                    <tbody>
+                                    @foreach (var l in d.Lines)
+                                    {
+                                        <tr style="border-top:1px solid #f3f4f6;">
+                                            <td style="text-align:right; padding:.15rem .4rem; color:#6b7280;">@l.Quantity×</td>
+                                            <td style="padding:.15rem .4rem;">@l.Title@(string.IsNullOrEmpty(l.VariantSku) ? "" : $" ({l.VariantSku})")</td>
+                                            <td style="text-align:right; padding:.15rem .4rem;">@Money(l.UnitPriceMinor, d.Currency)</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                                <table style="border-collapse:collapse; width:100%; margin-top:.4rem; border-top:1px solid #e5e7eb;">
+                                    <tbody>
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Subtotal"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.NetMinor, d.Currency)</td></tr>
+                                        @if (d.DiscountMinor > 0)
+                                        {
+                                            <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Discount"]</td><td style="text-align:right; padding:.1rem .4rem;">−@Money(d.DiscountMinor, d.Currency)</td></tr>
+                                        }
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Shipping"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.ShippingMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Tax"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.TaxMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; font-weight:600;">@L["Orders.Details.Total"]</td><td style="text-align:right; padding:.1rem .4rem; font-weight:600;">@Money(d.GrossMinor, d.Currency)</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </td></tr>
+            }
         }
         </tbody>
     </table>
@@ -64,8 +130,25 @@ else
     private string? _status;
     private string? _error;
     private string? _confirm;
+    // Expanded rows + their fetched detail (null value = fetch failed → "unavailable"; missing key = loading).
+    private readonly HashSet<Guid> _expanded = [];
+    private readonly Dictionary<Guid, OrderDetailDto?> _details = [];
 
     protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task ToggleDetails(Guid id)
+    {
+        if (!_expanded.Remove(id))
+        {
+            _expanded.Add(id);
+            if (!_details.ContainsKey(id))
+            {
+                _details[id] = await Gateway.GetAsync<OrderDetailDto>($"/api/ordering/admin/orders/{id}");
+            }
+        }
+    }
+
+    private static string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
 
     private async Task LoadAsync()
     {
@@ -139,4 +222,10 @@ else
     };
 
     public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, bool PartiallyRefunded = false);
+    public record OrderLineDto(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
+    public record ShipAddrDto(string Name, string Line1, string City, string Postcode, string Country);
+    public record OrderDetailDto(
+        Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor,
+        string Currency, DateTimeOffset CreatedAt, List<OrderLineDto> Lines,
+        long PublicOrderNumber, string PaymentOption, string? PaymentInstrumentSummary, string PaymentProvider, bool PartiallyRefunded, ShipAddrDto? ShippingAddress);
 }

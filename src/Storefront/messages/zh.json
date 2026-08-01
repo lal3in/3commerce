@@ -369,9 +369,26 @@
       "makeDefaultCardAction": "在结账时默认使用此卡片。",
       "deleteCard": "将此已保存的卡片从您的账户中移除。",
       "support": "为此订单开具客服工单或申请退款。",
-      "logOut": "从此设备退出登录。"
+      "logOut": "从此设备退出登录。",
+      "orderDetails": "查看完整订单详情",
+      "hideOrderDetails": "隐藏订单详情"
     },
-    "selectCountry": "选择国家/地区"
+    "selectCountry": "选择国家/地区",
+    "orderDetails": "订单详情",
+    "orderDetailsLoading": "加载中…",
+    "orderDetailsUnavailable": "暂时无法获取订单详情。",
+    "orderNumber": "订单号",
+    "orderDate": "日期",
+    "orderStatus": "状态",
+    "partiallyRefunded": "部分退款",
+    "payment": "付款",
+    "shippingAddress": "收货地址",
+    "items": "商品",
+    "subtotal": "小计",
+    "discount": "折扣",
+    "shipping": "运费",
+    "tax": "税费",
+    "total": "合计"
   },
   "support": {
     "title": "订单支持",

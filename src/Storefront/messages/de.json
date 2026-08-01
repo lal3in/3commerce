@@ -369,9 +369,26 @@
       "makeDefaultCardAction": "Diese Karte beim Checkout standardmäßig verwenden.",
       "deleteCard": "Diese gespeicherte Karte aus Ihrem Konto entfernen.",
       "support": "Ein Support-Ticket eröffnen oder eine Rückerstattung für diese Bestellung anfordern.",
-      "logOut": "Von diesem Gerät abmelden."
+      "logOut": "Von diesem Gerät abmelden.",
+      "orderDetails": "Vollständige Bestelldetails anzeigen",
+      "hideOrderDetails": "Bestelldetails ausblenden"
     },
-    "selectCountry": "Land auswählen"
+    "selectCountry": "Land auswählen",
+    "orderDetails": "Bestelldetails",
+    "orderDetailsLoading": "Wird geladen…",
+    "orderDetailsUnavailable": "Bestelldetails sind derzeit nicht verfügbar.",
+    "orderNumber": "Bestell-Nr.",
+    "orderDate": "Datum",
+    "orderStatus": "Status",
+    "partiallyRefunded": "Teilweise erstattet",
+    "payment": "Zahlung",
+    "shippingAddress": "Lieferadresse",
+    "items": "Artikel",
+    "subtotal": "Zwischensumme",
+    "discount": "Rabatt",
+    "shipping": "Versand",
+    "tax": "Steuer",
+    "total": "Gesamt"
   },
   "support": {
     "title": "Bestellsupport",

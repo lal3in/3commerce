@@ -369,9 +369,26 @@
       "makeDefaultCardAction": "Usar esta tarjeta de forma predeterminada al finalizar la compra.",
       "deleteCard": "Quitar esta tarjeta guardada de su cuenta.",
       "support": "Abrir un ticket de soporte o solicitar un reembolso de este pedido.",
-      "logOut": "Cerrar sesión en este dispositivo."
+      "logOut": "Cerrar sesión en este dispositivo.",
+      "orderDetails": "Ver los detalles completos del pedido",
+      "hideOrderDetails": "Ocultar los detalles del pedido"
     },
-    "selectCountry": "Selecciona un país"
+    "selectCountry": "Selecciona un país",
+    "orderDetails": "Detalles del pedido",
+    "orderDetailsLoading": "Cargando…",
+    "orderDetailsUnavailable": "Los detalles del pedido no están disponibles ahora.",
+    "orderNumber": "Pedido n.º",
+    "orderDate": "Fecha",
+    "orderStatus": "Estado",
+    "partiallyRefunded": "Reembolsado parcialmente",
+    "payment": "Pago",
+    "shippingAddress": "Dirección de envío",
+    "items": "Artículos",
+    "subtotal": "Subtotal",
+    "discount": "Descuento",
+    "shipping": "Envío",
+    "tax": "Impuesto",
+    "total": "Total"
   },
   "support": {
     "title": "Soporte de pedidos",

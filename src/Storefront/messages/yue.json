@@ -369,9 +369,26 @@
       "makeDefaultCardAction": "結帳時預設用呢張卡。",
       "deleteCard": "喺你嘅帳戶移除呢張已儲存嘅卡。",
       "support": "開客戶服務個案或者為呢張訂單申請退款。",
-      "logOut": "喺呢部裝置登出。"
+      "logOut": "喺呢部裝置登出。",
+      "orderDetails": "查看完整訂單詳情",
+      "hideOrderDetails": "隱藏訂單詳情"
     },
-    "selectCountry": "揀選國家/地區"
+    "selectCountry": "揀選國家/地區",
+    "orderDetails": "訂單詳情",
+    "orderDetailsLoading": "載入緊…",
+    "orderDetailsUnavailable": "暫時攞唔到訂單詳情。",
+    "orderNumber": "訂單編號",
+    "orderDate": "日期",
+    "orderStatus": "狀態",
+    "partiallyRefunded": "部分退款",
+    "payment": "付款",
+    "shippingAddress": "送貨地址",
+    "items": "貨品",
+    "subtotal": "小計",
+    "discount": "折扣",
+    "shipping": "運費",
+    "tax": "稅項",
+    "total": "總計"
   },
   "support": {
     "title": "訂單支援",

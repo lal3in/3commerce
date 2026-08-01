@@ -346,6 +346,20 @@
   <data name="Orders.Col.Order" xml:space="preserve"><value>Bestellung</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>Gesamt</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>Aufgegeben</value></data>
+  <data name="Orders.Details.Tip" xml:space="preserve"><value>Vollständige Bestelldetails ein-/ausblenden</value></data>
+  <data name="Orders.Details.Unavailable" xml:space="preserve"><value>Bestelldetails nicht verfügbar.</value></data>
+  <data name="Orders.Details.Summary" xml:space="preserve"><value>Übersicht</value></data>
+  <data name="Orders.Details.Number" xml:space="preserve"><value>Bestell-Nr.</value></data>
+  <data name="Orders.Details.Date" xml:space="preserve"><value>Datum</value></data>
+  <data name="Orders.Details.Email" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Orders.Details.Payment" xml:space="preserve"><value>Zahlung</value></data>
+  <data name="Orders.Details.ShipTo" xml:space="preserve"><value>Lieferung an</value></data>
+  <data name="Orders.Details.Items" xml:space="preserve"><value>Artikel</value></data>
+  <data name="Orders.Details.Subtotal" xml:space="preserve"><value>Zwischensumme</value></data>
+  <data name="Orders.Details.Discount" xml:space="preserve"><value>Rabatt</value></data>
+  <data name="Orders.Details.Shipping" xml:space="preserve"><value>Versand</value></data>
+  <data name="Orders.Details.Tax" xml:space="preserve"><value>Steuer</value></data>
+  <data name="Orders.Details.Total" xml:space="preserve"><value>Gesamt</value></data>
   <data name="Orders.Col.Payment" xml:space="preserve"><value>Zahlung</value></data>
   <data name="Orders.Col.Payment.Tip" xml:space="preserve"><value>Wie der Käufer beim Checkout bezahlen wollte.</value></data>
   <data name="Payment.Method.Stripe" xml:space="preserve"><value>Stripe</value></data>
