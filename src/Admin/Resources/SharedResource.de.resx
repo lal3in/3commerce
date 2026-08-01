@@ -400,6 +400,8 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>Beschreibung</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>Referenz</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>Zeilen</value></data>
+  <data name="Ledger.Col.Refunded" xml:space="preserve"><value>Erstattet</value></data>
+  <data name="Ledger.Entry.Breakdown.Tip" xml:space="preserve"><value>Zeilenweise Aufschlüsselung dieser Buchung anzeigen, inkl. erstatteter Beträge.</value></data>
   <data name="Ledger.Col.When" xml:space="preserve"><value>Wann</value></data>
   <data name="Ledger.Col.Currency" xml:space="preserve"><value>Währung</value></data>
 
