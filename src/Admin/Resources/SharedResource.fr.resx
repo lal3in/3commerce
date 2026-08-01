@@ -400,7 +400,7 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>Description</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>Référence</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>Lignes</value></data>
-  <data name="Ledger.Col.Refunded" xml:space="preserve"><value>Remboursé</value></data>
+  <data name="Ledger.Col.Amount" xml:space="preserve"><value>Montant</value></data>
   <data name="Ledger.Entry.Breakdown.Tip" xml:space="preserve"><value>Afficher le détail ligne par ligne de cette écriture, y compris les montants remboursés.</value></data>
   <data name="Ledger.Col.When" xml:space="preserve"><value>Quand</value></data>
   <data name="Ledger.Col.Currency" xml:space="preserve"><value>Devise</value></data>

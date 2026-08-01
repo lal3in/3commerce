@@ -400,7 +400,7 @@
   <data name="Ledger.Col.Description" xml:space="preserve"><value>描述</value></data>
   <data name="Ledger.Col.Reference" xml:space="preserve"><value>参考</value></data>
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>明细行</value></data>
-  <data name="Ledger.Col.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Ledger.Col.Amount" xml:space="preserve"><value>金额</value></data>
   <data name="Ledger.Entry.Breakdown.Tip" xml:space="preserve"><value>显示此分录的逐行明细，包括已退款金额。</value></data>
   <data name="Ledger.Col.When" xml:space="preserve"><value>时间</value></data>
   <data name="Ledger.Col.Currency" xml:space="preserve"><value>货币</value></data>
