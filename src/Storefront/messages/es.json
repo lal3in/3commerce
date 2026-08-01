@@ -423,7 +423,8 @@
     "collapseForm": "Contraer",
     "expandForm": "Añadir uno",
     "messageCount": "{count, plural, one {# mensaje} other {# mensajes}}",
-    "fullyRefunded": "Ya se ha solicitado el reembolso de todos los artículos de este pedido."
+    "fullyRefunded": "Ya se ha solicitado el reembolso de todos los artículos de este pedido.",
+    "backToAccount": "Volver a la cuenta"
   },
   "consent": {
     "bannerLabel": "Consentimiento de cookies",

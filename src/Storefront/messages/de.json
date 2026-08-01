@@ -423,7 +423,8 @@
     "collapseForm": "Einklappen",
     "expandForm": "Neu hinzufügen",
     "messageCount": "{count, plural, one {# Nachricht} other {# Nachrichten}}",
-    "fullyRefunded": "Für alle Artikel dieser Bestellung wurde bereits eine Rückerstattung angefragt."
+    "fullyRefunded": "Für alle Artikel dieser Bestellung wurde bereits eine Rückerstattung angefragt.",
+    "backToAccount": "Zurück zum Konto"
   },
   "consent": {
     "bannerLabel": "Cookie-Einwilligung",

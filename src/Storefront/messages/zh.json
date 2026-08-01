@@ -423,7 +423,8 @@
     "collapseForm": "收起",
     "expandForm": "新增一个",
     "messageCount": "{count} 条消息",
-    "fullyRefunded": "此订单的所有商品都已申请退款。"
+    "fullyRefunded": "此订单的所有商品都已申请退款。",
+    "backToAccount": "返回账户"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",
