@@ -423,7 +423,8 @@
     "collapseForm": "Collapse",
     "expandForm": "Add one",
     "messageCount": "{count, plural, one {# message} other {# messages}}",
-    "fullyRefunded": "A refund has already been requested for everything on this order."
+    "fullyRefunded": "A refund has already been requested for everything on this order.",
+    "backToAccount": "Back to account"
   },
   "consent": {
     "bannerLabel": "Cookie consent",

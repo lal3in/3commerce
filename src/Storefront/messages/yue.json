@@ -423,7 +423,8 @@
     "collapseForm": "收起",
     "expandForm": "新增一個",
     "messageCount": "{count} 則訊息",
-    "fullyRefunded": "呢張訂單所有貨品都已經申請咗退款。"
+    "fullyRefunded": "呢張訂單所有貨品都已經申請咗退款。",
+    "backToAccount": "返回帳戶"
   },
   "consent": {
     "bannerLabel": "Cookie 同意",

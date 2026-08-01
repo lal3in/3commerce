@@ -423,7 +423,8 @@
     "collapseForm": "Réduire",
     "expandForm": "En ajouter une",
     "messageCount": "{count, plural, one {# message} other {# messages}}",
-    "fullyRefunded": "Un remboursement a déjà été demandé pour tous les articles de cette commande."
+    "fullyRefunded": "Un remboursement a déjà été demandé pour tous les articles de cette commande.",
+    "backToAccount": "Retour au compte"
   },
   "consent": {
     "bannerLabel": "Consentement aux cookies",
