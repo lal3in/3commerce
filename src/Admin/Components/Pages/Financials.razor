@@ -31,9 +31,10 @@ else
                     <h3 style="margin:.2rem 0 .5rem;">@L["Fin.PnL"]</h3>
                     <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
                         @Line(L["Fin.Revenue"], Revenue(cur), false)
+                        @Line(L["Fin.Shipping"], ShippingIncome(cur), false)
                         @Line(L["Fin.Refunds"], -Refunds(cur), false)
                         @Line(L["Fin.Fees"], -Fees(cur), false)
-                        @TotalLine(L["Fin.NetResult"], Revenue(cur) - Refunds(cur) - Fees(cur), cur)
+                        @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur), cur)
                     </table>
                 </div>
                 <div>
@@ -129,6 +130,9 @@ else
         .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.CreditMinor);
     private long Refunds(string c) => _balances
         .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.DebitMinor);
+    // Shipping charged to shoppers, booked to income.* (its own income line, not revenue.*). Credit-normal
+    // and already net of refunds (a refund debits the same account proportionally).
+    private long ShippingIncome(string c) => Sum(c, a => a.StartsWith("income.", StringComparison.Ordinal), creditNormal: true);
     private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal), creditNormal: false);
     private long Cash(string c) => Sum(c, a => a.StartsWith("cash.", StringComparison.Ordinal), creditNormal: false);
     private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);

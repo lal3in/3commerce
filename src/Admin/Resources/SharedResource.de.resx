@@ -1393,6 +1393,7 @@
   <data name="Fin.Revenue" xml:space="preserve">
     <value>Umsatz</value>
   </data>
+  <data name="Fin.Shipping" xml:space="preserve"><value>Versanderlöse</value></data>
   <data name="Fin.Refunds" xml:space="preserve">
     <value>Erstattungen</value>
   </data>

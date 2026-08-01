@@ -94,6 +94,7 @@ public sealed class AuthorizePaymentConsumer(
             PaymentIntentId = intent.PaymentIntentId,
             AmountMinor = grossMinor,
             TaxMinor = msg.TaxMinor, // tax portion of the charge → ledger books it as a tax liability (not revenue)
+            ShippingMinor = msg.ShippingMinor, // shipping portion → ledger books it as its own income line
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
             // The shopper's chosen method and the settling PSP, both persisted so the ledger can

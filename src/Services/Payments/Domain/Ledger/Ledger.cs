@@ -23,9 +23,13 @@ public static class Ledger
         string? provider = null,
         string? revenueAccount = null,
         string? taxAccount = null,
-        string? receivableAccount = null)
+        string? receivableAccount = null,
+        long shippingMinor = 0)
     {
-        var netMinor = grossMinor - taxMinor;
+        // Product revenue = gross − tax − shipping; shipping is booked to its own income account so the
+        // P&L reports it as a separate line rather than lumping it into product revenue.
+        var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
+        var netMinor = grossMinor - taxMinor - shipping;
         var cash = Accounts.CashFor(provider);
         // Per-storefront books (phase 2): revenue and tax post to the storefront's own accounts when
         // known; otherwise the shared revenue.sales / liability.tax_collected. Cash stays on the
@@ -39,6 +43,11 @@ public static class Ledger
             // Legacy / no storefront: cash-basis directly against revenue.
             Debit(entry, cash, grossMinor);
             Credit(entry, revenue, netMinor);
+            if (shipping > 0)
+            {
+                Credit(entry, Accounts.ShippingIncome, shipping);
+            }
+
             if (taxMinor > 0)
             {
                 Credit(entry, taxLiability, taxMinor);
@@ -52,6 +61,11 @@ public static class Ledger
             // settles with the sale, and carries a balance only while a settlement is outstanding.
             Debit(entry, receivableAccount, grossMinor);
             Credit(entry, revenue, netMinor);
+            if (shipping > 0)
+            {
+                Credit(entry, Accounts.ShippingIncome, shipping);
+            }
+
             if (taxMinor > 0)
             {
                 Credit(entry, taxLiability, taxMinor);
@@ -87,15 +101,24 @@ public static class Ledger
         string? provider = null,
         string? revenueAccount = null,
         string? taxAccount = null,
-        string? receivableAccount = null)
+        string? receivableAccount = null,
+        long shippingMinor = 0)
     {
-        var netMinor = grossMinor - taxMinor;
+        // Mirror the sale: reverse product revenue, shipping income and tax separately so each P&L line
+        // nets its refunds. shippingMinor is the (proportional) shipping slice of this refund.
+        var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
+        var netMinor = grossMinor - taxMinor - shipping;
         var cash = Accounts.CashFor(provider);
         var entry = NewEntry($"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
 
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
             Debit(entry, Accounts.RevenueRefunds, netMinor);
+            if (shipping > 0)
+            {
+                Debit(entry, Accounts.ShippingIncome, shipping);
+            }
+
             if (taxMinor > 0)
             {
                 Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
@@ -108,6 +131,11 @@ public static class Ledger
             var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueRefunds : revenueAccount;
             var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
             Debit(entry, revenue, netMinor);
+            if (shipping > 0)
+            {
+                Debit(entry, Accounts.ShippingIncome, shipping);
+            }
+
             if (taxMinor > 0)
             {
                 Debit(entry, taxLiability, taxMinor);

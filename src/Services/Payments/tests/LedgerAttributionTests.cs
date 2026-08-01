@@ -39,6 +39,32 @@ public class LedgerAttributionTests
         AssertBalanced(entry);
     }
 
+    [Fact]
+    public void A_sale_books_shipping_as_its_own_income_line_not_product_revenue()
+    {
+        var orderId = Guid.CreateVersion7();
+        // gross 11_900 = product-net 8_100 + shipping 1_900 + tax 1_900 (fee 0 for a clean split).
+        var entry = Ledger.Sale(orderId, 11_900, taxMinor: 1_900, feeMinor: 0, "EUR", DateTimeOffset.UtcNow, shippingMinor: 1_900);
+
+        Assert.Equal(8_100, Credits(entry, Accounts.RevenueSales));      // product revenue only
+        Assert.Equal(1_900, Credits(entry, Accounts.ShippingIncome));    // shipping is separate income
+        Assert.Equal(1_900, Credits(entry, Accounts.LiabilityTaxCollected));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_full_refund_reverses_shipping_income_alongside_revenue_and_tax()
+    {
+        var orderId = Guid.CreateVersion7();
+        var refundId = Guid.CreateVersion7();
+        var entry = Ledger.Refund(refundId, orderId, 11_900, taxMinor: 1_900, "EUR", DateTimeOffset.UtcNow, shippingMinor: 1_900);
+
+        Assert.Equal(8_100, Debits(entry, Accounts.RevenueRefunds));     // product revenue reversed
+        Assert.Equal(1_900, Debits(entry, Accounts.ShippingIncome));     // shipping income reversed
+        Assert.Equal(1_900, Debits(entry, Accounts.LiabilityTaxCollected));
+        AssertBalanced(entry);
+    }
+
     [Theory]
     [InlineData(PaymentMethodKind.Card, "Card")]
     [InlineData(PaymentMethodKind.ApplePay, "ApplePay")]

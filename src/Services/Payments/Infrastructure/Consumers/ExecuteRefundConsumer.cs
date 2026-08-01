@@ -52,9 +52,11 @@ public sealed class ExecuteRefundConsumer(
             return;
         }
 
-        // Proportional tax reversal (banker's rounding), so full refunds return all tax.
+        // Proportional tax + shipping reversal (banker's rounding), so full refunds return all of each.
         var taxPortion = payment.AmountMinor == 0 ? 0
             : (long)Math.Round((decimal)payment.TaxMinor * msg.AmountMinor / payment.AmountMinor, MidpointRounding.ToEven);
+        var shippingPortion = payment.AmountMinor == 0 ? 0
+            : (long)Math.Round((decimal)payment.ShippingMinor * msg.AmountMinor / payment.AmountMinor, MidpointRounding.ToEven);
 
         db.Refunds.Add(new Refund
         {
@@ -72,7 +74,8 @@ public sealed class ExecuteRefundConsumer(
             : null;
         db.JournalEntries.Add(Ledger.Refund(
             msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow(),
-            payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode));
+            payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
+            shippingPortion));
 
         payment.RefundedMinor += msg.AmountMinor;
         var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;
