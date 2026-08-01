@@ -140,26 +140,45 @@ else
 
     private enum EntryKind { Refund, Incoming, Outgoing, Neutral }
 
-    // Classify an entry by cash direction, so the Amount can be coloured: a refund (revenue/tax reversal)
-    // stays amber even though it moves cash out; otherwise cash debited = money IN, cash credited = money
-    // OUT. Amount is the entry magnitude (Σ debits, which equals Σ credits in a balanced entry).
+    // Classify an entry and derive its transaction amount. The amount is the revenue+tax movement, NOT
+    // Σ debits — an entry contains a receivable clearing line (debit AND credit for the gross) plus fees,
+    // so Σ debits double-counts. A refund reverses revenue/tax (debit) → amber; a sale posts revenue/tax
+    // (credit) → green (gross = net + tax). Entries with no revenue/tax fall back to net cash direction
+    // (e.g. a supplier payout = cash out → red).
     private static (long Amount, EntryKind Kind) Classify(EntryDto e)
     {
-        var refunded = RefundedMinor(e);
-        var total = e.Lines.Sum(l => l.DebitMinor);
-        if (refunded > 0)
+        long revTaxDebit = 0, revTaxCredit = 0, cashDebit = 0, cashCredit = 0;
+        foreach (var l in e.Lines)
         {
-            return (refunded, EntryKind.Refund);
+            if (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal))
+            {
+                revTaxDebit += l.DebitMinor;
+                revTaxCredit += l.CreditMinor;
+            }
+            else if (l.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
+            {
+                cashDebit += l.DebitMinor;
+                cashCredit += l.CreditMinor;
+            }
         }
 
-        var cashDebit = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal)).Sum(l => l.DebitMinor);
-        var cashCredit = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal)).Sum(l => l.CreditMinor);
-        if (cashDebit > cashCredit)
+        if (revTaxDebit > 0)
         {
-            return (total, EntryKind.Incoming);
+            return (revTaxDebit, EntryKind.Refund); // gross refunded = revenue + tax reversed
         }
 
-        return cashCredit > cashDebit ? (total, EntryKind.Outgoing) : (total, EntryKind.Neutral);
+        if (revTaxCredit > 0)
+        {
+            return (revTaxCredit, EntryKind.Incoming); // sale gross = revenue + tax
+        }
+
+        var net = cashDebit - cashCredit;
+        if (net > 0)
+        {
+            return (net, EntryKind.Incoming);
+        }
+
+        return net < 0 ? (-net, EntryKind.Outgoing) : (e.Lines.Sum(l => l.DebitMinor), EntryKind.Neutral);
     }
 
     private static string KindColor(EntryKind kind) => kind switch
