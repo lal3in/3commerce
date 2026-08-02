@@ -71,6 +71,7 @@ else
                     <th>@L["Ledger.Col.Currency"]</th>
                     <th style="text-align:right;">@L["Fin.Col.Gross"]</th>
                     <th style="text-align:right;">@L["Fin.Col.NetRevenue"]</th>
+                    <th style="text-align:right;">@L["Fin.Shipping"]</th>
                     <th style="text-align:right;">@L["Fin.Col.Tax"]</th>
                     <th style="text-align:left;">@L["Fin.Col.Account"]</th>
                 </tr></thead>
@@ -82,6 +83,7 @@ else
                         <td style="text-align:center;" title="@L["Fin.PostingCurrency.Tip"]">@PostingCurrency(s)</td>
                         <td style="text-align:right;">@Money(StoreGross(s))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.RevenueAccountCode, creditNormal: true))</td>
+                        <td style="text-align:right;">@Money(AccountAmount(s.ShippingAccountCode, creditNormal: true))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
                     </tr>
@@ -130,9 +132,9 @@ else
         .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.CreditMinor);
     private long Refunds(string c) => _balances
         .Where(b => b.Currency == c && b.AccountCode.StartsWith("revenue.", StringComparison.Ordinal)).Sum(b => b.DebitMinor);
-    // Shipping charged to shoppers, booked to income.* (its own income line, not revenue.*). Credit-normal
-    // and already net of refunds (a refund debits the same account proportionally).
-    private long ShippingIncome(string c) => Sum(c, a => a.StartsWith("income.", StringComparison.Ordinal), creditNormal: true);
+    // Shipping charged to shoppers, booked to shipping.* — per-store (shipping.store-…) or the shared
+    // shipping.income — its own income line, not revenue.*. Credit-normal, already net of refunds.
+    private long ShippingIncome(string c) => Sum(c, a => a.StartsWith("shipping.", StringComparison.Ordinal), creditNormal: true);
     private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal), creditNormal: false);
     private long Cash(string c) => Sum(c, a => a.StartsWith("cash.", StringComparison.Ordinal), creditNormal: false);
     private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);
@@ -153,7 +155,9 @@ else
     // Total sales the storefront brought in = net revenue + tax collected (both credit-normal). Ties the
     // row together: Gross = Net revenue + Tax, and per currency these sum to the P&L revenue + tax above.
     private long StoreGross(StorefrontDto s) =>
-        AccountAmount(s.RevenueAccountCode, creditNormal: true) + AccountAmount(s.TaxAccountCode, creditNormal: true);
+        AccountAmount(s.RevenueAccountCode, creditNormal: true)
+        + AccountAmount(s.ShippingAccountCode, creditNormal: true)
+        + AccountAmount(s.TaxAccountCode, creditNormal: true);
 
     // The currency the store's revenue actually posted in (distinct), else its configured currency.
     private string PostingCurrency(StorefrontDto s)
@@ -182,5 +186,5 @@ else
     };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
-    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode);
+    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, string ShippingAccountCode = "");
 }

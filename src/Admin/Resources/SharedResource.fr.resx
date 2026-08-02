@@ -1437,7 +1437,7 @@
     <value>Brut</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Le revenu net et la taxe se rapprochent des rapports par devise ci-dessus (Brut = Revenu net + Taxe). Les frais de traitement sont réglés par prestataire de paiement, pas par boutique ; le revenu net d'une boutique est donc affiché avant frais.</value>
+    <value>Le revenu net, la livraison et la taxe se rapprochent des rapports par devise ci-dessus (Brut = Revenu net + Livraison + Taxe). Les frais de traitement sont réglés par prestataire de paiement, pas par boutique ; le revenu net d'une boutique est donc affiché avant frais.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Taxe</value>

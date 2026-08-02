@@ -1437,7 +1437,7 @@
     <value>毛收入</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>淨收入同稅款同上面每種貨幣嘅報表對得上（毛收入 = 淨收入 + 稅款）。手續費係按付款服務商結算，唔係按店舖，所以店舖嘅淨收入係未扣手續費。</value>
+    <value>淨收入、運費同稅款同上面各貨幣報表對得上（毛額 = 淨收入 + 運費 + 稅款）。手續費係按付款供應商結算，唔係按商店，所以商店淨收入係扣手續費之前顯示。</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>稅款</value>

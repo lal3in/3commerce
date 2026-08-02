@@ -29,6 +29,7 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
                 ReceivableAccountCode = m.ReceivableAccountCode,
                 RevenueAccountCode = m.RevenueAccountCode,
                 TaxAccountCode = m.TaxAccountCode,
+                ShippingAccountCode = string.IsNullOrWhiteSpace(m.ShippingAccountCode) ? null : m.ShippingAccountCode,
                 UpdatedAt = time.GetUtcNow(),
             });
         }
@@ -37,6 +38,7 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
             row.ReceivableAccountCode = m.ReceivableAccountCode;
             row.RevenueAccountCode = m.RevenueAccountCode;
             row.TaxAccountCode = m.TaxAccountCode;
+            row.ShippingAccountCode = string.IsNullOrWhiteSpace(m.ShippingAccountCode) ? null : m.ShippingAccountCode;
             row.UpdatedAt = time.GetUtcNow();
         }
 

@@ -1437,7 +1437,7 @@
     <value>Brutto</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Nettoumsatz und Steuer stimmen mit den Berichten je Währung oben überein (Brutto = Nettoumsatz + Steuer). Bearbeitungsgebühren fallen je Zahlungsanbieter an, nicht je Shop – der Nettoumsatz eines Shops wird vor Gebühren ausgewiesen.</value>
+    <value>Nettoumsatz, Versand und Steuer stimmen mit den Berichten je Währung oben überein (Brutto = Nettoumsatz + Versand + Steuer). Bearbeitungsgebühren werden je Zahlungsanbieter abgerechnet, nicht je Shop, daher wird der Nettoumsatz eines Shops vor Gebühren angezeigt.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Steuer</value>

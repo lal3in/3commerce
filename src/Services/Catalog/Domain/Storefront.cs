@@ -29,6 +29,7 @@ public sealed class Storefront
     public string ReceivableAccountCode { get; private set; } = string.Empty;
     public string RevenueAccountCode { get; private set; } = string.Empty;
     public string TaxAccountCode { get; private set; } = string.Empty;
+    public string ShippingAccountCode { get; private set; } = string.Empty;
 
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -81,11 +82,12 @@ public sealed class Storefront
     /// code is normalized (trimmed, lowercased) and overrides the default. Safe to call at create and on
     /// every update — an omitted (null) code re-derives the default rather than wiping it.
     /// </summary>
-    public void SetLedgerAccounts(string? receivable, string? revenue, string? tax, DateTimeOffset now)
+    public void SetLedgerAccounts(string? receivable, string? revenue, string? tax, DateTimeOffset now, string? shipping = null)
     {
         ReceivableAccountCode = NormalizeAccount(receivable) ?? DefaultAccountCode("receivable");
         RevenueAccountCode = NormalizeAccount(revenue) ?? DefaultAccountCode("revenue");
         TaxAccountCode = NormalizeAccount(tax) ?? DefaultAccountCode("tax");
+        ShippingAccountCode = NormalizeAccount(shipping) ?? DefaultAccountCode("shipping");
         UpdatedAt = now;
     }
 

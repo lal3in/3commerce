@@ -19,4 +19,6 @@ public record StorefrontConfigChanged(
     // to the storefront's own accounts. Empty → the consumer keeps its current codes. Back-compatible.
     string ReceivableAccountCode = "",
     string RevenueAccountCode = "",
-    string TaxAccountCode = "");
+    string TaxAccountCode = "",
+    // Per-storefront shipping-income account (income.shipping fallback when absent). Back-compatible.
+    string ShippingAccountCode = "");
