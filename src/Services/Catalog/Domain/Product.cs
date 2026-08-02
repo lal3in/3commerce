@@ -292,6 +292,29 @@ public sealed class ProductPublication
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// Carries the shopper-facing shape of a SOURCE publication onto this freshly-assigned one when a
+    /// storefront is duplicated — the publication's <see cref="State"/> (Published stays Published) and each
+    /// variant's <see cref="ProductPublicationVariant.Visible"/> flag — so the clone lists the same products
+    /// in the same enabled/visible shape. Harmless on the clone's Draft/Private store: it can't sell until
+    /// it's activated (which still requires a domain). Variants absent on the source keep their assign default.
+    /// </summary>
+    public void CopyPublicationStateFrom(ProductPublication source, DateTimeOffset now)
+    {
+        State = source.State;
+        PublishedAt = source.PublishedAt;
+        var visibilityByVariant = source.Variants.ToDictionary(v => v.VariantId, v => v.Visible);
+        foreach (var variant in Variants)
+        {
+            if (visibilityByVariant.TryGetValue(variant.VariantId, out var visible))
+            {
+                variant.Visible = visible;
+            }
+        }
+
+        UpdatedAt = now;
+    }
+
     private static string? NormalizeOptional(string? value, int maxLength)
     {
         var normalized = value?.Trim();

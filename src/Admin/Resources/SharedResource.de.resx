@@ -1546,4 +1546,29 @@
   <data name="Reviews.Empty" xml:space="preserve"><value>Noch keine Bewertungen.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Bewertung entfernt.</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Angehängte Datei herunterladen.</value></data>
+  <data name="Ops.Theme" xml:space="preserve"><value>Design</value></data>
+  <data name="Ops.Theme.Intro" xml:space="preserve"><value>Überschreiben Sie das Erscheinungsbild des Shops mit einigen Design-Token. Werte werden bereinigt – leeres Feld verwendet den Standard.</value></data>
+  <data name="Ops.Theme.ColorPrimary" xml:space="preserve"><value>Primärfarbe</value></data>
+  <data name="Ops.Theme.ColorPrimary.Tip" xml:space="preserve"><value>Akzentfarbe für Schaltflächen und Links (z. B. #111827).</value></data>
+  <data name="Ops.Theme.ColorBg" xml:space="preserve"><value>Hintergrund</value></data>
+  <data name="Ops.Theme.ColorBg.Tip" xml:space="preserve"><value>Seitenhintergrundfarbe (z. B. #ffffff).</value></data>
+  <data name="Ops.Theme.ColorText" xml:space="preserve"><value>Textfarbe</value></data>
+  <data name="Ops.Theme.ColorText.Tip" xml:space="preserve"><value>Farbe des Fließtextes (z. B. #111827).</value></data>
+  <data name="Ops.Theme.ColorMuted" xml:space="preserve"><value>Gedämpfter Text</value></data>
+  <data name="Ops.Theme.ColorMuted.Tip" xml:space="preserve"><value>Sekundäre / gedämpfte Textfarbe (z. B. #6b7280).</value></data>
+  <data name="Ops.Theme.FontSans" xml:space="preserve"><value>Serifenlose Schrift</value></data>
+  <data name="Ops.Theme.FontSans.Tip" xml:space="preserve"><value>Schriftfamilien-Stack (z. B. system-ui, sans-serif).</value></data>
+  <data name="Ops.Theme.Radius" xml:space="preserve"><value>Eckenradius</value></data>
+  <data name="Ops.Theme.Radius.Tip" xml:space="preserve"><value>Randradius für Karten und Schaltflächen (z. B. 0.5rem).</value></data>
+  <data name="Ops.Theme.Preview" xml:space="preserve"><value>Vorschau:</value></data>
+  <data name="Ops.Theme.PreviewText" xml:space="preserve"><value>Aa Shop</value></data>
+  <data name="Ops.Theme.PreviewMuted" xml:space="preserve"><value>gedämpft</value></data>
+  <data name="Ops.Duplicate" xml:space="preserve"><value>Duplizieren</value></data>
+  <data name="Ops.Duplicate.Tip" xml:space="preserve"><value>Konfiguration, Katalog und Design dieses Shops in einen neuen Entwurf klonen.</value></data>
+  <data name="Ops.Duplicate.NameLabel" xml:space="preserve"><value>Name des neuen Shops</value></data>
+  <data name="Ops.Duplicate.NameLabel.Tip" xml:space="preserve"><value>Ein eindeutiger Name für den duplizierten Shop.</value></data>
+  <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Duplikat erstellen</value></data>
+  <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Den neuen Shop jetzt erstellen.</value></data>
+  <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>Die Kopie beginnt als privater Entwurf ohne Domains – fügen Sie vor der Aktivierung eine Domain hinzu.</value></data>
+  <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Shop dupliziert.</value></data>
 </root>

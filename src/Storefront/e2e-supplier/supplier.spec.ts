@@ -25,6 +25,11 @@ test.describe("Supplier portal", () => {
 
     await expect(page.getByRole("heading", { name: /supplier overview/i })).toBeVisible();
     await expect(page.getByText(/view your supplier readiness/i)).toBeVisible();
+
+    // Manual by-id lookup lives inside a collapsed <details> disclosure (#137: suppliers now
+    // auto-load their own entity above; this lookup is the operator-only fallback), so it must
+    // be expanded before its contents are visible/interactable.
+    await page.getByText(/look up another supplier by id/i).click();
     await expect(page.getByRole("button", { name: /check readiness/i })).toBeVisible();
 
     // Stock feed and change-request forms are @rendermode InteractiveServer EditForms:

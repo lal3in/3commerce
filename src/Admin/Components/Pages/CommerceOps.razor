@@ -89,6 +89,7 @@
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button @onclick="() => SelectStorefront(s)" title="@L["Ops.Manage.Tip"]">@L["Ops.Manage"]</button>
+                        <button @onclick="() => BeginDuplicate(s)" title="@L["Ops.Duplicate.Tip"]">@L["Ops.Duplicate"]</button>
                         @* Only offer transitions the domain state machine allows from this row's state
                            (Storefront.EnsureState) — e.g. Preview on an already-previewing storefront
                            was refused with a 400 "cannot perform this transition". *@
@@ -114,6 +115,16 @@
             </tbody>
         </table>
     }
+
+    @if (_duplicatingId is not null)
+    {
+        <div style="margin-top:1rem; padding:.75rem; border:1px dashed #9ca3af; border-radius:6px; display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
+            <label>@L["Ops.Duplicate.NameLabel"]<br /><input @bind="_duplicateName" style="width:20rem; padding:.4rem;" title="@L["Ops.Duplicate.NameLabel.Tip"]" /></label>
+            <button @onclick="ConfirmDuplicate" title="@L["Ops.Duplicate.Confirm.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:4px;">@L["Ops.Duplicate.Confirm"]</button>
+            <button @onclick="() => _duplicatingId = null" title="@L["Common.Cancel"]">@L["Common.Cancel"]</button>
+            <span style="color:#6b7280; font-size:.8rem;">@L["Ops.Duplicate.Hint"]</span>
+        </div>
+    }
 </section>
 
 @if (_selectedStorefront is not null)
@@ -137,6 +148,26 @@
             <label>@L["Ops.Field.Visibility"]<br /><select @bind="_editVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]"><option value="1">@L["Ops.Visibility.Private"]</option><option value="2">@L["Ops.Visibility.Password"]</option><option value="3">@L["Ops.Visibility.InviteOnly"]</option><option value="4">@L["Ops.Visibility.Public"]</option></select></label>
             <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
         </div>
+
+        <h3>@L["Ops.Theme"]</h3>
+        <p style="color:#6b7280; font-size:.8rem; margin:.1rem 0 .5rem;">@L["Ops.Theme.Intro"]</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; align-items:end;">
+            <label>@L["Ops.Theme.ColorPrimary"]<br /><input @bind="_themeColorPrimary" @bind:event="oninput" placeholder="#111827" style="padding:.4rem;" title="@L["Ops.Theme.ColorPrimary.Tip"]" /></label>
+            <label>@L["Ops.Theme.ColorBg"]<br /><input @bind="_themeColorBg" @bind:event="oninput" placeholder="#ffffff" style="padding:.4rem;" title="@L["Ops.Theme.ColorBg.Tip"]" /></label>
+            <label>@L["Ops.Theme.ColorText"]<br /><input @bind="_themeColorText" @bind:event="oninput" placeholder="#111827" style="padding:.4rem;" title="@L["Ops.Theme.ColorText.Tip"]" /></label>
+            <label>@L["Ops.Theme.ColorMuted"]<br /><input @bind="_themeColorMuted" @bind:event="oninput" placeholder="#6b7280" style="padding:.4rem;" title="@L["Ops.Theme.ColorMuted.Tip"]" /></label>
+            <label>@L["Ops.Theme.FontSans"]<br /><input @bind="_themeFontSans" @bind:event="oninput" placeholder="system-ui, sans-serif" style="padding:.4rem;" title="@L["Ops.Theme.FontSans.Tip"]" /></label>
+            <label>@L["Ops.Theme.Radius"]<br /><input @bind="_themeRadius" @bind:event="oninput" placeholder="0.5rem" style="padding:.4rem;" title="@L["Ops.Theme.Radius.Tip"]" /></label>
+        </div>
+        <div style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0 1rem;">
+            <span style="color:#6b7280; font-size:.8rem;">@L["Ops.Theme.Preview"]</span>
+            <span style="display:inline-flex; align-items:center; gap:.5rem; padding:.4rem .8rem; border:1px solid #d1d5db; border-radius:@(string.IsNullOrWhiteSpace(_themeRadius) ? "0.5rem" : _themeRadius); background:@(string.IsNullOrWhiteSpace(_themeColorBg) ? "#ffffff" : _themeColorBg); font-family:@(string.IsNullOrWhiteSpace(_themeFontSans) ? "system-ui, sans-serif" : _themeFontSans);">
+                <span style="width:1.1rem; height:1.1rem; border-radius:3px; background:@(string.IsNullOrWhiteSpace(_themeColorPrimary) ? "#111827" : _themeColorPrimary);"></span>
+                <span style="color:@(string.IsNullOrWhiteSpace(_themeColorText) ? "#111827" : _themeColorText);">@L["Ops.Theme.PreviewText"]</span>
+                <span style="color:@(string.IsNullOrWhiteSpace(_themeColorMuted) ? "#6b7280" : _themeColorMuted); font-size:.8rem;">@L["Ops.Theme.PreviewMuted"]</span>
+            </span>
+        </div>
+
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
             <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
             <label><input type="checkbox" @bind="_domainCanonical" title="@L["Ops.Canonical.Tip"]" /> @L["Ops.Canonical"]</label>
@@ -295,6 +326,18 @@
     private int _editTaxRateBasisPoints;
     private int _editVisibility = 1;
 
+    // Per-storefront theme tokens (mt5_6), edited on the Manage surface. Blank = leave that token defaulted.
+    private string _themeColorPrimary = string.Empty;
+    private string _themeColorBg = string.Empty;
+    private string _themeColorText = string.Empty;
+    private string _themeColorMuted = string.Empty;
+    private string _themeFontSans = string.Empty;
+    private string _themeRadius = string.Empty;
+
+    // Duplicate-storefront prompt: the source id being cloned and the name for the clone.
+    private Guid? _duplicatingId;
+    private string _duplicateName = string.Empty;
+
     private async Task LoadStorefronts()
     {
         _error = null;
@@ -325,7 +368,45 @@
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
         _editVisibility = storefront.Visibility;
+        _themeColorPrimary = ThemeValue(storefront, "colorPrimary");
+        _themeColorBg = ThemeValue(storefront, "colorBg");
+        _themeColorText = ThemeValue(storefront, "colorText");
+        _themeColorMuted = ThemeValue(storefront, "colorMuted");
+        _themeFontSans = ThemeValue(storefront, "fontSans");
+        _themeRadius = ThemeValue(storefront, "radius");
         await LoadStorefrontProducts();
+    }
+
+    private static string ThemeValue(StorefrontDto s, string key) =>
+        s.Theme is not null && s.Theme.TryGetValue(key, out var value) ? value : string.Empty;
+
+    // Only send tokens the operator actually set — the API/domain drops blanks and validates the rest.
+    private Dictionary<string, string> BuildThemeDict() => new()
+    {
+        ["colorPrimary"] = _themeColorPrimary,
+        ["colorBg"] = _themeColorBg,
+        ["colorText"] = _themeColorText,
+        ["colorMuted"] = _themeColorMuted,
+        ["fontSans"] = _themeFontSans,
+        ["radius"] = _themeRadius,
+    };
+
+    private void BeginDuplicate(StorefrontDto storefront)
+    {
+        _error = null;
+        _status = null;
+        _duplicatingId = storefront.Id;
+        _duplicateName = storefront.Name + " (copy)";
+    }
+
+    private async Task ConfirmDuplicate()
+    {
+        if (_duplicatingId is null) { return; }
+        var response = await Gateway.PostAsync($"/api/catalog/admin/storefronts/{_duplicatingId}/duplicate", new { name = _duplicateName });
+        _duplicatingId = null;
+        // Refresh FIRST — LoadStorefronts clears _error, so report the outcome AFTER the reload (D3).
+        await LoadStorefronts();
+        await HandleMutation(response, L["Ops.Status.StorefrontDuplicated"]);
     }
 
     // The products assigned to the selected storefront, each with its currency-readiness (amber when the
@@ -354,7 +435,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict() });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -486,7 +567,7 @@
         _ => state.ToString(),
     };
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);
