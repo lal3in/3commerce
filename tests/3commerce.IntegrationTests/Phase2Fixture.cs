@@ -16,7 +16,11 @@ namespace ThreeCommerce.IntegrationTests;
 /// </summary>
 public sealed class Phase2Fixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+    // Raise max_connections well above the default 100: the suite spins up many WebApplicationFactory
+    // instances (one per test), each with its own Npgsql pool, against this one shared container — the
+    // default ceiling was exhausted under CI load ("53300: too many clients", a recurring flake).
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
+        .WithCommand("-c", "max_connections=400").Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4").Build();
     private readonly ECDsa _ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly JsonWebTokenHandler _jwtHandler = new();
@@ -81,8 +85,15 @@ public sealed class Phase2Fixture : IAsyncLifetime
         where TMarker : class
         where TDbContext : DbContext
     {
-        var connectionString = _postgres.GetConnectionString()
-            .Replace("Database=postgres", $"Database={database}", StringComparison.Ordinal);
+        // Cap each factory's pool so N factories can't multiply into thousands of connections against the
+        // shared container. Small pools are plenty for a single test's traffic; MinPoolSize 0 lets idle
+        // pools release connections back promptly between tests.
+        var connectionString = new Npgsql.NpgsqlConnectionStringBuilder(
+            _postgres.GetConnectionString().Replace("Database=postgres", $"Database={database}", StringComparison.Ordinal))
+        {
+            MaxPoolSize = 10,
+            MinPoolSize = 0,
+        }.ConnectionString;
 
         var factory = new WebApplicationFactory<TMarker>().WithWebHostBuilder(builder =>
         {

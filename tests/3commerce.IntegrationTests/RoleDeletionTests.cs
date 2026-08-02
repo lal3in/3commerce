@@ -14,7 +14,7 @@ namespace ThreeCommerce.IntegrationTests;
 [Trait("Category", "Integration")]
 public class RoleDeletionTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").WithCommand("-c", "max_connections=400").Build();
     private static readonly Guid Tenant = Guid.NewGuid();
     private Guid _customId;
     private Guid _builtInId;
