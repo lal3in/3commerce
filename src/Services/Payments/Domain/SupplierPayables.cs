@@ -276,8 +276,12 @@ public class SupplierPayable
             CreatedAt = now,
         };
         var debitAccount = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = debitAccount, DebitMinor = NetPayableMinor, CreditMinor = 0 });
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = Accounts.LiabilitySupplierPayable, DebitMinor = 0, CreditMinor = NetPayableMinor });
+        // Currency MUST be set on each line (as Ledger.Debit/Credit do): a balance is keyed by
+        // (AccountCode, Currency), and the Financials per-currency P&L filters COGS by line currency —
+        // an empty currency drops COGS out of every currency section (it still showed in the by-store
+        // column, which sums across currencies), so the two views disagreed.
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = debitAccount, Currency = Currency, DebitMinor = NetPayableMinor, CreditMinor = 0 });
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = Accounts.LiabilitySupplierPayable, Currency = Currency, DebitMinor = 0, CreditMinor = NetPayableMinor });
         return entry;
     }
 }
