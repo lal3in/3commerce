@@ -12,5 +12,7 @@ public sealed class StorefrontLedgerAccounts
     public required string ReceivableAccountCode { get; set; }
     public required string RevenueAccountCode { get; set; }
     public required string TaxAccountCode { get; set; }
+    /// <summary>Shipping-income account for the store; null on pre-shipping-split projections.</summary>
+    public string? ShippingAccountCode { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

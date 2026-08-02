@@ -53,6 +53,21 @@ public class LedgerAttributionTests
     }
 
     [Fact]
+    public void A_storefront_sale_books_shipping_to_the_stores_own_shipping_account()
+    {
+        var orderId = Guid.CreateVersion7();
+        var entry = Ledger.Sale(orderId, 11_900, taxMinor: 1_900, feeMinor: 0, "EUR", DateTimeOffset.UtcNow,
+            revenueAccount: "revenue.store-x", taxAccount: "tax.store-x", receivableAccount: "receivable.store-x",
+            shippingMinor: 1_900, shippingAccount: "shipping.store-x");
+
+        Assert.Equal(8_100, Credits(entry, "revenue.store-x"));
+        Assert.Equal(1_900, Credits(entry, "shipping.store-x"));    // the store's OWN shipping account
+        Assert.Equal(0, Credits(entry, Accounts.ShippingIncome));   // not the shared fallback
+        Assert.Equal(1_900, Credits(entry, "tax.store-x"));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
     public void A_full_refund_reverses_shipping_income_alongside_revenue_and_tax()
     {
         var orderId = Guid.CreateVersion7();

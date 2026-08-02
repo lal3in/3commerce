@@ -75,7 +75,7 @@ public sealed class ExecuteRefundConsumer(
         db.JournalEntries.Add(Ledger.Refund(
             msg.RefundId, msg.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow(),
             payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-            shippingPortion));
+            shippingPortion, accounts?.ShippingAccountCode));
 
         payment.RefundedMinor += msg.AmountMinor;
         var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;

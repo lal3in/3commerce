@@ -51,7 +51,7 @@ public sealed class PaymentEventProcessor(
                 db.JournalEntries.Add(Ledger.Sale(
                     payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
                     payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-                    payment.ShippingMinor));
+                    payment.ShippingMinor, accounts?.ShippingAccountCode));
                 await publisher.Publish(new PaymentSucceeded(payment.OrderId, payment.PaymentIntentId, payment.AmountMinor), ct);
                 break;
 

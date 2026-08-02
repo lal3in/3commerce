@@ -21,9 +21,10 @@ public static class Accounts
     public const string CashStripe = "cash.stripe";
     public const string RevenueSales = "revenue.sales";
     public const string RevenueRefunds = "revenue.refunds";
-    // Shipping charged to shoppers, booked as its own income line (NOT under revenue.* so the P&L can
-    // report it separately from product revenue). Credit-normal, reversed proportionally on refund.
-    public const string ShippingIncome = "income.shipping";
+    // Shared shipping-income account (fallback when a sale isn't storefront-attributed). Per-storefront
+    // sales post to the store's own shipping.store-{id}; both live under the shipping.* prefix so the P&L
+    // reports shipping separately from product revenue. Credit-normal, reversed proportionally on refund.
+    public const string ShippingIncome = "shipping.income";
     public const string ExpenseStripeFees = "expense.stripe_fees";
     public const string ExpenseCostOfGoodsSold = "expense.cogs";
     public const string CostOfGoodsSold = ExpenseCostOfGoodsSold;

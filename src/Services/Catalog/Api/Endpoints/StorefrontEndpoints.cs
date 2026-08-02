@@ -147,7 +147,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
-            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow());
+            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow(), request.ShippingAccountCode);
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -191,7 +191,7 @@ public static class StorefrontEndpoints
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
-            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now);
+            storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now, request.ShippingAccountCode);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -303,7 +303,8 @@ public static class StorefrontEndpoints
             TaxInclusive: s.TaxRegime is StorefrontTaxRegime.AuGst or StorefrontTaxRegime.EuVat, // ADR-0038
             ReceivableAccountCode: s.ReceivableAccountCode,
             RevenueAccountCode: s.RevenueAccountCode,
-            TaxAccountCode: s.TaxAccountCode), ct);
+            TaxAccountCode: s.TaxAccountCode,
+            ShippingAccountCode: s.ShippingAccountCode), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
@@ -494,6 +495,7 @@ public static class StorefrontEndpoints
         storefront.ReceivableAccountCode,
         storefront.RevenueAccountCode,
         storefront.TaxAccountCode,
+        storefront.ShippingAccountCode,
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -514,7 +516,8 @@ public sealed record CreateStorefrontRequest(
     // Per-storefront ledger accounts (phase 2); omit → auto-derived from the storefront id.
     [property: StringLength(80)] string? ReceivableAccountCode = null,
     [property: StringLength(80)] string? RevenueAccountCode = null,
-    [property: StringLength(80)] string? TaxAccountCode = null);
+    [property: StringLength(80)] string? TaxAccountCode = null,
+    [property: StringLength(80)] string? ShippingAccountCode = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -529,7 +532,8 @@ public sealed record UpdateStorefrontRequest(
     // Per-storefront ledger accounts (phase 2); omit any → re-derived from the storefront id.
     [property: StringLength(80)] string? ReceivableAccountCode = null,
     [property: StringLength(80)] string? RevenueAccountCode = null,
-    [property: StringLength(80)] string? TaxAccountCode = null);
+    [property: StringLength(80)] string? TaxAccountCode = null,
+    [property: StringLength(80)] string? ShippingAccountCode = null);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -549,6 +553,7 @@ public sealed record StorefrontResponse(
     string ReceivableAccountCode,
     string RevenueAccountCode,
     string TaxAccountCode,
+    string ShippingAccountCode,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,

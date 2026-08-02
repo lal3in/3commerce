@@ -1437,7 +1437,7 @@
     <value>毛收入</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>净收入和税额与上方各币种报表一致（毛收入 = 净收入 + 税额）。手续费按支付服务商结算，而非按店铺，因此店铺的净收入为扣除手续费之前的金额。</value>
+    <value>净收入、运费和税款与上方各货币报表一致（毛额 = 净收入 + 运费 + 税款）。手续费按支付服务商结算，而非按店铺，因此店铺净收入为扣除手续费前的金额。</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>税款</value>
