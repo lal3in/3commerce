@@ -767,7 +767,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>Archive the storefront.</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>Manage {0}</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>Save storefront settings</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Save the name, URL, currency, tax and visibility above.</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>Basis points of gross (100 bps = 1%), 0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>Buffer (bps)</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>Insurance (bps)</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>Marketing (bps)</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>Labour (bps)</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>Packaging (bps)</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>Estimated overhead rates (basis points) for the estimated-margin view. Assumptions only — they never post to the ledger.</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>Cost assumptions</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Save the name, URL, currency, tax and visibility above.</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>Domain host</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Domain to map to this storefront (host only, no https://).</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>Margin</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>Estimated from this store's cost assumptions — not ledger postings</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>Est. net margin</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>Est. overheads</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>Revenue account</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">

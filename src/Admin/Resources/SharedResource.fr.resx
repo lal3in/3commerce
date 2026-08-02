@@ -762,7 +762,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>Archivez la vitrine.</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>Gérer {0}</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>Enregistrer les paramètres de la vitrine</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Enregistrez le nom, l'URL, la devise, la taxe et la visibilité ci-dessus.</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>Points de base du brut (100 pb = 1 %), 0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>Marge tampon (pb)</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>Assurance (pb)</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>Marketing (pb)</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>Main-d'œuvre (pb)</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>Emballage (pb)</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>Taux de frais généraux estimés (points de base) pour la marge estimée. Hypothèses uniquement — jamais comptabilisées.</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>Hypothèses de coûts</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Enregistrez le nom, l'URL, la devise, la taxe et la visibilité ci-dessus.</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>Hôte du domaine</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>boutique.exemple.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Domaine à associer à cette vitrine (hôte uniquement, sans https://).</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>Marge</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>Estimé à partir des hypothèses de coûts de cette boutique — pas des écritures comptables</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>Marge nette est.</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>Frais généraux est.</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>Compte de revenu</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">

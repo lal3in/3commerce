@@ -762,7 +762,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>归档该店面。</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>管理 {0}</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>保存店面设置</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>保存上方的名称、URL、货币、税制及可见性。</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>占营业额的基点（100 基点 = 1%），0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>缓冲（基点）</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>保险（基点）</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>营销（基点）</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>人工（基点）</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>包装（基点）</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>用于预估利润的间接成本率（基点）。仅为假设 — 不入账。</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>成本假设</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>保存上方的名称、URL、货币、税制及可见性。</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>域名主机</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>要映射到此店面的域名（仅主机名，不含 https://）。</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>利润率</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>根据本店的成本假设估算 — 非账簿分录</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>预估净利润</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>预估间接成本</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>收入账户</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">

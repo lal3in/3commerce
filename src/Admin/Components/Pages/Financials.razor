@@ -81,6 +81,8 @@ else
                     <th style="text-align:right;">@L["Fin.Col.Tax"]</th>
                     <th style="text-align:right;">@L["Fin.Cogs"]</th>
                     <th style="text-align:right;">@L["Fin.Col.Margin"]</th>
+                    <th style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@L["Fin.Col.EstOverheads"]</th>
+                    <th style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@L["Fin.Col.EstMargin"]</th>
                     <th style="text-align:left;">@L["Fin.Col.Account"]</th>
                 </tr></thead>
                 <tbody>
@@ -95,6 +97,8 @@ else
                         <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
                         <td style="text-align:right;">@Money(StoreCogs(s))</td>
                         <td style="text-align:right;">@Money(StoreMargin(s))</td>
+                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money(StoreEstimatedOverheads(s))</td>
+                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money(StoreEstimatedMargin(s))</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
                     </tr>
                 }
@@ -207,6 +211,18 @@ else
         + AccountAmount(s.ShippingAccountCode, creditNormal: true)
         - StoreCogs(s) - StoreShippingCost(s) - StoreWriteoffs(s);
 
+    // ESTIMATED overheads (phase 4): the store's cost-assumption bps (packaging + labour + marketing +
+    // insurance + buffer) applied to its gross. These are operator ASSUMPTIONS — no ledger posting backs
+    // them — so the columns render visually distinct (italic/amber) from the posted figures above.
+    private long StoreEstimatedOverheads(StorefrontDto s)
+    {
+        var totalBps = s.CostAssumptions?.Values.Sum() ?? 0;
+        return totalBps <= 0 ? 0 : StoreGross(s) * totalBps / 10000;
+    }
+
+    // Estimated net margin = the real (posted) contribution margin, less the estimated overheads.
+    private long StoreEstimatedMargin(StorefrontDto s) => StoreMargin(s) - StoreEstimatedOverheads(s);
+
     // The currency the store's revenue actually posted in (distinct), else its configured currency.
     private string PostingCurrency(StorefrontDto s)
     {
@@ -234,5 +250,5 @@ else
     };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
-    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, string ShippingAccountCode = "");
+    public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, string ShippingAccountCode = "", Dictionary<string, int>? CostAssumptions = null);
 }

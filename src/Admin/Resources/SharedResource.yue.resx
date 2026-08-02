@@ -762,7 +762,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>封存店面。</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>管理 {0}</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>儲存店面設定</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>儲存上面嘅名稱、網址、貨幣、稅同可見度。</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>佔營業額嘅基點（100 基點 = 1%），0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>緩衝（基點）</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>保險（基點）</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>市場推廣（基點）</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>人工（基點）</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>包裝（基點）</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>用於預估利潤嘅間接成本率（基點）。只係假設 — 唔會入帳。</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>成本假設</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>儲存上面嘅名稱、網址、貨幣、稅同可見度。</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>網域主機</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>要對應去呢個店面嘅網域（只填主機，唔使 https://）。</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>利潤率</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>根據呢間店嘅成本假設估算 — 唔係帳簿分錄</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>預估淨利潤</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>預估間接成本</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>收入帳戶</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">

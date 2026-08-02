@@ -762,7 +762,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>Die Storefront archivieren.</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>{0} verwalten</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>Storefront-Einstellungen speichern</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Speichern Sie Name, URL, Währung, Steuer und Sichtbarkeit oben.</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>Basispunkte vom Umsatz (100 bp = 1 %), 0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>Puffer (bp)</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>Versicherung (bp)</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>Marketing (bp)</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>Arbeit (bp)</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>Verpackung (bp)</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>Geschätzte Gemeinkostensätze (Basispunkte) für die Margenschätzung. Nur Annahmen — keine Buchungen.</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>Kostenannahmen</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Speichern Sie Name, URL, Währung, Steuer und Sichtbarkeit oben.</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>Domain-Host</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>shop.example.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Domain, die dieser Storefront zugeordnet werden soll (nur Host, kein https://).</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>Marge</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>Geschätzt aus den Kostenannahmen dieses Shops — keine Buchungen</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>Gesch. Nettomarge</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>Gesch. Gemeinkosten</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>Umsatzkonto</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
