@@ -435,7 +435,7 @@ checkout_scenario() {
   manifest_set "orders.$code.id" "$(json_string "$order_id")"
   manifest_set "payments.$code.intentId" "$(json_string "$intent_id")"
 
-  api "history-$code-pay" POST "/api/payments/dev/simulate-payment/$intent_id" "$jar" "" "allow_4xx" >/dev/null
+  settle_payment "$intent_id" "" "$jar" "history-$code-pay"
   for _ in $(seq 1 20); do
     sleep 1
     status_body=$(api "history-$code-status" GET "/api/ordering/orders/$order_id/status" "$jar" "" "allow_4xx")
@@ -536,7 +536,7 @@ seed_subscription_examples() {
     oid=$(printf '%s' "$ck" | json_get orderId)
     [[ -z "$oid" ]] && continue
     intent="pi_fake_${oid//-/}"
-    api "sub-example-$n-pay" POST "/api/payments/dev/simulate-payment/$intent" "$jar" "" "allow_4xx" >/dev/null
+    settle_payment "$intent" "" "$jar" "sub-example-$n-pay"
     for _ in $(seq 1 15); do sleep 1; st=$(printf '%s' "$(api "sub-example-$n-status" GET "/api/ordering/orders/$oid/status" "$jar" "" "allow_4xx")" | json_get status); [[ "$st" == "Confirmed" ]] && break; done
   done
 
@@ -659,21 +659,26 @@ try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load
 except Exception: pass")
 }
 
-# Settle an order's payment, retrying until the checkout saga has created the payment intent — a bare
+# Settle a payment, retrying until the checkout saga has created the payment intent — a bare
 # simulate-payment fired right after checkout races intent creation and 500s (leaving the order unpaid,
-# so it never posts to the ledger). Polls up to ~10s; records the final outcome for the run summary.
-settle_order_payment() {
-  local oid="$1" gross="$2" jar="$3" label="$4" code i path bf
-  path="/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross"
+# so it never posts to the ledger). Args: <intentId> <amountQuery e.g. "?amountMinor=1234" or ""> <jar>
+# <label>. Polls up to ~10s; records the final outcome for the run summary.
+settle_payment() {
+  local intent="$1" amountQuery="$2" jar="$3" label="$4" code i bf
   bf="$OUT_DIR/${label//[^A-Za-z0-9_.-]/_}.json"
   code=000
   for i in $(seq 1 10); do
-    code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY$path" -o "$bf" -w '%{http_code}' 2>/dev/null || echo 000)
+    code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY/api/payments/dev/simulate-payment/$intent$amountQuery" -o "$bf" -w '%{http_code}' 2>/dev/null || echo 000)
     [[ "$code" =~ ^2 ]] && break
     sleep 1
   done
   record "$label" POST "/api/payments/dev/simulate-payment" "$code" "$bf" "allow_4xx"
   printf '  %-40s %s simulate-payment -> %s\n' "$label" POST "$code" >&2
+}
+
+# Convenience for callers that hold an order id + gross (fake intent is pi_fake_{orderId-no-dashes}).
+settle_order_payment() {
+  settle_payment "pi_fake_${1//-/}" "?amountMinor=$2" "$3" "$4"
 }
 
 # Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
