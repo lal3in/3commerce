@@ -13,7 +13,12 @@ public sealed record CarrierRate(
 
 public sealed record LabelRequest(string Service, ShipAddress Origin, ShipAddress Destination, Parcel Parcel);
 
-public sealed record CarrierLabel(CarrierCode Carrier, string TrackingNumber, string LabelUrl);
+/// <summary>
+/// A purchased label. CostMinor/Currency (phase 1) carry the carrier's charge for this label so the
+/// ShippingLabelPurchased event can drive the Payments accrual; a cost of 0 means "not billed"
+/// (e.g. a free/void label) and the publisher skips the event.
+/// </summary>
+public sealed record CarrierLabel(CarrierCode Carrier, string TrackingNumber, string LabelUrl, long CostMinor = 0, string Currency = "AUD");
 
 public sealed record TrackingStatus(string TrackingNumber, string Status, DateTimeOffset? DeliveredAt);
 

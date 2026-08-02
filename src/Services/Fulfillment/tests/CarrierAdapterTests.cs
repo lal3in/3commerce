@@ -55,6 +55,21 @@ public class CarrierAdapterTests
     }
 
     [Fact]
+    public async Task Fake_label_cost_is_deterministic_scales_with_weight_and_defaults_to_aud()
+    {
+        var fake = new FakeCarrierProvider();
+        var light = await fake.CreateLabelAsync(new LabelRequest("standard", Au, Au, new Parcel(300, 1, 1, 1)), default);
+        var heavy = await fake.CreateLabelAsync(new LabelRequest("standard", Au, Au, new Parcel(5000, 1, 1, 1)), default);
+
+        // 500 + max(1, weightGrams/500) * 150 — cross-border does NOT apply here (BuyLabelAsync's
+        // request addresses are empty placeholders, so origin/destination country is meaningless).
+        Assert.Equal(650, light.CostMinor);
+        Assert.Equal(2000, heavy.CostMinor);
+        Assert.Equal("AUD", light.Currency);
+        Assert.True(heavy.CostMinor > light.CostMinor);
+    }
+
+    [Fact]
     public async Task AustraliaPost_and_Dhl_return_rates_for_their_carrier()
     {
         var ausPost = await new AustraliaPostRateProvider().GetRatesAsync(Domestic(1000), default);

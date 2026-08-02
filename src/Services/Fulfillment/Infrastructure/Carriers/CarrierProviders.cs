@@ -25,10 +25,18 @@ public sealed class FakeCarrierProvider : ICarrierRateProvider, ICarrierLabelPro
         return Task.FromResult(Filter(rates, request.Service));
     }
 
-    public Task<CarrierLabel> CreateLabelAsync(LabelRequest request, CancellationToken ct) =>
-        Task.FromResult(new CarrierLabel(
+    public Task<CarrierLabel> CreateLabelAsync(LabelRequest request, CancellationToken ct)
+    {
+        // Deterministic label cost (phase 1) so carrier-cost accrual has something to post. Uses
+        // the same weight-based formula as GetRatesAsync's "standard" rate MINUS the cross-border
+        // surcharge — BuyLabelAsync's request always carries empty placeholder addresses, so origin
+        // and destination country are indistinguishable here.
+        var weightUnits = Math.Max(1, request.Parcel.WeightGrams / 500);
+        var costMinor = 500 + (weightUnits * 150);
+        return Task.FromResult(new CarrierLabel(
             Carrier, "FAKE" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-            "https://labels.fake.local/label.pdf"));
+            "https://labels.fake.local/label.pdf", costMinor, "AUD"));
+    }
 
     public Task<TrackingStatus> GetTrackingAsync(string trackingNumber, CancellationToken ct) =>
         Task.FromResult(new TrackingStatus(trackingNumber, "in_transit", null));

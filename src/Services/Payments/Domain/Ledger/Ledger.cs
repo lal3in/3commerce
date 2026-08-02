@@ -154,6 +154,35 @@ public static class Ledger
         return entry;
     }
 
+    /// <summary>
+    /// A carrier-label cost accrual (phase 1): buying a label incurs a charge the carrier will
+    /// invoice later, so no real money moves yet — this debits the shipping-cost expense (the
+    /// storefront's own <c>expense.shipping.store-{id}</c> when known, else the shared
+    /// <see cref="Accounts.ExpenseShippingCarrier"/>) and credits <see cref="Accounts.LiabilityCarrierPayable"/>,
+    /// mirroring <see cref="SupplierPayable.ToAccrualEntry"/>'s shape and keeping <c>cash.*</c>
+    /// truthful to PSP settlements only. The reference is the PackageId, so a consumer can dedupe a
+    /// re-bought label by checking whether an entry already exists for it.
+    /// </summary>
+    public static JournalEntry CarrierCost(
+        Guid packageId,
+        Guid orderId,
+        long costMinor,
+        string currency,
+        DateTimeOffset now,
+        string? storeExpenseAccount = null)
+    {
+        if (costMinor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costMinor), costMinor, "Carrier cost accrual requires a positive cost.");
+        }
+
+        var expense = string.IsNullOrWhiteSpace(storeExpenseAccount) ? Accounts.ExpenseShippingCarrier : storeExpenseAccount;
+        var entry = NewEntry($"Carrier label for order {orderId}", packageId.ToString(), currency, now);
+        Debit(entry, expense, costMinor);
+        Credit(entry, Accounts.LiabilityCarrierPayable, costMinor);
+        return entry;
+    }
+
     private static JournalEntry NewEntry(string description, string reference, string currency, DateTimeOffset now) =>
         new()
         {
