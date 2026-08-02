@@ -114,4 +114,16 @@ public class OfferTests
         offer.Activate(Now);
         Assert.True(offer.IsActive);
     }
+
+    [Fact]
+    public void SetSupplierCost_updates_and_guards_negative()
+    {
+        var offer = Warehouse();
+        Assert.Equal(0, offer.SupplierCostMinor); // defaults to zero until an operator sets a cost
+        offer.SetSupplierCost(1250, Now.AddHours(1));
+        Assert.Equal(1250, offer.SupplierCostMinor);
+        offer.SetSupplierCost(0, Now.AddHours(2)); // explicit zero is a valid cost, not a no-op
+        Assert.Equal(0, offer.SupplierCostMinor);
+        Assert.Throws<CatalogRuleException>(() => offer.SetSupplierCost(-1, Now));
+    }
 }

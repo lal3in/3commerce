@@ -145,11 +145,14 @@ else
     // Classify an entry and derive its transaction amount. The amount is the revenue+tax movement, NOT
     // Σ debits — an entry contains a receivable clearing line (debit AND credit for the gross) plus fees,
     // so Σ debits double-counts. A refund reverses revenue/tax (debit) → amber; a sale posts revenue/tax
-    // (credit) → green (gross = net + tax). Entries with no revenue/tax fall back to net cash direction
-    // (e.g. a supplier payout = cash out → red).
+    // (credit) → green (gross = net + tax). Sale/refund own the revenue/tax lines, so they are matched
+    // first (a sale's own processing-fee expense line must not reclassify it). Entries with no revenue/tax
+    // are cost movements: an expense booked (carrier cost / COGS accrual, net expense debit) or a write-off
+    // reclass (expense→expense, nets to zero but recognises a loss) → red; a COGS reversal on restock
+    // (expense credited back) → green. Otherwise fall back to net cash direction (e.g. supplier payout → red).
     private static (long Amount, EntryKind Kind) Classify(EntryDto e)
     {
-        long revTaxDebit = 0, revTaxCredit = 0, cashDebit = 0, cashCredit = 0;
+        long revTaxDebit = 0, revTaxCredit = 0, cashDebit = 0, cashCredit = 0, expenseDebit = 0, expenseCredit = 0, writeoffDebit = 0;
         foreach (var l in e.Lines)
         {
             if (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal))
@@ -162,6 +165,15 @@ else
                 cashDebit += l.DebitMinor;
                 cashCredit += l.CreditMinor;
             }
+            else if (l.AccountCode.StartsWith("expense.", StringComparison.Ordinal))
+            {
+                expenseDebit += l.DebitMinor;
+                expenseCredit += l.CreditMinor;
+                if (l.AccountCode.StartsWith("expense.writeoffs", StringComparison.Ordinal))
+                {
+                    writeoffDebit += l.DebitMinor;
+                }
+            }
         }
 
         if (revTaxDebit > 0)
@@ -172,6 +184,25 @@ else
         if (revTaxCredit > 0)
         {
             return (revTaxCredit, EntryKind.Incoming); // sale gross = revenue + tax
+        }
+
+        // Cost entries (no revenue/tax): carrier-cost + COGS accruals book a net expense debit (money owed
+        // out → red); a Storage write-off reclasses COGS→write-off (expense-neutral, but the loss is a cost
+        // event → red, sized by the write-off debit); a Restock COGS reversal credits expense back → green.
+        var expenseNet = expenseDebit - expenseCredit;
+        if (expenseNet > 0)
+        {
+            return (expenseNet, EntryKind.Outgoing);
+        }
+
+        if (writeoffDebit > 0)
+        {
+            return (writeoffDebit, EntryKind.Outgoing);
+        }
+
+        if (expenseNet < 0)
+        {
+            return (-expenseNet, EntryKind.Incoming);
         }
 
         var net = cashDebit - cashCredit;
@@ -189,11 +220,14 @@ else
     {
         var isRevTax = l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal);
         var isCash = l.AccountCode.StartsWith("cash.", StringComparison.Ordinal);
+        var isExpense = l.AccountCode.StartsWith("expense.", StringComparison.Ordinal);
         return kind switch
         {
             EntryKind.Refund => isRevTax && l.DebitMinor > 0,
-            EntryKind.Incoming => (isRevTax && l.CreditMinor > 0) || (isCash && l.DebitMinor > 0),
-            EntryKind.Outgoing => isCash && l.CreditMinor > 0,
+            // Incoming also covers a COGS reversal (expense credited back on restock).
+            EntryKind.Incoming => (isRevTax && l.CreditMinor > 0) || (isCash && l.DebitMinor > 0) || (isExpense && l.CreditMinor > 0),
+            // Outgoing also covers a cost accrual / write-off (the expense debit carries the meaning).
+            EntryKind.Outgoing => (isCash && l.CreditMinor > 0) || (isExpense && l.DebitMinor > 0),
             _ => false,
         };
     }
