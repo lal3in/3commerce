@@ -1528,4 +1528,29 @@
   <data name="Reviews.Empty" xml:space="preserve"><value>暫時未有評價。</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>評價已移除。</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>下載附件。</value></data>
+  <data name="Ops.Theme" xml:space="preserve"><value>主題</value></data>
+  <data name="Ops.Theme.Intro" xml:space="preserve"><value>用一組設計權杖自訂店面外觀。數值會經過清理；留空則用預設值。</value></data>
+  <data name="Ops.Theme.ColorPrimary" xml:space="preserve"><value>主色</value></data>
+  <data name="Ops.Theme.ColorPrimary.Tip" xml:space="preserve"><value>按鈕同連結嘅強調色（例如 #111827）。</value></data>
+  <data name="Ops.Theme.ColorBg" xml:space="preserve"><value>背景</value></data>
+  <data name="Ops.Theme.ColorBg.Tip" xml:space="preserve"><value>頁面背景色（例如 #ffffff）。</value></data>
+  <data name="Ops.Theme.ColorText" xml:space="preserve"><value>文字顏色</value></data>
+  <data name="Ops.Theme.ColorText.Tip" xml:space="preserve"><value>正文文字顏色（例如 #111827）。</value></data>
+  <data name="Ops.Theme.ColorMuted" xml:space="preserve"><value>淡色文字</value></data>
+  <data name="Ops.Theme.ColorMuted.Tip" xml:space="preserve"><value>次要／淡色文字顏色（例如 #6b7280）。</value></data>
+  <data name="Ops.Theme.FontSans" xml:space="preserve"><value>無襯線字體</value></data>
+  <data name="Ops.Theme.FontSans.Tip" xml:space="preserve"><value>字體家族堆疊（例如 system-ui, sans-serif）。</value></data>
+  <data name="Ops.Theme.Radius" xml:space="preserve"><value>圓角半徑</value></data>
+  <data name="Ops.Theme.Radius.Tip" xml:space="preserve"><value>卡片同按鈕嘅邊框圓角（例如 0.5rem）。</value></data>
+  <data name="Ops.Theme.Preview" xml:space="preserve"><value>預覽：</value></data>
+  <data name="Ops.Theme.PreviewText" xml:space="preserve"><value>Aa 店面</value></data>
+  <data name="Ops.Theme.PreviewMuted" xml:space="preserve"><value>淡色</value></data>
+  <data name="Ops.Duplicate" xml:space="preserve"><value>複製</value></data>
+  <data name="Ops.Duplicate.Tip" xml:space="preserve"><value>將呢個店面嘅設定、商品同主題複製到一個新嘅草稿店面。</value></data>
+  <data name="Ops.Duplicate.NameLabel" xml:space="preserve"><value>新店面名稱</value></data>
+  <data name="Ops.Duplicate.NameLabel.Tip" xml:space="preserve"><value>複製店面嘅唯一名稱。</value></data>
+  <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>建立複製</value></data>
+  <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>即刻建立新店面。</value></data>
+  <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>副本以私密草稿開始，冇任何網域——上線前請先加網域。</value></data>
+  <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>店面已複製。</value></data>
 </root>

@@ -102,6 +102,8 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             storefront.Property(s => s.ReceivableAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
             storefront.Property(s => s.RevenueAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
             storefront.Property(s => s.TaxAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
+            // Per-storefront theme tokens (mt5_6) as a small sanitized JSON object; '' at rest = default look.
+            storefront.Property(s => s.ThemeJson).HasMaxLength(1024).HasDefaultValue(string.Empty);
             storefront.HasIndex(s => new { s.TenantId, s.Name }).IsUnique();
             storefront.HasIndex(s => new { s.TenantId, s.State });
             storefront.HasMany(s => s.Domains).WithOne().HasForeignKey(d => d.StorefrontId);

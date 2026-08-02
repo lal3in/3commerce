@@ -1,3 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+
 namespace ThreeCommerce.Catalog.Domain;
 
 public sealed class Storefront
@@ -30,6 +34,15 @@ public sealed class Storefront
     public string RevenueAccountCode { get; private set; } = string.Empty;
     public string TaxAccountCode { get; private set; } = string.Empty;
     public string ShippingAccountCode { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Per-storefront theme tokens (mt5_6) as a compact JSON object of sanitized string values, or "" when
+    /// unthemed (the storefront renders the default look). Only the six known design tokens are allowed and
+    /// each value is validated against the SAME allow/deny rules the storefront app applies client-side
+    /// (<c>src/Storefront/lib/theme.ts</c>), so a stored theme can never smuggle in CSS/JS. Rides on the
+    /// public config the storefront fetches (not <c>StorefrontConfigChanged</c> — Payments never needs it).
+    /// </summary>
+    public string ThemeJson { get; private set; } = "";
 
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -129,6 +142,104 @@ public sealed class Storefront
 
         DefaultLanguage = SupportedLanguages.Normalize(language);
         UpdatedAt = now;
+    }
+
+    // The six design tokens a storefront may override (mt5_6) — mirrors ThemeTokens in
+    // src/Storefront/lib/theme.ts. Any other key is rejected so the stored theme can't grow arbitrary CSS.
+    private static readonly string[] ThemeTokenKeys =
+        ["colorPrimary", "colorBg", "colorText", "colorMuted", "fontSans", "radius"];
+
+    // Ported VERBATIM from src/Storefront/lib/theme.ts:23-24 (the client sanitizer). SAFE_VALUE is the
+    // allow-list of characters; DANGEROUS is the deny-list that blocks url()/expression/js/@import and any
+    // rule-breaking punctuation. A token must pass BOTH — exactly like safeTokenValue() client-side.
+    private static readonly Regex ThemeSafeValue = new(@"^[#a-zA-Z0-9.,()%\s_-]+$", RegexOptions.Compiled);
+    private static readonly Regex ThemeDangerous = new(@"url\(|expression|javascript:|@import|[;{}<>]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Sets the storefront's theme tokens (mt5_6). The input must be a JSON object containing only the six
+    /// known tokens, each a string ≤100 chars that passes the storefront's own sanitizer. A null/blank value
+    /// leaves the current theme untouched (the <see cref="SetDefaultLanguage"/> convention — an older client
+    /// that doesn't send a theme can't wipe it). Invalid input throws <see cref="CatalogRuleException"/>.
+    /// </summary>
+    public void SetTheme(string? themeJson, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(themeJson))
+        {
+            return;
+        }
+
+        ThemeJson = NormalizeTheme(themeJson);
+        UpdatedAt = now;
+    }
+
+    // Parse → validate → re-serialize a canonical theme object. Keeps only sanitized known tokens so what's
+    // stored is exactly what the storefront will render (defence-in-depth: the client sanitizes again).
+    private static string NormalizeTheme(string themeJson)
+    {
+        List<KeyValuePair<string, JsonNode?>> entries;
+        try
+        {
+            if (JsonNode.Parse(themeJson) is not JsonObject obj)
+            {
+                throw new CatalogRuleException("Theme must be a JSON object of design tokens.");
+            }
+
+            // JsonObject's backing dictionary is lazy: duplicate keys in the raw JSON surface as an
+            // ArgumentException only at the FIRST enumeration, so materialize HERE, inside the guard —
+            // otherwise the foreach below would throw unhandled. (CatalogRuleException derives from
+            // InvalidOperationException, so the throw above is NOT swallowed by these catches.)
+            entries = [.. obj];
+        }
+        catch (JsonException)
+        {
+            throw new CatalogRuleException("Theme must be a valid JSON object.");
+        }
+        catch (ArgumentException)
+        {
+            throw new CatalogRuleException("Theme must not contain duplicate tokens.");
+        }
+
+        var tokens = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (key, value) in entries)
+        {
+            if (Array.IndexOf(ThemeTokenKeys, key) < 0)
+            {
+                throw new CatalogRuleException($"Unknown theme token '{key}'.");
+            }
+
+            if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var token))
+            {
+                throw new CatalogRuleException($"Theme token '{key}' must be a string.");
+            }
+
+            var trimmed = token.Trim();
+            if (trimmed.Length == 0 || trimmed.Length > 100 || ThemeDangerous.IsMatch(trimmed) || !ThemeSafeValue.IsMatch(trimmed))
+            {
+                throw new CatalogRuleException($"Theme token '{key}' has an unsafe or overlong value.");
+            }
+
+            tokens[key] = trimmed;
+        }
+
+        return JsonSerializer.Serialize(tokens);
+    }
+
+    /// <summary>
+    /// Clones the shopper-facing configuration of <paramref name="source"/> into a brand-new storefront:
+    /// same currency/tax/language/theme, but with FRESH auto-derived ledger accounts (the safety invariant —
+    /// <see cref="SetLedgerAccounts"/>(null,…) derives <c>{kind}.store-{newId:N}</c> from the new id, so the
+    /// clone's books never share the source's). Deliberately NOT copied: PublicUrl, domains, visibility
+    /// (stays Private), state (stays Draft), access password, account-code strings. Product publications and
+    /// navigation are copied by the caller (they live in other aggregates). Never copy account-code strings.
+    /// </summary>
+    public static Storefront DuplicateFrom(Storefront source, string name, DateTimeOffset now)
+    {
+        var clone = Create(source.TenantId, name, now);
+        clone.ConfigureCommerce(string.Empty, source.Currency, source.TaxRegime, source.TaxRateBasisPoints, now);
+        clone.SetDefaultLanguage(source.DefaultLanguage, now);
+        clone.SetTheme(source.ThemeJson, now);
+        clone.SetLedgerAccounts(null, null, null, now, null);
+        return clone;
     }
 
     public void Rename(string name, DateTimeOffset now)

@@ -1528,4 +1528,29 @@
   <data name="Reviews.Empty" xml:space="preserve"><value>No reviews yet.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Review removed.</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Download the attached file.</value></data>
+  <data name="Ops.Theme" xml:space="preserve"><value>Theme</value></data>
+  <data name="Ops.Theme.Intro" xml:space="preserve"><value>Override the storefront's look with a small set of design tokens. Values are sanitized — leave a field blank to use the default.</value></data>
+  <data name="Ops.Theme.ColorPrimary" xml:space="preserve"><value>Primary colour</value></data>
+  <data name="Ops.Theme.ColorPrimary.Tip" xml:space="preserve"><value>Accent colour for buttons and links (e.g. #111827).</value></data>
+  <data name="Ops.Theme.ColorBg" xml:space="preserve"><value>Background</value></data>
+  <data name="Ops.Theme.ColorBg.Tip" xml:space="preserve"><value>Page background colour (e.g. #ffffff).</value></data>
+  <data name="Ops.Theme.ColorText" xml:space="preserve"><value>Text colour</value></data>
+  <data name="Ops.Theme.ColorText.Tip" xml:space="preserve"><value>Main body text colour (e.g. #111827).</value></data>
+  <data name="Ops.Theme.ColorMuted" xml:space="preserve"><value>Muted text</value></data>
+  <data name="Ops.Theme.ColorMuted.Tip" xml:space="preserve"><value>Secondary / muted text colour (e.g. #6b7280).</value></data>
+  <data name="Ops.Theme.FontSans" xml:space="preserve"><value>Sans-serif font</value></data>
+  <data name="Ops.Theme.FontSans.Tip" xml:space="preserve"><value>Font family stack (e.g. system-ui, sans-serif).</value></data>
+  <data name="Ops.Theme.Radius" xml:space="preserve"><value>Corner radius</value></data>
+  <data name="Ops.Theme.Radius.Tip" xml:space="preserve"><value>Border radius for cards and buttons (e.g. 0.5rem).</value></data>
+  <data name="Ops.Theme.Preview" xml:space="preserve"><value>Preview:</value></data>
+  <data name="Ops.Theme.PreviewText" xml:space="preserve"><value>Aa Storefront</value></data>
+  <data name="Ops.Theme.PreviewMuted" xml:space="preserve"><value>muted</value></data>
+  <data name="Ops.Duplicate" xml:space="preserve"><value>Duplicate</value></data>
+  <data name="Ops.Duplicate.Tip" xml:space="preserve"><value>Clone this storefront's config, catalog and theme into a new Draft storefront.</value></data>
+  <data name="Ops.Duplicate.NameLabel" xml:space="preserve"><value>New storefront name</value></data>
+  <data name="Ops.Duplicate.NameLabel.Tip" xml:space="preserve"><value>A unique name for the duplicated storefront.</value></data>
+  <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Create duplicate</value></data>
+  <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Create the new storefront now.</value></data>
+  <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>The copy starts as a private Draft with no domains — add a domain before going live.</value></data>
+  <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Storefront duplicated.</value></data>
 </root>

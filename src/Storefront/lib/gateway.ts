@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { ThemeTokens } from "@/lib/theme";
 
 // The browser and server components talk ONLY to the YARP gateway (ADR-0011).
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
@@ -119,6 +120,9 @@ export type StorefrontConfig = {
   // BCP-47 UI language this storefront defaults to (i18n_0). A shopper's `3c_locale` cookie overrides
   // it for their session. Independent of currency/tax — see i18n/request.ts.
   defaultLanguage: string;
+  // Per-storefront theme token overrides (mt5_6), already sanitized server-side. Undefined → default look.
+  // mergeTheme() re-sanitizes as defence-in-depth before these become CSS vars.
+  theme?: Partial<ThemeTokens>;
 };
 
 // Enum ordinals from Catalog StorefrontTaxRegime (System.Text.Json serializes enums as numbers).
@@ -141,15 +145,18 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
-  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage"> & {
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "theme"> & {
     taxRegime: StorefrontTaxRegime | number;
     defaultLanguage?: string;
+    theme?: Partial<ThemeTokens> | null;
   };
   return {
     ...raw,
     taxRegime: typeof raw.taxRegime === "number" ? (STOREFRONT_TAX_REGIME[raw.taxRegime] ?? "Other") : raw.taxRegime,
     // Pre-i18n_0 storefronts (or an older Catalog) simply have no language configured → English.
     defaultLanguage: raw.defaultLanguage ?? "en",
+    // Pre-mt5_6 storefronts (or an unthemed store) have no theme → the default look.
+    theme: raw.theme ?? undefined,
   };
 }
 

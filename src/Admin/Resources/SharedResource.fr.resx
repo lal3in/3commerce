@@ -1528,4 +1528,29 @@
   <data name="Reviews.Empty" xml:space="preserve"><value>Pas encore d'avis.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Avis supprimé.</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Télécharger le fichier joint.</value></data>
+  <data name="Ops.Theme" xml:space="preserve"><value>Thème</value></data>
+  <data name="Ops.Theme.Intro" xml:space="preserve"><value>Personnalisez l'apparence de la boutique avec quelques jetons de design. Les valeurs sont assainies ; laissez un champ vide pour la valeur par défaut.</value></data>
+  <data name="Ops.Theme.ColorPrimary" xml:space="preserve"><value>Couleur principale</value></data>
+  <data name="Ops.Theme.ColorPrimary.Tip" xml:space="preserve"><value>Couleur d'accentuation pour les boutons et les liens (par ex. #111827).</value></data>
+  <data name="Ops.Theme.ColorBg" xml:space="preserve"><value>Arrière-plan</value></data>
+  <data name="Ops.Theme.ColorBg.Tip" xml:space="preserve"><value>Couleur d'arrière-plan de la page (par ex. #ffffff).</value></data>
+  <data name="Ops.Theme.ColorText" xml:space="preserve"><value>Couleur du texte</value></data>
+  <data name="Ops.Theme.ColorText.Tip" xml:space="preserve"><value>Couleur du corps de texte (par ex. #111827).</value></data>
+  <data name="Ops.Theme.ColorMuted" xml:space="preserve"><value>Texte atténué</value></data>
+  <data name="Ops.Theme.ColorMuted.Tip" xml:space="preserve"><value>Couleur du texte secondaire / atténué (par ex. #6b7280).</value></data>
+  <data name="Ops.Theme.FontSans" xml:space="preserve"><value>Police sans empattement</value></data>
+  <data name="Ops.Theme.FontSans.Tip" xml:space="preserve"><value>Pile de familles de polices (par ex. system-ui, sans-serif).</value></data>
+  <data name="Ops.Theme.Radius" xml:space="preserve"><value>Rayon des coins</value></data>
+  <data name="Ops.Theme.Radius.Tip" xml:space="preserve"><value>Rayon de bordure pour les cartes et les boutons (par ex. 0.5rem).</value></data>
+  <data name="Ops.Theme.Preview" xml:space="preserve"><value>Aperçu :</value></data>
+  <data name="Ops.Theme.PreviewText" xml:space="preserve"><value>Aa Boutique</value></data>
+  <data name="Ops.Theme.PreviewMuted" xml:space="preserve"><value>atténué</value></data>
+  <data name="Ops.Duplicate" xml:space="preserve"><value>Dupliquer</value></data>
+  <data name="Ops.Duplicate.Tip" xml:space="preserve"><value>Cloner la configuration, le catalogue et le thème de cette boutique dans une nouvelle boutique en brouillon.</value></data>
+  <data name="Ops.Duplicate.NameLabel" xml:space="preserve"><value>Nom de la nouvelle boutique</value></data>
+  <data name="Ops.Duplicate.NameLabel.Tip" xml:space="preserve"><value>Un nom unique pour la boutique dupliquée.</value></data>
+  <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Créer le duplicata</value></data>
+  <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Créer la nouvelle boutique maintenant.</value></data>
+  <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>La copie démarre comme un brouillon privé sans domaine – ajoutez un domaine avant la mise en ligne.</value></data>
+  <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Boutique dupliquée.</value></data>
 </root>

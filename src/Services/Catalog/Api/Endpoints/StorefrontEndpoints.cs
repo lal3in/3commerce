@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text.Json;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public static class StorefrontEndpoints
 
         group.MapGet("/", List);
         group.MapPost("/", Create);
+        group.MapPost("/{id:guid}/duplicate", Duplicate);
         group.MapPut("/{id:guid}", Update);
         group.MapPost("/{id:guid}/domains", AddDomain);
         group.MapGet("/{id:guid}/readiness", Readiness);
@@ -98,8 +100,33 @@ public static class StorefrontEndpoints
             ? TypedResults.NotFound()
             : TypedResults.Ok(new PublicStorefrontResponse(
                 storefront.Id, storefront.TenantId, storefront.Name, storefront.PublicUrl, storefront.Currency,
-                storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage));
+                storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage,
+                // Theme rides on the (anon, uncached) public config so the storefront app can render per-store
+                // CSS vars server-side. Null when unthemed → the app falls back to the default look.
+                storefront.ThemeJson.Length > 0 ? ParseTheme(storefront.ThemeJson) : null));
     }
+
+    // Turn a create/update request's theme dict into a JSON string for Storefront.SetTheme. Null (theme
+    // omitted) leaves the current theme untouched; blank values are dropped (an operator clearing a field).
+    private static string? ThemeJsonFrom(IReadOnlyDictionary<string, string>? theme)
+    {
+        if (theme is null)
+        {
+            return null;
+        }
+
+        var cleaned = theme
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .ToDictionary(kv => kv.Key, kv => kv.Value.Trim());
+        return JsonSerializer.Serialize(cleaned);
+    }
+
+    // Deserialize the stored theme JSON back into a token dict for admin editing / public exposure. The
+    // stored value is always a validated object of string tokens (Storefront.SetTheme), so this is safe.
+    private static IReadOnlyDictionary<string, string> ParseTheme(string themeJson) =>
+        string.IsNullOrWhiteSpace(themeJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(themeJson) ?? new Dictionary<string, string>();
 
     // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
     private static string PublicUrlSlug(string publicUrl)
@@ -148,6 +175,7 @@ public static class StorefrontEndpoints
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow(), request.ShippingAccountCode);
+            storefront.SetTheme(ThemeJsonFrom(request.Theme), time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -161,6 +189,87 @@ public static class StorefrontEndpoints
         }
     }
 
+
+    // Clone an existing storefront into a fresh Draft/Private one: same currency/tax/language/theme +
+    // product publications + navigation, but with auto-derived FRESH ledger account codes (the invariant
+    // that keeps the clone's books separate — see Storefront.DuplicateFrom). Domains/PublicUrl/visibility/
+    // state/password are deliberately NOT copied; the new store isn't activatable until a domain is added.
+    private static async Task<Results<Created<StorefrontResponse>, NotFound, ValidationProblem, Conflict<string>>> Duplicate(
+        Guid id,
+        DuplicateStorefrontRequest request,
+        CatalogDbContext db,
+        IPublishEndpoint publisher,
+        IAuditRecorder audit,
+        ClaimsPrincipal user,
+        TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var source = await db.Storefronts.AsNoTracking().SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (source is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (await db.Storefronts.AnyAsync(s => s.TenantId == source.TenantId && s.Name == request.Name.Trim(), cancellationToken))
+        {
+            return TypedResults.Conflict($"Storefront '{request.Name}' already exists for this tenant.");
+        }
+
+        try
+        {
+            var now = time.GetUtcNow();
+            var clone = Storefront.DuplicateFrom(source, request.Name, now);
+            db.Storefronts.Add(clone);
+
+            // Copy the source's product publications as fresh assignments (readiness is re-checked at
+            // publish/activate — a source publication of an unpublishable product copies cleanly).
+            var publications = await db.ProductPublications.AsNoTracking().Include(p => p.Variants)
+                .Where(p => p.StorefrontId == source.Id).ToListAsync(cancellationToken);
+            var productIds = publications.Select(p => p.ProductId).Distinct().ToList();
+            var products = await db.Products.Include(p => p.Variants)
+                .Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
+            foreach (var pub in publications)
+            {
+                if (!products.TryGetValue(pub.ProductId, out var product))
+                {
+                    continue;
+                }
+
+                var clonedPublication = ProductPublication.Assign(clone.TenantId, clone.Id, product, now);
+                clonedPublication.SetOverrides(pub.SlugOverride, pub.TitleOverride, pub.DescriptionOverride, pub.SeoTitle, pub.SeoDescription, now);
+                clonedPublication.SetFulfillment(pub.FulfillmentSource, pub.CountryOfOrigin, pub.HarmonizedSystemCode, now);
+                // Preserve the source's publication State (Published stays Published) + per-variant visibility.
+                clonedPublication.CopyPublicationStateFrom(pub, now);
+                db.ProductPublications.Add(clonedPublication);
+            }
+
+            // Copy the source's storefront navigation items (same categories, labels, ordering).
+            var navigationItems = await db.StorefrontNavigationItems.AsNoTracking()
+                .Where(n => n.StorefrontId == source.Id).ToListAsync(cancellationToken);
+            foreach (var item in navigationItems)
+            {
+                db.StorefrontNavigationItems.Add(new StorefrontNavigationItem
+                {
+                    Id = Guid.CreateVersion7(),
+                    TenantId = clone.TenantId,
+                    StorefrontId = clone.Id,
+                    CategoryId = item.CategoryId,
+                    Label = item.Label,
+                    SortOrder = item.SortOrder,
+                });
+            }
+
+            await PublishConfigAsync(publisher, clone, cancellationToken); // before Save so it lands in the outbox tx
+            await audit.RecordAsync(user.Mutation(
+                clone.TenantId, "Storefront", clone.Id.ToString(), "catalog.storefront.duplicate", clone.Name), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Created($"/admin/storefronts/{clone.Id}", ToResponse(clone));
+        }
+        catch (CatalogRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Name)] = [ex.Message] });
+        }
+    }
 
     private static async Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem, Conflict<string>>> Update(
         Guid id,
@@ -192,6 +301,7 @@ public static class StorefrontEndpoints
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now, request.ShippingAccountCode);
+            storefront.SetTheme(ThemeJsonFrom(request.Theme), now); // null = leave the current theme as-is
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -496,6 +606,7 @@ public static class StorefrontEndpoints
         storefront.RevenueAccountCode,
         storefront.TaxAccountCode,
         storefront.ShippingAccountCode,
+        ParseTheme(storefront.ThemeJson),
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -517,7 +628,9 @@ public sealed record CreateStorefrontRequest(
     [property: StringLength(80)] string? ReceivableAccountCode = null,
     [property: StringLength(80)] string? RevenueAccountCode = null,
     [property: StringLength(80)] string? TaxAccountCode = null,
-    [property: StringLength(80)] string? ShippingAccountCode = null);
+    [property: StringLength(80)] string? ShippingAccountCode = null,
+    // Per-storefront theme tokens (mt5_6); omit → unthemed. Validated + sanitized by Storefront.SetTheme.
+    IReadOnlyDictionary<string, string>? Theme = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -533,7 +646,12 @@ public sealed record UpdateStorefrontRequest(
     [property: StringLength(80)] string? ReceivableAccountCode = null,
     [property: StringLength(80)] string? RevenueAccountCode = null,
     [property: StringLength(80)] string? TaxAccountCode = null,
-    [property: StringLength(80)] string? ShippingAccountCode = null);
+    [property: StringLength(80)] string? ShippingAccountCode = null,
+    // Per-storefront theme tokens (mt5_6); omit → the storefront keeps its current theme. Sanitized server-side.
+    IReadOnlyDictionary<string, string>? Theme = null);
+
+public sealed record DuplicateStorefrontRequest(
+    [property: Required, StringLength(120, MinimumLength = 2)] string Name);
 
 public sealed record AddStorefrontDomainRequest(
     [property: Required, StringLength(253, MinimumLength = 3)] string Host,
@@ -554,6 +672,7 @@ public sealed record StorefrontResponse(
     string RevenueAccountCode,
     string TaxAccountCode,
     string ShippingAccountCode,
+    IReadOnlyDictionary<string, string> Theme,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
@@ -572,7 +691,9 @@ public sealed record PublicStorefrontResponse(
     string Currency,
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
-    string DefaultLanguage);
+    string DefaultLanguage,
+    // Sanitized per-storefront theme tokens (mt5_6), or null when unthemed → the app renders the default look.
+    IReadOnlyDictionary<string, string>? Theme);
 
 // The languages a storefront's UI can be set to (i18n_0). Label is an endonym ("中文"), not a translation.
 public sealed record SupportedLanguageResponse(string Code, string Label);
