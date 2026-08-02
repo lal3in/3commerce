@@ -266,6 +266,41 @@ for credits (amounts shown in major units, i.e. `minor / 100`). A confirmed sale
 posts a balanced entry; an approved refund posts a balanced reversal. Trial balance
 should always net to zero.
 
+The **Amount** column is colour-coded by direction: green = money in (a sale), red = money out
+(a supplier/carrier accrual, a write-off, or a chargeback), amber = a refund. Cost accruals
+(COGS, carrier cost) and inventory write-offs read red; a Restock COGS reversal reads green.
+
+---
+
+## 5b. Financials — `/financials`
+
+File: `Components/Pages/Financials.razor`. Reads the ledger balances
+(`GET /api/payments/admin/ledger/balances`) plus the storefront list, and presents money **per
+currency** and **per storefront** — there is deliberately **no cross-currency total** (minor units
+aren't comparable without an FX feed; ADR-0040/0041).
+
+- **Per-currency P&L** (one section per AUD/EUR/USD): Revenue, Shipping income, Refunds, processing
+  Fees, **Chargebacks**, **COGS**, **Carrier shipping cost**, **Write-offs**, and Net result. Each
+  is the sum of ledger lines *in that currency*.
+- **By-storefront table**: each store's Gross / Net revenue / Shipping / Tax / **COGS** / **Margin**
+  (contribution margin = net revenue + shipping − COGS − carrier cost − write-offs), plus two
+  *estimated* columns (italic/amber): **Est. overheads** and **Est. net margin**, driven by the
+  store's cost-assumption rates. The estimated columns are assumptions, **not** ledger postings.
+- **Reconciliation** (ADR-0041): for any metric in a currency, Σ(each store's account) + (shared /
+  unattributed) = the per-currency P&L value. "EUR-storefront COGS" and "EUR-currency COGS" coincide
+  only when a single store in that currency accrued it; they diverge legitimately with multiple
+  stores per currency or cross-currency relabels.
+
+**Chargebacks / disputes.** A chargeback (simulated in dev via
+`POST /api/payments/dev/simulate-chargeback/{intentId}`) reverses the sale through the store's own
+accounts and books the provider's dispute fee to `expense.{provider}_chargeback_fees`; the payment
+moves to **Disputed** and the order shows a red **Disputed** badge on `/orders` and in the shopper's
+order history.
+
+**Cost assumptions.** On `/commerce-ops`, open a storefront's **Manage** form to set five basis-point
+overhead rates (packaging, labour, marketing, insurance, buffer). They only feed the estimated-margin
+columns above — they never post to the ledger.
+
 ---
 
 ## 6. Xero sync — `/xero`
@@ -314,6 +349,9 @@ Steps:
 |--------|------|--------|
 | RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
 | Ledger | `GET /api/payments/admin/ledger/entries` | — |
+| Financials | `GET /api/payments/admin/ledger/balances` · `GET /api/catalog/admin/storefronts?tenantId=...` | — (read-only; dev: `POST /api/payments/dev/simulate-chargeback/{intentId}`) |
+| Commerce-ops | `GET /api/catalog/admin/storefronts?tenantId=...` | `POST .../{id}/duplicate` (`{name}`) · `PUT .../{id}` (theme + `costAssumptions` bps) |
+| Reviews | `GET /api/catalog/admin/reviews` | `DELETE /api/catalog/admin/reviews/{id}` (removing a review/comment cascades its replies) |
 | Xero sync | `GET /api/payments/admin/xero/sync-runs` | `POST /api/payments/admin/xero/sync/<date>` |
 | Xero mappings | `GET /api/payments/admin/xero/mappings?tenantId=...` | `POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]` (numeric `scope` 1–5) |
 | Imports | `GET /api/catalog/admin/import-runs` | `POST /api/catalog/admin/import-runs` |
