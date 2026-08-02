@@ -15,7 +15,7 @@ namespace ThreeCommerce.IntegrationTests;
 [Trait("Category", "Integration")]
 public class LedgerInvariantTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").WithCommand("-c", "max_connections=400").Build();
 
     public async Task InitializeAsync() => await _postgres.StartAsync();
     public async Task DisposeAsync() => await _postgres.DisposeAsync();
