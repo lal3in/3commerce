@@ -32,6 +32,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         {
             offer.HasKey(o => o.OfferId);
             offer.Property(o => o.FulfilmentType).HasConversion<string>().HasMaxLength(24);
+            offer.Property(o => o.Currency).HasMaxLength(3);
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
         });
 

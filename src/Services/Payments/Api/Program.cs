@@ -40,6 +40,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<UsageOverageChargeConsumer>();
     bus.AddConsumer<StorefrontLedgerConfigConsumer>(); // projects storefront ledger account codes (phase 2)
     bus.AddConsumer<ShippingLabelPurchasedConsumer>(); // carrier-cost accrual (phase 1)
+    bus.AddConsumer<OrderCostsRecognizedConsumer>(); // COGS accrual per supplier (phase 1)
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

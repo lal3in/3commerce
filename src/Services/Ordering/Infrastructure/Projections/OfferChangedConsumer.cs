@@ -27,6 +27,8 @@ public sealed class OfferChangedConsumer(OrderingDbContext db) : IConsumer<Offer
         copy.BillingPeriod = m.BillingPeriod;
         copy.Priority = m.Priority;
         copy.Active = m.Active;
+        copy.SupplierCostMinor = m.SupplierCostMinor;
+        copy.Currency = m.Currency;
         await db.SaveChangesAsync(context.CancellationToken);
     }
 }

@@ -316,7 +316,9 @@ SUPPLY = {"Physical": 1, "Digital": 2, "Service": 3}
 FULFIL = {"Unassigned": 0, "Dropship": 1, "Warehouse": 2, "DigitalDownload": 3, "Subscription": 4, "Usage": 5, "ManualService": 6}
 PRICING = {"OneTime": 1, "Subscription": 2, "UsageBased": 3, "Tiered": 4}
 PERIOD = {"Once": 1, "Monthly": 2, "Yearly": 3}
-print(json.dumps({"tenantId": tenant_id, "productId": product_id, "variantId": variant_id or None, "supplierId": supplier_id, "supplyCategory": SUPPLY[supply], "fulfilmentType": FULFIL[fulfilment], "priceMinor": price, "currency": "EUR", "priority": 10, "pricingModel": PRICING[pricing], "billingPeriod": PERIOD[period], "tiers": tiers}))
+# Supplier cost (COGS) is ~half the selling price (price/2 convention, matching PricingTests) so every
+# paid order accrues a realistic per-store COGS once confirmed. Denominated in the offer's currency (EUR).
+print(json.dumps({"tenantId": tenant_id, "productId": product_id, "variantId": variant_id or None, "supplierId": supplier_id, "supplyCategory": SUPPLY[supply], "fulfilmentType": FULFIL[fulfilment], "priceMinor": price, "supplierCostMinor": price // 2, "currency": "EUR", "priority": 10, "pricingModel": PRICING[pricing], "billingPeriod": PERIOD[period], "tiers": tiers}))
 PY
 }
 
@@ -789,7 +791,7 @@ except Exception:
   if [[ -n "$product_id" ]]; then
     if [[ -n "$variant_id" ]]; then variant_json="\"$variant_id\""; else variant_json="null"; fi
     api "catalog-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
-      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
+      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"supplierCostMinor\":1250,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
     manifest_set "products.importedSample.id" "$(json_string "$product_id")"
     if [[ -n "$variant_id" ]]; then manifest_set "products.importedSample.variantId" "$(json_string "$variant_id")"; fi
   fi

@@ -33,6 +33,13 @@ public sealed class Offer
     public long PriceMinor { get; private set; }
     public required string Currency { get; init; }
 
+    /// <summary>
+    /// What the platform pays the supplier for one unit (COGS, phase 1). Minor units, denominated in
+    /// this offer's <see cref="Currency"/>. Feeds the per-store COGS accrual once an order paid against
+    /// this offer confirms — projected to Ordering's OfferCopy via OfferChanged. 0 = no known cost.
+    /// </summary>
+    public long SupplierCostMinor { get; private set; }
+
     /// <summary>Graduated tiers for tiered/usage pricing (Phase 7). Empty = flat PriceMinor.</summary>
     public List<OfferPriceTier> PriceTiers { get; init; } = [];
 
@@ -103,6 +110,17 @@ public sealed class Offer
         }
 
         PriceMinor = priceMinor;
+        UpdatedAt = now;
+    }
+
+    public void SetSupplierCost(long supplierCostMinor, DateTimeOffset now)
+    {
+        if (supplierCostMinor < 0)
+        {
+            throw new CatalogRuleException("Offer supplier cost cannot be negative.");
+        }
+
+        SupplierCostMinor = supplierCostMinor;
         UpdatedAt = now;
     }
 

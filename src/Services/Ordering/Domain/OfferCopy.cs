@@ -19,6 +19,13 @@ public class OfferCopy
     public int Priority { get; set; }
     public bool Active { get; set; }
 
+    /// <summary>Per-unit supplier cost (COGS, phase 1), minor units in <see cref="Currency"/>. 0 = unknown.</summary>
+    public long SupplierCostMinor { get; set; }
+
+    /// <summary>The currency <see cref="SupplierCostMinor"/> is denominated in — a paid order only accrues
+    /// COGS from this offer when it matches the order's currency (no FX in this codebase).</summary>
+    public string Currency { get; set; } = "";
+
     /// <summary>How this offer's line is charged (Phase 7): recurring for subscriptions, metered for usage.</summary>
     public BillingMode BillingMode => PricingModel switch
     {

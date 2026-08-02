@@ -1,6 +1,7 @@
 using System.Globalization;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
@@ -14,7 +15,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// the rich OrderConfirmed (with line items) — sourced from the aggregate, so downstream
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
-public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit) :
+public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit, ILogger<OrderStatusConsumer> logger) :
     IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>
 {
     /// <summary>
@@ -95,12 +96,93 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
             order.Lines.Select(l => new OrderLineInfo(
                 l.ProductId, l.VariantId, l.SupplierId, l.Title, l.Quantity, l.FulfilmentType, l.BillingMode, l.UnitPriceMinor)).ToList()));
 
+        // COGS accrual (phase 1): wires the previously-dormant SupplierPayable path. Order lines carry the
+        // resolved SupplierId but not its cost — cost lives on the line's resolved Offer (projected into
+        // OfferCopy), the same source that gave the line its SupplierId at checkout. Payments turns the
+        // event into per-store COGS accruals.
+        await PublishOrderCostsAsync(order, context);
+
         // Recurring lines set up a subscription in Payments (mt7_3); the first period was paid with the order.
         foreach (var line in order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once))
         {
             await context.Publish(new SubscriptionRequested(
                 order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency));
         }
+    }
+
+    /// <summary>
+    /// Aggregates per-supplier gross cost of goods over the order's lines and publishes
+    /// <see cref="OrderCostsRecognized"/> for Payments to accrue. Cost comes from the line's resolved
+    /// <see cref="OfferCopy"/> (unit <see cref="OfferCopy.SupplierCostMinor"/> × quantity) — the same
+    /// source that gave the line its SupplierId at checkout — NOT the dormant ProductCopy.SupplierCostMinor.
+    /// The accrual is always denominated in the ORDER's currency. When an offer's cost was denominated in
+    /// a different currency there is no FX feed to convert it, so — exactly as the carrier-cost consumer
+    /// (ShippingLabelPurchasedConsumer) posts the fake carrier's AUD cost in the payment's currency — we
+    /// treat the offer-denominated minor amount as order-currency minor units without conversion (a
+    /// deliberate, logged relabel; a misleading 100% margin is worse dev data than an approximate cost).
+    /// FX is explicitly out of scope (plan NOTES); revisit this and the carrier-cost consumer together when
+    /// FX lands. A supplier line resolving to zero cost is logged, so a silent non-accrual is
+    /// distinguishable from "no supplier lines". Nothing is published when the total is zero.
+    /// </summary>
+    private async Task PublishOrderCostsAsync(Order order, ConsumeContext context)
+    {
+        var supplierLines = order.Lines.Where(l => l.SupplierId is { } sid && sid != Guid.Empty).ToList();
+        if (supplierLines.Count == 0)
+        {
+            return;
+        }
+
+        var productIds = supplierLines.Select(l => l.ProductId).Distinct().ToList();
+        var offerCopies = await db.OfferCopies.AsNoTracking()
+            .Where(o => o.TenantId == order.TenantId && productIds.Contains(o.ProductId))
+            .ToListAsync(context.CancellationToken);
+
+        var perSupplier = new Dictionary<Guid, long>();
+        var relabelledFrom = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in supplierLines)
+        {
+            var offer = OfferResolution.ResolveOffer(offerCopies, order.TenantId, line.ProductId, line.VariantId);
+            if (offer is null)
+            {
+                continue;
+            }
+
+            var lineCost = offer.SupplierCostMinor * line.Quantity;
+            if (lineCost <= 0)
+            {
+                logger.LogWarning(
+                    "OrderCostsRecognized: order {OrderId} product {ProductId} resolved supplier {SupplierId} but zero supplier cost; no COGS accrued for this line",
+                    order.Id, line.ProductId, offer.SupplierId);
+                continue;
+            }
+
+            // No FX feed: an offer costed in another currency is relabelled into the order's currency
+            // (see method doc). Collect the source denominations to warn once per order, not per line.
+            if (!string.IsNullOrEmpty(offer.Currency)
+                && !string.Equals(offer.Currency, order.Currency, StringComparison.OrdinalIgnoreCase))
+            {
+                relabelledFrom.Add(offer.Currency);
+            }
+
+            perSupplier[offer.SupplierId] = perSupplier.GetValueOrDefault(offer.SupplierId) + lineCost;
+        }
+
+        if (perSupplier.Count == 0)
+        {
+            return;
+        }
+
+        if (relabelledFrom.Count > 0)
+        {
+            logger.LogWarning(
+                "OrderCostsRecognized: order {OrderId} accrues COGS in {OrderCurrency}; supplier cost(s) originally denominated in {SourceCurrencies} were relabelled without FX conversion (out of scope)",
+                order.Id, order.Currency, string.Join(",", relabelledFrom));
+        }
+
+        var items = perSupplier.Select(kv => new SupplierCostItem(kv.Key, kv.Value)).ToList();
+        await context.Publish(
+            new OrderCostsRecognized(order.Id, order.StorefrontId, order.TenantId, order.Currency, items),
+            context.CancellationToken);
     }
 
     /// <summary>
