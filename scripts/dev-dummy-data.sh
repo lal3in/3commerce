@@ -681,6 +681,34 @@ settle_order_payment() {
   settle_payment "pi_fake_${1//-/}" "?amountMinor=$2" "$3" "$4"
 }
 
+# Give every storefront's products a COSTED offer in the store's OWN currency, so orders placed on any
+# store accrue COGS (real per-store margin in Financials — not just the EU scenario store). Run BEFORE
+# the order steps so the OfferChanged→OfferCopy projection has time to land before checkout resolves it.
+seed_store_product_costs() {
+  echo "== per-storefront costed offers (so every store accrues COGS) =="
+  local supplier_id sfs sid cur
+  supplier_id=$(manifest_get "entities.demoSupplier.id")
+  [[ -n "$supplier_id" ]] || { manifest_append "warnings" "$(json_string "seed_store_product_costs: no demo supplier")"; return; }
+  sfs=$(api "cost-sf-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  while IFS='|' read -r sid cur; do
+    [[ -n "$sid" && -n "$cur" ]] || continue
+    # Each product this store sells, with a best-effort unit price → a supplier cost of ~half.
+    api "cost-prods-$cur" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=20" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin)
+  for p in (d if isinstance(d,list) else d.get('items',[])):
+    price=p.get('minPriceMinor') or p.get('priceMinor') or 2000
+    print(p['id']+'|'+str(price))
+except Exception: pass" | while IFS='|' read -r pid price; do
+      [[ -n "$pid" ]] || continue
+      api "cost-offer-$cur-${pid:0:8}" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
+        "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$pid\",\"variantId\":null,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":$price,\"supplierCostMinor\":$((price/2)),\"currency\":\"$cur\",\"priority\":5}" "allow_4xx" >/dev/null
+    done
+  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
+try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
+except Exception: pass")
+}
+
 # Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
 # per-storefront dashboard/Financials show real revenue for every store — not just the tenant default.
 # (checkout_scenario's generic orders carry no storefront, so they land on the gateway default store.)
@@ -869,6 +897,7 @@ except Exception:
   sleep 5
   seed_historical_flows
   seed_storefront_publications
+  seed_store_product_costs
   seed_storefront_orders
   seed_extra_customers
   seed_subscription_examples
