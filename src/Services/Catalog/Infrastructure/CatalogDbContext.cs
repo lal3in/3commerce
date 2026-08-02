@@ -58,9 +58,14 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
         {
             review.Property(r => r.AuthorName).HasMaxLength(60);
             review.Property(r => r.Comment).HasMaxLength(4000);
-            // One review per customer per product — a re-submit updates the existing row.
-            review.HasIndex(r => new { r.ProductId, r.UserId }).IsUnique();
+            // One RATING review per customer per product — a re-submit updates it. Comments (top-level,
+            // no rating) and replies (ParentId set) are unrestricted, so the uniqueness is filtered to
+            // top-level rating rows only.
+            review.HasIndex(r => new { r.ProductId, r.UserId }).IsUnique()
+                .HasFilter("\"ParentId\" IS NULL AND \"Rating\" IS NOT NULL");
             review.HasIndex(r => r.ProductId);
+            // Replies are fetched by parent (threaded display + cascade moderation).
+            review.HasIndex(r => r.ParentId);
         });
 
         modelBuilder.Entity<Variant>(variant =>

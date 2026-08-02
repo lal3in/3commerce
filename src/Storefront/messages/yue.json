@@ -498,7 +498,14 @@
     "notice": {
       "anon": "以留下評價。",
       "unverified": "請驗證你嘅電郵地址以留下評價。"
-    }
+    },
+    "reply": "回覆",
+    "replyTitle": "寫回覆",
+    "replyPlaceholder": "你嘅回覆…",
+    "postReply": "發佈回覆",
+    "addComment": "加評論",
+    "postComment": "發佈評論",
+    "posted": "已發佈。"
   },
   "refunds": {
     "title": "你嘅退款申請",

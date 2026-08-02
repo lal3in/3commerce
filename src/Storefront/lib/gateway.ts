@@ -283,7 +283,9 @@ export async function getRefundableOrder(orderId: string): Promise<RefundableOrd
   return response.ok ? ((await response.json()) as RefundableOrder) : null;
 }
 
-export type ProductReview = { id: string; authorName: string; rating: number; comment: string | null; createdAt: string };
+export type ProductReviewReply = { id: string; authorName: string; message: string; createdAt: string };
+// rating is null for a comment (top-level, no stars); replies hang off a top-level review/comment.
+export type ProductReview = { id: string; authorName: string; rating: number | null; comment: string | null; createdAt: string; replies: ProductReviewReply[] };
 export type ReviewSummary = { productId: string; average: number; count: number; items: ProductReview[] };
 
 // Public — everyone (incl. guests) sees a product's ratings & reviews.

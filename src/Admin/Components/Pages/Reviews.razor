@@ -32,7 +32,16 @@ else
         {
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:.4rem;">@r.ProductName</td>
-                <td style="color:#f59e0b; white-space:nowrap;">@(new string('★', r.Rating))<span style="color:#d1d5db;">@(new string('★', 5 - r.Rating))</span></td>
+                <td style="color:#f59e0b; white-space:nowrap;">
+                    @if (r.Rating is { } stars)
+                    {
+                        @(new string('★', stars))<span style="color:#d1d5db;">@(new string('★', 5 - stars))</span>
+                    }
+                    else
+                    {
+                        <span style="color:#6b7280; font-size:.8rem;">@L["Reviews.NoRating"]</span>
+                    }
+                </td>
                 <td>@r.AuthorName</td>
                 <td style="max-width:24rem;">@r.Comment</td>
                 <td style="white-space:nowrap;">@r.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
@@ -72,5 +81,5 @@ else
         else { _error = await response.Content.ReadAsStringAsync(); }
     }
 
-    public record AdminReviewDto(Guid Id, Guid ProductId, string ProductName, string ProductSlug, string AuthorName, int Rating, string? Comment, DateTimeOffset CreatedAt);
+    public record AdminReviewDto(Guid Id, Guid ProductId, string ProductName, string ProductSlug, string AuthorName, int? Rating, string? Comment, DateTimeOffset CreatedAt);
 }

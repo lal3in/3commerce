@@ -498,7 +498,14 @@
     "notice": {
       "anon": "to leave a review.",
       "unverified": "Verify your email address to leave a review."
-    }
+    },
+    "reply": "Reply",
+    "replyTitle": "Write a reply",
+    "replyPlaceholder": "Your reply…",
+    "postReply": "Post reply",
+    "addComment": "Add a comment",
+    "postComment": "Post comment",
+    "posted": "Posted."
   },
   "refunds": {
     "title": "Your refund requests",

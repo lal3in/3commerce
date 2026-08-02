@@ -498,7 +498,14 @@
     "notice": {
       "anon": "para dejar una reseña.",
       "unverified": "Verifica tu correo electrónico para dejar una reseña."
-    }
+    },
+    "reply": "Responder",
+    "replyTitle": "Escribir una respuesta",
+    "replyPlaceholder": "Tu respuesta…",
+    "postReply": "Publicar respuesta",
+    "addComment": "Añadir un comentario",
+    "postComment": "Publicar comentario",
+    "posted": "Publicado."
   },
   "refunds": {
     "title": "Tus solicitudes de reembolso",
