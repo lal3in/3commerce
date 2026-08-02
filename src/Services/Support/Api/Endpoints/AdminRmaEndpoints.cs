@@ -3,6 +3,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
+using ThreeCommerce.BuildingBlocks.Contracts.Support;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Support.Domain;
@@ -188,12 +189,15 @@ public static class AdminRmaEndpoints
         var disposition = await db.RmaDispositions.SingleOrDefaultAsync(d => d.RmaId == id, ct);
         if (disposition is null)
         {
-            disposition = new RmaDisposition { RmaId = id, CreatedAt = now };
+            disposition = new RmaDisposition { RmaId = id, CreatedAt = now, Revision = 1 };
             db.RmaDispositions.Add(disposition);
         }
         else
         {
             disposition.UpdatedAt = now;
+            // Every edit bumps the revision so the Payments-side correction is idempotency-distinct: an
+            // edit that flips Restock↔Storage reverses the previous revision's posting before the new one.
+            disposition.Revision += 1;
         }
 
         disposition.Kind = kind;
@@ -206,6 +210,13 @@ public static class AdminRmaEndpoints
             await publisher.Publish(new RestockRequested(tenant, id,
                 lines.Select(l => new RestockItemInfo(l.ProductId, l.VariantId, l.LocationId, l.Quantity)).ToList()), ct);
         }
+
+        // Hand off to Ordering (the owner of cost knowledge) to value the returned goods and let Payments
+        // correct the COGS accrual (phase 1). Support knows only the whole-order RMA + refunded gross, so
+        // it carries the OrderId + RefundedMinor and Ordering scales COGS by the refunded share. The enums
+        // ride numeric (AGENTS.md); the revision makes each edit's correction idempotency-distinct.
+        await publisher.Publish(new RmaDispositionSet(
+            id, rma.OrderId, (int)kind, (int?)storageReason, disposition.Revision, rma.AmountMinor), ct);
 
         var action = kind == RmaDispositionKind.Restock ? "support.rma.disposition.restock" : "support.rma.disposition.storage";
         await audit.RecordAsync(user.Mutation(

@@ -301,6 +301,105 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
+    [Fact]
+    public async Task Rma_storage_disposition_writes_off_the_cogs_then_an_edit_to_restock_reverses_it()
+    {
+        // rma_disposition: a paid order with supplier cost accrues per-store COGS; an RMA dispositioned to
+        // Storage(Damage) must reclass that COGS to the store's write-off account, and editing the
+        // disposition to Restock must reverse the write-off and reverse the accrual instead. Publishing
+        // RmaDispositionSet directly stands in for Support (as the fixture does for other services' events)
+        // and drives the real Ordering → Payments chain: Ordering values the returned goods from the order
+        // lines, Payments corrects the accrual. The ledger stays balanced throughout.
+        var storefrontId = new Guid("00000000-0000-0000-0000-000000000001");
+        var (productId, _) = await fixture.SeedSuppliedProductAsync(priceMinor: 10_000, supplierCostMinor: 4_000);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 3 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        await WaitForSupplierPayableAsync(order.OrderId);
+
+        var cogs = Accounts.CogsStoreFor(storefrontId);
+        var writeoff = Accounts.WriteoffsStoreFor(storefrontId);
+        var rmaId = Guid.CreateVersion7();
+
+        // Storage(Damage), revision 1: reclass the whole order's COGS (3 × 4000 = 12000, no commission) to
+        // the store's write-off account. RefundedMinor = the order gross → a whole-order return (scale 1).
+        await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Support.RmaDispositionSet(
+            rmaId, order.OrderId, Kind: 2, StorageReason: 1, Revision: 1, RefundedMinor: order.GrossMinor));
+
+        await WaitForEntryAsync($"{rmaId}:1");
+        var storage = await EntryLinesAsync($"{rmaId}:1");
+        Assert.Equal(12_000, storage.Where(l => l.AccountCode == writeoff).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, storage.Where(l => l.AccountCode == cogs).Sum(l => l.CreditMinor));
+        Assert.Equal(storage.Sum(l => l.DebitMinor), storage.Sum(l => l.CreditMinor));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        // Edit to Restock, revision 2: reverse the revision-1 write-off, then reverse the accrual instead
+        // (Dr liability.supplier_payable / Cr the store COGS).
+        await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Support.RmaDispositionSet(
+            rmaId, order.OrderId, Kind: 1, StorageReason: null, Revision: 2, RefundedMinor: order.GrossMinor));
+
+        await WaitForEntryAsync($"{rmaId}:2");
+        await WaitForEntryAsync($"{rmaId}:2:reversal");
+
+        var reversal = await EntryLinesAsync($"{rmaId}:2:reversal");
+        // The revision-1 write-off is undone line for line: Dr cogs / Cr writeoff.
+        Assert.Equal(12_000, reversal.Where(l => l.AccountCode == cogs).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, reversal.Where(l => l.AccountCode == writeoff).Sum(l => l.CreditMinor));
+        Assert.Equal(reversal.Sum(l => l.DebitMinor), reversal.Sum(l => l.CreditMinor));
+
+        var restock = await EntryLinesAsync($"{rmaId}:2");
+        Assert.Equal(12_000, restock.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, restock.Where(l => l.AccountCode == cogs).Sum(l => l.CreditMinor));
+        Assert.Equal(restock.Sum(l => l.DebitMinor), restock.Sum(l => l.CreditMinor));
+
+        // The write-off account nets back to zero after the edit (posted then reversed); the ledger balances.
+        Assert.Equal(0, await AccountBalanceAsync(writeoff));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task WaitForEntryAsync(string reference)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                    db.JournalEntries.Where(e => e.Reference == reference)))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+
+        throw new TimeoutException($"Journal entry {reference} was not posted.");
+    }
+
+    private async Task<List<ThreeCommerce.Payments.Domain.Ledger.JournalLine>> EntryLinesAsync(string reference)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.JournalEntries.Where(e => e.Reference == reference));
+        return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.JournalLines.Where(l => l.EntryId == entry.Id));
+    }
+
+    private async Task<long> AccountBalanceAsync(string accountCode)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        var debits = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SumAsync(
+            db.JournalLines.Where(l => l.AccountCode == accountCode), l => l.DebitMinor);
+        var credits = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SumAsync(
+            db.JournalLines.Where(l => l.AccountCode == accountCode), l => l.CreditMinor);
+        return debits - credits;
+    }
+
     private async Task WaitForSupplierPayableAsync(Guid orderId)
     {
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);

@@ -183,6 +183,96 @@ public static class Ledger
         return entry;
     }
 
+    /// <summary>
+    /// Reverses an RMA's COGS accrual when returned goods are put back on sale (Restock disposition,
+    /// phase 1): Dr <see cref="Accounts.LiabilitySupplierPayable"/> / Cr <paramref name="cogsAccount"/>
+    /// (the store's own <c>expense.cogs.store-{id}</c> when attributed, else the shared
+    /// <see cref="Accounts.CostOfGoodsSold"/> fallback). COGS is expensed at sale; a restocked unit
+    /// re-accrues COGS when it is resold, so without this reversal the same goods would be expensed
+    /// twice. <paramref name="costMinor"/> is the (proportionally-scaled) NET amount originally accrued,
+    /// capped by the caller at what was posted, so this never over-reverses. The reference is
+    /// <c>{rmaId}:{revision}</c>, so a disposition edit posts under a fresh, idempotency-distinct key.
+    /// </summary>
+    public static JournalEntry CogsReversal(
+        Guid rmaId,
+        int revision,
+        Guid orderId,
+        long costMinor,
+        string currency,
+        DateTimeOffset now,
+        string? cogsAccount = null)
+    {
+        if (costMinor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costMinor), costMinor, "COGS reversal requires a positive amount.");
+        }
+
+        var cogs = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
+        var entry = NewEntry($"RMA {rmaId} restock — COGS reversal for order {orderId}", $"{rmaId}:{revision}", currency, now);
+        Debit(entry, Accounts.LiabilitySupplierPayable, costMinor);
+        Credit(entry, cogs, costMinor);
+        return entry;
+    }
+
+    /// <summary>
+    /// Reclassifies an RMA's COGS to an inventory write-off when returned goods are held in storage and
+    /// NOT put back on sale (Storage disposition — Damage/Incomplete/UnfitForSale, phase 1):
+    /// Dr <paramref name="writeoffAccount"/> (the store's own <c>expense.writeoffs.store-{id}</c> when
+    /// attributed, else the shared <see cref="Accounts.ExpenseWriteoffs"/> fallback) /
+    /// Cr <paramref name="cogsAccount"/> (the store's own COGS, else the shared fallback). Total expense
+    /// is unchanged — this only moves it out of COGS so the loss surfaces as its own P&amp;L line rather
+    /// than looking like cost of a sale. <paramref name="costMinor"/> is the NET amount originally
+    /// accrued (proportionally scaled, capped by the caller). Reference <c>{rmaId}:{revision}</c>.
+    /// </summary>
+    public static JournalEntry Writeoff(
+        Guid rmaId,
+        int revision,
+        Guid orderId,
+        long costMinor,
+        string currency,
+        DateTimeOffset now,
+        string? cogsAccount = null,
+        string? writeoffAccount = null)
+    {
+        if (costMinor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costMinor), costMinor, "Write-off reclass requires a positive amount.");
+        }
+
+        var cogs = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
+        var writeoff = string.IsNullOrWhiteSpace(writeoffAccount) ? Accounts.ExpenseWriteoffs : writeoffAccount;
+        var entry = NewEntry($"RMA {rmaId} storage — COGS write-off for order {orderId}", $"{rmaId}:{revision}", currency, now);
+        Debit(entry, writeoff, costMinor);
+        Credit(entry, cogs, costMinor);
+        return entry;
+    }
+
+    /// <summary>
+    /// A generic reversing entry: a new balanced posting that swaps every line of <paramref name="prior"/>
+    /// (each prior debit becomes a credit and vice-versa), in the prior entry's own currency. Used to
+    /// undo a previous RMA disposition revision before applying the new one (append-only correction —
+    /// ADR-0014, NFR-1), so the reversal is faithful to whatever was actually posted regardless of its
+    /// shape. The <paramref name="reference"/> must be distinct from both the prior and the new posting.
+    /// </summary>
+    public static JournalEntry ReverseOf(JournalEntry prior, string reference, DateTimeOffset now)
+    {
+        var entry = NewEntry($"Reversal of {prior.Description}", reference, prior.Currency, now);
+        foreach (var line in prior.Lines)
+        {
+            if (line.DebitMinor > 0)
+            {
+                Credit(entry, line.AccountCode, line.DebitMinor);
+            }
+
+            if (line.CreditMinor > 0)
+            {
+                Debit(entry, line.AccountCode, line.CreditMinor);
+            }
+        }
+
+        return entry;
+    }
+
     private static JournalEntry NewEntry(string description, string reference, string currency, DateTimeOffset now) =>
         new()
         {
