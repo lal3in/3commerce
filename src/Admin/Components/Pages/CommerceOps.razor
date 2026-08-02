@@ -168,7 +168,18 @@
             </span>
         </div>
 
-        <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap;">
+        <h3>@L["Ops.Cost"]</h3>
+        <p style="color:#6b7280; font-size:.8rem; margin:.1rem 0 .5rem;">@L["Ops.Cost.Intro"]</p>
+        <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
+            <label>@L["Ops.Cost.Packaging"]<br /><input type="number" min="0" max="10000" @bind="_costPackagingBps" style="padding:.4rem; width:7rem;" title="@L["Ops.Cost.Bps.Tip"]" /></label>
+            <label>@L["Ops.Cost.Labor"]<br /><input type="number" min="0" max="10000" @bind="_costLaborBps" style="padding:.4rem; width:7rem;" title="@L["Ops.Cost.Bps.Tip"]" /></label>
+            <label>@L["Ops.Cost.Marketing"]<br /><input type="number" min="0" max="10000" @bind="_costMarketingBps" style="padding:.4rem; width:7rem;" title="@L["Ops.Cost.Bps.Tip"]" /></label>
+            <label>@L["Ops.Cost.Insurance"]<br /><input type="number" min="0" max="10000" @bind="_costInsuranceBps" style="padding:.4rem; width:7rem;" title="@L["Ops.Cost.Bps.Tip"]" /></label>
+            <label>@L["Ops.Cost.Buffer"]<br /><input type="number" min="0" max="10000" @bind="_costBufferBps" style="padding:.4rem; width:7rem;" title="@L["Ops.Cost.Bps.Tip"]" /></label>
+            <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
+        </div>
+
+        <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-top:.6rem;">
             <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
             <label><input type="checkbox" @bind="_domainCanonical" title="@L["Ops.Canonical.Tip"]" /> @L["Ops.Canonical"]</label>
             <button @onclick="AddDomain" title="@L["Ops.AddDomain.Tip"]">@L["Ops.AddDomain"]</button>
@@ -334,6 +345,14 @@
     private string _themeFontSans = string.Empty;
     private string _themeRadius = string.Empty;
 
+    // Per-storefront cost-assumption bps (phase 4) — operator estimates that drive the Financials
+    // estimated-margin view. Config only; they never post to the ledger.
+    private int _costPackagingBps;
+    private int _costLaborBps;
+    private int _costMarketingBps;
+    private int _costInsuranceBps;
+    private int _costBufferBps;
+
     // Duplicate-storefront prompt: the source id being cloned and the name for the clone.
     private Guid? _duplicatingId;
     private string _duplicateName = string.Empty;
@@ -374,11 +393,29 @@
         _themeColorMuted = ThemeValue(storefront, "colorMuted");
         _themeFontSans = ThemeValue(storefront, "fontSans");
         _themeRadius = ThemeValue(storefront, "radius");
+        _costPackagingBps = CostValue(storefront, "packagingBps");
+        _costLaborBps = CostValue(storefront, "laborBps");
+        _costMarketingBps = CostValue(storefront, "marketingBps");
+        _costInsuranceBps = CostValue(storefront, "insuranceBps");
+        _costBufferBps = CostValue(storefront, "bufferBps");
         await LoadStorefrontProducts();
     }
 
     private static string ThemeValue(StorefrontDto s, string key) =>
         s.Theme is not null && s.Theme.TryGetValue(key, out var value) ? value : string.Empty;
+
+    private static int CostValue(StorefrontDto s, string key) =>
+        s.CostAssumptions is not null && s.CostAssumptions.TryGetValue(key, out var value) ? value : 0;
+
+    // All five bps rates ride on every save (each defaults to 0). SetCostAssumptions validates 0–10000.
+    private Dictionary<string, int> BuildCostAssumptionsDict() => new()
+    {
+        ["packagingBps"] = _costPackagingBps,
+        ["laborBps"] = _costLaborBps,
+        ["marketingBps"] = _costMarketingBps,
+        ["insuranceBps"] = _costInsuranceBps,
+        ["bufferBps"] = _costBufferBps,
+    };
 
     // Only send tokens the operator actually set — the API/domain drops blanks and validates the rest.
     private Dictionary<string, string> BuildThemeDict() => new()
@@ -435,7 +472,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict() });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict() });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -567,7 +604,7 @@
         _ => state.ToString(),
     };
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

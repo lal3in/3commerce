@@ -44,6 +44,14 @@ public sealed class Storefront
     /// </summary>
     public string ThemeJson { get; private set; } = "";
 
+    /// <summary>
+    /// Per-storefront cost-ASSUMPTION rates (basis points) driving the Financials estimated-margin view
+    /// (phase 4). Config only — these NEVER post to the ledger (fake journal entries would corrupt the
+    /// append-only books); Financials reads them to render an estimated overhead/margin column that is
+    /// visually distinct from posted figures. A canonical JSON object of the known bps keys, or "".
+    /// </summary>
+    public string CostAssumptionsJson { get; private set; } = "";
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
@@ -149,6 +157,10 @@ public sealed class Storefront
     private static readonly string[] ThemeTokenKeys =
         ["colorPrimary", "colorBg", "colorText", "colorMuted", "fontSans", "radius"];
 
+    // Cost-assumption bps keys (phase 4). Each is an integer 0–10000 basis points.
+    private static readonly string[] CostAssumptionKeys =
+        ["packagingBps", "laborBps", "marketingBps", "insuranceBps", "bufferBps"];
+
     // Ported VERBATIM from src/Storefront/lib/theme.ts:23-24 (the client sanitizer). SAFE_VALUE is the
     // allow-list of characters; DANGEROUS is the deny-list that blocks url()/expression/js/@import and any
     // rule-breaking punctuation. A token must pass BOTH — exactly like safeTokenValue() client-side.
@@ -225,6 +237,70 @@ public sealed class Storefront
     }
 
     /// <summary>
+    /// Sets the per-storefront cost-assumption rates (phase 4). A canonical JSON object of the known bps
+    /// keys, each an integer 0–10000. A null/blank value leaves the current assumptions untouched (the
+    /// <see cref="SetDefaultLanguage"/>/<see cref="SetTheme"/> convention). Invalid input throws
+    /// <see cref="CatalogRuleException"/>. Config only — never posts to the ledger.
+    /// </summary>
+    public void SetCostAssumptions(string? json, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        CostAssumptionsJson = NormalizeCostAssumptions(json);
+        UpdatedAt = now;
+    }
+
+    // Parse → validate → re-serialize a canonical bps object (mirrors NormalizeTheme, including the
+    // duplicate-key enumeration guard). Only known keys, each an integer in [0, 10000].
+    private static string NormalizeCostAssumptions(string json)
+    {
+        List<KeyValuePair<string, JsonNode?>> entries;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject obj)
+            {
+                throw new CatalogRuleException("Cost assumptions must be a JSON object of bps rates.");
+            }
+
+            entries = [.. obj];
+        }
+        catch (JsonException)
+        {
+            throw new CatalogRuleException("Cost assumptions must be a valid JSON object.");
+        }
+        catch (ArgumentException)
+        {
+            throw new CatalogRuleException("Cost assumptions must not contain duplicate keys.");
+        }
+
+        var rates = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (key, value) in entries)
+        {
+            if (Array.IndexOf(CostAssumptionKeys, key) < 0)
+            {
+                throw new CatalogRuleException($"Unknown cost-assumption key '{key}'.");
+            }
+
+            if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<int>(out var bps))
+            {
+                throw new CatalogRuleException($"Cost-assumption '{key}' must be an integer basis-points value.");
+            }
+
+            if (bps is < 0 or > 10000)
+            {
+                throw new CatalogRuleException($"Cost-assumption '{key}' must be between 0 and 10000 basis points.");
+            }
+
+            rates[key] = bps;
+        }
+
+        return JsonSerializer.Serialize(rates);
+    }
+
+    /// <summary>
     /// Clones the shopper-facing configuration of <paramref name="source"/> into a brand-new storefront:
     /// same currency/tax/language/theme, but with FRESH auto-derived ledger accounts (the safety invariant —
     /// <see cref="SetLedgerAccounts"/>(null,…) derives <c>{kind}.store-{newId:N}</c> from the new id, so the
@@ -238,6 +314,7 @@ public sealed class Storefront
         clone.ConfigureCommerce(string.Empty, source.Currency, source.TaxRegime, source.TaxRateBasisPoints, now);
         clone.SetDefaultLanguage(source.DefaultLanguage, now);
         clone.SetTheme(source.ThemeJson, now);
+        clone.SetCostAssumptions(source.CostAssumptionsJson, now);
         clone.SetLedgerAccounts(null, null, null, now, null);
         return clone;
     }

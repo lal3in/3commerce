@@ -128,6 +128,16 @@ public static class StorefrontEndpoints
             ? new Dictionary<string, string>()
             : JsonSerializer.Deserialize<Dictionary<string, string>>(themeJson) ?? new Dictionary<string, string>();
 
+    // Cost-assumption bps rates (phase 4). Same null-leaves-untouched convention as the theme. Values are
+    // integer basis points; Storefront.SetCostAssumptions validates keys + the 0–10000 range.
+    private static string? CostAssumptionsJsonFrom(IReadOnlyDictionary<string, int>? rates) =>
+        rates is null ? null : JsonSerializer.Serialize(rates);
+
+    private static IReadOnlyDictionary<string, int> ParseCostAssumptions(string json) =>
+        string.IsNullOrWhiteSpace(json)
+            ? new Dictionary<string, int>()
+            : JsonSerializer.Deserialize<Dictionary<string, int>>(json) ?? new Dictionary<string, int>();
+
     // Last non-empty path segment of the PublicUrl, e.g. "http://localhost:3000/au" -> "au".
     private static string PublicUrlSlug(string publicUrl)
     {
@@ -176,6 +186,7 @@ public static class StorefrontEndpoints
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow(), request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), time.GetUtcNow());
+            storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -302,6 +313,7 @@ public static class StorefrontEndpoints
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now, request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), now); // null = leave the current theme as-is
+            storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), now);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -607,6 +619,7 @@ public static class StorefrontEndpoints
         storefront.TaxAccountCode,
         storefront.ShippingAccountCode,
         ParseTheme(storefront.ThemeJson),
+        ParseCostAssumptions(storefront.CostAssumptionsJson),
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
@@ -630,7 +643,9 @@ public sealed record CreateStorefrontRequest(
     [property: StringLength(80)] string? TaxAccountCode = null,
     [property: StringLength(80)] string? ShippingAccountCode = null,
     // Per-storefront theme tokens (mt5_6); omit → unthemed. Validated + sanitized by Storefront.SetTheme.
-    IReadOnlyDictionary<string, string>? Theme = null);
+    IReadOnlyDictionary<string, string>? Theme = null,
+    // Per-storefront cost-assumption bps (phase 4); omit → none. Validated by Storefront.SetCostAssumptions.
+    IReadOnlyDictionary<string, int>? CostAssumptions = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -648,7 +663,9 @@ public sealed record UpdateStorefrontRequest(
     [property: StringLength(80)] string? TaxAccountCode = null,
     [property: StringLength(80)] string? ShippingAccountCode = null,
     // Per-storefront theme tokens (mt5_6); omit → the storefront keeps its current theme. Sanitized server-side.
-    IReadOnlyDictionary<string, string>? Theme = null);
+    IReadOnlyDictionary<string, string>? Theme = null,
+    // Per-storefront cost-assumption bps (phase 4); omit → keeps current. Validated by Storefront.SetCostAssumptions.
+    IReadOnlyDictionary<string, int>? CostAssumptions = null);
 
 public sealed record DuplicateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name);
@@ -673,6 +690,7 @@ public sealed record StorefrontResponse(
     string TaxAccountCode,
     string ShippingAccountCode,
     IReadOnlyDictionary<string, string> Theme,
+    IReadOnlyDictionary<string, int> CostAssumptions,
     IReadOnlyList<StorefrontDomainResponse> Domains,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,

@@ -762,7 +762,31 @@
   <data name="Ops.Archive.Tip" xml:space="preserve"><value>Archive la tienda.</value></data>
   <data name="Ops.ManageHeading" xml:space="preserve"><value>Gestionar {0}</value></data>
   <data name="Ops.SaveSettings" xml:space="preserve"><value>Guardar configuración de la tienda</value></data>
-  <data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Guarde el nombre, la URL, la moneda, el impuesto y la visibilidad de arriba.</value></data>
+                  <data name="Ops.Cost.Bps.Tip" xml:space="preserve">
+    <value>Puntos básicos del bruto (100 pb = 1 %), 0–10000</value>
+  </data>
+<data name="Ops.Cost.Buffer" xml:space="preserve">
+    <value>Margen extra (pb)</value>
+  </data>
+<data name="Ops.Cost.Insurance" xml:space="preserve">
+    <value>Seguro (pb)</value>
+  </data>
+<data name="Ops.Cost.Marketing" xml:space="preserve">
+    <value>Marketing (pb)</value>
+  </data>
+<data name="Ops.Cost.Labor" xml:space="preserve">
+    <value>Mano de obra (pb)</value>
+  </data>
+<data name="Ops.Cost.Packaging" xml:space="preserve">
+    <value>Embalaje (pb)</value>
+  </data>
+<data name="Ops.Cost.Intro" xml:space="preserve">
+    <value>Tasas de gastos generales estimadas (puntos básicos) para el margen estimado. Solo supuestos, no se contabilizan.</value>
+  </data>
+<data name="Ops.Cost" xml:space="preserve">
+    <value>Supuestos de costos</value>
+  </data>
+<data name="Ops.SaveSettings.Tip" xml:space="preserve"><value>Guarde el nombre, la URL, la moneda, el impuesto y la visibilidad de arriba.</value></data>
   <data name="Ops.DomainHost" xml:space="preserve"><value>Host del dominio</value></data>
   <data name="Ops.DomainHost.Placeholder" xml:space="preserve"><value>tienda.ejemplo.com</value></data>
   <data name="Ops.DomainHost.Tip" xml:space="preserve"><value>Dominio que se asignará a esta tienda (solo el host, sin https://).</value></data>
@@ -1466,7 +1490,16 @@
   <data name="Fin.Col.Margin" xml:space="preserve">
     <value>Margen</value>
   </data>
-  <data name="Fin.Col.Account" xml:space="preserve">
+        <data name="Fin.Estimated.Tip" xml:space="preserve">
+    <value>Estimado a partir de los supuestos de costos de esta tienda, no asientos contables</value>
+  </data>
+<data name="Fin.Col.EstMargin" xml:space="preserve">
+    <value>Margen neto est.</value>
+  </data>
+<data name="Fin.Col.EstOverheads" xml:space="preserve">
+    <value>Gastos generales est.</value>
+  </data>
+<data name="Fin.Col.Account" xml:space="preserve">
     <value>Cuenta de ingresos</value>
   </data>
   <data name="Fin.PostingCurrency.Tip" xml:space="preserve">
