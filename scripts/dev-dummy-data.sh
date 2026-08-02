@@ -659,6 +659,23 @@ try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load
 except Exception: pass")
 }
 
+# Settle an order's payment, retrying until the checkout saga has created the payment intent — a bare
+# simulate-payment fired right after checkout races intent creation and 500s (leaving the order unpaid,
+# so it never posts to the ledger). Polls up to ~10s; records the final outcome for the run summary.
+settle_order_payment() {
+  local oid="$1" gross="$2" jar="$3" label="$4" code i path bf
+  path="/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross"
+  bf="$OUT_DIR/${label//[^A-Za-z0-9_.-]/_}.json"
+  code=000
+  for i in $(seq 1 10); do
+    code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY$path" -o "$bf" -w '%{http_code}' 2>/dev/null || echo 000)
+    [[ "$code" =~ ^2 ]] && break
+    sleep 1
+  done
+  record "$label" POST "/api/payments/dev/simulate-payment" "$code" "$bf" "allow_4xx"
+  printf '  %-40s %s simulate-payment -> %s\n' "$label" POST "$code" >&2
+}
+
 # Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
 # per-storefront dashboard/Financials show real revenue for every store — not just the tenant default.
 # (checkout_scenario's generic orders carry no storefront, so they land on the gateway default store.)
@@ -687,7 +704,7 @@ except Exception: print('')")
         "{\"email\":\"store-$cur@example.test\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Store Demo\",\"line1\":\"1 Demo St\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
       oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
       [[ -n "$oid" ]] || continue
-      api "sf-ord-pay-$cur-$n" POST "/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross" "$jar" "" "allow_4xx" >/dev/null
+      settle_order_payment "$oid" "$gross" "$jar" "sf-ord-pay-$cur-$n"
     done
   done < <(printf '%s' "$sfs" | python3 -c "import sys,json
 try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
@@ -725,7 +742,7 @@ except Exception: print('')")
       "{\"email\":\"$email\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Shopper\",\"line1\":\"7 Buyer Rd\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
     oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
     [[ -n "$oid" ]] || return 0
-    api "xc-pay-$cur-$email" POST "/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross" "$jar" "" "allow_4xx" >/dev/null
+    settle_order_payment "$oid" "$gross" "$jar" "xc-pay-$cur-$email"
   }
 
   local i idx=0
