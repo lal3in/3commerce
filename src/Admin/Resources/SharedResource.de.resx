@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>Bearbeitungsgebühren</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>Wareneinsatz</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>Frachtkosten (Spediteur)</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>Bestandsabschreibungen</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>Nettoergebnis</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>Vereinnahmte Steuer</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>Verbindlichkeiten gegenüber Spediteuren</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>Verbindlichkeiten gegenüber Lieferanten</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>Summe Passiva</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>Brutto</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Nettoumsatz, Versand und Steuer stimmen mit den Berichten je Währung oben überein (Brutto = Nettoumsatz + Versand + Steuer). Bearbeitungsgebühren werden je Zahlungsanbieter abgerechnet, nicht je Shop, daher wird der Nettoumsatz eines Shops vor Gebühren angezeigt.</value>
+    <value>Nettoumsatz, Versand und Steuer stimmen mit den Berichten je Währung oben überein (Brutto = Nettoumsatz + Versand + Steuer). Bearbeitungsgebühren werden je Zahlungsanbieter abgerechnet, nicht je Shop, daher wird der Nettoumsatz eines Shops vor Gebühren angezeigt. Wareneinsatz und Marge basieren auf den shopeigenen Kostenkonten; Marge = Nettoumsatz + Versand − Wareneinsatz − Frachtkosten − Abschreibungen.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Steuer</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>Forderungen</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>Marge</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>Umsatzkonto</value>

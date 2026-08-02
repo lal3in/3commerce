@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>手續費</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>銷貨成本</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>運輸商運費成本</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>存貨撇帳</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>淨結果</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>已收稅款</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>應付運輸商款項</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>應付供應商款項</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>負債總額</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>毛收入</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>淨收入、運費同稅款同上面各貨幣報表對得上（毛額 = 淨收入 + 運費 + 稅款）。手續費係按付款供應商結算，唔係按商店，所以商店淨收入係扣手續費之前顯示。</value>
+    <value>淨收入、運費同稅款同上面各貨幣報表對得上（毛額 = 淨收入 + 運費 + 稅款）。手續費係按付款供應商結算，唔係按商店，所以商店淨收入係扣手續費之前顯示。銷貨成本同利潤率係根據商店自己嘅成本帳戶計出嚟；利潤率 = 淨收入 + 運費 − 銷貨成本 − 運輸商運費成本 − 存貨撇帳。</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>稅款</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>應收</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>利潤率</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>收入帳戶</value>

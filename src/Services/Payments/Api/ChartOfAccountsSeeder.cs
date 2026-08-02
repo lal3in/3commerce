@@ -62,6 +62,9 @@ public static class ChartOfAccountsSeeder
             new() { Code = Accounts.ExpenseCostOfGoodsSold, Name = "Cost of goods sold", Type = AccountType.Expense },
             new() { Code = Accounts.LiabilityTaxCollected, Name = "Tax collected", Type = AccountType.Liability },
             new() { Code = Accounts.LiabilitySupplierPayable, Name = "Supplier payables", Type = AccountType.Liability },
+            new() { Code = Accounts.ExpenseShippingCarrier, Name = "Carrier shipping cost", Type = AccountType.Expense },
+            new() { Code = Accounts.ExpenseWriteoffs, Name = "Inventory write-offs", Type = AccountType.Expense },
+            new() { Code = Accounts.LiabilityCarrierPayable, Name = "Owed to carriers", Type = AccountType.Liability },
         };
 
         // Stripe keeps cash.stripe / expense.stripe_fees verbatim.

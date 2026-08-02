@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>Comisiones</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>Costo de mercancía vendida</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>Costo de envío (transportista)</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>Bajas de inventario</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>Resultado neto</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>Impuestos cobrados</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>Adeudado a transportistas</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>Adeudado a proveedores</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>Pasivos totales</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>Bruto</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Los ingresos netos, el envío y el impuesto cuadran con los informes por moneda de arriba (Bruto = Ingresos netos + Envío + Impuesto). Las comisiones de procesamiento se liquidan por proveedor de pago, no por tienda, por lo que los ingresos netos de una tienda se muestran antes de comisiones.</value>
+    <value>Los ingresos netos, el envío y el impuesto cuadran con los informes por moneda de arriba (Bruto = Ingresos netos + Envío + Impuesto). Las comisiones de procesamiento se liquidan por proveedor de pago, no por tienda, por lo que los ingresos netos de una tienda se muestran antes de comisiones. El costo de mercancía vendida y el margen se calculan con las cuentas de costos propias de la tienda; Margen = Ingresos netos + Envío − Costo de mercancía vendida − Costo de envío − Bajas de inventario.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Impuesto</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>Por cobrar</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>Margen</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>Cuenta de ingresos</value>

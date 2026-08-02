@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>手续费</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>销货成本</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>承运商运费成本</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>存货核销</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>净利润</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>已收税款</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>应付承运商款项</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>应付供应商款项</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>负债总额</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>毛收入</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>净收入、运费和税款与上方各货币报表一致（毛额 = 净收入 + 运费 + 税款）。手续费按支付服务商结算，而非按店铺，因此店铺净收入为扣除手续费前的金额。</value>
+    <value>净收入、运费和税款与上方各货币报表一致（毛额 = 净收入 + 运费 + 税款）。手续费按支付服务商结算，而非按店铺，因此店铺净收入为扣除手续费前的金额。销货成本和利润率根据店铺自身的成本科目计算；利润率 = 净收入 + 运费 − 销货成本 − 承运商运费成本 − 存货核销。</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>税款</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>应收</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>利润率</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>收入账户</value>
