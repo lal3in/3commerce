@@ -45,7 +45,14 @@ public static class Ledger
         {
             // Legacy / no storefront: cash-basis directly against revenue.
             Debit(entry, cash, grossMinor);
-            Credit(entry, revenue, netMinor);
+            if (netMinor > 0)
+            {
+                // Guard like shipping/tax below: a net-zero sale (e.g. a shipping-only order, or a
+                // usage-metered product with no upfront price) would otherwise post a zero revenue line,
+                // which violates the ledger's one-side-nonzero check constraint.
+                Credit(entry, revenue, netMinor);
+            }
+
             if (shipping > 0)
             {
                 Credit(entry, shippingIncome, shipping);
@@ -63,7 +70,14 @@ public static class Ledger
             // platform collected on its behalf into the PSP account. Receivable nets to zero when cash
             // settles with the sale, and carries a balance only while a settlement is outstanding.
             Debit(entry, receivableAccount, grossMinor);
-            Credit(entry, revenue, netMinor);
+            if (netMinor > 0)
+            {
+                // Guard like shipping/tax below: a net-zero sale (e.g. a shipping-only order, or a
+                // usage-metered product with no upfront price) would otherwise post a zero revenue line,
+                // which violates the ledger's one-side-nonzero check constraint.
+                Credit(entry, revenue, netMinor);
+            }
+
             if (shipping > 0)
             {
                 Credit(entry, shippingIncome, shipping);
@@ -118,7 +132,11 @@ public static class Ledger
 
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
-            Debit(entry, Accounts.RevenueRefunds, netMinor);
+            if (netMinor > 0)
+            {
+                Debit(entry, Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+            }
+
             if (shipping > 0)
             {
                 Debit(entry, shippingIncome, shipping);
@@ -135,7 +153,11 @@ public static class Ledger
         {
             var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueRefunds : revenueAccount;
             var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
-            Debit(entry, revenue, netMinor);
+            if (netMinor > 0)
+            {
+                Debit(entry, revenue, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+            }
+
             if (shipping > 0)
             {
                 Debit(entry, shippingIncome, shipping);
@@ -187,7 +209,11 @@ public static class Ledger
         // Reverse the sale (mirror Refund's two branches: shared contra vs the store's own accounts).
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
-            Debit(entry, Accounts.RevenueRefunds, netMinor);
+            if (netMinor > 0)
+            {
+                Debit(entry, Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+            }
+
             if (shipping > 0)
             {
                 Debit(entry, shippingIncome, shipping);
@@ -204,7 +230,11 @@ public static class Ledger
         {
             var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueRefunds : revenueAccount;
             var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
-            Debit(entry, revenue, netMinor);
+            if (netMinor > 0)
+            {
+                Debit(entry, revenue, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+            }
+
             if (shipping > 0)
             {
                 Debit(entry, shippingIncome, shipping);

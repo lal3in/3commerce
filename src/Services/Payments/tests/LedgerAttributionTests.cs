@@ -22,6 +22,33 @@ public class LedgerAttributionTests
         Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
 
     [Fact]
+    public void A_net_zero_sale_shipping_only_posts_a_balanced_entry_with_no_zero_revenue_line()
+    {
+        // A shipping-only order (e.g. a usage-metered product billed on consumption, no upfront price):
+        // gross 499 = shipping 499, tax 0 → net revenue 0. The revenue line must be OMITTED (a zero line
+        // violates the ledger's one-side-nonzero check constraint — this used to 500 the sale posting).
+        var orderId = Guid.CreateVersion7();
+        var entry = Ledger.Sale(orderId, 499, 0, 0, "AUD", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe", shippingMinor: 499);
+
+        Assert.DoesNotContain(entry.Lines, l => l.DebitMinor == 0 && l.CreditMinor == 0);
+        Assert.Equal(0, Credits(entry, Accounts.RevenueSales)); // no revenue line at all
+        Assert.Equal(499, Credits(entry, Accounts.ShippingIncome));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_net_zero_storefront_sale_still_balances_through_the_receivable_bridge()
+    {
+        var storeId = Guid.CreateVersion7();
+        var entry = Ledger.Sale(Guid.CreateVersion7(), 499, 0, 0, "EUR", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe",
+            revenueAccount: $"revenue.store-{storeId:N}", taxAccount: $"tax.store-{storeId:N}", receivableAccount: $"receivable.store-{storeId:N}",
+            shippingMinor: 499, shippingAccount: $"shipping.store-{storeId:N}");
+
+        Assert.DoesNotContain(entry.Lines, l => l.DebitMinor == 0 && l.CreditMinor == 0);
+        AssertBalanced(entry);
+    }
+
+    [Fact]
     public void A_google_pay_sale_on_stripe_posts_to_cash_stripe_and_names_the_method()
     {
         var orderId = Guid.CreateVersion7();
