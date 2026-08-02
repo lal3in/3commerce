@@ -66,6 +66,10 @@ public class SupplierPayableTests
         Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
         Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.ExpenseCostOfGoodsSold && l.DebitMinor == 8_000);
         Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.LiabilitySupplierPayable && l.CreditMinor == 8_000);
+        // Every line must carry the entry's currency — a balance is keyed by (AccountCode, Currency), and
+        // the Financials per-currency P&L filters COGS by line currency. An empty currency dropped COGS out
+        // of the per-currency view while it still showed in the by-store column (the two disagreed).
+        Assert.All(entry.Lines, l => Assert.Equal("AUD", l.Currency));
     }
 
     private static SupplierBankAccount NewBankAccount() =>
