@@ -1528,4 +1528,29 @@
   <data name="Reviews.Empty" xml:space="preserve"><value>Aún no hay reseñas.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Reseña eliminada.</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Descargar el archivo adjunto.</value></data>
+  <data name="Ops.Theme" xml:space="preserve"><value>Tema</value></data>
+  <data name="Ops.Theme.Intro" xml:space="preserve"><value>Personaliza la apariencia de la tienda con un pequeño conjunto de tokens de diseño. Los valores se sanean; deja un campo vacío para usar el valor predeterminado.</value></data>
+  <data name="Ops.Theme.ColorPrimary" xml:space="preserve"><value>Color primario</value></data>
+  <data name="Ops.Theme.ColorPrimary.Tip" xml:space="preserve"><value>Color de acento para botones y enlaces (p. ej. #111827).</value></data>
+  <data name="Ops.Theme.ColorBg" xml:space="preserve"><value>Fondo</value></data>
+  <data name="Ops.Theme.ColorBg.Tip" xml:space="preserve"><value>Color de fondo de la página (p. ej. #ffffff).</value></data>
+  <data name="Ops.Theme.ColorText" xml:space="preserve"><value>Color del texto</value></data>
+  <data name="Ops.Theme.ColorText.Tip" xml:space="preserve"><value>Color del texto principal (p. ej. #111827).</value></data>
+  <data name="Ops.Theme.ColorMuted" xml:space="preserve"><value>Texto atenuado</value></data>
+  <data name="Ops.Theme.ColorMuted.Tip" xml:space="preserve"><value>Color del texto secundario / atenuado (p. ej. #6b7280).</value></data>
+  <data name="Ops.Theme.FontSans" xml:space="preserve"><value>Fuente sans-serif</value></data>
+  <data name="Ops.Theme.FontSans.Tip" xml:space="preserve"><value>Pila de familias de fuentes (p. ej. system-ui, sans-serif).</value></data>
+  <data name="Ops.Theme.Radius" xml:space="preserve"><value>Radio de esquina</value></data>
+  <data name="Ops.Theme.Radius.Tip" xml:space="preserve"><value>Radio del borde para tarjetas y botones (p. ej. 0.5rem).</value></data>
+  <data name="Ops.Theme.Preview" xml:space="preserve"><value>Vista previa:</value></data>
+  <data name="Ops.Theme.PreviewText" xml:space="preserve"><value>Aa Tienda</value></data>
+  <data name="Ops.Theme.PreviewMuted" xml:space="preserve"><value>atenuado</value></data>
+  <data name="Ops.Duplicate" xml:space="preserve"><value>Duplicar</value></data>
+  <data name="Ops.Duplicate.Tip" xml:space="preserve"><value>Clona la configuración, el catálogo y el tema de esta tienda en una nueva tienda en borrador.</value></data>
+  <data name="Ops.Duplicate.NameLabel" xml:space="preserve"><value>Nombre de la nueva tienda</value></data>
+  <data name="Ops.Duplicate.NameLabel.Tip" xml:space="preserve"><value>Un nombre único para la tienda duplicada.</value></data>
+  <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Crear duplicado</value></data>
+  <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Crear la nueva tienda ahora.</value></data>
+  <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>La copia comienza como un borrador privado sin dominios: añade un dominio antes de publicarla.</value></data>
+  <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Tienda duplicada.</value></data>
 </root>

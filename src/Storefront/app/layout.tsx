@@ -8,6 +8,7 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { organizationJsonLd, siteUrl, webSiteJsonLd } from "@/lib/seo";
 import { ThemeStyle } from "@/components/theme/ThemeStyle";
 import { mergeTheme } from "@/lib/theme";
+import { resolveStorefront } from "@/lib/storefront-context";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -21,8 +22,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // client provider once here so client leaves (switcher, cart rows, forms) share one catalog.
   const [locale, messages, t] = await Promise.all([getLocale(), getMessages(), getTranslations("header")]);
   const tf = await getTranslations("footer");
-  // Per-storefront theme overrides (sanitized) merge over the default; tenant config wiring is mt5_6 follow-up.
-  const theme = mergeTheme(null);
+  // Per-storefront theme overrides (mt5_6): fetch the active storefront's sanitized tokens server-side and
+  // merge them over the default. mergeTheme re-sanitizes as defence-in-depth. A gateway hiccup must never
+  // 500 a page over a *look* — fall back to the default theme, exactly like the locale resolution does.
+  let theme = mergeTheme(null);
+  try {
+    const storefront = await resolveStorefront();
+    theme = mergeTheme(storefront?.theme ?? null);
+  } catch {
+    /* storefront config unavailable — the default theme renders */
+  }
   return (
     <html lang={locale}>
       <head>
