@@ -381,6 +381,7 @@
     "orderDate": "Date",
     "orderStatus": "Status",
     "partiallyRefunded": "Partially refunded",
+    "disputed": "Disputed",
     "payment": "Payment",
     "shippingAddress": "Shipping address",
     "items": "Items",

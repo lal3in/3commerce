@@ -16,8 +16,25 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
 public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit, ILogger<OrderStatusConsumer> logger) :
-    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>
+    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>
 {
+    /// <summary>
+    /// A chargeback opened against the order's payment (phase 2): flag it Disputed so the admin and the
+    /// shopper see the state. The order stays in its current status (the money already moved via the
+    /// ledger reversal); this is a badge, like <see cref="Order.PartiallyRefunded"/>. Idempotent.
+    /// </summary>
+    public async Task Consume(ConsumeContext<PaymentDisputed> context)
+    {
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
+        if (order is null || order.Disputed)
+        {
+            return; // idempotent
+        }
+
+        order.Disputed = true;
+        await db.SaveChangesAsync(context.CancellationToken);
+    }
+
     /// <summary>
     /// A fully-refunded order moves Confirmed → Refunded so the admin order list stops offering
     /// "Refund" and shows the true state. Partial refunds leave the order Confirmed (the money moved

@@ -152,7 +152,7 @@ else
     // (expense credited back) → green. Otherwise fall back to net cash direction (e.g. supplier payout → red).
     private static (long Amount, EntryKind Kind) Classify(EntryDto e)
     {
-        long revTaxDebit = 0, revTaxCredit = 0, cashDebit = 0, cashCredit = 0, expenseDebit = 0, expenseCredit = 0, writeoffDebit = 0;
+        long revTaxDebit = 0, revTaxCredit = 0, cashDebit = 0, cashCredit = 0, expenseDebit = 0, expenseCredit = 0, writeoffDebit = 0, chargebackFeeDebit = 0;
         foreach (var l in e.Lines)
         {
             if (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal))
@@ -173,7 +173,20 @@ else
                 {
                     writeoffDebit += l.DebitMinor;
                 }
+
+                if (l.AccountCode.EndsWith("_chargeback_fees", StringComparison.Ordinal))
+                {
+                    chargebackFeeDebit += l.DebitMinor;
+                }
             }
+        }
+
+        // A chargeback reverses revenue/tax (debit) like a refund AND books a dispute fee — the fee line
+        // distinguishes it from a plain refund. Classify it money-out (red), sized by the total cash that
+        // left the provider (disputed gross + fee), so it never reads as a benign amber refund.
+        if (chargebackFeeDebit > 0)
+        {
+            return (cashCredit, EntryKind.Outgoing);
         }
 
         if (revTaxDebit > 0)

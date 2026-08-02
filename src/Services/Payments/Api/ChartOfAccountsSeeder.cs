@@ -67,11 +67,13 @@ public static class ChartOfAccountsSeeder
             new() { Code = Accounts.LiabilityCarrierPayable, Name = "Owed to carriers", Type = AccountType.Liability },
         };
 
-        // Stripe keeps cash.stripe / expense.stripe_fees verbatim.
+        // Stripe keeps cash.stripe / expense.stripe_fees verbatim. Each PSP also gets a chargeback-fee
+        // account (phase 2) so dispute costs post separately from processing fees.
         accounts.AddRange(LedgerProviders.Known.SelectMany(provider => new[]
         {
             new LedgerAccount { Code = Accounts.CashFor(provider), Name = $"Cash — {ProviderName(provider)}", Type = AccountType.Asset },
             new LedgerAccount { Code = Accounts.FeesFor(provider), Name = $"{ProviderName(provider)} fees", Type = AccountType.Expense },
+            new LedgerAccount { Code = Accounts.ChargebackFeesFor(provider), Name = $"{ProviderName(provider)} chargeback fees", Type = AccountType.Expense },
         }));
         return accounts;
     }

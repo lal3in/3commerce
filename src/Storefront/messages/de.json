@@ -381,6 +381,7 @@
     "orderDate": "Datum",
     "orderStatus": "Status",
     "partiallyRefunded": "Teilweise erstattet",
+    "disputed": "Angefochten",
     "payment": "Zahlung",
     "shippingAddress": "Lieferadresse",
     "items": "Artikel",

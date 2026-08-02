@@ -1409,7 +1409,10 @@
   <data name="Fin.Writeoffs" xml:space="preserve">
     <value>Inventory write-offs</value>
   </data>
-  <data name="Fin.NetResult" xml:space="preserve">
+    <data name="Fin.Chargebacks" xml:space="preserve">
+    <value>Chargebacks</value>
+  </data>
+<data name="Fin.NetResult" xml:space="preserve">
     <value>Net result</value>
   </data>
   <data name="Fin.Position" xml:space="preserve">
@@ -1484,7 +1487,13 @@
   <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
     <value>Partially refunded</value>
   </data>
-  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+      <data name="Orders.Badge.Disputed.Tip" xml:space="preserve">
+    <value>A chargeback (payment dispute) was opened against this order</value>
+  </data>
+<data name="Orders.Badge.Disputed" xml:space="preserve">
+    <value>Disputed</value>
+  </data>
+<data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
     <value>A partial refund was issued — the order stays Confirmed (a full refund would move it to Refunded).</value>
   </data>
   <data name="Home.PartiallyRefunded" xml:space="preserve">

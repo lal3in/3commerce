@@ -59,6 +59,33 @@ public sealed class PaymentEventProcessor(
                 payment.Status = PaymentStatus.Failed;
                 await publisher.Publish(new PaymentFailed(payment.OrderId, payment.PaymentIntentId, ev.FailureReason ?? "failed"), ct);
                 break;
+
+            case PaymentWebhookKind.ChargebackOpened when payment.Status == PaymentStatus.Succeeded:
+                // Reverse only what's still standing — a partial refund may already have clawed some back.
+                var disputedGross = payment.AmountMinor - payment.RefundedMinor;
+                if (disputedGross <= 0)
+                {
+                    // Already fully refunded before the dispute landed: nothing left to reverse. Record the
+                    // inbox entry (done above) so the webhook isn't reprocessed, but post no journal entry.
+                    logger.LogWarning("Chargeback for order {OrderId}: nothing un-refunded remains; recorded only", payment.OrderId);
+                    break;
+                }
+
+                var cbAccounts = payment.StorefrontId is { } cbSid
+                    ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == cbSid, ct)
+                    : null;
+                // Proportional tax + shipping slice of the disputed gross (banker's rounding, as refunds).
+                var cbTax = payment.AmountMinor == 0 ? 0
+                    : (long)Math.Round((decimal)payment.TaxMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
+                var cbShipping = payment.AmountMinor == 0 ? 0
+                    : (long)Math.Round((decimal)payment.ShippingMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
+                db.JournalEntries.Add(Ledger.Chargeback(
+                    payment.OrderId, disputedGross, cbTax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
+                    payment.MethodKind, payment.Provider, cbAccounts?.RevenueAccountCode, cbAccounts?.TaxAccountCode, cbAccounts?.ReceivableAccountCode,
+                    cbShipping, cbAccounts?.ShippingAccountCode));
+                payment.Status = PaymentStatus.Disputed;
+                await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross), ct);
+                break;
         }
 
         await db.SaveChangesAsync(ct);

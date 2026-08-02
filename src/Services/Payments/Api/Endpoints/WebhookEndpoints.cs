@@ -18,6 +18,8 @@ public static class WebhookEndpoints
 
         // Dev/test only: simulate a successful payment for the fake provider.
         app.MapPost("/dev/simulate-payment/{intentId}", SimulatePayment).WithTags("Dev").ExcludeFromDescription();
+        // Dev/test only: simulate a chargeback (dispute) opening against a captured payment (phase 2).
+        app.MapPost("/dev/simulate-chargeback/{intentId}", SimulateChargeback).WithTags("Dev").ExcludeFromDescription();
         return app;
     }
 
@@ -73,6 +75,28 @@ public static class WebhookEndpoints
             PaymentIntentId: intentId,
             AmountMinor: amount,
             FeeMinor: FakePaymentProvider.FakeFee(amount),
+            FailureReason: null);
+
+        await processor.ProcessAsync(ev, ct);
+        return TypedResults.Ok();
+    }
+
+    // Dev-only: simulate a dispute opening. feeMinor defaults to a flat dispute fee (1500 minor);
+    // a distinct EventId per call keeps the inbox idempotency honest across repeated simulations.
+    private static async Task<Results<Ok, NotFound>> SimulateChargeback(
+        string intentId, IHostEnvironment env, PaymentEventProcessor processor, long? feeMinor, CancellationToken ct)
+    {
+        if (!env.IsDevelopment())
+        {
+            return TypedResults.NotFound();
+        }
+
+        var ev = new PaymentWebhookEvent(
+            EventId: $"evt_cb_{intentId}_{DateTime.UtcNow.Ticks}",
+            Kind: PaymentWebhookKind.ChargebackOpened,
+            PaymentIntentId: intentId,
+            AmountMinor: 0, // the processor reverses the payment's remaining un-refunded gross, not this
+            FeeMinor: feeMinor ?? 1500,
             FailureReason: null);
 
         await processor.ProcessAsync(ev, ct);

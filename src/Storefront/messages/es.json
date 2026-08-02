@@ -381,6 +381,7 @@
     "orderDate": "Fecha",
     "orderStatus": "Estado",
     "partiallyRefunded": "Reembolsado parcialmente",
+    "disputed": "En disputa",
     "payment": "Pago",
     "shippingAddress": "Dirección de envío",
     "items": "Artículos",

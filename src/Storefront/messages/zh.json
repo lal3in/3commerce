@@ -381,6 +381,7 @@
     "orderDate": "日期",
     "orderStatus": "状态",
     "partiallyRefunded": "部分退款",
+    "disputed": "有争议",
     "payment": "付款",
     "shippingAddress": "收货地址",
     "items": "商品",
