@@ -195,6 +195,37 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task A_chargeback_reverses_the_sale_books_a_dispute_fee_and_marks_the_payment_disputed()
+    {
+        var productId = await fixture.SeedProductAsync(9_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        using (var payments = fixture.Payments.CreateClient())
+        {
+            var intentId = $"pi_fake_{order.OrderId:N}";
+            (await payments.PostAsync($"/dev/simulate-chargeback/{intentId}?feeMinor=1500", null)).EnsureSuccessStatusCode();
+        }
+
+        // The chargeback entry has its own "{orderId}:chargeback" reference (distinct from the sale's).
+        await WaitForEntryAsync($"{order.OrderId}:chargeback");
+        var lines = await EntryLinesAsync($"{order.OrderId}:chargeback");
+        Assert.Contains(lines, l => l.AccountCode.EndsWith("_chargeback_fees", StringComparison.Ordinal) && l.DebitMinor == 1500);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var status = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.Payments.Where(p => p.OrderId == order.OrderId).Select(p => p.Status));
+            Assert.Equal(ThreeCommerce.Payments.Domain.PaymentStatus.Disputed, status);
+        }
+    }
+
+    [Fact]
     public async Task Admin_cannot_cancel_a_confirmed_order_and_must_refund_instead()
     {
         var productId = await fixture.SeedProductAsync(5_000);

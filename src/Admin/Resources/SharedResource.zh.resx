@@ -1409,7 +1409,10 @@
   <data name="Fin.Writeoffs" xml:space="preserve">
     <value>存货核销</value>
   </data>
-  <data name="Fin.NetResult" xml:space="preserve">
+    <data name="Fin.Chargebacks" xml:space="preserve">
+    <value>拒付</value>
+  </data>
+<data name="Fin.NetResult" xml:space="preserve">
     <value>净利润</value>
   </data>
   <data name="Fin.Position" xml:space="preserve">
@@ -1484,7 +1487,13 @@
   <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
     <value>部分退款</value>
   </data>
-  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+      <data name="Orders.Badge.Disputed.Tip" xml:space="preserve">
+    <value>针对此订单发起了拒付（付款争议）</value>
+  </data>
+<data name="Orders.Badge.Disputed" xml:space="preserve">
+    <value>有争议</value>
+  </data>
+<data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
     <value>已发出部分退款——订单仍为已确认（全额退款才会变为已退款）。</value>
   </data>
   <data name="Home.PartiallyRefunded" xml:space="preserve">

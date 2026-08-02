@@ -1409,7 +1409,10 @@
   <data name="Fin.Writeoffs" xml:space="preserve">
     <value>Bestandsabschreibungen</value>
   </data>
-  <data name="Fin.NetResult" xml:space="preserve">
+    <data name="Fin.Chargebacks" xml:space="preserve">
+    <value>Rückbuchungen</value>
+  </data>
+<data name="Fin.NetResult" xml:space="preserve">
     <value>Nettoergebnis</value>
   </data>
   <data name="Fin.Position" xml:space="preserve">
@@ -1484,7 +1487,13 @@
   <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
     <value>Teilweise erstattet</value>
   </data>
-  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+      <data name="Orders.Badge.Disputed.Tip" xml:space="preserve">
+    <value>Gegen diese Bestellung wurde eine Rückbuchung (Zahlungsstreitfall) eröffnet</value>
+  </data>
+<data name="Orders.Badge.Disputed" xml:space="preserve">
+    <value>Angefochten</value>
+  </data>
+<data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
     <value>Eine Teilerstattung wurde ausgeführt – die Bestellung bleibt Bestätigt (eine vollständige Erstattung würde sie auf Erstattet setzen).</value>
   </data>
   <data name="Home.PartiallyRefunded" xml:space="preserve">

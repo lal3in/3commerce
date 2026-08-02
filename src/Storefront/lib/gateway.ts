@@ -266,7 +266,7 @@ export type OrderDetail = {
   netMinor: number; shippingMinor: number; discountMinor: number; taxMinor: number; grossMinor: number; currency: string;
   createdAt: string; lines: OrderLineDetail[];
   publicOrderNumber: number; paymentOption: string; paymentInstrumentSummary: string | null; paymentProvider: string;
-  partiallyRefunded: boolean; shippingAddress: OrderShippingAddress | null;
+  partiallyRefunded: boolean; disputed: boolean; shippingAddress: OrderShippingAddress | null;
 };
 
 // The signed-in customer's own order, full detail (addresses, payment, items, amount breakdown).

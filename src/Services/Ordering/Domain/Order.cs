@@ -18,6 +18,9 @@ public class Order
     // A partial refund moves money but leaves the order Confirmed (a full refund → Refunded). This flag
     // lets the admin distinguish a partially-refunded order from an untouched one (rma_partial).
     public bool PartiallyRefunded { get; set; }
+    // A chargeback (dispute) was opened against this order's payment (phase 2). The ledger has reversed
+    // the sale + booked the dispute fee; this flag surfaces the disputed state to operators and the shopper.
+    public bool Disputed { get; set; }
     public long NetMinor { get; set; }
     public long TaxMinor { get; set; }
     public long ShippingMinor { get; set; }

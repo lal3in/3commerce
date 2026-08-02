@@ -2,7 +2,7 @@ using ThreeCommerce.Payments.Domain.Ledger;
 
 namespace ThreeCommerce.Payments.Domain;
 
-public enum PaymentStatus { Pending = 1, Succeeded = 2, Failed = 3, Refunded = 4 }
+public enum PaymentStatus { Pending = 1, Succeeded = 2, Failed = 3, Refunded = 4, Disputed = 5 }
 
 /// <summary>Tracks one order's payment intent through its lifecycle.</summary>
 public class Payment

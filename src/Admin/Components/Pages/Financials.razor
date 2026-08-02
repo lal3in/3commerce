@@ -34,10 +34,11 @@ else
                         @Line(L["Fin.Shipping"], ShippingIncome(cur), false)
                         @Line(L["Fin.Refunds"], -Refunds(cur), false)
                         @Line(L["Fin.Fees"], -Fees(cur), false)
+                        @Line(L["Fin.Chargebacks"], -Chargebacks(cur), false)
                         @Line(L["Fin.Cogs"], -Cogs(cur), false)
                         @Line(L["Fin.ShippingCost"], -ShippingCost(cur), false)
                         @Line(L["Fin.Writeoffs"], -Writeoffs(cur), false)
-                        @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur) - Cogs(cur) - ShippingCost(cur) - Writeoffs(cur), cur)
+                        @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur) - Chargebacks(cur) - Cogs(cur) - ShippingCost(cur) - Writeoffs(cur), cur)
                     </table>
                 </div>
                 <div>
@@ -144,11 +145,16 @@ else
     // Shipping charged to shoppers, booked to shipping.* — per-store (shipping.store-…) or the shared
     // shipping.income — its own income line, not revenue.*. Credit-normal, already net of refunds.
     private long ShippingIncome(string c) => Sum(c, a => a.StartsWith("shipping.", StringComparison.Ordinal), creditNormal: true);
-    // Processing/chargeback-style provider fees ONLY — every such account is named expense.{provider}_fees
-    // (see Accounts.FeesFor / ChargebackFeesFor). This is narrower than "all expense.*": COGS, carrier
-    // shipping cost and write-offs are their own P&L lines below (Cogs/ShippingCost/Writeoffs) so a new
-    // expense category never silently gets swallowed into "fees" again.
-    private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal) && a.EndsWith("_fees", StringComparison.Ordinal), creditNormal: false);
+    // Processing provider fees ONLY — expense.{provider}_fees (see Accounts.FeesFor), EXCLUDING the
+    // chargeback-fee accounts (expense.{provider}_chargeback_fees), which get their own line below so
+    // dispute costs are visible separately. Narrower than "all expense.*": COGS, carrier shipping cost,
+    // write-offs and chargebacks are each their own P&L line, so a new expense category never silently
+    // gets swallowed into "fees".
+    private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal) && a.EndsWith("_fees", StringComparison.Ordinal) && !a.EndsWith("_chargeback_fees", StringComparison.Ordinal), creditNormal: false);
+    // Chargeback (dispute) fees only — expense.{provider}_chargeback_fees (see Accounts.ChargebackFeesFor).
+    // The disputed sale's revenue/tax reversal is contra-revenue (lands in Refunds, like a refund); this
+    // line surfaces the dispute FEE on its own. Debit-normal.
+    private long Chargebacks(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal) && a.EndsWith("_chargeback_fees", StringComparison.Ordinal), creditNormal: false);
     // Cost of goods sold: the shared expense.cogs plus every per-store expense.cogs.store-{id} (see
     // Accounts.CogsStoreFor). Debit-normal like every expense account.
     private long Cogs(string c) => Sum(c, a => a.StartsWith("expense.cogs", StringComparison.Ordinal), creditNormal: false);

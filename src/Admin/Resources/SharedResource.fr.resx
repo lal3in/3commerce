@@ -1409,7 +1409,10 @@
   <data name="Fin.Writeoffs" xml:space="preserve">
     <value>Dépréciations de stock</value>
   </data>
-  <data name="Fin.NetResult" xml:space="preserve">
+    <data name="Fin.Chargebacks" xml:space="preserve">
+    <value>Rétrofacturations</value>
+  </data>
+<data name="Fin.NetResult" xml:space="preserve">
     <value>Résultat net</value>
   </data>
   <data name="Fin.Position" xml:space="preserve">
@@ -1484,7 +1487,13 @@
   <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
     <value>Partiellement remboursé</value>
   </data>
-  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+      <data name="Orders.Badge.Disputed.Tip" xml:space="preserve">
+    <value>Une rétrofacturation (litige de paiement) a été ouverte contre cette commande</value>
+  </data>
+<data name="Orders.Badge.Disputed" xml:space="preserve">
+    <value>Contesté</value>
+  </data>
+<data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
     <value>Un remboursement partiel a été émis — la commande reste Confirmée (un remboursement total la passerait à Remboursée).</value>
   </data>
   <data name="Home.PartiallyRefunded" xml:space="preserve">

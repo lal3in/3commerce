@@ -1409,7 +1409,10 @@
   <data name="Fin.Writeoffs" xml:space="preserve">
     <value>Bajas de inventario</value>
   </data>
-  <data name="Fin.NetResult" xml:space="preserve">
+    <data name="Fin.Chargebacks" xml:space="preserve">
+    <value>Contracargos</value>
+  </data>
+<data name="Fin.NetResult" xml:space="preserve">
     <value>Resultado neto</value>
   </data>
   <data name="Fin.Position" xml:space="preserve">
@@ -1484,7 +1487,13 @@
   <data name="Orders.Badge.PartiallyRefunded" xml:space="preserve">
     <value>Reembolsado parcialmente</value>
   </data>
-  <data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
+      <data name="Orders.Badge.Disputed.Tip" xml:space="preserve">
+    <value>Se abrió un contracargo (disputa de pago) contra este pedido</value>
+  </data>
+<data name="Orders.Badge.Disputed" xml:space="preserve">
+    <value>En disputa</value>
+  </data>
+<data name="Orders.Badge.PartiallyRefunded.Tip" xml:space="preserve">
     <value>Se emitió un reembolso parcial: el pedido sigue Confirmado (un reembolso total lo pasaría a Reembolsado).</value>
   </data>
   <data name="Home.PartiallyRefunded" xml:space="preserve">

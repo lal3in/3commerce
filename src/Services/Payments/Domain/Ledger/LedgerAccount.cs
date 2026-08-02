@@ -54,6 +54,13 @@ public static class Accounts
     public static string FeesFor(string? provider) => $"expense.{LedgerProviders.Normalize(provider)}_fees";
 
     /// <summary>
+    /// The chargeback-fee expense account for <paramref name="provider"/>: <c>expense.{provider}_chargeback_fees</c>.
+    /// Distinct from the processing fee so the P&amp;L can surface dispute costs on their own line (the
+    /// Financials Fees line matches <c>_fees</c> but EXCLUDES <c>_chargeback_fees</c>).
+    /// </summary>
+    public static string ChargebackFeesFor(string? provider) => $"expense.{LedgerProviders.Normalize(provider)}_chargeback_fees";
+
+    /// <summary>
     /// The per-storefront COGS account for store <paramref name="sid"/>: <c>expense.cogs.store-{id:N}</c>.
     /// Derived in Payments (not operator-configurable, unlike income-side codes) from the order's
     /// StorefrontId; orders with no storefront attribution fall back to the shared <see cref="ExpenseCostOfGoodsSold"/>.

@@ -51,4 +51,4 @@ public record PaymentWebhookEvent(
     long FeeMinor,
     string? FailureReason);
 
-public enum PaymentWebhookKind { PaymentSucceeded = 1, PaymentFailed = 2 }
+public enum PaymentWebhookKind { PaymentSucceeded = 1, PaymentFailed = 2, ChargebackOpened = 3 }

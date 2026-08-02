@@ -155,6 +155,82 @@ public static class Ledger
     }
 
     /// <summary>
+    /// A chargeback (dispute, phase 2) reverses the sale like a <see cref="Refund"/> — revenue, shipping and
+    /// tax back out through the store's own accounts (or the shared contra accounts), gross out of
+    /// <c>cash.{provider}</c> — AND books the provider's dispute fee to <c>expense.{provider}_chargeback_fees</c>
+    /// (its own line, distinct from processing fees). <paramref name="grossMinor"/> is the disputed amount
+    /// (the sale's remaining un-refunded gross); <paramref name="feeMinor"/> the provider's dispute fee.
+    /// </summary>
+    public static JournalEntry Chargeback(
+        Guid orderId,
+        long grossMinor,
+        long taxMinor,
+        long feeMinor,
+        string currency,
+        DateTimeOffset now,
+        PaymentMethodKind methodKind = PaymentMethodKind.Card,
+        string? provider = null,
+        string? revenueAccount = null,
+        string? taxAccount = null,
+        string? receivableAccount = null,
+        long shippingMinor = 0,
+        string? shippingAccount = null)
+    {
+        var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
+        var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
+        var netMinor = grossMinor - taxMinor - shipping;
+        var cash = Accounts.CashFor(provider);
+        // Distinct reference from the sale (which references the bare order id) so reporting/lookup can
+        // tell the dispute reversal apart from the original sale. One chargeback per order in this model.
+        var entry = NewEntry($"Chargeback for order {orderId} via {methodKind}", $"{orderId}:chargeback", currency, now);
+
+        // Reverse the sale (mirror Refund's two branches: shared contra vs the store's own accounts).
+        if (string.IsNullOrWhiteSpace(receivableAccount))
+        {
+            Debit(entry, Accounts.RevenueRefunds, netMinor);
+            if (shipping > 0)
+            {
+                Debit(entry, shippingIncome, shipping);
+            }
+
+            if (taxMinor > 0)
+            {
+                Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
+            }
+
+            Credit(entry, cash, grossMinor);
+        }
+        else
+        {
+            var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueRefunds : revenueAccount;
+            var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
+            Debit(entry, revenue, netMinor);
+            if (shipping > 0)
+            {
+                Debit(entry, shippingIncome, shipping);
+            }
+
+            if (taxMinor > 0)
+            {
+                Debit(entry, taxLiability, taxMinor);
+            }
+
+            Credit(entry, receivableAccount, grossMinor);
+            Debit(entry, receivableAccount, grossMinor);
+            Credit(entry, cash, grossMinor);
+        }
+
+        // The dispute fee: an expense out of the settling provider's cash, on its own chargeback-fee account.
+        if (feeMinor > 0)
+        {
+            Debit(entry, Accounts.ChargebackFeesFor(provider), feeMinor);
+            Credit(entry, cash, feeMinor);
+        }
+
+        return entry;
+    }
+
+    /// <summary>
     /// A carrier-label cost accrual (phase 1): buying a label incurs a charge the carrier will
     /// invoice later, so no real money moves yet — this debits the shipping-cost expense (the
     /// storefront's own <c>expense.shipping.store-{id}</c> when known, else the shared

@@ -42,6 +42,10 @@ else
                     {
                         <span title="@L["Orders.Badge.PartiallyRefunded.Tip"]" style="display:inline-block; margin-left:.4rem; padding:.05rem .4rem; border-radius:999px; font-size:.7rem; font-weight:600; color:#b45309; background:#fef3c7;">@L["Orders.Badge.PartiallyRefunded"]</span>
                     }
+                    @if (o.Disputed)
+                    {
+                        <span title="@L["Orders.Badge.Disputed.Tip"]" style="display:inline-block; margin-left:.4rem; padding:.05rem .4rem; border-radius:999px; font-size:.7rem; font-weight:600; color:#b91c1c; background:#fee2e2;">@L["Orders.Badge.Disputed"]</span>
+                    }
                 </td>
                 <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
                 <td>@PaymentLabel(o.PaymentOption)</td>
@@ -76,7 +80,7 @@ else
                                 <div style="font-weight:600; margin-bottom:.3rem;">@L["Orders.Details.Summary"]</div>
                                 <div>@L["Orders.Details.Number"]: <strong>#@d.PublicOrderNumber</strong></div>
                                 <div>@L["Orders.Details.Date"]: @d.CreatedAt.LocalDateTime.ToString("g")</div>
-                                <div>@L["Common.Status"]: @d.Status@(d.PartiallyRefunded ? $" · {L["Orders.Badge.PartiallyRefunded"]}" : "")</div>
+                                <div>@L["Common.Status"]: @d.Status@(d.PartiallyRefunded ? $" · {L["Orders.Badge.PartiallyRefunded"]}" : "")@(d.Disputed ? $" · {L["Orders.Badge.Disputed"]}" : "")</div>
                                 <div>@L["Orders.Details.Email"]: @d.Email</div>
                                 <div>@L["Orders.Details.Payment"]: @PaymentLabel(d.PaymentOption)@(string.IsNullOrEmpty(d.PaymentInstrumentSummary) ? "" : $" · {d.PaymentInstrumentSummary}") (@d.PaymentProvider)</div>
                             </div>
@@ -221,11 +225,11 @@ else
         _ => option, // future/unknown option — show the raw value rather than hiding it
     };
 
-    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, bool PartiallyRefunded = false);
+    public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, bool PartiallyRefunded = false, bool Disputed = false);
     public record OrderLineDto(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
     public record ShipAddrDto(string Name, string Line1, string City, string Postcode, string Country);
     public record OrderDetailDto(
         Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor,
         string Currency, DateTimeOffset CreatedAt, List<OrderLineDto> Lines,
-        long PublicOrderNumber, string PaymentOption, string? PaymentInstrumentSummary, string PaymentProvider, bool PartiallyRefunded, ShipAddrDto? ShippingAddress);
+        long PublicOrderNumber, string PaymentOption, string? PaymentInstrumentSummary, string PaymentProvider, bool PartiallyRefunded, bool Disputed, ShipAddrDto? ShippingAddress);
 }

@@ -78,7 +78,7 @@ function OrderRow({ order, t }: { order: OrderSummaryDto; t: ReturnType<typeof u
                 <span className="text-neutral-500">{t("orderDate")}</span>
                 <span className="text-right"><LocalTime iso={detail.createdAt} /></span>
                 <span className="text-neutral-500">{t("orderStatus")}</span>
-                <span className="text-right">{detail.status}{detail.partiallyRefunded ? ` · ${t("partiallyRefunded")}` : ""}</span>
+                <span className="text-right">{detail.status}{detail.partiallyRefunded ? ` · ${t("partiallyRefunded")}` : ""}{detail.disputed ? ` · ${t("disputed")}` : ""}</span>
                 <span className="text-neutral-500">{t("payment")}</span>
                 <span className="text-right">
                   {detail.paymentOption}{detail.paymentInstrumentSummary ? ` · ${detail.paymentInstrumentSummary}` : ""} ({detail.paymentProvider})
