@@ -659,6 +659,23 @@ try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load
 except Exception: pass")
 }
 
+# Settle an order's payment, retrying until the checkout saga has created the payment intent — a bare
+# simulate-payment fired right after checkout races intent creation and 500s (leaving the order unpaid,
+# so it never posts to the ledger). Polls up to ~10s; records the final outcome for the run summary.
+settle_order_payment() {
+  local oid="$1" gross="$2" jar="$3" label="$4" code i path bf
+  path="/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross"
+  bf="$OUT_DIR/${label//[^A-Za-z0-9_.-]/_}.json"
+  code=000
+  for i in $(seq 1 10); do
+    code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY$path" -o "$bf" -w '%{http_code}' 2>/dev/null || echo 000)
+    [[ "$code" =~ ^2 ]] && break
+    sleep 1
+  done
+  record "$label" POST "/api/payments/dev/simulate-payment" "$code" "$bf" "allow_4xx"
+  printf '  %-40s %s simulate-payment -> %s\n' "$label" POST "$code" >&2
+}
+
 # Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
 # per-storefront dashboard/Financials show real revenue for every store — not just the tenant default.
 # (checkout_scenario's generic orders carry no storefront, so they land on the gateway default store.)
@@ -687,11 +704,76 @@ except Exception: print('')")
         "{\"email\":\"store-$cur@example.test\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Store Demo\",\"line1\":\"1 Demo St\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
       oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
       [[ -n "$oid" ]] || continue
-      api "sf-ord-pay-$cur-$n" POST "/api/payments/dev/simulate-payment/pi_fake_${oid//-/}?amountMinor=$gross" "$jar" "" "allow_4xx" >/dev/null
+      settle_order_payment "$oid" "$gross" "$jar" "sf-ord-pay-$cur-$n"
     done
   done < <(printf '%s' "$sfs" | python3 -c "import sys,json
 try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
 except Exception: pass")
+}
+
+# Register THREE more real (verified) shopper accounts per storefront, each buying on its home store in
+# that store's currency — and some also buying on a DIFFERENT store (cross-storefront), so per-store
+# Financials show orders spread across many customers, including shoppers who span stores. Verified so
+# they also work for verified-only features (reviews). Best-effort: skips a store with no priced product.
+seed_extra_customers() {
+  echo "== extra per-storefront customers + cross-storefront orders =="
+  local sfs
+  sfs=$(api "xc-sf-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  # storefront rows as id|currency, into an array so we can pick a DIFFERENT store for cross-store orders.
+  local -a rows=()
+  while IFS= read -r r; do [[ -n "$r" ]] && rows+=("$r"); done < <(printf '%s' "$sfs" | python3 -c "import sys,json
+try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
+except Exception: pass")
+  local n=${#rows[@]}
+  [[ "$n" -ge 1 ]] || { manifest_append "warnings" "$(json_string "seed_extra_customers: no storefronts")"; return; }
+
+  # Buy one unit of a product priced in $cur on store $sid, as the customer holding cookie $jar. Echoes
+  # nothing; best-effort. Reuses the storefront's own product listing so the cart currency always matches.
+  place_order_on() {
+    local sid="$1" cur="$2" jar="$3" email="$4" opt="$5" pid body oid gross
+    pid=$(api "xc-prod-$cur-$sid" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=5" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
+try:
+  d=json.load(sys.stdin); print(d[0]['id'] if d else '')
+except Exception: print('')")
+    [[ -n "$pid" ]] || return 0
+    api "xc-cart-$cur-$email" POST "/api/ordering/cart/items" "$jar" \
+      "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "allow_4xx" >/dev/null
+    body=$(api "xc-checkout-$cur-$email" POST "/api/ordering/checkout" "$jar" \
+      "{\"email\":\"$email\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Shopper\",\"line1\":\"7 Buyer Rd\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
+    oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
+    [[ -n "$oid" ]] || return 0
+    settle_order_payment "$oid" "$gross" "$jar" "xc-pay-$cur-$email"
+  }
+
+  local i idx=0
+  for ((i = 0; i < n; i++)); do
+    local sid="${rows[$i]%%|*}" cur="${rows[$i]##*|}"
+    # The next store in the list (wraps) is where this store's first shopper also buys — cross-storefront.
+    local xi=$(((i + 1) % n)) xsid xcur
+    xsid="${rows[$xi]%%|*}"; xcur="${rows[$xi]##*|}"
+    local c
+    for c in 1 2 3; do
+      idx=$((idx + 1))
+      local opt; case $((idx % 3)) in 0) opt=CreditCard ;; 1) opt=PayPal ;; 2) opt=Polar ;; esac
+      local email="shopper.$RUN_ID.$cur.$c@example.test" password="Shopper-password-123"
+      local jar="$OUT_DIR/xc-$cur-$c.cookie"; : >"$jar"
+      api_noauth "xc-register-$cur-$c" POST "/api/identity/register" "$jar" \
+        "{\"email\":\"$email\",\"password\":\"$password\"}" "allow_4xx" >/dev/null
+      # Verify (proper path: publishes EmailVerified) so the shopper works for verified-only features too.
+      local cid; cid=$(user_id_by_email "$email")
+      [[ -n "$cid" ]] && api "xc-verify-$cur-$c" POST "/api/identity/admin/users/$cid/verify-email?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+      api_noauth "xc-login-$cur-$c" POST "/api/identity/login" "$jar" \
+        "{\"email\":\"$email\",\"password\":\"$password\"}" "allow_4xx" >/dev/null
+      api "xc-addr-$cur-$c" POST "/api/identity/me/addresses" "$jar" \
+        '{"purpose":3,"isDefault":true,"name":"Shopper Home","line1":"7 Buyer Rd","city":"City","postcode":"2000","country":"AU"}' "allow_4xx" >/dev/null
+      # Home-store order in this store's currency.
+      place_order_on "$sid" "$cur" "$jar" "$email" "$opt"
+      # Shopper #1 of each store ALSO buys on the next store (cross-storefront), when there's more than one.
+      if [[ "$c" == "1" && "$n" -gt 1 ]]; then
+        place_order_on "$xsid" "$xcur" "$jar" "$email" "$opt"
+      fi
+    done
+  done
 }
 
 seed_full() {
@@ -783,6 +865,7 @@ except Exception:
   seed_historical_flows
   seed_storefront_publications
   seed_storefront_orders
+  seed_extra_customers
   seed_subscription_examples
 
   product_json=$(api "catalog-products" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")
