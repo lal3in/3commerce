@@ -1584,7 +1584,10 @@
   <data name="Reviews.Col.Comment" xml:space="preserve"><value>评论</value></data>
   <data name="Reviews.Col.Created" xml:space="preserve"><value>日期</value></data>
   <data name="Reviews.Delete" xml:space="preserve"><value>移除</value></data>
-  <data name="Reviews.Delete.Tip" xml:space="preserve"><value>移除此评价（审核）。</value></data>
+    <data name="Reviews.NoRating" xml:space="preserve">
+    <value>无评分</value>
+  </data>
+<data name="Reviews.Delete.Tip" xml:space="preserve"><value>移除此评价（审核）。</value></data>
   <data name="Reviews.Empty" xml:space="preserve"><value>暂无评价。</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>评价已移除。</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>下载附件。</value></data>

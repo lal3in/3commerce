@@ -20,9 +20,10 @@ public class ProductReviewTests(Phase2Fixture fixture) : IAsyncLifetime
     private HttpClient _public = null!;
     private Guid _productId;
 
-    private sealed record ReviewDto(Guid Id, string AuthorName, int Rating, string? Comment, DateTimeOffset CreatedAt);
+    private sealed record ReplyDto(Guid Id, string AuthorName, string Message, DateTimeOffset CreatedAt);
+    private sealed record ReviewDto(Guid Id, string AuthorName, int? Rating, string? Comment, DateTimeOffset CreatedAt, List<ReplyDto> Replies);
     private sealed record SummaryDto(Guid ProductId, double Average, int Count, List<ReviewDto> Items);
-    private sealed record AdminReviewDto(Guid Id, Guid ProductId, string ProductName, string ProductSlug, string AuthorName, int Rating, string? Comment, DateTimeOffset CreatedAt);
+    private sealed record AdminReviewDto(Guid Id, Guid ProductId, string ProductName, string ProductSlug, string AuthorName, int? Rating, string? Comment, DateTimeOffset CreatedAt);
 
     public async Task InitializeAsync()
     {
@@ -119,5 +120,71 @@ public class ProductReviewTests(Phase2Fixture fixture) : IAsyncLifetime
         var summary = await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews");
         Assert.Equal(1, summary!.Count); // upsert, not a duplicate
         Assert.Equal(5, summary.Average);
+    }
+
+    [Fact]
+    public async Task A_member_can_reply_to_another_members_review_and_it_nests_without_affecting_the_rating()
+    {
+        // Author leaves a rating review.
+        var author = ClientForUser(Guid.CreateVersion7(), true);
+        (await author.PostAsJsonAsync($"/products/{_productId}/reviews", new { rating = 4, comment = "Solid", authorName = "Ann" })).EnsureSuccessStatusCode();
+        var review = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!.Items.Single();
+
+        // A DIFFERENT member replies to it (verified). Replies carry no rating.
+        var replier = ClientForUser(Guid.CreateVersion7(), true);
+        (await replier.PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "Agreed!", authorName = "Bob", parentId = review.Id })).EnsureSuccessStatusCode();
+
+        var after = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!;
+        Assert.Equal(1, after.Count);          // replies don't count toward the rating aggregate
+        Assert.Equal(4, after.Average);        // ...nor move the average
+        var top = after.Items.Single();
+        var reply = Assert.Single(top.Replies);
+        Assert.Equal("Agreed!", reply.Message);
+        Assert.Equal("Bob", reply.AuthorName);
+    }
+
+    [Fact]
+    public async Task A_member_can_add_multiple_plain_comments_with_no_rating()
+    {
+        var user = Guid.CreateVersion7();
+        (await ClientForUser(user, true).PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "First question", authorName = "Q" })).EnsureSuccessStatusCode();
+        (await ClientForUser(user, true).PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "Second question", authorName = "Q" })).EnsureSuccessStatusCode();
+
+        var summary = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!;
+        Assert.Equal(0, summary.Count);                                  // no ratings → aggregate empty
+        Assert.Equal(2, summary.Items.Count(i => i.Rating is null));     // both comments present (not upserted)
+    }
+
+    [Fact]
+    public async Task Deleting_a_parent_cascades_its_replies()
+    {
+        var author = ClientForUser(Guid.CreateVersion7(), true);
+        (await author.PostAsJsonAsync($"/products/{_productId}/reviews", new { rating = 3, comment = "ok" })).EnsureSuccessStatusCode();
+        var review = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!.Items.Single();
+        var replier = ClientForUser(Guid.CreateVersion7(), true);
+        (await replier.PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "reply", parentId = review.Id })).EnsureSuccessStatusCode();
+
+        // Admin deletes the parent; the reply must go too (no orphaned thread).
+        var admin = Client("admin", emailVerified: true);
+        (await admin.DeleteAsync($"/admin/reviews/{review.Id}")).EnsureSuccessStatusCode();
+
+        using var scope = _catalog.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        Assert.Equal(0, db.ProductReviews.Count(r => r.ProductId == _productId));
+    }
+
+    [Fact]
+    public async Task A_reply_to_a_reply_is_rejected_one_level_deep()
+    {
+        var author = ClientForUser(Guid.CreateVersion7(), true);
+        (await author.PostAsJsonAsync($"/products/{_productId}/reviews", new { rating = 5, comment = "top" })).EnsureSuccessStatusCode();
+        var review = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!.Items.Single();
+        var replier = ClientForUser(Guid.CreateVersion7(), true);
+        (await replier.PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "r1", parentId = review.Id })).EnsureSuccessStatusCode();
+        var reply = (await _public.GetFromJsonAsync<SummaryDto>($"/products/{_productId}/reviews"))!.Items.Single().Replies.Single();
+
+        var deepEr = ClientForUser(Guid.CreateVersion7(), true);
+        var deep = await deepEr.PostAsJsonAsync($"/products/{_productId}/reviews", new { comment = "r2", parentId = reply.Id });
+        Assert.Equal(HttpStatusCode.BadRequest, deep.StatusCode);
     }
 }

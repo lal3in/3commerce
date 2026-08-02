@@ -498,7 +498,14 @@
     "notice": {
       "anon": "以留下评价。",
       "unverified": "请验证您的电子邮箱以留下评价。"
-    }
+    },
+    "reply": "回复",
+    "replyTitle": "写回复",
+    "replyPlaceholder": "你的回复…",
+    "postReply": "发布回复",
+    "addComment": "添加评论",
+    "postComment": "发布评论",
+    "posted": "已发布。"
   },
   "refunds": {
     "title": "您的退款申请",

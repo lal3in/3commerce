@@ -1584,7 +1584,10 @@
   <data name="Reviews.Col.Comment" xml:space="preserve"><value>Comment</value></data>
   <data name="Reviews.Col.Created" xml:space="preserve"><value>Date</value></data>
   <data name="Reviews.Delete" xml:space="preserve"><value>Remove</value></data>
-  <data name="Reviews.Delete.Tip" xml:space="preserve"><value>Remove this review (moderation).</value></data>
+    <data name="Reviews.NoRating" xml:space="preserve">
+    <value>No rating</value>
+  </data>
+<data name="Reviews.Delete.Tip" xml:space="preserve"><value>Remove this review (moderation).</value></data>
   <data name="Reviews.Empty" xml:space="preserve"><value>No reviews yet.</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>Review removed.</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>Download the attached file.</value></data>

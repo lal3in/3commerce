@@ -1584,7 +1584,10 @@
   <data name="Reviews.Col.Comment" xml:space="preserve"><value>評論</value></data>
   <data name="Reviews.Col.Created" xml:space="preserve"><value>日期</value></data>
   <data name="Reviews.Delete" xml:space="preserve"><value>移除</value></data>
-  <data name="Reviews.Delete.Tip" xml:space="preserve"><value>移除此評價（審核）。</value></data>
+    <data name="Reviews.NoRating" xml:space="preserve">
+    <value>冇評分</value>
+  </data>
+<data name="Reviews.Delete.Tip" xml:space="preserve"><value>移除此評價（審核）。</value></data>
   <data name="Reviews.Empty" xml:space="preserve"><value>暫時未有評價。</value></data>
   <data name="Reviews.Deleted" xml:space="preserve"><value>評價已移除。</value></data>
   <data name="Tickets.Attachment.Tip" xml:space="preserve"><value>下載附件。</value></data>

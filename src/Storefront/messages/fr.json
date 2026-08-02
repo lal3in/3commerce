@@ -498,7 +498,14 @@
     "notice": {
       "anon": "pour laisser un avis.",
       "unverified": "Vérifiez votre adresse e-mail pour laisser un avis."
-    }
+    },
+    "reply": "Répondre",
+    "replyTitle": "Écrire une réponse",
+    "replyPlaceholder": "Votre réponse…",
+    "postReply": "Publier la réponse",
+    "addComment": "Ajouter un commentaire",
+    "postComment": "Publier le commentaire",
+    "posted": "Publié."
   },
   "refunds": {
     "title": "Vos demandes de remboursement",
