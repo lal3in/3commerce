@@ -73,6 +73,7 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
             d.Property(x => x.Kind).HasConversion<string>().HasMaxLength(16);
             d.Property(x => x.StorageReason).HasConversion<string>().HasMaxLength(16);
             d.Property(x => x.Comments).HasMaxLength(2000);
+            d.Property(x => x.Revision).HasDefaultValue(1);
         });
 
         modelBuilder.AddInboxStateEntity();

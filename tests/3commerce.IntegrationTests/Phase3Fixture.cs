@@ -7,6 +7,8 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
+using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 using ThreeCommerce.Payments.Infrastructure;
@@ -166,6 +168,55 @@ public sealed class Phase3Fixture : IAsyncLifetime
         });
         await db.SaveChangesAsync();
         return id;
+    }
+
+    /// <summary>
+    /// Seeds a product whose lines will resolve to a supplier + per-unit supplier cost, so a confirmed
+    /// order raises OrderCostsRecognized (COGS accrual). Drives the REAL production wiring: the product
+    /// read copy is seeded (cart/checkout price against it, and its own SupplierCostMinor is left 0 —
+    /// dormant legacy), while the supplier + cost arrive via a published <see cref="OfferChanged"/> that
+    /// Ordering's OfferChangedConsumer projects into an OfferCopy — no direct EF write to OfferCopy.
+    /// <paramref name="offerCurrency"/> defaults to the order currency; pass a different value to exercise
+    /// the no-FX relabel (a foreign-denominated cost carried into the order currency without conversion).
+    /// </summary>
+    public async Task<(Guid ProductId, Guid SupplierId)> SeedSuppliedProductAsync(
+        long priceMinor, long supplierCostMinor, string currency = "EUR", string? offerCurrency = null)
+    {
+        var productId = await SeedProductAsync(priceMinor, currency);
+        var supplierId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        var costCurrency = offerCurrency ?? currency;
+
+        await PublishAsync(new OfferChanged(
+            OfferId: Guid.CreateVersion7(),
+            TenantId: tenantId,
+            ProductId: productId,
+            VariantId: null,
+            SupplierId: supplierId,
+            SupplyCategory: SupplyCategory.Physical,
+            FulfilmentType: FulfilmentType.Dropship,
+            PricingModel: PricingModel.OneTime,
+            BillingPeriod: BillingPeriod.Once,
+            Priority: 0,
+            Active: true,
+            SupplierCostMinor: supplierCostMinor,
+            Currency: costCurrency));
+
+        // Wait for the projection so checkout resolves the supplier and the accrual can read the cost.
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.SupplierCostMinor == supplierCostMinor))
+            {
+                return (productId, supplierId);
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException($"OfferCopy for product {productId} did not project.");
     }
 
     public async Task<long> TrialBalanceAsync()

@@ -217,6 +217,208 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task A_paid_order_with_supplier_cost_lines_accrues_per_store_cogs()
+    {
+        // cogs_wiring: an order whose lines resolve to a supplier (via a projected OfferChanged → OfferCopy,
+        // the REAL production path) carrying a per-unit supplier cost must accrue COGS once paid — the
+        // previously-dormant SupplierPayable path. The order is default-storefront-attributed (storefrontId
+        // = the default tenant), so the COGS debit lands on that store's own expense.cogs.store-{id} account,
+        // not the shared fallback. No direct EF writes to OfferCopy/SupplierPayable — the wiring proves itself.
+        var storefrontId = new Guid("00000000-0000-0000-0000-000000000001");
+        var (productId, supplierId) = await fixture.SeedSuppliedProductAsync(priceMinor: 10_000, supplierCostMinor: 4_000);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 3 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        await WaitForSupplierPayableAsync(order.OrderId);
+
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+
+        // One payable for the order's single supplier: gross = 4000 × 3 = 12000; no commission policy → net = gross.
+        var payable = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.SupplierPayables.Where(p => p.OrderId == order.OrderId));
+        Assert.Equal(supplierId, payable.SupplierEntityId);
+        Assert.Equal(12_000, payable.GrossMinor);
+        Assert.Equal(12_000, payable.NetPayableMinor);
+
+        // The balanced accrual (referenced by the payable id): Dr the store's own COGS / Cr the supplier payable.
+        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.JournalEntries.Where(e => e.Reference == payable.Id.ToString()));
+        var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.JournalLines.Where(l => l.EntryId == entry.Id));
+        Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId)).Sum(l => l.DebitMinor));
+        Assert.Equal(0, lines.Where(l => l.AccountCode == Accounts.CostOfGoodsSold).Sum(l => l.DebitMinor)); // shared fallback untouched
+        Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor));
+        Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
+
+        // Sale + COGS accrual both balanced → the whole ledger stays balanced.
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task A_paid_order_relabels_a_foreign_currency_supplier_cost_into_the_order_currency()
+    {
+        // no_fx relabel: the offer's supplier cost is denominated in EUR but the order settles in AUD. With
+        // no FX feed the cost minor amount is carried into the order's currency without conversion — the
+        // same deliberate posture as the carrier-cost consumer (a mock-PSP-style relabel), because an
+        // AUD store showing revenue with zero COGS (a fake 100% margin) is worse dev data. The COGS still
+        // accrues, in AUD, for the same minor amount, and the ledger stays balanced.
+        var storefrontId = new Guid("00000000-0000-0000-0000-000000000001");
+        var (productId, supplierId) = await fixture.SeedSuppliedProductAsync(
+            priceMinor: 10_000, supplierCostMinor: 4_000, currency: "AUD", offerCurrency: "EUR");
+
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 2 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        await WaitForSupplierPayableAsync(order.OrderId);
+
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+
+        // Cost = 4000 × 2 = 8000, relabelled from EUR into the order's AUD (same minor amount, no conversion).
+        var payable = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.SupplierPayables.Where(p => p.OrderId == order.OrderId));
+        Assert.Equal(supplierId, payable.SupplierEntityId);
+        Assert.Equal(8_000, payable.GrossMinor);
+        Assert.Equal("AUD", payable.Currency);
+
+        // Account routing is unchanged by the relabel: still the order's own per-store COGS / supplier payable.
+        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.JournalEntries.Where(e => e.Reference == payable.Id.ToString()));
+        var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.JournalLines.Where(l => l.EntryId == entry.Id));
+        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId)).Sum(l => l.DebitMinor));
+        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor));
+        Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Rma_storage_disposition_writes_off_the_cogs_then_an_edit_to_restock_reverses_it()
+    {
+        // rma_disposition: a paid order with supplier cost accrues per-store COGS; an RMA dispositioned to
+        // Storage(Damage) must reclass that COGS to the store's write-off account, and editing the
+        // disposition to Restock must reverse the write-off and reverse the accrual instead. Publishing
+        // RmaDispositionSet directly stands in for Support (as the fixture does for other services' events)
+        // and drives the real Ordering → Payments chain: Ordering values the returned goods from the order
+        // lines, Payments corrects the accrual. The ledger stays balanced throughout.
+        var storefrontId = new Guid("00000000-0000-0000-0000-000000000001");
+        var (productId, _) = await fixture.SeedSuppliedProductAsync(priceMinor: 10_000, supplierCostMinor: 4_000);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 3 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        await WaitForSupplierPayableAsync(order.OrderId);
+
+        var cogs = Accounts.CogsStoreFor(storefrontId);
+        var writeoff = Accounts.WriteoffsStoreFor(storefrontId);
+        var rmaId = Guid.CreateVersion7();
+
+        // Storage(Damage), revision 1: reclass the whole order's COGS (3 × 4000 = 12000, no commission) to
+        // the store's write-off account. RefundedMinor = the order gross → a whole-order return (scale 1).
+        await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Support.RmaDispositionSet(
+            rmaId, order.OrderId, Kind: 2, StorageReason: 1, Revision: 1, RefundedMinor: order.GrossMinor));
+
+        await WaitForEntryAsync($"{rmaId}:1");
+        var storage = await EntryLinesAsync($"{rmaId}:1");
+        Assert.Equal(12_000, storage.Where(l => l.AccountCode == writeoff).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, storage.Where(l => l.AccountCode == cogs).Sum(l => l.CreditMinor));
+        Assert.Equal(storage.Sum(l => l.DebitMinor), storage.Sum(l => l.CreditMinor));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        // Edit to Restock, revision 2: reverse the revision-1 write-off, then reverse the accrual instead
+        // (Dr liability.supplier_payable / Cr the store COGS).
+        await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Support.RmaDispositionSet(
+            rmaId, order.OrderId, Kind: 1, StorageReason: null, Revision: 2, RefundedMinor: order.GrossMinor));
+
+        await WaitForEntryAsync($"{rmaId}:2");
+        await WaitForEntryAsync($"{rmaId}:2:reversal");
+
+        var reversal = await EntryLinesAsync($"{rmaId}:2:reversal");
+        // The revision-1 write-off is undone line for line: Dr cogs / Cr writeoff.
+        Assert.Equal(12_000, reversal.Where(l => l.AccountCode == cogs).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, reversal.Where(l => l.AccountCode == writeoff).Sum(l => l.CreditMinor));
+        Assert.Equal(reversal.Sum(l => l.DebitMinor), reversal.Sum(l => l.CreditMinor));
+
+        var restock = await EntryLinesAsync($"{rmaId}:2");
+        Assert.Equal(12_000, restock.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.DebitMinor));
+        Assert.Equal(12_000, restock.Where(l => l.AccountCode == cogs).Sum(l => l.CreditMinor));
+        Assert.Equal(restock.Sum(l => l.DebitMinor), restock.Sum(l => l.CreditMinor));
+
+        // The write-off account nets back to zero after the edit (posted then reversed); the ledger balances.
+        Assert.Equal(0, await AccountBalanceAsync(writeoff));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task WaitForEntryAsync(string reference)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                    db.JournalEntries.Where(e => e.Reference == reference)))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+
+        throw new TimeoutException($"Journal entry {reference} was not posted.");
+    }
+
+    private async Task<List<ThreeCommerce.Payments.Domain.Ledger.JournalLine>> EntryLinesAsync(string reference)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.JournalEntries.Where(e => e.Reference == reference));
+        return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+            db.JournalLines.Where(l => l.EntryId == entry.Id));
+    }
+
+    private async Task<long> AccountBalanceAsync(string accountCode)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        var debits = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SumAsync(
+            db.JournalLines.Where(l => l.AccountCode == accountCode), l => l.DebitMinor);
+        var credits = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SumAsync(
+            db.JournalLines.Where(l => l.AccountCode == accountCode), l => l.CreditMinor);
+        return debits - credits;
+    }
+
+    private async Task WaitForSupplierPayableAsync(Guid orderId)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                    db.SupplierPayables.Where(p => p.OrderId == orderId)))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+
+        throw new TimeoutException($"Supplier payable for order {orderId} was not accrued.");
+    }
+
     private System.Net.Http.HttpClient AdminOrderingClient()
     {
         var client = fixture.Ordering.CreateClient();

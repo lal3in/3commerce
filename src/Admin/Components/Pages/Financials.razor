@@ -34,7 +34,10 @@ else
                         @Line(L["Fin.Shipping"], ShippingIncome(cur), false)
                         @Line(L["Fin.Refunds"], -Refunds(cur), false)
                         @Line(L["Fin.Fees"], -Fees(cur), false)
-                        @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur), cur)
+                        @Line(L["Fin.Cogs"], -Cogs(cur), false)
+                        @Line(L["Fin.ShippingCost"], -ShippingCost(cur), false)
+                        @Line(L["Fin.Writeoffs"], -Writeoffs(cur), false)
+                        @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur) - Cogs(cur) - ShippingCost(cur) - Writeoffs(cur), cur)
                     </table>
                 </div>
                 <div>
@@ -49,7 +52,9 @@ else
                         @TotalLine(L["Fin.TotalAssets"], Cash(cur) + Receivable(cur), cur)
                         <tr><td colspan="2" style="font-weight:600; color:#6b7280; padding-top:.5rem;">@L["Fin.Liabilities"]</td></tr>
                         @Line(L["Fin.TaxCollected"], TaxLiability(cur), true)
-                        @TotalLine(L["Fin.TotalLiabilities"], TaxLiability(cur), cur)
+                        @Line(L["Fin.CarrierPayable"], CarrierPayable(cur), true)
+                        @Line(L["Fin.SupplierPayable"], SupplierPayable(cur), true)
+                        @TotalLine(L["Fin.TotalLiabilities"], TaxLiability(cur) + CarrierPayable(cur) + SupplierPayable(cur), cur)
                     </table>
                 </div>
             </div>
@@ -73,6 +78,8 @@ else
                     <th style="text-align:right;">@L["Fin.Col.NetRevenue"]</th>
                     <th style="text-align:right;">@L["Fin.Shipping"]</th>
                     <th style="text-align:right;">@L["Fin.Col.Tax"]</th>
+                    <th style="text-align:right;">@L["Fin.Cogs"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.Margin"]</th>
                     <th style="text-align:left;">@L["Fin.Col.Account"]</th>
                 </tr></thead>
                 <tbody>
@@ -85,6 +92,8 @@ else
                         <td style="text-align:right;">@Money(AccountAmount(s.RevenueAccountCode, creditNormal: true))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.ShippingAccountCode, creditNormal: true))</td>
                         <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
+                        <td style="text-align:right;">@Money(StoreCogs(s))</td>
+                        <td style="text-align:right;">@Money(StoreMargin(s))</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
                     </tr>
                 }
@@ -135,10 +144,28 @@ else
     // Shipping charged to shoppers, booked to shipping.* — per-store (shipping.store-…) or the shared
     // shipping.income — its own income line, not revenue.*. Credit-normal, already net of refunds.
     private long ShippingIncome(string c) => Sum(c, a => a.StartsWith("shipping.", StringComparison.Ordinal), creditNormal: true);
-    private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal), creditNormal: false);
+    // Processing/chargeback-style provider fees ONLY — every such account is named expense.{provider}_fees
+    // (see Accounts.FeesFor / ChargebackFeesFor). This is narrower than "all expense.*": COGS, carrier
+    // shipping cost and write-offs are their own P&L lines below (Cogs/ShippingCost/Writeoffs) so a new
+    // expense category never silently gets swallowed into "fees" again.
+    private long Fees(string c) => Sum(c, a => a.StartsWith("expense.", StringComparison.Ordinal) && a.EndsWith("_fees", StringComparison.Ordinal), creditNormal: false);
+    // Cost of goods sold: the shared expense.cogs plus every per-store expense.cogs.store-{id} (see
+    // Accounts.CogsStoreFor). Debit-normal like every expense account.
+    private long Cogs(string c) => Sum(c, a => a.StartsWith("expense.cogs", StringComparison.Ordinal), creditNormal: false);
+    // Carrier label cost: the shared expense.shipping_carrier fallback plus every per-store
+    // expense.shipping.store-{id} (see Accounts.ShippingCostStoreFor). Distinct from shipping.* which is
+    // the INCOME shoppers pay for shipping — this is what the platform pays the carrier.
+    private long ShippingCost(string c) => Sum(c, a => a == "expense.shipping_carrier" || a.StartsWith("expense.shipping.store-", StringComparison.Ordinal), creditNormal: false);
+    // Inventory write-offs from RMA Storage dispositions: the shared expense.writeoffs plus every
+    // per-store expense.writeoffs.store-{id} (see Accounts.WriteoffsStoreFor).
+    private long Writeoffs(string c) => Sum(c, a => a.StartsWith("expense.writeoffs", StringComparison.Ordinal), creditNormal: false);
     private long Cash(string c) => Sum(c, a => a.StartsWith("cash.", StringComparison.Ordinal), creditNormal: false);
     private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);
     private long TaxLiability(string c) => Sum(c, a => a.StartsWith("tax.", StringComparison.Ordinal) || a == "liability.tax_collected", creditNormal: true);
+    // Carrier label cost owed but not yet paid (accrual, mirrors liability.supplier_payable) — credit-normal.
+    private long CarrierPayable(string c) => Sum(c, a => a == "liability.carrier_payable", creditNormal: true);
+    // COGS accrued to suppliers via SupplierPayable.ToAccrualEntry — credit-normal.
+    private long SupplierPayable(string c) => Sum(c, a => a == "liability.supplier_payable", creditNormal: true);
 
     private IEnumerable<(string Code, long Amount)> CashByAccount(string currency) => _balances
         .Where(b => b.Currency == currency && b.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
@@ -158,6 +185,21 @@ else
         AccountAmount(s.RevenueAccountCode, creditNormal: true)
         + AccountAmount(s.ShippingAccountCode, creditNormal: true)
         + AccountAmount(s.TaxAccountCode, creditNormal: true);
+
+    // Per-store expense codes are derived here in Payments-adjacent Admin the same way Payments derives
+    // them (Accounts.CogsStoreFor/ShippingCostStoreFor/WriteoffsStoreFor) — operators never override
+    // these, so there is no Catalog-configured column to read them from (unlike RevenueAccountCode etc).
+    private long StoreCogs(StorefrontDto s) => AccountAmount($"expense.cogs.store-{s.Id:N}", creditNormal: false);
+    private long StoreShippingCost(StorefrontDto s) => AccountAmount($"expense.shipping.store-{s.Id:N}", creditNormal: false);
+    private long StoreWriteoffs(StorefrontDto s) => AccountAmount($"expense.writeoffs.store-{s.Id:N}", creditNormal: false);
+
+    // Contribution margin for the store: net revenue + shipping income, less its own COGS, carrier
+    // shipping cost and write-offs (all debit-normal expenses). Excludes processing fees (provider-level,
+    // not per-store) and tax (a pass-through liability, not P&L).
+    private long StoreMargin(StorefrontDto s) =>
+        AccountAmount(s.RevenueAccountCode, creditNormal: true)
+        + AccountAmount(s.ShippingAccountCode, creditNormal: true)
+        - StoreCogs(s) - StoreShippingCost(s) - StoreWriteoffs(s);
 
     // The currency the store's revenue actually posted in (distinct), else its configured currency.
     private string PostingCurrency(StorefrontDto s)

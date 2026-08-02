@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>Processing fees</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>Cost of goods sold</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>Carrier shipping cost</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>Inventory write-offs</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>Net result</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>Tax collected</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>Owed to carriers</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>Owed to suppliers</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>Total liabilities</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>Gross</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Net revenue, Shipping and Tax reconcile with the per-currency reports above (Gross = Net revenue + Shipping + Tax). Processing fees settle per payment provider, not per storefront, so a store's net revenue is shown before fees.</value>
+    <value>Net revenue, Shipping and Tax reconcile with the per-currency reports above (Gross = Net revenue + Shipping + Tax). Processing fees settle per payment provider, not per storefront, so a store's net revenue is shown before fees. COGS and Margin are derived from the store's own per-store cost accounts; Margin = Net revenue + Shipping − COGS − carrier shipping cost − write-offs.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Tax</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>Receivable</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>Margin</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>Revenue account</value>

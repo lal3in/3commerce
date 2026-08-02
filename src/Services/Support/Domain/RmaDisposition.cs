@@ -33,4 +33,12 @@ public class RmaDisposition
     public string? Comments { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Monotonic revision starting at 1 on the first disposition and incremented on every edit. Carried
+    /// on <c>RmaDispositionSet</c> so the Payments-side correction is idempotency-distinct per revision:
+    /// an edit that flips Restock↔Storage reverses the previous revision's posting before applying the
+    /// new one (phase 1). Distinct from a mere edit timestamp — it is the ledger idempotency key.
+    /// </summary>
+    public int Revision { get; set; } = 1;
 }

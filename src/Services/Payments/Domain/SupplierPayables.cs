@@ -258,7 +258,14 @@ public class SupplierPayable
         };
     }
 
-    public JournalEntry ToAccrualEntry(DateTimeOffset now)
+    /// <summary>
+    /// Books the COGS accrual: Dr <paramref name="cogsAccount"/> (the storefront's own
+    /// <c>expense.cogs.store-{id}</c> when attributed, else the shared <see cref="Accounts.CostOfGoodsSold"/>
+    /// fallback) / Cr <see cref="Accounts.LiabilitySupplierPayable"/>, for the supplier's NET payable
+    /// (gross less commission — the platform only owes the supplier its cut). Passing no account keeps
+    /// the shared-fallback behaviour identical to callers that don't attribute a store.
+    /// </summary>
+    public JournalEntry ToAccrualEntry(DateTimeOffset now, string? cogsAccount = null)
     {
         var entry = new JournalEntry
         {
@@ -268,7 +275,8 @@ public class SupplierPayable
             Currency = Currency,
             CreatedAt = now,
         };
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = Accounts.CostOfGoodsSold, DebitMinor = NetPayableMinor, CreditMinor = 0 });
+        var debitAccount = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = debitAccount, DebitMinor = NetPayableMinor, CreditMinor = 0 });
         entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = Accounts.LiabilitySupplierPayable, DebitMinor = 0, CreditMinor = NetPayableMinor });
         return entry;
     }

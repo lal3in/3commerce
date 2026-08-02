@@ -1,4 +1,6 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.Fulfillment.Domain;
 using ThreeCommerce.Fulfillment.Domain.Carriers;
 using ThreeCommerce.Fulfillment.Infrastructure.Carriers;
@@ -12,7 +14,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure;
 /// fallback for real carriers until their label/tracking adapters land.
 /// </summary>
 public sealed class ShipmentService(
-    FulfillmentDbContext db, TimeProvider clock, CarrierRegistry registry, FakeCarrierProvider fake)
+    FulfillmentDbContext db, TimeProvider clock, CarrierRegistry registry, FakeCarrierProvider fake, IPublishEndpoint publisher)
 {
     private static readonly ShipAddress Placeholder = new("", "", "", "", "");
 
@@ -43,6 +45,25 @@ public sealed class ShipmentService(
             new LabelRequest("standard", Placeholder, Placeholder,
                 new Parcel(package.WeightGrams, package.LengthMm, package.WidthMm, package.HeightMm)), ct);
         package.ApplyLabel(label, clock.GetUtcNow());
+
+        // Carrier-cost accrual (phase 1): a free/void label (CostMinor == 0) has nothing to accrue,
+        // so skip the event entirely — the Payments consumer would otherwise reject it anyway.
+        // Publish BEFORE the one SaveChangesAsync below (mirrors AdminShipmentsEndpoints.
+        // AssignTracking) so the bus outbox commits the label change and the event atomically —
+        // no window where the label persists but a save failure loses the event forever.
+        // Re-buying a label for the same package publishes again; the consumer is idempotent by
+        // PackageId (the journal reference), so a re-publish never double-posts.
+        if (label.CostMinor > 0)
+        {
+            var shipment = await db.Shipments.AsNoTracking().FirstOrDefaultAsync(s => s.Id == package.ShipmentId, ct);
+            if (shipment is not null)
+            {
+                await publisher.Publish(new ShippingLabelPurchased(
+                    package.Id, package.ShipmentId, shipment.OrderId, package.TenantId,
+                    label.Carrier.ToString(), label.CostMinor, label.Currency), ct);
+            }
+        }
+
         await db.SaveChangesAsync(ct);
         return package;
     }

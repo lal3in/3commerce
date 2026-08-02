@@ -55,6 +55,7 @@ public static class OfferEndpoints
                 request.SupplyCategory, request.FulfilmentType, request.PriceMinor, request.Currency,
                 request.Priority, now);
             offer.SetPricing(request.PricingModel, request.BillingPeriod, ToTiers(request.Tiers), now);
+            offer.SetSupplierCost(request.SupplierCostMinor, now);
             db.Offers.Add(offer);
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.create", offer.ProductId.ToString()), ct);
@@ -95,6 +96,11 @@ public static class OfferEndpoints
                 offer.SetPriority(priority, now);
             }
 
+            if (request.SupplierCostMinor is { } supplierCost)
+            {
+                offer.SetSupplierCost(supplierCost, now);
+            }
+
             if (request.Active is { } active)
             {
                 if (active)
@@ -133,7 +139,7 @@ public static class OfferEndpoints
         tiers is null ? [] : tiers.Select(t => (t.FromQuantity, t.UnitPriceMinor)).ToList();
 
     private static OfferChanged ToEvent(Offer o) =>
-        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive);
+        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive, o.SupplierCostMinor, o.Currency);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
@@ -143,7 +149,8 @@ public static class OfferEndpoints
     private static OfferDto ToDto(Offer o) =>
         new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory.ToString(),
             o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.BillingPeriod.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString(),
-            o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList());
+            o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList(),
+            o.SupplierCostMinor);
 }
 
 public record CreateOfferRequest(
@@ -158,14 +165,16 @@ public record CreateOfferRequest(
     int Priority,
     PricingModel PricingModel = PricingModel.OneTime,
     BillingPeriod BillingPeriod = BillingPeriod.Once,
-    List<PriceTierDto>? Tiers = null);
+    List<PriceTierDto>? Tiers = null,
+    [property: Range(0, long.MaxValue)] long SupplierCostMinor = 0);
 
 public record UpdateOfferRequest(
-    long? PriceMinor, int? Priority, bool? Active, PricingModel? PricingModel = null, BillingPeriod? BillingPeriod = null, List<PriceTierDto>? Tiers = null);
+    long? PriceMinor, int? Priority, bool? Active, PricingModel? PricingModel = null, BillingPeriod? BillingPeriod = null, List<PriceTierDto>? Tiers = null,
+    [property: Range(0, long.MaxValue)] long? SupplierCostMinor = null);
 
 public record PriceTierDto(int FromQuantity, long UnitPriceMinor);
 
 public record OfferDto(
     Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory,
     string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status,
-    List<PriceTierDto> Tiers);
+    List<PriceTierDto> Tiers, long SupplierCostMinor);

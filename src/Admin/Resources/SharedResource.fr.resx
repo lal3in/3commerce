@@ -1400,6 +1400,15 @@
   <data name="Fin.Fees" xml:space="preserve">
     <value>Frais de traitement</value>
   </data>
+  <data name="Fin.Cogs" xml:space="preserve">
+    <value>Coût des marchandises vendues</value>
+  </data>
+  <data name="Fin.ShippingCost" xml:space="preserve">
+    <value>Coût d'expédition (transporteur)</value>
+  </data>
+  <data name="Fin.Writeoffs" xml:space="preserve">
+    <value>Dépréciations de stock</value>
+  </data>
   <data name="Fin.NetResult" xml:space="preserve">
     <value>Résultat net</value>
   </data>
@@ -1421,6 +1430,12 @@
   <data name="Fin.TaxCollected" xml:space="preserve">
     <value>Taxes collectées</value>
   </data>
+  <data name="Fin.CarrierPayable" xml:space="preserve">
+    <value>Dû aux transporteurs</value>
+  </data>
+  <data name="Fin.SupplierPayable" xml:space="preserve">
+    <value>Dû aux fournisseurs</value>
+  </data>
   <data name="Fin.TotalLiabilities" xml:space="preserve">
     <value>Total des passifs</value>
   </data>
@@ -1437,13 +1452,16 @@
     <value>Brut</value>
   </data>
   <data name="Fin.ByStorefront.Note" xml:space="preserve">
-    <value>Le revenu net, la livraison et la taxe se rapprochent des rapports par devise ci-dessus (Brut = Revenu net + Livraison + Taxe). Les frais de traitement sont réglés par prestataire de paiement, pas par boutique ; le revenu net d'une boutique est donc affiché avant frais.</value>
+    <value>Le revenu net, la livraison et la taxe se rapprochent des rapports par devise ci-dessus (Brut = Revenu net + Livraison + Taxe). Les frais de traitement sont réglés par prestataire de paiement, pas par boutique ; le revenu net d'une boutique est donc affiché avant frais. Le coût des marchandises vendues et la marge sont calculés à partir des comptes de coûts propres à la boutique ; Marge = Revenu net + Livraison − Coût des marchandises vendues − Coût d'expédition − Dépréciations de stock.</value>
   </data>
   <data name="Fin.Col.Tax" xml:space="preserve">
     <value>Taxe</value>
   </data>
   <data name="Fin.Col.Receivable" xml:space="preserve">
     <value>Créances</value>
+  </data>
+  <data name="Fin.Col.Margin" xml:space="preserve">
+    <value>Marge</value>
   </data>
   <data name="Fin.Col.Account" xml:space="preserve">
     <value>Compte de revenu</value>

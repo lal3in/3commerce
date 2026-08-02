@@ -30,6 +30,18 @@ public static class Accounts
     public const string CostOfGoodsSold = ExpenseCostOfGoodsSold;
     public const string LiabilityTaxCollected = "liability.tax_collected";
     public const string LiabilitySupplierPayable = "liability.supplier_payable";
+    // Shared fallback for carrier label cost when a package isn't storefront-attributed. Per-storefront
+    // labels post to the store's own expense.shipping.store-{id} (see ShippingCostStoreFor); both live
+    // under the expense.shipping* prefix so Financials can sum carrier cost as one P&L line.
+    public const string ExpenseShippingCarrier = "expense.shipping_carrier";
+    // Shared fallback for RMA Storage dispositions (Damage/Incomplete/UnfitForSale) when the order
+    // isn't storefront-attributed. Per-storefront write-offs post to expense.writeoffs.store-{id}
+    // (see WriteoffsStoreFor); both live under the expense.writeoffs prefix.
+    public const string ExpenseWriteoffs = "expense.writeoffs";
+    // Mirrors LiabilitySupplierPayable's shape for carrier costs: no real money moves in dev, so the
+    // carrier-cost accrual credits this liability instead of cash, keeping cash.* truthful to PSP
+    // settlements only.
+    public const string LiabilityCarrierPayable = "liability.carrier_payable";
 
     /// <summary>
     /// The cash account settling through <paramref name="provider"/>: <c>cash.{provider}</c>.
@@ -40,6 +52,27 @@ public static class Accounts
 
     /// <summary>The processing-fee expense account for <paramref name="provider"/>: <c>expense.{provider}_fees</c>.</summary>
     public static string FeesFor(string? provider) => $"expense.{LedgerProviders.Normalize(provider)}_fees";
+
+    /// <summary>
+    /// The per-storefront COGS account for store <paramref name="sid"/>: <c>expense.cogs.store-{id:N}</c>.
+    /// Derived in Payments (not operator-configurable, unlike income-side codes) from the order's
+    /// StorefrontId; orders with no storefront attribution fall back to the shared <see cref="ExpenseCostOfGoodsSold"/>.
+    /// </summary>
+    public static string CogsStoreFor(Guid sid) => $"expense.cogs.store-{sid:N}";
+
+    /// <summary>
+    /// The per-storefront carrier-cost account for store <paramref name="sid"/>: <c>expense.shipping.store-{id:N}</c>.
+    /// Derived in Payments from the package's order StorefrontId; unattributed packages fall back to
+    /// the shared <see cref="ExpenseShippingCarrier"/>.
+    /// </summary>
+    public static string ShippingCostStoreFor(Guid sid) => $"expense.shipping.store-{sid:N}";
+
+    /// <summary>
+    /// The per-storefront write-off account for store <paramref name="sid"/>: <c>expense.writeoffs.store-{id:N}</c>.
+    /// Derived in Payments from the RMA's order StorefrontId; unattributed orders fall back to the
+    /// shared <see cref="ExpenseWriteoffs"/>.
+    /// </summary>
+    public static string WriteoffsStoreFor(Guid sid) => $"expense.writeoffs.store-{sid:N}";
 }
 
 /// <summary>
