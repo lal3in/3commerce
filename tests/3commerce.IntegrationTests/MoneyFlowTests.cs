@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -64,6 +65,23 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
 
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task A_digital_only_cart_is_not_charged_shipping()
+    {
+        // A cart whose only line is a non-physical (digital) product ships nothing → shipping must be 0,
+        // even though the flat fallback (499) would otherwise apply. Physical carts still get shipping
+        // (asserted by Guest_checkout above, which uses an Unassigned product = defaults to shippable).
+        var (productId, _) = await fixture.SeedSuppliedProductAsync(
+            priceMinor: 3_000, supplierCostMinor: 0, fulfilmentType: FulfilmentType.DigitalDownload);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(0, order.ShippingMinor);
+        Assert.Equal(3_000, order.NetMinor);
+        Assert.Equal(3_000, order.GrossMinor); // net + 0 shipping + 0 tax
     }
 
     [Fact]

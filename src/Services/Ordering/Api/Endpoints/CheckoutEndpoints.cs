@@ -71,11 +71,28 @@ public static class CheckoutEndpoints
 
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
         var discountMinor = 0L;
-        var shippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
-        if (shippingMinor < 0)
+
+        // Resolve the cart's fulfilment up front (from the OfferCopy read model) so shipping can be gated:
+        // only a cart with at least one shippable (physical) line is charged shipping — a digital/service/
+        // usage-only order ships nothing and must not pay shipping (mt4 / ADR-0028). offerCopies is reused
+        // below for the per-line attempt build, so it's loaded once here.
+        var checkoutTenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var cartProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+        var offerCopies = await db.OfferCopies.AsNoTracking()
+            .Where(o => o.TenantId == checkoutTenantId && cartProductIds.Contains(o.ProductId))
+            .ToListAsync(ct);
+        var anyShippable = cart.Items.Any(i =>
+            (OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId)?.FulfilmentType ?? FulfilmentType.Unassigned)
+                .RequiresShipping());
+
+        var requestedShippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
+        if (requestedShippingMinor < 0)
         {
             return TypedResults.BadRequest("Selected shipping amount cannot be negative.");
         }
+
+        // Nothing shippable in the cart → no shipping charge, whatever the client sent.
+        var shippingMinor = anyShippable ? requestedShippingMinor : 0L;
 
         if (request.SelectedShippingAmountMinor is not null &&
             (string.IsNullOrWhiteSpace(request.SelectedShippingService) || request.SelectedShippingExpiresAt is null))
@@ -125,7 +142,7 @@ public static class CheckoutEndpoints
         var idempotencyKey = orderId.ToString();
         // Resolve tenant/storefront up front (gateway-trusted headers) so the storefront rides the
         // AuthorizePayment request → Payment, letting the sale post to the storefront's own accounts.
-        var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var tenantId = checkoutTenantId; // resolved up front for the shipping gate; reused here
         // The first-party storefront app resolves the exact active store and sends it in the body, so it
         // wins for attribution; the gateway's host-derived header is only a fallback (it collapses all
         // path-based demo stores to one configured default), then the tenant default.
@@ -158,13 +175,8 @@ public static class CheckoutEndpoints
 
         var now = time.GetUtcNow();
 
-        // Resolve each line's fulfilment from its offer (ADR-0028 / mt7_1-lite): the OfferCopy read
-        // model is fed by Catalog's OfferChanged events. No offer → Unassigned (no shipment/inventory).
-        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
-        var offerCopies = await db.OfferCopies.AsNoTracking()
-            .Where(o => o.TenantId == tenantId && productIds.Contains(o.ProductId))
-            .ToListAsync(ct);
-
+        // Each line's fulfilment is resolved from offerCopies (loaded up front for the shipping gate):
+        // the OfferCopy read model is fed by Catalog's OfferChanged events. No offer → Unassigned.
         var attempt = new CheckoutAttempt
         {
             Id = orderId,
