@@ -271,6 +271,9 @@ public static class StorefrontEndpoints
             }
 
             await PublishConfigAsync(publisher, clone, cancellationToken); // before Save so it lands in the outbox tx
+            // Let services that keep per-storefront config react (Fulfillment clones the carrier accounts).
+            await publisher.Publish(
+                new StorefrontDuplicated(clone.TenantId, source.Id, clone.Id, clone.Name), cancellationToken);
             await audit.RecordAsync(user.Mutation(
                 clone.TenantId, "Storefront", clone.Id.ToString(), "catalog.storefront.duplicate", clone.Name), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
