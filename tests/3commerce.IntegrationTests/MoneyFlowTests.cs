@@ -85,6 +85,27 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task A_zero_gross_order_settles_without_posting_a_journal_entry()
+    {
+        // A $0 non-shippable order (a usage-metered product with no upfront price — and, shipping nothing,
+        // no shipping either) used to 500 the payment: Ledger.Sale posted zero-value debit/credit lines
+        // that violate the one-side-nonzero check constraint. It must now settle cleanly with no entry.
+        var (productId, _) = await fixture.SeedSuppliedProductAsync(
+            priceMinor: 0, supplierCostMinor: 0, fulfilmentType: FulfilmentType.Usage);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(0, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor); // EnsureSuccessStatusCode — 500'd before the fix
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        // A $0 order moves no money → no journal entry at all, and the ledger stays balanced.
+        Assert.Equal(0, await CountEntriesForAsync(order.OrderId));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
     public async Task Taxed_checkout_splits_net_revenue_from_the_tax_liability_on_the_ledger()
     {
         // fin_tax: a live tax rate for the cart's currency makes checkout charge tax on top (exclusive

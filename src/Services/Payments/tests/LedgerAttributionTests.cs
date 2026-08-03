@@ -49,6 +49,29 @@ public class LedgerAttributionTests
     }
 
     [Fact]
+    public void A_zero_gross_sale_posts_no_lines_at_all()
+    {
+        // A genuinely $0 order (a usage-metered product with no upfront price, and — since it ships
+        // nothing — no shipping) moves no money. Every line would be zero, which the one-side-nonzero
+        // constraint forbids, so the entry must come back empty (this used to 500 the payment posting).
+        var entry = Ledger.Sale(Guid.CreateVersion7(), 0, 0, 0, "EUR", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe");
+
+        Assert.Empty(entry.Lines);
+        Assert.DoesNotContain(entry.Lines, l => l.DebitMinor == 0 && l.CreditMinor == 0);
+    }
+
+    [Fact]
+    public void A_zero_gross_storefront_sale_posts_no_lines_through_the_receivable_bridge()
+    {
+        var storeId = Guid.CreateVersion7();
+        var entry = Ledger.Sale(Guid.CreateVersion7(), 0, 0, 0, "EUR", DateTimeOffset.UtcNow, PaymentMethodKind.Card, "stripe",
+            revenueAccount: $"revenue.store-{storeId:N}", taxAccount: $"tax.store-{storeId:N}", receivableAccount: $"receivable.store-{storeId:N}",
+            shippingAccount: $"shipping.store-{storeId:N}");
+
+        Assert.Empty(entry.Lines);
+    }
+
+    [Fact]
     public void A_google_pay_sale_on_stripe_posts_to_cash_stripe_and_names_the_method()
     {
         var orderId = Guid.CreateVersion7();

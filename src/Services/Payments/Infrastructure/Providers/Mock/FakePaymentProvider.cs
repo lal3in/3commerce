@@ -50,6 +50,7 @@ public sealed class FakePaymentProvider : IPaymentProvider
     // Real webhooks come from Stripe; the fake path uses the dev simulate endpoint instead.
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
 
-    /// <summary>Deterministic fake fee (2.9% + 30 minor units) so the ledger fee line is exercised.</summary>
-    public static long FakeFee(long grossMinor) => (long)Math.Round(grossMinor * 0.029) + 30;
+    /// <summary>Deterministic fake fee (2.9% + 30 minor units) so the ledger fee line is exercised.
+    /// A $0 charge incurs no fee — a real PSP takes nothing on a zero-amount payment.</summary>
+    public static long FakeFee(long grossMinor) => grossMinor <= 0 ? 0 : (long)Math.Round(grossMinor * 0.029) + 30;
 }

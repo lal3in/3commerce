@@ -389,9 +389,23 @@ public static class Ledger
             CreatedAt = now,
         };
 
-    private static void Debit(JournalEntry entry, string account, long minor) =>
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = minor, CreditMinor = 0 });
+    // A journal line must have exactly one non-zero side (DB constraint ck_line_one_side); a zero-value
+    // line is never valid double-entry, so posting one is always a no-op. Skipping it here makes every
+    // call site safe for a genuinely $0 movement (e.g. a usage-metered order with no upfront price and
+    // no shipping) without each caller having to guard its own amount.
+    private static void Debit(JournalEntry entry, string account, long minor)
+    {
+        if (minor > 0)
+        {
+            entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = minor, CreditMinor = 0 });
+        }
+    }
 
-    private static void Credit(JournalEntry entry, string account, long minor) =>
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = 0, CreditMinor = minor });
+    private static void Credit(JournalEntry entry, string account, long minor)
+    {
+        if (minor > 0)
+        {
+            entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = 0, CreditMinor = minor });
+        }
+    }
 }
