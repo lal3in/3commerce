@@ -79,7 +79,48 @@ public class PublicationTests
             PriceMinor = 1000,
             Currency = "AUD",
             StockQuantity = 10,
+            // A shippable product needs item + package weight/dimensions to be publish-ready.
+            WeightGrams = 500,
+            LengthMm = 200,
+            WidthMm = 150,
+            HeightMm = 100,
+            PackageWeightGrams = 650,
+            PackageLengthMm = 250,
+            PackageWidthMm = 200,
+            PackageHeightMm = 150,
         });
         return product;
+    }
+
+    [Fact]
+    public void PublicationReadiness_requires_shipping_dimensions_for_a_physical_product()
+    {
+        var product = NewProduct();
+        product.Variants[0].PackageWeightGrams = null; // a physical product missing package dims isn't ready
+        var publication = ProductPublication.Assign(product.TenantId, Guid.CreateVersion7(), product, DateTimeOffset.UtcNow);
+        publication.SetFulfillment(FulfilmentType.Dropship, "au", "8518", DateTimeOffset.UtcNow);
+
+        var readiness = publication.CheckReadiness(product);
+
+        Assert.False(readiness.IsReady);
+        Assert.Contains("product and package weight + dimensions on every shippable variant", readiness.MissingRequirements);
+    }
+
+    [Fact]
+    public void PublicationReadiness_does_not_require_dimensions_for_a_digital_product()
+    {
+        var product = NewProduct();
+        foreach (var v in product.Variants)
+        {
+            v.WeightGrams = v.LengthMm = v.WidthMm = v.HeightMm = null;
+            v.PackageWeightGrams = v.PackageLengthMm = v.PackageWidthMm = v.PackageHeightMm = null;
+        }
+
+        var publication = ProductPublication.Assign(product.TenantId, Guid.CreateVersion7(), product, DateTimeOffset.UtcNow);
+        publication.SetFulfillment(FulfilmentType.DigitalDownload, null, null, DateTimeOffset.UtcNow);
+
+        var readiness = publication.CheckReadiness(product);
+
+        Assert.True(readiness.IsReady); // digital ships nothing → no dimension requirement
     }
 }

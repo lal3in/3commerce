@@ -148,6 +148,10 @@ public static class AdminEndpoints
                 LengthMm = v.LengthMm,
                 WidthMm = v.WidthMm,
                 HeightMm = v.HeightMm,
+                PackageWeightGrams = v.PackageWeightGrams,
+                PackageLengthMm = v.PackageLengthMm,
+                PackageWidthMm = v.PackageWidthMm,
+                PackageHeightMm = v.PackageHeightMm,
             };
             foreach (var (cur, price) in NormalizePrices(v.Prices))
             {
@@ -233,6 +237,10 @@ public static class AdminEndpoints
             existing.LengthMm = v.LengthMm;
             existing.WidthMm = v.WidthMm;
             existing.HeightMm = v.HeightMm;
+            existing.PackageWeightGrams = v.PackageWeightGrams;
+            existing.PackageLengthMm = v.PackageLengthMm;
+            existing.PackageWidthMm = v.PackageWidthMm;
+            existing.PackageHeightMm = v.PackageHeightMm;
 
             // Reconcile per-currency prices for this variant.
             var keptCurrencies = new HashSet<string>();
@@ -353,6 +361,7 @@ public static class AdminEndpoints
     private static ProductEditorDto ToEditorDto(Product p) => new(
         p.Id, p.TenantId, p.Slug, p.Title, p.Brand, p.Description, p.CategoryId, p.Attributes, p.ImageUrls, p.Status,
         p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
+            v.PackageWeightGrams, v.PackageLengthMm, v.PackageWidthMm, v.PackageHeightMm,
             v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList(),
         p.ProductType == 0 ? ProductType.Physical : p.ProductType);
 }
@@ -376,7 +385,7 @@ public record ProductEditorDto(
     Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants,
     ProductType ProductType);
 
-public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, List<CurrencyPriceDto> Prices);
+public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, int? PackageWeightGrams, int? PackageLengthMm, int? PackageWidthMm, int? PackageHeightMm, List<CurrencyPriceDto> Prices);
 
 // Tenant-authored explicit price per currency (no FX).
 public record CurrencyPriceDto(string Currency, long PriceMinor);
@@ -386,4 +395,4 @@ public record ProductWriteRequest(
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants,
     ProductStatus? Status = null, ProductType? ProductType = null);
 
-public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, List<CurrencyPriceDto>? Prices = null);
+public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, int? PackageWeightGrams = null, int? PackageLengthMm = null, int? PackageWidthMm = null, int? PackageHeightMm = null, List<CurrencyPriceDto>? Prices = null);

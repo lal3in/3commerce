@@ -23,7 +23,9 @@ public class StorefrontProductListingTests(Phase2Fixture fixture) : IAsyncLifeti
     private static readonly Guid Tenant = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     private sealed record CurrencyPriceDto(string Currency, long PriceMinor);
-    private sealed record VariantDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, List<CurrencyPriceDto>? Prices = null);
+    private sealed record VariantDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, List<CurrencyPriceDto>? Prices = null,
+        int? WeightGrams = 500, int? LengthMm = 200, int? WidthMm = 150, int? HeightMm = 100,
+        int? PackageWeightGrams = 650, int? PackageLengthMm = 250, int? PackageWidthMm = 200, int? PackageHeightMm = 150);
     private sealed record EditorDto(Guid Id, string Slug, string Title);
     private sealed record StorefrontDto(Guid Id, string Name);
     private sealed record StorefrontProductRow(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);
