@@ -181,7 +181,8 @@ public sealed class Phase3Fixture : IAsyncLifetime
     /// the no-FX relabel (a foreign-denominated cost carried into the order currency without conversion).
     /// </summary>
     public async Task<(Guid ProductId, Guid SupplierId)> SeedSuppliedProductAsync(
-        long priceMinor, long supplierCostMinor, string currency = "EUR", string? offerCurrency = null)
+        long priceMinor, long supplierCostMinor, string currency = "EUR", string? offerCurrency = null,
+        FulfilmentType fulfilmentType = FulfilmentType.Dropship)
     {
         var productId = await SeedProductAsync(priceMinor, currency);
         var supplierId = Guid.CreateVersion7();
@@ -194,8 +195,8 @@ public sealed class Phase3Fixture : IAsyncLifetime
             ProductId: productId,
             VariantId: null,
             SupplierId: supplierId,
-            SupplyCategory: SupplyCategory.Physical,
-            FulfilmentType: FulfilmentType.Dropship,
+            SupplyCategory: fulfilmentType.RequiresShipping() ? SupplyCategory.Physical : SupplyCategory.Digital,
+            FulfilmentType: fulfilmentType,
             PricingModel: PricingModel.OneTime,
             BillingPeriod: BillingPeriod.Once,
             Priority: 0,

@@ -25,6 +25,21 @@ public enum SupplyCategory
     Service = 3,
 }
 
+public static class FulfilmentTypeExtensions
+{
+    /// <summary>
+    /// Whether an order line moves a physical parcel — and so is charged shipping and produces a shipment.
+    /// Defined as the complement of the KNOWN non-physical types (digital download / subscription / usage /
+    /// manual service), so <see cref="FulfilmentType.Warehouse"/>, <see cref="FulfilmentType.Dropship"/>
+    /// AND <see cref="FulfilmentType.Unassigned"/> all ship. Unassigned defaults to shippable on purpose:
+    /// a physical good that merely lacks a projected supply profile must not silently lose its shipping —
+    /// only an *explicitly* non-physical line withholds it. The single shared predicate for this decision.
+    /// </summary>
+    public static bool RequiresShipping(this FulfilmentType type) =>
+        type is not (FulfilmentType.DigitalDownload or FulfilmentType.Subscription
+            or FulfilmentType.Usage or FulfilmentType.ManualService);
+}
+
 /// <summary>How an order line is charged. One-time today; recurring/metered land in Phase 7.</summary>
 public enum BillingMode
 {
