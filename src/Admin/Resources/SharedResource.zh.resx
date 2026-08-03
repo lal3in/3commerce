@@ -1616,4 +1616,48 @@
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>立即创建新店面。</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>副本以私密草稿开始，没有任何域名——上线前请先添加域名。</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>店面已复制。</value></data>
+  <data name="Nav.Carriers" xml:space="preserve"><value>物流商</value></data>
+  <data name="Nav.Carriers.Tip" xml:space="preserve"><value>管理配送物流商以及各店面的物流商账户。</value></data>
+  <data name="Carr.Title" xml:space="preserve"><value>物流商</value></data>
+  <data name="Carr.Subtitle" xml:space="preserve"><value>配送物流商账户</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>为租户配置配送物流商。租户级物流商为默认；各店面物流商可覆盖它。凭证存于密钥库——仅需输入引用。</value></data>
+  <data name="Carr.TenantId.Tip" xml:space="preserve"><value>要管理物流商的租户。</value></data>
+  <data name="Carr.Col.Carrier" xml:space="preserve"><value>物流商</value></data>
+  <data name="Carr.Col.Scope" xml:space="preserve"><value>范围</value></data>
+  <data name="Carr.Col.Status" xml:space="preserve"><value>状态</value></data>
+  <data name="Carr.Col.Default" xml:space="preserve"><value>默认</value></data>
+  <data name="Carr.Col.Credential" xml:space="preserve"><value>凭证</value></data>
+  <data name="Carr.Credential.Set" xml:space="preserve"><value>已设</value></data>
+  <data name="Carr.Credential.Keyless" xml:space="preserve"><value>免密钥</value></data>
+  <data name="Carr.Activate" xml:space="preserve"><value>启用</value></data>
+  <data name="Carr.Activate.Tip" xml:space="preserve"><value>启用此物流商以便用于配送。</value></data>
+  <data name="Carr.Suspend" xml:space="preserve"><value>暂停</value></data>
+  <data name="Carr.Suspend.Tip" xml:space="preserve"><value>暂时停止使用此物流商。</value></data>
+  <data name="Carr.MakeDefault" xml:space="preserve"><value>设为默认</value></data>
+  <data name="Carr.MakeDefault.Tip" xml:space="preserve"><value>设为此范围的默认物流商。</value></data>
+  <data name="Carr.SetCredential" xml:space="preserve"><value>凭证</value></data>
+  <data name="Carr.SetCredential.Tip" xml:space="preserve"><value>设置或替换此物流商账户的密钥库引用。</value></data>
+  <data name="Carr.Disable" xml:space="preserve"><value>停用</value></data>
+  <data name="Carr.Disable.Tip" xml:space="preserve"><value>永久停用此物流商。</value></data>
+  <data name="Carr.Empty" xml:space="preserve"><value>此租户尚未配置任何物流商。</value></data>
+  <data name="Carr.CredentialHeading" xml:space="preserve"><value>设置凭证引用</value></data>
+  <data name="Carr.Credential.Help" xml:space="preserve"><value>输入存放此物流商账户 API 凭证的密钥库键——切勿输入密钥本身。</value></data>
+  <data name="Carr.Field.CredentialRef" xml:space="preserve"><value>凭证引用</value></data>
+  <data name="Carr.Field.CredentialRef.Tip" xml:space="preserve"><value>密钥库条目的引用（例如 carrier/auspost/store-1）。留空即清除。</value></data>
+  <data name="Carr.NewHeading" xml:space="preserve"><value>添加物流商</value></data>
+  <data name="Carr.Field.Carrier" xml:space="preserve"><value>物流商</value></data>
+  <data name="Carr.Field.Carrier.Tip" xml:space="preserve"><value>要配置的配送物流商。</value></data>
+  <data name="Carr.Field.Scope" xml:space="preserve"><value>范围</value></data>
+  <data name="Carr.Field.Scope.Tip" xml:space="preserve"><value>租户默认适用于所有店面；选择一个店面即可设置该店面专属账户。</value></data>
+  <data name="Carr.Scope.TenantDefault" xml:space="preserve"><value>租户默认（所有店面）</value></data>
+  <data name="Carr.Create" xml:space="preserve"><value>添加物流商</value></data>
+  <data name="Carr.Create.Tip" xml:space="preserve"><value>配置此物流商（以草稿开始）。</value></data>
+  <data name="Carr.Status.Created" xml:space="preserve"><value>物流商已配置。</value></data>
+  <data name="Carr.Status.Activated" xml:space="preserve"><value>物流商已启用。</value></data>
+  <data name="Carr.Status.Suspended" xml:space="preserve"><value>物流商已暂停。</value></data>
+  <data name="Carr.Status.Disabled" xml:space="preserve"><value>物流商已停用。</value></data>
+  <data name="Carr.Status.Updated" xml:space="preserve"><value>物流商已更新。</value></data>
+  <data name="Carr.Status.Default" xml:space="preserve"><value>默认物流商已设置。</value></data>
+  <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>凭证引用已保存。</value></data>
+  <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0} {1}）。</value></data>
 </root>

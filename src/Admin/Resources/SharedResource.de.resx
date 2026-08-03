@@ -1616,4 +1616,48 @@
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Den neuen Shop jetzt erstellen.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>Die Kopie beginnt als privater Entwurf ohne Domains – fügen Sie vor der Aktivierung eine Domain hinzu.</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Shop dupliziert.</value></data>
+  <data name="Nav.Carriers" xml:space="preserve"><value>Spediteure</value></data>
+  <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Versanddienstleister und storefrontspezifische Spediteurkonten verwalten.</value></data>
+  <data name="Carr.Title" xml:space="preserve"><value>Spediteure</value></data>
+  <data name="Carr.Subtitle" xml:space="preserve"><value>Versanddienstleisterkonten</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Versanddienstleister für einen Mandanten konfigurieren. Ein mandantenweiter Spediteur ist der Standard; storefrontspezifische Spediteure setzen ihn außer Kraft. Anmeldedaten liegen im Secret Store — nur eine Referenz eingeben.</value></data>
+  <data name="Carr.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Spediteure verwaltet werden.</value></data>
+  <data name="Carr.Col.Carrier" xml:space="preserve"><value>Spediteur</value></data>
+  <data name="Carr.Col.Scope" xml:space="preserve"><value>Bereich</value></data>
+  <data name="Carr.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Carr.Col.Default" xml:space="preserve"><value>Standard</value></data>
+  <data name="Carr.Col.Credential" xml:space="preserve"><value>Anmeldedaten</value></data>
+  <data name="Carr.Credential.Set" xml:space="preserve"><value>Gesetzt</value></data>
+  <data name="Carr.Credential.Keyless" xml:space="preserve"><value>Schlüssellos</value></data>
+  <data name="Carr.Activate" xml:space="preserve"><value>Aktivieren</value></data>
+  <data name="Carr.Activate.Tip" xml:space="preserve"><value>Diesen Spediteur aktivieren, damit er für den Versand genutzt werden kann.</value></data>
+  <data name="Carr.Suspend" xml:space="preserve"><value>Aussetzen</value></data>
+  <data name="Carr.Suspend.Tip" xml:space="preserve"><value>Diesen Spediteur vorübergehend nicht mehr verwenden.</value></data>
+  <data name="Carr.MakeDefault" xml:space="preserve"><value>Als Standard</value></data>
+  <data name="Carr.MakeDefault.Tip" xml:space="preserve"><value>Diesen Spediteur zum Standard für seinen Bereich machen.</value></data>
+  <data name="Carr.SetCredential" xml:space="preserve"><value>Anmeldedaten</value></data>
+  <data name="Carr.SetCredential.Tip" xml:space="preserve"><value>Die Secret-Store-Referenz für das Konto dieses Spediteurs festlegen oder ersetzen.</value></data>
+  <data name="Carr.Disable" xml:space="preserve"><value>Deaktivieren</value></data>
+  <data name="Carr.Disable.Tip" xml:space="preserve"><value>Diesen Spediteur dauerhaft deaktivieren.</value></data>
+  <data name="Carr.Empty" xml:space="preserve"><value>Für diesen Mandanten sind noch keine Spediteure konfiguriert.</value></data>
+  <data name="Carr.CredentialHeading" xml:space="preserve"><value>Anmeldedaten-Referenz festlegen</value></data>
+  <data name="Carr.Credential.Help" xml:space="preserve"><value>Geben Sie den Secret-Store-Schlüssel ein, der die API-Anmeldedaten dieses Spediteurkontos enthält — niemals das Geheimnis selbst.</value></data>
+  <data name="Carr.Field.CredentialRef" xml:space="preserve"><value>Anmeldedaten-Referenz</value></data>
+  <data name="Carr.Field.CredentialRef.Tip" xml:space="preserve"><value>Eine Referenz auf den Secret-Store-Eintrag (z. B. carrier/auspost/store-1). Leer lassen zum Löschen.</value></data>
+  <data name="Carr.NewHeading" xml:space="preserve"><value>Spediteur hinzufügen</value></data>
+  <data name="Carr.Field.Carrier" xml:space="preserve"><value>Spediteur</value></data>
+  <data name="Carr.Field.Carrier.Tip" xml:space="preserve"><value>Der zu konfigurierende Versanddienstleister.</value></data>
+  <data name="Carr.Field.Scope" xml:space="preserve"><value>Bereich</value></data>
+  <data name="Carr.Field.Scope.Tip" xml:space="preserve"><value>Der Mandantenstandard gilt für alle Storefronts; wählen Sie einen Storefront für ein storefrontspezifisches Konto.</value></data>
+  <data name="Carr.Scope.TenantDefault" xml:space="preserve"><value>Mandantenstandard (alle Storefronts)</value></data>
+  <data name="Carr.Create" xml:space="preserve"><value>Spediteur hinzufügen</value></data>
+  <data name="Carr.Create.Tip" xml:space="preserve"><value>Diesen Spediteur konfigurieren (beginnt als Entwurf).</value></data>
+  <data name="Carr.Status.Created" xml:space="preserve"><value>Spediteur konfiguriert.</value></data>
+  <data name="Carr.Status.Activated" xml:space="preserve"><value>Spediteur aktiviert.</value></data>
+  <data name="Carr.Status.Suspended" xml:space="preserve"><value>Spediteur ausgesetzt.</value></data>
+  <data name="Carr.Status.Disabled" xml:space="preserve"><value>Spediteur deaktiviert.</value></data>
+  <data name="Carr.Status.Updated" xml:space="preserve"><value>Spediteur aktualisiert.</value></data>
+  <data name="Carr.Status.Default" xml:space="preserve"><value>Standardspediteur festgelegt.</value></data>
+  <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Anmeldedaten-Referenz gespeichert.</value></data>
+  <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0} {1}).</value></data>
 </root>

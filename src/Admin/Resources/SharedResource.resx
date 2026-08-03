@@ -1616,4 +1616,48 @@
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Create the new storefront now.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>The copy starts as a private Draft with no domains — add a domain before going live.</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Storefront duplicated.</value></data>
+  <data name="Nav.Carriers" xml:space="preserve"><value>Carriers</value></data>
+  <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Manage shipping carriers and per-storefront carrier accounts.</value></data>
+  <data name="Carr.Title" xml:space="preserve"><value>Carriers</value></data>
+  <data name="Carr.Subtitle" xml:space="preserve"><value>shipping carrier accounts</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Configure shipping carriers for a tenant. A tenant-level carrier is the default; per-storefront carriers override it. Credentials live in the secret store — enter only a reference.</value></data>
+  <data name="Carr.TenantId.Tip" xml:space="preserve"><value>The tenant whose carriers to manage.</value></data>
+  <data name="Carr.Col.Carrier" xml:space="preserve"><value>Carrier</value></data>
+  <data name="Carr.Col.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="Carr.Col.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Carr.Col.Default" xml:space="preserve"><value>Default</value></data>
+  <data name="Carr.Col.Credential" xml:space="preserve"><value>Credential</value></data>
+  <data name="Carr.Credential.Set" xml:space="preserve"><value>Set</value></data>
+  <data name="Carr.Credential.Keyless" xml:space="preserve"><value>Keyless</value></data>
+  <data name="Carr.Activate" xml:space="preserve"><value>Activate</value></data>
+  <data name="Carr.Activate.Tip" xml:space="preserve"><value>Activate this carrier so it can be used for shipping.</value></data>
+  <data name="Carr.Suspend" xml:space="preserve"><value>Suspend</value></data>
+  <data name="Carr.Suspend.Tip" xml:space="preserve"><value>Temporarily stop using this carrier.</value></data>
+  <data name="Carr.MakeDefault" xml:space="preserve"><value>Make default</value></data>
+  <data name="Carr.MakeDefault.Tip" xml:space="preserve"><value>Make this the default carrier for its scope.</value></data>
+  <data name="Carr.SetCredential" xml:space="preserve"><value>Credential</value></data>
+  <data name="Carr.SetCredential.Tip" xml:space="preserve"><value>Set or replace the secret-store reference for this carrier's account.</value></data>
+  <data name="Carr.Disable" xml:space="preserve"><value>Disable</value></data>
+  <data name="Carr.Disable.Tip" xml:space="preserve"><value>Permanently disable this carrier.</value></data>
+  <data name="Carr.Empty" xml:space="preserve"><value>No carriers configured for this tenant yet.</value></data>
+  <data name="Carr.CredentialHeading" xml:space="preserve"><value>Set credential reference</value></data>
+  <data name="Carr.Credential.Help" xml:space="preserve"><value>Enter the secret-store key that holds this carrier account's API credentials — never the secret itself.</value></data>
+  <data name="Carr.Field.CredentialRef" xml:space="preserve"><value>Credential reference</value></data>
+  <data name="Carr.Field.CredentialRef.Tip" xml:space="preserve"><value>A reference to the secret-store entry (e.g. carrier/auspost/store-1). Leave blank to clear.</value></data>
+  <data name="Carr.NewHeading" xml:space="preserve"><value>Add a carrier</value></data>
+  <data name="Carr.Field.Carrier" xml:space="preserve"><value>Carrier</value></data>
+  <data name="Carr.Field.Carrier.Tip" xml:space="preserve"><value>The shipping carrier to configure.</value></data>
+  <data name="Carr.Field.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="Carr.Field.Scope.Tip" xml:space="preserve"><value>Tenant default applies to all storefronts; pick a storefront for a per-storefront account.</value></data>
+  <data name="Carr.Scope.TenantDefault" xml:space="preserve"><value>Tenant default (all storefronts)</value></data>
+  <data name="Carr.Create" xml:space="preserve"><value>Add carrier</value></data>
+  <data name="Carr.Create.Tip" xml:space="preserve"><value>Configure this carrier (starts as Draft).</value></data>
+  <data name="Carr.Status.Created" xml:space="preserve"><value>Carrier configured.</value></data>
+  <data name="Carr.Status.Activated" xml:space="preserve"><value>Carrier activated.</value></data>
+  <data name="Carr.Status.Suspended" xml:space="preserve"><value>Carrier suspended.</value></data>
+  <data name="Carr.Status.Disabled" xml:space="preserve"><value>Carrier disabled.</value></data>
+  <data name="Carr.Status.Updated" xml:space="preserve"><value>Carrier updated.</value></data>
+  <data name="Carr.Status.Default" xml:space="preserve"><value>Default carrier set.</value></data>
+  <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Credential reference saved.</value></data>
+  <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0} {1}).</value></data>
 </root>

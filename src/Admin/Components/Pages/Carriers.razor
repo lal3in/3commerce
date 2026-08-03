@@ -1,0 +1,264 @@
+@page "/carriers"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+@using System.Net.Http.Json
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">@L["Carr.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Carr.Subtitle"]</span>
+</div>
+<p style="color:#6b7280;">@L["Carr.Intro"]</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Carr.TenantId.Tip"]" style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
+</div>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
+@if (_carriers is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">@L["Carr.Col.Carrier"]</th><th>@L["Carr.Col.Scope"]</th><th>@L["Carr.Col.Status"]</th><th>@L["Carr.Col.Default"]</th><th>@L["Carr.Col.Credential"]</th><th>@L["Common.Actions"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var c in _carriers)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@CarrierLabel(c.Carrier)</td>
+                <td>@ScopeLabel(c.StorefrontId)</td>
+                <td>@c.Status</td>
+                <td style="text-align:center;">@(c.IsDefault ? "★" : "")</td>
+                <td>@(c.HasCredential ? L["Carr.Credential.Set"] : (c.Carrier == "Fake" ? L["Carr.Credential.Keyless"] : "—"))</td>
+                <td style="white-space:nowrap;">
+                    @if (c.Status is "Draft" or "Suspended")
+                    {
+                        <button @onclick='() => Act(c.Id, "activate")' title="@L["Carr.Activate.Tip"]">@L["Carr.Activate"]</button>
+                    }
+                    @if (c.Status == "Active")
+                    {
+                        <button @onclick='() => Act(c.Id, "suspend")' title="@L["Carr.Suspend.Tip"]">@L["Carr.Suspend"]</button>
+                    }
+                    @if (c.Status == "Active" && !c.IsDefault)
+                    {
+                        <button @onclick="() => MakeDefault(c.Id)" title="@L["Carr.MakeDefault.Tip"]">@L["Carr.MakeDefault"]</button>
+                    }
+                    <button @onclick="() => StartCredential(c)" title="@L["Carr.SetCredential.Tip"]">@L["Carr.SetCredential"]</button>
+                    @if (c.Status != "Disabled")
+                    {
+                        <button @onclick='() => Act(c.Id, "disable")' title="@L["Carr.Disable.Tip"]" style="color:#b91c1c;">@L["Carr.Disable"]</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_carriers.Count == 0)
+    {
+        <p style="color:#9ca3af;">@L["Carr.Empty"]</p>
+    }
+
+    @if (_credential is not null)
+    {
+        <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
+            <h2 style="margin-top:0; font-size:1.1rem;">@L["Carr.CredentialHeading"]</h2>
+            <p style="color:#6b7280; font-size:.82rem;">@L["Carr.Credential.Help"]</p>
+            <div style="display:flex; flex-direction:column; gap:.5rem;">
+                <label>@L["Carr.Field.CredentialRef"] <input @bind="_credential.CredentialRef" title="@L["Carr.Field.CredentialRef.Tip"]" style="width:100%;" /></label>
+                <div style="display:flex; gap:.5rem;">
+                    <button @onclick="SaveCredential" title="@L["Common.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Common.Save"]</button>
+                    <button @onclick="() => _credential = null" title="@L["Common.Cancel.Tip"]" style="padding:.45rem .9rem;">@L["Common.Cancel"]</button>
+                </div>
+            </div>
+        </section>
+    }
+
+    <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:560px;">
+        <h2 style="margin-top:0; font-size:1.1rem;">@L["Carr.NewHeading"]</h2>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+            <label>@L["Carr.Field.Carrier"]
+                <select @bind="_new.Carrier" title="@L["Carr.Field.Carrier.Tip"]" style="width:100%;">
+                    @foreach (var opt in CarrierOptions)
+                    {
+                        <option value="@opt.Code">@opt.Label</option>
+                    }
+                </select>
+            </label>
+            <label>@L["Carr.Field.Scope"]
+                <select @bind="_new.StorefrontId" title="@L["Carr.Field.Scope.Tip"]" style="width:100%;">
+                    <option value="">@L["Carr.Scope.TenantDefault"]</option>
+                    @if (_storefronts is not null)
+                    {
+                        @foreach (var s in _storefronts)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    }
+                </select>
+            </label>
+            <label>@L["Carr.Field.CredentialRef"] <input @bind="_new.CredentialRef" title="@L["Carr.Field.CredentialRef.Tip"]" style="width:100%;" /></label>
+            <button @onclick="Create" title="@L["Carr.Create.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px; align-self:flex-start;">@L["Carr.Create"]</button>
+        </div>
+    </section>
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private List<CarrierDto>? _carriers;
+    private List<StorefrontDto>? _storefronts;
+    private string? _status;
+    private string? _error;
+    private readonly NewCarrier _new = new();
+    private CredentialEdit? _credential;
+
+    // CarrierCode enum (Fulfillment): Fake=1, AustraliaPost=2, Dhl=3, FedEx=4, Ups=5, StarTrack=6, PackAndSend=7.
+    private static readonly (int Code, string Label)[] CarrierOptions =
+    [
+        (1, "Fake (keyless — dev/test)"),
+        (2, "Australia Post"),
+        (3, "DHL"),
+        (4, "FedEx"),
+        (5, "UPS"),
+        (6, "StarTrack"),
+        (7, "PackAndSend"),
+    ];
+
+    private static string CarrierLabel(string carrier) => carrier switch
+    {
+        "Fake" => "Fake (dev/test)",
+        "AustraliaPost" => "Australia Post",
+        "Dhl" => "DHL",
+        "FedEx" => "FedEx",
+        "Ups" => "UPS",
+        "StarTrack" => "StarTrack",
+        "PackAndSend" => "PackAndSend",
+        _ => carrier,
+    };
+
+    private string ScopeLabel(Guid? storefrontId)
+    {
+        if (storefrontId is not { } id)
+        {
+            return L["Carr.Scope.TenantDefault"];
+        }
+
+        return _storefronts?.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            var tenant = Uri.EscapeDataString(_tenantId);
+            _storefronts = await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={tenant}");
+            _carriers = await Gateway.GetListAsync<CarrierDto>($"/api/fulfillment/admin/carriers?tenantId={tenant}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Create()
+    {
+        _error = _status = null;
+        var body = new
+        {
+            tenantId = Guid.Parse(_tenantId),
+            storefrontId = string.IsNullOrWhiteSpace(_new.StorefrontId) ? (Guid?)null : Guid.Parse(_new.StorefrontId),
+            carrier = _new.Carrier,
+            credentialRef = string.IsNullOrWhiteSpace(_new.CredentialRef) ? null : _new.CredentialRef,
+        };
+        var response = await Gateway.PostAsync("/api/fulfillment/admin/carriers", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _new.Reset();
+            await LoadAsync();
+            _status = L["Carr.Status.Created"];
+        }
+        else { _error = await ErrorText(response); }
+    }
+
+    private async Task Act(Guid id, string action)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/fulfillment/admin/carriers/{id}/{action}?tenantId={Uri.EscapeDataString(_tenantId)}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = action switch
+            {
+                "activate" => L["Carr.Status.Activated"],
+                "suspend" => L["Carr.Status.Suspended"],
+                "disable" => L["Carr.Status.Disabled"],
+                _ => L["Carr.Status.Updated"],
+            };
+        }
+        else { _error = await ErrorText(response); }
+    }
+
+    private async Task MakeDefault(Guid id)
+    {
+        _error = _status = null;
+        var response = await Gateway.PostAsync($"/api/fulfillment/admin/carriers/{id}/default?tenantId={Uri.EscapeDataString(_tenantId)}");
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadAsync();
+            _status = L["Carr.Status.Default"];
+        }
+        else { _error = await ErrorText(response); }
+    }
+
+    private void StartCredential(CarrierDto c) => _credential = new CredentialEdit { Id = c.Id, CredentialRef = null };
+
+    private async Task SaveCredential()
+    {
+        if (_credential is null) { return; }
+        _error = _status = null;
+        var body = new { credentialRef = string.IsNullOrWhiteSpace(_credential.CredentialRef) ? null : _credential.CredentialRef };
+        var response = await Gateway.PutAsync($"/api/fulfillment/admin/carriers/{_credential.Id}/credential?tenantId={Uri.EscapeDataString(_tenantId)}", body);
+        if (response.IsSuccessStatusCode)
+        {
+            _credential = null;
+            await LoadAsync();
+            _status = L["Carr.Status.CredentialSaved"];
+        }
+        else { _error = await ErrorText(response); }
+    }
+
+    private async Task<string> ErrorText(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(body)
+            ? L["Carr.Error.RequestFailed", (int)response.StatusCode, response.StatusCode]
+            : $"({(int)response.StatusCode}) {body}";
+    }
+
+    private sealed class NewCarrier
+    {
+        public int Carrier { get; set; } = 1;
+        public string StorefrontId { get; set; } = string.Empty;
+        public string? CredentialRef { get; set; }
+        public void Reset() { Carrier = 1; StorefrontId = string.Empty; CredentialRef = null; }
+    }
+
+    private sealed class CredentialEdit
+    {
+        public Guid Id { get; set; }
+        public string? CredentialRef { get; set; }
+    }
+
+    private record CarrierDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Carrier, string Status, bool IsDefault, bool HasCredential);
+    private record StorefrontDto(Guid Id, Guid TenantId, string Name);
+}

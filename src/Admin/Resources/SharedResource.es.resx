@@ -1616,4 +1616,48 @@
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Crear la nueva tienda ahora.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>La copia comienza como un borrador privado sin dominios: añade un dominio antes de publicarla.</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Tienda duplicada.</value></data>
+  <data name="Nav.Carriers" xml:space="preserve"><value>Transportistas</value></data>
+  <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Gestione transportistas de envío y cuentas de transportista por tienda.</value></data>
+  <data name="Carr.Title" xml:space="preserve"><value>Transportistas</value></data>
+  <data name="Carr.Subtitle" xml:space="preserve"><value>cuentas de transportista</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Configure transportistas para un inquilino. Un transportista a nivel de inquilino es el predeterminado; los transportistas por tienda lo anulan. Las credenciales viven en el almacén de secretos: introduzca solo una referencia.</value></data>
+  <data name="Carr.TenantId.Tip" xml:space="preserve"><value>El inquilino cuyos transportistas se gestionan.</value></data>
+  <data name="Carr.Col.Carrier" xml:space="preserve"><value>Transportista</value></data>
+  <data name="Carr.Col.Scope" xml:space="preserve"><value>Ámbito</value></data>
+  <data name="Carr.Col.Status" xml:space="preserve"><value>Estado</value></data>
+  <data name="Carr.Col.Default" xml:space="preserve"><value>Predet.</value></data>
+  <data name="Carr.Col.Credential" xml:space="preserve"><value>Credencial</value></data>
+  <data name="Carr.Credential.Set" xml:space="preserve"><value>Establecida</value></data>
+  <data name="Carr.Credential.Keyless" xml:space="preserve"><value>Sin clave</value></data>
+  <data name="Carr.Activate" xml:space="preserve"><value>Activar</value></data>
+  <data name="Carr.Activate.Tip" xml:space="preserve"><value>Active este transportista para poder usarlo en envíos.</value></data>
+  <data name="Carr.Suspend" xml:space="preserve"><value>Suspender</value></data>
+  <data name="Carr.Suspend.Tip" xml:space="preserve"><value>Deje de usar temporalmente este transportista.</value></data>
+  <data name="Carr.MakeDefault" xml:space="preserve"><value>Predeterminar</value></data>
+  <data name="Carr.MakeDefault.Tip" xml:space="preserve"><value>Convertir en el transportista predeterminado de su ámbito.</value></data>
+  <data name="Carr.SetCredential" xml:space="preserve"><value>Credencial</value></data>
+  <data name="Carr.SetCredential.Tip" xml:space="preserve"><value>Establezca o reemplace la referencia del almacén de secretos para la cuenta de este transportista.</value></data>
+  <data name="Carr.Disable" xml:space="preserve"><value>Deshabilitar</value></data>
+  <data name="Carr.Disable.Tip" xml:space="preserve"><value>Deshabilite permanentemente este transportista.</value></data>
+  <data name="Carr.Empty" xml:space="preserve"><value>Aún no hay transportistas configurados para este inquilino.</value></data>
+  <data name="Carr.CredentialHeading" xml:space="preserve"><value>Establecer referencia de credencial</value></data>
+  <data name="Carr.Credential.Help" xml:space="preserve"><value>Introduzca la clave del almacén de secretos que contiene las credenciales de API de esta cuenta de transportista, nunca el secreto en sí.</value></data>
+  <data name="Carr.Field.CredentialRef" xml:space="preserve"><value>Referencia de credencial</value></data>
+  <data name="Carr.Field.CredentialRef.Tip" xml:space="preserve"><value>Una referencia a la entrada del almacén de secretos (p. ej. carrier/auspost/store-1). Déjelo vacío para borrar.</value></data>
+  <data name="Carr.NewHeading" xml:space="preserve"><value>Añadir un transportista</value></data>
+  <data name="Carr.Field.Carrier" xml:space="preserve"><value>Transportista</value></data>
+  <data name="Carr.Field.Carrier.Tip" xml:space="preserve"><value>El transportista de envío a configurar.</value></data>
+  <data name="Carr.Field.Scope" xml:space="preserve"><value>Ámbito</value></data>
+  <data name="Carr.Field.Scope.Tip" xml:space="preserve"><value>El predeterminado del inquilino se aplica a todas las tiendas; elija una tienda para una cuenta por tienda.</value></data>
+  <data name="Carr.Scope.TenantDefault" xml:space="preserve"><value>Predeterminado del inquilino (todas las tiendas)</value></data>
+  <data name="Carr.Create" xml:space="preserve"><value>Añadir transportista</value></data>
+  <data name="Carr.Create.Tip" xml:space="preserve"><value>Configure este transportista (empieza como borrador).</value></data>
+  <data name="Carr.Status.Created" xml:space="preserve"><value>Transportista configurado.</value></data>
+  <data name="Carr.Status.Activated" xml:space="preserve"><value>Transportista activado.</value></data>
+  <data name="Carr.Status.Suspended" xml:space="preserve"><value>Transportista suspendido.</value></data>
+  <data name="Carr.Status.Disabled" xml:space="preserve"><value>Transportista deshabilitado.</value></data>
+  <data name="Carr.Status.Updated" xml:space="preserve"><value>Transportista actualizado.</value></data>
+  <data name="Carr.Status.Default" xml:space="preserve"><value>Transportista predeterminado establecido.</value></data>
+  <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Referencia de credencial guardada.</value></data>
+  <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>La solicitud falló ({0} {1}).</value></data>
 </root>
