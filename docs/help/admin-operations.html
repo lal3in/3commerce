@@ -145,6 +145,17 @@
         <h2 id="ledger">5. Ledger — <code>/ledger</code></h2>
         <p>File: <code>Components/Pages/Ledger.razor</code>. Calls <code>GET /api/payments/admin/ledger/entries</code>. Read-only view of the append-only double-entry ledger (the source of truth for all money facts).</p>
         <p>Each row shows the entry <strong>Description</strong>, <strong>Reference</strong>, and its <strong>Lines</strong>, formatted as <code>"&lt;AccountCode&gt; D&lt;amount&gt;"</code> for debits and <code>"&lt;AccountCode&gt; C&lt;amount&gt;"</code> for credits (amounts shown in major units, i.e. <code>minor / 100</code>). A confirmed sale posts a balanced entry; an approved refund posts a balanced reversal. Trial balance should always net to zero.</p>
+        <p>The <strong>Amount</strong> column is colour-coded by direction: green = money in (a sale), red = money out (a supplier/carrier accrual, a write-off, or a chargeback), amber = a refund. Cost accruals (COGS, carrier cost) and inventory write-offs read red; a Restock COGS reversal reads green.</p>
+
+        <h2 id="financials">5b. Financials — <code>/financials</code></h2>
+        <p>File: <code>Components/Pages/Financials.razor</code>. Reads the ledger balances (<code>GET /api/payments/admin/ledger/balances</code>) plus the storefront list, and presents money <strong>per currency</strong> and <strong>per storefront</strong> — there is deliberately <strong>no cross-currency total</strong> (minor units aren't comparable without an FX feed; ADR-0040/0041).</p>
+        <ul>
+          <li><strong>Per-currency P&amp;L</strong> (one section per AUD/EUR/USD): Revenue, Shipping income, Refunds, processing Fees, <strong>Chargebacks</strong>, <strong>COGS</strong>, <strong>Carrier shipping cost</strong>, <strong>Write-offs</strong>, and Net result — each the sum of ledger lines <em>in that currency</em>.</li>
+          <li><strong>By-storefront table</strong>: each store's Gross / Net revenue / Shipping / Tax / <strong>COGS</strong> / <strong>Margin</strong> (contribution margin = net revenue + shipping − COGS − carrier cost − write-offs), plus two <em>estimated</em> columns (italic/amber) — <strong>Est. overheads</strong> and <strong>Est. net margin</strong> — driven by the store's cost-assumption rates. The estimated columns are assumptions, <strong>not</strong> ledger postings.</li>
+          <li><strong>Reconciliation</strong> (ADR-0041): for any metric in a currency, Σ(each store's account) + (shared / unattributed) = the per-currency P&amp;L value. "EUR-storefront COGS" and "EUR-currency COGS" coincide only when a single store in that currency accrued it; they diverge legitimately with multiple stores per currency or cross-currency relabels.</li>
+        </ul>
+        <p><strong>Chargebacks / disputes.</strong> A chargeback (simulated in dev via <code>POST /api/payments/dev/simulate-chargeback/{intentId}</code>) reverses the sale through the store's own accounts and books the provider's dispute fee to <code>expense.{provider}_chargeback_fees</code>; the payment moves to <strong>Disputed</strong> and the order shows a red <strong>Disputed</strong> badge on <code>/orders</code> and in the shopper's order history.</p>
+        <p><strong>Cost assumptions.</strong> On <code>/commerce-ops</code>, open a storefront's <strong>Manage</strong> form to set five basis-point overhead rates (packaging, labour, marketing, insurance, buffer). They only feed the estimated-margin columns above — they never post to the ledger.</p>
 
         <h2 id="xero-sync">6. Xero sync — <code>/xero</code></h2>
         <p>File: <code>Components/Pages/XeroSync.razor</code>. <code>InteractiveServer</code>. Calls <code>GET /api/payments/admin/xero/sync-runs</code> to list prior runs (<strong>Reference</strong>, <strong>Status</strong>, <strong>Xero journal</strong> id).</p>
@@ -181,6 +192,9 @@
             <tbody>
               <tr><td>RMA queue</td><td><code>GET /api/support/admin/rmas</code></td><td><code>POST /api/support/admin/rmas/&lt;id&gt;/approve</code> (<code>{requireReturn:bool}</code>) · <code>.../deny</code> · <code>.../return-received</code></td></tr>
               <tr><td>Ledger</td><td><code>GET /api/payments/admin/ledger/entries</code></td><td>—</td></tr>
+              <tr><td>Financials</td><td><code>GET /api/payments/admin/ledger/balances</code> · <code>GET /api/catalog/admin/storefronts?tenantId=...</code></td><td>— (read-only; dev: <code>POST /api/payments/dev/simulate-chargeback/{intentId}</code>)</td></tr>
+              <tr><td>Commerce-ops</td><td><code>GET /api/catalog/admin/storefronts?tenantId=...</code></td><td><code>POST .../{id}/duplicate</code> (<code>{name}</code>) · <code>PUT .../{id}</code> (theme + <code>costAssumptions</code> bps)</td></tr>
+              <tr><td>Reviews</td><td><code>GET /api/catalog/admin/reviews</code></td><td><code>DELETE /api/catalog/admin/reviews/{id}</code> (removing a review/comment cascades its replies)</td></tr>
               <tr><td>Xero sync</td><td><code>GET /api/payments/admin/xero/sync-runs</code></td><td><code>POST /api/payments/admin/xero/sync/&lt;date&gt;</code></td></tr>
               <tr><td>Xero mappings</td><td><code>GET /api/payments/admin/xero/mappings?tenantId=...</code></td><td><code>POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]</code> (numeric <code>scope</code> 1–5)</td></tr>
               <tr><td>Imports</td><td><code>GET /api/catalog/admin/import-runs</code></td><td><code>POST /api/catalog/admin/import-runs</code></td></tr>
