@@ -287,6 +287,18 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor));
         Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
 
+        // Reconciliation guard (ADR-0041): every COGS line MUST carry the order's currency. When it was
+        // empty (fixed in #157), the Financials per-currency P&L — which filters COGS by line currency —
+        // showed 0 while the by-store column (which sums a store's account across all currencies) showed
+        // the value: the two views silently disagreed. Assert the line currency, then confirm the
+        // per-currency query over the store's COGS account equals the by-store total (they reconcile).
+        Assert.All(lines, l => Assert.False(string.IsNullOrEmpty(l.Currency), $"line {l.AccountCode} has no currency"));
+        Assert.All(lines, l => Assert.Equal(order.Currency, l.Currency));
+        // Scoped to THIS entry (the shared Phase3 fixture DB accumulates other tests' COGS on the same
+        // default-store account, so a whole-table sum can't assert an absolute): a currency-filtered view
+        // over this accrual's store-COGS lines finds the full amount → per-currency and by-store agree.
+        Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId) && l.Currency == order.Currency).Sum(l => l.DebitMinor));
+
         // Sale + COGS accrual both balanced → the whole ledger stays balanced.
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
