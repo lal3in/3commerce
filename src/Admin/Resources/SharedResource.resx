@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>Default carrier set.</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Credential reference saved.</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0} {1}).</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>Product types</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>Choose which product types require shipping / a carrier.</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>Product types</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>shipping policy</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>Choose which product types require shipping and a carrier (e.g. physical goods). A product whose type ships can't be published until every variant has item and package weight + dimensions.</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>The tenant whose shipping policy to manage.</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>Product type</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>Requires shipping</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>When checked, products of this type need a carrier and shipping dimensions to be published.</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>Save policy</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>Save which product types require shipping for this tenant.</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>Shipping policy saved.</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>Request failed ({0} {1}).</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>Physical</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>Service</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>Bundle</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>Subscription</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Usage-based</value></data>
 </root>

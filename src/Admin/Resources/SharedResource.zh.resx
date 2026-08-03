@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>默认物流商已设置。</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>凭证引用已保存。</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0} {1}）。</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>产品类型</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>选择哪些产品类型需要配送／物流商。</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>产品类型</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>配送政策</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>选择哪些产品类型需要配送和物流商（例如实体货品）。需要配送类型的产品，在每个款式都具备货品与包装的重量和尺寸之前无法发布。</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>要管理配送政策的租户。</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>产品类型</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>需要配送</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>勾选后，此类产品需要物流商和配送尺寸才能发布。</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>保存政策</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>保存此租户哪些产品类型需要配送。</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>配送政策已保存。</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>请求失败（{0} {1}）。</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>实体</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>数字</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>服务</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>组合</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>订阅</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>按用量</value></data>
 </root>

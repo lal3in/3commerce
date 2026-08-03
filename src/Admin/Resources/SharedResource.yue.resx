@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>預設物流商已設定。</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>憑證引用已儲存。</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>請求失敗（{0} {1}）。</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>產品類型</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>揀邊啲產品類型需要送貨／物流商。</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>產品類型</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>送貨政策</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>揀邊啲產品類型需要送貨同物流商（例如實體貨品）。需要送貨嘅類型嘅產品，喺每個款式都有貨品同包裝嘅重量同尺寸之前唔可以發佈。</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>要管理送貨政策嘅租戶。</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>產品類型</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>需要送貨</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>剔咗之後，呢類產品要有物流商同送貨尺寸先可以發佈。</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>儲存政策</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>儲存呢個租戶邊啲產品類型需要送貨。</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>送貨政策已儲存。</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>請求失敗（{0} {1}）。</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>實體</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>數碼</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>服務</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>組合</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>訂閱</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>按用量</value></data>
 </root>

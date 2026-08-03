@@ -466,6 +466,7 @@ public static class StorefrontEndpoints
         Guid id,
         Guid productId,
         CatalogDbContext db,
+        ProductTypeShippingPolicyService policySvc,
         CancellationToken cancellationToken)
     {
         var publication = await db.ProductPublications.AsNoTracking().Include(p => p.Variants)
@@ -476,26 +477,28 @@ public static class StorefrontEndpoints
             return TypedResults.NotFound();
         }
 
-        var readiness = publication.CheckReadiness(product);
+        var policy = await policySvc.GetOrDefaultAsync(product.TenantId, cancellationToken);
+        var readiness = publication.CheckReadiness(product, policy.RequiresShipping(product.ProductType));
         return TypedResults.Ok(new ProductPublicationReadinessResponse(readiness.IsReady, readiness.MissingRequirements));
     }
 
     private static Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> PublishProduct(
-        Guid id, Guid productId, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
-        ProductTransition(id, productId, "publish", db, audit, user, (publication, product) => publication.Publish(product, time.GetUtcNow()), cancellationToken);
+        Guid id, Guid productId, CatalogDbContext db, ProductTypeShippingPolicyService policySvc, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        ProductTransition(id, productId, "publish", db, policySvc, audit, user, (publication, product, requiresShipping) => publication.Publish(product, requiresShipping, time.GetUtcNow()), cancellationToken);
 
     private static Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> UnpublishProduct(
-        Guid id, Guid productId, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
-        ProductTransition(id, productId, "unpublish", db, audit, user, (publication, _) => publication.Unpublish(time.GetUtcNow()), cancellationToken);
+        Guid id, Guid productId, CatalogDbContext db, ProductTypeShippingPolicyService policySvc, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
+        ProductTransition(id, productId, "unpublish", db, policySvc, audit, user, (publication, _, _) => publication.Unpublish(time.GetUtcNow()), cancellationToken);
 
     private static async Task<Results<Ok<ProductPublicationResponse>, NotFound, ValidationProblem>> ProductTransition(
         Guid storefrontId,
         Guid productId,
         string transitionName,
         CatalogDbContext db,
+        ProductTypeShippingPolicyService policySvc,
         IAuditRecorder audit,
         ClaimsPrincipal user,
-        Action<ProductPublication, Product> transition,
+        Action<ProductPublication, Product, bool> transition,
         CancellationToken cancellationToken)
     {
         var publication = await db.ProductPublications.Include(p => p.Variants)
@@ -508,7 +511,8 @@ public static class StorefrontEndpoints
 
         try
         {
-            transition(publication, product);
+            var policy = await policySvc.GetOrDefaultAsync(product.TenantId, cancellationToken);
+            transition(publication, product, policy.RequiresShipping(product.ProductType));
             await audit.RecordAsync(user.Mutation(
                 publication.TenantId, "ProductPublication", publication.Id.ToString(), $"catalog.product.{transitionName}", product.Title), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);

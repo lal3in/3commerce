@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>Transportista predeterminado establecido.</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Referencia de credencial guardada.</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>La solicitud falló ({0} {1}).</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>Tipos de producto</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>Elija qué tipos de producto requieren envío / un transportista.</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>Tipos de producto</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>política de envío</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>Elija qué tipos de producto requieren envío y un transportista (p. ej. bienes físicos). Un producto de un tipo que se envía no se puede publicar hasta que cada variante tenga peso y dimensiones del artículo y del paquete.</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>El inquilino cuya política de envío se gestiona.</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>Tipo de producto</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>Requiere envío</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>Si se marca, los productos de este tipo necesitan un transportista y dimensiones de envío para publicarse.</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>Guardar política</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>Guarde qué tipos de producto requieren envío para este inquilino.</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>Política de envío guardada.</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>La solicitud falló ({0} {1}).</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>Físico</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>Servicio</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>Paquete</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>Suscripción</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Basado en uso</value></data>
 </root>

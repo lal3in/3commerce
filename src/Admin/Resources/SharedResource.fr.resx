@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>Transporteur par défaut défini.</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Référence d'identifiant enregistrée.</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>Échec de la requête ({0} {1}).</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>Types de produit</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>Choisir quels types de produit nécessitent une expédition / un transporteur.</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>Types de produit</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>politique d'expédition</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>Choisissez quels types de produit nécessitent une expédition et un transporteur (p. ex. les biens physiques). Un produit d'un type expédié ne peut être publié tant que chaque variante n'a pas le poids et les dimensions de l'article et du colis.</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>Le locataire dont la politique d'expédition est gérée.</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>Type de produit</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>Expédition requise</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>Si coché, les produits de ce type nécessitent un transporteur et des dimensions d'expédition pour être publiés.</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>Enregistrer la politique</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>Enregistrer quels types de produit nécessitent une expédition pour ce locataire.</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>Politique d'expédition enregistrée.</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>Échec de la requête ({0} {1}).</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>Physique</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>Numérique</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>Service</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>Lot</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Basé sur l'usage</value></data>
 </root>

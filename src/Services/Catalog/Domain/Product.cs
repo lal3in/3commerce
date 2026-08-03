@@ -261,7 +261,15 @@ public sealed class ProductPublication
         UpdatedAt = now;
     }
 
-    public ProductPublicationReadiness CheckReadiness(Product product)
+    public ProductPublicationReadiness CheckReadiness(Product product) =>
+        CheckReadiness(product, FulfillmentSource.RequiresShipping());
+
+    /// <summary>
+    /// Readiness with an explicit shippability decision — the caller resolves it from the tenant's
+    /// <see cref="ProductTypeShippingPolicy"/> (which product types need a carrier). The parameterless
+    /// overload falls back to the fulfilment type, preserving behaviour where no policy is consulted.
+    /// </summary>
+    public ProductPublicationReadiness CheckReadiness(Product product, bool requiresShipping)
     {
         var missing = new List<string>();
         if (product.TenantId != TenantId || product.Id != ProductId)
@@ -287,7 +295,7 @@ public sealed class ProductPublication
         // A physical (shippable) product can't be sold without weight + dimensions for BOTH the item and
         // its shipping package — carriers rate the parcel. Non-physical (digital/service/usage) types ship
         // nothing, so they're exempt. Checked on every visible variant that belongs to this product.
-        if (FulfillmentSource.RequiresShipping())
+        if (requiresShipping)
         {
             var visibleVariantIds = Variants.Where(v => v.Visible).Select(v => v.VariantId).ToHashSet();
             var physicalVariants = product.Variants.Where(pv => visibleVariantIds.Contains(pv.Id)).ToList();
@@ -300,9 +308,12 @@ public sealed class ProductPublication
         return new ProductPublicationReadiness(missing.Count == 0, missing);
     }
 
-    public void Publish(Product product, DateTimeOffset now)
+    public void Publish(Product product, DateTimeOffset now) =>
+        Publish(product, FulfillmentSource.RequiresShipping(), now);
+
+    public void Publish(Product product, bool requiresShipping, DateTimeOffset now)
     {
-        var readiness = CheckReadiness(product);
+        var readiness = CheckReadiness(product, requiresShipping);
         if (!readiness.IsReady)
         {
             throw new CatalogRuleException($"Product publication is missing: {string.Join(", ", readiness.MissingRequirements)}.");
