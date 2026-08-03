@@ -48,10 +48,17 @@ public sealed class PaymentEventProcessor(
                 var accounts = payment.StorefrontId is { } sid
                     ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
                     : null;
-                db.JournalEntries.Add(Ledger.Sale(
+                var sale = Ledger.Sale(
                     payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
                     payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-                    payment.ShippingMinor, accounts?.ShippingAccountCode));
+                    payment.ShippingMinor, accounts?.ShippingAccountCode);
+                // A genuinely $0 order (e.g. a usage-metered product with no upfront price and no shipping)
+                // moves no money, so the sale entry has no lines — don't persist an empty journal entry.
+                if (sale.Lines.Count > 0)
+                {
+                    db.JournalEntries.Add(sale);
+                }
+
                 await publisher.Publish(new PaymentSucceeded(payment.OrderId, payment.PaymentIntentId, payment.AmountMinor), ct);
                 break;
 
