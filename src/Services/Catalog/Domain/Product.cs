@@ -128,10 +128,24 @@ public class Variant
     /// Fulfillment inventory endpoints, not by editing this.
     /// </summary>
     public int StockQuantity { get; set; }
+
+    // Physical product dimensions (the item itself) — required to publish a physical (shippable) product.
     public int? WeightGrams { get; set; }
     public int? LengthMm { get; set; }
     public int? WidthMm { get; set; }
     public int? HeightMm { get; set; }
+
+    // Packaged dimensions (the item boxed for shipping — box/padding included) — also required to publish
+    // a physical product, since carrier rating is on the parcel, not the bare item.
+    public int? PackageWeightGrams { get; set; }
+    public int? PackageLengthMm { get; set; }
+    public int? PackageWidthMm { get; set; }
+    public int? PackageHeightMm { get; set; }
+
+    /// <summary>True once every physical dimension AND every package dimension is present and positive.</summary>
+    public bool HasShippingDimensions =>
+        WeightGrams > 0 && LengthMm > 0 && WidthMm > 0 && HeightMm > 0 &&
+        PackageWeightGrams > 0 && PackageLengthMm > 0 && PackageWidthMm > 0 && PackageHeightMm > 0;
 }
 
 public class Category
@@ -268,6 +282,19 @@ public sealed class ProductPublication
         if (FulfillmentSource == FulfilmentType.Unassigned)
         {
             missing.Add("assigned fulfillment source");
+        }
+
+        // A physical (shippable) product can't be sold without weight + dimensions for BOTH the item and
+        // its shipping package — carriers rate the parcel. Non-physical (digital/service/usage) types ship
+        // nothing, so they're exempt. Checked on every visible variant that belongs to this product.
+        if (FulfillmentSource.RequiresShipping())
+        {
+            var visibleVariantIds = Variants.Where(v => v.Visible).Select(v => v.VariantId).ToHashSet();
+            var physicalVariants = product.Variants.Where(pv => visibleVariantIds.Contains(pv.Id)).ToList();
+            if (physicalVariants.Count > 0 && !physicalVariants.All(v => v.HasShippingDimensions))
+            {
+                missing.Add("product and package weight + dimensions on every shippable variant");
+            }
         }
 
         return new ProductPublicationReadiness(missing.Count == 0, missing);

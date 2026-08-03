@@ -121,8 +121,10 @@ public class StorefrontDuplicateTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
         };
-        product.Variants.Add(new Variant { Id = Guid.CreateVersion7(), ProductId = product.Id, Sku = "SKU-1", PriceMinor = 1000, Currency = "EUR", StockQuantity = 10 });
-        product.Variants.Add(new Variant { Id = Guid.CreateVersion7(), ProductId = product.Id, Sku = "SKU-2", PriceMinor = 2000, Currency = "EUR", StockQuantity = 5 });
+        // Shippable variants need item + package weight/dimensions to be publish-ready (physical readiness).
+        static Variant Dims(Variant v) { v.WeightGrams = 500; v.LengthMm = 200; v.WidthMm = 150; v.HeightMm = 100; v.PackageWeightGrams = 650; v.PackageLengthMm = 250; v.PackageWidthMm = 200; v.PackageHeightMm = 150; return v; }
+        product.Variants.Add(Dims(new Variant { Id = Guid.CreateVersion7(), ProductId = product.Id, Sku = "SKU-1", PriceMinor = 1000, Currency = "EUR", StockQuantity = 10 }));
+        product.Variants.Add(Dims(new Variant { Id = Guid.CreateVersion7(), ProductId = product.Id, Sku = "SKU-2", PriceMinor = 2000, Currency = "EUR", StockQuantity = 5 }));
         return product;
     }
 }

@@ -283,7 +283,11 @@ product_type, supply, fulfilment, pricing, billing, price, stock, variants = met
 variant_payload = []
 for i in range(variants):
     suffix = chr(ord('A') + i)
-    variant_payload.append({"id": None, "sku": f"E2E-{code.upper()}-{suffix}", "priceMinor": price + (i * 500), "currency": "EUR", "stockQuantity": stock, "weightGrams": 500 + (i * 100) if product_type in ("Physical", "Bundle") else 0, "lengthMm": 200, "widthMm": 150, "heightMm": 100})
+    _phys = product_type in ("Physical", "Bundle")
+    variant_payload.append({"id": None, "sku": f"E2E-{code.upper()}-{suffix}", "priceMinor": price + (i * 500), "currency": "EUR", "stockQuantity": stock,
+        "weightGrams": (500 + (i * 100)) if _phys else 0, "lengthMm": 200, "widthMm": 150, "heightMm": 100,
+        # Package (boxed) dims — required to publish a physical product (physical readiness). Non-physical: 0.
+        "packageWeightGrams": (650 + (i * 100)) if _phys else 0, "packageLengthMm": 250 if _phys else 0, "packageWidthMm": 200 if _phys else 0, "packageHeightMm": 150 if _phys else 0})
 # ProductStatus enum binds as a NUMBER over HTTP (AGENTS.md invariant): 1=Active, 2=Inactive.
 # The inactive-unpublished-private fixture must NOT be publicly discoverable, so seed it Inactive.
 status = 2 if code == "inactive-unpublished-private" else 1
