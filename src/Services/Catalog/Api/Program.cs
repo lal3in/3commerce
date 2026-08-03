@@ -36,6 +36,7 @@ builder.Services.AddAuditRecorder("catalog");
 
 builder.Services.AddScoped<ISupplierImporter, SampleDataImporter>();
 builder.Services.AddScoped<ISearchProvider, PostgresSearchProvider>();
+builder.Services.AddScoped<ProductTypeShippingPolicyService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IObjectStore>(_ => new LocalFileObjectStore(
     builder.Configuration["Storage:RootPath"] ?? Path.Combine(builder.Environment.ContentRootPath, "object-store")));
@@ -55,6 +56,7 @@ app.MapProducts();
 app.MapReviews();
 app.MapAdmin();
 app.MapStorefrontAdmin();
+app.MapProductTypes();
 app.MapOffers();
 app.MapCatalogImages();
 

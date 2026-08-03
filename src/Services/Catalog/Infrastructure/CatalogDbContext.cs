@@ -21,12 +21,19 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductPublicationVariant> ProductPublicationVariants => Set<ProductPublicationVariant>();
     public DbSet<Offer> Offers => Set<Offer>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
+    public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasDefaultSchema("catalog");
+
+        modelBuilder.Entity<ProductTypeShippingPolicy>(policy =>
+        {
+            policy.Property(x => x.RequiresShippingTypes).HasMaxLength(200);
+            policy.HasIndex(x => x.TenantId).IsUnique();
+        });
 
         modelBuilder.Entity<Offer>(offer =>
         {

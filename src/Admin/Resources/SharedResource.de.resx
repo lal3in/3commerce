@@ -1660,4 +1660,23 @@
   <data name="Carr.Status.Default" xml:space="preserve"><value>Standardspediteur festgelegt.</value></data>
   <data name="Carr.Status.CredentialSaved" xml:space="preserve"><value>Anmeldedaten-Referenz gespeichert.</value></data>
   <data name="Carr.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0} {1}).</value></data>
+  <data name="Nav.ProductTypes" xml:space="preserve"><value>Produkttypen</value></data>
+  <data name="Nav.ProductTypes.Tip" xml:space="preserve"><value>Festlegen, welche Produkttypen Versand / einen Spediteur benötigen.</value></data>
+  <data name="Pt.Title" xml:space="preserve"><value>Produkttypen</value></data>
+  <data name="Pt.Subtitle" xml:space="preserve"><value>Versandrichtlinie</value></data>
+  <data name="Pt.Intro" xml:space="preserve"><value>Legen Sie fest, welche Produkttypen Versand und einen Spediteur benötigen (z. B. physische Waren). Ein Produkt eines versandpflichtigen Typs kann erst veröffentlicht werden, wenn jede Variante Artikel- und Verpackungsgewicht + Maße hat.</value></data>
+  <data name="Pt.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Versandrichtlinie verwaltet wird.</value></data>
+  <data name="Pt.Col.Type" xml:space="preserve"><value>Produkttyp</value></data>
+  <data name="Pt.Col.RequiresShipping" xml:space="preserve"><value>Versandpflichtig</value></data>
+  <data name="Pt.Col.RequiresShipping.Tip" xml:space="preserve"><value>Wenn aktiviert, benötigen Produkte dieses Typs zum Veröffentlichen einen Spediteur und Versandmaße.</value></data>
+  <data name="Pt.Save" xml:space="preserve"><value>Richtlinie speichern</value></data>
+  <data name="Pt.Save.Tip" xml:space="preserve"><value>Speichern, welche Produkttypen für diesen Mandanten Versand benötigen.</value></data>
+  <data name="Pt.Status.Saved" xml:space="preserve"><value>Versandrichtlinie gespeichert.</value></data>
+  <data name="Pt.Error.RequestFailed" xml:space="preserve"><value>Anfrage fehlgeschlagen ({0} {1}).</value></data>
+  <data name="Pt.Type.Physical" xml:space="preserve"><value>Physisch</value></data>
+  <data name="Pt.Type.Digital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Pt.Type.Service" xml:space="preserve"><value>Dienstleistung</value></data>
+  <data name="Pt.Type.Bundle" xml:space="preserve"><value>Bündel</value></data>
+  <data name="Pt.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
+  <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Nutzungsbasiert</value></data>
 </root>

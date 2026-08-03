@@ -1,0 +1,107 @@
+@page "/product-types"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+@using System.Net.Http.Json
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">@L["Pt.Title"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">@L["Pt.Subtitle"]</span>
+</div>
+<p style="color:#6b7280;">@L["Pt.Intro"]</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0;">
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Pt.TenantId.Tip"]" style="width:23rem; display:block;" />
+    </label>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
+</div>
+
+@if (_error is not null)
+{
+    <p style="color:#b91c1c;">@_error</p>
+}
+@if (_status is not null)
+{
+    <p style="color:#047857;">@_status</p>
+}
+
+@if (_rows is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem; max-width:560px;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">@L["Pt.Col.Type"]</th><th style="text-align:center;">@L["Pt.Col.RequiresShipping"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in _rows)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@TypeLabel(row.ProductType)</td>
+                <td style="text-align:center;">
+                    <input type="checkbox" @bind="row.RequiresShipping" title="@L["Pt.Col.RequiresShipping.Tip"]" />
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    <button @onclick="Save" title="@L["Pt.Save.Tip"]" style="margin-top:1rem; padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Pt.Save"]</button>
+}
+
+@code {
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private List<PolicyRow>? _rows;
+    private string? _status;
+    private string? _error;
+
+    private string TypeLabel(string productType) => productType switch
+    {
+        "Physical" => L["Pt.Type.Physical"],
+        "Digital" => L["Pt.Type.Digital"],
+        "Service" => L["Pt.Type.Service"],
+        "Bundle" => L["Pt.Type.Bundle"],
+        "Subscription" => L["Pt.Type.Subscription"],
+        "UsageBased" => L["Pt.Type.UsageBased"],
+        _ => productType,
+    };
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            _rows = await Gateway.GetListAsync<PolicyRow>(
+                $"/api/catalog/admin/product-types?tenantId={Uri.EscapeDataString(_tenantId)}");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Save()
+    {
+        if (_rows is null) { return; }
+        _error = _status = null;
+        var types = _rows.Where(r => r.RequiresShipping).Select(r => r.ProductType).ToArray();
+        var response = await Gateway.PutAsync("/api/catalog/admin/product-types",
+            new { tenantId = Guid.Parse(_tenantId), requiresShippingTypes = types });
+        if (response.IsSuccessStatusCode)
+        {
+            _rows = await response.Content.ReadFromJsonAsync<List<PolicyRow>>();
+            _status = L["Pt.Status.Saved"];
+        }
+        else
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            _error = string.IsNullOrWhiteSpace(body)
+                ? L["Pt.Error.RequestFailed", (int)response.StatusCode, response.StatusCode]
+                : $"({(int)response.StatusCode}) {body}";
+        }
+    }
+
+    private sealed class PolicyRow
+    {
+        public string ProductType { get; set; } = string.Empty;
+        public int Value { get; set; }
+        public bool RequiresShipping { get; set; }
+    }
+}
