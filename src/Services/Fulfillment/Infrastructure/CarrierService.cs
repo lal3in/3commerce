@@ -30,6 +30,40 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
         return query.OrderBy(c => c.Carrier).ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Copy a source storefront's carrier accounts onto a newly duplicated storefront (config + credential
+    /// reference + status + default). Tenant-level carriers are NOT copied — they already apply to every
+    /// storefront via default resolution. Idempotent: if the new storefront already has any carrier rows
+    /// (e.g. on message redelivery), this is a no-op. Returns the number of accounts cloned.
+    /// </summary>
+    public async Task<int> CloneStorefrontCarriersAsync(
+        Guid tenantId, Guid sourceStorefrontId, Guid newStorefrontId, CancellationToken ct)
+    {
+        var alreadyCloned = await db.CarrierIntegrations
+            .AnyAsync(c => c.TenantId == tenantId && c.StorefrontId == newStorefrontId, ct);
+        if (alreadyCloned)
+        {
+            return 0;
+        }
+
+        var sources = await db.CarrierIntegrations.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.StorefrontId == sourceStorefrontId)
+            .ToListAsync(ct);
+        if (sources.Count == 0)
+        {
+            return 0;
+        }
+
+        var now = clock.GetUtcNow();
+        foreach (var source in sources)
+        {
+            db.CarrierIntegrations.Add(source.CloneForStorefront(newStorefrontId, now));
+        }
+
+        await db.SaveChangesAsync(ct);
+        return sources.Count;
+    }
+
     /// <summary>Apply a lifecycle transition. Returns null if the integration is not found for the tenant.</summary>
     public async Task<CarrierIntegration?> TransitionAsync(
         Guid tenantId, Guid id, Action<CarrierIntegration, DateTimeOffset> transition, CancellationToken ct)

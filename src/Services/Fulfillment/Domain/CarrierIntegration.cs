@@ -72,6 +72,26 @@ public sealed class CarrierIntegration
         };
     }
 
+    /// <summary>
+    /// Clone this storefront-scoped account onto a duplicated storefront (mt4_3 / storefront duplication).
+    /// Carries the carrier, credential reference, lifecycle status and default flag so the new storefront
+    /// ships with the same, immediately-usable carrier accounts. The default flag is scoped to the new
+    /// (tenant, storefront) pair, so copying it keeps exactly one default there.
+    /// </summary>
+    public CarrierIntegration CloneForStorefront(Guid newStorefrontId, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = TenantId,
+            StorefrontId = newStorefrontId,
+            Carrier = Carrier,
+            CredentialRef = CredentialRef,
+            Status = Status,
+            IsDefault = IsDefault,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
     /// <summary>A real carrier needs a credential reference before it can be used; Fake is keyless.</summary>
     public void Activate(DateTimeOffset now)
     {
