@@ -371,7 +371,15 @@ public sealed class Storefront
         return newDomain;
     }
 
-    public StorefrontReadinessResult CheckReadiness()
+    /// <summary>
+    /// Go-live readiness. Beyond the domain/visibility rules, a storefront can't sell without the ability
+    /// to take money (an active payment account) and — when it lists physical products — to ship (an
+    /// active carrier). Those two signals are cross-service (Payments / Fulfillment), so the caller resolves
+    /// them from the projected read model and passes them in (ADR-0042). The defaults keep the pure
+    /// domain/visibility check for callers that don't consult the signals (they read as "ready").
+    /// </summary>
+    public StorefrontReadinessResult CheckReadiness(
+        bool hasActivePaymentAccount = true, bool requiresCarrier = false, bool hasActiveCarrier = true)
     {
         var missing = new List<string>();
         if (Domains.Count == 0)
@@ -389,6 +397,16 @@ public sealed class Storefront
             missing.Add("public or password visibility for live selling");
         }
 
+        if (!hasActivePaymentAccount)
+        {
+            missing.Add("an active payment account");
+        }
+
+        if (requiresCarrier && !hasActiveCarrier)
+        {
+            missing.Add("an active carrier (the storefront lists physical products)");
+        }
+
         return new StorefrontReadinessResult(missing.Count == 0, missing);
     }
 
@@ -399,10 +417,12 @@ public sealed class Storefront
         UpdatedAt = now;
     }
 
-    public void Activate(DateTimeOffset now)
+    public void Activate(DateTimeOffset now) => Activate(now, hasActivePaymentAccount: true, requiresCarrier: false, hasActiveCarrier: true);
+
+    public void Activate(DateTimeOffset now, bool hasActivePaymentAccount, bool requiresCarrier, bool hasActiveCarrier)
     {
         EnsureState(StorefrontState.Preview, StorefrontState.Paused);
-        var readiness = CheckReadiness();
+        var readiness = CheckReadiness(hasActivePaymentAccount, requiresCarrier, hasActiveCarrier);
         if (!readiness.IsReady)
         {
             throw new CatalogRuleException($"Storefront is missing: {string.Join(", ", readiness.MissingRequirements)}.");

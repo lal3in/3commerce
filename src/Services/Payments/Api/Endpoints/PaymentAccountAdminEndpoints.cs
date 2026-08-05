@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
@@ -26,14 +28,14 @@ public static class PaymentAccountAdminEndpoints
         group.MapPut("/{id:guid}", Update);
         group.MapPost("/{id:guid}/make-default", MakeDefault);
         group.MapGet("/{id:guid}/readiness", Readiness);
-        group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "submit", db, audit, user, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "activate", db, audit, user, a => a.Activate(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "suspend", db, audit, user, a => a.Suspend(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/archive", (Guid id, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "archive", db, audit, user, a => a.Archive(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "submit", db, publisher, audit, user, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "activate", db, publisher, audit, user, a => a.Activate(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "suspend", db, publisher, audit, user, a => a.Suspend(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/archive", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "archive", db, publisher, audit, user, a => a.Archive(DateTimeOffset.UtcNow), ct));
         return app;
     }
 
@@ -136,7 +138,7 @@ public static class PaymentAccountAdminEndpoints
     }
 
     private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> Transition(
-        Guid id, string transition, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user,
+        Guid id, string transition, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user,
         Action<PaymentAccount> action, CancellationToken ct)
     {
         var account = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
@@ -157,7 +159,18 @@ public static class PaymentAccountAdminEndpoints
         await audit.RecordAsync(user.Mutation(
             account.TenantId, "PaymentAccount", account.Id.ToString(), $"payments.payment_account.{transition}", account.Name), ct);
         await db.SaveChangesAsync(ct);
+        await PublishReadinessAsync(db, publisher, account.TenantId, account.StorefrontId, ct);
         return TypedResults.Ok(ToDto(account));
+    }
+
+    // Storefront payment-account readiness — an idempotent boolean Catalog's go-live gate reads (ADR-0042).
+    // Published after save (post-change truth); a lost publish self-heals on the next account change.
+    private static async Task PublishReadinessAsync(
+        PaymentsDbContext db, IPublishEndpoint publisher, Guid tenantId, Guid storefrontId, CancellationToken ct)
+    {
+        var hasActive = await db.PaymentAccounts.AsNoTracking()
+            .AnyAsync(a => a.TenantId == tenantId && a.StorefrontId == storefrontId && a.State == PaymentAccountState.Active, ct);
+        await publisher.Publish(new StorefrontPaymentReadinessChanged(tenantId, storefrontId, hasActive), ct);
     }
 
     private static PaymentAccountDto ToDto(PaymentAccount a) => new(
