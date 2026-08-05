@@ -1,14 +1,16 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.Fulfillment.Domain;
 
 namespace ThreeCommerce.Fulfillment.Infrastructure;
 
 /// <summary>
-/// Carrier integration configuration + lifecycle (mt4_3). A tenant configures carriers at the
-/// tenant level (the default) and may override per storefront. Resolution prefers a storefront
-/// override over the tenant default.
+/// Carrier integration configuration + lifecycle (mt4_3 / ADR-0042). Carriers are per-storefront (no
+/// tenant-level default). Every mutation republishes the storefront's carrier readiness so Catalog's
+/// go-live gate has a current copy.
 /// </summary>
-public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
+public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock, IPublishEndpoint publisher)
 {
     public async Task<CarrierIntegration> ConfigureAsync(
         Guid tenantId, Guid storefrontId, CarrierCode carrier, string? credentialRef, CancellationToken ct)
@@ -16,8 +18,14 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
         var integration = CarrierIntegration.Configure(tenantId, storefrontId, carrier, credentialRef, clock.GetUtcNow());
         db.CarrierIntegrations.Add(integration);
         await db.SaveChangesAsync(ct);
+        await PublishReadinessAsync(tenantId, storefrontId, ct);
         return integration;
     }
+
+    // Readiness is an idempotent boolean the go-live gate reads; published after save (post-change truth).
+    private async Task PublishReadinessAsync(Guid tenantId, Guid storefrontId, CancellationToken ct) =>
+        await publisher.Publish(new StorefrontCarrierReadinessChanged(
+            tenantId, storefrontId, await HasActiveCarrierAsync(tenantId, storefrontId, ct)), ct);
 
     public Task<List<CarrierIntegration>> ListAsync(Guid tenantId, Guid? storefrontId, CancellationToken ct)
     {
@@ -61,6 +69,7 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
         }
 
         await db.SaveChangesAsync(ct);
+        await PublishReadinessAsync(tenantId, newStorefrontId, ct);
         return sources.Count;
     }
 
@@ -76,6 +85,7 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
 
         transition(integration, clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
+        await PublishReadinessAsync(tenantId, integration.StorefrontId, ct);
         return integration;
     }
 

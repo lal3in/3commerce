@@ -380,8 +380,34 @@ public static class StorefrontEndpoints
     private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Preview(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
         Transition(id, "preview", db, publisher, audit, user, s => s.MoveToPreview(time.GetUtcNow()), cancellationToken);
 
-    private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
-        Transition(id, "activate", db, publisher, audit, user, s => s.Activate(time.GetUtcNow()), cancellationToken);
+    private static async Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Activate(
+        Guid id, CatalogDbContext db, ProductTypeShippingPolicyService policySvc, IPublishEndpoint publisher,
+        IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var sf = await db.Storefronts.AsNoTracking().SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (sf is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Cross-service go-live signals (ADR-0042), read from the projected StorefrontServiceReadiness.
+        var readiness = await db.StorefrontServiceReadiness.AsNoTracking()
+            .SingleOrDefaultAsync(r => r.StorefrontId == id, cancellationToken);
+        var hasPayment = readiness?.HasActivePaymentAccount ?? false;
+        var hasCarrier = readiness?.HasActiveCarrier ?? false;
+
+        // Does the store list a published product whose type requires shipping (per the tenant policy)?
+        var policy = await policySvc.GetOrDefaultAsync(sf.TenantId, cancellationToken);
+        var publishedTypes = await db.ProductPublications.AsNoTracking()
+            .Where(p => p.StorefrontId == id && p.State == PublicationState.Published)
+            .Join(db.Products.AsNoTracking(), pub => pub.ProductId, prod => prod.Id, (pub, prod) => prod.ProductType)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        var requiresCarrier = publishedTypes.Any(policy.RequiresShipping);
+
+        return await Transition(id, "activate", db, publisher, audit, user,
+            s => s.Activate(time.GetUtcNow(), hasPayment, requiresCarrier, hasCarrier), cancellationToken);
+    }
 
     private static Task<Results<Ok<StorefrontResponse>, NotFound, ValidationProblem>> Pause(Guid id, CatalogDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, TimeProvider time, CancellationToken cancellationToken) =>
         Transition(id, "pause", db, publisher, audit, user, s => s.Pause(time.GetUtcNow()), cancellationToken);

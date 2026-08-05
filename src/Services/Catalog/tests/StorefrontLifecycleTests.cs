@@ -44,6 +44,31 @@ public class StorefrontLifecycleTests
     }
 
     [Fact]
+    public void StorefrontLifecycle_go_live_requires_a_payment_account_and_a_carrier_for_physical()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", now);
+        storefront.SetVisibility(StorefrontVisibility.Public, null, now);
+        storefront.AddDomain("shop.example.test", canonical: true, now);
+        storefront.MoveToPreview(now.AddMinutes(1));
+
+        // Domain/visibility are satisfied, but there's no payment account and (for a physical store) no
+        // carrier → activation is blocked with both reasons.
+        var blocked = Assert.Throws<CatalogRuleException>(() =>
+            storefront.Activate(now.AddMinutes(2), hasActivePaymentAccount: false, requiresCarrier: true, hasActiveCarrier: false));
+        Assert.Contains("an active payment account", blocked.Message);
+        Assert.Contains("an active carrier", blocked.Message);
+
+        // A carrier alone still isn't enough without a payment account.
+        Assert.Throws<CatalogRuleException>(() =>
+            storefront.Activate(now.AddMinutes(2), hasActivePaymentAccount: false, requiresCarrier: true, hasActiveCarrier: true));
+
+        // Both present → it goes live. (A non-physical store needs only the payment account.)
+        storefront.Activate(now.AddMinutes(3), hasActivePaymentAccount: true, requiresCarrier: true, hasActiveCarrier: true);
+        Assert.Equal(StorefrontState.Active, storefront.State);
+    }
+
+    [Fact]
     public void StorefrontLifecycle_multiple_domains_have_one_canonical()
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);

@@ -22,6 +22,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<Offer> Offers => Set<Offer>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
+    public DbSet<StorefrontServiceReadiness> StorefrontServiceReadiness => Set<StorefrontServiceReadiness>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,11 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
         {
             policy.Property(x => x.RequiresShippingTypes).HasMaxLength(200);
             policy.HasIndex(x => x.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<StorefrontServiceReadiness>(readiness =>
+        {
+            readiness.HasKey(x => x.StorefrontId);
         });
 
         modelBuilder.Entity<Offer>(offer =>
