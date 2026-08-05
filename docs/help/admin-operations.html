@@ -71,6 +71,8 @@
           <li><strong>Roles &amp; permissions</strong> (<code>/rbac</code>) — the dynamic RBAC console: the code-defined permission registry and the tenant's roles (seeded admin/ops/finance/support/merchandiser/customer), editable and clonable. Enforced by the Identity/Authz <strong>PDP</strong>; changes re-evaluate active sessions (ADR-0025).</li>
           <li><strong>Commerce ops</strong> (<code>/commerce-ops</code>) — storefront lifecycle, domains, and product-publication operations, plus links into the payment/pricing setup pages. The per-storefront <strong>Manage</strong> form closes and resets after a successful save (a failed save stays open for retry); a failed <strong>Preview</strong> or <strong>Activate</strong> fetches <code>/readiness</code> and renders the concrete blocker checklist under the error banner (e.g. "at least one domain", "one canonical domain") instead of the generic ProblemDetails title.</li>
           <li><strong>Offers &amp; pricing</strong> (<code>/offers</code>) — Catalog Offer CRUD for <code>(product/variant × supplier)</code> supply profiles: supply category, fulfilment type, price, pricing model, billing period, tiers, priority, and active state.</li>
+          <li><strong>Carriers</strong> (<code>/carriers</code>) — shipping-carrier accounts (Fulfillment). Configure a carrier at the <strong>tenant level</strong> (the default) or scoped to a <strong>specific storefront</strong>, run its lifecycle (activate / suspend / disable), pick the single default per scope (★), and set the secret-store <strong>credential reference</strong> for each account. Each storefront keeps its own independent carrier accounts; a storefront-scoped row overrides the tenant default. Secrets are never stored — only a reference. See §<a href="#carriers">Carriers</a>.</li>
+          <li><strong>Product types</strong> (<code>/product-types</code>) — the per-tenant <strong>shipping policy</strong> (Catalog): a checkbox per product type (Physical / Digital / Service / Bundle / Subscription / UsageBased) saying whether it requires shipping and a carrier. Default: Physical only. This drives both the <strong>publish gate</strong> (a shippable type needs item + package dimensions) and the <strong>checkout shipping charge</strong>. See §<a href="#product-types">Product types</a>.</li>
           <li><strong>Payment accounts</strong> (<code>/payment-accounts</code>) — Payments-owned tenant/storefront payment accounts: create Draft accounts, submit, readiness-gated activate, suspend, and archive. Each row also offers <strong>Edit</strong> (an inline form — the name is always editable; provider/mode inputs are disabled with a tooltip while the account is Active, so suspend first) and <strong>Make default</strong> (sets the tenant's default account and clears every sibling in one tenant-scoped transaction; exactly one default, shown by the ★ column; an Archived account cannot become default).</li>
           <li><strong>Supplier payouts</strong> (<code>/supplier-payouts</code>) — tokenized/masked supplier bank-account setup and active payout instructions. A <strong>supplier dropdown</strong> (loaded from <code>/api/entity/entities</code>, filtered to Active entities; manual GUID entry remains as a fallback) replaces free-typing an id. Bank accounts: create → approve/reject/archive plus <strong>Edit</strong> — label-only changes keep the account Active; changing banking identity (country / masked routing / masked account / vault token) <strong>resets an Active or Rejected account to PendingApproval</strong> for re-approval (with a re-approval message). Payout instructions: create (the supplier id is taken from the selected bank account so it can't mismatch) plus <strong>Edit</strong> (numeric-enum cadence and/or re-point <code>bankAccountId</code>; the target must be Active). Raw bank details are never entered — only vault token refs and masked display values are stored.</li>
           <li><strong>Xero mappings</strong> (<code>/xero-mappings</code>) — ledger-account to Xero-account mapping CRUD with tenant-default, storefront, category, supplier, and product override precedence. The <strong>Scope</strong> select carries numeric values 1–5 and sends the number on the wire (the platform numeric-enum invariant — the earlier string-scope path 400'd on save); <strong>Edit</strong> maps the response's scope name back to its numeric value and re-shows the target id.</li>
@@ -185,6 +187,44 @@
           <p>The row count is configurable via <strong><code>Importer:TargetRows</code></strong> (read by <code>SampleDataImporter</code>, default <code>10_500</code>); CI lowers it (e.g. <code>400</code>) to keep the projection load light. See <a class="inline" href="deployment.html">Deployment</a>.</p>
         </div>
 
+        <h2 id="carriers">8. Carriers — <code>/carriers</code></h2>
+        <p>File: <code>Components/Pages/Carriers.razor</code>. <code>[Authorize(Roles = "admin")]</code>. A thin operator screen over the existing Fulfillment carrier API (<code>/api/fulfillment/admin/carriers</code>). It manages <strong>who ships your orders</strong> and the account credentials each storefront uses.</p>
+        <p><strong>What a carrier row means.</strong> A carrier is a shipping company (Australia Post, DHL, FedEx, UPS, StarTrack, Pack &amp; Send, or the keyless <code>Fake</code> for dev). A row is one <em>account</em> with that carrier, at one of two scopes:</p>
+        <ul>
+          <li><strong>Tenant default</strong> — applies to every storefront that has no override.</li>
+          <li><strong>Per storefront</strong> — an account for one storefront only; it <strong>overrides</strong> the tenant default for that storefront.</li>
+        </ul>
+        <p>So resolution is simply: <em>storefront-scoped active default → else tenant active default → else none</em>.</p>
+        <p>Steps:</p>
+        <ol>
+          <li>Enter the <strong>Tenant ID</strong> and click <strong>Load</strong> to list the tenant's carriers with their scope, status, default (★) and whether a credential is set.</li>
+          <li><strong>Add a carrier</strong>: pick the carrier, the scope (<em>Tenant default</em> or a specific storefront from the dropdown), and an optional <strong>credential reference</strong>. It starts as <em>Draft</em>.</li>
+          <li>Run the lifecycle from the row: <strong>Activate</strong> → <strong>Suspend</strong> (pause) → <strong>Disable</strong> (permanent). <strong>Make default</strong> marks the single default for that scope.</li>
+          <li><strong>Credential</strong> sets or replaces the secret-store reference for the account.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Rules.</strong> A real carrier needs a credential reference <em>before</em> it can activate; <code>Fake</code> is keyless. Only an <em>active</em> carrier can become the default, and there is exactly one default per (tenant, storefront) scope. The row stores a <strong>reference</strong> (e.g. <code>carrier/auspost/store-1</code>) — never the API secret itself, which lives in the secret store.</p>
+        </div>
+        <p><strong>Dependency — duplication.</strong> When a storefront is duplicated (Commerce ops → Duplicate), its per-storefront carrier accounts are <strong>cloned</strong> to the new storefront automatically: Catalog publishes <code>StorefrontDuplicated</code> and Fulfillment's consumer copies the rows (config + credential reference + status + default). Tenant-level carriers are not cloned — they already apply everywhere.</p>
+
+        <h2 id="product-types">9. Product types — <code>/product-types</code></h2>
+        <p>File: <code>Components/Pages/ProductTypes.razor</code>. <code>[Authorize(Roles = "admin")]</code>. Uses the Catalog policy API (<code>/api/catalog/admin/product-types</code>). This one screen answers a single question: <strong>which kinds of product actually need shipping and a carrier?</strong></p>
+        <p>Steps:</p>
+        <ol>
+          <li>Enter the <strong>Tenant ID</strong> and click <strong>Load</strong> — the six product types appear, each with a <strong>Requires shipping</strong> checkbox. Out of the box only <strong>Physical</strong> is ticked.</li>
+          <li>Tick or untick types (e.g. also mark <strong>Bundle</strong> if your bundles ship as a parcel), then <strong>Save policy</strong>.</li>
+        </ol>
+        <p>The policy is a per-tenant rule and drives <strong>two</strong> downstream behaviours:</p>
+        <ol>
+          <li><strong>Publishing.</strong> A product whose type requires shipping cannot be published until <em>every visible variant</em> carries both the item and the package weight + dimensions (H×W×D) — carriers rate the parcel, so both are mandatory. A non-shippable type (e.g. Digital) has no such requirement.</li>
+          <li><strong>Checkout.</strong> The shipping charge is applied only when the cart has a line whose product type requires shipping. Change the policy and the checkout gate follows — a Service line starts being charged shipping the moment you mark <em>Service</em> shippable.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Dependency — how the policy reaches checkout.</strong> Ordering never queries Catalog at checkout; it keeps local read copies (ADR-0008). Saving the policy publishes <code>ProductTypeShippingPolicyChanged</code>, which Ordering projects into a <code>ProductTypeShippingPolicyCopy</code>; the line's product type rides on <code>OfferChanged</code> into the local <code>OfferCopy</code>. Checkout then asks the policy per line. Until a line's product type is known (a legacy offer copy) or a policy exists, it falls back to the fulfilment-type rule — so default behaviour is unchanged with zero configuration.</p>
+        </div>
+
         <h2 id="admin-screen-gateway-endpoint-reference">Admin screen → gateway endpoint reference</h2>
         <div class="table-wrap">
           <table>
@@ -199,6 +239,8 @@
               <tr><td>Xero mappings</td><td><code>GET /api/payments/admin/xero/mappings?tenantId=...</code></td><td><code>POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]</code> (numeric <code>scope</code> 1–5)</td></tr>
               <tr><td>Imports</td><td><code>GET /api/catalog/admin/import-runs</code></td><td><code>POST /api/catalog/admin/import-runs</code></td></tr>
               <tr><td>Offers &amp; pricing</td><td><code>GET /api/catalog/admin/offers?tenantId=...</code></td><td><code>POST/PUT /api/catalog/admin/offers[/{id}]</code></td></tr>
+              <tr><td>Carriers</td><td><code>GET /api/fulfillment/admin/carriers?tenantId=...</code></td><td><code>POST /api/fulfillment/admin/carriers</code> · <code>POST .../{id}/activate|suspend|disable|default</code> · <code>PUT .../{id}/credential</code></td></tr>
+              <tr><td>Product types</td><td><code>GET /api/catalog/admin/product-types?tenantId=...</code></td><td><code>PUT /api/catalog/admin/product-types</code> (<code>{tenantId, requiresShippingTypes[]}</code>)</td></tr>
               <tr><td>Payment accounts</td><td><code>GET /api/payments/admin/payment-accounts?tenantId=...</code></td><td><code>POST/PUT /api/payments/admin/payment-accounts[/{id}]</code> + <code>make-default</code> + lifecycle <code>submit/activate/suspend/archive</code></td></tr>
               <tr><td>Supplier payouts</td><td><code>GET /api/payments/admin/supplier-payouts/bank-accounts|instructions?tenantId=...</code></td><td>bank-account create/<code>PUT</code>/<code>approve/reject/archive</code>; instruction create/<code>PUT</code>/deactivate</td></tr>
               <tr><td>Orders</td><td><code>GET /api/ordering/admin/orders</code></td><td>cancel unpaid orders; <code>POST /api/payments/admin/refunds</code> (<code>Idempotency-Key: refund-&lt;orderId&gt;</code>)</td></tr>

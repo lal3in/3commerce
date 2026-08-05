@@ -76,6 +76,8 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove |
 | GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
 | PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
+| GET | `/admin/product-types?tenantId=...` | admin | The tenant's product-type shipping policy: all six `ProductType`s with a `requiresShipping` flag (ADR-0042). Default: Physical only |
+| PUT | `/admin/product-types` | admin | Replace the shippable set (`{tenantId, requiresShippingTypes: string[]}`); rejects unknown type names. Publishes `ProductTypeShippingPolicyChanged`; drives the publish gate + the checkout shipping charge |
 | POST | `/admin/images` | admin | Upload a catalog image (stored by key) |
 | GET | `/images/{key}` | anon | Serve a stored catalog image |
 | POST | `/ping` | dev | Phase-1 messaging-spine demo (Catalog→Ordering ping-pong); not a product surface |
@@ -281,6 +283,12 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). The dedicated
 > Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
 > capability-first placement in Catalog/Fulfillment).
+>
+> Shipping bus contracts (ADR-0042): `OfferChanged` also carries `ProductType` (projected onto
+> Ordering's `OfferCopy`); Catalog publishes `ProductTypeShippingPolicyChanged` (→ Ordering's
+> `ProductTypeShippingPolicyCopy`, so checkout gates shipping by the tenant's product-type policy)
+> and `StorefrontDuplicated` (→ Fulfillment clones the source storefront's carrier accounts). All are
+> additive/back-compatible; `ProductType` is defined once in `BuildingBlocks.Contracts.Supply`.
 
 ## Support (`/api/support`)
 
