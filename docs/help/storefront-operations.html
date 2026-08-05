@@ -149,6 +149,12 @@
           <li>Pick a <strong>payment option</strong>: Credit card, Stripe Payment Element, <strong>Apple Pay</strong>, <strong>Google Pay</strong>, or <strong>PayPal</strong>. Wallets are payment <em>methods</em> tokenized through the storefront's payment provider, not separate providers (ADR-0039). In production these are provider-hosted surfaces — raw payment credentials are never stored by 3commerce; the dev card fields record only a masked summary.</li>
           <li>Click <strong>Authorize &amp; place order</strong> (button shows "Authorizing…" while pending).</li>
           <li>The <code>submitCheckout</code> Server Action (<code>lib/cart-actions.ts</code>) <code>POST</code>s to <code>/api/ordering/checkout</code> with the email, shipping address, selected shipping quote, and payment option (cart cookie forwarded; storefront/tenant context headers set). Ordering validates the selected amount/expiry and persists the shipping amount into the order totals.</li>
+        </ol>
+        <div class="callout note">
+          <span class="mark">i</span>
+          <p><strong>Shipping is charged only for a shippable cart (ADR-0042).</strong> Even when a rate was shown, Ordering charges shipping only if the cart has at least one line whose product type requires shipping — which types do is the tenant's <strong>Product types</strong> policy (default: Physical only), falling back to the line's fulfilment type. A fully digital / subscription / usage / service cart ships nothing and is never charged shipping, whatever rate the client sent.</p>
+        </div>
+        <ol start="8">
           <li>On success it redirects to <code>/checkout/confirmation?order=&lt;orderId&gt;</code>. On failure the form shows: "Checkout failed. Please review your cart and details."</li>
         </ol>
         <p>The backend creates the order, starts the checkout saga, and asks Payments to authorize. Which rail runs depends on the resolved <strong>payment mode</strong> (ADR-0039): in dev, <code>Payments:Mode=LocalMock</code> routes authorization to a deterministic mock provider (no external calls) — payment is completed on the confirmation page.</p>
