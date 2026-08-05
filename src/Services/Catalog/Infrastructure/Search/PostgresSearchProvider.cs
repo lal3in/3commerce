@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Catalog.Domain;
 
 namespace ThreeCommerce.Catalog.Infrastructure.Search;

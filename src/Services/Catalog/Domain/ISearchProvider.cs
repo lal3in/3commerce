@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.Catalog.Domain;
 
 /// <summary>

@@ -31,6 +31,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<ProductCopyConsumer>();
         bus.AddConsumer<StorefrontConfigConsumer>();
         bus.AddConsumer<OfferChangedConsumer>();
+        bus.AddConsumer<ProductTypeShippingPolicyChangedConsumer>();
         bus.AddConsumer<OrderStatusConsumer>();
         bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddConsumer<RmaDispositionSetConsumer>(); // values RMA returned goods → ReturnedGoodsValued (phase 1)

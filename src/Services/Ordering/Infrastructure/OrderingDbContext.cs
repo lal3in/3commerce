@@ -20,6 +20,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
+    public DbSet<ProductTypeShippingPolicyCopy> ProductTypeShippingPolicyCopies => Set<ProductTypeShippingPolicyCopy>();
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,7 +34,16 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             offer.HasKey(o => o.OfferId);
             offer.Property(o => o.FulfilmentType).HasConversion<string>().HasMaxLength(24);
             offer.Property(o => o.Currency).HasMaxLength(3);
+            // ProductType stays int-backed (not string): a new column defaults existing rows to 0
+            // ("unknown"), which checkout treats as a fulfilment-type decision until the offer is
+            // re-projected — never mis-typing a legacy copy as Physical.
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
+        });
+
+        modelBuilder.Entity<ProductTypeShippingPolicyCopy>(policy =>
+        {
+            policy.HasKey(p => p.TenantId);
+            policy.Property(p => p.RequiresShippingTypes).HasMaxLength(200);
         });
 
         modelBuilder.Entity<ProductCopy>(product =>
