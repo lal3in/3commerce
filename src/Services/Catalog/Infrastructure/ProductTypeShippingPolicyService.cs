@@ -1,4 +1,7 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Catalog.Domain;
 
 namespace ThreeCommerce.Catalog.Infrastructure;
@@ -18,9 +21,13 @@ public sealed class ProductTypeShippingPolicyService(CatalogDbContext db, TimePr
         return existing ?? ProductTypeShippingPolicy.Create(tenantId, clock.GetUtcNow());
     }
 
-    /// <summary>Upsert the tenant's policy to exactly the given set of shippable product types.</summary>
+    /// <summary>
+    /// Upsert the tenant's policy to exactly the given set of shippable product types, and publish
+    /// ProductTypeShippingPolicyChanged so Ordering's checkout gate keeps a current copy. The event is
+    /// published before Save so its outbox row commits in the same transaction (ADR-0008).
+    /// </summary>
     public async Task<ProductTypeShippingPolicy> SetAsync(
-        Guid tenantId, IEnumerable<ProductType> types, CancellationToken ct)
+        Guid tenantId, IEnumerable<ProductType> types, IPublishEndpoint publisher, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var policy = await db.ProductTypeShippingPolicies.FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
@@ -31,6 +38,7 @@ public sealed class ProductTypeShippingPolicyService(CatalogDbContext db, TimePr
         }
 
         policy.SetTypes(types, now);
+        await publisher.Publish(new ProductTypeShippingPolicyChanged(tenantId, policy.RequiresShippingTypes), ct);
         await db.SaveChangesAsync(ct);
         return policy;
     }

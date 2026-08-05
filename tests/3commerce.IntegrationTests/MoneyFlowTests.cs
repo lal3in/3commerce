@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
@@ -103,6 +104,84 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         // A $0 order moves no money → no journal entry at all, and the ledger stays balanced.
         Assert.Equal(0, await CountEntriesForAsync(order.OrderId));
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Checkout_shipping_honours_the_tenant_product_type_policy()
+    {
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        var productId = await fixture.SeedProductAsync(5_000);
+
+        // A service line: its fulfilment type (ManualService) ships nothing, but its product type is Service.
+        await fixture.PublishAsync(new OfferChanged(
+            Guid.CreateVersion7(), tenantId, productId, null, Guid.CreateVersion7(),
+            SupplyCategory.Service, FulfilmentType.ManualService, PricingModel.OneTime, BillingPeriod.Once,
+            Priority: 0, Active: true, SupplierCostMinor: 0, Currency: "EUR", ProductType: ProductType.Service));
+        await WaitForOfferCopyAsync(productId);
+
+        try
+        {
+            // Before any policy: the fulfilment-type gate applies → a service line ships nothing.
+            using (var beforeShopper = fixture.Ordering.CreateClient())
+            {
+                await beforeShopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+                var before = (await (await beforeShopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(700))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+                Assert.Equal(0, before.ShippingMinor);
+            }
+
+            // The tenant marks Service as requiring shipping → a service line now ships and is charged.
+            await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Catalog.ProductTypeShippingPolicyChanged(tenantId, "Service"));
+            await WaitForPolicyCopyAsync(tenantId, "Service");
+
+            using var afterShopper = fixture.Ordering.CreateClient();
+            await afterShopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+            var after = (await (await afterShopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(700))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+            Assert.Equal(700, after.ShippingMinor);
+        }
+        finally
+        {
+            // Restore the collection's baseline (no policy for the default tenant) for sibling tests.
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            await db.ProductTypeShippingPolicyCopies.Where(p => p.TenantId == tenantId).ExecuteDeleteAsync();
+        }
+    }
+
+    private async Task WaitForOfferCopyAsync(Guid productId)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId))
+            {
+                return;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new Xunit.Sdk.XunitException($"OfferCopy for product {productId} never projected.");
+    }
+
+    private async Task WaitForPolicyCopyAsync(Guid tenantId, string expectedCsv)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            var copy = await db.ProductTypeShippingPolicyCopies.FirstOrDefaultAsync(p => p.TenantId == tenantId);
+            if (copy is not null && copy.RequiresShippingTypes == expectedCsv)
+            {
+                return;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new Xunit.Sdk.XunitException($"ProductTypeShippingPolicyCopy for tenant {tenantId} never projected.");
     }
 
     [Fact]

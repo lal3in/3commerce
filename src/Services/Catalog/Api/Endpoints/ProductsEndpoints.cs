@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
 

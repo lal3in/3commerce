@@ -1,4 +1,6 @@
+using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -33,7 +35,7 @@ public static class ProductTypeEndpoints
     }
 
     private static async Task<Results<Ok<List<ProductTypePolicyRow>>, BadRequest<string>>> Update(
-        UpdateProductTypePolicyRequest request, ProductTypeShippingPolicyService svc, CancellationToken ct)
+        UpdateProductTypePolicyRequest request, ProductTypeShippingPolicyService svc, IPublishEndpoint publisher, CancellationToken ct)
     {
         var types = new List<ProductType>();
         foreach (var name in request.RequiresShippingTypes ?? [])
@@ -46,7 +48,7 @@ public static class ProductTypeEndpoints
             types.Add(type);
         }
 
-        var policy = await svc.SetAsync(request.TenantId, types, ct);
+        var policy = await svc.SetAsync(request.TenantId, types, publisher, ct);
         var rows = Enum.GetValues<ProductType>()
             .Select(t => new ProductTypePolicyRow(t.ToString(), (int)t, policy.RequiresShipping(t)))
             .ToList();

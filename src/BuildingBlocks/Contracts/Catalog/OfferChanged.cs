@@ -22,4 +22,9 @@ public record OfferChanged(
     int Priority,
     bool Active,
     long SupplierCostMinor = 0,
-    string Currency = "");
+    string Currency = "",
+    // The product's nature (ADR-0028), projected onto OfferCopy so checkout can apply the tenant's
+    // ProductType shipping policy to each line. Appended, back-compatible default; a copy that still
+    // carries the default 0/Physical from before this field means "unknown" at checkout (falls back to
+    // the fulfilment-type gate).
+    ProductType ProductType = ProductType.Physical);

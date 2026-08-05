@@ -63,7 +63,7 @@ public static class OfferEndpoints
             // is actually delivered. Publishing after SaveChanges strands it in the change tracker
             // (never flushed) — Ordering's OfferCopy projection then never fires, so subscription/usage
             // offers silently degrade to OneTime/Once at checkout (same outbox trap as the RMA/availability paths).
-            await publisher.Publish(ToEvent(offer), ct);
+            await publisher.Publish(ToEvent(offer, await ProductTypeAsync(db, offer.ProductId, ct)), ct);
             await db.SaveChangesAsync(ct);
             return TypedResults.Created($"/admin/offers/{offer.Id}", ToDto(offer));
         }
@@ -125,7 +125,7 @@ public static class OfferEndpoints
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.update", offer.ProductId.ToString()), ct);
             // Publish before Save (see Create) so the OfferChanged outbox row is committed and delivered.
-            await publisher.Publish(ToEvent(offer), ct);
+            await publisher.Publish(ToEvent(offer, await ProductTypeAsync(db, offer.ProductId, ct)), ct);
             await db.SaveChangesAsync(ct);
             return TypedResults.Ok(ToDto(offer));
         }
@@ -138,8 +138,14 @@ public static class OfferEndpoints
     private static IReadOnlyList<(int FromQuantity, long UnitPriceMinor)> ToTiers(List<PriceTierDto>? tiers) =>
         tiers is null ? [] : tiers.Select(t => (t.FromQuantity, t.UnitPriceMinor)).ToList();
 
-    private static OfferChanged ToEvent(Offer o) =>
-        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive, o.SupplierCostMinor, o.Currency);
+    private static OfferChanged ToEvent(Offer o, ProductType productType) =>
+        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive, o.SupplierCostMinor, o.Currency, productType);
+
+    // The product's nature drives the checkout shipping policy (projected onto OfferCopy). Returns the
+    // default 0 ("unknown") only if the product row can't be found — an offer always references a real
+    // product, so that is a defensive fallback and checkout treats it as a fulfilment-type decision.
+    private static async Task<ProductType> ProductTypeAsync(CatalogDbContext db, Guid productId, CancellationToken ct) =>
+        await db.Products.AsNoTracking().Where(p => p.Id == productId).Select(p => p.ProductType).FirstOrDefaultAsync(ct);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)

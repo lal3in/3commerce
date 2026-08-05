@@ -14,6 +14,12 @@ public class OfferCopy
     public Guid? VariantId { get; set; }
     public Guid SupplierId { get; set; }
     public FulfilmentType FulfilmentType { get; set; }
+
+    /// <summary>The product's nature (ADR-0028), projected from Catalog so checkout can apply the tenant's
+    /// ProductType shipping policy per line. 0 = unknown (a copy from before this field, or a missing
+    /// product) — checkout then falls back to the fulfilment-type shipping gate for that line.</summary>
+    public ProductType ProductType { get; set; }
+
     public PricingModel PricingModel { get; set; } = PricingModel.OneTime;
     public BillingPeriod BillingPeriod { get; set; } = BillingPeriod.Once;
     public int Priority { get; set; }
