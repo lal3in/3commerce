@@ -16,7 +16,8 @@ public sealed class ShippingQuoteService(
         // Default-parcel fallback (mt4_11): a missing/unmapped parcel still quotes.
         request = request with { Parcel = parcels.Resolve(request.Parcel) };
 
-        var integration = await carriers.ResolveDefaultAsync(tenantId, storefrontId, ct);
+        // Carriers are per-storefront; with no storefront there is no configured carrier → Fake fallback.
+        var integration = storefrontId is { } sid ? await carriers.ResolveDefaultAsync(tenantId, sid, ct) : null;
         var provider = integration is null ? null : registry.Rates(integration.Carrier);
         provider ??= fake;
 

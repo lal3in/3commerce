@@ -60,16 +60,17 @@ public class ShippingRevalidationTests(Phase4Fixture fixture)
     public async Task Quote_falls_back_to_fake_when_the_carrier_has_no_matching_service()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using (var setup = fixture.Fulfillment.Services.CreateScope())
         {
             var carriers = setup.ServiceProvider.GetRequiredService<CarrierService>();
-            var integration = await carriers.ConfigureAsync(tenant, null, CarrierCode.AustraliaPost, "ap-ref", default);
+            var integration = await carriers.ConfigureAsync(tenant, storefront, CarrierCode.AustraliaPost, "ap-ref", default);
             await carriers.TransitionAsync(tenant, integration.Id, (c, n) => c.Activate(n), default);
             await carriers.MakeDefaultAsync(tenant, integration.Id, default);
         }
 
         // AusPost has no "standard" service → empty → fallback to Fake (which does).
-        var rates = await WithQuotesAsync(s => s.QuoteAsync(tenant, null, Request with { Service = "standard" }, default));
+        var rates = await WithQuotesAsync(s => s.QuoteAsync(tenant, storefront, Request with { Service = "standard" }, default));
         Assert.NotEmpty(rates);
         Assert.All(rates, r => Assert.Equal(CarrierCode.Fake, r.Carrier));
     }

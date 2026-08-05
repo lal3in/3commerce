@@ -6,21 +6,29 @@ public class CarrierIntegrationTests
 {
     private static readonly DateTimeOffset Now = new(2026, 6, 24, 0, 0, 0, TimeSpan.Zero);
     private static readonly Guid Tenant = Guid.NewGuid();
+    private static readonly Guid Storefront = Guid.NewGuid();
 
     [Fact]
-    public void Configure_starts_in_draft_at_tenant_level()
+    public void Configure_starts_in_draft_scoped_to_a_storefront()
     {
-        var c = CarrierIntegration.Configure(Tenant, null, CarrierCode.AustraliaPost, "secret-ref", Now);
+        var c = CarrierIntegration.Configure(Tenant, Storefront, CarrierCode.AustraliaPost, "secret-ref", Now);
         Assert.Equal(CarrierIntegrationStatus.Draft, c.Status);
-        Assert.Null(c.StorefrontId);
+        Assert.Equal(Storefront, c.StorefrontId);
         Assert.False(c.IsDefault);
         Assert.False(c.IsUsable);
     }
 
     [Fact]
+    public void Configure_requires_a_storefront()
+    {
+        Assert.Throws<FulfillmentRuleException>(
+            () => CarrierIntegration.Configure(Tenant, Guid.Empty, CarrierCode.Fake, null, Now));
+    }
+
+    [Fact]
     public void Real_carrier_cannot_activate_without_a_credential_reference()
     {
-        var c = CarrierIntegration.Configure(Tenant, null, CarrierCode.Dhl, null, Now);
+        var c = CarrierIntegration.Configure(Tenant, Storefront, CarrierCode.Dhl, null, Now);
         Assert.Throws<FulfillmentRuleException>(() => c.Activate(Now));
         c.SetCredentialRef("dhl-key", Now);
         c.Activate(Now);
@@ -30,7 +38,7 @@ public class CarrierIntegrationTests
     [Fact]
     public void Fake_carrier_activates_without_credentials()
     {
-        var c = CarrierIntegration.Configure(Tenant, null, CarrierCode.Fake, null, Now);
+        var c = CarrierIntegration.Configure(Tenant, Storefront, CarrierCode.Fake, null, Now);
         c.Activate(Now);
         Assert.True(c.IsUsable);
     }
@@ -38,7 +46,7 @@ public class CarrierIntegrationTests
     [Fact]
     public void Only_an_active_carrier_can_be_default_and_disable_clears_it()
     {
-        var c = CarrierIntegration.Configure(Tenant, null, CarrierCode.Fake, null, Now);
+        var c = CarrierIntegration.Configure(Tenant, Storefront, CarrierCode.Fake, null, Now);
         Assert.Throws<FulfillmentRuleException>(() => c.MarkDefault(Now)); // still draft
         c.Activate(Now);
         c.MarkDefault(Now);

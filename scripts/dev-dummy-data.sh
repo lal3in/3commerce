@@ -879,14 +879,20 @@ except Exception:
   location_id=$(printf '%s' "$location_json" | json_get id)
   if [[ -n "$location_id" ]]; then manifest_set "fulfillment.locations.demoWarehouse.id" "$(json_string "$location_id")"; fi
 
-  carrier_json=$(api "fulfillment-carrier" POST "/api/fulfillment/admin/carriers" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"carrier\":1,\"credentialRef\":null}" "allow_4xx")
-  carrier_id=$(printf '%s' "$carrier_json" | json_get id)
-  if [[ -n "$carrier_id" ]]; then
-    api "fulfillment-carrier-activate" POST "/api/fulfillment/admin/carriers/$carrier_id/activate?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
-    api "fulfillment-carrier-default" POST "/api/fulfillment/admin/carriers/$carrier_id/default?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
-    manifest_set "fulfillment.carriers.fake.id" "$(json_string "$carrier_id")"
-  fi
+  # Carriers are per-storefront (ADR-0042): give each demo storefront its own active default carrier.
+  local sf_key sf_id
+  for sf_key in demoEu demoAu demoUs; do
+    sf_id=$(manifest_get "storefronts.$sf_key.id")
+    [[ -n "$sf_id" ]] || continue
+    carrier_json=$(api "fulfillment-carrier-$sf_key" POST "/api/fulfillment/admin/carriers" "$ADMIN_JAR" \
+      "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":\"$sf_id\",\"carrier\":1,\"credentialRef\":null}" "allow_4xx")
+    carrier_id=$(printf '%s' "$carrier_json" | json_get id)
+    if [[ -n "$carrier_id" ]]; then
+      api "fulfillment-carrier-$sf_key-activate" POST "/api/fulfillment/admin/carriers/$carrier_id/activate?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+      api "fulfillment-carrier-$sf_key-default" POST "/api/fulfillment/admin/carriers/$carrier_id/default?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+      manifest_set "fulfillment.carriers.$sf_key.id" "$(json_string "$carrier_id")"
+    fi
+  done
 
   api "usage-provision" POST "/api/usage/admin/usage/provision" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"customerEmail\":\"usage.demo@example.test\",\"meter\":3,\"includedQuantity\":1000,\"overageAllowed\":true,\"overageUnitPriceMinor\":5,\"currency\":\"EUR\",\"periodEnd\":null}" "allow_4xx" >/dev/null

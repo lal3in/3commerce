@@ -95,8 +95,8 @@ public static class CarrierEndpoints
         new(c.Id, c.TenantId, c.StorefrontId, c.Carrier.ToString(), c.Status.ToString(), c.IsDefault, c.CredentialRef is not null);
 }
 
-public record ConfigureCarrierRequest(Guid? TenantId, Guid? StorefrontId, CarrierCode Carrier, string? CredentialRef);
+public record ConfigureCarrierRequest(Guid? TenantId, Guid StorefrontId, CarrierCode Carrier, string? CredentialRef);
 
 public record SetCredentialRequest([property: MaxLength(200)] string? CredentialRef);
 
-public record CarrierDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Carrier, string Status, bool IsDefault, bool HasCredential);
+public record CarrierDto(Guid Id, Guid TenantId, Guid StorefrontId, string Carrier, string Status, bool IsDefault, bool HasCredential);

@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>管理配送物流商以及各店面的物流商账户。</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>物流商</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>配送物流商账户</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>为租户配置配送物流商。租户级物流商为默认；各店面物流商可覆盖它。凭证存于密钥库——仅需输入引用。</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>为每个店面配置配送物流商。每个店面拥有自己独立的物流商账户（没有租户级默认）。凭证存于密钥库——仅需输入引用。</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>要管理物流商的租户。</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>物流商</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>范围</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>组合</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>订阅</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>按用量</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>此物流商账户所属的店面（必填——物流商按店面设定）。</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— 选择一个店面 —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>请为此物流商账户选择一个店面。</value></data>
 </root>

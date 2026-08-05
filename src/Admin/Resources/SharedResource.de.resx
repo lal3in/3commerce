@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Versanddienstleister und storefrontspezifische Spediteurkonten verwalten.</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>Spediteure</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>Versanddienstleisterkonten</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>Versanddienstleister für einen Mandanten konfigurieren. Ein mandantenweiter Spediteur ist der Standard; storefrontspezifische Spediteure setzen ihn außer Kraft. Anmeldedaten liegen im Secret Store — nur eine Referenz eingeben.</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Versanddienstleister pro Storefront konfigurieren. Jeder Storefront hat seine eigenen unabhängigen Spediteurkonten (es gibt keinen mandantenweiten Standard). Anmeldedaten liegen im Secret Store — nur eine Referenz eingeben.</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Spediteure verwaltet werden.</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>Spediteur</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>Bereich</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>Bündel</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Nutzungsbasiert</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>Der Storefront, zu dem dieses Spediteurkonto gehört (erforderlich — Spediteure sind pro Storefront).</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— Storefront wählen —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>Wählen Sie einen Storefront für dieses Spediteurkonto.</value></data>
 </root>
