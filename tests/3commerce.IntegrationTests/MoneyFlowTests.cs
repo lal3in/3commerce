@@ -182,6 +182,7 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         }
 
         throw new Xunit.Sdk.XunitException($"ProductTypeShippingPolicyCopy for tenant {tenantId} never projected.");
+    }
 
     [Fact]
     public async Task Taxed_checkout_splits_net_revenue_from_the_tax_liability_on_the_ledger()
