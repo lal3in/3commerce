@@ -39,7 +39,7 @@
       <a href="selling-information.html"><span class="idx">$</span>Selling information</a>
       <a href="project-analysis.html" class="active"><span class="idx">★</span>Project analysis</a>
     </nav>
-    <div class="sidebar-foot">Complete analysis refreshed 2026-07-05.<br>No live Stripe/Xero in dev.</div>
+    <div class="sidebar-foot">Complete analysis refreshed 2026-08-05.<br>No live Stripe/Xero in dev.</div>
   </aside>
 
   <div class="shell">
@@ -54,7 +54,7 @@
     <main id="main" class="content">
       <div class="content-inner">
         <section class="analysis-hero">
-          <p class="eyebrow">Reference · Complete re-analysis · 2026-07-05</p>
+          <p class="eyebrow">Reference · Complete re-analysis · 2026-08-05</p>
           <h1>3commerce — full project analysis</h1>
           <p class="lede">An evidence-led, strategic, and visual audit of the current 3commerce solution: product scope, domain model, service topology, user journeys, money flow, supplier/tenant/admin operations, marketing, compliance primitives, deployment, tests, launch gates, strengths, risks, and communication strategy.</p>
           <div class="badge-row">
@@ -183,6 +183,8 @@
           <div class="tl"><div class="when">MT phase 6</div><div class="what">Audit, workflow, approvals, notifications, webhooks, export/redaction, object storage, MFA policy, region/retention, observability, mission control.</div></div>
           <div class="tl"><div class="when">MT phase 7</div><div class="what">Digital supply, offer price models, entitlements, subscription billing, usage metering, overage billing, customer access APIs.</div></div>
           <div class="tl"><div class="when">Messaging roadmap</div><div class="what">RabbitMQ operational lane plus optional Kafka durable stream lane, stream outbox, replay, privacy guardrails, persistent Quartz scheduler.</div></div>
+          <div class="tl"><div class="when">Cost &amp; margin</div><div class="what">Per-store order costs (carrier cost, COGS accrual, RMA write-offs), chargebacks, per-currency/per-storefront ledger, estimated-margin config (ADR-0040/0041).</div></div>
+          <div class="tl"><div class="when">Physical shipping (ADR-0042)</div><div class="what">Shipping charged only for shippable carts; item + package dimensions required to publish a physical product; per-tenant <strong>product-type shipping policy</strong> driving both the publish gate and the checkout charge; admin <strong>Carriers</strong> + <strong>Product types</strong> screens; per-storefront carrier accounts cloned on storefront duplication; $0-order ledger safety.</div></div>
         </div>
 
         <h2 id="strengths">Strengths</h2>
