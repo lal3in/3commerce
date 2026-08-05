@@ -4,7 +4,7 @@ using ThreeCommerce.Fulfillment.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
 
-/// <summary>mt4_3: carrier config lifecycle + tenant-default / storefront-override resolution.</summary>
+/// <summary>mt4_3 / ADR-0042: carrier config lifecycle + per-storefront resolution (no tenant-level default).</summary>
 [Trait("Category", "Integration")]
 [Collection(Phase4Collection.Name)]
 public class CarrierServiceTests(Phase4Fixture fixture)
@@ -16,51 +16,57 @@ public class CarrierServiceTests(Phase4Fixture fixture)
     }
 
     [Fact]
-    public async Task Storefront_default_overrides_the_tenant_default()
+    public async Task Carriers_are_scoped_to_a_storefront_with_no_tenant_fallback()
     {
         var tenant = Guid.NewGuid();
         var storefront = Guid.NewGuid();
+        var otherStorefront = Guid.NewGuid();
 
-        // Tenant-level default (Fake, active).
-        var tenantCarrier = await WithCarrierAsync(s => s.ConfigureAsync(tenant, null, CarrierCode.Fake, null, default));
-        await WithCarrierAsync(s => s.TransitionAsync(tenant, tenantCarrier.Id, (c, n) => c.Activate(n), default));
-        await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, tenantCarrier.Id, default));
+        // A storefront with no carrier resolves to nothing (there is no tenant-level default).
+        Assert.Null(await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, storefront, default)));
+        Assert.False(await WithCarrierAsync(s => s.HasActiveCarrierAsync(tenant, storefront, default)));
 
-        // With no storefront override, the storefront resolves to the tenant default.
+        // Configure + activate + default a carrier for the storefront → it resolves for that storefront only.
+        var carrier = await WithCarrierAsync(s => s.ConfigureAsync(tenant, storefront, CarrierCode.Dhl, "dhl-ref", default));
+        await WithCarrierAsync(s => s.TransitionAsync(tenant, carrier.Id, (c, n) => c.Activate(n), default));
+        await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, carrier.Id, default));
+
         var resolved = await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, storefront, default));
-        Assert.Equal(tenantCarrier.Id, resolved!.Id);
+        Assert.Equal(carrier.Id, resolved!.Id);
+        Assert.True(await WithCarrierAsync(s => s.HasActiveCarrierAsync(tenant, storefront, default)));
 
-        // Add a storefront-scoped default (DHL) → it now wins for that storefront.
-        var storefrontCarrier = await WithCarrierAsync(s => s.ConfigureAsync(tenant, storefront, CarrierCode.Dhl, "dhl-ref", default));
-        await WithCarrierAsync(s => s.TransitionAsync(tenant, storefrontCarrier.Id, (c, n) => c.Activate(n), default));
-        await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, storefrontCarrier.Id, default));
-
-        var overridden = await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, storefront, default));
-        Assert.Equal(storefrontCarrier.Id, overridden!.Id);
-
-        // A different storefront with no override still falls back to the tenant default.
-        var other = await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, Guid.NewGuid(), default));
-        Assert.Equal(tenantCarrier.Id, other!.Id);
+        // A different storefront still has none — no tenant-level fallback.
+        Assert.Null(await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, otherStorefront, default)));
+        Assert.False(await WithCarrierAsync(s => s.HasActiveCarrierAsync(tenant, otherStorefront, default)));
     }
 
     [Fact]
-    public async Task Duplicating_a_storefront_clones_its_carrier_accounts_but_not_tenant_defaults()
+    public async Task Configuring_a_carrier_without_a_storefront_is_rejected()
+    {
+        var tenant = Guid.NewGuid();
+        await Assert.ThrowsAsync<FulfillmentRuleException>(
+            () => WithCarrierAsync(s => s.ConfigureAsync(tenant, Guid.Empty, CarrierCode.Fake, null, default)));
+    }
+
+    [Fact]
+    public async Task Duplicating_a_storefront_clones_only_that_storefronts_carrier_accounts()
     {
         var tenant = Guid.NewGuid();
         var source = Guid.NewGuid();
         var target = Guid.NewGuid();
+        var unrelated = Guid.NewGuid();
 
-        // A tenant-level default (applies to all storefronts via resolution — must NOT be cloned).
-        await WithCarrierAsync(s => s.ConfigureAsync(tenant, null, CarrierCode.Fake, null, default));
+        // An unrelated storefront's carrier must NOT be cloned.
+        await WithCarrierAsync(s => s.ConfigureAsync(tenant, unrelated, CarrierCode.Fake, null, default));
 
-        // Two storefront-scoped accounts on the source; make DHL the storefront's active default.
-        var ap = await WithCarrierAsync(s => s.ConfigureAsync(tenant, source, CarrierCode.AustraliaPost, "ap-ref", default));
+        // Two accounts on the source; make DHL the storefront's active default.
+        await WithCarrierAsync(s => s.ConfigureAsync(tenant, source, CarrierCode.AustraliaPost, "ap-ref", default));
         var dhl = await WithCarrierAsync(s => s.ConfigureAsync(tenant, source, CarrierCode.Dhl, "dhl-ref", default));
         await WithCarrierAsync(s => s.TransitionAsync(tenant, dhl.Id, (c, n) => c.Activate(n), default));
         await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, dhl.Id, default));
 
         var cloned = await WithCarrierAsync(s => s.CloneStorefrontCarriersAsync(tenant, source, target, default));
-        Assert.Equal(2, cloned); // only the two storefront-scoped rows, not the tenant default
+        Assert.Equal(2, cloned); // only the source storefront's two rows
 
         var targetCarriers = await WithCarrierAsync(s => s.ListAsync(tenant, target, default));
         Assert.Equal(2, targetCarriers.Count);
@@ -75,31 +81,30 @@ public class CarrierServiceTests(Phase4Fixture fixture)
         Assert.Equal("ap-ref", clonedAp.CredentialRef);
         Assert.False(clonedAp.IsDefault);
 
-        // The cloned default resolves for the new storefront (it has its own scope).
+        // The cloned default resolves for the new storefront (its own scope).
         var resolved = await WithCarrierAsync(s => s.ResolveDefaultAsync(tenant, target, default));
-        Assert.NotNull(resolved);
         Assert.Equal(CarrierCode.Dhl, resolved!.Carrier);
         Assert.Equal(target, resolved.StorefrontId);
 
         // Idempotent: a redelivered duplication event clones nothing more.
-        var again = await WithCarrierAsync(s => s.CloneStorefrontCarriersAsync(tenant, source, target, default));
-        Assert.Equal(0, again);
+        Assert.Equal(0, await WithCarrierAsync(s => s.CloneStorefrontCarriersAsync(tenant, source, target, default)));
         Assert.Equal(2, (await WithCarrierAsync(s => s.ListAsync(tenant, target, default))).Count);
     }
 
     [Fact]
-    public async Task MakeDefault_enforces_a_single_default_per_scope()
+    public async Task MakeDefault_enforces_a_single_default_per_storefront()
     {
         var tenant = Guid.NewGuid();
-        var first = await WithCarrierAsync(s => s.ConfigureAsync(tenant, null, CarrierCode.Fake, null, default));
-        var second = await WithCarrierAsync(s => s.ConfigureAsync(tenant, null, CarrierCode.AustraliaPost, "ap-ref", default));
+        var storefront = Guid.NewGuid();
+        var first = await WithCarrierAsync(s => s.ConfigureAsync(tenant, storefront, CarrierCode.Fake, null, default));
+        var second = await WithCarrierAsync(s => s.ConfigureAsync(tenant, storefront, CarrierCode.AustraliaPost, "ap-ref", default));
         await WithCarrierAsync(s => s.TransitionAsync(tenant, first.Id, (c, n) => c.Activate(n), default));
         await WithCarrierAsync(s => s.TransitionAsync(tenant, second.Id, (c, n) => c.Activate(n), default));
 
         await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, first.Id, default));
         await WithCarrierAsync(s => s.MakeDefaultAsync(tenant, second.Id, default));
 
-        var defaults = (await WithCarrierAsync(s => s.ListAsync(tenant, null, default))).Where(c => c.IsDefault).ToList();
+        var defaults = (await WithCarrierAsync(s => s.ListAsync(tenant, storefront, default))).Where(c => c.IsDefault).ToList();
         Assert.Single(defaults);
         Assert.Equal(second.Id, defaults[0].Id);
     }

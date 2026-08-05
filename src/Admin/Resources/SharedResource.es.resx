@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Gestione transportistas de envío y cuentas de transportista por tienda.</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>Transportistas</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>cuentas de transportista</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>Configure transportistas para un inquilino. Un transportista a nivel de inquilino es el predeterminado; los transportistas por tienda lo anulan. Las credenciales viven en el almacén de secretos: introduzca solo una referencia.</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Configure transportistas por tienda. Cada tienda tiene sus propias cuentas de transportista independientes (no hay un valor predeterminado a nivel de inquilino). Las credenciales viven en el almacén de secretos: introduzca solo una referencia.</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>El inquilino cuyos transportistas se gestionan.</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>Transportista</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>Ámbito</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>Paquete</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>Suscripción</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Basado en uso</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>Tienda</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>Tienda</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>La tienda a la que pertenece esta cuenta de transportista (obligatorio — los transportistas son por tienda).</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— seleccione una tienda —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>Seleccione una tienda para esta cuenta de transportista.</value></data>
 </root>

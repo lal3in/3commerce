@@ -31,7 +31,7 @@
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
             <tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
-                <th style="padding:.4rem;">@L["Carr.Col.Carrier"]</th><th>@L["Carr.Col.Scope"]</th><th>@L["Carr.Col.Status"]</th><th>@L["Carr.Col.Default"]</th><th>@L["Carr.Col.Credential"]</th><th>@L["Common.Actions"]</th>
+                <th style="padding:.4rem;">@L["Carr.Col.Carrier"]</th><th>@L["Carr.Col.Storefront"]</th><th>@L["Carr.Col.Status"]</th><th>@L["Carr.Col.Default"]</th><th>@L["Carr.Col.Credential"]</th><th>@L["Common.Actions"]</th>
             </tr>
         </thead>
         <tbody>
@@ -39,7 +39,7 @@
         {
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:.4rem;">@CarrierLabel(c.Carrier)</td>
-                <td>@ScopeLabel(c.StorefrontId)</td>
+                <td>@StorefrontLabel(c.StorefrontId)</td>
                 <td>@c.Status</td>
                 <td style="text-align:center;">@(c.IsDefault ? "★" : "")</td>
                 <td>@(c.HasCredential ? L["Carr.Credential.Set"] : (c.Carrier == "Fake" ? L["Carr.Credential.Keyless"] : "—"))</td>
@@ -97,9 +97,9 @@
                     }
                 </select>
             </label>
-            <label>@L["Carr.Field.Scope"]
-                <select @bind="_new.StorefrontId" title="@L["Carr.Field.Scope.Tip"]" style="width:100%;">
-                    <option value="">@L["Carr.Scope.TenantDefault"]</option>
+            <label>@L["Carr.Field.Storefront"]
+                <select @bind="_new.StorefrontId" title="@L["Carr.Field.Storefront.Tip"]" style="width:100%;">
+                    <option value="">@L["Carr.Storefront.Choose"]</option>
                     @if (_storefronts is not null)
                     {
                         @foreach (var s in _storefronts)
@@ -148,15 +148,8 @@
         _ => carrier,
     };
 
-    private string ScopeLabel(Guid? storefrontId)
-    {
-        if (storefrontId is not { } id)
-        {
-            return L["Carr.Scope.TenantDefault"];
-        }
-
-        return _storefronts?.FirstOrDefault(s => s.Id == id)?.Name ?? id.ToString();
-    }
+    private string StorefrontLabel(Guid storefrontId) =>
+        _storefronts?.FirstOrDefault(s => s.Id == storefrontId)?.Name ?? storefrontId.ToString();
 
     private async Task LoadAsync()
     {
@@ -173,10 +166,16 @@
     private async Task Create()
     {
         _error = _status = null;
+        if (string.IsNullOrWhiteSpace(_new.StorefrontId))
+        {
+            _error = L["Carr.Storefront.Required"];
+            return;
+        }
+
         var body = new
         {
             tenantId = Guid.Parse(_tenantId),
-            storefrontId = string.IsNullOrWhiteSpace(_new.StorefrontId) ? (Guid?)null : Guid.Parse(_new.StorefrontId),
+            storefrontId = Guid.Parse(_new.StorefrontId),
             carrier = _new.Carrier,
             credentialRef = string.IsNullOrWhiteSpace(_new.CredentialRef) ? null : _new.CredentialRef,
         };
@@ -259,6 +258,6 @@
         public string? CredentialRef { get; set; }
     }
 
-    private record CarrierDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Carrier, string Status, bool IsDefault, bool HasCredential);
+    private record CarrierDto(Guid Id, Guid TenantId, Guid StorefrontId, string Carrier, string Status, bool IsDefault, bool HasCredential);
     private record StorefrontDto(Guid Id, Guid TenantId, string Name);
 }

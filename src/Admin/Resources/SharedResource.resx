@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Manage shipping carriers and per-storefront carrier accounts.</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>Carriers</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>shipping carrier accounts</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>Configure shipping carriers for a tenant. A tenant-level carrier is the default; per-storefront carriers override it. Credentials live in the secret store — enter only a reference.</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Configure shipping carriers per storefront. Each storefront keeps its own independent carrier accounts (there is no tenant-level default). Credentials live in the secret store — enter only a reference.</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>The tenant whose carriers to manage.</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>Carrier</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>Scope</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>Bundle</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>Subscription</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Usage-based</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>The storefront this carrier account belongs to (required — carriers are per storefront).</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— select a storefront —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>Select a storefront for this carrier account.</value></data>
 </root>

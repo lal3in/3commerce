@@ -11,7 +11,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure;
 public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
 {
     public async Task<CarrierIntegration> ConfigureAsync(
-        Guid tenantId, Guid? storefrontId, CarrierCode carrier, string? credentialRef, CancellationToken ct)
+        Guid tenantId, Guid storefrontId, CarrierCode carrier, string? credentialRef, CancellationToken ct)
     {
         var integration = CarrierIntegration.Configure(tenantId, storefrontId, carrier, credentialRef, clock.GetUtcNow());
         db.CarrierIntegrations.Add(integration);
@@ -103,24 +103,17 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock)
     }
 
     /// <summary>
-    /// The active default carrier for a storefront: a storefront-scoped default wins; otherwise the
-    /// tenant-level default. Null if none is configured.
+    /// The storefront's active default carrier — carriers are per-storefront (there is no tenant-level
+    /// fallback). Null if the storefront has no active default configured.
     /// </summary>
-    public async Task<CarrierIntegration?> ResolveDefaultAsync(Guid tenantId, Guid? storefrontId, CancellationToken ct)
-    {
-        if (storefrontId is { } sid)
-        {
-            var storefrontDefault = await db.CarrierIntegrations.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.StorefrontId == sid
-                    && c.IsDefault && c.Status == CarrierIntegrationStatus.Active, ct);
-            if (storefrontDefault is not null)
-            {
-                return storefrontDefault;
-            }
-        }
-
-        return await db.CarrierIntegrations.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.StorefrontId == null
+    public Task<CarrierIntegration?> ResolveDefaultAsync(Guid tenantId, Guid storefrontId, CancellationToken ct) =>
+        db.CarrierIntegrations.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.StorefrontId == storefrontId
                 && c.IsDefault && c.Status == CarrierIntegrationStatus.Active, ct);
-    }
+
+    /// <summary>Whether the storefront has at least one active carrier (drives storefront go-live readiness).</summary>
+    public Task<bool> HasActiveCarrierAsync(Guid tenantId, Guid storefrontId, CancellationToken ct) =>
+        db.CarrierIntegrations.AsNoTracking()
+            .AnyAsync(c => c.TenantId == tenantId && c.StorefrontId == storefrontId
+                && c.Status == CarrierIntegrationStatus.Active, ct);
 }

@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>管理送貨物流商同各店面嘅物流商帳戶。</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>物流商</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>送貨物流商帳戶</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>為租戶設定送貨物流商。租戶層級嘅物流商係預設；各店面嘅物流商會覆蓋佢。憑證存喺密鑰庫 — 只需輸入引用。</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>為每個店面設定送貨物流商。每個店面有自己獨立嘅物流商帳戶（冇租戶層級預設）。憑證存喺密鑰庫 — 只需輸入引用。</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>要管理物流商嘅租戶。</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>物流商</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>範圍</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>組合</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>訂閱</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>按用量</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>呢個物流商帳戶所屬嘅店面（必填 — 物流商係按店面設定）。</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— 揀一個店面 —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>請為呢個物流商帳戶揀一個店面。</value></data>
 </root>

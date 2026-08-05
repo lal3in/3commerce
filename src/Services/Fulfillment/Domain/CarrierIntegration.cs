@@ -21,17 +21,18 @@ public enum CarrierIntegrationStatus
 }
 
 /// <summary>
-/// A tenant's configuration of a carrier (mt4_3). Tenant-level rows (StorefrontId null) are the
-/// default; a row with a StorefrontId is a per-storefront override. Credentials live in the secret
-/// store — this holds only a reference. Owned by Fulfillment (ADR-0027), tenant-scoped (ADR-0023).
+/// A storefront's configuration of a carrier (mt4_3 / ADR-0042). Carriers are always scoped to a
+/// storefront — each storefront keeps its own independent carrier accounts (there is no tenant-level
+/// default). Credentials live in the secret store — this holds only a reference. Owned by Fulfillment
+/// (ADR-0027), tenant-scoped (ADR-0023).
 /// </summary>
 public sealed class CarrierIntegration
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
 
-    /// <summary>Null = tenant-level default config; set = a storefront-specific override.</summary>
-    public Guid? StorefrontId { get; init; }
+    /// <summary>The storefront this carrier account belongs to (required — carriers are per-storefront).</summary>
+    public Guid StorefrontId { get; init; }
 
     public CarrierCode Carrier { get; init; }
 
@@ -48,11 +49,16 @@ public sealed class CarrierIntegration
     private CarrierIntegration() { }
 
     public static CarrierIntegration Configure(
-        Guid tenantId, Guid? storefrontId, CarrierCode carrier, string? credentialRef, DateTimeOffset now)
+        Guid tenantId, Guid storefrontId, CarrierCode carrier, string? credentialRef, DateTimeOffset now)
     {
         if (tenantId == Guid.Empty)
         {
             throw new FulfillmentRuleException("TenantId is required.");
+        }
+
+        if (storefrontId == Guid.Empty)
+        {
+            throw new FulfillmentRuleException("StorefrontId is required — carriers are configured per storefront.");
         }
 
         if (!Enum.IsDefined(carrier))

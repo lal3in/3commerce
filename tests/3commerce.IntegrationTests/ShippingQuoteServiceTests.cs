@@ -45,20 +45,21 @@ public class ShippingQuoteServiceTests(Phase4Fixture fixture)
     }
 
     [Fact]
-    public async Task Quote_uses_the_tenants_configured_default_carrier()
+    public async Task Quote_uses_the_storefronts_configured_default_carrier()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using (var setup = fixture.Fulfillment.Services.CreateScope())
         {
             var carriers = setup.ServiceProvider.GetRequiredService<CarrierService>();
-            var integration = await carriers.ConfigureAsync(tenant, null, CarrierCode.AustraliaPost, "ap-ref", default);
+            var integration = await carriers.ConfigureAsync(tenant, storefront, CarrierCode.AustraliaPost, "ap-ref", default);
             await carriers.TransitionAsync(tenant, integration.Id, (c, n) => c.Activate(n), default);
             await carriers.MakeDefaultAsync(tenant, integration.Id, default);
         }
 
         using var scope = fixture.Fulfillment.Services.CreateScope();
         var quotes = scope.ServiceProvider.GetRequiredService<ShippingQuoteService>();
-        var rates = await quotes.QuoteAsync(tenant, null, Request, default);
+        var rates = await quotes.QuoteAsync(tenant, storefront, Request, default);
 
         Assert.NotEmpty(rates);
         Assert.All(rates, r => Assert.Equal(CarrierCode.AustraliaPost, r.Carrier));
@@ -70,16 +71,17 @@ public class ShippingQuoteServiceTests(Phase4Fixture fixture)
     public async Task Quote_uses_an_mt4_10_carrier_when_configured(CarrierCode carrier)
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using (var setup = fixture.Fulfillment.Services.CreateScope())
         {
             var carriers = setup.ServiceProvider.GetRequiredService<CarrierService>();
-            var integration = await carriers.ConfigureAsync(tenant, null, carrier, "ref", default);
+            var integration = await carriers.ConfigureAsync(tenant, storefront, carrier, "ref", default);
             await carriers.TransitionAsync(tenant, integration.Id, (c, n) => c.Activate(n), default);
             await carriers.MakeDefaultAsync(tenant, integration.Id, default);
         }
 
         using var scope = fixture.Fulfillment.Services.CreateScope();
-        var rates = await scope.ServiceProvider.GetRequiredService<ShippingQuoteService>().QuoteAsync(tenant, null, Request, default);
+        var rates = await scope.ServiceProvider.GetRequiredService<ShippingQuoteService>().QuoteAsync(tenant, storefront, Request, default);
         Assert.NotEmpty(rates);
         Assert.All(rates, r => Assert.Equal(carrier, r.Carrier));
     }

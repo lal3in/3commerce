@@ -1620,7 +1620,7 @@
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Gérer les transporteurs et les comptes transporteur par boutique.</value></data>
   <data name="Carr.Title" xml:space="preserve"><value>Transporteurs</value></data>
   <data name="Carr.Subtitle" xml:space="preserve"><value>comptes transporteur</value></data>
-  <data name="Carr.Intro" xml:space="preserve"><value>Configurez les transporteurs pour un locataire. Un transporteur au niveau du locataire est celui par défaut ; les transporteurs par boutique le remplacent. Les identifiants sont dans le coffre à secrets — saisissez seulement une référence.</value></data>
+  <data name="Carr.Intro" xml:space="preserve"><value>Configurez les transporteurs par boutique. Chaque boutique conserve ses propres comptes transporteur indépendants (il n'y a pas de défaut au niveau du locataire). Les identifiants sont dans le coffre à secrets — saisissez seulement une référence.</value></data>
   <data name="Carr.TenantId.Tip" xml:space="preserve"><value>Le locataire dont les transporteurs sont gérés.</value></data>
   <data name="Carr.Col.Carrier" xml:space="preserve"><value>Transporteur</value></data>
   <data name="Carr.Col.Scope" xml:space="preserve"><value>Portée</value></data>
@@ -1679,4 +1679,9 @@
   <data name="Pt.Type.Bundle" xml:space="preserve"><value>Lot</value></data>
   <data name="Pt.Type.Subscription" xml:space="preserve"><value>Abonnement</value></data>
   <data name="Pt.Type.UsageBased" xml:space="preserve"><value>Basé sur l'usage</value></data>
+  <data name="Carr.Field.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Carr.Col.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>La boutique à laquelle ce compte transporteur appartient (obligatoire — les transporteurs sont par boutique).</value></data>
+  <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— choisir une boutique —</value></data>
+  <data name="Carr.Storefront.Required" xml:space="preserve"><value>Choisissez une boutique pour ce compte transporteur.</value></data>
 </root>
