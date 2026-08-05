@@ -760,20 +760,20 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
-    public async Task Card_payment_acquires_through_the_tenant_default_account_then_falls_back_to_stripe()
+    public async Task Card_payment_acquires_through_the_storefronts_default_account_then_falls_back_to_stripe()
     {
-        // psp_acquirer_rma: the acquiring PSP for card / Apple Pay / Google Pay is chosen at the
-        // tenant/admin level. AuthorizePayment carries no tenant in dev, so the consumer scopes the
-        // default-account lookup to Tenancy:DefaultTenantId (unset here → the seeded default tenant).
+        // psp_acquirer_rma / ADR-0042: the acquiring PSP for card / Apple Pay / Google Pay is chosen per
+        // storefront. The consumer scopes the default-account lookup to the order's storefront.
         var tenant = new Guid("00000000-0000-0000-0000-000000000001");
+        var storefront = Guid.NewGuid();
 
-        // Configure a Polar account as the tenant default acquirer (Draft → submit → activate).
+        // Configure a Polar account as the storefront default acquirer (Draft → submit → activate).
         Guid accountId;
         using (var scope = fixture.Payments.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
             var now = DateTimeOffset.UtcNow;
-            var account = PaymentAccount.Create(tenant, null, "Polar acquirer", "polar", PaymentProviderMode.Test, isDefaultForTenant: true, null, now);
+            var account = PaymentAccount.Create(tenant, storefront, "Polar acquirer", "polar", PaymentProviderMode.Test, isDefaultForStorefront: true, null, now);
             account.SubmitForApproval(now);
             account.Activate(now);
             db.PaymentAccounts.Add(account);
@@ -783,27 +783,30 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         try
         {
-            // A plain card checkout now settles through Polar and posts to cash.polar with Provider=polar.
-            var routed = await CardCheckoutAsync(6_000);
+            // A card checkout ON THAT STOREFRONT settles through Polar and posts to cash.polar.
+            var routed = await CardCheckoutAsync(6_000, storefront);
             await AssertCardSettledAsync(routed, "polar");
 
             // Remove the configured default: card checkout reverts to the synthetic stripe acquirer.
             await RemovePaymentAccountAsync(accountId);
-            var fallback = await CardCheckoutAsync(6_000);
+            var fallback = await CardCheckoutAsync(6_000, storefront);
             await AssertCardSettledAsync(fallback, "stripe");
         }
         finally
         {
-            // Never leave a default account behind — the shared Phase-3 DB would then route every other
-            // test's card payment through Polar.
             await RemovePaymentAccountAsync(accountId);
         }
     }
 
-    private async Task<CheckoutResponseDto> CardCheckoutAsync(long priceMinor)
+    private async Task<CheckoutResponseDto> CardCheckoutAsync(long priceMinor, Guid? storefrontId = null)
     {
         var productId = await fixture.SeedProductAsync(priceMinor);
         using var shopper = fixture.Ordering.CreateClient();
+        if (storefrontId is { } sid)
+        {
+            shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", sid.ToString());
+        }
+
         await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
         var checkout = await shopper.PostAsJsonAsync("/checkout", new
         {

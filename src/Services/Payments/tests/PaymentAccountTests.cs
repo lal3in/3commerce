@@ -61,14 +61,41 @@ public class PaymentAccountTests
         Assert.Equal(storefrontId, snapshot.StorefrontId);
     }
 
+    [Fact]
+    public void PaymentAccount_requires_a_storefront()
+    {
+        Assert.Throws<PaymentAccountRuleException>(() => PaymentAccount.Create(
+            tenantId: Guid.CreateVersion7(), storefrontId: Guid.Empty, name: "x", provider: "stripe",
+            mode: PaymentProviderMode.Test, isDefaultForStorefront: true, externalAccountRef: null, now: DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void PaymentAccount_clone_copies_descriptor_state_and_default_onto_the_new_storefront()
+    {
+        var target = Guid.CreateVersion7();
+        var source = NewAccount(PaymentProviderMode.Live, externalRef: "acct_1");
+        source.SubmitForApproval(DateTimeOffset.UtcNow);
+        source.Activate(DateTimeOffset.UtcNow);
+
+        var clone = source.CloneForStorefront(target, DateTimeOffset.UtcNow);
+
+        Assert.NotEqual(source.Id, clone.Id);
+        Assert.Equal(target, clone.StorefrontId);
+        Assert.Equal(source.Provider, clone.Provider);
+        Assert.Equal(source.Mode, clone.Mode);
+        Assert.Equal(source.ExternalAccountRef, clone.ExternalAccountRef);
+        Assert.Equal(source.State, clone.State);
+        Assert.Equal(source.IsDefaultForStorefront, clone.IsDefaultForStorefront);
+    }
+
     private static PaymentAccount NewAccount(PaymentProviderMode mode, string? externalRef, Guid? storefrontId = null) =>
         PaymentAccount.Create(
             tenantId: Guid.CreateVersion7(),
-            storefrontId: storefrontId,
+            storefrontId: storefrontId ?? Guid.CreateVersion7(),
             name: "Stripe test",
             provider: "stripe",
             mode: mode,
-            isDefaultForTenant: storefrontId is null,
+            isDefaultForStorefront: true,
             externalAccountRef: externalRef,
             now: DateTimeOffset.UtcNow);
 }

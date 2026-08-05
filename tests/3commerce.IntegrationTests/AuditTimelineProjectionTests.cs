@@ -39,7 +39,7 @@ public class AuditTimelineProjectionTests(Phase4Fixture fixture)
         using var payments = PaymentsAdmin(actor);
 
         var create = await payments.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Audited account", provider = "stripe", mode = 1, isDefaultForTenant = false });
+            new { tenantId = tenant, storefrontId = Guid.NewGuid(), name = "Audited account", provider = "stripe", mode = 1, isDefaultForStorefront = false });
         create.EnsureSuccessStatusCode();
         var account = await create.Content.ReadFromJsonAsync<AccountRef>();
 

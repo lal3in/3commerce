@@ -867,8 +867,14 @@ except Exception:
   upsert_demo_storefront "demoEu" "Demo EU Store" "http://localhost:3000/eu" "EUR" 2 2000
   upsert_demo_storefront "demoUs" "Demo US Store" "http://localhost:3000/us" "USD" 3 825
 
-  api "payment-account" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":null,\"name\":\"Demo Stripe test account\",\"provider\":\"stripe\",\"mode\":1,\"isDefaultForTenant\":true,\"externalAccountRef\":null}" "allow_4xx" >/dev/null
+  # Payment accounts are per-storefront (ADR-0042): give each demo storefront its own default account.
+  local pay_key pay_sf_id
+  for pay_key in demoEu demoAu demoUs; do
+    pay_sf_id=$(manifest_get "storefronts.$pay_key.id")
+    [[ -n "$pay_sf_id" ]] || continue
+    api "payment-account-$pay_key" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \
+      "{\"tenantId\":\"$TENANT_ID\",\"storefrontId\":\"$pay_sf_id\",\"name\":\"Demo Stripe test account\",\"provider\":\"stripe\",\"mode\":1,\"isDefaultForStorefront\":true,\"externalAccountRef\":null}" "allow_4xx" >/dev/null
+  done
   api "supplier-bank" POST "/api/payments/admin/supplier-payouts/bank-accounts" "$ADMIN_JAR" \
     "{\"tenantId\":\"$TENANT_ID\",\"supplierEntityId\":\"$supplier_id\",\"accountName\":\"Demo Supplier Pty Ltd\",\"bankCountry\":\"AU\",\"routingNumberMasked\":\"***123\",\"accountNumberMasked\":\"****1234\",\"accountTokenRef\":\"vault_demo_supplier_bank\"}" "allow_4xx" >/dev/null
   api "xero-mapping" POST "/api/payments/admin/xero/mappings" "$ADMIN_JAR" \

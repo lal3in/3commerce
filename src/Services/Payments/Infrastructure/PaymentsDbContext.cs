@@ -106,8 +106,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             account.Property(x => x.Name).HasMaxLength(120);
             account.Property(x => x.Provider).HasMaxLength(40);
             account.Property(x => x.ExternalAccountRef).HasMaxLength(200);
-            account.HasIndex(x => new { x.TenantId, x.IsDefaultForTenant });
-            account.HasIndex(x => new { x.TenantId, x.StorefrontId });
+            account.HasIndex(x => new { x.TenantId, x.StorefrontId, x.IsDefaultForStorefront });
         });
 
         modelBuilder.Entity<SupplierBankAccount>(account =>

@@ -898,8 +898,8 @@
   <data name="Pay.Mode.Live" xml:space="preserve"><value>En direct</value></data>
   <data name="Pay.Field.ExtRef" xml:space="preserve"><value>Réf. de compte externe</value></data>
   <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>ID de compte prestataire — requis pour activer un compte En direct.</value></data>
-  <data name="Pay.Field.Default" xml:space="preserve"><value>Par défaut pour le locataire</value></data>
-  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Utiliser comme compte par défaut du locataire.</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>Défaut pour la boutique</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Utiliser comme compte par défaut de la boutique.</value></data>
   <data name="Pay.Create" xml:space="preserve"><value>Créer (Brouillon)</value></data>
   <data name="Pay.Create.Tip" xml:space="preserve"><value>Créez le compte en Brouillon — soumettez-le et activez-le ensuite.</value></data>
   <data name="Pay.Status.Created" xml:space="preserve"><value>Compte créé (Brouillon).</value></data>
@@ -1684,4 +1684,9 @@
   <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>La boutique à laquelle ce compte transporteur appartient (obligatoire — les transporteurs sont par boutique).</value></data>
   <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— choisir une boutique —</value></data>
   <data name="Carr.Storefront.Required" xml:space="preserve"><value>Choisissez une boutique pour ce compte transporteur.</value></data>
+  <data name="Pay.Col.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Pay.Field.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>La boutique à laquelle ce compte de paiement appartient (obligatoire — les comptes sont par boutique).</value></data>
+  <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— choisir une boutique —</value></data>
+  <data name="Pay.Storefront.Required" xml:space="preserve"><value>Choisissez une boutique pour ce compte de paiement.</value></data>
 </root>
