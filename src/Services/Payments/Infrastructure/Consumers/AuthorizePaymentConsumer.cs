@@ -33,7 +33,7 @@ public sealed class AuthorizePaymentConsumer(
         // ledger posts to cash.{provider}. Applies to both the create and the retry branch below, so a
         // shopper switching wallet on retry re-attributes correctly.
         var methodKind = PaymentMethodKindMapper.From(msg.PaymentOption);
-        var (account, provider) = await ResolveSettlementAsync(methodKind, context.CancellationToken);
+        var (account, provider) = await ResolveSettlementAsync(methodKind, msg.StorefrontId, context.CancellationToken);
         var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         if (existing is not null)
         {
@@ -132,33 +132,38 @@ public sealed class AuthorizePaymentConsumer(
     /// provider becomes the routed/acquiring PSP (ledger → cash.{provider}).
     /// </summary>
     private async Task<(PaymentAccountSnapshot Account, IPaymentProvider Provider)> ResolveSettlementAsync(
-        PaymentMethodKind methodKind, CancellationToken ct)
+        PaymentMethodKind methodKind, Guid? storefrontId, CancellationToken ct)
     {
         var tenantId = DefaultTenantId();
 
-        if (PaymentMethodKindMapper.SettlingProviderFor(methodKind) is { Length: > 0 } routedKey)
+        // Payment accounts are per-storefront (ADR-0042): resolve within the order's storefront only.
+        // With no storefront (defensive) or none configured, degrade to the synthetic host default below.
+        if (storefrontId is { } sid)
         {
-            // Standalone PSP: prefer a configured active account on that provider (a real snapshot),
-            // else the synthetic account for the routed provider.
-            var configured = await db.PaymentAccounts.AsNoTracking()
-                .Where(a => a.TenantId == tenantId && a.State == PaymentAccountState.Active && a.Provider.ToLower() == routedKey)
-                .OrderByDescending(a => a.IsDefaultForTenant)
-                .FirstOrDefaultAsync(ct);
-            var routed = configured is not null ? SnapshotOf(configured) : modeResolver.AccountForProvider(routedKey);
-            if (TryResolve(routed) is { } routedResult)
+            if (PaymentMethodKindMapper.SettlingProviderFor(methodKind) is { Length: > 0 } routedKey)
             {
-                return routedResult;
+                // Standalone PSP: prefer a configured active account on that provider (a real snapshot),
+                // else the synthetic account for the routed provider.
+                var configured = await db.PaymentAccounts.AsNoTracking()
+                    .Where(a => a.TenantId == tenantId && a.StorefrontId == sid && a.State == PaymentAccountState.Active && a.Provider.ToLower() == routedKey)
+                    .OrderByDescending(a => a.IsDefaultForStorefront)
+                    .FirstOrDefaultAsync(ct);
+                var routed = configured is not null ? SnapshotOf(configured) : modeResolver.AccountForProvider(routedKey);
+                if (TryResolve(routed) is { } routedResult)
+                {
+                    return routedResult;
+                }
             }
-        }
-        else
-        {
-            // Card family: the acquirer is the tenant's default active account, if one is configured.
-            var acquirer = await db.PaymentAccounts.AsNoTracking()
-                .Where(a => a.TenantId == tenantId && a.IsDefaultForTenant && a.State == PaymentAccountState.Active)
-                .FirstOrDefaultAsync(ct);
-            if (acquirer is not null && TryResolve(SnapshotOf(acquirer)) is { } acquirerResult)
+            else
             {
-                return acquirerResult;
+                // Card family: the acquirer is the storefront's default active account, if one is configured.
+                var acquirer = await db.PaymentAccounts.AsNoTracking()
+                    .Where(a => a.TenantId == tenantId && a.StorefrontId == sid && a.IsDefaultForStorefront && a.State == PaymentAccountState.Active)
+                    .FirstOrDefaultAsync(ct);
+                if (acquirer is not null && TryResolve(SnapshotOf(acquirer)) is { } acquirerResult)
+                {
+                    return acquirerResult;
+                }
             }
         }
 

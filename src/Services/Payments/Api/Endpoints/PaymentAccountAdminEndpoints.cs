@@ -47,12 +47,21 @@ public static class PaymentAccountAdminEndpoints
         return TypedResults.Ok(accounts);
     }
 
-    private static async Task<Created<PaymentAccountDto>> Create(
+    private static async Task<Results<Created<PaymentAccountDto>, Conflict<string>>> Create(
         CreatePaymentAccountRequest request, PaymentsDbContext db, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
-        var account = PaymentAccount.Create(
-            request.TenantId, request.StorefrontId, request.Name, request.Provider, request.Mode,
-            request.IsDefaultForTenant, request.ExternalAccountRef, DateTimeOffset.UtcNow);
+        PaymentAccount account;
+        try
+        {
+            account = PaymentAccount.Create(
+                request.TenantId, request.StorefrontId, request.Name, request.Provider, request.Mode,
+                request.IsDefaultForStorefront, request.ExternalAccountRef, DateTimeOffset.UtcNow);
+        }
+        catch (PaymentAccountRuleException ex)
+        {
+            return TypedResults.Conflict(ex.Message);
+        }
+
         db.PaymentAccounts.Add(account);
         await audit.RecordAsync(user.Mutation(
             account.TenantId, "PaymentAccount", account.Id.ToString(), "payments.payment_account.create", account.Name), ct);
@@ -106,7 +115,7 @@ public static class PaymentAccountAdminEndpoints
         }
 
         var siblings = await db.PaymentAccounts
-            .Where(a => a.TenantId == target.TenantId && a.Id != target.Id && a.IsDefaultForTenant)
+            .Where(a => a.TenantId == target.TenantId && a.StorefrontId == target.StorefrontId && a.Id != target.Id && a.IsDefaultForStorefront)
             .ToListAsync(ct);
         foreach (var sibling in siblings)
         {
@@ -153,16 +162,16 @@ public static class PaymentAccountAdminEndpoints
 
     private static PaymentAccountDto ToDto(PaymentAccount a) => new(
         a.Id, a.TenantId, a.StorefrontId, a.Name, a.Provider, a.Mode.ToString(), a.State.ToString(),
-        a.IsDefaultForTenant, a.ExternalAccountRef, a.CreatedAt);
+        a.IsDefaultForStorefront, a.ExternalAccountRef, a.CreatedAt);
 }
 
 public record CreatePaymentAccountRequest(
     [property: Required] Guid TenantId,
-    Guid? StorefrontId,
+    [property: Required] Guid StorefrontId,
     [property: Required] string Name,
     [property: Required] string Provider,
     PaymentProviderMode Mode,
-    bool IsDefaultForTenant,
+    bool IsDefaultForStorefront,
     string? ExternalAccountRef);
 
 public record UpdatePaymentAccountRequest(
@@ -172,5 +181,5 @@ public record UpdatePaymentAccountRequest(
     string? ExternalAccountRef);
 
 public record PaymentAccountDto(
-    Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Provider, string Mode, string State,
-    bool IsDefaultForTenant, string? ExternalAccountRef, DateTimeOffset CreatedAt);
+    Guid Id, Guid TenantId, Guid StorefrontId, string Name, string Provider, string Mode, string State,
+    bool IsDefaultForStorefront, string? ExternalAccountRef, DateTimeOffset CreatedAt);

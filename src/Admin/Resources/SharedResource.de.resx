@@ -898,8 +898,8 @@
   <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
   <data name="Pay.Field.ExtRef" xml:space="preserve"><value>Externe Kontoreferenz</value></data>
   <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>Anbieterkonto-ID — erforderlich, um ein Live-Konto zu aktivieren.</value></data>
-  <data name="Pay.Field.Default" xml:space="preserve"><value>Standard für Mandant</value></data>
-  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Als Mandantenstandard verwenden.</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>Standard für Storefront</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Als Standardkonto des Storefronts verwenden.</value></data>
   <data name="Pay.Create" xml:space="preserve"><value>Erstellen (Entwurf)</value></data>
   <data name="Pay.Create.Tip" xml:space="preserve"><value>Erstellen Sie das Konto als Entwurf — reichen Sie es anschließend ein und aktivieren Sie es.</value></data>
   <data name="Pay.Status.Created" xml:space="preserve"><value>Konto erstellt (Entwurf).</value></data>
@@ -1684,4 +1684,9 @@
   <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>Der Storefront, zu dem dieses Spediteurkonto gehört (erforderlich — Spediteure sind pro Storefront).</value></data>
   <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— Storefront wählen —</value></data>
   <data name="Carr.Storefront.Required" xml:space="preserve"><value>Wählen Sie einen Storefront für dieses Spediteurkonto.</value></data>
+  <data name="Pay.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Pay.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>Der Storefront, zu dem dieses Zahlungskonto gehört (erforderlich — Konten sind pro Storefront).</value></data>
+  <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— Storefront wählen —</value></data>
+  <data name="Pay.Storefront.Required" xml:space="preserve"><value>Wählen Sie einen Storefront für dieses Zahlungskonto.</value></data>
 </root>

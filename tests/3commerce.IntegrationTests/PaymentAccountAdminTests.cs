@@ -12,8 +12,8 @@ namespace ThreeCommerce.IntegrationTests;
 [Collection(Phase4Collection.Name)]
 public class PaymentAccountAdminTests(Phase4Fixture fixture)
 {
-    private sealed record AccountDto(Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Provider,
-        string Mode, string State, bool IsDefaultForTenant, string? ExternalAccountRef, DateTimeOffset CreatedAt);
+    private sealed record AccountDto(Guid Id, Guid TenantId, Guid StorefrontId, string Name, string Provider,
+        string Mode, string State, bool IsDefaultForStorefront, string? ExternalAccountRef, DateTimeOffset CreatedAt);
 
     private HttpClient Admin()
     {
@@ -26,10 +26,11 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     public async Task Test_account_goes_draft_to_active_through_submit_and_activate()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Main", provider = "stripe", mode = 1, isDefaultForTenant = true }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Main", provider = "stripe", mode = 1, isDefaultForStorefront = true }))
             .Content.ReadFromJsonAsync<AccountDto>();
         Assert.Equal("Draft", created!.State);
 
@@ -44,10 +45,11 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     public async Task Live_account_cannot_activate_without_an_external_reference()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Live", provider = "stripe", mode = 2, isDefaultForTenant = false }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Live", provider = "stripe", mode = 2, isDefaultForStorefront = false }))
             .Content.ReadFromJsonAsync<AccountDto>();
         (await admin.PostAsync($"/admin/payment-accounts/{created!.Id}/submit", null)).EnsureSuccessStatusCode();
 
@@ -59,10 +61,11 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     public async Task Edit_round_trips_mutable_fields()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Old name", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Old name", provider = "stripe", mode = 1, isDefaultForStorefront = false }))
             .Content.ReadFromJsonAsync<AccountDto>();
 
         var updated = await (await admin.PutAsJsonAsync($"/admin/payment-accounts/{created!.Id}",
@@ -83,10 +86,11 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     public async Task Active_account_cannot_change_provider_or_mode_but_can_rename()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Main", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Main", provider = "stripe", mode = 1, isDefaultForStorefront = false }))
             .Content.ReadFromJsonAsync<AccountDto>();
         (await admin.PostAsync($"/admin/payment-accounts/{created!.Id}/submit", null)).EnsureSuccessStatusCode();
         (await admin.PostAsync($"/admin/payment-accounts/{created.Id}/activate", null)).EnsureSuccessStatusCode();
@@ -106,37 +110,74 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
     public async Task Make_default_flips_exactly_one_account_on_and_the_rest_off()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var first = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "First", provider = "stripe", mode = 1, isDefaultForTenant = true }))
+            new { tenantId = tenant, storefrontId = storefront, name = "First", provider = "stripe", mode = 1, isDefaultForStorefront = true }))
             .Content.ReadFromJsonAsync<AccountDto>();
         var second = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Second", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Second", provider = "stripe", mode = 1, isDefaultForStorefront = false }))
             .Content.ReadFromJsonAsync<AccountDto>();
 
         var made = await (await admin.PostAsync($"/admin/payment-accounts/{second!.Id}/make-default", null))
             .Content.ReadFromJsonAsync<AccountDto>();
-        Assert.True(made!.IsDefaultForTenant);
+        Assert.True(made!.IsDefaultForStorefront);
 
         var list = await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}");
-        Assert.True(Assert.Single(list!, a => a.IsDefaultForTenant).Id == second.Id);
-        Assert.False(Assert.Single(list!, a => a.Id == first!.Id).IsDefaultForTenant);
+        Assert.True(Assert.Single(list!, a => a.IsDefaultForStorefront).Id == second.Id);
+        Assert.False(Assert.Single(list!, a => a.Id == first!.Id).IsDefaultForStorefront);
     }
 
     [Fact]
     public async Task Archived_account_cannot_become_default()
     {
         var tenant = Guid.NewGuid();
+        var storefront = Guid.NewGuid();
         using var admin = Admin();
 
         var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = tenant, name = "Doomed", provider = "stripe", mode = 1, isDefaultForTenant = false }))
+            new { tenantId = tenant, storefrontId = storefront, name = "Doomed", provider = "stripe", mode = 1, isDefaultForStorefront = false }))
             .Content.ReadFromJsonAsync<AccountDto>();
         (await admin.PostAsync($"/admin/payment-accounts/{created!.Id}/archive", null)).EnsureSuccessStatusCode();
 
         var response = await admin.PostAsync($"/admin/payment-accounts/{created.Id}/make-default", null);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Duplicating_a_storefront_clones_its_payment_accounts()
+    {
+        var tenant = new Guid("00000000-0000-0000-0000-000000000001");
+        var source = Guid.NewGuid();
+        var target = Guid.NewGuid();
+        using var admin = Admin();
+
+        var created = await (await admin.PostAsJsonAsync("/admin/payment-accounts",
+            new { tenantId = tenant, storefrontId = source, name = "Source acct", provider = "stripe", mode = 1, isDefaultForStorefront = true }))
+            .Content.ReadFromJsonAsync<AccountDto>();
+        Assert.Equal(source, created!.StorefrontId);
+
+        await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Catalog.StorefrontDuplicated(tenant, source, target, "Target"));
+
+        AccountDto? clone = null;
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var all = await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}");
+            clone = all!.FirstOrDefault(a => a.StorefrontId == target);
+            if (clone is not null)
+            {
+                break;
+            }
+
+            await Task.Delay(200);
+        }
+
+        Assert.NotNull(clone);
+        Assert.Equal("Source acct", clone!.Name);
+        Assert.True(clone.IsDefaultForStorefront);
+        Assert.Equal(target, clone.StorefrontId);
     }
 
     [Fact]
@@ -148,7 +189,7 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
         // client error naming the parameter — this class of mistake used to surface as a 500
         // (review finding F7 / rev_7).
         var response = await admin.PostAsJsonAsync("/admin/payment-accounts",
-            new { tenantId = Guid.NewGuid(), name = "Bad", provider = "stripe", mode = "Test", isDefaultForTenant = false });
+            new { tenantId = Guid.NewGuid(), name = "Bad", provider = "stripe", mode = "Test", isDefaultForStorefront = false });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadAsStringAsync();

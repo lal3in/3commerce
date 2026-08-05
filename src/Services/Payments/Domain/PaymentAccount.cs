@@ -19,12 +19,14 @@ public class PaymentAccount
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
-    public Guid? StorefrontId { get; init; }
+
+    /// <summary>The storefront this account belongs to (required — payment accounts are per-storefront, ADR-0042).</summary>
+    public Guid StorefrontId { get; init; }
     public string Name { get; private set; } = string.Empty;
     public string Provider { get; private set; } = string.Empty;
     public PaymentProviderMode Mode { get; private set; }
     public PaymentAccountState State { get; private set; } = PaymentAccountState.Draft;
-    public bool IsDefaultForTenant { get; private set; }
+    public bool IsDefaultForStorefront { get; private set; }
     public string? ExternalAccountRef { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -36,13 +38,20 @@ public class PaymentAccount
     /// </summary>
     public static PaymentAccount Create(
         Guid tenantId,
-        Guid? storefrontId,
+        Guid storefrontId,
         string name,
         string provider,
         PaymentProviderMode mode,
-        bool isDefaultForTenant,
+        bool isDefaultForStorefront,
         string? externalAccountRef,
-        DateTimeOffset now) => new()
+        DateTimeOffset now)
+    {
+        if (storefrontId == Guid.Empty)
+        {
+            throw new PaymentAccountRuleException("StorefrontId is required — payment accounts are configured per storefront.");
+        }
+
+        return new PaymentAccount
         {
             Id = Guid.CreateVersion7(),
             TenantId = tenantId,
@@ -50,10 +59,32 @@ public class PaymentAccount
             Name = name.Trim(),
             Provider = provider.Trim(),
             Mode = mode,
-            IsDefaultForTenant = isDefaultForTenant,
+            IsDefaultForStorefront = isDefaultForStorefront,
             ExternalAccountRef = string.IsNullOrWhiteSpace(externalAccountRef) ? null : externalAccountRef.Trim(),
             CreatedAt = now,
         };
+    }
+
+    /// <summary>
+    /// Clone this account onto a duplicated storefront (storefront duplication, ADR-0042): carries the
+    /// descriptor, mode, external reference, default flag and lifecycle state so the new storefront can
+    /// take payment with the same, immediately-usable account. The default flag is scoped to the new
+    /// storefront, so copying it keeps exactly one default there.
+    /// </summary>
+    public PaymentAccount CloneForStorefront(Guid newStorefrontId, DateTimeOffset now) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        TenantId = TenantId,
+        StorefrontId = newStorefrontId,
+        Name = Name,
+        Provider = Provider,
+        Mode = Mode,
+        State = State,
+        IsDefaultForStorefront = IsDefaultForStorefront,
+        ExternalAccountRef = ExternalAccountRef,
+        CreatedAt = now,
+        ActivatedAt = ActivatedAt,
+    };
 
     /// <summary>
     /// Edits the mutable descriptor fields. Name is always editable (unless archived); provider and mode
@@ -89,27 +120,27 @@ public class PaymentAccount
         UpdatedAt = now;
     }
 
-    /// <summary>Marks this account as the tenant default. Archived accounts cannot become default.</summary>
+    /// <summary>Marks this account as the storefront default. Archived accounts cannot become default.</summary>
     public void SetAsDefault(DateTimeOffset now)
     {
         if (State == PaymentAccountState.Archived)
         {
-            throw new PaymentAccountRuleException("Archived payment accounts cannot be made the tenant default.");
+            throw new PaymentAccountRuleException("Archived payment accounts cannot be made the storefront default.");
         }
 
-        IsDefaultForTenant = true;
+        IsDefaultForStorefront = true;
         UpdatedAt = now;
     }
 
-    /// <summary>Clears the tenant-default flag (used when another account becomes default).</summary>
+    /// <summary>Clears the storefront-default flag (used when another account becomes default).</summary>
     public void ClearDefault(DateTimeOffset now)
     {
-        if (!IsDefaultForTenant)
+        if (!IsDefaultForStorefront)
         {
             return;
         }
 
-        IsDefaultForTenant = false;
+        IsDefaultForStorefront = false;
         UpdatedAt = now;
     }
 
@@ -175,7 +206,7 @@ public class PaymentAccount
             throw new PaymentAccountRuleException("Checkout requires an active payment account.");
         }
 
-        if (StorefrontId is { } scopedStorefrontId && scopedStorefrontId != storefrontId)
+        if (StorefrontId != storefrontId)
         {
             throw new PaymentAccountRuleException("Payment account is not eligible for this storefront.");
         }

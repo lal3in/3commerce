@@ -898,8 +898,8 @@
   <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
   <data name="Pay.Field.ExtRef" xml:space="preserve"><value>外部賬戶參考</value></data>
   <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>供應商賬戶 id — 啟用 Live 賬戶時必填。</value></data>
-  <data name="Pay.Field.Default" xml:space="preserve"><value>租戶預設</value></data>
-  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>用作租戶預設。</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>店面預設</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>用作呢個店面嘅預設帳戶。</value></data>
   <data name="Pay.Create" xml:space="preserve"><value>建立（草稿）</value></data>
   <data name="Pay.Create.Tip" xml:space="preserve"><value>以草稿建立賬戶 — 之後再提交同啟用。</value></data>
   <data name="Pay.Status.Created" xml:space="preserve"><value>賬戶已建立（草稿）。</value></data>
@@ -1684,4 +1684,9 @@
   <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>呢個物流商帳戶所屬嘅店面（必填 — 物流商係按店面設定）。</value></data>
   <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— 揀一個店面 —</value></data>
   <data name="Carr.Storefront.Required" xml:space="preserve"><value>請為呢個物流商帳戶揀一個店面。</value></data>
+  <data name="Pay.Col.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Pay.Field.Storefront" xml:space="preserve"><value>店面</value></data>
+  <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>呢個付款帳戶所屬嘅店面（必填 — 帳戶係按店面設定）。</value></data>
+  <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— 揀一個店面 —</value></data>
+  <data name="Pay.Storefront.Required" xml:space="preserve"><value>請為呢個付款帳戶揀一個店面。</value></data>
 </root>

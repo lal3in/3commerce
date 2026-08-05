@@ -903,8 +903,8 @@
   <data name="Pay.Mode.Live" xml:space="preserve"><value>Live</value></data>
   <data name="Pay.Field.ExtRef" xml:space="preserve"><value>External account ref</value></data>
   <data name="Pay.Field.ExtRef.Tip" xml:space="preserve"><value>Provider account id — required to activate a Live account.</value></data>
-  <data name="Pay.Field.Default" xml:space="preserve"><value>Default for tenant</value></data>
-  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Use as the tenant default.</value></data>
+  <data name="Pay.Field.Default" xml:space="preserve"><value>Default for storefront</value></data>
+  <data name="Pay.Field.Default.Tip" xml:space="preserve"><value>Use as the storefront's default account.</value></data>
   <data name="Pay.Create" xml:space="preserve"><value>Create (Draft)</value></data>
   <data name="Pay.Create.Tip" xml:space="preserve"><value>Create the account in Draft — submit and activate it afterwards.</value></data>
   <data name="Pay.Status.Created" xml:space="preserve"><value>Account created (Draft).</value></data>
@@ -1684,4 +1684,9 @@
   <data name="Carr.Field.Storefront.Tip" xml:space="preserve"><value>The storefront this carrier account belongs to (required — carriers are per storefront).</value></data>
   <data name="Carr.Storefront.Choose" xml:space="preserve"><value>— select a storefront —</value></data>
   <data name="Carr.Storefront.Required" xml:space="preserve"><value>Select a storefront for this carrier account.</value></data>
+  <data name="Pay.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Pay.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>The storefront this payment account belongs to (required — accounts are per storefront).</value></data>
+  <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— select a storefront —</value></data>
+  <data name="Pay.Storefront.Required" xml:space="preserve"><value>Select a storefront for this payment account.</value></data>
 </root>
