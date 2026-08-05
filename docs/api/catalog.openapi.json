@@ -6,10 +6,128 @@
   },
   "servers": [
     {
-      "url": "http://localhost:6102/"
+      "url": "http://localhost:5102/"
     }
   ],
   "paths": {
+    "/products/{productId}/reviews": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSummaryDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/products/{productId}/storefronts": {
+      "get": {
+        "tags": [
+          "Admin Storefronts"
+        ],
+        "summary": "Storefronts a product is assigned to, with per-storefront currency readiness.",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductStorefrontResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/images": {
       "post": {
         "tags": [
@@ -145,6 +263,14 @@
             }
           },
           {
+            "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -208,6 +334,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -245,6 +379,56 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/reviews": {
+      "get": {
+        "tags": [
+          "Admin Reviews"
+        ],
+        "summary": "Recent reviews across products (moderation).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminReviewDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/reviews/{id}": {
+      "delete": {
+        "tags": [
+          "Admin Reviews"
+        ],
+        "summary": "Remove a review.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -566,6 +750,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/storefronts/{id}/duplicate": {
+      "post": {
+        "tags": [
+          "Admin Storefronts"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateStorefrontRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorefrontResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           },
           "400": {
             "description": "Bad Request",
@@ -972,6 +1219,41 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Admin Storefronts"
+        ],
+        "summary": "Products assigned to a storefront, with per-product currency readiness (priced in the storefront's currency?).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StorefrontProductResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
       }
     },
     "/admin/storefronts/{id}/products/{productId}/readiness": {
@@ -1187,6 +1469,79 @@
         }
       }
     },
+    "/admin/product-types": {
+      "get": {
+        "tags": [
+          "Admin Product Types"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductTypePolicyRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin Product Types"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductTypePolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductTypePolicyRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/offers": {
       "get": {
         "tags": [
@@ -1334,6 +1689,57 @@
           },
           "canonical": {
             "type": "boolean"
+          }
+        }
+      },
+      "AdminReviewDto": {
+        "required": [
+          "id",
+          "productId",
+          "productName",
+          "productSlug",
+          "authorName",
+          "rating",
+          "comment",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productSlug": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1513,6 +1919,17 @@
             "items": {
               "$ref": "#/components/schemas/PriceTierDto"
             }
+          },
+          "supplierCostMinor": {
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64",
+            "default": 0
           }
         }
       },
@@ -1575,6 +1992,61 @@
               "null",
               "string"
             ]
+          },
+          "receivableAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revenueAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shippingAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "theme": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "costAssumptions": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         }
       },
@@ -1595,6 +2067,19 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "DuplicateStorefrontRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
           }
         }
       },
@@ -1730,7 +2215,8 @@
           "currency",
           "priority",
           "status",
-          "tiers"
+          "tiers",
+          "supplierCostMinor"
         ],
         "type": "object",
         "properties": {
@@ -1796,6 +2282,14 @@
             "items": {
               "$ref": "#/components/schemas/PriceTierDto"
             }
+          },
+          "supplierCostMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -2220,8 +2714,64 @@
       "ProductStatus": {
         "type": "integer"
       },
+      "ProductStorefrontResponse": {
+        "required": [
+          "storefrontId",
+          "storefrontName",
+          "currency",
+          "storefrontState",
+          "publicationState",
+          "currencyReady"
+        ],
+        "type": "object",
+        "properties": {
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storefrontName": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "storefrontState": {
+            "type": "string"
+          },
+          "publicationState": {
+            "type": "string"
+          },
+          "currencyReady": {
+            "type": "boolean"
+          }
+        }
+      },
       "ProductType": {
         "type": "integer"
+      },
+      "ProductTypePolicyRow": {
+        "required": [
+          "productType",
+          "value",
+          "requiresShipping"
+        ],
+        "type": "object",
+        "properties": {
+          "productType": {
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "requiresShipping": {
+            "type": "boolean"
+          }
+        }
       },
       "ProductWriteRequest": {
         "required": [
@@ -2321,7 +2871,8 @@
           "currency",
           "taxRegime",
           "taxRateBasisPoints",
-          "defaultLanguage"
+          "defaultLanguage",
+          "theme"
         ],
         "type": "object",
         "properties": {
@@ -2355,6 +2906,122 @@
           },
           "defaultLanguage": {
             "type": "string"
+          },
+          "theme": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ReplyDto": {
+        "required": [
+          "id",
+          "authorName",
+          "message",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReviewDto": {
+        "required": [
+          "id",
+          "authorName",
+          "rating",
+          "comment",
+          "createdAt",
+          "replies"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplyDto"
+            }
+          }
+        }
+      },
+      "ReviewSummaryDto": {
+        "required": [
+          "productId",
+          "average",
+          "count",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "average": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDto"
+            }
           }
         }
       },
@@ -2374,6 +3041,34 @@
             "type": "string"
           },
           "canonical": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StorefrontProductResponse": {
+        "required": [
+          "productId",
+          "title",
+          "state",
+          "storefrontCurrency",
+          "currencyReady"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "storefrontCurrency": {
+            "type": "string"
+          },
+          "currencyReady": {
             "type": "boolean"
           }
         }
@@ -2408,6 +3103,12 @@
           "taxRegime",
           "taxRateBasisPoints",
           "defaultLanguage",
+          "receivableAccountCode",
+          "revenueAccountCode",
+          "taxAccountCode",
+          "shippingAccountCode",
+          "theme",
+          "costAssumptions",
           "domains",
           "createdAt",
           "updatedAt",
@@ -2452,6 +3153,35 @@
           "defaultLanguage": {
             "type": "string"
           },
+          "receivableAccountCode": {
+            "type": "string"
+          },
+          "revenueAccountCode": {
+            "type": "string"
+          },
+          "taxAccountCode": {
+            "type": "string"
+          },
+          "shippingAccountCode": {
+            "type": "string"
+          },
+          "theme": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "costAssumptions": {
+            "type": "object",
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
           "domains": {
             "type": "array",
             "items": {
@@ -2483,6 +3213,44 @@
       },
       "StorefrontVisibility": {
         "type": "integer"
+      },
+      "SubmitReviewRequest": {
+        "required": [
+          "rating",
+          "comment",
+          "authorName"
+        ],
+        "type": "object",
+        "properties": {
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "authorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
       },
       "SupplyCategory": {
         "type": "integer"
@@ -2562,6 +3330,39 @@
             "items": {
               "$ref": "#/components/schemas/PriceTierDto"
             }
+          },
+          "supplierCostMinor": {
+            "maximum": 9223372036854776000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateProductTypePolicyRequest": {
+        "required": [
+          "tenantId",
+          "requiresShippingTypes"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requiresShippingTypes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2620,6 +3421,61 @@
               "null",
               "string"
             ]
+          },
+          "receivableAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revenueAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shippingAccountCode": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "theme": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "costAssumptions": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         }
       },
@@ -2649,6 +3505,10 @@
           "lengthMm",
           "widthMm",
           "heightMm",
+          "packageWeightGrams",
+          "packageLengthMm",
+          "packageWidthMm",
+          "packageHeightMm",
           "prices"
         ],
         "type": "object",
@@ -2707,6 +3567,42 @@
             "format": "int32"
           },
           "heightMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageWeightGrams": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageLengthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageWidthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageHeightMm": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
@@ -2834,6 +3730,42 @@
             ],
             "format": "int32"
           },
+          "packageWeightGrams": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageLengthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageWidthMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "packageHeightMm": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "prices": {
             "type": [
               "null",
@@ -2849,6 +3781,12 @@
   },
   "tags": [
     {
+      "name": "Reviews"
+    },
+    {
+      "name": "Admin Storefronts"
+    },
+    {
       "name": "Images"
     },
     {
@@ -2861,13 +3799,16 @@
       "name": "Categories"
     },
     {
+      "name": "Admin Reviews"
+    },
+    {
       "name": "Admin"
     },
     {
-      "name": "Admin Storefronts"
+      "name": "Storefronts"
     },
     {
-      "name": "Storefronts"
+      "name": "Admin Product Types"
     },
     {
       "name": "Offers"
