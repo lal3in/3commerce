@@ -4,9 +4,9 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
-using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Catalog.Domain;
 using ThreeCommerce.Catalog.Infrastructure;
 
