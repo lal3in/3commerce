@@ -24,6 +24,9 @@ scripts/e2e-verify.sh
 
 # Full regression + boot the stack and run live smoke + browser E2E
 scripts/e2e-verify.sh --live
+
+# Verify the storefront go-live readiness gate against a running stack
+scripts/verify-golive-gate.sh
 ```
 
 > Set `DOTNET_ROOT=$HOME/.dotnet` and put `~/.dotnet`/`~/.dotnet/tools` on `PATH`
@@ -152,7 +155,40 @@ the services + worker, the storefront (production build), the admin DLL, and the
 It prints a pass/fail summary and exits non-zero on any failure. The
 `mvp-walkthrough.md` runbook is the manual equivalent of the L-flows.
 
-## 5. Testing payments without a provider (mock / sandbox modes)
+## 5. `scripts/verify-golive-gate.sh` — the go-live readiness gate check
+
+Focused runtime check for the **storefront go-live readiness gate** (ADR-0043):
+a storefront selling online can't be activated until Payments and Fulfillment
+have projected the required signals into Catalog. It drives a **running** dev
+stack through the whole cross-service path, API-first (no direct DB access), and
+exits non-zero on any failed assertion.
+
+```bash
+scripts/verify-golive-gate.sh                          # against localhost:8080
+scripts/verify-golive-gate.sh --gateway http://host:8080
+```
+
+What it proves, in order:
+
+| Step | Expectation |
+|------|-------------|
+| Create a Public storefront (Draft) → add canonical domain → `preview` | 200 |
+| `activate` with **no** active payment account | **400** — blocked, reason names the missing payment account |
+| Create → `submit` → `activate` a payment account (real Payments admin path) | 200 |
+| Poll `activate` until the readiness signal reaches Catalog over the bus outbox | flips **400 → 200** (goes live) |
+| Final storefront state | **Active** |
+
+This is the **live-stack companion** to the in-process
+`StorefrontReadinessCrossServiceTests` integration test (check A4 spine
+coverage). Both guard the same regression: a readiness publisher that stages its
+event in the EF **bus outbox** but never flushes it (a `Publish` with no
+following `SaveChanges`) strands the message, so the signal never reaches
+Catalog and **every** go-live silently stays blocked. See
+[ADR-0043](../adr/0043-storefront-scoped-carriers-payments-and-go-live-gate.md),
+the [go-live gate in Admin operations](admin-operations.md), and the
+[runtime architecture](runtime-architecture.html) map.
+
+## 6. Testing payments without a provider (mock / sandbox modes)
 
 Payments runs in one of three modes (`Payments:Mode`, numeric on the wire —
 `LocalMock=1`, `Sandbox=2`, `Production=3`; see ADR-0039). Dev defaults to
@@ -189,7 +225,7 @@ Production). See the [deployment guide](deployment.md) for the container/Helm
 config keys and [ADR-0039](../adr/0039-payment-provider-architecture.md) for
 the full design.
 
-## 6. How CI runs it
+## 7. How CI runs it
 
 `.github/workflows/ci.yml` (on push to `main`/`develop` and on PRs) has four jobs:
 
