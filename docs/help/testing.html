@@ -29,6 +29,10 @@
       <a href="deployment.html"><span class="idx">05</span>Deployment</a>
       <span class="nav-label">Reference</span>
       <a href="runtime-architecture.html"><span class="idx">⬡</span>Runtime architecture</a>
+      <a href="order-workflow.html"><span class="idx">⑂</span>Order workflow</a>
+      <a href="checkout-sequence.html"><span class="idx">⇅</span>Checkout sequence</a>
+      <a href="readcopy-dataflow.html"><span class="idx">⇶</span>Read-copy dataflow</a>
+      <a href="order-lifecycle.html"><span class="idx">⭮</span>Order lifecycle</a>
       <a href="services.html"><span class="idx">◆</span>Platform services</a>
       <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
       <a href="screens.html"><span class="idx">▣</span>UI screens</a>
@@ -175,6 +179,10 @@ scripts/verify-golive-gate.sh --gateway http://host:8080</code></pre>
           </table>
         </div>
         <p>This is the <strong>live-stack companion</strong> to the in-process <code>StorefrontReadinessCrossServiceTests</code> integration test (check A4 spine coverage). Both guard the same regression: a readiness publisher that stages its event in the EF <strong>bus outbox</strong> but never flushes it (a <code>Publish</code> with no following <code>SaveChanges</code>) strands the message, so the signal never reaches Catalog and <strong>every</strong> go-live silently stays blocked. See <a href="../adr/0043-storefront-scoped-carriers-payments-and-go-live-gate.md">ADR-0043</a>, the <a href="admin-operations.html">go-live gate in Admin operations</a>, and the <a href="runtime-architecture.html">runtime architecture</a> map.</p>
+      <a href="order-workflow.html"><span class="idx">⑂</span>Order workflow</a>
+      <a href="checkout-sequence.html"><span class="idx">⇅</span>Checkout sequence</a>
+      <a href="readcopy-dataflow.html"><span class="idx">⇶</span>Read-copy dataflow</a>
+      <a href="order-lifecycle.html"><span class="idx">⭮</span>Order lifecycle</a>
 
         <h2 id="testing-payments">6. Testing payments without a provider (mock / sandbox modes)</h2>
         <p>Payments runs in one of three modes (<code>Payments:Mode</code>, numeric on the wire — <code>LocalMock=1</code>, <code>Sandbox=2</code>, <code>Production=3</code>; see ADR-0039). Dev defaults to <code>LocalMock</code> in <code>appsettings.Development.json</code>, so you can exercise the full checkout → payment → ledger flow <strong>before</strong> you have any provider credentials.</p>
