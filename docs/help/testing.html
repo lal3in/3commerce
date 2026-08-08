@@ -28,6 +28,7 @@
       <a href="testing.html" class="active"><span class="idx">04</span>Testing</a>
       <a href="deployment.html"><span class="idx">05</span>Deployment</a>
       <span class="nav-label">Reference</span>
+      <a href="runtime-architecture.html"><span class="idx">⬡</span>Runtime architecture</a>
       <a href="services.html"><span class="idx">◆</span>Platform services</a>
       <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
       <a href="screens.html"><span class="idx">▣</span>UI screens</a>
@@ -68,7 +69,10 @@ cd src/Storefront &amp;&amp; npm run test:e2e
 scripts/e2e-verify.sh
 
 <span class="cmt"># Full regression + boot the stack and run live smoke + browser E2E</span>
-scripts/e2e-verify.sh --live</code></pre>
+scripts/e2e-verify.sh --live
+
+<span class="cmt"># Verify the storefront go-live readiness gate against a running stack</span>
+scripts/verify-golive-gate.sh</code></pre>
 
         <div class="callout note">
           <span class="mark">i</span>
@@ -153,7 +157,26 @@ scripts/e2e-verify.sh --live-only</code></pre>
         </div>
         <p>It prints a pass/fail summary and exits non-zero on any failure. The <code>mvp-walkthrough.md</code> runbook is the manual equivalent of the L-flows.</p>
 
-        <h2 id="testing-payments">5. Testing payments without a provider (mock / sandbox modes)</h2>
+        <h2 id="verify-golive-gate">5. <code>scripts/verify-golive-gate.sh</code> — the go-live readiness gate check</h2>
+        <p>Focused runtime check for the <strong>storefront go-live readiness gate</strong> (ADR-0043): a storefront selling online can't be activated until Payments and Fulfillment have projected the required signals into Catalog. It drives a <strong>running</strong> dev stack through the whole cross-service path, API-first (no direct DB access), and exits non-zero on any failed assertion.</p>
+        <pre><code>scripts/verify-golive-gate.sh                          <span class="cmt"># against localhost:8080</span>
+scripts/verify-golive-gate.sh --gateway http://host:8080</code></pre>
+        <p>What it proves, in order:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Step</th><th>Expectation</th></tr></thead>
+            <tbody>
+              <tr><td>Create a Public storefront (Draft) → add canonical domain → <code>preview</code></td><td>200</td></tr>
+              <tr><td><code>activate</code> with <strong>no</strong> active payment account</td><td><strong>400</strong> — blocked, reason names the missing payment account</td></tr>
+              <tr><td>Create → <code>submit</code> → <code>activate</code> a payment account (real Payments admin path)</td><td>200</td></tr>
+              <tr><td>Poll <code>activate</code> until the readiness signal reaches Catalog over the bus outbox</td><td>flips <strong>400 → 200</strong> (goes live)</td></tr>
+              <tr><td>Final storefront state</td><td><strong>Active</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>This is the <strong>live-stack companion</strong> to the in-process <code>StorefrontReadinessCrossServiceTests</code> integration test (check A4 spine coverage). Both guard the same regression: a readiness publisher that stages its event in the EF <strong>bus outbox</strong> but never flushes it (a <code>Publish</code> with no following <code>SaveChanges</code>) strands the message, so the signal never reaches Catalog and <strong>every</strong> go-live silently stays blocked. See <a href="../adr/0043-storefront-scoped-carriers-payments-and-go-live-gate.md">ADR-0043</a>, the <a href="admin-operations.html">go-live gate in Admin operations</a>, and the <a href="runtime-architecture.html">runtime architecture</a> map.</p>
+
+        <h2 id="testing-payments">6. Testing payments without a provider (mock / sandbox modes)</h2>
         <p>Payments runs in one of three modes (<code>Payments:Mode</code>, numeric on the wire — <code>LocalMock=1</code>, <code>Sandbox=2</code>, <code>Production=3</code>; see ADR-0039). Dev defaults to <code>LocalMock</code> in <code>appsettings.Development.json</code>, so you can exercise the full checkout → payment → ledger flow <strong>before</strong> you have any provider credentials.</p>
         <div class="table-wrap">
           <table>
@@ -171,7 +194,7 @@ scripts/e2e-verify.sh --live-only</code></pre>
         <p>In the bare-run dev stack the email lands in the Notifications worker log (<code>.run/notifications.log</code>) since dev has no SMTP; swap <code>MockEmailTo</code> for your real address once SMTP is wired.</p>
         <p><strong>Safety.</strong> <code>PaymentModeGuard</code> refuses to boot with <code>LocalMock</code> or <code>AllowMockEmail=true</code> outside <code>Development</code>, and Production has no capture path at all — the TEST-ONLY email can never fire against live data. Provider secrets are prefix-asserted per mode (<code>sk_test_</code> for Sandbox, <code>sk_live_</code> for Production). See the <a href="deployment.html">deployment guide</a> for the container/Helm config keys and <a href="../adr/0039-payment-provider-architecture.md">ADR-0039</a> for the full design.</p>
 
-        <h2 id="how-ci-runs-it">6. How CI runs it</h2>
+        <h2 id="how-ci-runs-it">7. How CI runs it</h2>
         <p><code>.github/workflows/ci.yml</code> (on push to <code>main</code>/<code>develop</code> and on PRs) has four jobs:</p>
         <div class="table-wrap">
           <table>
