@@ -56,6 +56,10 @@ The policy drives two places:
 
 ### 4. Carriers are managed per storefront, with credentials by reference
 
+> **Refined by ADR-0043:** the tenant-level default described here was dropped — carriers are now
+> *strictly* per-storefront (no tenant fallback), and payment accounts became per-storefront too, with a
+> go-live gate. The per-storefront model and credential-by-reference posture below still hold.
+
 A tenant configures carriers at the **tenant level** (the default) and may **override per
 storefront**, so each storefront keeps its own independent carrier accounts. A carrier row never
 holds a secret — only a `CredentialRef` pointing at the secret store. Lifecycle is

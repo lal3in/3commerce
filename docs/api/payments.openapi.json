@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5931/"
+      "url": "http://localhost:5104/"
     }
   ],
   "paths": {
@@ -205,6 +205,28 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/EntryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/ledger/balances": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
                   }
                 }
               }
@@ -513,6 +535,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaymentAccountDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1427,6 +1459,47 @@
         }
       }
     },
+    "/admin/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/subscriptions/{id}/renew": {
       "post": {
         "tags": [
@@ -1531,6 +1604,48 @@
           }
         }
       },
+      "BalanceDto": {
+        "required": [
+          "accountCode",
+          "currency",
+          "debitMinor",
+          "creditMinor",
+          "netMinor"
+        ],
+        "type": "object",
+        "properties": {
+          "accountCode": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "debitMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "creditMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "netMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "CreatePaymentAccountRequest": {
         "required": [
           "tenantId",
@@ -1538,7 +1653,7 @@
           "name",
           "provider",
           "mode",
-          "isDefaultForTenant",
+          "isDefaultForStorefront",
           "externalAccountRef"
         ],
         "type": "object",
@@ -1548,10 +1663,7 @@
             "format": "uuid"
           },
           "storefrontId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "name": {
@@ -1563,7 +1675,7 @@
           "mode": {
             "$ref": "#/components/schemas/PaymentProviderMode"
           },
-          "isDefaultForTenant": {
+          "isDefaultForStorefront": {
             "type": "boolean"
           },
           "externalAccountRef": {
@@ -1777,7 +1889,7 @@
           "provider",
           "mode",
           "state",
-          "isDefaultForTenant",
+          "isDefaultForStorefront",
           "externalAccountRef",
           "createdAt"
         ],
@@ -1792,10 +1904,7 @@
             "format": "uuid"
           },
           "storefrontId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "name": {
@@ -1810,7 +1919,7 @@
           "state": {
             "type": "string"
           },
-          "isDefaultForTenant": {
+          "isDefaultForStorefront": {
             "type": "boolean"
           },
           "externalAccountRef": {
@@ -1939,6 +2048,50 @@
           }
         }
       },
+      "RenewalDto": {
+        "required": [
+          "sequence",
+          "periodStart",
+          "periodEnd",
+          "amountMinor",
+          "currency",
+          "recordedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amountMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SavedPaymentMethodDto": {
         "required": [
           "id",
@@ -2026,6 +2179,93 @@
           }
         }
       },
+      "SubscriptionDetailDto": {
+        "required": [
+          "id",
+          "tenantId",
+          "orderId",
+          "customerEmail",
+          "productId",
+          "variantId",
+          "billingPeriod",
+          "priceMinor",
+          "currency",
+          "status",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "createdAt",
+          "updatedAt",
+          "renewals"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerEmail": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "priceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "renewals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RenewalDto"
+            }
+          }
+        }
+      },
       "SubscriptionDto": {
         "required": [
           "id",
@@ -2038,7 +2278,9 @@
           "currency",
           "status",
           "currentPeriodStart",
-          "currentPeriodEnd"
+          "currentPeriodEnd",
+          "createdAt",
+          "updatedAt"
         ],
         "type": "object",
         "properties": {
@@ -2086,6 +2328,14 @@
             "format": "date-time"
           },
           "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
             "type": "string",
             "format": "date-time"
           }
