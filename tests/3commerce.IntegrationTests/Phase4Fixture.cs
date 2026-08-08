@@ -40,6 +40,10 @@ public sealed class Phase4Fixture : IAsyncLifetime
     public WebApplicationFactory<ThreeCommerce.Marketing.Api.IApiMarker> Marketing { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Audit.Api.IApiMarker> Audit { get; private set; } = null!;
 
+    // Shares the one RabbitMQ container with Payments + Fulfillment, so a real readiness event published
+    // by those services (through the EF bus outbox) is delivered to Catalog's readiness consumers.
+    public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> Catalog { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
@@ -51,6 +55,9 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await _postgres.ExecScriptAsync("CREATE DATABASE usage_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE marketing_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE audit_db;");
+        await _postgres.ExecScriptAsync("CREATE DATABASE catalog_db;");
+        // Catalog migrations need citext + pg_trgm (product search) — provision them before migrating.
+        await ExecInDbAsync("catalog_db", "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;");
 
         Support = CreateFactory<ThreeCommerce.Support.Api.IApiMarker, ThreeCommerce.Support.Infrastructure.SupportDbContext>("support_db");
         Payments = CreateFactory<ThreeCommerce.Payments.Api.IApiMarker, PaymentsDbContext>("payments_db");
@@ -59,6 +66,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         Usage = CreateFactory<ThreeCommerce.Usage.Api.IApiMarker, UsageDbContext>("usage_db");
         Marketing = CreateFactory<ThreeCommerce.Marketing.Api.IApiMarker, ThreeCommerce.Marketing.Infrastructure.MarketingDbContext>("marketing_db");
         Audit = CreateFactory<ThreeCommerce.Audit.Api.IApiMarker, ThreeCommerce.Audit.Infrastructure.AuditDbContext>("audit_db");
+        Catalog = CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
 
         // Direct publisher (bypasses the EF bus outbox, which only delivers on SaveChanges).
         _publishBus = Bus.Factory.CreateUsingRabbitMq(cfg => cfg.Host(new Uri(RabbitMqUri)));
@@ -81,6 +89,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await Entitlement.DisposeAsync();
         await Usage.DisposeAsync();
         await Audit.DisposeAsync();
+        await Catalog.DisposeAsync();
         _ecdsa.Dispose();
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }
@@ -203,5 +212,15 @@ public sealed class Phase4Fixture : IAsyncLifetime
         using var scope = factory.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
         return factory;
+    }
+
+    private async Task ExecInDbAsync(string database, string sql)
+    {
+        // ExecScriptAsync runs against the default db; use psql -d to target another.
+        var result = await _postgres.ExecAsync(["psql", "-U", "postgres", "-d", database, "-c", sql]);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Setup SQL failed on {database}: {result.Stderr}");
+        }
     }
 }
