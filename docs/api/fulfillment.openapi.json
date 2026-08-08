@@ -10,50 +10,6 @@
     }
   ],
   "paths": {
-    "/me/entitlements": {
-      "get": {
-        "tags": [
-          "Entitlements"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EntitlementDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/usage": {
-      "get": {
-        "tags": [
-          "Usage"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BalanceDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/admin/shipments": {
       "get": {
         "tags": [
@@ -1109,211 +1065,6 @@
           }
         }
       }
-    },
-    "/admin/entitlements": {
-      "get": {
-        "tags": [
-          "Entitlements"
-        ],
-        "parameters": [
-          {
-            "name": "tenantId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "orderId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "email",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/EntitlementDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/usage/provision": {
-      "post": {
-        "tags": [
-          "Usage"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProvisionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BalanceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/usage/record": {
-      "post": {
-        "tags": [
-          "Usage"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordUsageRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BalanceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/usage/balances/{id}/bill-overage": {
-      "post": {
-        "tags": [
-          "Usage"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "tenantId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BalanceDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          }
-        }
-      }
-    },
-    "/admin/usage/balances": {
-      "get": {
-        "tags": [
-          "Usage"
-        ],
-        "parameters": [
-          {
-            "name": "tenantId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "email",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BalanceDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -1460,101 +1211,6 @@
           }
         }
       },
-      "BalanceDto": {
-        "required": [
-          "id",
-          "customerEmail",
-          "meter",
-          "includedQuantity",
-          "usedQuantity",
-          "remainingQuantity",
-          "overageQuantity",
-          "overageAllowed",
-          "overageUnitPriceMinor",
-          "unbilledOverageChargeMinor",
-          "currency",
-          "periodStart",
-          "periodEnd"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "customerEmail": {
-            "type": "string"
-          },
-          "meter": {
-            "type": "string"
-          },
-          "includedQuantity": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "usedQuantity": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "remainingQuantity": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "overageQuantity": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "overageAllowed": {
-            "type": "boolean"
-          },
-          "overageUnitPriceMinor": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "unbilledOverageChargeMinor": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "currency": {
-            "type": "string"
-          },
-          "periodStart": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "periodEnd": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
       "BuyLabelRequest": {
         "required": [
           "tenantId",
@@ -1605,10 +1261,7 @@
             "format": "uuid"
           },
           "storefrontId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "carrier": {
@@ -1642,10 +1295,7 @@
             "format": "uuid"
           },
           "storefrontId": {
-            "type": [
-              "null",
-              "string"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "carrier": {
@@ -1693,61 +1343,6 @@
           },
           "kind": {
             "$ref": "#/components/schemas/LocationKind"
-          }
-        }
-      },
-      "EntitlementDto": {
-        "required": [
-          "id",
-          "orderId",
-          "customerEmail",
-          "productId",
-          "variantId",
-          "type",
-          "status",
-          "startsAt",
-          "expiresAt"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "customerEmail": {
-            "type": "string"
-          },
-          "productId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "variantId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "type": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "startsAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "expiresAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
           }
         }
       },
@@ -1936,9 +1531,6 @@
       "LocationKind": {
         "type": "integer"
       },
-      "MeterType": {
-        "type": "integer"
-      },
       "PackageDto": {
         "required": [
           "id",
@@ -2068,67 +1660,6 @@
           }
         }
       },
-      "ProvisionRequest": {
-        "required": [
-          "tenantId",
-          "customerEmail",
-          "meter",
-          "includedQuantity",
-          "overageAllowed",
-          "overageUnitPriceMinor",
-          "currency",
-          "periodEnd"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "customerEmail": {
-            "type": "string"
-          },
-          "meter": {
-            "$ref": "#/components/schemas/MeterType"
-          },
-          "includedQuantity": {
-            "maximum": 9223372036854776000,
-            "minimum": 0,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "overageAllowed": {
-            "type": "boolean"
-          },
-          "overageUnitPriceMinor": {
-            "maximum": 9223372036854776000,
-            "minimum": 0,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "currency": {
-            "type": "string"
-          },
-          "periodEnd": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
       "QuoteRequest": {
         "required": [
           "tenantId",
@@ -2228,47 +1759,6 @@
               "string"
             ],
             "format": "int32"
-          }
-        }
-      },
-      "RecordUsageRequest": {
-        "required": [
-          "tenantId",
-          "customerEmail",
-          "meter",
-          "quantity",
-          "referenceId"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "customerEmail": {
-            "type": "string"
-          },
-          "meter": {
-            "$ref": "#/components/schemas/MeterType"
-          },
-          "quantity": {
-            "maximum": 9223372036854776000,
-            "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          },
-          "referenceId": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -2727,12 +2217,6 @@
     }
   },
   "tags": [
-    {
-      "name": "Entitlements"
-    },
-    {
-      "name": "Usage"
-    },
     {
       "name": "Shipments"
     },
