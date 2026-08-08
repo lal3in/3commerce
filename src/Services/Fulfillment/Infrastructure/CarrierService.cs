@@ -22,10 +22,15 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock, 
         return integration;
     }
 
-    // Readiness is an idempotent boolean the go-live gate reads; published after save (post-change truth).
-    private async Task PublishReadinessAsync(Guid tenantId, Guid storefrontId, CancellationToken ct) =>
-        await publisher.Publish(new StorefrontCarrierReadinessChanged(
-            tenantId, storefrontId, await HasActiveCarrierAsync(tenantId, storefrontId, ct)), ct);
+    // Readiness is an idempotent boolean the go-live gate reads: compute the post-change truth, then
+    // publish AND SaveChanges again to flush the bus-outbox (UseBusOutbox stages the message on Publish;
+    // without a following SaveChanges it would be stranded and never delivered).
+    private async Task PublishReadinessAsync(Guid tenantId, Guid storefrontId, CancellationToken ct)
+    {
+        var hasActive = await HasActiveCarrierAsync(tenantId, storefrontId, ct);
+        await publisher.Publish(new StorefrontCarrierReadinessChanged(tenantId, storefrontId, hasActive), ct);
+        await db.SaveChangesAsync(ct);
+    }
 
     public Task<List<CarrierIntegration>> ListAsync(Guid tenantId, Guid? storefrontId, CancellationToken ct)
     {

@@ -164,13 +164,15 @@ public static class PaymentAccountAdminEndpoints
     }
 
     // Storefront payment-account readiness — an idempotent boolean Catalog's go-live gate reads (ADR-0042).
-    // Published after save (post-change truth); a lost publish self-heals on the next account change.
+    // Compute the post-change truth, then publish AND SaveChanges again to flush the bus-outbox
+    // (UseBusOutbox stages the message on Publish; without a following SaveChanges it is stranded).
     private static async Task PublishReadinessAsync(
         PaymentsDbContext db, IPublishEndpoint publisher, Guid tenantId, Guid storefrontId, CancellationToken ct)
     {
         var hasActive = await db.PaymentAccounts.AsNoTracking()
             .AnyAsync(a => a.TenantId == tenantId && a.StorefrontId == storefrontId && a.State == PaymentAccountState.Active, ct);
         await publisher.Publish(new StorefrontPaymentReadinessChanged(tenantId, storefrontId, hasActive), ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private static PaymentAccountDto ToDto(PaymentAccount a) => new(
