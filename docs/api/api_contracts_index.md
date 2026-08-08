@@ -213,11 +213,11 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/admin/refunds` | admin | Publish the single RefundRequested contract. `Idempotency-Key` required — replayed key + same body returns the stored 202 (no second refund); same key + different body → **409** problem+json with `errorCode: idempotency_conflict` (pay_7, via the shared `IIdempotencyGuard`) |
 | GET | `/admin/xero/sync-runs` | admin | Xero sync status |
 | POST | `/admin/xero/sync/{date}` | admin | Post a day's summary journal (operator/cron) |
-| GET/POST | `/admin/payment-accounts` | admin | Tenant/storefront payment account lifecycle setup; readiness-gated activation |
+| GET/POST | `/admin/payment-accounts` | admin | Per-storefront payment account lifecycle setup (ADR-0043: `storefrontId` required, no tenant-level account); readiness-gated activation |
 | PUT | `/admin/payment-accounts/{id}` | admin | Edit mutable account fields (name/provider/mode/external ref); provider+mode are locked while the account is Active (suspend first); archived accounts are immutable |
 | GET | `/admin/payment-accounts/{id}/readiness` | admin | Activation readiness check |
 | POST | `/admin/payment-accounts/{id}/submit\|activate\|suspend\|archive` | admin | Account lifecycle transitions (readiness-gated activation) |
-| POST | `/admin/payment-accounts/{id}/make-default` | admin | Make this account the tenant default and unset every sibling in one tenant-scoped transaction (exactly one default); archived accounts rejected (409) |
+| POST | `/admin/payment-accounts/{id}/make-default` | admin | Make this account the **storefront** default and unset every sibling in that storefront in one transaction (exactly one default per storefront); archived accounts rejected (409) |
 | GET/POST | `/admin/supplier-payouts/bank-accounts` | admin | Tokenized/masked supplier bank accounts; approve/reject/archive lifecycle |
 | PUT | `/admin/supplier-payouts/bank-accounts/{id}` | admin | Edit masked/label fields (token refs + masked values only — never raw bank details); changing the banking identity (country/masked numbers/vault token) resets an approved account to PendingApproval for re-approval |
 | GET/POST | `/admin/supplier-payouts/instructions` | admin | Active payout instruction routing per supplier; creating one deactivates prior active instructions |
@@ -255,8 +255,8 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | POST | `/admin/shipments/{id}/tracking` | admin | Assign tracking → TrackingAssigned event/email |
 | GET/POST | `/admin/inventory/locations` | admin | Inventory locations linked to an Entity warehouse/supplier/forwarder (mt4_1) |
 | GET/POST | `/admin/inventory/stock` | admin | On-hand stock feed per (product, variant, location); supplier-feedable. Confirmed orders consume it (mt4_2); changes publish `InventoryAvailabilityChanged` → Catalog mirror |
-| GET/POST | `/admin/carriers` | admin | Carrier integration config (Fake/AusPost/DHL/FedEx/UPS/StarTrack/Pack&Send); `CredentialRef` only, never the secret (mt4_3) |
-| POST | `/admin/carriers/{id}/activate\|suspend\|disable\|default` · PUT `/{id}/credential` | admin | Carrier lifecycle; tenant default + per-storefront override |
+| GET/POST | `/admin/carriers` | admin | Carrier integration config (Fake/AusPost/DHL/FedEx/UPS/StarTrack/Pack&Send); `storefrontId` **required** (ADR-0043: per-storefront only, no tenant-level); `CredentialRef` only, never the secret (mt4_3) |
+| POST | `/admin/carriers/{id}/activate\|suspend\|disable\|default` · PUT `/{id}/credential` | admin | Carrier lifecycle; one active default per storefront |
 | POST | `/shipping/quote` · `/shipping/quote/groups` | anon | Carrier rate quotes — single + per shipment group (one order, multiple shipments); response carries `ExpiresAt` (mt4_4/mt4_5) |
 | POST | `/shipping/revalidate` | anon | Revalidate a selected quote before payment → `Valid` / `Expired` / `PriceChanged` / `Unavailable`; carrier fallback to Fake (mt4_6) |
 | GET | `/admin/dropship/orders?orderId=` | admin | Dropship supplier orders (Requested→Accepted→TrackingReceived) auto-forwarded on confirm (mt4_4b) |
@@ -287,8 +287,14 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > Shipping bus contracts (ADR-0042): `OfferChanged` also carries `ProductType` (projected onto
 > Ordering's `OfferCopy`); Catalog publishes `ProductTypeShippingPolicyChanged` (→ Ordering's
 > `ProductTypeShippingPolicyCopy`, so checkout gates shipping by the tenant's product-type policy)
-> and `StorefrontDuplicated` (→ Fulfillment clones the source storefront's carrier accounts). All are
-> additive/back-compatible; `ProductType` is defined once in `BuildingBlocks.Contracts.Supply`.
+> and `StorefrontDuplicated` (→ **Fulfillment and Payments** clone the source storefront's carrier and
+> payment accounts). All are additive/back-compatible; `ProductType` is defined once in
+> `BuildingBlocks.Contracts.Supply`.
+>
+> Storefront go-live readiness (ADR-0043): Fulfillment publishes `StorefrontCarrierReadinessChanged` and
+> Payments publishes `StorefrontPaymentReadinessChanged` (per storefront, current boolean); Catalog
+> projects both into a `StorefrontServiceReadiness` read model and blocks storefront activation without an
+> active payment account (and an active carrier when the store lists a published physical product).
 
 ## Support (`/api/support`)
 
