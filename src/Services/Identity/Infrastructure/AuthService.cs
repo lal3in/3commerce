@@ -6,6 +6,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Domain.Tenancy;
 using ThreeCommerce.Identity.Infrastructure.Security;
+using ThreeCommerce.Identity.Infrastructure.Sessions;
 
 namespace ThreeCommerce.Identity.Infrastructure;
 
@@ -20,6 +21,7 @@ public sealed class AuthService(
     TimeProvider time,
     IdentityBootstrapper bootstrapper,
     MfaPlatformPolicy platformMfa,
+    ISessionCache sessionCache,
     ILogger<AuthService> logger) : IAuthService
 {
     private static string? Trim(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -168,6 +170,7 @@ public sealed class AuthService(
         {
             session.RevokedAt = time.GetUtcNow();
             await db.SaveChangesAsync(ct);
+            await sessionCache.InvalidateTokenAsync(hash, session.UserId, ct);
         }
     }
 
@@ -238,6 +241,8 @@ public sealed class AuthService(
 
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
+        // Credential reset revoked every session — drop all of this user's cached introspections too.
+        await sessionCache.InvalidateUserAsync(user.Id, ct);
         return true;
     }
 
@@ -245,6 +250,15 @@ public sealed class AuthService(
     {
         var hash = OpaqueToken.HashOf(rawSessionToken);
         var now = time.GetUtcNow();
+
+        // Cache-aside (ADR-0044): the gateway introspects every request, so serve a cached result when we
+        // have one. Only fully-authenticated, non-MFA-pending sessions are ever cached (below), and the
+        // cache is invalidated on logout / reset / ClaimsVersion bump, so a cache hit is safe.
+        var cached = await sessionCache.GetAsync(hash, ct);
+        if (cached is not null)
+        {
+            return cached;
+        }
 
         // The session token is global; resolving its user is inherently cross-tenant (the gateway
         // calls this before any tenant scope of its own), so introspection reads under platform
@@ -264,6 +278,11 @@ public sealed class AuthService(
             .SingleOrDefaultAsync(ct);
 
         await scope.CommitAsync(ct);
+        if (result is not null)
+        {
+            await sessionCache.SetAsync(hash, result, ct);
+        }
+
         return result;
     }
 

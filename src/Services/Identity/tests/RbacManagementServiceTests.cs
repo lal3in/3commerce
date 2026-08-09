@@ -18,7 +18,7 @@ public class RbacManagementServiceTests
         var before = principal.ClaimsVersion;
         var roleId = await db.Roles.Where(r => r.TenantId == tenant.Id && r.Key == "ops").Select(r => r.Id).SingleAsync();
 
-        await new RbacManagementService(db).SetRolePermissionsAsync(roleId, ["order.view"], default);
+        await new RbacManagementService(db, new NoopSessionCache()).SetRolePermissionsAsync(roleId, ["order.view"], default);
 
         Assert.Equal(before + 1, (await db.Principals.FindAsync(principal.Id))!.ClaimsVersion);
     }
@@ -34,7 +34,7 @@ public class RbacManagementServiceTests
         var membershipId = await db.TenantMemberships.Where(m => m.PrincipalId == principal.Id).Select(m => m.Id).SingleAsync();
         var financeRoleId = await db.Roles.Where(r => r.TenantId == tenant.Id && r.Key == "finance").Select(r => r.Id).SingleAsync();
 
-        await new RbacManagementService(db).AssignRoleAsync(membershipId, financeRoleId, default);
+        await new RbacManagementService(db, new NoopSessionCache()).AssignRoleAsync(membershipId, financeRoleId, default);
 
         Assert.Equal(2, (await db.Principals.FindAsync(principal.Id))!.ClaimsVersion);
     }
