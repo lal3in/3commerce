@@ -266,6 +266,15 @@ Files: `app/register/page.tsx` + `app/register/RegisterForm.tsx`.
 it `POST`s to `/api/identity/logout` with the session cookie, deletes the
 `3c_session` cookie, and redirects to `/`.
 
+**My access** (`app/account/access/page.tsx`): the account page links to a
+**My access** page that lists the signed-in customer's entitlements. It is a
+server component behind the same `getProfile()` auth guard (redirects to
+`/login` when signed out) and reads `GET /api/entitlement/me/entitlements` via
+`getMyEntitlements()`. Each row shows the entitlement **type**, **status**,
+**granted** date, and **expiry** (blank = no expiry); an empty state renders
+when the customer holds none. This is a read-only self-service view of the
+Entitlement service's per-customer grants.
+
 ---
 
 ## 9. Account — `/account`
