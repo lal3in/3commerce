@@ -5063,6 +5063,18 @@
           <li>&bull; Duplicate payment webhooks post one ledger entry (idempotent)</li>
         </ul>
       </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Redis fast-path (ADR-0044, off by default)</h3>
+        </div>
+        <ul>
+          <li>&bull; Gateway rate-limits the inbound calls (shared across replicas)</li>
+          <li>&bull; Payments drops duplicate webhooks at Redis before Postgres</li>
+          <li>&bull; Both degrade to in-process / Postgres when Redis is off</li>
+        </ul>
+      </div>
     </div>
 
     <!-- Footer -->
