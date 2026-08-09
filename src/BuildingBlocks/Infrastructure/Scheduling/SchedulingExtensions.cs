@@ -88,12 +88,30 @@ public static class SchedulingExtensions
                 quartz.AddTrigger(trigger => trigger
                     .ForJob(key)
                     .WithIdentity($"{name}-trigger")
-                    .WithCronSchedule(cron, cronOptions => cronOptions.WithMisfireHandlingInstructionDoNothing()));
+                    .WithCronSchedule(cron, cronOptions => ApplyMisfirePolicy(cronOptions, options.MisfirePolicy)));
             }
         });
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
         return services;
+    }
+
+    // Map the configured misfire policy onto the cron trigger. Unknown values fall back to DoNothing so a
+    // typo can never leave a trigger with no misfire handling.
+    private static void ApplyMisfirePolicy(CronScheduleBuilder builder, string policy)
+    {
+        switch (policy?.Trim().ToLowerInvariant())
+        {
+            case "fireandproceed":
+                builder.WithMisfireHandlingInstructionFireAndProceed();
+                break;
+            case "ignore":
+                builder.WithMisfireHandlingInstructionIgnoreMisfires();
+                break;
+            default:
+                builder.WithMisfireHandlingInstructionDoNothing();
+                break;
+        }
     }
 }
 

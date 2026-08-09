@@ -141,7 +141,7 @@
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td><code style="font-size:.78rem;">@r.JobName</code></td>
                         <td style="@(r.Status == "Failed" ? "color:#b91c1c;" : r.Status == "Succeeded" ? "color:#047857;" : "")">@r.Status @if (r.Error is not null) { <span title="@r.Error">⚠</span> }</td>
-                        <td>@r.StartedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                        <td>@r.StartedAt.LocalDateTime.ToString("dd MMM HH:mm")@if (r.DurationMs is { } d) { <span style="color:#9ca3af;"> · @FormatDuration(d)</span> }</td>
                     </tr>
                 }
                 </tbody>
@@ -331,7 +331,10 @@
     };
 
     private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
-    private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
+    private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, long? DurationMs, string? Error);
+
+    // Compact, locale-neutral run duration for the dashboard (ms under a second, else seconds).
+    private static string FormatDuration(long ms) => ms < 1000 ? $"{ms} ms" : $"{ms / 1000.0:0.0} s";
     private record OrderKpiDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null);
     private record RmaKpiDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
     private record CheckoutCountDto(string State, int Count);

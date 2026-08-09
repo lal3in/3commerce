@@ -34,7 +34,12 @@ public sealed class EfJobRunStore<TContext>(TContext db) : IJobRunStore
 /// Failed + error) and NOT rethrown, so one bad run never tears down the scheduler — the next cron tick
 /// (or a retry) tries again.
 /// </summary>
-public sealed class JobExecutor(IJobRunStore store, TimeProvider clock, ILogger<JobExecutor> logger, MassTransit.IPublishEndpoint? publisher = null)
+public sealed class JobExecutor(
+    IJobRunStore store,
+    TimeProvider clock,
+    ILogger<JobExecutor> logger,
+    MassTransit.IPublishEndpoint? publisher = null,
+    Microsoft.Extensions.Options.IOptions<QuartzSchedulerOptions>? schedulerOptions = null)
 {
     public async Task<JobRun> ExecuteAsync(IScheduledJob job, CancellationToken ct)
     {
@@ -42,15 +47,38 @@ public sealed class JobExecutor(IJobRunStore store, TimeProvider clock, ILogger<
         store.Add(run);
         await store.SaveAsync(ct); // mark Running before the work starts
 
-        try
+        // Bounded retry (mt6_3): a transient failure is retried up to MaxJobRetries times before the run is
+        // recorded Failed, so a blip doesn't wait a whole cron cycle to recover. 0 retries = original behaviour.
+        var maxRetries = Math.Max(0, schedulerOptions?.Value.MaxJobRetries ?? 0);
+        var retryDelay = TimeSpan.FromSeconds(Math.Max(0, schedulerOptions?.Value.RetryDelaySeconds ?? 0));
+        Exception? lastError = null;
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
         {
-            await job.ExecuteAsync(ct);
+            try
+            {
+                await job.ExecuteAsync(ct);
+                lastError = null;
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                logger.LogWarning(ex, "Scheduled job {JobName} attempt {Attempt}/{Total} failed", job.Name, attempt + 1, maxRetries + 1);
+                if (attempt < maxRetries && retryDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(retryDelay, ct);
+                }
+            }
+        }
+
+        if (lastError is null)
+        {
             run.Succeed(clock.GetUtcNow());
         }
-        catch (Exception ex)
+        else
         {
-            run.Fail(clock.GetUtcNow(), ex.Message);
-            logger.LogError(ex, "Scheduled job {JobName} failed", job.Name);
+            run.Fail(clock.GetUtcNow(), lastError.Message);
+            logger.LogError(lastError, "Scheduled job {JobName} failed after {Attempts} attempt(s)", job.Name, maxRetries + 1);
         }
 
         await store.SaveAsync(ct);
