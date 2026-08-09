@@ -256,6 +256,23 @@ export async function getMyOrders(): Promise<OrderSummaryDto[]> {
   return response.ok ? ((await response.json()) as OrderSummaryDto[]) : [];
 }
 
+export type Entitlement = {
+  id: string;
+  orderId: string;
+  productId: string;
+  variantId: string | null;
+  type: string;
+  status: string;
+  startsAt: string;
+  expiresAt: string | null;
+};
+
+/** The signed-in customer's digital access grants — "my access" (mt7_6). Empty on any gateway hiccup. */
+export async function getMyEntitlements(): Promise<Entitlement[]> {
+  const response = await gatewayFetch(`/api/entitlement/me/entitlements`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as Entitlement[]) : [];
+}
+
 export type OrderLineDetail = {
   productId: string; variantId: string | null; variantSku: string | null; title: string;
   unitPriceMinor: number; discountMinor: number; quantity: number; fulfilmentType: string; billingMode: string;

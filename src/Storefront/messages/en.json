@@ -389,7 +389,15 @@
     "discount": "Discount",
     "shipping": "Shipping",
     "tax": "Tax",
-    "total": "Total"
+    "total": "Total",
+    "myAccess": "My access",
+    "myAccessLink": "View my digital access",
+    "myAccessIntro": "Digital products and subscriptions you can access.",
+    "accessType": "Type",
+    "accessStatus": "Status",
+    "accessGranted": "Granted",
+    "accessExpires": "Expires",
+    "noAccess": "You don't have any digital access yet."
   },
   "support": {
     "title": "Order support",
