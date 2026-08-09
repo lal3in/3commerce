@@ -33,22 +33,69 @@ public sealed class Phase3Fixture : IAsyncLifetime
     private string PublicKeyPem => _ecdsa.ExportSubjectPublicKeyInfoPem();
 
     /// <summary>Mints an internal-claims JWT (as the gateway would) so tests can call admin endpoints.</summary>
-    public string MintInternalClaims(Guid userId, string role) =>
-        _jwt.CreateToken(new SecurityTokenDescriptor
+    public string MintInternalClaims(Guid userId, string role, string? email = null, bool emailVerified = false)
+    {
+        var claims = new Dictionary<string, object>
+        {
+            ["sub"] = userId.ToString(),
+            ["role"] = role,
+            ["sid"] = Guid.NewGuid().ToString(),
+            ["tenant"] = "00000000-0000-0000-0000-000000000001",
+            ["email_verified"] = emailVerified ? "true" : "false",
+        };
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            claims["email"] = email;
+        }
+
+        return _jwt.CreateToken(new SecurityTokenDescriptor
         {
             Issuer = "3commerce-gateway",
             Audience = "3commerce-internal",
             IssuedAt = DateTime.UtcNow,
             Expires = DateTime.UtcNow.AddMinutes(5),
             SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(_ecdsa), SecurityAlgorithms.EcdsaSha256),
-            Claims = new Dictionary<string, object>
-            {
-                ["sub"] = userId.ToString(),
-                ["role"] = role,
-                ["sid"] = Guid.NewGuid().ToString(),
-                ["tenant"] = "00000000-0000-0000-0000-000000000001",
-            },
+            Claims = claims,
         });
+    }
+
+    /// <summary>
+    /// Seeds a product whose offer projects as a <see cref="PricingModel.Subscription"/> copy, so a cart line
+    /// resolves to <c>BillingMode.Recurring</c> at checkout (drives the verified-member subscription gate).
+    /// </summary>
+    public async Task<Guid> SeedRecurringProductAsync(long priceMinor, string currency = "EUR")
+    {
+        var productId = await SeedProductAsync(priceMinor, currency);
+        await PublishAsync(new OfferChanged(
+            OfferId: Guid.CreateVersion7(),
+            TenantId: new Guid("00000000-0000-0000-0000-000000000001"),
+            ProductId: productId,
+            VariantId: null,
+            SupplierId: Guid.CreateVersion7(),
+            SupplyCategory: SupplyCategory.Digital,
+            FulfilmentType: FulfilmentType.DigitalDownload,
+            PricingModel: PricingModel.Subscription,
+            BillingPeriod: BillingPeriod.Monthly,
+            Priority: 0,
+            Active: true,
+            SupplierCostMinor: 0,
+            Currency: currency));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.PricingModel == PricingModel.Subscription))
+            {
+                return productId;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException($"Recurring OfferCopy for product {productId} did not project.");
+    }
 
     public WebApplicationFactory<ThreeCommerce.Ordering.Api.IApiMarker> Ordering { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Payments.Api.IApiMarker> Payments { get; private set; } = null!;
