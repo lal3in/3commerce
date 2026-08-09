@@ -93,31 +93,42 @@ public sealed class PaymentEventProcessor(
                 await publisher.Publish(new PaymentFailed(payment.OrderId, payment.PaymentIntentId, ev.FailureReason ?? "failed"), ct);
                 break;
 
-            case PaymentWebhookKind.ChargebackOpened when payment.Status == PaymentStatus.Succeeded:
-                // Reverse only what's still standing — a partial refund may already have clawed some back.
-                var disputedGross = payment.AmountMinor - payment.RefundedMinor;
-                if (disputedGross <= 0)
-                {
-                    // Already fully refunded before the dispute landed: nothing left to reverse. Record the
-                    // inbox entry (done above) so the webhook isn't reprocessed, but post no journal entry.
-                    logger.LogWarning("Chargeback for order {OrderId}: nothing un-refunded remains; recorded only", payment.OrderId);
-                    break;
-                }
+            // payment_intent.canceled: the authorization was voided before it settled. Only a still-pending
+            // payment can be voided; a captured one goes through the dispute/refund paths instead.
+            case PaymentWebhookKind.PaymentVoided when payment.Status == PaymentStatus.Pending:
+                payment.Status = PaymentStatus.Voided;
+                await publisher.Publish(new PaymentFailed(payment.OrderId, payment.PaymentIntentId, ev.FailureReason ?? "voided"), ct);
+                break;
 
-                var cbAccounts = payment.StorefrontId is { } cbSid
-                    ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == cbSid, ct)
-                    : null;
-                // Proportional tax + shipping slice of the disputed gross (banker's rounding, as refunds).
-                var cbTax = payment.AmountMinor == 0 ? 0
-                    : (long)Math.Round((decimal)payment.TaxMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
-                var cbShipping = payment.AmountMinor == 0 ? 0
-                    : (long)Math.Round((decimal)payment.ShippingMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
-                db.JournalEntries.Add(Ledger.Chargeback(
-                    payment.OrderId, disputedGross, cbTax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
-                    payment.MethodKind, payment.Provider, cbAccounts?.RevenueAccountCode, cbAccounts?.TaxAccountCode, cbAccounts?.ReceivableAccountCode,
-                    cbShipping, cbAccounts?.ShippingAccountCode));
-                payment.Status = PaymentStatus.Disputed;
-                await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross), ct);
+            // A dispute opened / funds were withdrawn. ChargebackOpened is the legacy alias. All three book
+            // the reversal exactly once (idempotent on the "{orderId}:chargeback" reference) and flag Disputed.
+            case PaymentWebhookKind.DisputeCreated:
+                await EnsureDisputeReversedAsync(payment, ev, DisputeStatus.Created, ct);
+                break;
+            case PaymentWebhookKind.ChargebackOpened:
+            case PaymentWebhookKind.DisputeFundsWithdrawn:
+                await EnsureDisputeReversedAsync(payment, ev, DisputeStatus.FundsWithdrawn, ct);
+                break;
+
+            // A status-only update (e.g. under review) — track the sub-status, move no money.
+            case PaymentWebhookKind.DisputeUpdated:
+                payment.DisputeStatus = DisputeStatus.UnderReview;
+                if (ev.ProviderDisputeId is { Length: > 0 } upDp) payment.ProviderDisputeId = upDp;
+                break;
+
+            // Funds reinstated / dispute won: reverse the chargeback reversal so the sale stands again.
+            case PaymentWebhookKind.DisputeFundsReinstated:
+                await ReinstateDisputeAsync(payment, DisputeStatus.FundsReinstated, ct);
+                break;
+            case PaymentWebhookKind.DisputeClosedWon:
+                await ReinstateDisputeAsync(payment, DisputeStatus.Won, ct);
+                break;
+
+            // Dispute lost — the merchant lost the case as the final outcome: the payment becomes a
+            // chargeback and a void payment record is created. The ledger reversal was booked on withdrawal
+            // (ensured here in case we never saw that event).
+            case PaymentWebhookKind.DisputeClosedLost:
+                await LoseDisputeAsync(payment, ev, ct);
                 break;
         }
 
@@ -125,5 +136,113 @@ public sealed class PaymentEventProcessor(
         // Prime the fast-path only after the WebhookInbox row is durably committed, so Redis never claims
         // an event is processed that Postgres didn't record.
         await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct);
+    }
+
+    /// <summary>
+    /// Books the dispute reversal exactly once (idempotent on the <c>{orderId}:chargeback</c> reference) and
+    /// flips the payment to <see cref="PaymentStatus.Disputed"/> with the given sub-status. Safe to call from
+    /// created / funds-withdrawn / (legacy) chargeback-opened events and from the lost path — only the first
+    /// call posts the journal entry and publishes <see cref="PaymentDisputed"/>.
+    /// </summary>
+    private async Task EnsureDisputeReversedAsync(Payment payment, PaymentWebhookEvent ev, DisputeStatus subStatus, CancellationToken ct)
+    {
+        payment.DisputeStatus = subStatus;
+        if (ev.ProviderDisputeId is { Length: > 0 } dp) payment.ProviderDisputeId = dp;
+
+        var reference = $"{payment.OrderId}:chargeback";
+        var alreadyReversed = await db.JournalEntries.AnyAsync(e => e.Reference == reference, ct);
+
+        // Only a captured (or already-disputed) payment has anything to reverse.
+        if (payment.Status is not (PaymentStatus.Succeeded or PaymentStatus.Disputed))
+        {
+            logger.LogWarning("Dispute for order {OrderId} on a {Status} payment; sub-status only", payment.OrderId, payment.Status);
+            return;
+        }
+
+        if (alreadyReversed)
+        {
+            payment.Status = PaymentStatus.Disputed; // idempotent: reversal already booked
+            return;
+        }
+
+        // Reverse only what's still standing — a partial refund may already have clawed some back.
+        var disputedGross = payment.AmountMinor - payment.RefundedMinor;
+        if (disputedGross <= 0)
+        {
+            logger.LogWarning("Dispute for order {OrderId}: nothing un-refunded remains; status only", payment.OrderId);
+            payment.Status = PaymentStatus.Disputed;
+            return;
+        }
+
+        var accounts = payment.StorefrontId is { } sid
+            ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
+            : null;
+        // Proportional tax + shipping slice of the disputed gross (banker's rounding, as refunds).
+        var tax = payment.AmountMinor == 0 ? 0
+            : (long)Math.Round((decimal)payment.TaxMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
+        var shipping = payment.AmountMinor == 0 ? 0
+            : (long)Math.Round((decimal)payment.ShippingMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
+        db.JournalEntries.Add(Ledger.Chargeback(
+            payment.OrderId, disputedGross, tax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
+            payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
+            shipping, accounts?.ShippingAccountCode));
+        payment.Status = PaymentStatus.Disputed;
+        await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross), ct);
+    }
+
+    /// <summary>
+    /// The merchant won / funds were reinstated: reverse the earlier chargeback entry (idempotent on the
+    /// <c>{orderId}:chargeback-reinstate</c> reference) so the sale stands again, and restore the payment to
+    /// <see cref="PaymentStatus.Succeeded"/>.
+    /// </summary>
+    private async Task ReinstateDisputeAsync(Payment payment, DisputeStatus subStatus, CancellationToken ct)
+    {
+        payment.DisputeStatus = subStatus;
+
+        var chargebackRef = $"{payment.OrderId}:chargeback";
+        var reinstateRef = $"{payment.OrderId}:chargeback-reinstate";
+        var chargeback = await db.JournalEntries.Include(e => e.Lines).SingleOrDefaultAsync(e => e.Reference == chargebackRef, ct);
+        var alreadyReinstated = await db.JournalEntries.AnyAsync(e => e.Reference == reinstateRef, ct);
+        if (chargeback is not null && !alreadyReinstated)
+        {
+            db.JournalEntries.Add(Ledger.ReverseOf(chargeback, reinstateRef, time.GetUtcNow()));
+        }
+
+        // Funds are back with the merchant → the payment stands again (unless already terminally lost).
+        if (payment.Status == PaymentStatus.Disputed)
+        {
+            payment.Status = PaymentStatus.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// The dispute closed as lost — the terminal chargeback outcome: ensure the reversal is booked, move the
+    /// payment to <see cref="PaymentStatus.Chargeback"/>, create the void payment record (idempotent per
+    /// original payment), and publish <see cref="PaymentChargedBack"/>.
+    /// </summary>
+    private async Task LoseDisputeAsync(Payment payment, PaymentWebhookEvent ev, CancellationToken ct)
+    {
+        await EnsureDisputeReversedAsync(payment, ev, DisputeStatus.Lost, ct);
+        payment.DisputeStatus = DisputeStatus.Lost;
+        payment.Status = PaymentStatus.Chargeback;
+
+        var chargedBack = payment.AmountMinor - payment.RefundedMinor;
+        if (!await db.VoidPayments.AnyAsync(v => v.OriginalPaymentId == payment.Id, ct))
+        {
+            db.VoidPayments.Add(new VoidPayment
+            {
+                Id = Guid.CreateVersion7(),
+                OriginalPaymentId = payment.Id,
+                OrderId = payment.OrderId,
+                PaymentIntentId = payment.PaymentIntentId,
+                ProviderDisputeId = ev.ProviderDisputeId ?? payment.ProviderDisputeId,
+                AmountMinor = chargedBack,
+                Currency = payment.Currency,
+                Reason = "dispute_lost",
+                CreatedAt = time.GetUtcNow(),
+            });
+        }
+
+        await publisher.Publish(new PaymentChargedBack(payment.OrderId, payment.PaymentIntentId, chargedBack), ct);
     }
 }

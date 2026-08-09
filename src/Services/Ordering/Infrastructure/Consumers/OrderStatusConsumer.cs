@@ -16,7 +16,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
 public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit, ILogger<OrderStatusConsumer> logger) :
-    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>
+    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>, IConsumer<PaymentChargedBack>
 {
     /// <summary>
     /// A chargeback opened against the order's payment (phase 2): flag it Disputed so the admin and the
@@ -24,6 +24,23 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
     /// ledger reversal); this is a badge, like <see cref="Order.PartiallyRefunded"/>. Idempotent.
     /// </summary>
     public async Task Consume(ConsumeContext<PaymentDisputed> context)
+    {
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
+        if (order is null || order.Disputed)
+        {
+            return; // idempotent
+        }
+
+        order.Disputed = true;
+        await db.SaveChangesAsync(context.CancellationToken);
+    }
+
+    /// <summary>
+    /// The dispute closed as lost — the terminal chargeback outcome. Ensure the order carries the Disputed
+    /// badge even if the earlier <see cref="PaymentDisputed"/> was never seen (a dispute can open and lose
+    /// in a single delivery window). Idempotent; the money already moved via the ledger reversal.
+    /// </summary>
+    public async Task Consume(ConsumeContext<PaymentChargedBack> context)
     {
         var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
         if (order is null || order.Disputed)
