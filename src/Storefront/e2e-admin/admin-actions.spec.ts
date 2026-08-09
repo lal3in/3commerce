@@ -18,9 +18,23 @@ test.describe("Admin actions give feedback", () => {
     const section = page.locator("section", { hasText: "New payment account" });
     const name = `E2E account ${Date.now()}`;
 
-    // Fill + submit as one retrying unit so @bind binds once the circuit is live (pre-circuit
-    // race — the real fix is PR2). Mode defaults to Test (numeric 1); before the fix this 500'd.
+    // Payment accounts are per-storefront (ADR-0043): the create form now requires selecting a
+    // storefront, and the API rejects a create without one. The storefront dropdown's first option is a
+    // "choose…" placeholder (value=""); real storefronts only exist on a --data full stack. Match the
+    // repo convention (financials.spec) and skip when none are configured rather than fail.
+    const storefrontSelect = section.locator("select").first();
+    const storefrontValues = await storefrontSelect
+      .locator("option")
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value).filter((v) => v !== ""));
+    test.skip(
+      storefrontValues.length === 0,
+      "no storefronts configured (needs --data full); per-storefront payment accounts require one",
+    );
+
+    // Select storefront + fill + submit as one retrying unit so @bind binds once the circuit is live
+    // (pre-circuit race — the real fix is PR2). Mode defaults to Test (numeric 1); before the fix this 500'd.
     await expect(async () => {
+      await storefrontSelect.selectOption(storefrontValues[0]);
       await section.getByLabel("Name").fill(name);
       await page.getByRole("button", { name: /create \(draft\)/i }).click();
       await expect(page.getByText(/account created \(draft\)/i)).toBeVisible({ timeout: 2_000 });
