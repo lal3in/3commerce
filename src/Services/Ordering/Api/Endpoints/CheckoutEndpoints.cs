@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -162,6 +163,30 @@ public static class CheckoutEndpoints
         if (storefrontId == defaultStorefrontId)
         {
             return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
+        }
+
+        // A recurring (subscription/periodic) line can only be purchased by a verified, signed-in member
+        // with a reusable payment instrument — never as a guest, and never with a one-off card, so renewals
+        // can charge off-session (a stored card or a direct-debit mandate). Non-recurring carts are
+        // unaffected. email_verified rides the gateway-minted internal claims (InternalClaimsMinter).
+        var hasRecurringLine = cart.Items.Any(i =>
+            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId)?.BillingMode == BillingMode.Recurring);
+        if (hasRecurringLine)
+        {
+            if (userId is null)
+            {
+                return TypedResults.BadRequest("Sign in as a member to purchase a subscription.");
+            }
+
+            if (!string.Equals(http.User.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return TypedResults.BadRequest("Verify your email address to purchase a subscription.");
+            }
+
+            if (request.SavedPaymentMethodId is null)
+            {
+                return TypedResults.BadRequest("A saved payment method or direct-debit mandate is required for a subscription.");
+            }
         }
 
         AuthorizePaymentResult intent;
