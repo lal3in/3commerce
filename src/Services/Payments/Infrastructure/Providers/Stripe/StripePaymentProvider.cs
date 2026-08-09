@@ -11,7 +11,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 /// The secret key is read lazily (on first API call, not construction) so the adapter can live in
 /// DI alongside the mock adapter without a key present in LocalMock/dev.
 /// </summary>
-public sealed class StripePaymentProvider : IPaymentProvider
+public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvider
 {
     private readonly IConfiguration _configuration;
     private readonly PaymentIntentService _intents = new();
@@ -87,6 +87,31 @@ public sealed class StripePaymentProvider : IPaymentProvider
             },
             cancellationToken: ct);
         return new SetupIntentResult(intent.Id, intent.ClientSecret);
+    }
+
+    public async Task<MandateSetupResult> CreateMandateSetupAsync(string providerCustomerId, DirectDebitScheme scheme, string currency, CancellationToken ct)
+    {
+        EnsureApiKey();
+        // A SetupIntent scoped to the scheme's bank-debit payment-method type, saved for off-session reuse.
+        // The client collects bank details + mandate acceptance with the returned secret (SAQ-A).
+        var intent = await _setupIntents.CreateAsync(
+            new SetupIntentCreateOptions
+            {
+                Customer = providerCustomerId,
+                PaymentMethodTypes = [scheme.ToStripePaymentMethodType()],
+                Usage = "off_session",
+            },
+            cancellationToken: ct);
+        return new MandateSetupResult(intent.Id, intent.ClientSecret);
+    }
+
+    public async Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct)
+    {
+        EnsureApiKey();
+        var intent = await _setupIntents.GetAsync(setupIntentId, cancellationToken: ct);
+        // Bank debits settle/confirm asynchronously — only a succeeded setup carries the mandate + method.
+        var confirmed = intent.Status == "succeeded";
+        return new MandateConfirmation(confirmed, intent.MandateId, intent.PaymentMethodId);
     }
 
     public async Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct)

@@ -118,6 +118,7 @@ app.MapXeroMappings();
 app.MapPaymentAccounts();
 app.MapSupplierPayouts();
 app.MapCustomerPaymentMethods();
+app.MapMandates();
 app.MapSubscriptions();
 app.MapJobRuns();
 

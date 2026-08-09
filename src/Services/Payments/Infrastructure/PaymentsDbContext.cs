@@ -26,6 +26,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<XeroAccountMapping> XeroAccountMappings => Set<XeroAccountMapping>();
     public DbSet<PaymentCustomer> PaymentCustomers => Set<PaymentCustomer>();
     public DbSet<SavedPaymentMethod> SavedPaymentMethods => Set<SavedPaymentMethod>();
+    public DbSet<Mandate> Mandates => Set<Mandate>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
@@ -113,6 +114,17 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             v.Property(x => x.PaymentIntentId).HasMaxLength(255);
             v.Property(x => x.ProviderDisputeId).HasMaxLength(255);
             v.Property(x => x.Reason).HasMaxLength(120);
+        });
+
+        modelBuilder.Entity<Mandate>(m =>
+        {
+            m.HasIndex(x => x.UserId);
+            m.HasIndex(x => x.ProviderSetupIntentId);
+            m.Property(x => x.Provider).HasMaxLength(40);
+            m.Property(x => x.Currency).HasMaxLength(3);
+            m.Property(x => x.ProviderSetupIntentId).HasMaxLength(255);
+            m.Property(x => x.ProviderMandateId).HasMaxLength(255);
+            m.Property(x => x.ProviderPaymentMethodId).HasMaxLength(255);
         });
 
         modelBuilder.Entity<Refund>(r => r.HasIndex(x => x.OrderId));

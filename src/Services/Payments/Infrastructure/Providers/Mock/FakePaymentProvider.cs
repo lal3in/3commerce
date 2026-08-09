@@ -10,7 +10,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers.Mock;
 /// pay_3 layers <c>MockEmailPaymentProvider</c> (scenario simulation + TEST-only payload capture)
 /// over this deterministic core; this class is the seam it extends.
 /// </summary>
-public sealed class FakePaymentProvider : IPaymentProvider
+public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider
 {
     public string ProviderKey => "mock";
 
@@ -46,6 +46,17 @@ public sealed class FakePaymentProvider : IPaymentProvider
 
     public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) =>
         Task.FromResult(new ProviderRefundResult($"re_fake_{Guid.CreateVersion7():N}", Succeeded: true));
+
+    public Task<MandateSetupResult> CreateMandateSetupAsync(string providerCustomerId, DirectDebitScheme scheme, string currency, CancellationToken ct)
+    {
+        var id = $"seti_dd_{scheme.ToString().ToLowerInvariant()}_{Guid.CreateVersion7():N}";
+        return Task.FromResult(new MandateSetupResult(id, $"{id}_secret_test"));
+    }
+
+    // Deterministic: a fake mandate setup is always "confirmed" so the confirm→activate path is testable
+    // without a real client-side acceptance round-trip.
+    public Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct) =>
+        Task.FromResult(new MandateConfirmation(true, $"mandate_fake_{setupIntentId}", $"pm_fake_{setupIntentId}"));
 
     // Real webhooks come from Stripe; the fake path uses the dev simulate endpoint instead.
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
