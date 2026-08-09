@@ -5,6 +5,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Payments.Api;
@@ -26,6 +27,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("payments");
+// Redis webhook-dedupe fast-path (ADR-0044). No-op when ConnectionStrings:Redis is unset — the
+// WebhookInbox in Postgres remains the exactly-once source of truth.
+builder.AddRedis();
+builder.Services.AddSingleton<IDedupeStore, RedisDedupeStore>();
 builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
