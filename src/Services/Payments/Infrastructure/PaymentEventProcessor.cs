@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
 
@@ -11,18 +12,42 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// The single place a payment outcome becomes ledger truth. Both the real Stripe webhook
 /// endpoint and the dev simulate endpoint feed here. Idempotent by provider event id, so
 /// redelivered/duplicated webhooks post exactly one journal entry (NFR-3).
+///
+/// A Redis dedupe fast-path (ADR-0044) drops already-processed duplicate deliveries before they touch
+/// Postgres. It is a positive cache populated only after the WebhookInbox row commits, so the Postgres
+/// WebhookInbox remains the exactly-once guarantee — a Redis outage or evicted key just falls through to it.
 /// </summary>
 public sealed class PaymentEventProcessor(
     PaymentsDbContext db,
     IPublishEndpoint publisher,
+    IDedupeStore dedupe,
     TimeProvider time,
     ILogger<PaymentEventProcessor> logger)
 {
+    // Covers the providers' redelivery window; Postgres backstops anything older, so this only bounds
+    // how long the fast-path drops duplicates without a Postgres read.
+    private static readonly TimeSpan DedupeTtl = TimeSpan.FromDays(3);
+
     public async Task ProcessAsync(PaymentWebhookEvent ev, CancellationToken ct)
     {
+        var dedupeKey = "webhook:" + ev.EventId;
+
+        // Fast-path: a confirmed, already-processed duplicate never touches Postgres.
+        if (await dedupe.IsProcessedAsync(dedupeKey, ct))
+        {
+            RedisMetrics.RecordIdempotencyDedupe("hit");
+            logger.LogInformation("Webhook {EventId} already processed (Redis fast-path); skipping", ev.EventId);
+            return;
+        }
+
+        RedisMetrics.RecordIdempotencyDedupe("miss");
+
+        // Durable guard (source of truth): the WebhookInbox still dedupes exactly-once even when Redis is
+        // cold/unavailable or a key was evicted.
         if (await db.WebhookInbox.AnyAsync(x => x.EventId == ev.EventId, ct))
         {
             logger.LogInformation("Webhook {EventId} already processed; skipping", ev.EventId);
+            await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct); // re-prime the fast-path
             return;
         }
 
@@ -36,6 +61,7 @@ public sealed class PaymentEventProcessor(
             // for Stripe the intent is always created by us first. Logged for visibility.
             logger.LogWarning("No payment for intent {Intent}; webhook {EventId} recorded only", ev.PaymentIntentId, ev.EventId);
             await db.SaveChangesAsync(ct);
+            await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct);
             return;
         }
 
@@ -96,5 +122,8 @@ public sealed class PaymentEventProcessor(
         }
 
         await db.SaveChangesAsync(ct);
+        // Prime the fast-path only after the WebhookInbox row is durably committed, so Redis never claims
+        // an event is processed that Postgres didn't record.
+        await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct);
     }
 }
