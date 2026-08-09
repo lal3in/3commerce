@@ -14,10 +14,10 @@ public interface IDirectDebitProvider
     /// the customer accepts the mandate + supplies bank details — never seen by us). The mandate + payment-
     /// method references land on confirmation, read back via <see cref="GetMandateAsync"/>.
     /// </summary>
-    Task<MandateSetupResult> CreateMandateSetupAsync(string providerCustomerId, DirectDebitScheme scheme, string currency, CancellationToken ct);
+    public Task<MandateSetupResult> CreateMandateSetupAsync(string providerCustomerId, DirectDebitScheme scheme, string currency, CancellationToken ct);
 
     /// <summary>Reads a setup intent's current state so a confirmed mandate can be activated + charged off-session.</summary>
-    Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct);
+    public Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct);
 }
 
 public sealed record MandateSetupResult(string SetupIntentId, string? ClientSecret);
