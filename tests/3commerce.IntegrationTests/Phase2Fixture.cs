@@ -47,8 +47,9 @@ public sealed class Phase2Fixture : IAsyncLifetime
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }
 
-    public WebApplicationFactory<ThreeCommerce.Identity.Api.IApiMarker> CreateIdentityFactory() =>
-        CreateFactory<ThreeCommerce.Identity.Api.IApiMarker, ThreeCommerce.Identity.Infrastructure.IdentityDbContext>("identity_db");
+    public WebApplicationFactory<ThreeCommerce.Identity.Api.IApiMarker> CreateIdentityFactory(
+        IReadOnlyDictionary<string, string?>? settings = null) =>
+        CreateFactory<ThreeCommerce.Identity.Api.IApiMarker, ThreeCommerce.Identity.Infrastructure.IdentityDbContext>("identity_db", settings);
 
     public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> CreateCatalogFactory() =>
         CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
@@ -81,7 +82,8 @@ public sealed class Phase2Fixture : IAsyncLifetime
         });
     }
 
-    private WebApplicationFactory<TMarker> CreateFactory<TMarker, TDbContext>(string database)
+    private WebApplicationFactory<TMarker> CreateFactory<TMarker, TDbContext>(
+        string database, IReadOnlyDictionary<string, string?>? settings = null)
         where TMarker : class
         where TDbContext : DbContext
     {
@@ -102,6 +104,13 @@ public sealed class Phase2Fixture : IAsyncLifetime
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             // Disable the dev admin seeder during tests (each test owns its data).
             builder.UseSetting("Identity:SeedAdmin:Email", string.Empty);
+            if (settings is not null)
+            {
+                foreach (var (key, value) in settings)
+                {
+                    builder.UseSetting(key, value);
+                }
+            }
         });
 
         using var scope = factory.Services.CreateScope();
