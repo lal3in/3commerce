@@ -16,7 +16,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers.Mock;
 /// mock path uses the dev simulate endpoint, not real webhooks).
 /// </para>
 /// </summary>
-public sealed class MockEmailPaymentProvider(IMockPaymentCapture capture) : IPaymentProvider
+public sealed class MockEmailPaymentProvider(IMockPaymentCapture capture) : IPaymentProvider, IDirectDebitProvider
 {
     private readonly FakePaymentProvider _core = new();
 
@@ -66,6 +66,12 @@ public sealed class MockEmailPaymentProvider(IMockPaymentCapture capture) : IPay
         await capture.CaptureRefundAsync(ProviderKey, paymentIntentId, amountMinor, idempotencyKey, PaymentMode.LocalMock, ct);
         return await _core.RefundAsync(paymentIntentId, amountMinor, idempotencyKey, ct);
     }
+
+    public Task<MandateSetupResult> CreateMandateSetupAsync(string providerCustomerId, DirectDebitScheme scheme, string currency, CancellationToken ct) =>
+        _core.CreateMandateSetupAsync(providerCustomerId, scheme, currency, ct);
+
+    public Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct) =>
+        _core.GetMandateAsync(setupIntentId, ct);
 
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
 }
