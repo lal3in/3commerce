@@ -105,6 +105,7 @@ scripts/verify-golive-gate.sh</code></pre>
           </table>
         </div>
         <p>In CI this is the separate <strong>integration</strong> job.</p>
+        <p><strong>Redis fast-path (ADR-0044).</strong> Additional integration tests exercise the self-hosted Valkey/Redis features against a Redis testcontainer: the distributed rate-limit store (<strong>two instances share one window</strong> — the per-instance-limiter regression guard), webhook dedupe (positive cache + Postgres backstop), and the session introspection cache — verified <strong>on and off</strong>, including cross-instance sharing and <strong>eviction on logout, role change (ClaimsVersion), and password reset</strong>. All of it degrades to Postgres/in-process when Redis is unavailable, and the cache is <strong>off by default</strong>, so the standard suites run with it disabled (behaviour unchanged).</p>
 
         <h2 id="playwright-e2e">3. Playwright E2E (storefront + admin + supplier portal)</h2>
         <p>Config: <code>src/Storefront/playwright.config.ts</code> — three projects driven by Chromium against a <strong>running stack</strong>:</p>

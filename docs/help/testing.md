@@ -68,6 +68,14 @@ business invariants end-to-end *in process* (no gateway/browser). From the
 
 In CI this is the separate **integration** job.
 
+**Redis fast-path (ADR-0044).** Additional integration tests exercise the self-hosted Valkey/Redis
+features against a Redis testcontainer: the distributed rate-limit store (**two instances share one
+window** — the per-instance-limiter regression guard), webhook dedupe (positive cache + Postgres
+backstop), and the session introspection cache — verified **on and off**, including cross-instance
+sharing and **eviction on logout, role change (ClaimsVersion), and password reset**. All of it degrades
+to Postgres/in-process when Redis is unavailable, and the cache is **off by default**, so the standard
+suites run with it disabled (behaviour unchanged).
+
 ## 3. Playwright E2E (storefront + admin + supplier portal)
 
 Config: `src/Storefront/playwright.config.ts` — three projects driven by Chromium

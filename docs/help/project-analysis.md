@@ -20,7 +20,8 @@ and a logging Xero client. 81+ integration tests noted; 0 known money-core gaps.
 
 3commerce is no longer just an MVP e-commerce build. It is a governed commerce operating
 platform: storefront, admin, supplier portal, CLI, gateway, service-owned databases,
-RabbitMQ operational messaging, optional Kafka durable event stream, double-entry ledger,
+RabbitMQ operational messaging, optional Kafka durable event stream, optional self-hosted
+Valkey/Redis fast-path (rate limiting, webhook dedupe, session cache — ADR-0044), double-entry ledger,
 supplier/entity model, carrier/shipping, inventory, dropship, digital entitlement,
 subscriptions, usage, marketing attribution, audit primitives, workflow scheduling,
 observability, and deployment automation.
@@ -47,7 +48,9 @@ through the single public **YARP Gateway** origin, which turns the opaque sessio
 minted claims. Behind the gateway sit the service-owned domains — Identity, Catalog,
 Ordering, Payments, Fulfillment, Support, Entity, Marketing, Pricing, Audit, Workflow,
 Entitlement, Usage — each with its own Postgres database, RabbitMQ + MassTransit for
-operational messaging, and an optional Kafka durable stream lane.
+operational messaging, an optional Kafka durable stream lane, and an optional self-hosted
+Valkey/Redis fast-path for distributed rate limiting, webhook dedupe, and a session cache
+(ADR-0044; cache/fast-path only, Postgres stays authoritative).
 
 ## Capability map
 
@@ -163,7 +166,7 @@ patterns.
 
 | Risk | Why it matters | Mitigation / status |
 |------|----------------|---------------------|
-| Operational complexity | 13 services, 18 app images, RabbitMQ, optional Kafka, Postgres DBs, gateway, frontends. | Compose/Helm/migrator scripts reduce friction; still needs production SRE discipline. |
+| Operational complexity | 13 services, 18 app images, RabbitMQ, optional Kafka, optional Valkey/Redis, Postgres DBs, gateway, frontends. | Compose/Helm/migrator scripts reduce friction; still needs production SRE discipline. |
 | Live payment/accounting/tax not complete | Cannot claim production financial compliance without live rails and review. | Provider seams exist; legal entity, Stripe/Xero OAuth, tax strategy, accounting review remain launch gates. |
 | Compliance claims | Risk of over-selling privacy, PCI, tax, security, or accessibility posture. | Use careful language from Selling information; complete policies and external review before launch. |
 | Capability-first surfaces | Some services/features exist as primitives or APIs before full polished UI/ops. | Track separately in roadmap; avoid presenting all as equally mature. |

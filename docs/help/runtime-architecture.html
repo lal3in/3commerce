@@ -5047,6 +5047,19 @@
           <li>&bull; All follow the same gateway / outbox / own-schema pattern</li>
         </ul>
       </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Redis fast-path (ADR-0044)</h3>
+        </div>
+        <ul>
+          <li>&bull; Self-hosted Valkey — a cache, never a source of truth</li>
+          <li>&bull; Gateway: distributed rate limiting</li>
+          <li>&bull; Identity: session introspection cache (off by default)</li>
+          <li>&bull; Payments: webhook dedupe; Postgres stays authoritative</li>
+        </ul>
+      </div>
     </div>
 
     <!-- Footer -->
