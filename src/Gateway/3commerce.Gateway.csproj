@@ -8,4 +8,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../BuildingBlocks/Infrastructure/3commerce.BuildingBlocks.Infrastructure.csproj" />
+  </ItemGroup>
 </Project>

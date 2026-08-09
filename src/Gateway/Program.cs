@@ -1,7 +1,11 @@
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.Gateway.Auth;
+using ThreeCommerce.Gateway.RateLimiting;
 using ThreeCommerce.Gateway.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,36 +26,28 @@ builder.Services.AddOpenTelemetry()
         {
             tracing.AddConsoleExporter();
         }
-    });
-
-// Tighter per-IP limits on auth endpoints (credential stuffing), permissive elsewhere.
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    })
+    .WithMetrics(metrics =>
     {
-        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var path = context.Request.Path.Value ?? string.Empty;
-        var tenant = context.Request.Headers.TryGetValue(DomainResolutionMiddleware.TenantHeader, out var tenantHeader)
-            ? tenantHeader.ToString()
-            : "no-tenant";
-        var storefront = context.Request.Headers.TryGetValue(DomainResolutionMiddleware.StorefrontHeader, out var storefrontHeader)
-            ? storefrontHeader.ToString()
-            : "no-storefront";
-        var isAuthPath = path.StartsWith("/api/identity/login", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/api/identity/register", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/api/identity/password-reset", StringComparison.OrdinalIgnoreCase);
-
-        return RateLimitPartition.GetFixedWindowLimiter(
-            (isAuthPath ? "auth:" : "any:") + tenant + ":" + storefront + ":" + ip,
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = isAuthPath ? 30 : 1000,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-            });
+        // Export the gateway's Redis fast-path metrics (rate-limit decisions, fallbacks) so the
+        // redis-overview Grafana dashboard sees the gateway too (ADR-0044). OTLP-only, like the services.
+        metrics.AddAspNetCoreInstrumentation().AddMeter(RedisMetrics.MeterName);
+        if (!string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+        {
+            metrics.AddOtlpExporter();
+        }
     });
-});
+
+// Gateway rate limiting (ADR-0044). Backend=Redis makes limits correct across replicas (the legacy
+// in-process limiter gave each replica its own window). Auth endpoints get a tight per-IP window against
+// credential stuffing; everything else is permissive. Partition + limits live in RateLimitPolicy so both
+// backends agree. The Redis client degrades to a no-op when unconfigured, and the OnRedisOutage toggle
+// decides fail-open vs fail-closed — see appsettings.json "RateLimiting".
+builder.AddRedis();
+builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimiting"));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RateLimitOptions>>().Value);
+builder.Services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
+builder.Services.AddSingleton(_ => RateLimitPolicy.CreateInProcessLimiter());
 
 builder.Services.Configure<StorefrontDomainOptions>(builder.Configuration.GetSection("Tenancy"));
 builder.Services.AddMemoryCache();
@@ -91,7 +87,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseMiddleware<DomainResolutionMiddleware>();
-app.UseRateLimiter();
+app.UseMiddleware<DistributedRateLimitMiddleware>();
 app.UseMiddleware<SessionAuthMiddleware>();
 app.MapReverseProxy();
 
