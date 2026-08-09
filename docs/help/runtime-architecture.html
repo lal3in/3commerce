@@ -4506,7 +4506,7 @@
         <div class="pulse-dot"></div>
         <h1>3commerce — Runtime Architecture</h1>
       </div>
-      <p class="subtitle">Front-ends → YARP gateway → 13 .NET services, coupled only by the RabbitMQ event bus (ADR-0008/0009)</p>
+      <p class="subtitle">Front-ends → YARP gateway → 13 .NET services on the RabbitMQ event bus, with a Redis fast-path lane (ADR-0008/0009/0044)</p>
     </div>
 
     <script id="archify-guided-views-data" type="application/json">[{"id":"request-path","label":"Synchronous request path","focus":["storefront","gateway","catalog","ordering","postgres"],"note":"A buyer request enters through the gateway and is served by one service from its own schema."},{"id":"event-spine","label":"Asynchronous event spine","focus":["catalog","ordering","payments","bus"],"note":"Services never cross-query; they publish domain events through the transactional outbox and consume each other's."},{"id":"auth-and-async","label":"Identity + async work","focus":["gateway","identity","bus","notifications"],"note":"Identity signs the ES256 internal claims the gateway enforces; the worker drains the bus into email."}]</script>
@@ -4554,7 +4554,7 @@
     <div class="diagram-container" data-detail-level="read">
       <svg viewBox="0 0 1346 684" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
         <title id="archify-diagram-title">3commerce — Runtime Architecture</title>
-        <desc id="archify-diagram-description">Front-ends → YARP gateway → 13 .NET services, coupled only by the RabbitMQ event bus (ADR-0008/0009)</desc>
+        <desc id="archify-diagram-description">Front-ends → YARP gateway → 13 .NET services on the RabbitMQ event bus, with a Redis fast-path lane (ADR-0008/0009/0044)</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -4600,6 +4600,7 @@
         <path data-edge-from="fulfillment" data-edge-to="postgres" data-edge-label="SQL" data-edge-key="12" data-composition-points="712,463;736,463;736,481;806,481;806,465;830,465" d="M 712 463 L 728 463 Q 736 463 736 471 L 736 473 Q 736 481 744 481 L 798 481 Q 806 481 806 473 L 806 473 Q 806 465 814 465 L 830 465" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="more_services" data-edge-to="postgres" data-edge-key="13" data-composition-points="712,563;771,563;771,479;830,479" d="M 712 563 L 763 563 Q 771 563 771 555 L 771 487 Q 771 479 779 479 L 830 479" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="bus" data-edge-to="notifications" data-edge-label="events → email" data-edge-key="14" data-composition-points="1012,151;1036,151;1036,167;1076,167;1076,150;1100,150" d="M 1012 151 L 1028 151 Q 1036 151 1036 159 L 1036 159 Q 1036 167 1044 167 L 1068 167 Q 1076 167 1076 159 L 1076 158 Q 1076 150 1084 150 L 1100 150" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="gateway" data-edge-to="redis" data-edge-label="rate limit" data-edge-key="15" data-composition-points="361,322;361,346;379,346;379,428;363,428;363,452" d="M 361 322 L 361 338 Q 361 346 369 346 L 371 346 Q 379 346 379 354 L 379 420 Q 379 428 371 428 L 371 428 Q 363 428 363 436 L 363 452" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Components -->
         <g id="node-storefront" data-node-id="storefront" data-node-label="Storefront" tabindex="0" role="button" aria-label="Focus Storefront, Next.js :3000, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Next.js :3000" data-node-tag="buyer" data-node-context="Architecture component">
@@ -4764,6 +4765,19 @@
         <text data-detail="context" x="1188" y="164" class="t-muted" font-size="9" text-anchor="middle">:5114</text>
         </g>
 
+        <g id="node-redis" data-node-id="redis" data-node-label="Valkey / Redis" tabindex="0" role="button" aria-label="Focus Valkey / Redis, cache · fast-path (ADR-0044), 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="database" data-node-sublabel="cache · fast-path (ADR-0044)" data-node-tag="off by default" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
+          <title>Valkey / Redis · cache · fast-path (ADR-0044) · 3commerce platform — bare `dotnet run` per process (ADR-0009) · off by default</title>
+          <rect x="280" y="452" width="166" height="74" rx="6" class="c-mask"/>
+          <rect x="280" y="452" width="166" height="74" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(286 458) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-detail-anchor x="363" y="487" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Valkey / Redis</text>
+        <text data-detail="context" x="363" y="503" class="t-muted" font-size="9" text-anchor="middle">cache · fast-path (ADR-0044)</text>
+        <text data-detail="fine" x="363" y="518" class="t-database" font-size="7" text-anchor="middle">off by default</text>
+        </g>
+
         <!-- Connection labels -->
         <g data-detail="context" data-edge-from="storefront" data-edge-to="gateway" data-edge-label="HTTPS" data-edge-key="0">
           <rect x="218" y="175.5" width="34" height="14" rx="3" class="c-mask"/>
@@ -4791,6 +4805,10 @@
         <g data-detail="context" data-edge-from="bus" data-edge-to="notifications" data-edge-label="events → email" data-edge-key="14">
           <rect x="997.4" y="198" width="77.2" height="14" rx="3" class="c-mask"/>
           <text x="1036" y="208" class="t-backend" font-size="8" text-anchor="middle">events → email</text>
+        </g>
+        <g data-detail="context" data-edge-from="gateway" data-edge-to="redis" data-edge-label="rate limit" data-edge-key="15">
+          <rect x="341" y="326" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="370" y="336" class="t-backend" font-size="8" text-anchor="middle">rate limit</text>
         </g>
 
         <!-- Legend -->
