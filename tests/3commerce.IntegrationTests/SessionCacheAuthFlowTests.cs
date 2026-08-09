@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Identity.Api.Endpoints;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -24,7 +25,7 @@ public class SessionCacheAuthFlowTests(Phase2Fixture fixture, RedisFixture redis
             ["Sessions:Cache:Enabled"] = "true",
         });
 
-    private sealed record IntrospectResponse(Guid SessionId, Guid UserId, string Role, DateTimeOffset ExpiresAt);
+    private sealed record IntrospectResponse(Guid SessionId, Guid UserId, Guid TenantId, string Role, DateTimeOffset ExpiresAt);
 
     private static string ExtractSessionCookie(HttpResponseMessage response)
     {
@@ -81,6 +82,43 @@ public class SessionCacheAuthFlowTests(Phase2Fixture fixture, RedisFixture redis
         Assert.False(await UserCachedAsync(session.UserId), "logout did not evict the cached session from Redis");
 
         // ...so the very next introspection fails — no stale cache hit lets a logged-out session survive.
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken })).StatusCode);
+    }
+
+    [Fact]
+    public async Task With_cache_on_a_claims_version_bump_evicts_the_cached_session_and_invalidates_it()
+    {
+        using var identity = CacheOnIdentity();
+        using var client = identity.CreateClient(new() { HandleCookies = false });
+        var email = $"sesscache-claims-{Guid.NewGuid():N}@example.com";
+
+        await client.PostAsJsonAsync("/register", new { email, password = "a-strong-password" });
+        var login = await client.PostAsJsonAsync("/login", new { email, password = "a-strong-password" });
+        login.EnsureSuccessStatusCode();
+        var sessionToken = ExtractSessionCookie(login);
+
+        // Prime the cache and capture the user + tenant from the introspection result.
+        var first = await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var session = (await first.Content.ReadFromJsonAsync<IntrospectResponse>())!;
+        Assert.True(await UserCachedAsync(session.UserId), "session was not cached — the cache-on path is not actually active");
+
+        // An admin action that bumps the user's ClaimsVersion (make-supplier) must evict their cached session.
+        using var makeSupplier = new HttpRequestMessage(
+            HttpMethod.Post, $"/admin/users/{session.UserId}/make-supplier?tenantId={session.TenantId}")
+        {
+            Content = JsonContent.Create(new { supplierEntityId = Guid.NewGuid() }),
+        };
+        makeSupplier.Headers.Add(InternalClaimsAuth.HeaderName,
+            fixture.MintInternalClaims(Guid.NewGuid(), "admin", tenantId: session.TenantId.ToString()));
+        Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(makeSupplier)).StatusCode);
+
+        // The cached entry is gone — InvalidateUserAsync fired end-to-end from the admin/RBAC path...
+        Assert.False(await UserCachedAsync(session.UserId), "the ClaimsVersion bump did not evict the cached session");
+
+        // ...and the old session no longer introspects (its ClaimsVersion no longer matches the principal's),
+        // so a role change can't be served stale from cache.
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken })).StatusCode);
     }
