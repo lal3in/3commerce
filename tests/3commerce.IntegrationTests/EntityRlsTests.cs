@@ -23,6 +23,7 @@ public class EntityRlsTests : IAsyncLifetime
     private static readonly Guid TenantB = Guid.NewGuid();
     private Guid _entityAId;
     private Guid _onboardingId;
+    private Guid _identifierAId;
     private string _appConnectionString = null!;
 
     public async Task InitializeAsync()
@@ -69,8 +70,33 @@ public class EntityRlsTests : IAsyncLifetime
 #pragma warning restore EF1002
         }
 
+        // Group B: Entity-aggregate children keyed only by EntityId — isolated via the parent's TenantId
+        // (mirrors the EntityChildTablesRls migration's parent-join policy).
+        foreach (var table in new[] { "EntityProfiles", "EntityAddresses", "EntityIdentifiers", "EntityContactMethods" })
+        {
+#pragma warning disable EF1002 // table names come from the compile-time constant array above, not input
+            await db.Database.ExecuteSqlRawAsync($"""
+                ALTER TABLE entity."{table}" ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE entity."{table}" FORCE ROW LEVEL SECURITY;
+                CREATE POLICY "TenantIsolation_{table}" ON entity."{table}"
+                    USING (current_setting('app.is_platform_admin', true) = 'true'
+                        OR EXISTS (SELECT 1 FROM entity."Entities" e
+                                   WHERE e."Id" = entity."{table}"."EntityId"
+                                     AND e."TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid))
+                    WITH CHECK (current_setting('app.is_platform_admin', true) = 'true'
+                        OR EXISTS (SELECT 1 FROM entity."Entities" e
+                                   WHERE e."Id" = entity."{table}"."EntityId"
+                                     AND e."TenantId" = nullif(current_setting('app.tenant_id', true), '')::uuid));
+                """);
+#pragma warning restore EF1002
+        }
+
         var entity = EntityRecord.Create(TenantA, EntityType.Company, "RLS Co", null, DateTimeOffset.UtcNow, []);
         _entityAId = entity.Id;
+        // A child keyed only by EntityId (no own TenantId) — exercises the parent-join policy. Uses ACN
+        // (not ABN) so it doesn't collide with the ABN the Child_added_... test adds to this same entity.
+        var identifier = entity.AddIdentifier(EntityIdentifierType.Acn, "123456789", DateTimeOffset.UtcNow);
+        _identifierAId = identifier.Id;
         var onboarding = SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow);
         _onboardingId = onboarding.Id;
         await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA), async () =>
@@ -143,6 +169,28 @@ public class EntityRlsTests : IAsyncLifetime
             () => db.Entities.AsNoTracking().FirstAsync(e => e.Id == _entityAId));
         db.SupplierOnboardings.Add(SupplierOnboarding.Start(entity, DateTimeOffset.UtcNow));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Entity_child_keyed_only_by_entity_id_is_tenant_isolated_via_the_parent_join()
+    {
+        await using var db = NewContext();
+        // Visible to the owning tenant (parent Entities row passes the tenant filter)...
+        Assert.True(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantA),
+            () => db.Set<EntityIdentifier>().AsNoTracking().AnyAsync(i => i.Id == _identifierAId)));
+        // ...invisible to another tenant (the parent is filtered out, so the child EXISTS-join fails)...
+        Assert.False(await db.RunInTenantScopeAsync(TenantContext.ForTenant(TenantB),
+            () => db.Set<EntityIdentifier>().AsNoTracking().AnyAsync(i => i.Id == _identifierAId)));
+        // ...and visible under platform scope (bypass), matching the parent policy.
+        Assert.True(await db.RunInTenantScopeAsync(TenantContext.Platform(),
+            () => db.Set<EntityIdentifier>().AsNoTracking().AnyAsync(i => i.Id == _identifierAId)));
+    }
+
+    [Fact]
+    public async Task No_scope_read_of_an_entity_child_fails_closed()
+    {
+        await using var db = NewContext();
+        Assert.Empty(await db.Set<EntityIdentifier>().AsNoTracking().Where(i => i.Id == _identifierAId).ToListAsync());
     }
 
     /// <summary>
