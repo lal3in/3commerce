@@ -103,7 +103,9 @@ antiforgery → authentication → authorization**.
   the **Activity timeline** (central Audit projection — admin mutations across
   Catalog, Payments, Entity, Identity, Support, and Ordering now emit audit events,
   so it is populated during real operations), **Scheduled jobs** (Workflow service
-  run history), a live **Message bus** section (read-only RabbitMQ management API:
+  run history — each run shows status, **duration**, and failure reason; failed jobs
+  are also retried up to a configurable bound before being recorded failed), a live
+  **Message bus** section (read-only RabbitMQ management API:
   queue/consumer/ready/unacked/dead-letter KPI cards, a red dead-letter table when
   any `*_error`/`*_skipped` queue holds messages, and a busiest-queues top-10;
   unreachable broker degrades to a hint), and **Consoles** links (Grafana RED
@@ -210,6 +212,13 @@ survive the refresh.
 
 File: `Components/Pages/RmaQueue.razor`. `InteractiveServer` render mode. This is
 the key operator money flow.
+
+An admin can also **open** an RMA/refund via `POST /api/support/admin/rmas`. Passing
+`lines` (product + quantity) refunds just those lines — a **per-line partial refund**
+computed from the order snapshot's line prices, each capped at the still-refundable
+quantity — matching the customer's self-service partial-return flow; an empty selection
+refunds the whole remaining order. Payments prorates tax + shipping on the amount, so
+partial refunds stay ledger-accurate.
 
 On load it calls `GatewayClient.GetListAsync(...)` →
 `GET /api/support/admin/rmas` and renders a table: **Order**, **Amount**
@@ -347,7 +356,7 @@ Steps:
 
 | Screen | Read | Action |
 |--------|------|--------|
-| RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
+| RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas` (open an RMA/refund — optional `lines` for a **per-line partial** refund, else the whole order) · `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
 | Ledger | `GET /api/payments/admin/ledger/entries` | — |
 | Financials | `GET /api/payments/admin/ledger/balances` · `GET /api/catalog/admin/storefronts?tenantId=...` | — (read-only; dev: `POST /api/payments/dev/simulate-chargeback/{intentId}`) |
 | Commerce-ops | `GET /api/catalog/admin/storefronts?tenantId=...` | `POST .../{id}/duplicate` (`{name}`) · `PUT .../{id}` (theme + `costAssumptions` bps) |

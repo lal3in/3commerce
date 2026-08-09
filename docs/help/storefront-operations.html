@@ -206,6 +206,7 @@
           <li>A <strong>Register</strong> link sits below the form.</li>
         </ol>
         <p><strong>Logout</strong> is a Server Action triggered by the <strong>Log out</strong> button on <code>/account</code>: it <code>POST</code>s to <code>/api/identity/logout</code> with the session cookie, deletes the <code>3c_session</code> cookie, and redirects to <code>/</code>.</p>
+        <p><strong>My access</strong> (<code>app/account/access/page.tsx</code>): the account page links to a <strong>My access</strong> page that lists the signed-in customer's entitlements. It is a server component behind the same <code>getProfile()</code> auth guard (redirects to <code>/login</code> when signed out) and reads <code>GET /api/entitlement/me/entitlements</code> via <code>getMyEntitlements()</code>. Each row shows the entitlement <strong>type</strong>, <strong>status</strong>, <strong>granted</strong> date, and <strong>expiry</strong> (blank = no expiry); an empty state renders when the customer holds none. This is a read-only self-service view of the Entitlement service's per-customer grants.</p>
 
         <h2 id="account">9. Account — <code>/account</code></h2>
         <p>File: <code>app/account/page.tsx</code>. Dynamic, cookie-dependent, never cached.</p>

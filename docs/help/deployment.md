@@ -226,6 +226,9 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | `Mfa:PlatformMinimum` | Identity | `0` (none) | Platform-wide MFA floor for operator accounts. |
 | `Publishing:PreviewSecret` | Marketing | `dev-preview-secret` (code fallback) | Signs publishing preview links — rotate outside dev. |
 | `Scheduling:Enabled` | Payments, Marketing | `true` | Quartz schedulers (daily Xero journal; scheduled-publish sweep). Integration tests turn it off. |
+| `Quartz:MisfirePolicy` | Any Quartz-scheduled service | `DoNothing` | How a trigger recovers after a missed fire time (e.g. downtime): `DoNothing` (skip to the next scheduled fire) or `FireAndProceed` (run once immediately, then resume). |
+| `Quartz:MaxJobRetries` | Any Quartz-scheduled service | `0` | In-process bounded retries for a failing job before the run is recorded failed. `0` = no retry (fail on first error). |
+| `Quartz:RetryDelaySeconds` | Any Quartz-scheduled service | `5` | Delay between bounded retries. |
 | `Marketing:AllowedHosts` | Marketing short links | `localhost` | Comma-separated redirect-host allowlist. |
 | `Shipping:QuoteTtlMinutes` | Fulfillment | `30` | Shipping-quote validity window. |
 | `Tax:FlatRate` | Payments | `0.19` | Flat-rate fallback; storefront-configured checkout tax is projected into Ordering (#41). |
