@@ -479,4 +479,4 @@ Plan Path: `.ai-shared/plans/project-review-remediation.md`
 | redis_1 | Gateway distributed rate limiting (fixes per-instance limiter) | Redis P1 | done | .ai-shared/plans/self-hosted-redis-sessions-ratelimit-idempotency.md | Feature-flagged, fail-open on Redis outage. |
 | redis_2 | Payments idempotency / webhook dedupe fast-path (Redis NX + PG durable) | Redis P2 | done | .ai-shared/plans/self-hosted-redis-sessions-ratelimit-idempotency.md | PG stays durable replay/conflict store. |
 | redis_3 | Identity session introspection cache + MFA challenge store | Redis P3 | done | .ai-shared/plans/self-hosted-redis-sessions-ratelimit-idempotency.md | Most auth-sensitive; gated on security review + tests. |
-| redis_4 | ADR-0044 + wiki + Grafana redis-overview dashboard + alerts | Redis P4 | pending | .ai-shared/plans/self-hosted-redis-sessions-ratelimit-idempotency.md | Docs/observability finalisation. |
+| redis_4 | ADR-0044 + wiki + Grafana redis-overview dashboard + alerts | Redis P4 | done | .ai-shared/plans/self-hosted-redis-sessions-ratelimit-idempotency.md | Docs/observability finalisation. |
