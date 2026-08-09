@@ -64,7 +64,7 @@ public class RoleDeletionTests : IAsyncLifetime
     public async Task Deletes_a_custom_role()
     {
         await using var db = NewContext();
-        Assert.Equal(DeleteRoleResult.Deleted, await new RbacManagementService(db).DeleteRoleAsync(_customId, default));
+        Assert.Equal(DeleteRoleResult.Deleted, await new RbacManagementService(db, new NoopSessionCache()).DeleteRoleAsync(_customId, default));
 
         await using var verify = NewContext();
         Assert.False(await verify.Roles.AnyAsync(r => r.Id == _customId));
@@ -74,20 +74,20 @@ public class RoleDeletionTests : IAsyncLifetime
     public async Task Refuses_a_built_in_role()
     {
         await using var db = NewContext();
-        Assert.Equal(DeleteRoleResult.BuiltIn, await new RbacManagementService(db).DeleteRoleAsync(_builtInId, default));
+        Assert.Equal(DeleteRoleResult.BuiltIn, await new RbacManagementService(db, new NoopSessionCache()).DeleteRoleAsync(_builtInId, default));
     }
 
     [Fact]
     public async Task Refuses_a_role_still_assigned_to_a_member()
     {
         await using var db = NewContext();
-        Assert.Equal(DeleteRoleResult.InUse, await new RbacManagementService(db).DeleteRoleAsync(_inUseId, default));
+        Assert.Equal(DeleteRoleResult.InUse, await new RbacManagementService(db, new NoopSessionCache()).DeleteRoleAsync(_inUseId, default));
     }
 
     [Fact]
     public async Task Unknown_role_is_not_found()
     {
         await using var db = NewContext();
-        Assert.Equal(DeleteRoleResult.NotFound, await new RbacManagementService(db).DeleteRoleAsync(Guid.NewGuid(), default));
+        Assert.Equal(DeleteRoleResult.NotFound, await new RbacManagementService(db, new NoopSessionCache()).DeleteRoleAsync(Guid.NewGuid(), default));
     }
 }

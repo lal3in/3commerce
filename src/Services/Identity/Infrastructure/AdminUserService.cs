@@ -5,6 +5,7 @@ using ThreeCommerce.BuildingBlocks.Contracts.Identity;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
+using ThreeCommerce.Identity.Infrastructure.Sessions;
 
 namespace ThreeCommerce.Identity.Infrastructure;
 
@@ -16,7 +17,7 @@ namespace ThreeCommerce.Identity.Infrastructure;
 /// NOTE: gated by the admin role + an explicit tenantId today. True cross-tenant *global master* control
 /// should additionally require MasterGlobal (platform scope) — tracked as a follow-up.
 /// </summary>
-public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher, IAuditRecorder audit, IPublishEndpoint publisher)
+public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passwordHasher, IAuditRecorder audit, IPublishEndpoint publisher, ISessionCache sessionCache)
 {
     public async Task<List<AdminUserDto>> ListAsync(Guid tenantId, CancellationToken ct)
     {
@@ -114,6 +115,9 @@ public sealed class AdminUserService(IdentityDbContext db, IPasswordHasher passw
             tenantId, actorId, actorRole, "User", userId.ToString(), "identity.user.make_supplier", supplierEntityId.ToString()), ct);
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
+        // The ClaimsVersion bump invalidated live sessions in Postgres; drop this user's cached
+        // introspections too so the old role can't be served from cache (ADR-0044).
+        await sessionCache.InvalidateUserAsync(userId, ct);
         return true;
     }
 

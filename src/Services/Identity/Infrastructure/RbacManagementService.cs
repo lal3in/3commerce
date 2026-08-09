@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Identity.Domain.Authz;
 using ThreeCommerce.Identity.Domain.Tenancy;
+using ThreeCommerce.Identity.Infrastructure.Sessions;
 
 namespace ThreeCommerce.Identity.Infrastructure;
 
@@ -8,7 +9,7 @@ namespace ThreeCommerce.Identity.Infrastructure;
 /// Mutates dynamic RBAC data and invalidates affected principals' claim versions so gateway
 /// session introspection re-evaluates permissions promptly after role/membership changes.
 /// </summary>
-public sealed class RbacManagementService(IdentityDbContext db)
+public sealed class RbacManagementService(IdentityDbContext db, ISessionCache sessionCache)
 {
     public async Task SetRolePermissionsAsync(Guid roleId, IReadOnlyList<string> permissionKeys, CancellationToken cancellationToken)
     {
@@ -107,6 +108,18 @@ public sealed class RbacManagementService(IdentityDbContext db)
         foreach (var principal in principals)
         {
             principal.ClaimsVersion++;
+        }
+
+        // A ClaimsVersion bump invalidates live sessions in Postgres; drop the affected users' cached
+        // introspections too so a stale role/permission set can't be served from cache (ADR-0044).
+        // Over-invalidation is safe (a cache miss just re-reads Postgres), so this need not await the commit.
+        var userIds = await db.Users
+            .Where(u => u.PrincipalId != null && ids.Contains(u.PrincipalId.Value))
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var userId in userIds)
+        {
+            await sessionCache.InvalidateUserAsync(userId, cancellationToken);
         }
     }
 }

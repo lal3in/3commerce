@@ -4,17 +4,25 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Identity.Api;
 using ThreeCommerce.Identity.Api.Endpoints;
 using ThreeCommerce.Identity.Domain;
 using ThreeCommerce.Identity.Infrastructure;
 using ThreeCommerce.Identity.Infrastructure.Security;
+using ThreeCommerce.Identity.Infrastructure.Sessions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddContainerConfig();
 
 builder.AddServiceTelemetry("identity");
+// Session introspection cache (ADR-0044), OFF by default. When enabled (Sessions:Cache:Enabled) it caches
+// the gateway's per-request introspection in Redis; it is invalidated on logout, credential reset, and
+// ClaimsVersion bumps, and no-ops when ConnectionStrings:Redis is unset. Postgres stays authoritative.
+builder.AddRedis();
+builder.Services.Configure<SessionCacheOptions>(builder.Configuration.GetSection("Sessions:Cache"));
+builder.Services.AddSingleton<ISessionCache, RedisSessionCache>();
 builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();

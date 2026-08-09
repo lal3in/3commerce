@@ -64,7 +64,7 @@ public class AdminUserManagementTests : IAsyncLifetime
         new(new DbContextOptionsBuilder<IdentityDbContext>().UseNpgsql(_cs).Options);
 
     private static AdminUserService Service(IdentityDbContext db, IPublishEndpoint? publisher = null) =>
-        new(db, new FakeHasher(), new NoOpAuditRecorder(), publisher ?? new FakePublishEndpoint());
+        new(db, new FakeHasher(), new NoOpAuditRecorder(), publisher ?? new FakePublishEndpoint(), new NoopSessionCache());
 
     [Fact]
     public async Task Lists_users_in_the_tenant()
