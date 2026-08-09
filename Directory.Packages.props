@@ -32,6 +32,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="$(OtelVersion)" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="$(OtelVersion)" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <!-- Web -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <!-- Pin transitive Microsoft.OpenApi off the vulnerable 2.0.0 (GHSA-v5pm-xwqc-g5wc / NU1903); 2.9.0 is same-major, API-compatible. -->
