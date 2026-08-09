@@ -55,26 +55,85 @@ public static class AdminRmaEndpoints
     //   AutoApprove=false           → a customer-style Requested RMA the operator then walks through
     //                                 Approve/Approve+Return → AwaitingReturn → Received → refund, so the
     //                                 whole lifecycle is drivable from the admin without a storefront round-trip.
-    private static async Task<Results<Accepted<RmaDto>, NotFound>> CreateAdminRefund(
+    private static async Task<Results<Accepted<RmaDto>, NotFound, BadRequest<string>>> CreateAdminRefund(
         AdminRefundRequest request, SupportDbContext db, IPublishEndpoint publisher,
         IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
-        var snapshot = await db.OrderSnapshots.AsNoTracking().SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
+        var snapshot = await db.OrderSnapshots.AsNoTracking().Include(o => o.Lines)
+            .SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
         if (snapshot is null)
         {
             return TypedResults.NotFound();
         }
 
         var rmaId = Guid.CreateVersion7();
+
+        // Per-line partial refunds for admins (mirrors the customer flow): an empty selection means the
+        // whole still-refundable order (the historical admin behaviour); otherwise the chosen lines, each
+        // capped at the still-refundable quantity. The amount is server-derived from the snapshot's line
+        // prices; Payments prorates tax + shipping on it (ExecuteRefundConsumer). Recording the lines also
+        // lets partial returns restock the right quantities and keeps the refundable-units math honest.
+        var consumed = await TicketEndpoints.ConsumedQuantitiesAsync(db, request.OrderId, ct);
+        int Remaining(OrderSnapshotLine l) => Math.Max(0, l.Quantity - consumed.GetValueOrDefault(l.ProductId));
+
+        var selections = request.Lines is null or { Count: 0 }
+            ? snapshot.Lines.Select(l => new RmaLineSelection(l.ProductId, Remaining(l)))
+            : request.Lines;
+
+        long amount = 0;
+        var recordLines = new List<RmaRequestLine>();
+        foreach (var sel in selections)
+        {
+            var line = snapshot.Lines.FirstOrDefault(l => l.ProductId == sel.ProductId);
+            if (line is null)
+            {
+                return TypedResults.BadRequest("Unknown line in selection.");
+            }
+
+            var qty = Math.Clamp(sel.Quantity, 0, Remaining(line));
+            if (qty <= 0)
+            {
+                continue;
+            }
+
+            amount += line.UnitPriceMinor * qty;
+            recordLines.Add(new RmaRequestLine
+            {
+                Id = Guid.CreateVersion7(),
+                RmaId = rmaId,
+                ProductId = line.ProductId,
+                Title = line.Title,
+                Quantity = qty,
+                UnitPriceMinor = line.UnitPriceMinor,
+            });
+        }
+
+        if (amount <= 0)
+        {
+            return TypedResults.BadRequest("Nothing left to refund on this order.");
+        }
+
         var reason = string.IsNullOrWhiteSpace(request.Reason)
             ? (request.AutoApprove ? "refunded by admin" : "return requested by admin")
             : request.Reason.Trim();
-        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, request.AutoApprove), ct);
+
+        db.RmaRequests.Add(new RmaRequestRecord
+        {
+            Id = rmaId,
+            OrderId = request.OrderId,
+            Email = snapshot.Email,
+            Reason = reason,
+            AmountMinor = amount,
+            Currency = snapshot.Currency,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Lines = recordLines,
+        });
+        await publisher.Publish(new RmaRequested(rmaId, request.OrderId, snapshot.Email, amount, reason, request.AutoApprove), ct);
         var action = request.AutoApprove ? "support.rma.admin_refund" : "support.rma.admin_return";
         await audit.RecordAsync(user.Mutation(DefaultTenantId(config), "Rma", rmaId.ToString(), action, reason), ct);
         await db.SaveChangesAsync(ct);
         var state = request.AutoApprove ? "RefundPending" : "Requested";
-        return TypedResults.Accepted((string?)null, new RmaDto(rmaId, request.OrderId, snapshot.Email, snapshot.GrossMinor, reason, state, DateTimeOffset.UtcNow));
+        return TypedResults.Accepted((string?)null, new RmaDto(rmaId, request.OrderId, snapshot.Email, amount, reason, state, DateTimeOffset.UtcNow));
     }
 
     /// <summary>Idempotent: approving an already-approved RMA is a no-op (FR-10).</summary>
@@ -235,7 +294,7 @@ public static class AdminRmaEndpoints
             : new Guid("00000000-0000-0000-0000-000000000001");
 }
 
-public record AdminRefundRequest(Guid OrderId, string? Reason, bool AutoApprove = true);
+public record AdminRefundRequest(Guid OrderId, string? Reason, bool AutoApprove = true, List<RmaLineSelection>? Lines = null);
 public record ApproveRequest(bool RequireReturn);
 public record RmaDto(
     Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,

@@ -103,6 +103,47 @@ public class RmaCustomerViewTests(Phase4Fixture fixture)
         Assert.Equal(4, await RefundableQtyAsync(customer, orderId, widget));
     }
 
+    private sealed record AdminRmaDto(Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt);
+
+    [Fact]
+    public async Task Admin_refund_defaults_to_the_whole_remaining_order()
+    {
+        var orderId = Guid.CreateVersion7();
+        var widget = Guid.CreateVersion7();
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        using var admin = Admin();
+
+        // No line selection → the whole still-refundable order (historical admin behaviour): 4 × 1000.
+        var rma = await (await admin.PostAsJsonAsync("/admin/rmas", new { orderId, reason = "goodwill", autoApprove = true }))
+            .Content.ReadFromJsonAsync<AdminRmaDto>();
+        Assert.Equal(4000, rma!.AmountMinor);
+    }
+
+    [Fact]
+    public async Task Admin_refund_can_target_specific_lines_for_a_partial_amount()
+    {
+        var orderId = Guid.CreateVersion7();
+        var widget = Guid.CreateVersion7();
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        using var admin = Admin();
+        using var customer = Customer();
+
+        // Admin refunds 2 of the 4 units → the amount is the line subtotal (2 × 1000), not the whole 4000.
+        var response = await admin.PostAsJsonAsync("/admin/rmas", new
+        {
+            orderId,
+            reason = "two damaged",
+            autoApprove = true,
+            lines = new[] { new { productId = widget, quantity = 2 } },
+        });
+        response.EnsureSuccessStatusCode();
+        var rma = await response.Content.ReadFromJsonAsync<AdminRmaDto>();
+        Assert.Equal(2000, rma!.AmountMinor);
+
+        // The 2 units are recorded, so only 2 remain refundable (proves the admin RMA persisted its lines).
+        Assert.Equal(2, await RefundableQtyAsync(customer, orderId, widget));
+    }
+
     private async Task WaitForStateAsync(Guid rmaId, string expected)
     {
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
