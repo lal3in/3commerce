@@ -22,7 +22,10 @@ public static class WorkflowEndpoints
         return app;
     }
 
-    private static WorkflowRunDto ToDto(WorkflowRun r) => new(r.Id, r.JobName, r.Status, r.StartedAt, r.CompletedAt, r.Error);
+    private static WorkflowRunDto ToDto(WorkflowRun r) => new(
+        r.Id, r.JobName, r.Status, r.StartedAt, r.CompletedAt,
+        r.CompletedAt is { } done ? (long)(done - r.StartedAt).TotalMilliseconds : null, r.Error);
 }
 
-public record WorkflowRunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string? Error);
+public record WorkflowRunDto(
+    Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, long? DurationMs, string? Error);
