@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc.Testing;
+using ThreeCommerce.BuildingBlocks.Contracts.Identity;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Identity.Api.Endpoints;
 
@@ -121,5 +123,77 @@ public class SessionCacheAuthFlowTests(Phase2Fixture fixture, RedisFixture redis
         // so a role change can't be served stale from cache.
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken })).StatusCode);
+    }
+
+    [Fact]
+    public async Task With_cache_on_password_reset_evicts_the_cached_session_and_signs_it_out()
+    {
+        using var identity = CacheOnIdentity();
+        using var client = identity.CreateClient(new() { HandleCookies = false });
+        var email = $"sesscache-reset-{Guid.NewGuid():N}@example.com";
+
+        await client.PostAsJsonAsync("/register", new { email, password = "a-strong-password" });
+        var login = await client.PostAsJsonAsync("/login", new { email, password = "a-strong-password" });
+        login.EnsureSuccessStatusCode();
+        var sessionToken = ExtractSessionCookie(login);
+
+        var first = await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var session = (await first.Content.ReadFromJsonAsync<IntrospectResponse>())!;
+        Assert.True(await UserCachedAsync(session.UserId), "session was not cached — the cache-on path is not actually active");
+
+        // The raw reset token is only delivered on the PasswordResetRequested event (the DB stores just its
+        // hash), so subscribe to the bus to capture it — the only way to drive /confirm end-to-end.
+        var rawToken = await CaptureResetTokenAsync(email, async () =>
+            (await client.PostAsJsonAsync("/password-reset/request", new { email })).EnsureSuccessStatusCode());
+
+        // Confirm the reset: revokes every session for the user AND evicts the user's cached sessions.
+        var confirm = await client.PostAsJsonAsync("/password-reset/confirm",
+            new { token = rawToken, newPassword = "a-brand-new-password-2" });
+        confirm.EnsureSuccessStatusCode();
+
+        // The cached entry is gone — ConfirmPasswordReset's InvalidateUserAsync fired end-to-end...
+        Assert.False(await UserCachedAsync(session.UserId), "password reset did not evict the cached session");
+
+        // ...so the old session is signed out (revoked); no stale cache hit keeps it alive.
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await client.PostAsJsonAsync("/internal/introspection", new { token = sessionToken })).StatusCode);
+    }
+
+    // Subscribes to PasswordResetRequested on the shared broker, runs the trigger, and returns the raw
+    // reset token the event carries (never persisted raw). The receive endpoint is uniquely named so
+    // parallel runs don't steal each other's messages; the email filter guards against cross-test bleed.
+    private async Task<string> CaptureResetTokenAsync(string email, Func<Task> trigger)
+    {
+        var captured = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+        {
+            cfg.Host(new Uri(fixture.RabbitMqUri));
+            cfg.ReceiveEndpoint($"test-pwd-reset-{Guid.NewGuid():N}", e =>
+            {
+                e.Handler<PasswordResetRequested>(ctx =>
+                {
+                    if (string.Equals(ctx.Message.Email, email, StringComparison.OrdinalIgnoreCase))
+                    {
+                        captured.TrySetResult(ctx.Message.ResetToken);
+                    }
+
+                    return Task.CompletedTask;
+                });
+            });
+        });
+
+        await bus.StartAsync();
+        try
+        {
+            await trigger();
+            var completed = await Task.WhenAny(captured.Task, Task.Delay(TimeSpan.FromSeconds(20)));
+            Assert.True(completed == captured.Task, "PasswordResetRequested was not observed on the bus within 20s");
+            return await captured.Task;
+        }
+        finally
+        {
+            await bus.StopAsync();
+        }
     }
 }
