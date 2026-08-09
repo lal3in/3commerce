@@ -45,6 +45,40 @@ services:
       timeout: 3s
       retries: 10
 
+  # Valkey (BSD-licensed Redis drop-in) — shared cache / fast-path lane (ADR-0044): distributed rate
+  # limiting, idempotency/webhook dedupe, and session introspection cache. Single node for local/CI;
+  # prod runs Valkey HA (Sentinel/Cluster) via Helm. Persistence on (appendonly) so a restart doesn't
+  # drop everything, though every key is TTL'd and reconstructable from Postgres. Password matches the
+  # dev connection string used by the services (ConnectionStrings:Redis).
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: 3commerce-valkey
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "valkey_dev", "--maxmemory-policy", "volatile-lru"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a valkey_dev ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Prometheus exporter for Valkey server metrics (memory, evictions, keyspace, replication) — feeds the
+  # Grafana redis-overview dashboard. Ops portal, so kept out of CI under the `portals` profile.
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0-alpine
+    container_name: 3commerce-redis-exporter
+    profiles: ["portals"]
+    depends_on:
+      valkey:
+        condition: service_healthy
+    environment:
+      REDIS_ADDR: "redis://valkey:6379"
+      REDIS_PASSWORD: "valkey_dev"
+    ports:
+      - "9121:9121"
+
   # Kafka broker (KRaft, single node) — mirrors the Helm kafka config (ADR-0034 durable-stream lane).
   # In-cluster clients use kafka:9092; host clients use localhost:29092 (the EXTERNAL advertised listener).
   kafka:
@@ -135,3 +169,4 @@ volumes:
   pgadmin_data:
   kafka_data:
   rabbitmq_data:
+  valkey_data:
