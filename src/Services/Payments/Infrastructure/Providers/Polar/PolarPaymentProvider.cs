@@ -44,10 +44,20 @@ public sealed class PolarPaymentProvider(IConfiguration configuration) : IPaymen
         using var doc = JsonDocument.Parse(payload);
         var root = doc.RootElement;
         var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
+        // Dispute status ("won"/"lost") disambiguates a closed dispute, mirroring Stripe's charge.dispute.closed.
+        var disputeStatus = root.TryGetProperty("data", out var d0) && d0.TryGetProperty("status", out var ds)
+            ? ds.GetString()
+            : null;
         var kind = type switch
         {
             "order.paid" => PaymentWebhookKind.PaymentSucceeded,
             "order.payment_failed" => PaymentWebhookKind.PaymentFailed,
+            "order.canceled" => PaymentWebhookKind.PaymentVoided,
+            "dispute.created" => PaymentWebhookKind.DisputeCreated,
+            "dispute.updated" => PaymentWebhookKind.DisputeUpdated,
+            "dispute.funds_withdrawn" => PaymentWebhookKind.DisputeFundsWithdrawn,
+            "dispute.funds_reinstated" => PaymentWebhookKind.DisputeFundsReinstated,
+            "dispute.closed" => disputeStatus == "lost" ? PaymentWebhookKind.DisputeClosedLost : PaymentWebhookKind.DisputeClosedWon,
             _ => (PaymentWebhookKind?)null,
         };
         if (kind is null || !root.TryGetProperty("data", out var data))
@@ -61,8 +71,10 @@ public sealed class PolarPaymentProvider(IConfiguration configuration) : IPaymen
         var failure = kind == PaymentWebhookKind.PaymentFailed
             ? (data.TryGetProperty("failure_reason", out var fr) ? fr.GetString() : null) ?? "payment failed"
             : null;
+        var fee = data.TryGetProperty("fee", out var fe) && fe.TryGetInt64(out var feeMinor) ? feeMinor : 0;
+        var disputeId = data.TryGetProperty("dispute_id", out var did) ? did.GetString() : null;
 
-        return new PaymentWebhookEvent(eventId, kind.Value, intentId, amount, 0, failure);
+        return new PaymentWebhookEvent(eventId, kind.Value, intentId, amount, fee, failure, disputeId, disputeStatus);
     }
 
     // Polar is a merchant-of-record: it does not expose Stripe-style off-session customers / setup

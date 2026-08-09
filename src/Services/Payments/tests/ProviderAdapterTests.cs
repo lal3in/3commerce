@@ -108,6 +108,35 @@ public class ProviderAdapterTests
         Assert.Null(provider.ParseWebhook(benign, Sign("whsec_polar", benign), ["whsec_polar"]));
     }
 
+    [Fact]
+    public void Polar_parses_a_dispute_lost_webhook_into_the_terminal_chargeback_kind()
+    {
+        var payload =
+            """{"id":"evt_polar_d1","type":"dispute.closed","data":{"id":"polar_order_1","amount":4990,"status":"lost","dispute_id":"pdp_1","fee":1500}}""";
+        var ev = new PolarPaymentProvider(PaymentTestSupport.Config())
+            .ParseWebhook(payload, Sign("whsec_polar", payload), ["whsec_polar"]);
+
+        Assert.NotNull(ev);
+        Assert.Equal(PaymentWebhookKind.DisputeClosedLost, ev.Kind);
+        Assert.Equal("polar_order_1", ev.PaymentIntentId);
+        Assert.Equal("pdp_1", ev.ProviderDisputeId);
+        Assert.Equal(1500, ev.FeeMinor);
+    }
+
+    [Fact]
+    public void Polar_parses_a_dispute_created_and_a_void()
+    {
+        var provider = new PolarPaymentProvider(PaymentTestSupport.Config());
+
+        var created = """{"id":"evt_polar_d2","type":"dispute.created","data":{"id":"polar_order_2","amount":4990}}""";
+        var createdEv = provider.ParseWebhook(created, Sign("whsec_polar", created), ["whsec_polar"]);
+        Assert.Equal(PaymentWebhookKind.DisputeCreated, createdEv!.Kind);
+
+        var canceled = """{"id":"evt_polar_v1","type":"order.canceled","data":{"id":"polar_order_3","amount":4990}}""";
+        var voidedEv = provider.ParseWebhook(canceled, Sign("whsec_polar", canceled), ["whsec_polar"]);
+        Assert.Equal(PaymentWebhookKind.PaymentVoided, voidedEv!.Kind);
+    }
+
     // --------------------------------------------------------------- PayPal
 
     // Recorded sandbox fixture shape: PayPal Webhooks v1 capture event (api-m.sandbox.paypal.com).

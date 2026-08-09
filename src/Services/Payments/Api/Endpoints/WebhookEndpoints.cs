@@ -81,23 +81,33 @@ public static class WebhookEndpoints
         return TypedResults.Ok();
     }
 
-    // Dev-only: simulate a dispute opening. feeMinor defaults to a flat dispute fee (1500 minor);
+    // Dev-only: simulate a dispute lifecycle event. feeMinor defaults to a flat dispute fee (1500 minor);
     // a distinct EventId per call keeps the inbox idempotency honest across repeated simulations.
+    // `outcome` drives which stage: open (default — funds withdrawn), won/reinstated, or lost (chargeback).
     private static async Task<Results<Ok, NotFound>> SimulateChargeback(
-        string intentId, IHostEnvironment env, PaymentEventProcessor processor, long? feeMinor, CancellationToken ct)
+        string intentId, IHostEnvironment env, PaymentEventProcessor processor, long? feeMinor, string? outcome, CancellationToken ct)
     {
         if (!env.IsDevelopment())
         {
             return TypedResults.NotFound();
         }
 
+        var kind = (outcome ?? "open").ToLowerInvariant() switch
+        {
+            "lost" => PaymentWebhookKind.DisputeClosedLost,
+            "won" => PaymentWebhookKind.DisputeClosedWon,
+            "reinstated" => PaymentWebhookKind.DisputeFundsReinstated,
+            _ => PaymentWebhookKind.ChargebackOpened,
+        };
+
         var ev = new PaymentWebhookEvent(
             EventId: $"evt_cb_{intentId}_{DateTime.UtcNow.Ticks}",
-            Kind: PaymentWebhookKind.ChargebackOpened,
+            Kind: kind,
             PaymentIntentId: intentId,
             AmountMinor: 0, // the processor reverses the payment's remaining un-refunded gross, not this
             FeeMinor: feeMinor ?? 1500,
-            FailureReason: null);
+            FailureReason: null,
+            ProviderDisputeId: $"dp_sim_{intentId}");
 
         await processor.ProcessAsync(ev, ct);
         return TypedResults.Ok();

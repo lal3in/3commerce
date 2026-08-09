@@ -344,6 +344,77 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task A_lost_dispute_charges_the_payment_back_and_records_a_void_payment()
+    {
+        var productId = await fixture.SeedProductAsync(9_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        var intentId = $"pi_fake_{order.OrderId:N}";
+        using (var payments = fixture.Payments.CreateClient())
+        {
+            // A dispute that goes straight to lost: the reversal is booked and the payment is charged back.
+            (await payments.PostAsync($"/dev/simulate-chargeback/{intentId}?feeMinor=1500&outcome=lost", null)).EnsureSuccessStatusCode();
+        }
+
+        await WaitForEntryAsync($"{order.OrderId}:chargeback");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.Payments.Where(p => p.OrderId == order.OrderId));
+            Assert.Equal(ThreeCommerce.Payments.Domain.PaymentStatus.Chargeback, payment.Status);
+            Assert.Equal(ThreeCommerce.Payments.Domain.DisputeStatus.Lost, payment.DisputeStatus);
+
+            var voidRecord = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.VoidPayments.Where(v => v.OrderId == order.OrderId));
+            Assert.Equal(payment.Id, voidRecord.OriginalPaymentId);
+            Assert.Equal(order.GrossMinor, voidRecord.AmountMinor);
+            Assert.Equal("dispute_lost", voidRecord.Reason);
+        }
+
+        // The terminal PaymentChargedBack flows to Ordering and flags the order disputed.
+        await WaitForOrderDisputedAsync(order.OrderId);
+    }
+
+    [Fact]
+    public async Task A_won_dispute_reinstates_the_funds_and_the_payment_stands_again()
+    {
+        var productId = await fixture.SeedProductAsync(9_000);
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+
+        var intentId = $"pi_fake_{order.OrderId:N}";
+        using (var payments = fixture.Payments.CreateClient())
+        {
+            // Funds withdrawn on dispute, then the merchant wins: the chargeback reversal is itself reversed.
+            (await payments.PostAsync($"/dev/simulate-chargeback/{intentId}?feeMinor=1500&outcome=open", null)).EnsureSuccessStatusCode();
+            await WaitForEntryAsync($"{order.OrderId}:chargeback");
+            (await payments.PostAsync($"/dev/simulate-chargeback/{intentId}?outcome=won", null)).EnsureSuccessStatusCode();
+        }
+
+        await WaitForEntryAsync($"{order.OrderId}:chargeback-reinstate");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var payment = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                db.Payments.Where(p => p.OrderId == order.OrderId));
+            Assert.Equal(ThreeCommerce.Payments.Domain.PaymentStatus.Succeeded, payment.Status);
+            Assert.Equal(ThreeCommerce.Payments.Domain.DisputeStatus.Won, payment.DisputeStatus);
+        }
+    }
+
+    [Fact]
     public async Task Admin_cannot_cancel_a_confirmed_order_and_must_refund_instead()
     {
         var productId = await fixture.SeedProductAsync(5_000);
@@ -889,5 +960,24 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         }
 
         throw new TimeoutException($"Refund for order {orderId} was not processed.");
+    }
+
+    private async Task WaitForOrderDisputedAsync(Guid orderId)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                    db.Orders.Where(o => o.Id == orderId && o.Disputed)))
+            {
+                return;
+            }
+
+            await Task.Delay(300);
+        }
+
+        throw new TimeoutException($"Order {orderId} was not flagged disputed.");
     }
 }

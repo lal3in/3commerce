@@ -49,6 +49,25 @@ public record PaymentWebhookEvent(
     string PaymentIntentId,
     long AmountMinor,
     long FeeMinor,
-    string? FailureReason);
+    string? FailureReason,
+    string? ProviderDisputeId = null,
+    string? DisputeStatusRaw = null);
 
-public enum PaymentWebhookKind { PaymentSucceeded = 1, PaymentFailed = 2, ChargebackOpened = 3 }
+/// <summary>
+/// The normalized payment/dispute event set. Wire values are stable and numeric (platform invariant).
+/// <see cref="ChargebackOpened"/> is retained as the legacy alias for "funds withdrawn on a dispute" and is
+/// treated identically to <see cref="DisputeFundsWithdrawn"/> by the processor.
+/// </summary>
+public enum PaymentWebhookKind
+{
+    PaymentSucceeded = 1,          // payment_intent.succeeded — settlement
+    PaymentFailed = 2,             // payment_intent.payment_failed — rejection (insufficient funds, mandate, …)
+    ChargebackOpened = 3,          // legacy alias of DisputeFundsWithdrawn
+    PaymentVoided = 4,             // payment_intent.canceled — the authorization was voided
+    DisputeCreated = 5,            // charge.dispute.created
+    DisputeUpdated = 6,            // charge.dispute.updated
+    DisputeFundsWithdrawn = 7,     // charge.dispute.funds_withdrawn
+    DisputeFundsReinstated = 8,    // charge.dispute.funds_reinstated
+    DisputeClosedWon = 9,          // charge.dispute.closed, status = won
+    DisputeClosedLost = 10,        // charge.dispute.closed, status = lost → chargeback + void record
+}

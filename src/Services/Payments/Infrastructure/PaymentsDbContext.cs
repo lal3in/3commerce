@@ -13,6 +13,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<VoidPayment> VoidPayments => Set<VoidPayment>();
     public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<WebhookInboxEntry> WebhookInbox => Set<WebhookInboxEntry>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
@@ -97,6 +98,21 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             // Card / stripe, which is exactly what they were before the column existed.
             p.Property(x => x.MethodKind).HasDefaultValue(PaymentMethodKind.Card);
             p.Property(x => x.Provider).HasMaxLength(40).HasDefaultValue(LedgerProviders.Default);
+
+            // Legacy rows predate the dispute sub-status column; None is exactly their prior meaning.
+            p.Property(x => x.DisputeStatus).HasDefaultValue(DisputeStatus.None);
+            p.Property(x => x.ProviderDisputeId).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<VoidPayment>(v =>
+        {
+            // One void record per original payment — the processor upserts idempotently on this.
+            v.HasIndex(x => x.OriginalPaymentId).IsUnique();
+            v.HasIndex(x => x.OrderId);
+            v.Property(x => x.Currency).HasMaxLength(3);
+            v.Property(x => x.PaymentIntentId).HasMaxLength(255);
+            v.Property(x => x.ProviderDisputeId).HasMaxLength(255);
+            v.Property(x => x.Reason).HasMaxLength(120);
         });
 
         modelBuilder.Entity<Refund>(r => r.HasIndex(x => x.OrderId));

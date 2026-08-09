@@ -135,19 +135,41 @@ public sealed class StripePaymentProvider : IPaymentProvider
             return null; // bad signature (or no secret configured)
         }
 
-        if (stripeEvent.Data.Object is not PaymentIntent intent)
-        {
-            return null;
-        }
-
+        // Branch on the event TYPE first: dispute events carry a Dispute object (not a PaymentIntent), so
+        // an early "is not PaymentIntent" return would silently drop every charge.dispute.* notification.
         return stripeEvent.Type switch
         {
-            "payment_intent.succeeded" => new PaymentWebhookEvent(
-                stripeEvent.Id, PaymentWebhookKind.PaymentSucceeded, intent.Id, intent.AmountReceived, 0, null),
-            "payment_intent.payment_failed" => new PaymentWebhookEvent(
-                stripeEvent.Id, PaymentWebhookKind.PaymentFailed, intent.Id, intent.Amount, 0,
-                intent.LastPaymentError?.Message ?? "payment failed"),
+            "payment_intent.succeeded" when stripeEvent.Data.Object is PaymentIntent pi => new PaymentWebhookEvent(
+                stripeEvent.Id, PaymentWebhookKind.PaymentSucceeded, pi.Id, pi.AmountReceived, 0, null),
+            "payment_intent.payment_failed" when stripeEvent.Data.Object is PaymentIntent pi => new PaymentWebhookEvent(
+                stripeEvent.Id, PaymentWebhookKind.PaymentFailed, pi.Id, pi.Amount, 0,
+                pi.LastPaymentError?.Message ?? "payment failed"),
+            "payment_intent.canceled" when stripeEvent.Data.Object is PaymentIntent pi => new PaymentWebhookEvent(
+                stripeEvent.Id, PaymentWebhookKind.PaymentVoided, pi.Id, pi.Amount, 0, "payment voided"),
+            "charge.dispute.created" when stripeEvent.Data.Object is Dispute d => Dispute(stripeEvent.Id, PaymentWebhookKind.DisputeCreated, d),
+            "charge.dispute.updated" when stripeEvent.Data.Object is Dispute d => Dispute(stripeEvent.Id, PaymentWebhookKind.DisputeUpdated, d),
+            "charge.dispute.funds_withdrawn" when stripeEvent.Data.Object is Dispute d => Dispute(stripeEvent.Id, PaymentWebhookKind.DisputeFundsWithdrawn, d),
+            "charge.dispute.funds_reinstated" when stripeEvent.Data.Object is Dispute d => Dispute(stripeEvent.Id, PaymentWebhookKind.DisputeFundsReinstated, d),
+            // A dispute closes won or lost — the dispute's own status carries the outcome.
+            "charge.dispute.closed" when stripeEvent.Data.Object is Dispute d => Dispute(
+                stripeEvent.Id, d.Status == "lost" ? PaymentWebhookKind.DisputeClosedLost : PaymentWebhookKind.DisputeClosedWon, d),
             _ => null,
         };
+    }
+
+    /// <summary>Normalizes a Stripe dispute event; the intent id resolves the payment, the fee comes from the
+    /// dispute's balance transactions when present.</summary>
+    private static PaymentWebhookEvent? Dispute(string eventId, PaymentWebhookKind kind, Dispute dispute)
+    {
+        if (string.IsNullOrEmpty(dispute.PaymentIntentId))
+        {
+            return null; // a dispute we can't tie back to a payment intent is not actionable here
+        }
+
+        var fee = dispute.BalanceTransactions?
+            .Sum(bt => bt.Fee) is long f and > 0 ? f : 0;
+
+        return new PaymentWebhookEvent(
+            eventId, kind, dispute.PaymentIntentId, dispute.Amount, fee, null, dispute.Id, dispute.Status);
     }
 }
