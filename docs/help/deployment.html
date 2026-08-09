@@ -104,6 +104,17 @@ docker compose -f docker-compose.infra.yml -f docker-compose.infra.kafka.yml --p
 docker compose --profile kafka up -d</code></pre>
         <p>Local Kafka uses a single-node KRaft broker on <code>:9092</code>; Kafka UI is exposed on <code>:8088</code>. In Helm, production should normally use managed Kafka by setting <code>kafka.enabled=true</code>, <code>kafka.deploy=false</code>, and <code>kafka.externalBootstrapServers</code>; TLS/SASL values can be supplied through <code>kafka.securityProtocol</code>, <code>kafka.saslMechanism</code>, and <code>kafka.saslSecret.name</code>. In-cluster <code>kafka.deploy=true</code> is for dev/kind only.</p>
 
+        <h2 id="redis-fast-path">Redis fast-path lane (ADR-0044)</h2>
+        <p>A self-hosted <strong>Valkey</strong> (BSD-licensed Redis drop-in) is the shared cache / fast-path for three cross-instance concerns: <strong>distributed gateway rate limiting</strong>, <strong>Payments webhook dedupe</strong>, and an (off-by-default) <strong>session introspection cache</strong>. It is a cache, never a source of truth — Postgres stays authoritative and every feature degrades gracefully when Redis is absent or down.</p>
+        <pre><code><span class="cmt"># Dev infra: Valkey ships as a core service in docker-compose.infra.yml (redis_exporter under `portals`).</span>
+docker compose -f docker-compose.infra.yml up -d</code></pre>
+        <ul>
+          <li><strong>Single node</strong> for dev/CI; <strong>HA (Sentinel/Cluster)</strong> in production (Helm). All keys are TTL'd and reconstructable from Postgres, so <code>volatile-lru</code> eviction is safe.</li>
+          <li>Wire it by setting <code>ConnectionStrings:Redis</code>; unset ⇒ every service runs Redis-less unchanged.</li>
+          <li><strong>Off by default</strong>: <code>RateLimiting:Backend</code> stays <code>InMemory</code> and <code>Sessions:Cache:Enabled</code> stays <code>false</code> until an environment opts in. Enable the session cache only after a security review.</li>
+          <li>Server metrics from <code>redis_exporter</code> (scraped by the OTel collector) + app metrics from the <code>3commerce.redis</code> meter feed the provisioned <strong>redis-overview</strong> Grafana dashboard.</li>
+        </ul>
+
         <h2 id="containerized-launch-kubernetes">Containerized launch (Kubernetes / Helm)</h2>
         <p>The same topology is packaged as an umbrella Helm chart at <strong><code>deploy/helm/3commerce</code></strong>:</p>
         <pre><code><span class="cmt"># dev (committed keys baked into the images)</span>
@@ -179,6 +190,9 @@ scripts/postgres-index-audit.sh &gt; /tmp/3commerce-index-audit.txt</code></pre>
             <thead><tr><th>Key</th><th>Read by</th><th>Default</th><th>Notes</th></tr></thead>
             <tbody>
               <tr><td><code>ConnectionStrings:Database</code> / <code>RabbitMq</code></td><td>every service</td><td><code>localhost</code> (bare) / <code>postgres</code>,<code>rabbitmq</code> (container)</td><td>Overridden by <code>appsettings.Container.json</code> when <code>USE_CONTAINER_CONFIG=true</code> (all 13 DB-owning services ship one).</td></tr>
+              <tr><td><code>ConnectionStrings:Redis</code></td><td>gateway, Payments, Identity</td><td>unset (Redis-less no-op)</td><td>Valkey/Redis fast-path (ADR-0044). Unset ⇒ features fall back to Postgres/in-process.</td></tr>
+              <tr><td><code>RateLimiting:Backend</code> / <code>OnRedisOutage</code></td><td>gateway</td><td><code>InMemory</code> / <code>FailOpen</code></td><td><code>Redis</code> = shared limit across replicas; outage toggle fail-open vs fail-closed (429).</td></tr>
+              <tr><td><code>Sessions:Cache:Enabled</code></td><td>Identity</td><td><code>false</code></td><td>Session introspection cache; enable only after a security review.</td></tr>
               <tr><td><code>Store:Currency</code></td><td><code>SampleDataImporter</code>, Catalog admin defaults, cart fallback (BL-9)</td><td><code>EUR</code></td><td>Default store currency; tenant per-currency product pricing rides the data model (#40).</td></tr>
               <tr><td><code>Importer:TargetRows</code></td><td><code>SampleDataImporter</code> (Catalog)</td><td><code>10_500</code></td><td>Sample-import row count. CI sets <code>400</code> to keep the projection storm light.</td></tr>
               <tr><td><code>Payments:Mode</code></td><td>Payments (ADR-0039)</td><td><code>LocalMock</code> in Development, <code>Production</code> otherwise</td><td>Host mode ceiling: <code>LocalMock</code> | <code>Sandbox</code> | <code>Production</code>. <code>PaymentModeGuard</code> refuses <code>LocalMock</code> outside Development at boot.</td></tr>

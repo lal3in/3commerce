@@ -76,6 +76,26 @@ docker compose --profile kafka up -d
 
 Local Kafka uses a single-node KRaft broker on `:9092`; Kafka UI is exposed on `:8088`. In Helm, production should normally use managed Kafka by setting `kafka.enabled=true`, `kafka.deploy=false`, and `kafka.externalBootstrapServers`; TLS/SASL values can be supplied through `kafka.securityProtocol`, `kafka.saslMechanism`, and `kafka.saslSecret.name`. In-cluster `kafka.deploy=true` is for dev/kind only.
 
+## Redis fast-path lane (ADR-0044)
+
+A self-hosted **Valkey** (BSD-licensed Redis drop-in) is the shared cache / fast-path for three
+cross-instance concerns: **distributed gateway rate limiting**, **Payments webhook dedupe**, and an
+(off-by-default) **session introspection cache**. It is a cache, never a source of truth — Postgres stays
+authoritative and every feature degrades gracefully when Redis is absent or down.
+
+```bash
+# Dev infra: Valkey ships as a core service in docker-compose.infra.yml (redis_exporter under `portals`).
+docker compose -f docker-compose.infra.yml up -d
+```
+
+- **Single node** for dev/CI; **HA (Sentinel/Cluster)** in production (Helm). All keys are TTL'd and
+  reconstructable from Postgres, so `volatile-lru` eviction is safe.
+- Wire it by setting `ConnectionStrings:Redis`; unset ⇒ every service runs Redis-less unchanged.
+- **Off by default**: `RateLimiting:Backend` stays `InMemory` and `Sessions:Cache:Enabled` stays `false`
+  until an environment opts in. Enable the session cache only after a security review.
+- Server metrics come from `redis_exporter` (scraped by the OTel collector) and app metrics from the
+  `3commerce.redis` meter — both feed the provisioned **redis-overview** Grafana dashboard.
+
 ## Observability metrics (mt6_13)
 
 Every service exports OpenTelemetry **traces and RED metrics** (request rate / duration / errors for
@@ -194,6 +214,9 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | Key | Read by | Default | Notes |
 |-----|---------|---------|-------|
 | `ConnectionStrings:Database` / `RabbitMq` | every service | `localhost` (bare) / `postgres`,`rabbitmq` (container) | Overridden by `appsettings.Container.json` when `USE_CONTAINER_CONFIG=true` (all 13 DB-owning services ship one). |
+| `ConnectionStrings:Redis` | gateway, Payments, Identity | unset (Redis-less no-op) | Valkey/Redis fast-path (ADR-0044). Unset ⇒ features fall back to Postgres/in-process. |
+| `RateLimiting:Backend` / `OnRedisOutage` | gateway | `InMemory` / `FailOpen` | `Redis` = shared limit across replicas; outage toggle fail-open vs fail-closed (429). |
+| `Sessions:Cache:Enabled` | Identity | `false` | Session introspection cache; enable only after a security review. |
 | `Store:Currency` | `SampleDataImporter`, Catalog admin defaults, cart fallback (BL-9) | `EUR` | Default store currency; tenant per-currency product pricing rides the data model (#40). |
 | `Importer:TargetRows` | `SampleDataImporter` (Catalog) | `10_500` | Sample-import row count. CI sets `400` to keep the projection storm light. |
 | `Payments:Mode` | Payments (ADR-0039) | `LocalMock` in Development, `Production` otherwise | Host mode ceiling: `LocalMock` \| `Sandbox` \| `Production`. `PaymentModeGuard` refuses `LocalMock` outside Development at boot. |
