@@ -24,6 +24,23 @@ public sealed class UsageBalance
 
     /// <summary>How much overage has already been billed — so re-billing a period doesn't double-charge (mt7_5).</summary>
     public long BilledOverageQuantity { get; private set; }
+
+    // ---- Prepaid auto-load (jobmgr_3): instead of arrears overage, a customer can pre-pay credit that
+    // auto-tops-up. When the remaining prepaid credit reaches the customer's threshold, a reload is charged
+    // off-session (at OverageUnitPriceMinor) and the credit is added. Disabled by default (classic overage).
+    public bool AutoLoadEnabled { get; private set; }
+
+    /// <summary>Top up when prepaid credit falls to/below this many units.</summary>
+    public long AutoLoadThresholdQuantity { get; private set; }
+
+    /// <summary>Units added per auto-load (the charge is this × <see cref="OverageUnitPriceMinor"/>).</summary>
+    public long AutoLoadReloadQuantity { get; private set; }
+
+    /// <summary>Remaining pre-paid credit units drawn down by usage.</summary>
+    public long PrepaidRemainingQuantity { get; private set; }
+
+    /// <summary>Monotonic count of auto-loads applied — makes each top-up's charge reference stable + unique.</summary>
+    public long AutoLoadCount { get; private set; }
     public DateTimeOffset PeriodStart { get; private set; }
     public DateTimeOffset? PeriodEnd { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -36,8 +53,17 @@ public sealed class UsageBalance
     public long UnbilledOverageQuantity => Math.Max(0, OverageQuantity - BilledOverageQuantity);
     public long UnbilledOverageChargeMinor => UnbilledOverageQuantity * OverageUnitPriceMinor;
 
-    /// <summary>Whether a quantity may be consumed: overage allowed, or it stays within the allowance (mt7_5).</summary>
-    public bool CanAccept(long quantity) => OverageAllowed || UsedQuantity + quantity <= IncludedQuantity;
+    /// <summary>Whether a quantity may be consumed: overage allowed, within the allowance, or the customer
+    /// has enabled prepaid auto-load (they've pre-authorized billing, so usage tops up the credit, mt7_5).</summary>
+    public bool CanAccept(long quantity) =>
+        OverageAllowed || UsedQuantity + quantity <= IncludedQuantity || AutoLoadEnabled;
+
+    /// <summary>The charge for one auto-load top-up (reload units × the overage unit price).</summary>
+    public long AutoLoadChargeMinor => AutoLoadReloadQuantity * OverageUnitPriceMinor;
+
+    /// <summary>Enabled, configured to reload, and the prepaid credit has reached the customer's threshold.</summary>
+    public bool ShouldAutoLoad() =>
+        AutoLoadEnabled && AutoLoadReloadQuantity > 0 && PrepaidRemainingQuantity <= AutoLoadThresholdQuantity;
 
     private UsageBalance() { }
 
@@ -110,6 +136,37 @@ public sealed class UsageBalance
 
         UsedQuantity += quantity;
         UpdatedAt = now;
+    }
+
+    /// <summary>Set the customer's prepaid auto-load preferences (mt7_3 / jobmgr_3). The customer decides the
+    /// threshold + reload amount; the unit price is the plan's <see cref="OverageUnitPriceMinor"/>.</summary>
+    public void ConfigureAutoLoad(bool enabled, long thresholdQuantity, long reloadQuantity, DateTimeOffset now)
+    {
+        if (thresholdQuantity < 0 || reloadQuantity < 0)
+        {
+            throw new UsageRuleException("Auto-load threshold and reload quantity cannot be negative.");
+        }
+
+        AutoLoadEnabled = enabled;
+        AutoLoadThresholdQuantity = thresholdQuantity;
+        AutoLoadReloadQuantity = reloadQuantity;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Draw usage down against the prepaid credit (never below zero).</summary>
+    public void ConsumePrepaid(long quantity, DateTimeOffset now)
+    {
+        PrepaidRemainingQuantity = Math.Max(0, PrepaidRemainingQuantity - quantity);
+        UpdatedAt = now;
+    }
+
+    /// <summary>Apply one auto-load: credit the reload units and return the charge to bill off-session.</summary>
+    public long ApplyAutoLoad(DateTimeOffset now)
+    {
+        PrepaidRemainingQuantity += AutoLoadReloadQuantity;
+        AutoLoadCount++;
+        UpdatedAt = now;
+        return AutoLoadChargeMinor;
     }
 }
 

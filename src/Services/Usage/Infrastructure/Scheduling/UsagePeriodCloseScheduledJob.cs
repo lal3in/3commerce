@@ -15,5 +15,9 @@ public sealed class UsagePeriodCloseScheduledJob(UsageService usage) : ISchedule
     // Top of every hour — periods close within the hour after their window ends.
     public string CronSchedule => "0 0 * * * ?";
 
-    public Task ExecuteAsync(CancellationToken ct) => usage.CloseDuePeriodsAsync(ct);
+    public async Task ExecuteAsync(CancellationToken ct)
+    {
+        await usage.CloseDuePeriodsAsync(ct);      // bill + roll ended billing periods
+        await usage.SweepAutoLoadsAsync(ct);       // prepaid auto-load safety net (jobmgr_3)
+    }
 }

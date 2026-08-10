@@ -52,8 +52,68 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
             ReferenceId = reference,
             OccurredAt = now,
         });
+
+        // Prepaid auto-load (jobmgr_3): usage draws down the prepaid credit and, once it reaches the
+        // customer's threshold, tops up + charges off-session the moment the threshold is crossed.
+        if (balance.AutoLoadEnabled)
+        {
+            balance.ConsumePrepaid(quantity, now);
+            if (balance.ShouldAutoLoad())
+            {
+                await PublishAutoLoadAsync(balance, ct);
+            }
+        }
+
         await db.SaveChangesAsync(ct);
         return balance;
+    }
+
+    /// <summary>Set a customer's prepaid auto-load preferences (they choose the threshold + reload amount).</summary>
+    public async Task<UsageBalance> ConfigureAutoLoadAsync(
+        Guid tenantId, string email, MeterType meter, bool enabled, long thresholdQuantity, long reloadQuantity, CancellationToken ct)
+    {
+        var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
+        balance.ConfigureAutoLoad(enabled, thresholdQuantity, reloadQuantity, clock.GetUtcNow());
+        await db.SaveChangesAsync(ct);
+        return balance;
+    }
+
+    /// <summary>
+    /// Daily safety net (jobmgr_3): top up every auto-load balance sitting at/below its threshold — catches
+    /// a top-up missed by the event path (e.g. the threshold was lowered, or auto-load was enabled while
+    /// already low). Idempotent per top-up (the charge reference carries the auto-load count).
+    /// </summary>
+    public async Task<int> SweepAutoLoadsAsync(CancellationToken ct)
+    {
+        var due = await db.UsageBalances
+            .Where(b => b.AutoLoadEnabled && b.AutoLoadReloadQuantity > 0 && b.PrepaidRemainingQuantity <= b.AutoLoadThresholdQuantity)
+            .ToListAsync(ct);
+        foreach (var balance in due)
+        {
+            await PublishAutoLoadAsync(balance, ct);
+        }
+
+        if (due.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return due.Count;
+    }
+
+    /// <summary>Credit one reload and publish the off-session charge (unless the reload is free). The caller
+    /// owns SaveChanges so a sweep commits all top-ups together.</summary>
+    private async Task PublishAutoLoadAsync(UsageBalance balance, CancellationToken ct)
+    {
+        var chargeMinor = balance.ApplyAutoLoad(clock.GetUtcNow());
+        if (chargeMinor <= 0)
+        {
+            return; // free reload (no unit price) — credit only, nothing to bill
+        }
+
+        await publisher.Publish(new UsageAutoLoadCharge(
+            balance.TenantId, balance.CustomerEmail, balance.Meter, balance.AutoLoadReloadQuantity, chargeMinor, balance.Currency,
+            $"autoload-{balance.Id}-{balance.AutoLoadCount}"), ct);
     }
 
     /// <summary>Charge the unbilled overage via the rail (mt7_5). No-op when there is nothing to bill.</summary>

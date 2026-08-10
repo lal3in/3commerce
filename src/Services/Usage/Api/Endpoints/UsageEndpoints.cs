@@ -24,7 +24,30 @@ public static class UsageEndpoints
         // Customer "my usage" (mt7_6): scoped to the signed-in customer's tenant + email claims.
         app.MapGet("/me/usage", Mine).WithTags("Usage")
             .RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
+        // The customer chooses their own prepaid auto-load (jobmgr_3): enable + threshold + reload amount.
+        app.MapPut("/me/usage/autoload", ConfigureAutoLoad).WithTags("Usage")
+            .RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
+    }
+
+    private static async Task<Results<Ok<BalanceDto>, BadRequest<string>, UnauthorizedHttpResult>> ConfigureAutoLoad(
+        ConfigureAutoLoadRequest request, ClaimsPrincipal user, UsageService usage, CancellationToken ct)
+    {
+        if (!CustomerClaims.TryRead(user, out var tenantId, out var email))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        try
+        {
+            var balance = await usage.ConfigureAutoLoadAsync(
+                tenantId, email, request.Meter, request.Enabled, request.ThresholdQuantity, request.ReloadQuantity, ct);
+            return TypedResults.Ok(ToDto(balance));
+        }
+        catch (UsageRuleException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
     }
 
     private static async Task<Results<Ok<List<BalanceDto>>, UnauthorizedHttpResult>> Mine(
@@ -91,7 +114,8 @@ public static class UsageEndpoints
 
     private static BalanceDto ToDto(UsageBalance b) =>
         new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity,
-            b.OverageQuantity, b.OverageAllowed, b.OverageUnitPriceMinor, b.UnbilledOverageChargeMinor, b.Currency, b.PeriodStart, b.PeriodEnd);
+            b.OverageQuantity, b.OverageAllowed, b.OverageUnitPriceMinor, b.UnbilledOverageChargeMinor, b.Currency, b.PeriodStart, b.PeriodEnd,
+            b.AutoLoadEnabled, b.AutoLoadThresholdQuantity, b.AutoLoadReloadQuantity, b.PrepaidRemainingQuantity);
 }
 
 public record ProvisionRequest(
@@ -103,7 +127,13 @@ public record RecordUsageRequest(
     Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
     [property: Range(1, long.MaxValue)] long Quantity, string? ReferenceId);
 
+public record ConfigureAutoLoadRequest(
+    MeterType Meter, bool Enabled,
+    [property: Range(0, long.MaxValue)] long ThresholdQuantity,
+    [property: Range(0, long.MaxValue)] long ReloadQuantity);
+
 public record BalanceDto(
     Guid Id, string CustomerEmail, string Meter, long IncludedQuantity, long UsedQuantity, long RemainingQuantity,
     long OverageQuantity, bool OverageAllowed, long OverageUnitPriceMinor, long UnbilledOverageChargeMinor, string Currency,
-    DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd);
+    DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd,
+    bool AutoLoadEnabled, long AutoLoadThresholdQuantity, long AutoLoadReloadQuantity, long PrepaidRemainingQuantity);

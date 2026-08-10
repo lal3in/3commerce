@@ -138,4 +138,56 @@ public class UsageTests
         Assert.Null(balance.PeriodEnd);
         Assert.Equal(Now.AddDays(1), balance.PeriodStart);
     }
+
+    // ---- jobmgr_3: prepaid auto-load ----
+
+    [Fact]
+    public void Auto_load_triggers_at_or_below_the_threshold_and_charges_reload_times_unit_price()
+    {
+        var balance = Balance();
+        balance.Provision(0, overageAllowed: false, overageUnitPriceMinor: 5, "AUD", null, Now); // unit price 5
+        balance.ConfigureAutoLoad(enabled: true, thresholdQuantity: 10, reloadQuantity: 100, Now);
+
+        Assert.True(balance.ShouldAutoLoad());              // 0 remaining ≤ 10 threshold
+        var charge = balance.ApplyAutoLoad(Now);
+
+        Assert.Equal(500, charge);                          // 100 × 5
+        Assert.Equal(100, balance.PrepaidRemainingQuantity);
+        Assert.Equal(1, balance.AutoLoadCount);
+        Assert.False(balance.ShouldAutoLoad());             // 100 remaining > 10 threshold
+    }
+
+    [Fact]
+    public void Consuming_prepaid_draws_down_and_floors_at_zero()
+    {
+        var balance = Balance();
+        balance.Provision(0, false, 5, "AUD", null, Now);
+        balance.ConfigureAutoLoad(enabled: true, thresholdQuantity: 0, reloadQuantity: 50, Now);
+        balance.ApplyAutoLoad(Now); // 50 credit
+
+        balance.ConsumePrepaid(30, Now);
+        Assert.Equal(20, balance.PrepaidRemainingQuantity);
+
+        balance.ConsumePrepaid(999, Now); // never negative
+        Assert.Equal(0, balance.PrepaidRemainingQuantity);
+    }
+
+    [Fact]
+    public void An_auto_load_customer_can_record_even_with_no_prepaid_credit()
+    {
+        var balance = Balance();
+        balance.Provision(0, overageAllowed: false, 5, "AUD", null, Now); // no included, no arrears overage
+        Assert.False(balance.CanAccept(1));                 // classic: blocked
+
+        balance.ConfigureAutoLoad(enabled: true, thresholdQuantity: 10, reloadQuantity: 100, Now);
+        Assert.True(balance.CanAccept(1));                  // pre-authorised billing → allowed
+    }
+
+    [Fact]
+    public void Configure_auto_load_rejects_negative_values()
+    {
+        var balance = Balance();
+        Assert.Throws<UsageRuleException>(() => balance.ConfigureAutoLoad(true, -1, 100, Now));
+        Assert.Throws<UsageRuleException>(() => balance.ConfigureAutoLoad(true, 10, -1, Now));
+    }
 }
