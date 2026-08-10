@@ -163,6 +163,7 @@
           <li>On success it redirects to <code>/checkout/confirmation?order=&lt;orderId&gt;</code>. On failure the form shows: "Checkout failed. Please review your cart and details."</li>
         </ol>
         <p>The backend creates the order, starts the checkout saga, and asks Payments to authorize. Which rail runs depends on the resolved <strong>payment mode</strong> (ADR-0039): in dev, <code>Payments:Mode=LocalMock</code> routes authorization to a deterministic mock provider (no external calls) — payment is completed on the confirmation page.</p>
+        <p><strong>Subscriptions need a verified member.</strong> A one-time cart checks out as a guest (above). A cart containing a <strong>recurring</strong> line (a subscription/periodic product) cannot: checkout rejects it with a clear message unless the shopper is a <strong>signed-in, email-verified member</strong> who has selected a <strong>reusable instrument</strong> — a saved card or a direct-debit mandate — so renewals can charge off-session. Guests see "Sign in as a member to purchase a subscription"; unverified accounts see "Verify your email…". Direct-debit mandates are set up per storefront currency (USD→ACH, EUR→SEPA, GBP→BACS, AUD→BECS, CAD→ACSS); other currencies are card-only.</p>
 
         <h2 id="confirmation">6. Confirmation — <code>/checkout/confirmation</code></h2>
         <p>File: <code>app/checkout/confirmation/page.tsx</code> + <code>components/checkout/ConfirmationView.tsx</code>. Requires an <code>?order=&lt;id&gt;</code> param (otherwise: "No order specified.").</p>
