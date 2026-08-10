@@ -27,6 +27,7 @@ public sealed class OrderCostsRecognizedConsumer(
 
         var now = time.GetUtcNow();
         var cogsAccount = msg.StorefrontId is { } sid ? Accounts.CogsStoreFor(sid) : null;
+        var supplierPayableAccount = msg.StorefrontId is { } psid ? Accounts.SupplierPayableStoreFor(psid) : null;
 
         foreach (var item in msg.Items)
         {
@@ -55,7 +56,7 @@ public sealed class OrderCostsRecognizedConsumer(
                 msg.TenantId, item.SupplierEntityId, msg.OrderId, item.CostMinor, msg.Currency, policy, now);
 
             db.SupplierPayables.Add(payable);
-            db.JournalEntries.Add(payable.ToAccrualEntry(now, cogsAccount));
+            db.JournalEntries.Add(payable.ToAccrualEntry(now, cogsAccount, supplierPayableAccount));
         }
 
         await db.SaveChangesAsync(context.CancellationToken);

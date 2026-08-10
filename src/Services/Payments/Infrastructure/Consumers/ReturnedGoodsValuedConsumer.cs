@@ -73,6 +73,7 @@ public sealed class ReturnedGoodsValuedConsumer(
         var currency = payables[0].Currency;
         var cogsAccount = msg.StorefrontId is { } sid ? Accounts.CogsStoreFor(sid) : null;
         var writeoffAccount = msg.StorefrontId is { } wsid ? Accounts.WriteoffsStoreFor(wsid) : null;
+        var supplierPayableAccount = msg.StorefrontId is { } psid ? Accounts.SupplierPayableStoreFor(psid) : null;
 
         // Disposition edit (revision > 1): undo the previous revision's posting first, so the books reflect
         // only the current disposition. Append-only — a faithful line-swap reversal, never an edit.
@@ -89,7 +90,7 @@ public sealed class ReturnedGoodsValuedConsumer(
         }
 
         var entry = msg.Kind == Restock
-            ? Ledger.CogsReversal(msg.RmaId, msg.Revision, msg.OrderId, reversalMinor, currency, now, cogsAccount)
+            ? Ledger.CogsReversal(msg.RmaId, msg.Revision, msg.OrderId, reversalMinor, currency, now, cogsAccount, supplierPayableAccount)
             : Ledger.Writeoff(msg.RmaId, msg.Revision, msg.OrderId, reversalMinor, currency, now, cogsAccount, writeoffAccount);
 
         db.JournalEntries.Add(entry);

@@ -69,7 +69,7 @@ public static class UsageEndpoints
         {
             var balance = await usage.ProvisionAsync(
                 request.TenantId ?? DefaultTenantId(config), request.CustomerEmail, request.Meter, request.IncludedQuantity,
-                request.OverageAllowed, request.OverageUnitPriceMinor, request.Currency, request.PeriodEnd, ct);
+                request.OverageAllowed, request.OverageUnitPriceMinor, request.Currency, request.PeriodEnd, ct, request.StorefrontId);
             return TypedResults.Ok(ToDto(balance));
         }
         catch (UsageRuleException ex)
@@ -121,7 +121,8 @@ public static class UsageEndpoints
 public record ProvisionRequest(
     Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,
     [property: Range(0, long.MaxValue)] long IncludedQuantity, bool OverageAllowed,
-    [property: Range(0, long.MaxValue)] long OverageUnitPriceMinor, string Currency, DateTimeOffset? PeriodEnd);
+    [property: Range(0, long.MaxValue)] long OverageUnitPriceMinor, string Currency, DateTimeOffset? PeriodEnd,
+    Guid? StorefrontId = null);
 
 public record RecordUsageRequest(
     Guid? TenantId, [property: Required, EmailAddress] string CustomerEmail, MeterType Meter,

@@ -278,7 +278,8 @@ public static class Ledger
         long costMinor,
         string currency,
         DateTimeOffset now,
-        string? storeExpenseAccount = null)
+        string? storeExpenseAccount = null,
+        string? carrierPayableAccount = null)
     {
         if (costMinor <= 0)
         {
@@ -286,9 +287,12 @@ public static class Ledger
         }
 
         var expense = string.IsNullOrWhiteSpace(storeExpenseAccount) ? Accounts.ExpenseShippingCarrier : storeExpenseAccount;
+        // Per-storefront books (phase 3): the carrier payable credits the store's own
+        // liability.carrier_payable.store-{id} when the package is attributed, else the shared fallback.
+        var payable = string.IsNullOrWhiteSpace(carrierPayableAccount) ? Accounts.LiabilityCarrierPayable : carrierPayableAccount;
         var entry = NewEntry($"Carrier label for order {orderId}", packageId.ToString(), currency, now);
         Debit(entry, expense, costMinor);
-        Credit(entry, Accounts.LiabilityCarrierPayable, costMinor);
+        Credit(entry, payable, costMinor);
         return entry;
     }
 
@@ -309,7 +313,8 @@ public static class Ledger
         long costMinor,
         string currency,
         DateTimeOffset now,
-        string? cogsAccount = null)
+        string? cogsAccount = null,
+        string? supplierPayableAccount = null)
     {
         if (costMinor <= 0)
         {
@@ -317,8 +322,12 @@ public static class Ledger
         }
 
         var cogs = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
+        // Per-storefront books (phase 3): reverse the accrual's supplier-payable credit on the store's own
+        // liability.supplier_payable.store-{id} when attributed, else the shared fallback — mirroring the
+        // per-store COGS credit so the reversal nets exactly the accrual it undoes.
+        var payable = string.IsNullOrWhiteSpace(supplierPayableAccount) ? Accounts.LiabilitySupplierPayable : supplierPayableAccount;
         var entry = NewEntry($"RMA {rmaId} restock — COGS reversal for order {orderId}", $"{rmaId}:{revision}", currency, now);
-        Debit(entry, Accounts.LiabilitySupplierPayable, costMinor);
+        Debit(entry, payable, costMinor);
         Credit(entry, cogs, costMinor);
         return entry;
     }

@@ -51,6 +51,25 @@ public class OrderCostLedgerTests
         AssertBalanced(entry);
     }
 
+    [Fact]
+    public void A_carrier_cost_credits_the_stores_own_carrier_payable_when_attributed()
+    {
+        // ledger_sf_3: both sides per-storefront — expense to the store's shipping-cost account, the
+        // accrued liability to the store's own liability.carrier_payable.store-{id}.
+        var storeId = Guid.CreateVersion7();
+        var packageId = Guid.CreateVersion7();
+        var orderId = Guid.CreateVersion7();
+        var storeExpense = Accounts.ShippingCostStoreFor(storeId);
+        var storePayable = Accounts.CarrierPayableStoreFor(storeId);
+
+        var entry = Ledger.CarrierCost(packageId, orderId, 800, "AUD", DateTimeOffset.UtcNow, storeExpense, storePayable);
+
+        Assert.Equal(800, Debits(entry, storeExpense));
+        Assert.Equal(800, Credits(entry, storePayable));
+        Assert.Equal(0, Credits(entry, Accounts.LiabilityCarrierPayable)); // shared payable untouched when attributed
+        AssertBalanced(entry);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-100)]
@@ -87,6 +106,24 @@ public class OrderCostLedgerTests
         Assert.Equal(12_000, Debits(entry, Accounts.CogsStoreFor(storeId)));
         Assert.Equal(0, Debits(entry, Accounts.ExpenseCostOfGoodsSold)); // shared fallback untouched when attributed
         Assert.Equal(12_000, Credits(entry, Accounts.LiabilitySupplierPayable));
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_cogs_accrual_credits_the_stores_own_supplier_payable_when_attributed()
+    {
+        // ledger_sf_3: the accrual's credit side (supplier payable) is per-storefront too, so a store's
+        // liabilities never mingle in the shared liability.supplier_payable.
+        var storeId = Guid.CreateVersion7();
+        var policy = Policy(commissionBps: 0);
+        var payable = SupplierPayable.Create(
+            policy.TenantId, policy.SupplierEntityId, Guid.CreateVersion7(), 12_000, "AUD", policy, DateTimeOffset.UtcNow);
+
+        var entry = payable.ToAccrualEntry(DateTimeOffset.UtcNow, Accounts.CogsStoreFor(storeId), Accounts.SupplierPayableStoreFor(storeId));
+
+        Assert.Equal(12_000, Debits(entry, Accounts.CogsStoreFor(storeId)));
+        Assert.Equal(12_000, Credits(entry, Accounts.SupplierPayableStoreFor(storeId)));
+        Assert.Equal(0, Credits(entry, Accounts.LiabilitySupplierPayable)); // shared payable untouched when attributed
         AssertBalanced(entry);
     }
 
@@ -142,6 +179,25 @@ public class OrderCostLedgerTests
         Assert.Equal(12_000, Debits(entry, Accounts.LiabilitySupplierPayable));
         Assert.Equal(12_000, Credits(entry, cogs));
         Assert.Equal(0, Credits(entry, Accounts.CostOfGoodsSold)); // shared fallback untouched when attributed
+        AssertBalanced(entry);
+    }
+
+    [Fact]
+    public void A_restock_reversal_debits_the_stores_own_supplier_payable_when_attributed()
+    {
+        // ledger_sf_3: the reversal undoes the accrual on the SAME per-store accounts it credited, so a
+        // restock nets the store's own COGS + supplier payable to zero, never the shared liability.
+        var storeId = Guid.CreateVersion7();
+        var rmaId = Guid.CreateVersion7();
+        var orderId = Guid.CreateVersion7();
+        var cogs = Accounts.CogsStoreFor(storeId);
+        var payable = Accounts.SupplierPayableStoreFor(storeId);
+
+        var entry = Ledger.CogsReversal(rmaId, revision: 1, orderId, 12_000, "AUD", DateTimeOffset.UtcNow, cogs, payable);
+
+        Assert.Equal(12_000, Debits(entry, payable));
+        Assert.Equal(12_000, Credits(entry, cogs));
+        Assert.Equal(0, Debits(entry, Accounts.LiabilitySupplierPayable)); // shared payable untouched when attributed
         AssertBalanced(entry);
     }
 

@@ -33,6 +33,7 @@ public sealed class ShippingLabelPurchasedConsumer(
 
         var payment = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
         var storeAccount = payment?.StorefrontId is { } sid ? Accounts.ShippingCostStoreFor(sid) : null;
+        var carrierPayableAccount = payment?.StorefrontId is { } psid ? Accounts.CarrierPayableStoreFor(psid) : null;
 
         // Post in the payment's settlement currency when known, NOT the carrier's cost currency
         // (msg.Currency is always AUD from the fake carrier) — otherwise a EUR/USD store's carrier
@@ -43,7 +44,7 @@ public sealed class ShippingLabelPurchasedConsumer(
         // explicitly out of scope (plan NOTES).
         var currency = payment?.Currency ?? msg.Currency;
 
-        db.JournalEntries.Add(Ledger.CarrierCost(msg.PackageId, msg.OrderId, msg.CostMinor, currency, time.GetUtcNow(), storeAccount));
+        db.JournalEntries.Add(Ledger.CarrierCost(msg.PackageId, msg.OrderId, msg.CostMinor, currency, time.GetUtcNow(), storeAccount, carrierPayableAccount));
         await db.SaveChangesAsync(context.CancellationToken);
     }
 }
