@@ -44,6 +44,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<RefundPostingConsumer>();
     bus.AddConsumer<SubscriptionRequestedConsumer>();
     bus.AddConsumer<UsageOverageChargeConsumer>();
+    bus.AddConsumer<UsageAutoLoadChargeConsumer>();
     bus.AddConsumer<StorefrontLedgerConfigConsumer>(); // projects storefront ledger account codes (phase 2)
     bus.AddConsumer<StorefrontDuplicatedConsumer>(); // clone per-storefront payment accounts on duplication (ADR-0042)
     bus.AddConsumer<ShippingLabelPurchasedConsumer>(); // carrier-cost accrual (phase 1)

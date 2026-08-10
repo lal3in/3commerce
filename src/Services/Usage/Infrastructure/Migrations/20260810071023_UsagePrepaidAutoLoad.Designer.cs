@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ThreeCommerce.Usage.Infrastructure;
@@ -11,9 +12,11 @@ using ThreeCommerce.Usage.Infrastructure;
 namespace ThreeCommerce.Usage.Infrastructure.Migrations
 {
     [DbContext(typeof(UsageDbContext))]
-    partial class UsageDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810071023_UsagePrepaidAutoLoad")]
+    partial class UsagePrepaidAutoLoad
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
