@@ -20,8 +20,17 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
             return existing; // idempotent per (order, product, variant)
         }
 
+        // Copy the instrument the order paid with so renewals can charge it off-session (a saved card or a
+        // direct-debit mandate's payment method). Absent (e.g. a legacy order) → renewal falls back to the
+        // host default account.
+        var instrument = await db.Payments.AsNoTracking()
+            .Where(p => p.OrderId == m.OrderId)
+            .Select(p => new { p.ProviderCustomerId, p.ProviderPaymentMethodId })
+            .FirstOrDefaultAsync(ct);
+
         var subscription = Subscription.Start(
-            m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow());
+            m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow(),
+            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId);
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
         return subscription;
@@ -40,12 +49,16 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
         var now = clock.GetUtcNow();
         try
         {
-            // Charge the renewal period via the rail (the mock returns an intent deterministically).
+            // Charge the renewal period via the rail (the mock returns an intent deterministically). When the
+            // subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so the
+            // renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment method
+            // is supplied (StripePaymentProvider sets OffSession/Confirm on a present ProviderPaymentMethodId).
             var account = modeResolver.DefaultAccountForHost();
             await registry.Resolve(account).AuthorizeAsync(
                 new PaymentRequest(
                     subscription.OrderId, subscription.PriceMinor, subscription.Currency,
-                    $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account),
+                    $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account,
+                    subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId),
                 ct);
             subscription.Renew(now);
             // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.

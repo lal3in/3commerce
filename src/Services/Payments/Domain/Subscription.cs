@@ -23,6 +23,15 @@ public sealed class Subscription
     public SubscriptionStatus Status { get; private set; } = SubscriptionStatus.Active;
     public DateTimeOffset CurrentPeriodStart { get; private set; }
     public DateTimeOffset CurrentPeriodEnd { get; private set; }
+
+    /// <summary>
+    /// The stored instrument to charge for renewals off-session (a saved card or a direct-debit mandate's
+    /// payment method), copied from the order's <see cref="Payment"/> at setup. When present, renewals charge
+    /// merchant-initiated (off-session) so they don't re-trigger SCA; when absent, the renewal falls back to
+    /// the host's default account (legacy behaviour).
+    /// </summary>
+    public string? ProviderCustomerId { get; private set; }
+    public string? ProviderPaymentMethodId { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -37,7 +46,8 @@ public sealed class Subscription
 
     public static Subscription Start(
         Guid tenantId, Guid orderId, string email, Guid productId, Guid? variantId,
-        BillingPeriod period, long priceMinor, string currency, DateTimeOffset now)
+        BillingPeriod period, long priceMinor, string currency, DateTimeOffset now,
+        string? providerCustomerId = null, string? providerPaymentMethodId = null)
     {
         if (period == BillingPeriod.Once)
         {
@@ -57,6 +67,8 @@ public sealed class Subscription
             Currency = currency.ToUpperInvariant(),
             CurrentPeriodStart = now,
             CurrentPeriodEnd = Advance(now, period),
+            ProviderCustomerId = providerCustomerId,
+            ProviderPaymentMethodId = providerPaymentMethodId,
             CreatedAt = now,
             UpdatedAt = now,
         };

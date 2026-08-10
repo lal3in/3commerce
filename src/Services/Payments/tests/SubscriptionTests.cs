@@ -26,6 +26,26 @@ public class SubscriptionTests
         Assert.Throws<SubscriptionRuleException>(() => Start(BillingPeriod.Once));
 
     [Fact]
+    public void Start_captures_the_renewal_instrument_for_off_session_charges()
+    {
+        var sub = Subscription.Start(
+            Guid.NewGuid(), Guid.NewGuid(), "buyer@example.com", Guid.NewGuid(), null,
+            BillingPeriod.Monthly, 1500, "EUR", Now, providerCustomerId: "cus_1", providerPaymentMethodId: "pm_1");
+
+        Assert.Equal("cus_1", sub.ProviderCustomerId);
+        Assert.Equal("pm_1", sub.ProviderPaymentMethodId);
+    }
+
+    [Fact]
+    public void Start_without_an_instrument_leaves_the_renewal_refs_null()
+    {
+        var sub = Start(BillingPeriod.Monthly);
+
+        Assert.Null(sub.ProviderCustomerId);
+        Assert.Null(sub.ProviderPaymentMethodId);
+    }
+
+    [Fact]
     public void Renew_advances_the_period()
     {
         var sub = Start(BillingPeriod.Monthly);
