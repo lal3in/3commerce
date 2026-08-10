@@ -93,4 +93,49 @@ public class UsageTests
         Assert.Equal(20, balance.UnbilledOverageQuantity);
         Assert.Equal(100, balance.UnbilledOverageChargeMinor);
     }
+
+    // ---- mt7_5: period close / roll ----
+
+    [Fact]
+    public void Is_due_for_close_once_the_window_end_has_passed()
+    {
+        var balance = Balance();
+        balance.Provision(100, true, 5, "AUD", periodEnd: Now.AddDays(30), Now);
+
+        Assert.False(balance.IsDueForClose(Now.AddDays(29)));
+        Assert.True(balance.IsDueForClose(Now.AddDays(30)));
+        Assert.True(balance.IsDueForClose(Now.AddDays(31)));
+    }
+
+    [Fact]
+    public void Rolling_a_bounded_period_resets_counters_and_advances_the_window_by_its_length()
+    {
+        var balance = Balance();
+        balance.Provision(100, true, 5, "AUD", periodEnd: Now.AddDays(30), Now);
+        balance.Add(130, Now);          // 30 over
+        balance.MarkOverageBilled(Now); // billed before rolling
+
+        balance.RollToNextPeriod(Now.AddDays(30));
+
+        Assert.Equal(0, balance.UsedQuantity);
+        Assert.Equal(0, balance.OverageQuantity);
+        Assert.Equal(0, balance.UnbilledOverageQuantity);
+        Assert.Equal(Now.AddDays(30), balance.PeriodStart);   // new window starts at the old end
+        Assert.Equal(Now.AddDays(60), balance.PeriodEnd);      // advanced by the 30-day length
+        Assert.Equal(100, balance.IncludedQuantity);           // allowance carries over
+    }
+
+    [Fact]
+    public void An_open_ended_balance_rolls_by_resetting_counters_only()
+    {
+        var balance = Balance();
+        balance.Provision(100, true, 5, "AUD", periodEnd: null, Now);
+        balance.Add(120, Now);
+
+        balance.RollToNextPeriod(Now.AddDays(1));
+
+        Assert.Equal(0, balance.UsedQuantity);
+        Assert.Null(balance.PeriodEnd);
+        Assert.Equal(Now.AddDays(1), balance.PeriodStart);
+    }
 }

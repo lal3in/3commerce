@@ -24,9 +24,12 @@ public sealed class UsageBalance
 
     /// <summary>How much overage has already been billed — so re-billing a period doesn't double-charge (mt7_5).</summary>
     public long BilledOverageQuantity { get; private set; }
-    public DateTimeOffset PeriodStart { get; init; }
+    public DateTimeOffset PeriodStart { get; private set; }
     public DateTimeOffset? PeriodEnd { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
+
+    /// <summary>A bounded period is due for close once its end has passed.</summary>
+    public bool IsDueForClose(DateTimeOffset now) => PeriodEnd is { } end && end <= now;
 
     public long RemainingQuantity => Math.Max(0, IncludedQuantity - UsedQuantity);
     public long OverageQuantity => Math.Max(0, UsedQuantity - IncludedQuantity);
@@ -70,6 +73,30 @@ public sealed class UsageBalance
     public void MarkOverageBilled(DateTimeOffset now)
     {
         BilledOverageQuantity = OverageQuantity;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Close the current billing period and roll to the next one: usage + billed-overage counters reset to
+    /// zero and the window advances by its own length (the append-only UsageRecords keep the full history —
+    /// only the rolling per-period counters reset). The caller must bill any unbilled overage BEFORE rolling,
+    /// or it is lost. An open-ended balance (no <see cref="PeriodEnd"/>) just resets its counters in place.
+    /// </summary>
+    public void RollToNextPeriod(DateTimeOffset now)
+    {
+        if (PeriodEnd is { } end)
+        {
+            var length = end - PeriodStart;
+            PeriodStart = end;
+            PeriodEnd = length > TimeSpan.Zero ? end + length : end;
+        }
+        else
+        {
+            PeriodStart = now;
+        }
+
+        UsedQuantity = 0;
+        BilledOverageQuantity = 0;
         UpdatedAt = now;
     }
 

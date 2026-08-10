@@ -65,17 +65,56 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
             return null;
         }
 
-        var chargeMinor = balance.UnbilledOverageChargeMinor;
-        if (chargeMinor > 0)
+        if (await BillUnbilledOverageAsync(balance, ct))
         {
-            await publisher.Publish(new UsageOverageCharge(
-                tenantId, balance.CustomerEmail, balance.Meter, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency,
-                $"overage-{balance.Id}-{balance.OverageQuantity}"), ct);
-            balance.MarkOverageBilled(clock.GetUtcNow());
             await db.SaveChangesAsync(ct);
         }
 
         return balance;
+    }
+
+    /// <summary>
+    /// Close every billing period whose window has ended (mt7_5 closing flow): bill any unbilled overage via
+    /// the rail, then roll the balance to the next period (counters reset, window advances). Idempotent — a
+    /// balance re-swept before new usage has nothing left to bill and simply keeps its rolled window.
+    /// Returns how many balances were closed. Auto-run on a cron; also callable by an operator.
+    /// </summary>
+    public async Task<int> CloseDuePeriodsAsync(CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var due = await db.UsageBalances
+            .Where(b => b.PeriodEnd != null && b.PeriodEnd <= now)
+            .ToListAsync(ct);
+
+        foreach (var balance in due)
+        {
+            await BillUnbilledOverageAsync(balance, ct); // bill BEFORE rolling, or the overage is lost
+            balance.RollToNextPeriod(now);
+        }
+
+        if (due.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        return due.Count;
+    }
+
+    /// <summary>Publishes the unbilled overage charge and marks it billed. Returns whether anything was billed.
+    /// The caller owns the SaveChanges so a sweep commits all rolled balances in one transaction.</summary>
+    private async Task<bool> BillUnbilledOverageAsync(UsageBalance balance, CancellationToken ct)
+    {
+        var chargeMinor = balance.UnbilledOverageChargeMinor;
+        if (chargeMinor <= 0)
+        {
+            return false;
+        }
+
+        await publisher.Publish(new UsageOverageCharge(
+            balance.TenantId, balance.CustomerEmail, balance.Meter, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency,
+            $"overage-{balance.Id}-{balance.OverageQuantity}"), ct);
+        balance.MarkOverageBilled(clock.GetUtcNow());
+        return true;
     }
 
     public Task<List<UsageBalance>> ListBalancesAsync(Guid tenantId, string? email, CancellationToken ct)

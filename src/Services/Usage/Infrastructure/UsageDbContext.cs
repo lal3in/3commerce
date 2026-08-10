@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.Usage.Domain;
 
 namespace ThreeCommerce.Usage.Infrastructure;
@@ -17,6 +18,7 @@ public sealed class UsageDbContext(DbContextOptions<UsageDbContext> options) : D
         modelBuilder.AddInboxStateEntity();
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
+        modelBuilder.ConfigureJobRuns(); // scheduled usage-period-close run history (mt6_3)
 
         modelBuilder.Entity<UsageBalance>(balance =>
         {
