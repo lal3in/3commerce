@@ -17,12 +17,17 @@ builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddDbContext<WorkflowDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
-builder.Services.AddServiceBus<WorkflowDbContext>(builder.Configuration, bus => bus.AddConsumer<JobRunRecordedConsumer>());
+builder.Services.AddServiceBus<WorkflowDbContext>(builder.Configuration, bus =>
+{
+    bus.AddConsumer<JobRunRecordedConsumer>();
+    bus.AddConsumer<ScheduledJobDescriptorConsumer>();
+});
 builder.Services.AddServiceHealth<WorkflowDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IJobRunStore, EfJobRunStore<WorkflowDbContext>>();
-builder.Services.AddScheduledJobs(builder.Configuration, _ => { });
+builder.Services.AddScoped<IScheduleOverrideStore, EfScheduleOverrideStore<WorkflowDbContext>>();
+builder.Services.AddScheduledJobs(builder.Configuration, "workflow", _ => { });
 
 var app = builder.Build();
 app.UseApiProblemDetails();
@@ -34,6 +39,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
 app.MapWorkflowRuns();
+app.MapWorkflowJobs();
 app.Run();
 
 public partial class Program;

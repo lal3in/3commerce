@@ -37,19 +37,39 @@ public static class SchedulingExtensions
         return modelBuilder;
     }
 
+    /// <summary>Map the per-service schedule-override table (Scheduled-Job Manager). Uses the default schema.</summary>
+    public static ModelBuilder ConfigureScheduleOverrides(this ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ScheduleOverride>(o =>
+        {
+            o.ToTable("ScheduleOverrides");
+            o.HasKey(x => x.JobName);
+            o.Property(x => x.JobName).HasMaxLength(128);
+            o.Property(x => x.Cron).HasMaxLength(128);
+        });
+
+        return modelBuilder;
+    }
+
     /// <summary>
     /// Wire Quartz-driven recurring jobs (mt6_3): each registered <see cref="IScheduledJob"/> gets a cron
     /// trigger, and every fire is recorded as a <see cref="JobRun"/> by the executor. Quartz resolves the
-    /// job in a per-execution DI scope, so jobs may use scoped services (DbContext etc.).
+    /// job in a per-execution DI scope, so jobs may use scoped services (DbContext etc.). <paramref name="serviceName"/>
+    /// is the owning service key stamped on run/descriptor events so the manager can route control here.
     /// </summary>
-    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, Action<ScheduledJobs> configure) =>
-        services.AddScheduledJobs(null, configure);
+    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, string serviceName, Action<ScheduledJobs> configure) =>
+        services.AddScheduledJobs(null, serviceName, configure);
 
-    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, IConfiguration? configuration, Action<ScheduledJobs> configure)
+    public static IServiceCollection AddScheduledJobs(this IServiceCollection services, IConfiguration? configuration, string serviceName, Action<ScheduledJobs> configure)
     {
         var registrar = new ScheduledJobs(services);
         configure(registrar);
         services.AddScoped<JobExecutor>();
+        services.AddSingleton(new SchedulerIdentity(serviceName));
+        services.AddSingleton(new RegisteredScheduledJobs { Jobs = registrar.Registered.Select(r => (r.Name, r.Cron)).ToList() });
+        services.AddScoped<JobControlService>();
+        // Applies persisted overrides + publishes the initial descriptors once the app (and Quartz) start.
+        services.AddHostedService<ScheduledJobRegistrar>();
 
         var options = configuration?.GetSection(QuartzSchedulerOptions.SectionName).Get<QuartzSchedulerOptions>() ?? new QuartzSchedulerOptions();
         services.Configure<QuartzSchedulerOptions>(configuration?.GetSection(QuartzSchedulerOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(QuartzSchedulerOptions.SectionName));

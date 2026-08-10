@@ -28,9 +28,10 @@ builder.Services.AddScoped<UsageService>();
 // Scheduling:Enabled (default on) so integration tests — which boot many hosts in one process — can leave
 // Quartz's process-global scheduler off.
 builder.Services.AddScoped<IJobRunStore, EfJobRunStore<UsageDbContext>>();
+builder.Services.AddScoped<IScheduleOverrideStore, EfScheduleOverrideStore<UsageDbContext>>();
 if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 {
-    builder.Services.AddScheduledJobs(builder.Configuration, jobs => jobs.Add<UsagePeriodCloseScheduledJob>("usage-period-close", "0 0 * * * ?"));
+    builder.Services.AddScheduledJobs(builder.Configuration, "usage", jobs => jobs.Add<UsagePeriodCloseScheduledJob>("usage-period-close", "0 0 * * * ?"));
 }
 
 var app = builder.Build();
@@ -42,6 +43,10 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
+if (app.Configuration.GetValue("Scheduling:Enabled", true))
+{
+    app.MapJobControl(); // JobControlService is only registered when the scheduler is enabled
+}
 app.MapUsage();
 app.Run();
 

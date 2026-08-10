@@ -35,6 +35,7 @@ public sealed class MarketingDbContext(DbContextOptions<MarketingDbContext> opti
 
         // Publishing persistence (def_5): aggregate scalars + append-only version rows; JobRuns for the sweep.
         modelBuilder.ConfigureJobRuns();
+        modelBuilder.ConfigureScheduleOverrides();
         modelBuilder.Entity<ContentRecord>(content =>
         {
             content.ToTable("Contents");

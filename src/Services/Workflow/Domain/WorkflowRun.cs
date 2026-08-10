@@ -8,6 +8,9 @@ public sealed class WorkflowRun
 {
     public Guid Id { get; init; }
     public required string JobName { get; init; }
+
+    /// <summary>The owning service key (e.g. "payments"), stamped by the publishing JobExecutor.</summary>
+    public string? Service { get; set; }
     public required string Status { get; set; }
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset? CompletedAt { get; set; }

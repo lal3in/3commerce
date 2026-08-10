@@ -37,6 +37,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ConfigureJobRuns();
+        modelBuilder.ConfigureScheduleOverrides();
 
         modelBuilder.Entity<Subscription>(subscription =>
         {

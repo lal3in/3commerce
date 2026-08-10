@@ -13,10 +13,11 @@ public sealed class JobRunRecordedConsumer(WorkflowDbContext db) : IConsumer<Job
         var run = await db.Runs.FindAsync([m.Id], context.CancellationToken);
         if (run is null)
         {
-            db.Runs.Add(new WorkflowRun { Id = m.Id, JobName = m.JobName, Status = m.Status, StartedAt = m.StartedAt, CompletedAt = m.CompletedAt, Error = m.Error });
+            db.Runs.Add(new WorkflowRun { Id = m.Id, JobName = m.JobName, Service = m.Service, Status = m.Status, StartedAt = m.StartedAt, CompletedAt = m.CompletedAt, Error = m.Error });
         }
         else
         {
+            run.Service = m.Service ?? run.Service;
             run.Status = m.Status;
             run.CompletedAt = m.CompletedAt;
             run.Error = m.Error;

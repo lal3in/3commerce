@@ -63,9 +63,10 @@ builder.Services.AddScoped<SubscriptionService>();
 // The scheduler is gated by Scheduling:Enabled (default on) so integration tests — which boot many
 // hosts in one process — can leave it off and avoid Quartz's process-global scheduler/logging state.
 builder.Services.AddScoped<IJobRunStore, EfJobRunStore<PaymentsDbContext>>();
+builder.Services.AddScoped<IScheduleOverrideStore, EfScheduleOverrideStore<PaymentsDbContext>>();
 if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 {
-    builder.Services.AddScheduledJobs(jobs => jobs.Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?"));
+    builder.Services.AddScheduledJobs(builder.Configuration, "payments", jobs => jobs.Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?"));
 }
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
@@ -122,6 +123,10 @@ app.MapCustomerPaymentMethods();
 app.MapMandates();
 app.MapSubscriptions();
 app.MapJobRuns();
+if (app.Configuration.GetValue("Scheduling:Enabled", true))
+{
+    app.MapJobControl(); // JobControlService is only registered when the scheduler is enabled
+}
 
 await ChartOfAccountsSeeder.SeedAsync(app);
 
