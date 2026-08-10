@@ -194,6 +194,15 @@ authorize. Which rail runs depends on the resolved **payment mode** (ADR-0039):
 in dev, `Payments:Mode=LocalMock` routes authorization to a deterministic mock
 provider (no external calls) — payment is completed on the confirmation page.
 
+**Subscriptions need a verified member.** A one-time cart checks out as a guest
+(above). A cart containing a **recurring** line (a subscription/periodic product)
+cannot: checkout rejects it with a clear message unless the shopper is a
+**signed-in, email-verified member** who has selected a **reusable instrument** —
+a saved card or a direct-debit mandate — so renewals can charge off-session. Guests
+see "Sign in as a member to purchase a subscription"; unverified accounts see
+"Verify your email…". Direct-debit mandates are set up per storefront currency
+(USD→ACH, EUR→SEPA, GBP→BACS, AUD→BECS, CAD→ACSS); other currencies are card-only.
+
 ---
 
 ## 6. Confirmation — `/checkout/confirmation`

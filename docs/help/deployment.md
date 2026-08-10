@@ -223,6 +223,7 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | `Payments:DefaultProvider` | Payments | `stripe` | Provider used when an account doesn't name one (`mock`/`stripe`/`polar`/`paypal`/`afterpay`). |
 | `Payments:AllowMockEmail` / `Payments:MockEmailTo` | Payments + Notifications worker | `true` / `dev-payments@localhost` (Development only) | TEST-ONLY mock-payment payload email; refused at boot outside Development. |
 | `Stripe:SecretKey` (+ `Polar:*`, `PayPal:*`, `Afterpay:*`) | Payments provider adapters | _unset_ | Env-injected per deploy; test/live key prefix is asserted against the mode (`docs/ops/secrets.md`). |
+| `Payments:WebhookBaseUrl` | Payments | `http://localhost:8080` | Public base URL used when a payment account is activated: the provider webhook endpoint is (re)registered at `{base}/webhooks/{provider}` and its signing secret rotated in. Set to the real public gateway URL per environment. |
 | `Mfa:PlatformMinimum` | Identity | `0` (none) | Platform-wide MFA floor for operator accounts. |
 | `Publishing:PreviewSecret` | Marketing | `dev-preview-secret` (code fallback) | Signs publishing preview links — rotate outside dev. |
 | `Scheduling:Enabled` | Payments, Marketing | `true` | Quartz schedulers (daily Xero journal; scheduled-publish sweep). Integration tests turn it off. |

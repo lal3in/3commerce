@@ -68,7 +68,12 @@ antiforgery → authentication → authorization**.
   tooltip while the account is Active, so suspend first) and **Make default** (sets
   the tenant's default account and clears every sibling in one tenant-scoped
   transaction; exactly one default, shown by the ★ column; an Archived account cannot
-  become default).
+  become default). **Activating** an account also (re)registers the provider's webhook
+  endpoint at `{Payments:WebhookBaseUrl}/webhooks/{provider}` and rotates the new
+  signing secret in (additive — prior secrets stay valid during cutover, so no
+  in-flight webhook is dropped); **suspending** disables that endpoint. This keeps
+  notifications flowing even though a profile's webhook URL changes across the
+  activate/suspend cycle.
 - **Supplier payouts** (`/supplier-payouts`, `Components/Pages/SupplierPayouts.razor`) —
   tokenized/masked supplier bank-account setup and active payout instructions. A
   **supplier dropdown** (loaded from `/api/entity/entities`, filtered to Active
@@ -300,11 +305,15 @@ aren't comparable without an FX feed; ADR-0040/0041).
   only when a single store in that currency accrued it; they diverge legitimately with multiple
   stores per currency or cross-currency relabels.
 
-**Chargebacks / disputes.** A chargeback (simulated in dev via
-`POST /api/payments/dev/simulate-chargeback/{intentId}`) reverses the sale through the store's own
-accounts and books the provider's dispute fee to `expense.{provider}_chargeback_fees`; the payment
-moves to **Disputed** and the order shows a red **Disputed** badge on `/orders` and in the shopper's
-order history.
+**Chargebacks / disputes.** Payments tracks the **full dispute lifecycle** from the provider's
+`charge.dispute.*` webhooks (Stripe/Polar): when funds are withdrawn the sale is reversed through the
+store's own accounts and the provider's dispute fee is booked to `expense.{provider}_chargeback_fees`;
+the payment moves to **Disputed** with a **dispute sub-status** field (created / under-review / funds
+withdrawn / funds reinstated / won / lost) surfaced alongside it. If the dispute is **won** (funds
+reinstated) the reversal is itself reversed and the payment returns to **Succeeded**; if it is **lost**
+the payment becomes **Chargeback**, a **void payment record** is created, and the order keeps its red
+**Disputed** badge on `/orders` and in the shopper's order history. Simulate the stages in dev via
+`POST /api/payments/dev/simulate-chargeback/{intentId}?outcome=open|won|reinstated|lost`.
 
 **Cost assumptions.** On `/commerce-ops`, open a storefront's **Manage** form to set five basis-point
 overhead rates (packaging, labour, marketing, insurance, buffer). They only feed the estimated-margin
