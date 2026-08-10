@@ -9,7 +9,9 @@ auto-renew), and **Usage** (prepaid auto-load). Money/auth-sensitive — preserv
 ## Decisions (from planning Q&A)
 - **Job manager = FULL CONTROL** (view + run-now + pause/resume + edit schedule/cron), **surfaced by extending
   Mission Control** (not a new page).
-- **Subscription auto-renew = PER-TENANT daily time** (default `12:00:00` server time, per-tenant override).
+- **Subscription auto-renew = PER-STOREFRONT daily time** (default `12:00:00` server time, per-storefront
+  override). Consistent with payment accounts being per-storefront (ADR-0043) and orders belonging to a
+  storefront. The `Subscription` gains a `StorefrontId` copied from the order's `Payment` at setup.
 - **Usage auto-load = EVENT-DRIVEN + DAILY SAFETY NET** (top up the moment usage crosses the customer's
   threshold; a daily sweep catches any missed/failed top-ups).
 
@@ -101,18 +103,22 @@ Goal: one Mission Control surface listing every job across services with Run-now
 7. **Tests**: control endpoints (run/pause/resume/reschedule change Quartz state + persist override);
    descriptor projection into the registry; cron validation rejects bad expressions; a paused job doesn't fire.
 
-### Phase 2 — Subscription auto-renew on a per-tenant daily timer
+### Phase 2 — Subscription auto-renew on a per-storefront daily timer
 
-8. **Per-tenant schedule**: `TenantBillingSchedule { TenantId, DailyRunTime TimeOnly = 12:00:00, Enabled = true,
-   LastRunOn DateOnly? }` in Payments + admin GET/PUT endpoint. Default 12:00:00 server time.
-9. **`SubscriptionAutoRenewJob`** (`IScheduledJob`, fine cadence e.g. `0 0/15 * * * ?`): for each tenant whose
-   `DailyRunTime` has arrived today and `LastRunOn < today`, renew every `Active`/`Trialing` subscription with
-   `CurrentPeriodEnd <= now` via off-session `RenewAsync` (#206); set `LastRunOn = today`. Idempotent — a
-   second tick the same day is a no-op; a subscription already advanced is skipped. Failures dun to `PastDue`
-   (existing). Records a `JobRun` and appears in the manager.
-10. **Migration** `TenantBillingSchedule` (+ `dotnet format`).
-11. **Tests**: a due subscription is renewed once at/after the tenant's time; not renewed before it or twice
-    the same day; a tenant with `Enabled=false` is skipped; disparate per-tenant times each fire independently.
+8. **Subscription carries its storefront**: add `StorefrontId` to the `Subscription` aggregate, copied from
+   the order's `Payment` (which already has `StorefrontId`) at `StartAsync` — same pattern as the instrument
+   (#206). Legacy subscriptions with no storefront fall under a null-storefront default schedule.
+9. **Per-storefront schedule**: `StorefrontBillingSchedule { StorefrontId, DailyRunTime TimeOnly = 12:00:00,
+   Enabled = true, LastRunOn DateOnly? }` in Payments + admin GET/PUT endpoint. Default 12:00:00 server time.
+10. **`SubscriptionAutoRenewJob`** (`IScheduledJob`, fine cadence e.g. `0 0/15 * * * ?`): for each storefront
+    whose `DailyRunTime` has arrived today and `LastRunOn < today`, renew every `Active`/`Trialing`
+    subscription in that storefront with `CurrentPeriodEnd <= now` via off-session `RenewAsync` (#206); set
+    `LastRunOn = today`. Idempotent — a second tick the same day is a no-op; an already-advanced subscription
+    is skipped. Failures dun to `PastDue` (existing). Records a `JobRun` and appears in the manager.
+11. **Migration** `StorefrontBillingSchedule` + `SubscriptionStorefront` (+ `dotnet format`).
+12. **Tests**: a due subscription is renewed once at/after the storefront's time; not before it or twice the
+    same day; a storefront with `Enabled=false` is skipped; disparate per-storefront times each fire
+    independently; the subscription carries the order's `StorefrontId`.
 
 ### Phase 3 — Usage prepaid auto-load (event-driven + daily safety net)
 

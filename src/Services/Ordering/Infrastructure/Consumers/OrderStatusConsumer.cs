@@ -140,7 +140,8 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
         foreach (var line in order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once))
         {
             await context.Publish(new SubscriptionRequested(
-                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency));
+                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency,
+                order.StorefrontId));
         }
     }
 

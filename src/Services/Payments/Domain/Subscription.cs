@@ -13,6 +13,10 @@ public sealed class Subscription
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
+
+    /// <summary>The storefront this subscription belongs to (copied from the order at setup). Drives the
+    /// per-storefront auto-renew schedule. Null for legacy subscriptions created before storefront threading.</summary>
+    public Guid? StorefrontId { get; init; }
     public Guid OrderId { get; init; }
     public required string CustomerEmail { get; init; }
     public Guid ProductId { get; init; }
@@ -47,7 +51,7 @@ public sealed class Subscription
     public static Subscription Start(
         Guid tenantId, Guid orderId, string email, Guid productId, Guid? variantId,
         BillingPeriod period, long priceMinor, string currency, DateTimeOffset now,
-        string? providerCustomerId = null, string? providerPaymentMethodId = null)
+        string? providerCustomerId = null, string? providerPaymentMethodId = null, Guid? storefrontId = null)
     {
         if (period == BillingPeriod.Once)
         {
@@ -58,6 +62,7 @@ public sealed class Subscription
         {
             Id = Guid.CreateVersion7(),
             TenantId = tenantId,
+            StorefrontId = storefrontId,
             OrderId = orderId,
             CustomerEmail = email.Trim().ToLowerInvariant(),
             ProductId = productId,

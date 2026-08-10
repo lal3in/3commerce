@@ -9,4 +9,4 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// </summary>
 public record SubscriptionRequested(
     Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId,
-    BillingPeriod BillingPeriod, long PriceMinor, string Currency);
+    BillingPeriod BillingPeriod, long PriceMinor, string Currency, Guid? StorefrontId = null);
