@@ -30,10 +30,12 @@ public static class PaymentAccountAdminEndpoints
         group.MapGet("/{id:guid}/readiness", Readiness);
         group.MapPost("/{id:guid}/submit", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
             Transition(id, "submit", db, publisher, audit, user, a => a.SubmitForApproval(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "activate", db, publisher, audit, user, a => a.Activate(DateTimeOffset.UtcNow), ct));
-        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
-            Transition(id, "suspend", db, publisher, audit, user, a => a.Suspend(DateTimeOffset.UtcNow), ct));
+        group.MapPost("/{id:guid}/activate", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, WebhookRegistrationService webhooks, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "activate", db, publisher, audit, user, a => a.Activate(DateTimeOffset.UtcNow), ct,
+                postAction: webhooks.SyncOnActivateAsync));
+        group.MapPost("/{id:guid}/suspend", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, WebhookRegistrationService webhooks, ClaimsPrincipal user, CancellationToken ct) =>
+            Transition(id, "suspend", db, publisher, audit, user, a => a.Suspend(DateTimeOffset.UtcNow), ct,
+                postAction: webhooks.DisableOnSuspendAsync));
         group.MapPost("/{id:guid}/archive", (Guid id, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct) =>
             Transition(id, "archive", db, publisher, audit, user, a => a.Archive(DateTimeOffset.UtcNow), ct));
         return app;
@@ -139,7 +141,7 @@ public static class PaymentAccountAdminEndpoints
 
     private static async Task<Results<Ok<PaymentAccountDto>, NotFound, Conflict<string>>> Transition(
         Guid id, string transition, PaymentsDbContext db, IPublishEndpoint publisher, IAuditRecorder audit, ClaimsPrincipal user,
-        Action<PaymentAccount> action, CancellationToken ct)
+        Action<PaymentAccount> action, CancellationToken ct, Func<PaymentAccount, CancellationToken, Task>? postAction = null)
     {
         var account = await db.PaymentAccounts.SingleOrDefaultAsync(a => a.Id == id, ct);
         if (account is null)
@@ -154,6 +156,13 @@ public static class PaymentAccountAdminEndpoints
         catch (PaymentAccountRuleException ex)
         {
             return TypedResults.Conflict(ex.Message);
+        }
+
+        // Post-transition side effect (e.g. webhook endpoint re-sync on activate/suspend). Runs after the
+        // state change so it sees the new state, and before the final commit so it persists atomically.
+        if (postAction is not null)
+        {
+            await postAction(account, ct);
         }
 
         await audit.RecordAsync(user.Mutation(

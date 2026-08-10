@@ -11,7 +11,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
 /// The secret key is read lazily (on first API call, not construction) so the adapter can live in
 /// DI alongside the mock adapter without a key present in LocalMock/dev.
 /// </summary>
-public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvider
+public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvider, IWebhookRegistrationProvider
 {
     private readonly IConfiguration _configuration;
     private readonly PaymentIntentService _intents = new();
@@ -19,6 +19,16 @@ public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvid
     private readonly CustomerService _customers = new();
     private readonly SetupIntentService _setupIntents = new();
     private readonly PaymentMethodService _paymentMethods = new();
+    private readonly WebhookEndpointService _webhookEndpoints = new();
+
+    // The full payment/dispute event set the processor understands (Phase 1). Registering the endpoint with
+    // exactly these keeps the provider from sending — and us from being billed for parsing — anything else.
+    private static readonly List<string> SubscribedEvents =
+    [
+        "payment_intent.succeeded", "payment_intent.payment_failed", "payment_intent.canceled",
+        "charge.dispute.created", "charge.dispute.updated", "charge.dispute.funds_withdrawn",
+        "charge.dispute.funds_reinstated", "charge.dispute.closed",
+    ];
 
     public StripePaymentProvider(IConfiguration configuration) => _configuration = configuration;
 
@@ -103,6 +113,34 @@ public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvid
             },
             cancellationToken: ct);
         return new MandateSetupResult(intent.Id, intent.ClientSecret);
+    }
+
+    public async Task<WebhookRegistrationResult> RegisterWebhookAsync(string url, CancellationToken ct)
+    {
+        EnsureApiKey();
+        var endpoint = await _webhookEndpoints.CreateAsync(
+            new WebhookEndpointCreateOptions
+            {
+                Url = url,
+                EnabledEvents = SubscribedEvents,
+                Description = "3commerce payments webhook",
+            },
+            cancellationToken: ct);
+        // Secret is only returned on create — the caller stores it (rotation-safe: old secrets stay valid).
+        return new WebhookRegistrationResult(endpoint.Id, endpoint.Secret);
+    }
+
+    public async Task DisableWebhookAsync(string endpointId, CancellationToken ct)
+    {
+        EnsureApiKey();
+        try
+        {
+            await _webhookEndpoints.DeleteAsync(endpointId, cancellationToken: ct);
+        }
+        catch (StripeException)
+        {
+            // Best-effort: an already-deleted/unknown endpoint is not an error for our purposes.
+        }
     }
 
     public async Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct)

@@ -33,6 +33,28 @@ public class PaymentAccount
     public DateTimeOffset? ActivatedAt { get; private set; }
 
     /// <summary>
+    /// The provider-side webhook endpoint registered for this account and its URL. Set when the account is
+    /// activated (the provider endpoint is (re)registered and its signing secret rotated in) and cleared on
+    /// suspend — so activating/deactivating a profile never silently drops webhook notifications (pay_disp_4).
+    /// </summary>
+    public string? WebhookEndpointId { get; private set; }
+    public string? WebhookUrl { get; private set; }
+
+    public void RecordWebhookRegistration(string endpointId, string url, DateTimeOffset now)
+    {
+        WebhookEndpointId = endpointId;
+        WebhookUrl = url;
+        UpdatedAt = now;
+    }
+
+    public void ClearWebhookRegistration(DateTimeOffset now)
+    {
+        WebhookEndpointId = null;
+        WebhookUrl = null;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
     /// Creates a Draft payment account. The mutable descriptor fields have private setters so the only
     /// ways to change them post-creation are the domain methods below (edit, make-default, lifecycle).
     /// </summary>
@@ -213,6 +235,11 @@ public class PaymentAccount
 
         return new PaymentAccountSnapshot(Id, TenantId, StorefrontId, Provider, Mode, ExternalAccountRef);
     }
+
+    /// <summary>An unguarded snapshot for provider resolution outside checkout (e.g. webhook endpoint sync
+    /// on activate/suspend, where the account is not necessarily in the Active state).</summary>
+    public PaymentAccountSnapshot ToSnapshot() =>
+        new(Id, TenantId, StorefrontId, Provider, Mode, ExternalAccountRef);
 
     private void EnsureState(params PaymentAccountState[] allowed)
     {

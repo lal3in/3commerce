@@ -56,6 +56,7 @@ builder.Services.AddAuditRecorder("payments");
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<PaymentEventProcessor>();
 builder.Services.AddScoped<WebhookSecretService>();
+builder.Services.AddScoped<WebhookRegistrationService>();
 builder.Services.AddScoped<SubscriptionService>();
 
 // Scheduled jobs (mt6_3): Quartz fires the daily Xero journal post; each run is recorded as a JobRun.

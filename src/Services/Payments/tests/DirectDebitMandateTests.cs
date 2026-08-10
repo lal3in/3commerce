@@ -84,6 +84,19 @@ public class DirectDebitMandateTests
         Assert.NotNull(confirmation.ProviderPaymentMethodId);
     }
 
+    [Fact]
+    public async Task The_mock_provider_registers_a_webhook_endpoint_and_secret()
+    {
+        IWebhookRegistrationProvider provider = new FakePaymentProvider();
+
+        var registration = await provider.RegisterWebhookAsync("http://localhost:8080/webhooks/mock", CancellationToken.None);
+
+        Assert.StartsWith("we_fake_", registration.EndpointId);
+        Assert.StartsWith("whsec_fake_", registration.SigningSecret);
+        // Disable is a best-effort no-op for the mock — must not throw.
+        await provider.DisableWebhookAsync(registration.EndpointId, CancellationToken.None);
+    }
+
     private static Mandate Start() => Mandate.Start(
         Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), "mock",
         DirectDebitScheme.Sepa, "EUR", "seti_dd_sepa_1", DateTimeOffset.UtcNow);
