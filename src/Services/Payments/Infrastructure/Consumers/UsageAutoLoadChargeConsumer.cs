@@ -1,22 +1,39 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
-/// <summary>Charges a prepaid usage auto-load top-up via the rail (jobmgr_3), mirroring the arrears
-/// <see cref="UsageOverageChargeConsumer"/>. Idempotent by Reference (the intent key).</summary>
+/// <summary>Charges a prepaid usage auto-load top-up via the rail (jobmgr_3) and, on a settled charge,
+/// records the revenue in the ledger attributed to the balance's storefront
+/// (pay_usage_charges_post_revenue), mirroring the arrears <see cref="UsageOverageChargeConsumer"/>.
+/// Idempotent by Reference (the intent key).</summary>
 public sealed class UsageAutoLoadChargeConsumer(
     IPaymentProviderRegistry registry,
-    PaymentModeResolver modeResolver) : IConsumer<UsageAutoLoadCharge>
+    PaymentModeResolver modeResolver,
+    PaymentsDbContext db,
+    TimeProvider time) : IConsumer<UsageAutoLoadCharge>
 {
-    public Task Consume(ConsumeContext<UsageAutoLoadCharge> context)
+    public async Task Consume(ConsumeContext<UsageAutoLoadCharge> context)
     {
         var m = context.Message;
+        if (await db.JournalEntries.AnyAsync(e => e.Reference == m.Reference, context.CancellationToken))
+        {
+            return; // already charged + posted for this top-up
+        }
+
         var account = modeResolver.DefaultAccountForHost();
-        return registry.Resolve(account).AuthorizeAsync(
+        var response = await registry.Resolve(account).AuthorizeAsync(
             new PaymentRequest(Guid.Empty, m.ChargeMinor, m.Currency, m.Reference, PaymentMethodKind.Card, account),
             context.CancellationToken);
+        if (response.Outcome != PaymentOutcome.Succeeded)
+        {
+            return;
+        }
+
+        await UsageRevenuePoster.PostAsync(db, time, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
+            $"Usage auto-load — {m.Meter} × {m.ReloadQuantity}", context.CancellationToken);
     }
 }

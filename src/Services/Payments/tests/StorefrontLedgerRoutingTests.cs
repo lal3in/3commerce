@@ -64,6 +64,23 @@ public class StorefrontLedgerRoutingTests
     }
 
     [Fact]
+    public void A_sale_honours_a_custom_reference_and_description_for_non_order_revenue()
+    {
+        // pay_*_posts_revenue: a subscription renewal / usage charge posts a Sale under its OWN reference
+        // + description, so it never collides with the order's sale entry (whose reference is the order id).
+        var orderId = Guid.CreateVersion7();
+        var entry = Ledger.Sale(orderId, 1500, 0, 0, "EUR", DateTimeOffset.UtcNow,
+            PaymentMethodKind.Card, Prov, Rev, Tax, Recv, storefrontId: Sid,
+            reference: "renew-abc-2", description: "Subscription renewal abc period 2");
+
+        Assert.Equal("renew-abc-2", entry.Reference);
+        Assert.NotEqual(orderId.ToString(), entry.Reference);
+        Assert.Equal("Subscription renewal abc period 2", entry.Description);
+        Assert.Equal(1500, Credits(entry, Rev)); // still routes to the store's own revenue
+        AssertBalanced(entry);
+    }
+
+    [Fact]
     public void A_storefront_sale_posts_no_line_to_a_shared_account()
     {
         var entry = Ledger.Sale(Guid.CreateVersion7(), 10000, 900, 300, "AUD", DateTimeOffset.UtcNow,

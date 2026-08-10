@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -49,6 +50,45 @@ public class SubscriptionAutoRenewTests(Phase4Fixture fixture)
     {
         using var scope = fixture.Payments.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<SubscriptionService>().AutoRenewDueAsync(default);
+    }
+
+    private async Task SeedLedgerAccountsAsync(Guid storefront)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        db.StorefrontLedgerAccounts.Add(new StorefrontLedgerAccounts
+        {
+            StorefrontId = storefront,
+            RevenueAccountCode = $"revenue.store-{storefront:N}",
+            TaxAccountCode = $"tax.store-{storefront:N}",
+            ReceivableAccountCode = $"receivable.store-{storefront:N}",
+            ShippingAccountCode = $"shipping.store-{storefront:N}",
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Sweep_posts_renewal_revenue_to_the_storefronts_own_ledger_accounts()
+    {
+        var tenant = Guid.NewGuid();
+        var store = Guid.NewGuid();
+        await SeedLedgerAccountsAsync(store);
+        var subId = await SeedDueSubscriptionAsync(tenant, store); // price 1500 EUR
+        await SeedScheduleAsync(store, enabled: true);
+
+        Assert.Equal(1, await SweepAsync());
+
+        using var scope = fixture.Payments.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        // The renewal booked its own entry (reference renew-{id}-{sequence}), distinct from any order sale.
+        var entry = await db.JournalEntries.Include(e => e.Lines).SingleAsync(e => e.Reference == $"renew-{subId}-2");
+        var revenue = entry.Lines.Where(l => l.AccountCode == $"revenue.store-{store:N}").Sum(l => l.CreditMinor);
+        var cash = entry.Lines.Where(l => l.AccountCode == Accounts.CashStoreFor(store, "stripe")).Sum(l => l.DebitMinor);
+        Assert.Equal(1500, revenue); // revenue recorded to the store's own account (was: nothing posted)
+        Assert.Equal(1500, cash);    // settled into the store's own cash account
+        Assert.DoesNotContain(entry.Lines, l => Accounts.IsSharedCode(l.AccountCode)); // no shared/default line
+        Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor)); // balanced
     }
 
     [Fact]
