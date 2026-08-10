@@ -80,6 +80,28 @@ public static class Accounts
     /// shared <see cref="ExpenseWriteoffs"/>.
     /// </summary>
     public static string WriteoffsStoreFor(Guid sid) => $"expense.writeoffs.store-{sid:N}";
+
+    // ---- Full per-storefront chart (ledger_sf): the remaining account roles, so EVERY movement can be
+    // attributed to a storefront with no shared/default fallback. Cash + fees are per (store, provider)
+    // because a storefront settles through its own payment accounts (ADR-0043); the others are per store.
+
+    /// <summary>Per-storefront cash for a settling provider: <c>cash.store-{id:N}.{provider}</c>.</summary>
+    public static string CashStoreFor(Guid sid, string? provider) => $"cash.store-{sid:N}.{LedgerProviders.Normalize(provider)}";
+
+    /// <summary>Per-storefront processing-fee expense for a provider: <c>expense.store-{id:N}.{provider}_fees</c>.</summary>
+    public static string FeesStoreFor(Guid sid, string? provider) => $"expense.store-{sid:N}.{LedgerProviders.Normalize(provider)}_fees";
+
+    /// <summary>Per-storefront chargeback-fee expense for a provider: <c>expense.store-{id:N}.{provider}_chargeback_fees</c>.</summary>
+    public static string ChargebackFeesStoreFor(Guid sid, string? provider) => $"expense.store-{sid:N}.{LedgerProviders.Normalize(provider)}_chargeback_fees";
+
+    /// <summary>Per-storefront contra-revenue for refunds/chargeback reversals: <c>revenue.refunds.store-{id:N}</c>.</summary>
+    public static string RefundsStoreFor(Guid sid) => $"revenue.refunds.store-{sid:N}";
+
+    /// <summary>Per-storefront supplier payable (COGS accrual credit): <c>liability.supplier_payable.store-{id:N}</c>.</summary>
+    public static string SupplierPayableStoreFor(Guid sid) => $"liability.supplier_payable.store-{sid:N}";
+
+    /// <summary>Per-storefront carrier payable (label-cost accrual credit): <c>liability.carrier_payable.store-{id:N}</c>.</summary>
+    public static string CarrierPayableStoreFor(Guid sid) => $"liability.carrier_payable.store-{sid:N}";
 }
 
 /// <summary>
