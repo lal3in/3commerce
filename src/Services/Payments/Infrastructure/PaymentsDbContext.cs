@@ -44,6 +44,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             subscription.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
             subscription.Property(x => x.Currency).HasMaxLength(3);
             subscription.Property(x => x.CustomerEmail).HasMaxLength(256);
+            subscription.Property(x => x.ProviderCustomerId).HasMaxLength(255);
+            subscription.Property(x => x.ProviderPaymentMethodId).HasMaxLength(255);
             subscription.HasIndex(x => new { x.OrderId, x.ProductId, x.VariantId }).IsUnique();
             subscription.HasIndex(x => new { x.TenantId, x.CustomerEmail });
             // Renewal history hangs off the aggregate's backing field, saved in the same unit of work.

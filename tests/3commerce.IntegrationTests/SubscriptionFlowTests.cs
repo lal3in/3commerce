@@ -85,4 +85,55 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         var afterCancel = await GetAsync(tenant, subscription.Id);
         Assert.Equal(2, afterCancel!.Renewals.Count);
     }
+
+    [Fact]
+    public async Task Setup_copies_the_orders_instrument_and_renewal_charges_it_off_session()
+    {
+        var tenant = Guid.NewGuid();
+        var product = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+
+        // The order paid with a stored instrument — the Payment row carries the provider refs.
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            db.Payments.Add(new Payment
+            {
+                Id = Guid.CreateVersion7(),
+                OrderId = orderId,
+                PaymentIntentId = $"pi_seed_{orderId:N}",
+                AmountMinor = 1500,
+                Currency = "EUR",
+                Status = PaymentStatus.Succeeded,
+                ProviderCustomerId = "cus_sub_1",
+                ProviderPaymentMethodId = "pm_sub_1",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await fixture.PublishAsync(new SubscriptionRequested(
+            tenant, orderId, "buyer@example.com", product, null, BillingPeriod.Monthly, 1500, "EUR"));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        Subscription? subscription = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            subscription = (await ListAsync(tenant)).SingleOrDefault(s => s.OrderId == orderId);
+            if (subscription is not null)
+            {
+                break;
+            }
+
+            await Task.Delay(300);
+        }
+
+        Assert.NotNull(subscription);
+        Assert.Equal("cus_sub_1", subscription!.ProviderCustomerId);
+        Assert.Equal("pm_sub_1", subscription.ProviderPaymentMethodId);
+
+        // Renewal charges the stored instrument off-session (mock succeeds) and advances — not PastDue.
+        var renewed = await ActAsync(tenant, subscription.Id, cancel: false);
+        Assert.Equal(SubscriptionStatus.Active, renewed!.Status);
+    }
 }
