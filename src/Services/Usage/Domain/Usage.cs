@@ -14,6 +14,11 @@ public sealed class UsageBalance
 {
     public Guid Id { get; init; }
     public Guid TenantId { get; init; }
+
+    /// <summary>The storefront this metered balance belongs to (ledger_sf_3): threaded onto overage/auto-load
+    /// charges so Payments posts the resulting revenue to the store's own accounts, never a shared default.
+    /// Nullable while a balance created by a bare usage record awaits its plan's provisioning.</summary>
+    public Guid? StorefrontId { get; private set; }
     public required string CustomerEmail { get; init; }
     public MeterType Meter { get; init; }
     public long IncludedQuantity { get; private set; }
@@ -78,9 +83,12 @@ public sealed class UsageBalance
             UpdatedAt = now,
         };
 
-    /// <summary>Set the plan's allowance + overage pricing (mt7_4/mt7_5).</summary>
+    /// <summary>Set the plan's allowance + overage pricing (mt7_4/mt7_5) and the owning storefront
+    /// (ledger_sf_3). A null <paramref name="storefrontId"/> leaves any previously-provisioned attribution
+    /// intact, so re-provisioning without a store never clears it.</summary>
     public void Provision(
-        long includedQuantity, bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, DateTimeOffset now)
+        long includedQuantity, bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, DateTimeOffset now,
+        Guid? storefrontId = null)
     {
         if (includedQuantity < 0 || overageUnitPriceMinor < 0)
         {
@@ -92,6 +100,7 @@ public sealed class UsageBalance
         OverageUnitPriceMinor = overageUnitPriceMinor;
         Currency = string.IsNullOrWhiteSpace(currency) ? Currency : currency.ToUpperInvariant();
         PeriodEnd = periodEnd;
+        StorefrontId = storefrontId ?? StorefrontId;
         UpdatedAt = now;
     }
 

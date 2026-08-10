@@ -28,6 +28,22 @@ public class UsageTests
     }
 
     [Fact]
+    public void Provision_stamps_the_owning_storefront_and_keeps_it_on_reprovision()
+    {
+        // ledger_sf_3: the balance carries its storefront so overage/auto-load charges route revenue to
+        // the store's own ledger accounts. Re-provisioning without a store must not clear the attribution.
+        var storeId = Guid.NewGuid();
+        var balance = Balance();
+
+        balance.Provision(1000, true, 5, "AUD", null, Now, storeId);
+        Assert.Equal(storeId, balance.StorefrontId);
+
+        balance.Provision(2000, true, 7, "AUD", null, Now); // later re-provision, no store supplied
+        Assert.Equal(storeId, balance.StorefrontId);
+        Assert.Equal(2000, balance.IncludedQuantity);
+    }
+
+    [Fact]
     public void Add_increments_used_and_reduces_remaining()
     {
         var balance = Balance();

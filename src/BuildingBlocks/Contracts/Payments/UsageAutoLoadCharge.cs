@@ -8,4 +8,5 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// Reference (one per top-up) so a re-published charge never double-bills.
 /// </summary>
 public record UsageAutoLoadCharge(
-    Guid TenantId, string CustomerEmail, MeterType Meter, long ReloadQuantity, long ChargeMinor, string Currency, string Reference);
+    Guid TenantId, string CustomerEmail, MeterType Meter, long ReloadQuantity, long ChargeMinor, string Currency, string Reference,
+    Guid? StorefrontId = null);

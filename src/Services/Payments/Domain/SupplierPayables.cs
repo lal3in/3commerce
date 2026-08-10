@@ -261,11 +261,13 @@ public class SupplierPayable
     /// <summary>
     /// Books the COGS accrual: Dr <paramref name="cogsAccount"/> (the storefront's own
     /// <c>expense.cogs.store-{id}</c> when attributed, else the shared <see cref="Accounts.CostOfGoodsSold"/>
-    /// fallback) / Cr <see cref="Accounts.LiabilitySupplierPayable"/>, for the supplier's NET payable
-    /// (gross less commission — the platform only owes the supplier its cut). Passing no account keeps
-    /// the shared-fallback behaviour identical to callers that don't attribute a store.
+    /// fallback) / Cr <paramref name="supplierPayableAccount"/> (the storefront's own
+    /// <c>liability.supplier_payable.store-{id}</c> when attributed, else the shared
+    /// <see cref="Accounts.LiabilitySupplierPayable"/>), for the supplier's NET payable (gross less
+    /// commission — the platform only owes the supplier its cut). Passing no accounts keeps the
+    /// shared-fallback behaviour identical to callers that don't attribute a store.
     /// </summary>
-    public JournalEntry ToAccrualEntry(DateTimeOffset now, string? cogsAccount = null)
+    public JournalEntry ToAccrualEntry(DateTimeOffset now, string? cogsAccount = null, string? supplierPayableAccount = null)
     {
         var entry = new JournalEntry
         {
@@ -276,12 +278,13 @@ public class SupplierPayable
             CreatedAt = now,
         };
         var debitAccount = string.IsNullOrWhiteSpace(cogsAccount) ? Accounts.CostOfGoodsSold : cogsAccount;
+        var payableAccount = string.IsNullOrWhiteSpace(supplierPayableAccount) ? Accounts.LiabilitySupplierPayable : supplierPayableAccount;
         // Currency MUST be set on each line (as Ledger.Debit/Credit do): a balance is keyed by
         // (AccountCode, Currency), and the Financials per-currency P&L filters COGS by line currency —
         // an empty currency drops COGS out of every currency section (it still showed in the by-store
         // column, which sums across currencies), so the two views disagreed.
         entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = debitAccount, Currency = Currency, DebitMinor = NetPayableMinor, CreditMinor = 0 });
-        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = Accounts.LiabilitySupplierPayable, Currency = Currency, DebitMinor = 0, CreditMinor = NetPayableMinor });
+        entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = payableAccount, Currency = Currency, DebitMinor = 0, CreditMinor = NetPayableMinor });
         return entry;
     }
 }

@@ -15,10 +15,11 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
 {
     public async Task<UsageBalance> ProvisionAsync(
         Guid tenantId, string email, MeterType meter, long includedQuantity,
-        bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, CancellationToken ct)
+        bool overageAllowed, long overageUnitPriceMinor, string currency, DateTimeOffset? periodEnd, CancellationToken ct,
+        Guid? storefrontId = null)
     {
         var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
-        balance.Provision(includedQuantity, overageAllowed, overageUnitPriceMinor, currency, periodEnd, clock.GetUtcNow());
+        balance.Provision(includedQuantity, overageAllowed, overageUnitPriceMinor, currency, periodEnd, clock.GetUtcNow(), storefrontId);
         await db.SaveChangesAsync(ct);
         return balance;
     }
@@ -113,7 +114,7 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
 
         await publisher.Publish(new UsageAutoLoadCharge(
             balance.TenantId, balance.CustomerEmail, balance.Meter, balance.AutoLoadReloadQuantity, chargeMinor, balance.Currency,
-            $"autoload-{balance.Id}-{balance.AutoLoadCount}"), ct);
+            $"autoload-{balance.Id}-{balance.AutoLoadCount}", balance.StorefrontId), ct);
     }
 
     /// <summary>Charge the unbilled overage via the rail (mt7_5). No-op when there is nothing to bill.</summary>
@@ -172,7 +173,7 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
 
         await publisher.Publish(new UsageOverageCharge(
             balance.TenantId, balance.CustomerEmail, balance.Meter, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency,
-            $"overage-{balance.Id}-{balance.OverageQuantity}"), ct);
+            $"overage-{balance.Id}-{balance.OverageQuantity}", balance.StorefrontId), ct);
         balance.MarkOverageBilled(clock.GetUtcNow());
         return true;
     }
