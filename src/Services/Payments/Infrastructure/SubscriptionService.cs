@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure;
@@ -112,7 +113,7 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
             // the renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment
             // method is supplied (StripePaymentProvider sets OffSession/Confirm on a present method).
             var account = modeResolver.DefaultAccountForHost();
-            await registry.Resolve(account).AuthorizeAsync(
+            var response = await registry.Resolve(account).AuthorizeAsync(
                 new PaymentRequest(
                     subscription.OrderId, subscription.PriceMinor, subscription.Currency,
                     $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account,
@@ -122,11 +123,49 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
             // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
             // DetectChanges infers such a child Modified (UPDATE → 0 rows → DbUpdateConcurrencyException),
             // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
-            db.SubscriptionRenewals.Add(subscription.Renewals[^1]);
+            var renewal = subscription.Renewals[^1];
+            db.SubscriptionRenewals.Add(renewal);
+
+            // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
+            // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted
+            // nothing. Only a Succeeded settlement posts; a RequiresAction/Failed outcome does not.
+            if (response.Outcome == PaymentOutcome.Succeeded)
+            {
+                await PostRenewalRevenueAsync(subscription, renewal.Sequence, account.Provider, now, ct);
+            }
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
         {
             subscription.MarkPastDue(now); // dunning
+        }
+    }
+
+    /// <summary>
+    /// Book the renewal's revenue to the storefront's own ledger accounts (mirrors the order-sale posting in
+    /// PaymentEventProcessor): a receivable-bridged Sale for the period price to <c>revenue.store-{id}</c> /
+    /// <c>cash.store-{id}.{provider}</c>. The reference <c>renew-{id}-{sequence}</c> is idempotency-distinct
+    /// from the order's own sale entry and from other periods, so a redelivered renewal never double-posts.
+    /// Renewals carry no tax/fee/shipping in this model (the period price is treated as net revenue).
+    /// </summary>
+    private async Task PostRenewalRevenueAsync(Subscription subscription, int sequence, string provider, DateTimeOffset now, CancellationToken ct)
+    {
+        var reference = $"renew-{subscription.Id}-{sequence}";
+        if (await db.JournalEntries.AnyAsync(e => e.Reference == reference, ct))
+        {
+            return; // already posted for this period
+        }
+
+        var accounts = subscription.StorefrontId is { } sid
+            ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
+            : null;
+        var sale = Ledger.Sale(
+            subscription.OrderId, subscription.PriceMinor, 0, 0, subscription.Currency, now,
+            PaymentMethodKind.Card, provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
+            0, accounts?.ShippingAccountCode, subscription.StorefrontId, reference,
+            $"Subscription renewal {subscription.Id} period {sequence}");
+        if (sale.Lines.Count > 0)
+        {
+            db.JournalEntries.Add(sale);
         }
     }
 

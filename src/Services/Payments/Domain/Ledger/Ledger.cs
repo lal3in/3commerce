@@ -26,7 +26,9 @@ public static class Ledger
         string? receivableAccount = null,
         long shippingMinor = 0,
         string? shippingAccount = null,
-        Guid? storefrontId = null)
+        Guid? storefrontId = null,
+        string? reference = null,
+        string? description = null)
     {
         // Product revenue = gross − tax − shipping; shipping is booked to its own income account (the
         // storefront's shipping.store-… when known, else the shared shipping.income) so the P&L reports
@@ -40,7 +42,13 @@ public static class Ledger
         // settling provider's account (cash.{provider}) — money settles per PSP, not per storefront.
         var revenue = string.IsNullOrWhiteSpace(revenueAccount) ? Accounts.RevenueSales : revenueAccount;
         var taxLiability = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
-        var entry = NewEntry($"Sale for order {orderId} via {methodKind}", orderId.ToString(), currency, now);
+        // A non-order sale (subscription renewal, usage charge — pay_*_posts_revenue) supplies its own
+        // idempotency-distinct reference + description so it doesn't collide with the order's own sale
+        // entry (whose reference is the bare order id). Defaults preserve the order-sale behaviour.
+        var entry = NewEntry(
+            description ?? $"Sale for order {orderId} via {methodKind}",
+            string.IsNullOrWhiteSpace(reference) ? orderId.ToString() : reference,
+            currency, now);
 
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
