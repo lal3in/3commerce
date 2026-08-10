@@ -2,22 +2,25 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using ThreeCommerce.Usage.Infrastructure;
+using ThreeCommerce.Workflow.Infrastructure;
 
 #nullable disable
 
-namespace ThreeCommerce.Usage.Infrastructure.Migrations
+namespace ThreeCommerce.Workflow.Infrastructure.Migrations
 {
-    [DbContext(typeof(UsageDbContext))]
-    partial class UsageDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(WorkflowDbContext))]
+    [Migration("20260810025735_JobManagerRegistry")]
+    partial class JobManagerRegistry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("usage")
+                .HasDefaultSchema("workflow")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -67,7 +70,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", "usage");
+                    b.ToTable("InboxState", "workflow");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -158,7 +161,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", "usage");
+                    b.ToTable("OutboxMessage", "workflow");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -188,40 +191,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", "usage");
-                });
-
-            modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.JobRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
-
-                    b.Property<string>("JobName")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("JobName", "StartedAt");
-
-                    b.ToTable("JobRuns", "usage");
+                    b.ToTable("OutboxState", "workflow");
                 });
 
             modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.ScheduleOverride", b =>
@@ -242,103 +212,73 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasKey("JobName");
 
-                    b.ToTable("ScheduleOverrides", "usage");
+                    b.ToTable("ScheduleOverrides", "workflow");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageBalance", b =>
+            modelBuilder.Entity("ThreeCommerce.Workflow.Domain.ScheduledJobEntry", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Service")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
-                    b.Property<long>("BilledOverageQuantity")
-                        .HasColumnType("bigint");
+                    b.Property<string>("Name")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
-                    b.Property<string>("Currency")
+                    b.Property<string>("Cron")
                         .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
-                    b.Property<string>("CustomerEmail")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                    b.Property<DateTimeOffset?>("NextFireUtc")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("IncludedQuantity")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Meter")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<bool>("OverageAllowed")
+                    b.Property<bool>("Paused")
                         .HasColumnType("boolean");
-
-                    b.Property<long>("OverageUnitPriceMinor")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset?>("PeriodEnd")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("PeriodStart")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("UsedQuantity")
-                        .HasColumnType("bigint");
+                    b.HasKey("Service", "Name");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "CustomerEmail", "Meter")
-                        .IsUnique();
-
-                    b.ToTable("UsageBalances", "usage");
+                    b.ToTable("ScheduledJobs", "workflow");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageRecord", b =>
+            modelBuilder.Entity("ThreeCommerce.Workflow.Domain.WorkflowRun", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("BalanceId")
-                        .HasColumnType("uuid");
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("CustomerEmail")
+                    b.Property<string>("Error")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("JobName")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
-                    b.Property<string>("Meter")
+                    b.Property<string>("Service")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("Quantity")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ReferenceId")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("BalanceId");
+                    b.HasIndex("JobName", "StartedAt");
 
-                    b.HasIndex("TenantId", "ReferenceId");
-
-                    b.ToTable("UsageRecords", "usage");
+                    b.ToTable("Runs", "workflow");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

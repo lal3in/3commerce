@@ -191,6 +191,56 @@ namespace ThreeCommerce.Workflow.Infrastructure.Migrations
                     b.ToTable("OutboxState", "workflow");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.ScheduleOverride", b =>
+                {
+                    b.Property<string>("JobName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Cron")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("Paused")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("JobName");
+
+                    b.ToTable("ScheduleOverrides", "workflow");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Workflow.Domain.ScheduledJobEntry", b =>
+                {
+                    b.Property<string>("Service")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Cron")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("NextFireUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Paused")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Service", "Name");
+
+                    b.ToTable("ScheduledJobs", "workflow");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Workflow.Domain.WorkflowRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -208,6 +258,10 @@ namespace ThreeCommerce.Workflow.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Service")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamp with time zone");

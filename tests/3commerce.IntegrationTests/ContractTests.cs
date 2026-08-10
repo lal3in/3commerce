@@ -317,7 +317,7 @@ public class ContractTests
             .Build();
         var services = new ServiceCollection();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => services.AddScheduledJobs(configuration, _ => { }));
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddScheduledJobs(configuration, "test", _ => { }));
 
         Assert.Contains("Quartz:ConnectionString", ex.Message);
     }
@@ -328,7 +328,7 @@ public class ContractTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        services.AddScheduledJobs(_ => _.Add<NoopScheduledJob>("noop", "0 0/5 * * * ?"));
+        services.AddScheduledJobs("test", _ => _.Add<NoopScheduledJob>("noop", "0 0/5 * * * ?"));
 
         using var provider = services.BuildServiceProvider();
         Assert.Contains(provider.GetServices<IScheduledJob>(), job => job.Name == "noop");

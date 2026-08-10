@@ -39,7 +39,8 @@ public sealed class JobExecutor(
     TimeProvider clock,
     ILogger<JobExecutor> logger,
     MassTransit.IPublishEndpoint? publisher = null,
-    Microsoft.Extensions.Options.IOptions<QuartzSchedulerOptions>? schedulerOptions = null)
+    Microsoft.Extensions.Options.IOptions<QuartzSchedulerOptions>? schedulerOptions = null,
+    SchedulerIdentity? identity = null)
 {
     public async Task<JobRun> ExecuteAsync(IScheduledJob job, CancellationToken ct)
     {
@@ -86,7 +87,7 @@ public sealed class JobExecutor(
         // Project to the central Workflow service when a publisher is wired (tests run without one).
         if (publisher is not null)
         {
-            await publisher.Publish(new JobRunRecorded(run.Id, run.JobName, run.Status.ToString(), run.StartedAt, run.CompletedAt, run.Error), ct);
+            await publisher.Publish(new JobRunRecorded(run.Id, run.JobName, run.Status.ToString(), run.StartedAt, run.CompletedAt, run.Error, identity?.ServiceName), ct);
         }
 
         return run;

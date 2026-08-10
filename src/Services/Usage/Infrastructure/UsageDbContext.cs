@@ -19,6 +19,7 @@ public sealed class UsageDbContext(DbContextOptions<UsageDbContext> options) : D
         modelBuilder.AddOutboxMessageEntity();
         modelBuilder.AddOutboxStateEntity();
         modelBuilder.ConfigureJobRuns(); // scheduled usage-period-close run history (mt6_3)
+        modelBuilder.ConfigureScheduleOverrides(); // operator schedule overrides (Scheduled-Job Manager)
 
         modelBuilder.Entity<UsageBalance>(balance =>
         {

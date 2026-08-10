@@ -24,9 +24,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<PublishingService>();
 // Scheduled publish sweep (def_5 / mt6_3): every minute; each fire recorded as a JobRun.
 builder.Services.AddScoped<IJobRunStore, EfJobRunStore<MarketingDbContext>>();
+builder.Services.AddScoped<IScheduleOverrideStore, EfScheduleOverrideStore<MarketingDbContext>>();
 if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 {
-    builder.Services.AddScheduledJobs(jobs => jobs.Add<ScheduledPublishJob>("scheduled-publish", "0 * * * * ?"));
+    builder.Services.AddScheduledJobs(builder.Configuration, "marketing", jobs => jobs.Add<ScheduledPublishJob>("scheduled-publish", "0 * * * * ?"));
 }
 
 var app = builder.Build();
@@ -40,6 +41,10 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapServiceHealth();
+if (app.Configuration.GetValue("Scheduling:Enabled", true))
+{
+    app.MapJobControl(); // JobControlService is only registered when the scheduler is enabled
+}
 app.MapCampaigns();
 app.MapShortLinks();
 app.MapAnalytics();

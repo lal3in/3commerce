@@ -2,22 +2,25 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using ThreeCommerce.Usage.Infrastructure;
+using ThreeCommerce.Marketing.Infrastructure;
 
 #nullable disable
 
-namespace ThreeCommerce.Usage.Infrastructure.Migrations
+namespace ThreeCommerce.Marketing.Infrastructure.Migrations
 {
-    [DbContext(typeof(UsageDbContext))]
-    partial class UsageDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(MarketingDbContext))]
+    [Migration("20260810025734_ScheduleOverrides")]
+    partial class ScheduleOverrides
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("usage")
+                .HasDefaultSchema("marketing")
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -67,7 +70,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", "usage");
+                    b.ToTable("InboxState", "marketing");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -158,7 +161,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", "usage");
+                    b.ToTable("OutboxMessage", "marketing");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -188,7 +191,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", "usage");
+                    b.ToTable("OutboxState", "marketing");
                 });
 
             modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.JobRun", b =>
@@ -221,7 +224,7 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasIndex("JobName", "StartedAt");
 
-                    b.ToTable("JobRuns", "usage");
+                    b.ToTable("JobRuns", "marketing");
                 });
 
             modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.ScheduleOverride", b =>
@@ -242,47 +245,99 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
 
                     b.HasKey("JobName");
 
-                    b.ToTable("ScheduleOverrides", "usage");
+                    b.ToTable("ScheduleOverrides", "marketing");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageBalance", b =>
+            modelBuilder.Entity("ThreeCommerce.Marketing.Domain.AnalyticsEventRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<long>("BilledOverageQuantity")
-                        .HasColumnType("bigint");
+                    b.Property<bool>("AnalyticsConsent")
+                        .HasColumnType("boolean");
 
-                    b.Property<string>("Currency")
+                    b.Property<string>("ClientIpCoarse")
                         .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
-                    b.Property<string>("CustomerEmail")
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EventId")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
-                    b.Property<long>("IncludedQuantity")
-                        .HasColumnType("bigint");
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
-                    b.Property<string>("Meter")
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VisitorId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "EventId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ReceivedAt");
+
+                    b.ToTable("AnalyticsEvents", "marketing");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Marketing.Domain.Campaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Cid")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
-
-                    b.Property<bool>("OverageAllowed")
-                        .HasColumnType("boolean");
-
-                    b.Property<long>("OverageUnitPriceMinor")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset?>("PeriodEnd")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("PeriodStart")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -290,55 +345,123 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("UsedQuantity")
-                        .HasColumnType("bigint");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "CustomerEmail", "Meter")
+                    b.HasIndex("TenantId", "Cid")
                         .IsUnique();
 
-                    b.ToTable("UsageBalances", "usage");
+                    b.ToTable("Campaigns", "marketing");
                 });
 
-            modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageRecord", b =>
+            modelBuilder.Entity("ThreeCommerce.Marketing.Domain.ShortLink", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("BalanceId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("Cid")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
-                    b.Property<string>("CustomerEmail")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                    b.Property<long>("ClickCount")
+                        .HasColumnType("bigint");
 
-                    b.Property<string>("Meter")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<DateTimeOffset>("OccurredAt")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("Quantity")
-                        .HasColumnType("bigint");
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
 
-                    b.Property<string>("ReferenceId")
-                        .HasColumnType("text");
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BalanceId");
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
 
-                    b.HasIndex("TenantId", "ReferenceId");
+                    b.ToTable("ShortLinks", "marketing");
+                });
 
-                    b.ToTable("UsageRecords", "usage");
+            modelBuilder.Entity("ThreeCommerce.Marketing.Infrastructure.ContentRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DraftVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("PublishedVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "ScheduledAt");
+
+                    b.HasIndex("TenantId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("Contents", "marketing");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Marketing.Infrastructure.ContentVersionRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentRecordId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ContentVersions", "marketing");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -351,6 +474,20 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("InboxMessageId", "InboxConsumerId")
                         .HasPrincipalKey("MessageId", "ConsumerId");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Marketing.Infrastructure.ContentVersionRecord", b =>
+                {
+                    b.HasOne("ThreeCommerce.Marketing.Infrastructure.ContentRecord", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("ContentRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Marketing.Infrastructure.ContentRecord", b =>
+                {
+                    b.Navigation("Versions");
                 });
 #pragma warning restore 612, 618
         }

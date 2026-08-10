@@ -224,6 +224,27 @@ namespace ThreeCommerce.Marketing.Infrastructure.Migrations
                     b.ToTable("JobRuns", "marketing");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling.ScheduleOverride", b =>
+                {
+                    b.Property<string>("JobName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Cron")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("Paused")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("JobName");
+
+                    b.ToTable("ScheduleOverrides", "marketing");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Marketing.Domain.AnalyticsEventRecord", b =>
                 {
                     b.Property<Guid>("Id")
