@@ -29,6 +29,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<Mandate> Mandates => Set<Mandate>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
+    public DbSet<StorefrontBillingSchedule> StorefrontBillingSchedules => Set<StorefrontBillingSchedule>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
     public DbSet<StorefrontLedgerAccounts> StorefrontLedgerAccounts => Set<StorefrontLedgerAccounts>();
@@ -49,6 +50,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             subscription.Property(x => x.ProviderPaymentMethodId).HasMaxLength(255);
             subscription.HasIndex(x => new { x.OrderId, x.ProductId, x.VariantId }).IsUnique();
             subscription.HasIndex(x => new { x.TenantId, x.CustomerEmail });
+            // The per-storefront auto-renew sweep filters on (StorefrontId, Status, CurrentPeriodEnd).
+            subscription.HasIndex(x => new { x.StorefrontId, x.Status, x.CurrentPeriodEnd });
             // Renewal history hangs off the aggregate's backing field, saved in the same unit of work.
             subscription.HasMany(x => x.Renewals).WithOne().HasForeignKey(r => r.SubscriptionId);
             subscription.Metadata.FindNavigation(nameof(Subscription.Renewals))!
@@ -60,6 +63,11 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             renewal.Property(x => x.Currency).HasMaxLength(3);
             renewal.HasIndex(x => x.SubscriptionId);
             renewal.HasIndex(x => new { x.SubscriptionId, x.Sequence }).IsUnique();
+        });
+
+        modelBuilder.Entity<StorefrontBillingSchedule>(schedule =>
+        {
+            schedule.HasKey(x => x.StorefrontId);
         });
 
         modelBuilder.HasDefaultSchema("payments");

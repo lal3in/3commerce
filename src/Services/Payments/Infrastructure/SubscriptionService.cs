@@ -30,7 +30,7 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
 
         var subscription = Subscription.Start(
             m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow(),
-            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId);
+            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId);
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
         return subscription;
@@ -46,13 +46,71 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
             return null;
         }
 
+        await ChargeRenewalAsync(subscription, clock.GetUtcNow(), ct);
+        await db.SaveChangesAsync(ct);
+        return subscription;
+    }
+
+    /// <summary>
+    /// Auto-renew due subscriptions per storefront (jobmgr_2). Runs on a fine cadence; for each storefront
+    /// with a due subscription, once its configured daily time has passed and it hasn't run today, renews
+    /// every Active/Trialing subscription whose period has ended, then stamps the schedule so it fires at most
+    /// once per storefront per day. Idempotent. Returns the number of subscriptions renewed.
+    /// </summary>
+    public async Task<int> AutoRenewDueAsync(CancellationToken ct)
+    {
         var now = clock.GetUtcNow();
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var timeOfDay = TimeOnly.FromDateTime(now.UtcDateTime);
+
+        var dueStorefronts = await db.Subscriptions.AsNoTracking()
+            .Where(s => s.StorefrontId != null && s.CurrentPeriodEnd <= now
+                && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trialing))
+            .Select(s => s.StorefrontId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var renewed = 0;
+        foreach (var storefrontId in dueStorefronts)
+        {
+            var schedule = await db.StorefrontBillingSchedules.SingleOrDefaultAsync(x => x.StorefrontId == storefrontId, ct);
+            if (schedule is null)
+            {
+                schedule = StorefrontBillingSchedule.CreateDefault(storefrontId, now);
+                db.StorefrontBillingSchedules.Add(schedule);
+            }
+
+            if (!schedule.ShouldRunNow(today, timeOfDay))
+            {
+                continue;
+            }
+
+            var due = await db.Subscriptions.Include(s => s.Renewals)
+                .Where(s => s.StorefrontId == storefrontId && s.CurrentPeriodEnd <= now
+                    && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trialing))
+                .ToListAsync(ct);
+            foreach (var subscription in due)
+            {
+                await ChargeRenewalAsync(subscription, now, ct);
+                renewed++;
+            }
+
+            schedule.MarkRan(today, now);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return renewed;
+    }
+
+    /// <summary>Charge one renewal period off-session and advance the aggregate; dun to PastDue on failure.
+    /// The caller owns SaveChanges so a batch sweep commits all renewals in one unit of work.</summary>
+    private async Task ChargeRenewalAsync(Subscription subscription, DateTimeOffset now, CancellationToken ct)
+    {
         try
         {
-            // Charge the renewal period via the rail (the mock returns an intent deterministically). When the
-            // subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so the
-            // renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment method
-            // is supplied (StripePaymentProvider sets OffSession/Confirm on a present ProviderPaymentMethodId).
+            // When the subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so
+            // the renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment
+            // method is supplied (StripePaymentProvider sets OffSession/Confirm on a present method).
             var account = modeResolver.DefaultAccountForHost();
             await registry.Resolve(account).AuthorizeAsync(
                 new PaymentRequest(
@@ -70,9 +128,6 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
         {
             subscription.MarkPastDue(now); // dunning
         }
-
-        await db.SaveChangesAsync(ct);
-        return subscription;
     }
 
     public async Task<Subscription?> CancelAsync(Guid tenantId, Guid id, CancellationToken ct)

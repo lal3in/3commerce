@@ -21,6 +21,7 @@ using ThreeCommerce.Payments.Infrastructure.Providers.Mock;
 using ThreeCommerce.Payments.Infrastructure.Providers.PayPal;
 using ThreeCommerce.Payments.Infrastructure.Providers.Polar;
 using ThreeCommerce.Payments.Infrastructure.Providers.Stripe;
+using ThreeCommerce.Payments.Infrastructure.Scheduling;
 using ThreeCommerce.Payments.Infrastructure.Xero;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,7 +67,9 @@ builder.Services.AddScoped<IJobRunStore, EfJobRunStore<PaymentsDbContext>>();
 builder.Services.AddScoped<IScheduleOverrideStore, EfScheduleOverrideStore<PaymentsDbContext>>();
 if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 {
-    builder.Services.AddScheduledJobs(builder.Configuration, "payments", jobs => jobs.Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?"));
+    builder.Services.AddScheduledJobs(builder.Configuration, "payments", jobs => jobs
+        .Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?")
+        .Add<SubscriptionAutoRenewJob>("subscription-auto-renew", "0 0/15 * * * ?"));
 }
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
@@ -121,6 +124,7 @@ app.MapPaymentAccounts();
 app.MapSupplierPayouts();
 app.MapCustomerPaymentMethods();
 app.MapMandates();
+app.MapBillingSchedules();
 app.MapSubscriptions();
 app.MapJobRuns();
 if (app.Configuration.GetValue("Scheduling:Enabled", true))

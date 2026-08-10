@@ -46,6 +46,17 @@ public class SubscriptionTests
     }
 
     [Fact]
+    public void Start_captures_the_storefront_for_per_storefront_auto_renew()
+    {
+        var storefront = Guid.NewGuid();
+        var sub = Subscription.Start(
+            Guid.NewGuid(), Guid.NewGuid(), "buyer@example.com", Guid.NewGuid(), null,
+            BillingPeriod.Monthly, 1500, "EUR", Now, storefrontId: storefront);
+
+        Assert.Equal(storefront, sub.StorefrontId);
+    }
+
+    [Fact]
     public void Renew_advances_the_period()
     {
         var sub = Start(BillingPeriod.Monthly);
