@@ -1689,4 +1689,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>La boutique à laquelle ce compte de paiement appartient (obligatoire — les comptes sont par boutique).</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— choisir une boutique —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>Choisissez une boutique pour ce compte de paiement.</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>Plan comptable (par boutique)</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>Chaque compte sur lequel une écriture de cette boutique est passée : ses propres revenus, taxe, créance, caisse et frais (par prestataire de paiement), coût des marchandises, dépréciations et dettes fournisseurs/transporteurs. Aucun compte partagé ou par défaut de la plateforme : chaque écriture est attribuée à la boutique. Les codes sont déterministes ; les comptes de revenus sont configurables dans le Catalogue.</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
 </root>

@@ -1703,4 +1703,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>The storefront this payment account belongs to (required — accounts are per storefront).</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— select a storefront —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>Select a storefront for this payment account.</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>Chart of accounts (per storefront)</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>Every account a movement for this storefront posts to — its own income, tax, receivable, cash and fees (per payment provider), COGS, write-offs and supplier/carrier payables. No shared or platform-default account: every posting is attributed to the storefront. Codes are deterministic; income codes are operator-configurable in Catalog.</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
 </root>

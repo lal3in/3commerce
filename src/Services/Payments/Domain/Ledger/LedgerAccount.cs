@@ -102,6 +102,41 @@ public static class Accounts
 
     /// <summary>Per-storefront carrier payable (label-cost accrual credit): <c>liability.carrier_payable.store-{id:N}</c>.</summary>
     public static string CarrierPayableStoreFor(Guid sid) => $"liability.carrier_payable.store-{sid:N}";
+
+    // ---- No-shared-account invariant (ledger_sf_4): the mandate is that every movement is attributed to a
+    // storefront — there is NO platform/tenant-default account. These are the shared/default codes that a
+    // storefront-attributed posting must NEVER touch; a per-store code always contains ".store-" and so can
+    // never be in this set. Forward-only: historical entries that predate attribution keep their shared
+    // codes (this guards NEW postings, enforced by NoSharedAccountPostingTests, not a runtime rewrite).
+
+    /// <summary>
+    /// Every shared/default account code (no storefront attribution): the fixed shared constants plus the
+    /// per-provider shared cash / processing-fee / chargeback-fee accounts. A storefront-attributed
+    /// journal entry must post no line whose code is in this set (see <see cref="IsSharedCode"/>).
+    /// </summary>
+    public static readonly IReadOnlySet<string> SharedCodes = BuildSharedCodes();
+
+    /// <summary>True when <paramref name="code"/> is a shared/default account (never storefront-scoped).</summary>
+    public static bool IsSharedCode(string code) => SharedCodes.Contains(code);
+
+    private static HashSet<string> BuildSharedCodes()
+    {
+        var codes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            RevenueSales, RevenueRefunds, ShippingIncome, LiabilityTaxCollected,
+            ExpenseCostOfGoodsSold, ExpenseShippingCarrier, ExpenseWriteoffs,
+            LiabilitySupplierPayable, LiabilityCarrierPayable, CashStripe, ExpenseStripeFees,
+        };
+        // Every PSP's shared cash/fee/chargeback-fee pair (the per-provider fallback the store codes replace).
+        foreach (var provider in LedgerProviders.Known)
+        {
+            codes.Add(CashFor(provider));
+            codes.Add(FeesFor(provider));
+            codes.Add(ChargebackFeesFor(provider));
+        }
+
+        return codes;
+    }
 }
 
 /// <summary>
