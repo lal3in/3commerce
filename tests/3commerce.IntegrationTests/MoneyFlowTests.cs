@@ -795,9 +795,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         // tenant default (stripe → cash.stripe). PayPal is a standalone PSP: it routes to paypal and the
         // sale must post to cash.paypal (ADR-0039 payment-method routing).
         var expectedProvider = paymentOption == "PayPal" ? "paypal" : "stripe";
-        var expectedCash = Accounts.CashFor(expectedProvider);
 
         // The AuthorizePayment consumer persisted the method AND the routed settling provider.
+        Guid? storefrontId;
         using (var scope = fixture.Payments.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
@@ -805,7 +805,11 @@ public class MoneyFlowTests(Phase3Fixture fixture)
                 db.Payments.Where(p => p.OrderId == order.OrderId));
             Assert.Equal(expectedKind, payment.MethodKind);
             Assert.Equal(expectedProvider, payment.Provider);
+            storefrontId = payment.StorefrontId;
         }
+
+        // ledger_sf_2: the attributed sale settles into the STORE's own cash for the settling provider.
+        var expectedCash = storefrontId is { } sid ? Accounts.CashStoreFor(sid, expectedProvider) : Accounts.CashFor(expectedProvider);
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
@@ -892,6 +896,7 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     private async Task AssertCardSettledAsync(CheckoutResponseDto order, string expectedProvider)
     {
         // The AuthorizePayment consumer persisted the card method AND the acquiring provider.
+        Guid? storefrontId;
         using (var scope = fixture.Payments.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
@@ -899,7 +904,11 @@ public class MoneyFlowTests(Phase3Fixture fixture)
                 db.Payments.Where(p => p.OrderId == order.OrderId));
             Assert.Equal(PaymentMethodKind.Card, payment.MethodKind);
             Assert.Equal(expectedProvider, payment.Provider);
+            storefrontId = payment.StorefrontId;
         }
+
+        // ledger_sf_2: an attributed sale settles into the STORE's own cash for the acquiring provider.
+        var expectedCash = storefrontId is { } sid ? Accounts.CashStoreFor(sid, expectedProvider) : Accounts.CashFor(expectedProvider);
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
         using var shopper = fixture.Ordering.CreateClient();
@@ -913,9 +922,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
             var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
                 db.JournalLines.Where(l => l.EntryId == entry.Id));
 
-            // The sale debits the acquiring provider's cash account: cash.polar under a Polar default,
-            // cash.stripe once no default account is configured.
-            Assert.Contains(lines, l => l.AccountCode == Accounts.CashFor(expectedProvider) && l.DebitMinor == order.GrossMinor);
+            // The sale debits the store's cash for the acquiring provider (cash.store-{id}.polar under a
+            // Polar default, cash.store-{id}.stripe once no default account is configured).
+            Assert.Contains(lines, l => l.AccountCode == expectedCash && l.DebitMinor == order.GrossMinor);
             Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
         }
 

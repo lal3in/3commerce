@@ -77,7 +77,7 @@ public sealed class PaymentEventProcessor(
                 var sale = Ledger.Sale(
                     payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
                     payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-                    payment.ShippingMinor, accounts?.ShippingAccountCode);
+                    payment.ShippingMinor, accounts?.ShippingAccountCode, payment.StorefrontId);
                 // A genuinely $0 order (e.g. a usage-metered product with no upfront price and no shipping)
                 // moves no money, so the sale entry has no lines — don't persist an empty journal entry.
                 if (sale.Lines.Count > 0)
@@ -185,7 +185,7 @@ public sealed class PaymentEventProcessor(
         db.JournalEntries.Add(Ledger.Chargeback(
             payment.OrderId, disputedGross, tax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
             payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-            shipping, accounts?.ShippingAccountCode));
+            shipping, accounts?.ShippingAccountCode, payment.StorefrontId));
         payment.Status = PaymentStatus.Disputed;
         await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross), ct);
     }

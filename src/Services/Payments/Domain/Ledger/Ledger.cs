@@ -25,7 +25,8 @@ public static class Ledger
         string? taxAccount = null,
         string? receivableAccount = null,
         long shippingMinor = 0,
-        string? shippingAccount = null)
+        string? shippingAccount = null,
+        Guid? storefrontId = null)
     {
         // Product revenue = gross − tax − shipping; shipping is booked to its own income account (the
         // storefront's shipping.store-… when known, else the shared shipping.income) so the P&L reports
@@ -33,7 +34,7 @@ public static class Ledger
         var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
         var netMinor = grossMinor - taxMinor - shipping;
-        var cash = Accounts.CashFor(provider);
+        var cash = storefrontId is { } cashSid ? Accounts.CashStoreFor(cashSid, provider) : Accounts.CashFor(provider);
         // Per-storefront books (phase 2): revenue and tax post to the storefront's own accounts when
         // known; otherwise the shared revenue.sales / liability.tax_collected. Cash stays on the
         // settling provider's account (cash.{provider}) — money settles per PSP, not per storefront.
@@ -94,7 +95,7 @@ public static class Ledger
 
         if (feeMinor > 0)
         {
-            Debit(entry, Accounts.FeesFor(provider), feeMinor);
+            Debit(entry, storefrontId is { } feeSid ? Accounts.FeesStoreFor(feeSid, provider) : Accounts.FeesFor(provider), feeMinor);
             Credit(entry, cash, feeMinor);
         }
 
@@ -120,21 +121,22 @@ public static class Ledger
         string? taxAccount = null,
         string? receivableAccount = null,
         long shippingMinor = 0,
-        string? shippingAccount = null)
+        string? shippingAccount = null,
+        Guid? storefrontId = null)
     {
         // Mirror the sale: reverse product revenue, shipping income and tax separately so each P&L line
         // nets its refunds. shippingMinor is the (proportional) shipping slice of this refund.
         var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
         var netMinor = grossMinor - taxMinor - shipping;
-        var cash = Accounts.CashFor(provider);
+        var cash = storefrontId is { } cashSid ? Accounts.CashStoreFor(cashSid, provider) : Accounts.CashFor(provider);
         var entry = NewEntry($"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
 
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
             if (netMinor > 0)
             {
-                Debit(entry, Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+                Debit(entry, storefrontId is { } refundSid ? Accounts.RefundsStoreFor(refundSid) : Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
             }
 
             if (shipping > 0)
@@ -196,12 +198,13 @@ public static class Ledger
         string? taxAccount = null,
         string? receivableAccount = null,
         long shippingMinor = 0,
-        string? shippingAccount = null)
+        string? shippingAccount = null,
+        Guid? storefrontId = null)
     {
         var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
         var netMinor = grossMinor - taxMinor - shipping;
-        var cash = Accounts.CashFor(provider);
+        var cash = storefrontId is { } cashSid ? Accounts.CashStoreFor(cashSid, provider) : Accounts.CashFor(provider);
         // Distinct reference from the sale (which references the bare order id) so reporting/lookup can
         // tell the dispute reversal apart from the original sale. One chargeback per order in this model.
         var entry = NewEntry($"Chargeback for order {orderId} via {methodKind}", $"{orderId}:chargeback", currency, now);
@@ -211,7 +214,7 @@ public static class Ledger
         {
             if (netMinor > 0)
             {
-                Debit(entry, Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
+                Debit(entry, storefrontId is { } refundSid ? Accounts.RefundsStoreFor(refundSid) : Accounts.RevenueRefunds, netMinor); // guard: net-zero reversal posts no revenue line (ck_line_one_side)
             }
 
             if (shipping > 0)
@@ -253,7 +256,7 @@ public static class Ledger
         // The dispute fee: an expense out of the settling provider's cash, on its own chargeback-fee account.
         if (feeMinor > 0)
         {
-            Debit(entry, Accounts.ChargebackFeesFor(provider), feeMinor);
+            Debit(entry, storefrontId is { } cbFeeSid ? Accounts.ChargebackFeesStoreFor(cbFeeSid, provider) : Accounts.ChargebackFeesFor(provider), feeMinor);
             Credit(entry, cash, feeMinor);
         }
 
