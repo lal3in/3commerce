@@ -107,10 +107,15 @@ antiforgery → authentication → authorization**.
 - **Mission control** (`/mission-control`, `Components/Pages/MissionControl.razor`) —
   the **Activity timeline** (central Audit projection — admin mutations across
   Catalog, Payments, Entity, Identity, Support, and Ordering now emit audit events,
-  so it is populated during real operations), **Scheduled jobs** (Workflow service
-  run history — each run shows status, **duration**, and failure reason; failed jobs
-  are also retried up to a configurable bound before being recorded failed), a live
-  **Message bus** section (read-only RabbitMQ management API:
+  so it is populated during real operations), the **Scheduled-Job Manager** (a
+  cross-service view from the Workflow registry — each job shows its owning service,
+  cron schedule, next fire time, last run status/**duration**, and state; failed
+  runs are retried up to a configurable bound). Operators have **full control** per
+  job: **Run now**, **Pause/Resume**, and **Edit schedule** (cron, validated) —
+  changes route to the owning service and survive restarts (persisted schedule
+  overrides). Every service's jobs appear automatically (e.g. `daily-journal`,
+  `subscription-auto-renew`, `usage-period-close`, `scheduled-publish`). There is
+  also a live **Message bus** section (read-only RabbitMQ management API:
   queue/consumer/ready/unacked/dead-letter KPI cards, a red dead-letter table when
   any `*_error`/`*_skipped` queue holds messages, and a busiest-queues top-10;
   unreachable broker degrades to a hint), and **Consoles** links (Grafana RED
