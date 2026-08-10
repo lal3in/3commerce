@@ -10,7 +10,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Providers.Mock;
 /// pay_3 layers <c>MockEmailPaymentProvider</c> (scenario simulation + TEST-only payload capture)
 /// over this deterministic core; this class is the seam it extends.
 /// </summary>
-public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider
+public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider, IWebhookRegistrationProvider
 {
     public string ProviderKey => "mock";
 
@@ -57,6 +57,11 @@ public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider
     // without a real client-side acceptance round-trip.
     public Task<MandateConfirmation> GetMandateAsync(string setupIntentId, CancellationToken ct) =>
         Task.FromResult(new MandateConfirmation(true, $"mandate_fake_{setupIntentId}", $"pm_fake_{setupIntentId}"));
+
+    public Task<WebhookRegistrationResult> RegisterWebhookAsync(string url, CancellationToken ct) =>
+        Task.FromResult(new WebhookRegistrationResult($"we_fake_{Guid.CreateVersion7():N}", $"whsec_fake_{Guid.CreateVersion7():N}"));
+
+    public Task DisableWebhookAsync(string endpointId, CancellationToken ct) => Task.CompletedTask;
 
     // Real webhooks come from Stripe; the fake path uses the dev simulate endpoint instead.
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
