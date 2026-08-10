@@ -1689,4 +1689,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>Der Storefront, zu dem dieses Zahlungskonto gehört (erforderlich — Konten sind pro Storefront).</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— Storefront wählen —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>Wählen Sie einen Storefront für dieses Zahlungskonto.</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>Kontenplan (je Storefront)</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>Jedes Konto, auf das eine Buchung für diesen Storefront gebucht wird — eigene Erlöse, Steuer, Forderung, Kasse und Gebühren (je Zahlungsanbieter), Wareneinsatz, Abschreibungen und Lieferanten-/Frachtverbindlichkeiten. Kein gemeinsames oder Plattform-Standardkonto: jede Buchung ist dem Storefront zugeordnet. Codes sind deterministisch; Erlöskonten sind im Katalog konfigurierbar.</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
 </root>

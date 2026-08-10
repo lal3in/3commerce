@@ -62,6 +62,40 @@ else
         </section>
     }
 
+    <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1.2rem;">
+        <h2 style="margin:0 0 .2rem;">@L["Fin.Chart"]</h2>
+        <p style="color:#6b7280; font-size:.8rem; margin:0 0 .6rem;">@L["Fin.Chart.Note"]</p>
+        <select value="@_chartFor" @onchange="OnChartStoreChanged" style="padding:.35rem .6rem; margin-bottom:.6rem;">
+            <option value="">—</option>
+            @foreach (var s in _storefronts)
+            {
+                <option value="@s.Id">@s.Name</option>
+            }
+        </select>
+        @if (_chart.Count > 0)
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+                <thead><tr>
+                    <th style="text-align:left;">@L["Fin.Col.Account"]</th>
+                    <th style="text-align:left;">@L["Ledger.Col.Account"]</th>
+                    <th style="text-align:left;">@L["Ledger.Col.Type"]</th>
+                    <th style="text-align:right;">@L["Fin.Col.NetRevenue"]</th>
+                </tr></thead>
+                <tbody>
+                @foreach (var a in _chart)
+                {
+                    <tr style="border-top:1px solid #f3f4f6;">
+                        <td>@a.Role</td>
+                        <td><code style="font-size:.72rem; color:#6b7280;">@a.Code</code></td>
+                        <td>@a.Type</td>
+                        <td style="text-align:right; font-variant-numeric:tabular-nums;">@Money(ChartPosted(a))</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
         <h2 style="margin:0 0 .2rem;">@L["Fin.ByStorefront"]</h2>
         <p style="color:#6b7280; font-size:.8rem; margin:0 0 .6rem;">@L["Fin.ByStorefront.Note"]</p>
@@ -113,8 +147,26 @@ else
     private bool _loading = true;
     private List<BalanceDto> _balances = [];
     private List<StorefrontDto> _storefronts = [];
+    private List<ChartAccountDto> _chart = [];
+    private string _chartFor = "";
 
     protected override Task OnInitializedAsync() => LoadAsync();
+
+    // Load one storefront's full per-storefront chart of accounts (ledger_sf_4) from Payments' authoritative
+    // derivation. Balances are overlaid client-side from the balances already loaded (ChartPosted).
+    private async Task OnChartStoreChanged(ChangeEventArgs e)
+    {
+        _chartFor = e.Value?.ToString() ?? "";
+        _chart = Guid.TryParse(_chartFor, out var id)
+            ? await SafeList<ChartAccountDto>($"/api/payments/admin/ledger/storefronts/{id:D}/chart")
+            : [];
+    }
+
+    // The account's posted balance in its natural-normal direction, summed across currencies (consistent
+    // with the by-storefront table's cross-currency posture — see PostingCurrency). Revenue/Liability are
+    // credit-normal; Asset/Expense are debit-normal.
+    private long ChartPosted(ChartAccountDto a) =>
+        AccountAmount(a.Code, creditNormal: a.Type is "Revenue" or "Liability");
 
     private async Task LoadAsync()
     {
@@ -173,9 +225,12 @@ else
     private long Receivable(string c) => Sum(c, a => a.StartsWith("receivable.", StringComparison.Ordinal), creditNormal: false);
     private long TaxLiability(string c) => Sum(c, a => a.StartsWith("tax.", StringComparison.Ordinal) || a == "liability.tax_collected", creditNormal: true);
     // Carrier label cost owed but not yet paid (accrual, mirrors liability.supplier_payable) — credit-normal.
-    private long CarrierPayable(string c) => Sum(c, a => a == "liability.carrier_payable", creditNormal: true);
-    // COGS accrued to suppliers via SupplierPayable.ToAccrualEntry — credit-normal.
-    private long SupplierPayable(string c) => Sum(c, a => a == "liability.supplier_payable", creditNormal: true);
+    // The shared liability.carrier_payable fallback PLUS every per-store liability.carrier_payable.store-{id}
+    // (ledger_sf_3, Accounts.CarrierPayableStoreFor) — a StartsWith so per-store accruals aren't undercounted.
+    private long CarrierPayable(string c) => Sum(c, a => a.StartsWith("liability.carrier_payable", StringComparison.Ordinal), creditNormal: true);
+    // COGS accrued to suppliers via SupplierPayable.ToAccrualEntry — credit-normal. Shared
+    // liability.supplier_payable plus every per-store liability.supplier_payable.store-{id} (ledger_sf_3).
+    private long SupplierPayable(string c) => Sum(c, a => a.StartsWith("liability.supplier_payable", StringComparison.Ordinal), creditNormal: true);
 
     private IEnumerable<(string Code, long Amount)> CashByAccount(string currency) => _balances
         .Where(b => b.Currency == currency && b.AccountCode.StartsWith("cash.", StringComparison.Ordinal))
@@ -250,5 +305,6 @@ else
     };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
+    public record ChartAccountDto(string Role, string Code, string Name, string Type);
     public record StorefrontDto(Guid Id, string Name, string Currency, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, string ShippingAccountCode = "", Dictionary<string, int>? CostAssumptions = null);
 }

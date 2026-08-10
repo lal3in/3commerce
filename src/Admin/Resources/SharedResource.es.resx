@@ -1689,4 +1689,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>La tienda a la que pertenece esta cuenta de pago (obligatorio — las cuentas son por tienda).</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— seleccione una tienda —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>Seleccione una tienda para esta cuenta de pago.</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>Plan de cuentas (por tienda)</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>Cada cuenta a la que se registra un movimiento de esta tienda: sus propios ingresos, impuesto, cuenta por cobrar, caja y comisiones (por proveedor de pago), costo de mercancía, bajas y cuentas por pagar a proveedores/transportistas. Ninguna cuenta compartida o predeterminada de la plataforma: cada asiento se atribuye a la tienda. Los códigos son deterministas; los códigos de ingresos se configuran en Catálogo.</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>Tipo</value>
+  </data>
 </root>

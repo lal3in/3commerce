@@ -7,6 +7,7 @@ using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure;
 
 namespace ThreeCommerce.Payments.Api.Endpoints;
@@ -20,8 +21,49 @@ public static class AdminEndpoints
         group.MapGet("/ledger/accounts", ListAccounts);
         group.MapGet("/ledger/entries", ListEntries);
         group.MapGet("/ledger/balances", ListBalances);
+        group.MapGet("/ledger/storefronts/{storefrontId:guid}/chart", StorefrontChart);
         group.MapPost("/refunds", RequestRefund);
         return app;
+    }
+
+    /// <summary>
+    /// A storefront's full per-storefront chart of accounts (ledger_sf_4): every account role a movement
+    /// for this store posts to, resolved to the store's own code — income codes from the projected
+    /// <see cref="Ledger.StorefrontLedgerAccounts"/> (operator-configurable, ADR-0008) and the deterministic
+    /// cost/settlement codes derived from the storefront id (Accounts.*StoreFor, one cash/fee/chargeback-fee
+    /// triple per known PSP). This is the authoritative derivation; the admin overlays posted balances on it.
+    /// No shared/default account appears — the whole point of the invariant.
+    /// </summary>
+    private static async Task<Ok<List<ChartAccountDto>>> StorefrontChart(Guid storefrontId, PaymentsDbContext db, CancellationToken ct)
+    {
+        var projection = await db.StorefrontLedgerAccounts.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.StorefrontId == storefrontId, ct);
+
+        var sid = storefrontId;
+        var rows = new List<ChartAccountDto>
+        {
+            new("Revenue", projection?.RevenueAccountCode ?? $"revenue.store-{sid:N}", "Sales revenue", nameof(AccountType.Revenue)),
+            new("Refunds", Accounts.RefundsStoreFor(sid), "Refunds (contra-revenue)", nameof(AccountType.Revenue)),
+            new("Shipping income", projection?.ShippingAccountCode ?? $"shipping.store-{sid:N}", "Shipping income", nameof(AccountType.Revenue)),
+            new("Tax collected", projection?.TaxAccountCode ?? $"tax.store-{sid:N}", "Tax collected", nameof(AccountType.Liability)),
+            new("Receivable", projection?.ReceivableAccountCode ?? $"receivable.store-{sid:N}", "PSP settlement receivable", nameof(AccountType.Asset)),
+            new("COGS", Accounts.CogsStoreFor(sid), "Cost of goods sold", nameof(AccountType.Expense)),
+            new("Carrier cost", Accounts.ShippingCostStoreFor(sid), "Carrier shipping cost", nameof(AccountType.Expense)),
+            new("Write-offs", Accounts.WriteoffsStoreFor(sid), "Inventory write-offs", nameof(AccountType.Expense)),
+            new("Supplier payable", Accounts.SupplierPayableStoreFor(sid), "Owed to suppliers", nameof(AccountType.Liability)),
+            new("Carrier payable", Accounts.CarrierPayableStoreFor(sid), "Owed to carriers", nameof(AccountType.Liability)),
+        };
+
+        // One cash / processing-fee / chargeback-fee account per PSP the store can settle through.
+        foreach (var provider in LedgerProviders.Known)
+        {
+            var name = char.ToUpperInvariant(provider[0]) + provider[1..];
+            rows.Add(new ChartAccountDto($"Cash — {name}", Accounts.CashStoreFor(sid, provider), $"Cash settled via {name}", nameof(AccountType.Asset)));
+            rows.Add(new ChartAccountDto($"{name} fees", Accounts.FeesStoreFor(sid, provider), $"{name} processing fees", nameof(AccountType.Expense)));
+            rows.Add(new ChartAccountDto($"{name} chargeback fees", Accounts.ChargebackFeesStoreFor(sid, provider), $"{name} dispute fees", nameof(AccountType.Expense)));
+        }
+
+        return TypedResults.Ok(rows);
     }
 
     private static async Task<Ok<List<AccountDto>>> ListAccounts(PaymentsDbContext db, CancellationToken ct)
@@ -113,6 +155,7 @@ public static class AdminEndpoints
 }
 
 public record AccountDto(string Code, string Name, string Type);
+public record ChartAccountDto(string Role, string Code, string Name, string Type);
 public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
 public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
 public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);

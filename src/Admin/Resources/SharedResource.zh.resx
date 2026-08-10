@@ -1689,4 +1689,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>此付款账户所属的店面（必填——账户按店面设定）。</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— 选择一个店面 —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>请为此付款账户选择一个店面。</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>会计科目表（按店铺）</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>此店铺每笔记账会用到的所有科目——其自身的收入、税款、应收、现金和手续费（按支付服务商）、销货成本、核销以及供应商/承运商应付款。没有共享或平台默认科目：每笔记账都归属到店铺。科目代码为确定性推导；收入科目可在目录中配置。</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>类型</value>
+  </data>
 </root>

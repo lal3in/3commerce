@@ -1689,4 +1689,13 @@
   <data name="Pay.Field.Storefront.Tip" xml:space="preserve"><value>呢個付款帳戶所屬嘅店面（必填 — 帳戶係按店面設定）。</value></data>
   <data name="Pay.Storefront.Choose" xml:space="preserve"><value>— 揀一個店面 —</value></data>
   <data name="Pay.Storefront.Required" xml:space="preserve"><value>請為呢個付款帳戶揀一個店面。</value></data>
+  <data name="Fin.Chart" xml:space="preserve">
+    <value>會計科目表（按店舖）</value>
+  </data>
+  <data name="Fin.Chart.Note" xml:space="preserve">
+    <value>呢個店舖每一筆記帳會用到嘅所有帳戶——佢自己嘅收入、稅款、應收、現金同手續費（按付款供應商）、銷貨成本、撇帳同供應商／運輸商應付款。冇共用或者平台預設帳戶：每筆記帳都歸屬到店舖。科目代碼係固定推導；收入科目可喰目錄度設定。</value>
+  </data>
+  <data name="Ledger.Col.Type" xml:space="preserve">
+    <value>類型</value>
+  </data>
 </root>
