@@ -473,7 +473,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
             db.JournalLines.Where(l => l.EntryId == entry.Id));
         Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId)).Sum(l => l.DebitMinor));
         Assert.Equal(0, lines.Where(l => l.AccountCode == Accounts.CostOfGoodsSold).Sum(l => l.DebitMinor)); // shared fallback untouched
-        Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor));
+        // ledger_sf_3: the accrual's supplier-payable credit routes to the store's own account.
+        Assert.Equal(12_000, lines.Where(l => l.AccountCode == Accounts.SupplierPayableStoreFor(storefrontId)).Sum(l => l.CreditMinor));
+        Assert.Equal(0, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor)); // shared payable untouched
         Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
 
         // Reconciliation guard (ADR-0041): every COGS line MUST carry the order's currency. When it was
@@ -528,7 +530,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
             db.JournalLines.Where(l => l.EntryId == entry.Id));
         Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId)).Sum(l => l.DebitMinor));
-        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor));
+        // ledger_sf_3: supplier-payable credit per storefront.
+        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.SupplierPayableStoreFor(storefrontId)).Sum(l => l.CreditMinor));
+        Assert.Equal(0, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor)); // shared payable untouched
         Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
@@ -583,7 +587,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(reversal.Sum(l => l.DebitMinor), reversal.Sum(l => l.CreditMinor));
 
         var restock = await EntryLinesAsync($"{rmaId}:2");
-        Assert.Equal(12_000, restock.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.DebitMinor));
+        // ledger_sf_3: the restock reversal debits the store's own supplier payable (mirrors the accrual).
+        Assert.Equal(12_000, restock.Where(l => l.AccountCode == Accounts.SupplierPayableStoreFor(storefrontId)).Sum(l => l.DebitMinor));
+        Assert.Equal(0, restock.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.DebitMinor)); // shared payable untouched
         Assert.Equal(12_000, restock.Where(l => l.AccountCode == cogs).Sum(l => l.CreditMinor));
         Assert.Equal(restock.Sum(l => l.DebitMinor), restock.Sum(l => l.CreditMinor));
 
