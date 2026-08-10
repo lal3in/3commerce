@@ -1052,9 +1052,23 @@
   <data name="Mc.Col.Action" xml:space="preserve"><value>Action</value></data>
   <data name="Mc.Col.Outcome" xml:space="preserve"><value>Outcome</value></data>
   <data name="Mc.Jobs" xml:space="preserve"><value>Scheduled jobs</value></data>
-  <data name="Mc.NoJobs" xml:space="preserve"><value>No job runs recorded yet (the Payments daily-journal job reports here).</value></data>
+  <data name="Mc.NoJobs" xml:space="preserve"><value>No scheduled jobs registered yet.</value></data>
   <data name="Mc.Col.Job" xml:space="preserve"><value>Job</value></data>
   <data name="Mc.Col.Started" xml:space="preserve"><value>Started</value></data>
+  <data name="Mc.Col.Service" xml:space="preserve"><value>Service</value></data>
+  <data name="Mc.Col.Schedule" xml:space="preserve"><value>Schedule (cron)</value></data>
+  <data name="Mc.Col.NextFire" xml:space="preserve"><value>Next fire</value></data>
+  <data name="Mc.Col.LastRun" xml:space="preserve"><value>Last run</value></data>
+  <data name="Mc.Col.State" xml:space="preserve"><value>State</value></data>
+  <data name="Mc.Col.Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Mc.Job.Run" xml:space="preserve"><value>Run now</value></data>
+  <data name="Mc.Job.Pause" xml:space="preserve"><value>Pause</value></data>
+  <data name="Mc.Job.Resume" xml:space="preserve"><value>Resume</value></data>
+  <data name="Mc.Job.Edit" xml:space="preserve"><value>Edit</value></data>
+  <data name="Mc.Job.Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Mc.Job.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Mc.Job.Paused" xml:space="preserve"><value>Paused</value></data>
+  <data name="Mc.Job.Active" xml:space="preserve"><value>Active</value></data>
   <data name="Mc.Bus" xml:space="preserve"><value>Message bus</value></data>
   <data name="Mc.Bus.Subtitle" xml:space="preserve"><value>live · RabbitMQ management API · read-only</value></data>
   <data name="Mc.Bus.Unreachable" xml:space="preserve"><value>Management API unreachable (config &lt;code&gt;MessageBus:ManagementUrl&lt;/code&gt;, dev default &lt;code&gt;http://localhost:15672&lt;/code&gt;). Queue stats appear when the broker's management plugin is up.</value></data>

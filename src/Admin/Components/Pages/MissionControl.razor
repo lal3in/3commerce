@@ -127,21 +127,63 @@
 
     <section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem;">
         <h2 style="margin-top:0;">@L["Mc.Jobs"]</h2>
-        @if (_runs.Count == 0)
+        @if (_jobs.Count == 0)
         {
             <p style="color:#9ca3af;">@L["Mc.NoJobs"]</p>
         }
         else
         {
             <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
-                <thead><tr><th style="text-align:left;">@L["Mc.Col.Job"]</th><th style="text-align:left;">@L["Common.Status"]</th><th style="text-align:left;">@L["Mc.Col.Started"]</th></tr></thead>
+                <thead><tr>
+                    <th style="text-align:left;">@L["Mc.Col.Service"]</th>
+                    <th style="text-align:left;">@L["Mc.Col.Job"]</th>
+                    <th style="text-align:left;">@L["Mc.Col.Schedule"]</th>
+                    <th style="text-align:left;">@L["Mc.Col.NextFire"]</th>
+                    <th style="text-align:left;">@L["Mc.Col.LastRun"]</th>
+                    <th style="text-align:left;">@L["Mc.Col.State"]</th>
+                    <th style="text-align:right;">@L["Mc.Col.Actions"]</th>
+                </tr></thead>
                 <tbody>
-                @foreach (var r in _runs.Take(12))
+                @foreach (var j in _jobs)
                 {
+                    var editing = _editKey == $"{j.Service}:{j.Name}";
                     <tr style="border-top:1px solid #f3f4f6;">
-                        <td><code style="font-size:.78rem;">@r.JobName</code></td>
-                        <td style="@(r.Status == "Failed" ? "color:#b91c1c;" : r.Status == "Succeeded" ? "color:#047857;" : "")">@r.Status @if (r.Error is not null) { <span title="@r.Error">⚠</span> }</td>
-                        <td>@r.StartedAt.LocalDateTime.ToString("dd MMM HH:mm")@if (r.DurationMs is { } d) { <span style="color:#9ca3af;"> · @FormatDuration(d)</span> }</td>
+                        <td>@j.Service</td>
+                        <td><code style="font-size:.78rem;">@j.Name</code></td>
+                        <td>
+                            @if (editing)
+                            {
+                                <input @bind="_editCron" style="width:11rem; font-family:monospace; font-size:.78rem;" />
+                            }
+                            else
+                            {
+                                <code style="font-size:.78rem;">@j.Cron</code>
+                            }
+                        </td>
+                        <td style="color:#6b7280;">@(j.NextFireUtc is { } n ? n.LocalDateTime.ToString("dd MMM HH:mm") : "—")</td>
+                        <td style="@(j.LastStatus == "Failed" ? "color:#b91c1c;" : j.LastStatus == "Succeeded" ? "color:#047857;" : "color:#9ca3af;")">
+                            @if (j.LastStatus is null) { <text>—</text> }
+                            else
+                            {
+                                @j.LastStatus
+                                @if (j.LastError is not null) { <span title="@j.LastError">⚠</span> }
+                                @if (j.LastDurationMs is { } d) { <span style="color:#9ca3af;"> · @FormatDuration(d)</span> }
+                            }
+                        </td>
+                        <td>@(j.Paused ? L["Mc.Job.Paused"] : L["Mc.Job.Active"])</td>
+                        <td style="text-align:right; white-space:nowrap;">
+                            @if (editing)
+                            {
+                                <button disabled="@_jobBusy" @onclick="() => SaveCronAsync(j)" style="margin-left:.25rem;">@L["Mc.Job.Save"]</button>
+                                <button disabled="@_jobBusy" @onclick="CancelEdit" style="margin-left:.25rem;">@L["Mc.Job.Cancel"]</button>
+                            }
+                            else
+                            {
+                                <button disabled="@_jobBusy" title="@L["Mc.Job.Run"]" @onclick="() => RunNowAsync(j)" style="margin-left:.25rem;">@L["Mc.Job.Run"]</button>
+                                <button disabled="@_jobBusy" @onclick="() => TogglePauseAsync(j)" style="margin-left:.25rem;">@(j.Paused ? L["Mc.Job.Resume"] : L["Mc.Job.Pause"])</button>
+                                <button disabled="@_jobBusy" @onclick="() => StartEdit(j)" style="margin-left:.25rem;">@L["Mc.Job.Edit"]</button>
+                            }
+                        </td>
                     </tr>
                 }
                 </tbody>
@@ -234,6 +276,10 @@
 @code {
     private List<AuditDto> _audit = [];
     private List<RunDto> _runs = [];
+    private List<JobViewDto> _jobs = [];
+    private string? _editKey;
+    private string _editCron = "";
+    private bool _jobBusy;
     private List<OrderKpiDto> _orders = [];
     private List<RmaKpiDto> _rmas = [];
     private List<BalanceDto> _balances = [];
@@ -251,6 +297,7 @@
     {
         _audit = await Gateway.GetListAsync<AuditDto>($"/api/audit/admin/audit?tenantId={_tenant}");
         _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
+        _jobs = await SafeList<JobViewDto>("/api/workflow/admin/workflow/jobs");
         // Live commerce activity — the same admin read models the Orders and RMA pages use, so a
         // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
         _orders = await SafeList<OrderKpiDto>("/api/ordering/admin/orders");
@@ -266,6 +313,48 @@
         _notif = await SafeGet<NotifSummaryDto>("/api/notifications/admin/notifications");
         _bus = await BusStats.GetSnapshotAsync();
         _obs = await ObsStats.GetSnapshotAsync();
+    }
+
+    // Scheduled-Job Manager actions (jobmgr_1). Control routes to the OWNING service via the gateway
+    // (/api/{service}/admin/jobs/{name}/...); the Workflow registry re-projects the change, so a reload
+    // reflects the new state. _jobBusy serialises clicks so a double-tap can't fire two commands.
+    private async Task RunNowAsync(JobViewDto job) => await JobActionAsync(() =>
+        Gateway.PostAsync($"/api/{job.Service}/admin/jobs/{job.Name}/run"));
+
+    private async Task TogglePauseAsync(JobViewDto job) => await JobActionAsync(() =>
+        Gateway.PostAsync($"/api/{job.Service}/admin/jobs/{job.Name}/{(job.Paused ? "resume" : "pause")}"));
+
+    private void StartEdit(JobViewDto job)
+    {
+        _editKey = $"{job.Service}:{job.Name}";
+        _editCron = job.Cron;
+    }
+
+    private void CancelEdit() => _editKey = null;
+
+    private async Task SaveCronAsync(JobViewDto job)
+    {
+        await JobActionAsync(() => Gateway.PutAsync($"/api/{job.Service}/admin/jobs/{job.Name}/schedule", new { cron = _editCron }));
+        _editKey = null;
+    }
+
+    private async Task JobActionAsync(Func<Task<HttpResponseMessage>> action)
+    {
+        if (_jobBusy)
+        {
+            return;
+        }
+
+        _jobBusy = true;
+        try
+        {
+            await action();
+            _jobs = await SafeList<JobViewDto>("/api/workflow/admin/workflow/jobs");
+        }
+        finally
+        {
+            _jobBusy = false;
+        }
     }
 
     // A single failing read model must not blank the whole monitor — degrade that tile to 0/empty.
@@ -332,6 +421,7 @@
 
     private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
     private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, long? DurationMs, string? Error);
+    private record JobViewDto(string Service, string Name, string Cron, bool Paused, DateTimeOffset? NextFireUtc, string? LastStatus, DateTimeOffset? LastStartedAt, long? LastDurationMs, string? LastError);
 
     // Compact, locale-neutral run duration for the dashboard (ms under a second, else seconds).
     private static string FormatDuration(long ms) => ms < 1000 ? $"{ms} ms" : $"{ms / 1000.0:0.0} s";
