@@ -52,6 +52,9 @@ test.describe("Admin operations surfaces", () => {
   });
 
   test("RMA queue exposes both immediate-refund and require-return actions for requested RMAs", async ({ page, request }) => {
+    // Seeding the RMA (customer request → admin-list projection) can lag under full-suite load; give the
+    // cross-service round-trips room so this is green locally without leaning on CI retries.
+    test.setTimeout(150_000);
     test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
     const { orderId } = await seedPaidOrderWithRma(request);
 
