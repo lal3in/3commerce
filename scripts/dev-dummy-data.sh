@@ -893,12 +893,16 @@ except Exception:
   upsert_demo_storefront "demoCa" "Demo CA Store" "http://localhost:3000/ca" "CAD" 3 500
   upsert_demo_storefront "demoUk" "Demo UK Store" "http://localhost:3000/uk" "GBP" 2 2000
   upsert_demo_storefront "demoCn" "Demo CN Store" "http://localhost:3000/cn" "CNY" 2 1300
+  # JP (JPY) is the 0-decimal currency (currency_4): proves a 0-decimal code flows registry -> storefront
+  # -> sale -> dashboards and renders with no decimals (¥3,300, not ¥33.00). taxRegime 2 (inclusive) like
+  # CN/UK/EU; 10% rate (1000 bps).
+  upsert_demo_storefront "demoJp" "Demo JP Store" "http://localhost:3000/jp" "JPY" 2 1000
 
   # Payment accounts are per-storefront (ADR-0042/0043): give each demo storefront its own default
   # account, and submit + activate it so the storefront is payment-ready (the go-live gate needs an
   # ACTIVE account — a Test-mode stripe account activates without an external ref).
   local pay_key pay_sf_id pay_acct_json pay_acct_id
-  for pay_key in demoEu demoAu demoUs demoCa demoUk demoCn; do
+  for pay_key in demoEu demoAu demoUs demoCa demoUk demoCn demoJp; do
     pay_sf_id=$(manifest_get "storefronts.$pay_key.id")
     [[ -n "$pay_sf_id" ]] || continue
     pay_acct_json=$(api "payment-account-$pay_key" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \
