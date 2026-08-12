@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Currencies — 3commerce Operations Wiki</title>
+<meta name="description" content="Managing the tenant currency registry from the Admin Currencies page, where registered currencies show up, and how variable-decimal money is displayed and stored.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/wiki.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <a class="brand" href="index.html"><span class="brand-mark">3c</span><span class="brand-name">3commerce<small>Operations Wiki</small></span></a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="runtime-architecture.html"><span class="idx">⬡</span>Runtime architecture</a>
+      <a href="order-workflow.html"><span class="idx">⑂</span>Order workflow</a>
+      <a href="checkout-sequence.html"><span class="idx">⇅</span>Checkout sequence</a>
+      <a href="readcopy-dataflow.html"><span class="idx">⇶</span>Read-copy dataflow</a>
+      <a href="order-lifecycle.html"><span class="idx">⭮</span>Order lifecycle</a>
+      <a href="services.html"><span class="idx">◆</span>Platform services</a>
+      <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
+      <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="currencies.html" class="active"><span class="idx">¤</span>Currencies</a>
+      <a href="selling-information.html"><span class="idx">$</span>Selling information</a>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">Money is stored in minor units; each currency's real decimals are display-only.</div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Reference</b><span class="sep">/</span>Currencies</div>
+      <span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button>
+      <button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button>
+    </header>
+    <main id="main" class="content"><div class="content-inner">
+      <p class="eyebrow">Reference · Currency registry</p>
+      <h1>Currencies</h1>
+      <p class="lede">The set of currencies the platform prices, sells, and settles in is a <strong>managed registry</strong> owned by the <strong>Entity</strong> service (reference/master data, ADR-0027). Operators curate it from the Admin <strong>Currencies</strong> page; every other screen and service reads a local projection of it rather than the registry database. Money everywhere is stored as integer <strong>minor units</strong> and displayed with each currency's real number of decimals.</p>
+
+      <h2 id="managing">Managing currencies — <code>/currencies</code></h2>
+      <p>File: <code>src/Admin/Components/Pages/Currencies.razor</code>; backed by <code>/api/entity/admin/currencies</code>. The <code>admin</code> role is required. The page is tenant-scoped (seeded default tenant <code>00000000-0000-0000-0000-000000000001</code>) and lists every currency for the tenant, including disabled ones.</p>
+      <ul>
+        <li><strong>Add a currency</strong> — fill the top form: <strong>Code</strong> (ISO 4217, exactly 3 letters, upper-cased for you), <strong>Name</strong>, <strong>Symbol</strong>, and <strong>Decimals</strong> (<code>0</code>–<code>4</code>). <strong>Add</strong> creates it enabled. A duplicate code is rejected (<code>409</code> "Currency X already exists"); a bad code or out-of-range decimals is rejected with the API's reason shown in the red banner.</li>
+        <li><strong>Edit</strong> — the row's <strong>Edit</strong> button makes Name, Symbol, and Decimals editable inline; <strong>Save</strong> writes them. The code itself is the identity and is not editable — retire and re-add if you truly must change it.</li>
+        <li><strong>Enable / Disable</strong> — toggles whether the currency can be <em>newly</em> chosen. Disabled rows stay in the list, dimmed, with a grey <em>Disabled</em> pill. See <a href="#disable">Disable is forward-only</a>.</li>
+      </ul>
+      <div class="callout note">
+        <span class="mark">i</span>
+        <p><strong>Seeded set.</strong> So the registry is never empty on first boot, the platform seeds <strong>AUD, CAD, CNY, EUR, GBP, USD</strong> (2-decimal) plus <strong>JPY</strong> as the seeded <strong>0-decimal</strong> example (¥1,500, not ¥15.00) — see <code>src/Services/Entity/Api/CurrencySeeder.cs</code> (idempotent — it never clobbers your later edits). Everything else you add here; e.g. <strong>KWD</strong> is a 3-decimal example.</p>
+      </div>
+      <p>Every mutation publishes a <code>CurrencyChanged</code> event and records an audit entry (<code>entity.currency.create|update|enable|disable</code>), so the change is traceable in Mission Control and picked up by the projections below without any service reading the Entity database directly.</p>
+
+      <h2 id="where">Where currencies show up</h2>
+      <p>Once a currency is <strong>registered and enabled</strong>, it flows out to the rest of the platform through the <code>CurrencyChanged</code> projection (Catalog's <code>SupportedCurrency</code> read model mirrors it):</p>
+      <ul>
+        <li><strong>Pickers</strong> — the storefront/commerce config and product/variant price editors offer the tenant's <strong>enabled</strong> codes in a dropdown (<code>CurrencySelect</code>), never a free-typed box. Currency is chosen, not typed.</li>
+        <li><strong>Validation</strong> — storefront commerce config and product/offer pricing validate the chosen currency against the projection: only a <strong>registered, enabled</strong> code may be newly used. An unregistered or disabled code is <strong>rejected</strong> on save.</li>
+        <li><strong>Financial screens</strong> — the Admin <strong>Dashboard</strong>, <strong>Financials</strong>, <strong>Mission Control</strong>, and the <strong>Ledger</strong> are data-driven from ledger balances, so any currency that has activity appears there automatically. You never register a currency "into" a report — it shows up the moment it has money against it.</li>
+      </ul>
+      <div class="callout note">
+        <span class="mark">i</span>
+        <p>Before the projection has caught up on a brand-new environment, <code>CurrencySelect</code> falls back to the full static ISO 4217 list so pickers are never empty; once the registry projects, the tenant's curated set takes over.</p>
+      </div>
+
+      <h2 id="decimals">Decimal places</h2>
+      <p>Not every currency has 2 decimals. Money is shown and entered with each currency's real minor-unit exponent:</p>
+      <div class="table-wrap"><table><thead><tr><th>Currency</th><th>Decimals</th><th>Displayed</th></tr></thead><tbody>
+        <tr><td><code>JPY</code>, <code>KRW</code>, <code>VND</code> …</td><td>0</td><td>¥1,500</td></tr>
+        <tr><td>Most currencies (<code>USD</code>, <code>EUR</code>, <code>AUD</code> …)</td><td>2</td><td>$19.95</td></tr>
+        <tr><td><code>KWD</code>, <code>BHD</code>, <code>OMR</code> …</td><td>3</td><td>KWD 1.250</td></tr>
+      </tbody></table></div>
+      <p>Amounts are always stored as a <code>long</code> count of the <strong>smallest unit</strong> (<code>…Minor</code>); the divisor between minor and major is <code>10^decimals</code>. The ISO 4217 exponent table (<code>src/BuildingBlocks/Contracts/Reference/CurrencyDecimals.cs</code>, mirrored in the Storefront's <code>lib/money.ts</code>) is the single authority used at both store-time and display-time, so the two always agree.</p>
+      <div class="callout note">
+        <span class="mark">i</span>
+        <p><strong>Changing a currency's <em>Decimals</em> is a display/parse setting only.</strong> It changes how amounts are formatted and how typed input is scaled into minor units — it does not migrate or reinterpret stored balances. Because real ISO codes follow the exponent table above, the registry's per-tenant Decimals should normally match ISO.</p>
+      </div>
+
+      <h2 id="disable">Disable is forward-only</h2>
+      <p>Disabling a currency is deliberately <strong>non-destructive</strong>. A disabled currency:</p>
+      <ul>
+        <li><strong>cannot be chosen</strong> for a new storefront, commerce config, or product/variant price — it drops out of the pickers and fails validation if submitted; but</li>
+        <li><strong>still displays everywhere it already has history</strong> — existing prices, orders, and ledger balances in that currency keep rendering correctly, because the disabled row stays in the projection so its symbol and decimals still resolve.</li>
+      </ul>
+      <p>When you edit a record that already uses a now-disabled code, the picker keeps that code selectable so the edit never silently drops it. Re-enable at any time to make it choosable again for new work.</p>
+
+      <h2 id="api">API surface</h2>
+      <div class="table-wrap"><table><thead><tr><th>Purpose</th><th>Read</th><th>Action</th></tr></thead><tbody>
+        <tr><td>Currency registry</td><td><code>GET /api/entity/admin/currencies?tenantId=…&amp;includeDisabled=true</code></td><td><code>POST /api/entity/admin/currencies</code> · <code>PUT …/{code}</code> · <code>POST …/{code}/enable|disable</code></td></tr>
+      </tbody></table></div>
+      <p><strong>Create</strong> takes <code>{ tenantId, code, name, symbol, decimalPlaces }</code> with <code>code</code> a 3-letter ISO string and <code>decimalPlaces</code> in <code>0</code>–<code>4</code>; <strong>Update</strong> takes <code>{ tenantId, name, symbol, decimalPlaces }</code>. Every write publishes <code>CurrencyChanged</code> and records an audit event.</p>
+
+      <footer class="page-nav">
+        <a class="prev" href="screens.html">
+          <div class="dir">← Previous</div>
+          <div class="ttl">UI screens</div>
+        </a>
+        <a class="next" href="selling-information.html">
+          <div class="dir">Next →</div>
+          <div class="ttl">Selling information</div>
+        </a>
+      </footer>
+    </div></main>
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <nav></nav>
+    </aside>
+  </div>
+</div>
+<script src="assets/wiki.js"></script>
+</body>
+</html>
