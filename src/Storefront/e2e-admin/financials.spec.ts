@@ -20,12 +20,14 @@ test("Financials by-storefront table reconciles: gross = net revenue + tax", asy
   // The by-storefront table (and its column headers) only render when storefronts exist; skip if empty.
   test.skip((await byStore.locator("tbody tr").count()) === 0, "no storefronts configured (needs --data full)");
 
-  // The dead "Receivable" column is gone; Gross / Net revenue / Tax are present.
-  for (const col of ["Gross", "Net revenue", "Tax"]) {
+  // The dead "Receivable" column is gone; Gross / Net revenue / Shipping / Tax are present.
+  for (const col of ["Gross", "Net revenue", "Shipping", "Tax"]) {
     await expect(byStore.getByRole("columnheader", { name: col })).toBeVisible();
   }
 
-  // Columns: Storefront | Currency | Gross | Net revenue | Tax | Revenue account.
+  // Columns: Storefront | Currency | Gross | Net revenue | Shipping | Tax | COGS | Margin | ... | Account.
+  // StoreGross = net revenue + shipping income + tax (all credit-normal), so the row reconciles across
+  // all three — shipping is its own income line since the ADR-0040 shipping split, not part of net revenue.
   const rows = byStore.locator("tbody tr");
   const n = await rows.count();
   for (let i = 0; i < n; i++) {
@@ -34,7 +36,8 @@ test("Financials by-storefront table reconciles: gross = net revenue + tax", asy
       parseFloat((await cells.nth(idx).innerText()).replace(/,/g, "")) || 0;
     const gross = await money(2);
     const net = await money(3);
-    const tax = await money(4);
-    expect(Math.abs(gross - (net + tax))).toBeLessThan(0.01);
+    const shipping = await money(4);
+    const tax = await money(5);
+    expect(Math.abs(gross - (net + shipping + tax))).toBeLessThan(0.01);
   }
 });

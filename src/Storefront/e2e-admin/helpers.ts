@@ -29,7 +29,7 @@ export async function demoStorefrontId(request: APIRequestContext): Promise<stri
  * The order is attributed to a demo storefront (every order must belong to one); callers guard with
  * demoStorefrontId(...) + test.skip when no demo store is published (import-only stack).
  */
-export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<{ orderId: string }> {
+export async function seedPaidOrder(request: APIRequestContext): Promise<{ orderId: string; gross: number }> {
   const storefrontId = await demoStorefrontId(request);
   expect(storefrontId, "a demo storefront must be published to attribute the order (dev-up --data full)").toBeTruthy();
   // Admin session also satisfies the customer policy (cart/checkout/rma).
@@ -66,7 +66,14 @@ export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<
     })
     .toBe("Confirmed");
 
-  // Customer requests an RMA → saga in Requested.
+  return { orderId, gross };
+}
+
+export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<{ orderId: string }> {
+  const { orderId, gross } = await seedPaidOrder(request);
+
+  // Customer requests an RMA for the whole order → saga in Requested. NOTE: this claims the FULL order's
+  // refundable quantity, so a caller must not then expect to refund the same order again (nothing left).
   await request.post(`${GATEWAY}/api/support/rma`, {
     data: { orderId, email: "buyer@example.com", amountMinor: gross, reason: "damaged" },
   });
