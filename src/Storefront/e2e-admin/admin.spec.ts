@@ -38,6 +38,10 @@ test.describe("Admin console", () => {
   });
 
   test("operator approves an RMA and the refund completes (RefundIssued)", async ({ page, request }) => {
+    // Seed (checkout + payment + RMA projection) plus the approve→refund saga chain multiple cross-service
+    // round-trips; the 60s default is too tight when the whole suite shares one local stack (it flaked here
+    // while passing in isolation and in CI). Give the saga room so local runs are green without retries.
+    test.setTimeout(150_000);
     test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
     const { orderId } = await seedPaidOrderWithRma(request);
 

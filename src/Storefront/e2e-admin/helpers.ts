@@ -74,14 +74,27 @@ export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<
 
   // Customer requests an RMA for the whole order → saga in Requested. NOTE: this claims the FULL order's
   // refundable quantity, so a caller must not then expect to refund the same order again (nothing left).
-  await request.post(`${GATEWAY}/api/support/rma`, {
-    data: { orderId, email: "buyer@example.com", amountMinor: gross, reason: "damaged" },
-  });
+  //
+  // RequestRma 404s until the OrderConfirmed → OrderSnapshot projection lands in Support, which can lag
+  // under full-suite load (a prior test's bulk import floods the bus). Firing once and ignoring the status
+  // silently dropped the RMA, so the admin-list poll then timed out. Retry the POST until it's accepted.
+  await expect
+    .poll(
+      async () =>
+        (
+          await request.post(`${GATEWAY}/api/support/rma`, {
+            data: { orderId, email: "buyer@example.com", amountMinor: gross, reason: "damaged" },
+          })
+        ).status(),
+      { timeout: 60_000 },
+    )
+    .toBe(202);
+  // Accepted → give the RmaRequested → admin-list projection a moment to surface it.
   await expect
     .poll(async () => {
       const rmas = await (await request.get(`${GATEWAY}/api/support/admin/rmas`)).json();
       return rmas.some((r: { orderId: string }) => r.orderId === orderId);
-    }, { timeout: 40_000 })
+    }, { timeout: 20_000 })
     .toBeTruthy();
 
   return { orderId };
