@@ -151,7 +151,10 @@ else
             <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
                 <thead><tr><th style="text-align:left;">@L["Home.Col.When"]</th><th style="text-align:left;">@L["Home.Col.Entry"]</th><th style="text-align:right;">@L["Home.Col.Amount"]</th></tr></thead>
                 <tbody>
-                @foreach (var e in ScopedLedger.OrderByDescending(e => e.CreatedAt).Take(8))
+                @* Same deterministic newest-first order as the Ledger page + the /ledger/entries API
+                   (CreatedAt, then the v7 Id as a tiebreaker), so this feed shows the same entries in the
+                   same order as the full Ledger page rather than tie-breaking same-instant entries differently. *@
+                @foreach (var e in ScopedLedger.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(8))
                 {
                     var isRefund = e.Description.StartsWith("Refund ", StringComparison.Ordinal);
                     var cashLines = e.Lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal));

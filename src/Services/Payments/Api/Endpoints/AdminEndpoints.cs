@@ -82,7 +82,11 @@ public static class AdminEndpoints
             query = query.Where(e => e.Reference == reference);
         }
 
-        var entries = await query.OrderByDescending(e => e.CreatedAt).Take(200)
+        // Deterministic newest-first order: a secondary key on the time-ordered v7 Id breaks ties when two
+        // entries share a CreatedAt (a sale + its COGS/supplier-payable accrual can post the same instant),
+        // so this feed — and the admin surfaces that render it (Ledger page, dashboard feed) — are stable
+        // and agree on the presentation order rather than tie-breaking arbitrarily.
+        var entries = await query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(200)
             .Select(e => new EntryDto(
                 e.Id, e.Description, e.Reference, e.Currency, e.CreatedAt,
                 e.Lines.Select(l => new LineDto(l.AccountCode, l.DebitMinor, l.CreditMinor)).ToList()))
