@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 using ThreeCommerce.Payments.Domain;
 
 namespace ThreeCommerce.Payments.Infrastructure.Providers.Afterpay;
@@ -61,7 +62,7 @@ public sealed class AfterpayPaymentProvider(IConfiguration configuration) : IPay
         var eventId = root.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty;
         var intentId = data.TryGetProperty("id", out var pid) ? pid.GetString() ?? string.Empty : string.Empty;
         var amount = data.TryGetProperty("amount", out var amt) && amt.TryGetProperty("amount", out var v)
-            ? ToMinor(v.GetString())
+            ? ToMinor(v.GetString(), amt.TryGetProperty("currency", out var cc) ? cc.GetString() : null)
             : 0;
         var failure = kind == PaymentWebhookKind.PaymentFailed
             ? (data.TryGetProperty("reason", out var r) ? r.GetString() : null) ?? "payment declined"
@@ -80,10 +81,13 @@ public sealed class AfterpayPaymentProvider(IConfiguration configuration) : IPay
     public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) =>
         throw new NotSupportedException("Afterpay does not expose saved payment-method details.");
 
-    /// <summary>Converts an Afterpay decimal amount string ("49.90") to minor units (4990), rounding half-to-even.</summary>
-    private static long ToMinor(string? value) =>
+    /// <summary>
+    /// Converts an Afterpay decimal amount string ("49.90") to minor units (4990) using the amount's own
+    /// currency decimals (currency_3) — JPY has 0 decimals, KWD 3 — so a plain ×100 would misplace them.
+    /// </summary>
+    private static long ToMinor(string? value, string? currencyCode) =>
         decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var d)
-            ? (long)Math.Round(d * 100m, MidpointRounding.ToEven)
+            ? Money.ToMinor(d, currencyCode)
             : 0;
 
     private static PaymentMode ModeFor(PaymentAccountSnapshot account) =>

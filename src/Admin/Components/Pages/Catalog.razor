@@ -39,7 +39,7 @@
                     <td>@p.Brand</td>
                     <td style="text-align:center;"><span style="background:#f3f4f6; border-radius:4px; padding:.1rem .4rem; font-size:.78rem;">@ProductTypeLabel(p.ProductType)</span></td>
                     <td style="text-align:center;">@p.VariantCount</td>
-                    <td style="text-align:right;">@($"{p.MinPriceMinor / 100m:0.00}")</td>
+                    <td style="text-align:right;">@Money.Amount(p.MinPriceMinor, null)</td>
                     <td style="text-align:center;">@p.TotalStock</td>
                     <td style="text-align:right; white-space:nowrap;">
                         <button @onclick="() => EditProduct(p.Id)" title="@L["Catalog.Edit.Tip"]" style="padding:.2rem .6rem;">@L["Common.Edit"]</button>

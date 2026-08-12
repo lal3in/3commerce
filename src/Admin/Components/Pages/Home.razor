@@ -128,7 +128,7 @@ else
                         <td>@o.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
                         <td><code style="font-size:.8rem;">@o.Id.ToString()[..8]</code></td>
                         <td>@o.Status</td>
-                        <td style="text-align:right;">@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
+                        <td style="text-align:right;">@Money.WithCode(o.GrossMinor, o.Currency)</td>
                     </tr>
                 }
                 </tbody>
@@ -162,7 +162,7 @@ else
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
                         <td>@e.Description</td>
-                        <td style="text-align:right; @(isRefund ? "color:#b45309;" : "color:#047857;")">@(isRefund ? "−" : "")@($"{total / 100m:0.00} {e.Currency}")</td>
+                        <td style="text-align:right; @(isRefund ? "color:#b45309;" : "color:#047857;")">@(isRefund ? "−" : "")@Money.WithCode(total, e.Currency)</td>
                     </tr>
                 }
                 </tbody>
@@ -223,6 +223,10 @@ else
     private Guid? SelectedStoreId => Guid.TryParse(_selectedStore, out var id) ? id : null;
     private bool IsUnassigned => _selectedStore == "unassigned";
     private StorefrontDto? SelectedStore => _storefronts.FirstOrDefault(s => s.Id == SelectedStoreId);
+    // The currency used to format the revenue chart's tooltips: the selected store's currency, else the
+    // currency of the orders in view (a single store's orders share one; for "all" stores the bars already
+    // sum across currencies, so the first order's currency just drives the decimal places).
+    private string ChartCurrency => SelectedStore?.Currency ?? Orders.FirstOrDefault()?.Currency ?? "";
     private HashSet<string> StoreRevenueAccounts => _storefronts.Select(s => s.RevenueAccountCode).ToHashSet(StringComparer.Ordinal);
 
     private List<OrderDto> Orders =>
@@ -304,16 +308,17 @@ else
         }
 
         var max = Math.Max(1, Math.Max(_revByDay.Values.Max(), _refByDay.Values.DefaultIfEmpty(0).Max()));
+        var cur = ChartCurrency;
         var parts = _revByDay.Select((kv, i) =>
         {
             var h = kv.Value * 130.0 / max;
             var x = (i * 40) + 14;
             var refund = _refByDay.TryGetValue(kv.Key, out var r) ? r : 0;
             var rh = refund * 130.0 / max;
-            var bars = $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {kv.Value / 100m:N2}</title></rect>";
+            var bars = $"<rect x=\"{x}\" y=\"{140 - h:0.#}\" width=\"26\" height=\"{h:0.#}\" rx=\"3\" fill=\"#6366f1\"><title>{kv.Key:dd MMM}: {Money.Amount(kv.Value, cur)}</title></rect>";
             if (rh > 0)
             {
-                bars += $"<rect x=\"{x + 7}\" y=\"{140 - rh:0.#}\" width=\"12\" height=\"{rh:0.#}\" rx=\"2\" fill=\"#f59e0b\"><title>{kv.Key:dd MMM} · {refund / 100m:N2} refunded</title></rect>";
+                bars += $"<rect x=\"{x + 7}\" y=\"{140 - rh:0.#}\" width=\"12\" height=\"{rh:0.#}\" rx=\"2\" fill=\"#f59e0b\"><title>{kv.Key:dd MMM} · {Money.Amount(refund, cur)} refunded</title></rect>";
             }
 
             return bars + $"<text x=\"{x + 13}\" y=\"158\" font-size=\"9\" text-anchor=\"middle\" fill=\"#9ca3af\">{kv.Key:dd}</text>";
@@ -340,7 +345,7 @@ else
         var fees = Fees(cur);
         string cell(string lbl, long minor, string color) =>
             $"<tr><td style=\"padding:.1rem 0 .1rem .8rem; color:#6b7280;\">{lbl}</td>" +
-            $"<td style=\"text-align:right; color:{color}; font-variant-numeric:tabular-nums;\">{minor / 100m:N2} {cur}</td></tr>";
+            $"<td style=\"text-align:right; color:{color}; font-variant-numeric:tabular-nums;\">{Money.Amount(minor, cur)} {cur}</td></tr>";
         builder.AddMarkupContent(0,
             "<tr><td colspan=\"2\" style=\"padding:0;\">" +
             $"<details style=\"margin:.1rem 0 .3rem;\"><summary style=\"cursor:pointer; font-size:.75rem; color:#6b7280;\">{L["Home.Cash.Breakdown"]}</summary>" +
@@ -349,7 +354,7 @@ else
             cell("+ " + L["Home.Cash.TaxCollected"], tax, "#374151") +
             cell("− " + L["Home.Cash.Fees"], fees, "#b45309") +
             $"<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:.15rem 0 .1rem .8rem; font-weight:700;\">= {L["Home.Kpi.Cash"]}</td>" +
-            $"<td style=\"text-align:right; font-weight:700; color:#4f46e5; font-variant-numeric:tabular-nums;\">{(net + tax - fees) / 100m:N2} {cur}</td></tr>" +
+            $"<td style=\"text-align:right; font-weight:700; color:#4f46e5; font-variant-numeric:tabular-nums;\">{Money.Amount(net + tax - fees, cur)} {cur}</td></tr>" +
             "</table></details></td></tr>");
     };
 
@@ -359,7 +364,7 @@ else
         var border = bold ? "border-top:1px solid #e5e7eb;" : "";
         builder.AddMarkupContent(0,
             $"<tr style=\"{border}\"><td style=\"padding:.2rem 0; color:#374151; font-weight:{weight};\">{label}</td>" +
-            $"<td style=\"text-align:right; font-weight:{weight}; color:{color}; font-variant-numeric:tabular-nums;\">{minor / 100m:N2} {currency}</td></tr>");
+            $"<td style=\"text-align:right; font-weight:{weight}; color:{color}; font-variant-numeric:tabular-nums;\">{Money.Amount(minor, currency)} {currency}</td></tr>");
     };
 
     public record OrderDto(Guid Id, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt, string? PaymentOption = null, Guid? StorefrontId = null, bool PartiallyRefunded = false);
