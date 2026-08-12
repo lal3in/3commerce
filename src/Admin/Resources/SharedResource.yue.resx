@@ -1698,4 +1698,10 @@
   <data name="Ledger.Col.Type" xml:space="preserve">
     <value>類型</value>
   </data>
+  <data name="Nav.Currencies" xml:space="preserve">
+    <value>貨幣</value>
+  </data>
+  <data name="Nav.Currencies.Tip" xml:space="preserve">
+    <value>管理支援嘅貨幣</value>
+  </data>
 </root>

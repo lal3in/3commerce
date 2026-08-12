@@ -18,6 +18,7 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
     public DbSet<SupplierOnboarding> SupplierOnboardings => Set<SupplierOnboarding>();
     public DbSet<SupplierChangeRequest> SupplierChangeRequests => Set<SupplierChangeRequest>();
     public DbSet<CustomerEntityLink> CustomerEntityLinks => Set<CustomerEntityLink>();
+    public DbSet<Currency> Currencies => Set<Currency>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +26,16 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
 
         modelBuilder.HasDefaultSchema("entity");
         modelBuilder.ConfigureAudit();
+
+        modelBuilder.Entity<Currency>(currency =>
+        {
+            currency.ToTable("Currencies");
+            currency.HasKey(c => c.Id);
+            currency.Property(c => c.Code).HasMaxLength(3);
+            currency.Property(c => c.Name).HasMaxLength(80);
+            currency.Property(c => c.Symbol).HasMaxLength(8);
+            currency.HasIndex(c => new { c.TenantId, c.Code }).IsUnique();
+        });
 
         modelBuilder.Entity<EntityRecord>(entity =>
         {

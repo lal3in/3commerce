@@ -43,6 +43,9 @@ app.UseAuthorization();
 app.UseTenantScope<EntityDbContext>();
 app.MapServiceHealth();
 app.MapEntities();
+app.MapCurrencies();
+
+await ThreeCommerce.Entity.Api.CurrencySeeder.SeedAsync(app);
 
 app.Run();
 

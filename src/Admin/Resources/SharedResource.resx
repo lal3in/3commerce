@@ -1712,4 +1712,10 @@
   <data name="Ledger.Col.Type" xml:space="preserve">
     <value>Type</value>
   </data>
+  <data name="Nav.Currencies" xml:space="preserve">
+    <value>Currencies</value>
+  </data>
+  <data name="Nav.Currencies.Tip" xml:space="preserve">
+    <value>Manage supported currencies</value>
+  </data>
 </root>
