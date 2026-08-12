@@ -59,6 +59,71 @@ public class CurrencyCatalogTests(Phase2Fixture fixture) : IAsyncLifetime
         return Task.CompletedTask;
     }
 
+    // currency_2: storefront config validates its currency against the projected registry — a registered,
+    // enabled code is accepted; an unregistered (or disabled) one is rejected once the registry is projected.
+    [Fact]
+    public async Task Storefront_currency_is_validated_against_the_registry()
+    {
+        var tenant = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+        // No registry projected yet → validation is not enforced (a fresh environment isn't blocked).
+        var beforeProjection = await _admin.PostAsJsonAsync("/admin/storefronts", new
+        {
+            tenantId = tenant,
+            name = $"cur-{Guid.NewGuid():N}",
+            visibility = 4,
+            currency = "USD",
+            taxRegime = 3,
+            taxRateBasisPoints = 825,
+        });
+        Assert.Equal(HttpStatusCode.Created, beforeProjection.StatusCode);
+
+        // Project the registry: USD enabled, JPY disabled.
+        using (var scope = _catalog.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+            db.SupportedCurrencies.Add(new SupportedCurrency { TenantId = tenant, Code = "USD", Name = "US Dollar", DecimalPlaces = 2, Enabled = true });
+            db.SupportedCurrencies.Add(new SupportedCurrency { TenantId = tenant, Code = "JPY", Name = "Japanese Yen", DecimalPlaces = 0, Enabled = false });
+            await db.SaveChangesAsync();
+        }
+
+        // A registered + enabled currency is accepted.
+        var enabled = await _admin.PostAsJsonAsync("/admin/storefronts", new
+        {
+            tenantId = tenant,
+            name = $"cur-{Guid.NewGuid():N}",
+            visibility = 4,
+            currency = "usd",
+            taxRegime = 3,
+            taxRateBasisPoints = 825,
+        });
+        Assert.Equal(HttpStatusCode.Created, enabled.StatusCode);
+
+        // An unregistered currency is rejected (400).
+        var unknown = await _admin.PostAsJsonAsync("/admin/storefronts", new
+        {
+            tenantId = tenant,
+            name = $"cur-{Guid.NewGuid():N}",
+            visibility = 4,
+            currency = "ZZZ",
+            taxRegime = 3,
+            taxRateBasisPoints = 825,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+
+        // A registered-but-disabled currency is rejected too.
+        var disabled = await _admin.PostAsJsonAsync("/admin/storefronts", new
+        {
+            tenantId = tenant,
+            name = $"cur-{Guid.NewGuid():N}",
+            visibility = 4,
+            currency = "JPY",
+            taxRegime = 2,
+            taxRateBasisPoints = 1000,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, disabled.StatusCode);
+    }
+
     private object WriteBody(string slug, string title, params VariantDto[] variants) => new
     {
         slug,

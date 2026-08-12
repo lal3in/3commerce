@@ -178,6 +178,12 @@ public static class StorefrontEndpoints
             return TypedResults.Conflict($"Storefront '{request.Name}' already exists for this tenant.");
         }
 
+        var currencyError = await ValidateCurrencyAsync(db, request.TenantId, request.Currency, cancellationToken);
+        if (currencyError is not null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Currency)] = [currencyError] });
+        }
+
         try
         {
             var storefront = Storefront.Create(request.TenantId, request.Name, time.GetUtcNow());
@@ -305,6 +311,12 @@ public static class StorefrontEndpoints
             await db.Storefronts.AnyAsync(s => s.TenantId == storefront.TenantId && s.Name == request.Name.Trim(), cancellationToken))
         {
             return TypedResults.Conflict($"Storefront '{request.Name}' already exists for this tenant.");
+        }
+
+        var currencyError = await ValidateCurrencyAsync(db, storefront.TenantId, request.Currency, cancellationToken);
+        if (currencyError is not null)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Currency)] = [currencyError] });
         }
 
         try
@@ -635,6 +647,29 @@ public static class StorefrontEndpoints
         publication.HarmonizedSystemCode,
         publication.Variants.Select(v => new ProductPublicationVariantResponse(v.VariantId, v.Visible, v.SkuOverride)).ToList(),
         publication.PublishedAt);
+
+    /// <summary>
+    /// Validates a storefront currency against the projected registry (currency_2). Enforced only once the
+    /// registry has been projected for the tenant — an absent projection (fresh environment, or a tenant
+    /// with no seeded registry) allows any code, so configuration is never blocked before the registry lands.
+    /// Returns an error message when the code is registered-but-disabled or unknown, else null.
+    /// </summary>
+    private static async Task<string?> ValidateCurrencyAsync(CatalogDbContext db, Guid tenantId, string? currency, CancellationToken ct)
+    {
+        var code = (currency ?? string.Empty).Trim().ToUpperInvariant();
+        if (code.Length == 0)
+        {
+            return null; // ConfigureCommerce normalizes/defaults an empty value
+        }
+
+        if (!await db.SupportedCurrencies.AnyAsync(c => c.TenantId == tenantId, ct))
+        {
+            return null; // registry not projected yet → don't block
+        }
+
+        var enabled = await db.SupportedCurrencies.AnyAsync(c => c.TenantId == tenantId && c.Code == code && c.Enabled, ct);
+        return enabled ? null : $"Currency '{code}' is not a registered, enabled currency. Add or enable it under Currencies first.";
+    }
 
     private static StorefrontResponse ToResponse(Storefront storefront) => new(
         storefront.Id,
