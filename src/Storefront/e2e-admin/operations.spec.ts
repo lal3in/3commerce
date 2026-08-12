@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, seedPaidOrderWithRma, demoStorefrontId } from "./helpers";
+import { loginAsAdmin, seedPaidOrder, seedPaidOrderWithRma, demoStorefrontId } from "./helpers";
 
 const operationalPages = [
   { href: "/catalog", heading: /catalog/i, copy: /product/i },
@@ -26,17 +26,21 @@ test.describe("Admin operations surfaces", () => {
 
   test("refunding a confirmed order succeeds and renders the result", async ({ page, request }) => {
     test.skip(!(await demoStorefrontId(request)), "needs a demo storefront (dev-up --data full)");
-    const { orderId } = await seedPaidOrderWithRma(request);
+    // A confirmed order with NOTHING yet claimed — the admin RMA amount is order qty minus already-refunded,
+    // so seeding a full-order RMA first would leave nothing to refund (server 400) and this refund would
+    // never post. Refund the whole order here via the Orders page.
+    const { orderId } = await seedPaidOrder(request);
 
     await page.goto("/orders");
     const row = page.locator("tr", { hasText: orderId });
     await expect(row).toBeVisible();
     await expect(row).toContainText("Confirmed");
 
-    // Two-click confirm: first arms the button, second sends the refund. A Confirmed order row now
-    // offers both Refund (first) and Return, so target the first button — its caption flips to
-    // "Confirm?" after the first click, so a name-based locator wouldn't stay stable.
-    const action = row.getByRole("button").first();
+    // Two-click confirm: first arms the button, second sends the refund. The row's first button is the
+    // details-toggle (expandable order details, #145); the action buttons follow, so on a Confirmed row
+    // Refund is the SECOND button. Target it positionally — its caption flips to "Confirm?" after the
+    // first click, so a name-based locator wouldn't stay stable across the flip.
+    const action = row.getByRole("button").nth(1);
     await action.click();
     await expect(action).toHaveText(/confirm\?/i);
     await action.click();
