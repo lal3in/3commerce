@@ -255,7 +255,7 @@ public sealed class SampleDataImporter(
     // Per-currency shelf prices (ADR-0038) for the demo storefront currencies, so each store can sell
     // products priced in its own currency. Factors are rough EUR→X rates — display only, no live FX.
     private static readonly (string Currency, double Factor)[] DemoCurrencies =
-        [("EUR", 1.0), ("AUD", 1.65), ("USD", 1.08), ("CAD", 1.47), ("GBP", 0.85)];
+        [("EUR", 1.0), ("AUD", 1.65), ("USD", 1.08), ("CAD", 1.47), ("GBP", 0.85), ("CNY", 7.6)];
 
     private static IEnumerable<VariantPrice> DemoPrices(Guid variantId, long baseMinor) =>
         DemoCurrencies.Select(c => new VariantPrice
