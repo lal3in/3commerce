@@ -1,3 +1,4 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Domain.Xero;
 
@@ -16,7 +17,7 @@ public static class XeroJournalBuilder
             .GroupBy(l => l.AccountCode)
             .Select(g => new XeroJournalLine(
                 g.Key,
-                ToDecimal(g.Sum(l => l.DebitMinor) - g.Sum(l => l.CreditMinor)),
+                ToDecimal(g.Sum(l => l.DebitMinor) - g.Sum(l => l.CreditMinor), g.First().Currency),
                 $"Daily summary {date:yyyy-MM-dd}"))
             .Where(l => l.LineAmount != 0m)
             .ToList();
@@ -28,11 +29,11 @@ public static class XeroJournalBuilder
     public static XeroManualJournal BuildRefund(Guid refundId, DateOnly date, IEnumerable<JournalLine> refundLines)
     {
         var lines = refundLines
-            .Select(l => new XeroJournalLine(l.AccountCode, ToDecimal(l.DebitMinor - l.CreditMinor), $"Refund {refundId}"))
+            .Select(l => new XeroJournalLine(l.AccountCode, ToDecimal(l.DebitMinor - l.CreditMinor, l.Currency), $"Refund {refundId}"))
             .Where(l => l.LineAmount != 0m)
             .ToList();
         return new XeroManualJournal($"3commerce refund {refundId}", date, lines);
     }
 
-    private static decimal ToDecimal(long minor) => minor / 100m;
+    private static decimal ToDecimal(long minor, string currencyCode) => Money.ToMajor(minor, currencyCode);
 }

@@ -2,6 +2,8 @@
 // private-storefront flag. GOTCHA: we never emit aggregateRating/review — we have none, and faking
 // social proof is prohibited. Private storefronts are marked noindex (see app/robots.ts).
 
+import { minorToMajor } from "@/lib/money";
+
 export function siteUrl(): string {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 }
@@ -23,7 +25,9 @@ interface ProductLike {
 const availability = (inStock: boolean) =>
   inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 
-const money = (minor: number) => (minor / 100).toFixed(2);
+// JSON-LD wants a numeric major-unit price; honor each currency's minor-unit exponent
+// (JPY→0, KWD→3) via the same helper as formatMoney rather than a fixed /100 (currency_3 / P3).
+const money = (minor: number, currency: string) => minorToMajor(minor, currency);
 
 export function productJsonLd(product: ProductLike, url: string): Json {
   const prices = product.variants.map((v) => v.priceMinor);
@@ -35,8 +39,8 @@ export function productJsonLd(product: ProductLike, url: string): Json {
       ? {
           "@type": "AggregateOffer",
           priceCurrency: currency,
-          lowPrice: money(Math.min(...prices)),
-          highPrice: money(Math.max(...prices)),
+          lowPrice: money(Math.min(...prices), currency),
+          highPrice: money(Math.max(...prices), currency),
           offerCount: product.variants.length,
           availability: availability(anyInStock),
           url,
@@ -44,7 +48,7 @@ export function productJsonLd(product: ProductLike, url: string): Json {
       : {
           "@type": "Offer",
           priceCurrency: currency,
-          price: money(prices[0] ?? 0),
+          price: money(prices[0] ?? 0, currency),
           availability: availability(anyInStock),
           url,
         };

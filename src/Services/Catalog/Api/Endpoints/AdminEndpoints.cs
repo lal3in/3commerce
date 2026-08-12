@@ -117,6 +117,11 @@ public static class AdminEndpoints
             });
         }
 
+        if (await ValidateVariantCurrenciesAsync(db, tenantId, request, cancellationToken) is { } currencyProblem)
+        {
+            return currencyProblem;
+        }
+
         var defaultCurrency = config["Store:Currency"] ?? "EUR";
         var now = time.GetUtcNow();
         var product = new Product
@@ -198,6 +203,11 @@ public static class AdminEndpoints
             {
                 [nameof(request.CategoryId)] = ["A valid category is required (products without one are not searchable)."],
             });
+        }
+
+        if (await ValidateVariantCurrenciesAsync(db, tenantId, request, cancellationToken) is { } currencyProblem)
+        {
+            return currencyProblem;
         }
 
         var defaultCurrency = config["Store:Currency"] ?? "EUR";
@@ -312,6 +322,56 @@ public static class AdminEndpoints
             product.Variants.Select(v => new ProductVariantUpserted(
                 v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity,
                 v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList()), ct);
+
+    /// <summary>
+    /// Validates every variant currency against the projected registry (currency_2), mirroring
+    /// <c>StorefrontEndpoints.ValidateCurrencyAsync</c>: the base <see cref="VariantWriteDto.Currency"/>
+    /// (only when the request supplies one — an empty one is defaulted later, so it is not validated) and
+    /// every non-empty <see cref="CurrencyPriceDto.Currency"/>. Enforced only once the registry has been
+    /// projected for the tenant — an absent projection (fresh environment) allows any code. Returns a
+    /// validation problem listing the offending code(s), else null.
+    /// </summary>
+    private static async Task<ValidationProblem?> ValidateVariantCurrenciesAsync(
+        CatalogDbContext db, Guid tenantId, ProductWriteRequest request, CancellationToken ct)
+    {
+        var codes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var v in request.Variants ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(v.Currency))
+            {
+                codes.Add(v.Currency.Trim().ToUpperInvariant());
+            }
+
+            foreach (var p in v.Prices ?? [])
+            {
+                var cur = (p.Currency ?? string.Empty).Trim().ToUpperInvariant();
+                if (cur.Length > 0)
+                {
+                    codes.Add(cur);
+                }
+            }
+        }
+
+        if (codes.Count == 0 || !await db.SupportedCurrencies.AnyAsync(c => c.TenantId == tenantId, ct))
+        {
+            return null; // nothing to validate, or registry not projected yet → don't block
+        }
+
+        var enabled = await db.SupportedCurrencies
+            .Where(c => c.TenantId == tenantId && c.Enabled)
+            .Select(c => c.Code)
+            .ToListAsync(ct);
+        var offending = codes.Where(c => !enabled.Contains(c)).OrderBy(c => c, StringComparer.Ordinal).ToList();
+        if (offending.Count == 0)
+        {
+            return null;
+        }
+
+        return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["Currency"] = [$"Currency '{string.Join("', '", offending)}' is not a registered, enabled currency. Add or enable it under Currencies first."],
+        });
+    }
 
     // Normalize tenant-entered per-currency prices: 3-letter upper ISO, last write wins per currency, drop blanks.
     private static IEnumerable<(string Currency, long PriceMinor)> NormalizePrices(List<CurrencyPriceDto>? prices)

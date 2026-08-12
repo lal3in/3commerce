@@ -64,7 +64,9 @@ public class CurrencyCatalogTests(Phase2Fixture fixture) : IAsyncLifetime
     [Fact]
     public async Task Storefront_currency_is_validated_against_the_registry()
     {
-        var tenant = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        // A dedicated tenant so the shared-fixture default tenant (0001) is never projected — other Phase2
+        // test classes create storefronts/products in 0001 and must stay unvalidated by this registry.
+        var tenant = Guid.NewGuid();
 
         // No registry projected yet → validation is not enforced (a fresh environment isn't blocked).
         var beforeProjection = await _admin.PostAsJsonAsync("/admin/storefronts", new
@@ -121,6 +123,67 @@ public class CurrencyCatalogTests(Phase2Fixture fixture) : IAsyncLifetime
             taxRegime = 2,
             taxRateBasisPoints = 1000,
         });
+        Assert.Equal(HttpStatusCode.BadRequest, disabled.StatusCode);
+    }
+
+    // currency_2 follow-up: product variant currencies are validated against the projected registry too —
+    // the base Currency and every per-currency Prices[].Currency must be a registered, enabled code.
+    [Fact]
+    public async Task Variant_prices_are_validated_against_the_registry()
+    {
+        // A dedicated tenant (with its own category) so the shared-fixture default tenant (0001) is never
+        // projected — sibling product tests price variants in AUD/EUR/USD against an unprojected 0001 and
+        // must stay unvalidated.
+        var tenant = Guid.NewGuid();
+        var categoryId = Guid.CreateVersion7();
+        using (var scope = _catalog.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+            db.Categories.Add(new Category { Id = categoryId, TenantId = tenant, Slug = $"vc-{categoryId:N}", Name = "Variant Currency" });
+            await db.SaveChangesAsync();
+        }
+
+        object Body(string slug, params VariantDto[] variants) => new
+        {
+            tenantId = tenant,
+            slug,
+            title = "Variant Currency Widget",
+            brand = "Acme",
+            description = "per-currency validation",
+            categoryId,
+            attributes = new Dictionary<string, string>(),
+            imageUrls = Array.Empty<string>(),
+            variants,
+        };
+
+        // No registry projected for this tenant yet → variant currencies are not enforced.
+        var beforeProjection = await _admin.PostAsJsonAsync("/admin/products",
+            Body($"vc-open-{Guid.NewGuid():N}", new VariantDto(null, $"CV-{Guid.NewGuid():N}"[..12], 2_000, "AUD", 5)));
+        Assert.Equal(HttpStatusCode.Created, beforeProjection.StatusCode);
+
+        // Project the registry for this tenant: EUR/USD enabled, JPY disabled.
+        using (var scope = _catalog.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+            db.SupportedCurrencies.Add(new SupportedCurrency { TenantId = tenant, Code = "EUR", Name = "Euro", DecimalPlaces = 2, Enabled = true });
+            db.SupportedCurrencies.Add(new SupportedCurrency { TenantId = tenant, Code = "USD", Name = "US Dollar", DecimalPlaces = 2, Enabled = true });
+            db.SupportedCurrencies.Add(new SupportedCurrency { TenantId = tenant, Code = "JPY", Name = "Japanese Yen", DecimalPlaces = 0, Enabled = false });
+            await db.SaveChangesAsync();
+        }
+
+        // A variant priced entirely in registered + enabled currencies (base EUR + Prices[USD]) is accepted.
+        var ok = await _admin.PostAsJsonAsync("/admin/products",
+            Body($"vc-ok-{Guid.NewGuid():N}", new VariantDto(null, $"CV-{Guid.NewGuid():N}"[..12], 2_000, "EUR", 5, [new("USD", 2_160)])));
+        Assert.Equal(HttpStatusCode.Created, ok.StatusCode);
+
+        // An unregistered per-currency price (ZZZ) is rejected.
+        var unknown = await _admin.PostAsJsonAsync("/admin/products",
+            Body($"vc-zzz-{Guid.NewGuid():N}", new VariantDto(null, $"CV-{Guid.NewGuid():N}"[..12], 2_000, "EUR", 5, [new("ZZZ", 3_300)])));
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+
+        // A registered-but-disabled currency (JPY) as the base variant currency is rejected too.
+        var disabled = await _admin.PostAsJsonAsync("/admin/products",
+            Body($"vc-jpy-{Guid.NewGuid():N}", new VariantDto(null, $"CV-{Guid.NewGuid():N}"[..12], 2_000, "JPY", 5)));
         Assert.Equal(HttpStatusCode.BadRequest, disabled.StatusCode);
     }
 

@@ -30,14 +30,14 @@ else
                 <div>
                     <h3 style="margin:.2rem 0 .5rem;">@L["Fin.PnL"]</h3>
                     <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
-                        @Line(L["Fin.Revenue"], Revenue(cur), false)
-                        @Line(L["Fin.Shipping"], ShippingIncome(cur), false)
-                        @Line(L["Fin.Refunds"], -Refunds(cur), false)
-                        @Line(L["Fin.Fees"], -Fees(cur), false)
-                        @Line(L["Fin.Chargebacks"], -Chargebacks(cur), false)
-                        @Line(L["Fin.Cogs"], -Cogs(cur), false)
-                        @Line(L["Fin.ShippingCost"], -ShippingCost(cur), false)
-                        @Line(L["Fin.Writeoffs"], -Writeoffs(cur), false)
+                        @Line(L["Fin.Revenue"], Revenue(cur), false, cur)
+                        @Line(L["Fin.Shipping"], ShippingIncome(cur), false, cur)
+                        @Line(L["Fin.Refunds"], -Refunds(cur), false, cur)
+                        @Line(L["Fin.Fees"], -Fees(cur), false, cur)
+                        @Line(L["Fin.Chargebacks"], -Chargebacks(cur), false, cur)
+                        @Line(L["Fin.Cogs"], -Cogs(cur), false, cur)
+                        @Line(L["Fin.ShippingCost"], -ShippingCost(cur), false, cur)
+                        @Line(L["Fin.Writeoffs"], -Writeoffs(cur), false, cur)
                         @TotalLine(L["Fin.NetResult"], Revenue(cur) + ShippingIncome(cur) - Refunds(cur) - Fees(cur) - Chargebacks(cur) - Cogs(cur) - ShippingCost(cur) - Writeoffs(cur), cur)
                     </table>
                 </div>
@@ -47,14 +47,14 @@ else
                         <tr><td colspan="2" style="font-weight:600; color:#6b7280; padding-top:.2rem;">@L["Fin.Assets"]</td></tr>
                         @foreach (var (code, amount) in CashByAccount(cur))
                         {
-                            @Line(code, amount, true)
+                            @Line(code, amount, true, cur)
                         }
-                        @Line(L["Fin.Receivable"], Receivable(cur), true)
+                        @Line(L["Fin.Receivable"], Receivable(cur), true, cur)
                         @TotalLine(L["Fin.TotalAssets"], Cash(cur) + Receivable(cur), cur)
                         <tr><td colspan="2" style="font-weight:600; color:#6b7280; padding-top:.5rem;">@L["Fin.Liabilities"]</td></tr>
-                        @Line(L["Fin.TaxCollected"], TaxLiability(cur), true)
-                        @Line(L["Fin.CarrierPayable"], CarrierPayable(cur), true)
-                        @Line(L["Fin.SupplierPayable"], SupplierPayable(cur), true)
+                        @Line(L["Fin.TaxCollected"], TaxLiability(cur), true, cur)
+                        @Line(L["Fin.CarrierPayable"], CarrierPayable(cur), true, cur)
+                        @Line(L["Fin.SupplierPayable"], SupplierPayable(cur), true, cur)
                         @TotalLine(L["Fin.TotalLiabilities"], TaxLiability(cur) + CarrierPayable(cur) + SupplierPayable(cur), cur)
                     </table>
                 </div>
@@ -88,7 +88,7 @@ else
                         <td>@a.Role</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@a.Code</code></td>
                         <td>@a.Type</td>
-                        <td style="text-align:right; font-variant-numeric:tabular-nums;">@Money(ChartPosted(a))</td>
+                        <td style="text-align:right; font-variant-numeric:tabular-nums;">@Money.Amount(ChartPosted(a), ChartCurrency)</td>
                     </tr>
                 }
                 </tbody>
@@ -122,17 +122,18 @@ else
                 <tbody>
                 @foreach (var s in _storefronts)
                 {
+                    var cur = PostingCurrency(s);
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td>@s.Name</td>
-                        <td style="text-align:center;" title="@L["Fin.PostingCurrency.Tip"]">@PostingCurrency(s)</td>
-                        <td style="text-align:right;">@Money(StoreGross(s))</td>
-                        <td style="text-align:right;">@Money(AccountAmount(s.RevenueAccountCode, creditNormal: true))</td>
-                        <td style="text-align:right;">@Money(AccountAmount(s.ShippingAccountCode, creditNormal: true))</td>
-                        <td style="text-align:right;">@Money(AccountAmount(s.TaxAccountCode, creditNormal: true))</td>
-                        <td style="text-align:right;">@Money(StoreCogs(s))</td>
-                        <td style="text-align:right;">@Money(StoreMargin(s))</td>
-                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money(StoreEstimatedOverheads(s))</td>
-                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money(StoreEstimatedMargin(s))</td>
+                        <td style="text-align:center;" title="@L["Fin.PostingCurrency.Tip"]">@cur</td>
+                        <td style="text-align:right;">@Money.Amount(StoreGross(s), cur)</td>
+                        <td style="text-align:right;">@Money.Amount(AccountAmount(s.RevenueAccountCode, creditNormal: true), cur)</td>
+                        <td style="text-align:right;">@Money.Amount(AccountAmount(s.ShippingAccountCode, creditNormal: true), cur)</td>
+                        <td style="text-align:right;">@Money.Amount(AccountAmount(s.TaxAccountCode, creditNormal: true), cur)</td>
+                        <td style="text-align:right;">@Money.Amount(StoreCogs(s), cur)</td>
+                        <td style="text-align:right;">@Money.Amount(StoreMargin(s), cur)</td>
+                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money.Amount(StoreEstimatedOverheads(s), cur)</td>
+                        <td style="text-align:right; font-style:italic; color:#b45309;" title="@L["Fin.Estimated.Tip"]">@Money.Amount(StoreEstimatedMargin(s), cur)</td>
                         <td><code style="font-size:.72rem; color:#6b7280;">@s.RevenueAccountCode</code></td>
                     </tr>
                 }
@@ -287,13 +288,16 @@ else
         return posted.Count > 0 ? string.Join("/", posted.OrderBy(c => c, StringComparer.Ordinal)) : s.Currency;
     }
 
-    private static string Money(long minor) => $"{minor / 100m:N2}";
+    // The currency the selected chart-of-accounts storefront posts in — used to format its (single-store)
+    // chart figures. ChartPosted still sums across currencies for cross-currency stores; that is unchanged.
+    private string ChartCurrency =>
+        Guid.TryParse(_chartFor, out var id) ? _storefronts.FirstOrDefault(s => s.Id == id)?.Currency ?? "" : "";
 
-    private RenderFragment Line(string label, long minor, bool asset) => builder =>
+    private RenderFragment Line(string label, long minor, bool asset, string currency) => builder =>
     {
         builder.AddMarkupContent(0,
             $"<tr><td style=\"padding:.15rem 0; color:#374151;\">{label}</td>" +
-            $"<td style=\"text-align:right; font-variant-numeric:tabular-nums;\">{Money(minor)}</td></tr>");
+            $"<td style=\"text-align:right; font-variant-numeric:tabular-nums;\">{Money.Amount(minor, currency)}</td></tr>");
     };
 
     private RenderFragment TotalLine(string label, long minor, string currency) => builder =>
@@ -301,7 +305,7 @@ else
         var color = minor >= 0 ? "#047857" : "#b91c1c";
         builder.AddMarkupContent(0,
             $"<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:.3rem 0; font-weight:700;\">{label}</td>" +
-            $"<td style=\"text-align:right; font-weight:700; color:{color};\">{Money(minor)} {currency}</td></tr>");
+            $"<td style=\"text-align:right; font-weight:700; color:{color};\">{Money.Amount(minor, currency)} {currency}</td></tr>");
     };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);

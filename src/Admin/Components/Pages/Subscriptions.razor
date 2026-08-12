@@ -54,7 +54,7 @@ else
                 <td><span style="color:@StatusColor(s.Status); font-weight:600;">@StatusLabel(s.Status)</span></td>
                 <td>@BillingLabel(s.BillingPeriod)</td>
                 <td>@Period(s.CurrentPeriodStart, s.CurrentPeriodEnd)</td>
-                <td>@Money(s.PriceMinor, s.Currency)</td>
+                <td>@Money.WithCode(s.PriceMinor, s.Currency)</td>
                 <td>@s.CreatedAt.LocalDateTime.ToString("dd MMM yyyy")</td>
                 <td>
                     @if (_acted.Contains(s.Id))
@@ -96,7 +96,7 @@ else
                                     <dt style="color:#6b7280;">@L["Subs.Detail.OrderId"]</dt><dd style="margin:0;"><code>@detail.OrderId</code></dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Product"]</dt><dd style="margin:0;"><code>@detail.ProductId</code></dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Variant"]</dt><dd style="margin:0;"><code>@(detail.VariantId?.ToString() ?? "—")</code></dd>
-                                    <dt style="color:#6b7280;">@L["Subs.Detail.Price"]</dt><dd style="margin:0;">@Money(detail.PriceMinor, detail.Currency) · @BillingLabel(detail.BillingPeriod)</dd>
+                                    <dt style="color:#6b7280;">@L["Subs.Detail.Price"]</dt><dd style="margin:0;">@Money.WithCode(detail.PriceMinor, detail.Currency) · @BillingLabel(detail.BillingPeriod)</dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Status"]</dt><dd style="margin:0;"><span style="color:@StatusColor(detail.Status); font-weight:600;">@StatusLabel(detail.Status)</span></dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Created"]</dt><dd style="margin:0;">@detail.CreatedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Updated"]</dt><dd style="margin:0;">@detail.UpdatedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</dd>
@@ -124,7 +124,7 @@ else
                                         <tr style="border-bottom:1px solid #f3f4f6;">
                                             <td style="padding:.3rem;">#@r.Sequence</td>
                                             <td>@Period(r.PeriodStart, r.PeriodEnd)</td>
-                                            <td>@Money(r.AmountMinor, r.Currency)</td>
+                                            <td>@Money.WithCode(r.AmountMinor, r.Currency)</td>
                                             <td>@r.RecordedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</td>
                                         </tr>
                                     }
@@ -247,7 +247,6 @@ else
     // (legacy subscriptions from before StorefrontId was threaded through SubscriptionRequested, #210).
     private string StorefrontLabel(Guid? id) =>
         id is not { } sid ? "—" : _storefrontNames.TryGetValue(sid, out var name) ? name : Short(sid);
-    private string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
     private string Period(DateTimeOffset start, DateTimeOffset end) =>
         $"{start.LocalDateTime:dd MMM yyyy} – {end.LocalDateTime:dd MMM yyyy}";
 

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Ordering.Domain;
@@ -234,7 +235,7 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
             "Order",
             order.Id.ToString(),
             "ordering.order.confirm",
-            string.Create(CultureInfo.InvariantCulture, $"#{order.PublicOrderNumber} {order.GrossMinor / 100m:0.00} {order.Currency}"));
+            string.Create(CultureInfo.InvariantCulture, $"#{order.PublicOrderNumber} {Money.Amount(order.GrossMinor, order.Currency)} {order.Currency}"));
 
     /// <summary>
     /// FR-7 (both directions): a guest order confirming AFTER the shopper already verified an

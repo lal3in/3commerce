@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 using ThreeCommerce.Payments.Domain;
 
 namespace ThreeCommerce.Payments.Infrastructure.Providers.PayPal;
@@ -60,7 +61,7 @@ public sealed class PayPalPaymentProvider(IConfiguration configuration) : IPayme
         var eventId = root.TryGetProperty("id", out var id) ? id.GetString() ?? string.Empty : string.Empty;
         var intentId = resource.TryGetProperty("id", out var pid) ? pid.GetString() ?? string.Empty : string.Empty;
         var amount = resource.TryGetProperty("amount", out var amt) && amt.TryGetProperty("value", out var v)
-            ? ToMinor(v.GetString())
+            ? ToMinor(v.GetString(), amt.TryGetProperty("currency_code", out var cc) ? cc.GetString() : null)
             : 0;
         var failure = kind == PaymentWebhookKind.PaymentFailed
             ? (resource.TryGetProperty("status_details", out var sd) && sd.TryGetProperty("reason", out var r) ? r.GetString() : null) ?? "capture denied"
@@ -79,10 +80,13 @@ public sealed class PayPalPaymentProvider(IConfiguration configuration) : IPayme
     public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) =>
         throw new NotSupportedException("PayPal does not expose saved payment-method details.");
 
-    /// <summary>Converts a PayPal decimal amount string ("49.90") to minor units (4990), rounding half-to-even.</summary>
-    private static long ToMinor(string? value) =>
+    /// <summary>
+    /// Converts a PayPal decimal amount string ("49.90") to minor units (4990) using the amount's own
+    /// currency decimals (currency_3) — JPY has 0 decimals, KWD 3 — so a plain ×100 would misplace them.
+    /// </summary>
+    private static long ToMinor(string? value, string? currencyCode) =>
         decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var d)
-            ? (long)Math.Round(d * 100m, MidpointRounding.ToEven)
+            ? Money.ToMinor(d, currencyCode)
             : 0;
 
     private static PaymentMode ModeFor(PaymentAccountSnapshot account) =>

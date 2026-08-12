@@ -47,7 +47,7 @@ else
                         <span title="@L["Orders.Badge.Disputed.Tip"]" style="display:inline-block; margin-left:.4rem; padding:.05rem .4rem; border-radius:999px; font-size:.7rem; font-weight:600; color:#b91c1c; background:#fee2e2;">@L["Orders.Badge.Disputed"]</span>
                     }
                 </td>
-                <td>@($"{o.GrossMinor / 100m:0.00} {o.Currency}")</td>
+                <td>@Money.WithCode(o.GrossMinor, o.Currency)</td>
                 <td>@PaymentLabel(o.PaymentOption)</td>
                 <td>@o.CreatedAt.LocalDateTime.ToString("g")</td>
                 <td>
@@ -102,21 +102,21 @@ else
                                         <tr style="border-top:1px solid #f3f4f6;">
                                             <td style="text-align:right; padding:.15rem .4rem; color:#6b7280;">@l.Quantity×</td>
                                             <td style="padding:.15rem .4rem;">@l.Title@(string.IsNullOrEmpty(l.VariantSku) ? "" : $" ({l.VariantSku})")</td>
-                                            <td style="text-align:right; padding:.15rem .4rem;">@Money(l.UnitPriceMinor, d.Currency)</td>
+                                            <td style="text-align:right; padding:.15rem .4rem;">@Money.WithCode(l.UnitPriceMinor, d.Currency)</td>
                                         </tr>
                                     }
                                     </tbody>
                                 </table>
                                 <table style="border-collapse:collapse; width:100%; margin-top:.4rem; border-top:1px solid #e5e7eb;">
                                     <tbody>
-                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Subtotal"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.NetMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Subtotal"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money.WithCode(d.NetMinor, d.Currency)</td></tr>
                                         @if (d.DiscountMinor > 0)
                                         {
-                                            <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Discount"]</td><td style="text-align:right; padding:.1rem .4rem;">−@Money(d.DiscountMinor, d.Currency)</td></tr>
+                                            <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Discount"]</td><td style="text-align:right; padding:.1rem .4rem;">−@Money.WithCode(d.DiscountMinor, d.Currency)</td></tr>
                                         }
-                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Shipping"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.ShippingMinor, d.Currency)</td></tr>
-                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Tax"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money(d.TaxMinor, d.Currency)</td></tr>
-                                        <tr><td style="padding:.1rem .4rem; font-weight:600;">@L["Orders.Details.Total"]</td><td style="text-align:right; padding:.1rem .4rem; font-weight:600;">@Money(d.GrossMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Shipping"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money.WithCode(d.ShippingMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; color:#6b7280;">@L["Orders.Details.Tax"]</td><td style="text-align:right; padding:.1rem .4rem;">@Money.WithCode(d.TaxMinor, d.Currency)</td></tr>
+                                        <tr><td style="padding:.1rem .4rem; font-weight:600;">@L["Orders.Details.Total"]</td><td style="text-align:right; padding:.1rem .4rem; font-weight:600;">@Money.WithCode(d.GrossMinor, d.Currency)</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -151,8 +151,6 @@ else
             }
         }
     }
-
-    private static string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
 
     private async Task LoadAsync()
     {

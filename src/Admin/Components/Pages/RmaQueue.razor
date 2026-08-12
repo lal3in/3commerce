@@ -19,7 +19,7 @@ else
         {
             <tr style="border-top:1px solid #e5e7eb;">
                 <td>@r.OrderId</td>
-                <td>@($"{r.AmountMinor / 100m:0.00}")</td>
+                <td>@Money.Amount(r.AmountMinor, null)</td>
                 <td>@r.State</td>
                 <td>@r.Reason</td>
                 <td>

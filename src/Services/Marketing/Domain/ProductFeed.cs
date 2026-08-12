@@ -1,4 +1,5 @@
 using System.Text;
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 
 namespace ThreeCommerce.Marketing.Domain;
 
@@ -47,7 +48,7 @@ public static class ProductFeed
         $"{baseUrl.TrimEnd('/')}/products/{product.Slug}",
         product.ImageUrl,
         product.InStock ? "in_stock" : "out_of_stock",
-        $"{product.PriceMinor / 100m:0.00} {product.Currency}",
+        $"{Money.Amount(product.PriceMinor, product.Currency)} {product.Currency}",
         product.Brand,
         "new");
 

@@ -30,9 +30,9 @@ else
                 {
                     <tr style="border-top:1px solid #f3f4f6;">
                         <td><code style="font-size:.8rem;">@b.AccountCode</code></td>
-                        <td style="text-align:right;">@Money(b.DebitMinor)</td>
-                        <td style="text-align:right;">@Money(b.CreditMinor)</td>
-                        <td style="text-align:right; font-weight:600;">@Money(b.NetMinor) @grp.Key</td>
+                        <td style="text-align:right;">@Money.Amount(b.DebitMinor, grp.Key)</td>
+                        <td style="text-align:right;">@Money.Amount(b.CreditMinor, grp.Key)</td>
+                        <td style="text-align:right; font-weight:600;">@Money.Amount(b.NetMinor, grp.Key) @grp.Key</td>
                     </tr>
                 }
                 </tbody>
@@ -47,7 +47,7 @@ else
             @if (refunds > 0)
             {
                 <div style="font-size:.8rem; color:#b45309; margin-top:.35rem;" title="@L["Ledger.Refunds.Tip"]">
-                    @L["Ledger.Refunds"]: @Money(refunds) @grp.Key
+                    @L["Ledger.Refunds"]: @Money.Amount(refunds, grp.Key) @grp.Key
                 </div>
             }
         </div>
@@ -76,7 +76,7 @@ else
                 <td style="text-align:right;">
                     <button @onclick="() => Toggle(e.Id)" title="@L["Ledger.Entry.Breakdown.Tip"]"
                             style="background:none;border:0;cursor:pointer;font:inherit;font-weight:600;color:@KindColor(kind);">
-                        <span aria-hidden style="font-weight:400;color:#9ca3af;">@(open ? "▾" : "▸")</span> @KindSign(kind)@Money(amount) @e.Currency
+                        <span aria-hidden style="font-weight:400;color:#9ca3af;">@(open ? "▾" : "▸")</span> @KindSign(kind)@Money.Amount(amount, e.Currency) @e.Currency
                     </button>
                 </td>
             </tr>
@@ -95,15 +95,15 @@ else
                                 var highlight = IsHighlightLine(l, kind);
                                 <tr style="border-top:1px solid #f3f4f6; @(highlight ? $"color:{KindColor(kind)};font-weight:600;" : "")">
                                     <td><code style="font-size:.78rem;">@l.AccountCode</code></td>
-                                    <td style="text-align:right;">@(l.DebitMinor > 0 ? Money(l.DebitMinor) : "")</td>
-                                    <td style="text-align:right;">@(l.CreditMinor > 0 ? Money(l.CreditMinor) : "")</td>
+                                    <td style="text-align:right;">@(l.DebitMinor > 0 ? Money.Amount(l.DebitMinor, e.Currency) : "")</td>
+                                    <td style="text-align:right;">@(l.CreditMinor > 0 ? Money.Amount(l.CreditMinor, e.Currency) : "")</td>
                                 </tr>
                             }
                             </tbody>
                         </table>
                         @if (refunded > 0)
                         {
-                            <div style="font-size:.8rem; color:#b45309; margin-top:.35rem;" title="@L["Ledger.Refunds.Tip"]">@L["Ledger.Refunds"]: @Money(refunded) @e.Currency</div>
+                            <div style="font-size:.8rem; color:#b45309; margin-top:.35rem;" title="@L["Ledger.Refunds.Tip"]">@L["Ledger.Refunds"]: @Money.Amount(refunded, e.Currency) @e.Currency</div>
                         }
                     </td>
                 </tr>
@@ -137,8 +137,6 @@ else
         .Where(l => l.DebitMinor > 0
             && (l.AccountCode.StartsWith("revenue.", StringComparison.Ordinal) || l.AccountCode.StartsWith("tax.", StringComparison.Ordinal)))
         .Sum(l => l.DebitMinor);
-
-    private static string Money(long minor) => $"{minor / 100m:N2}";
 
     private enum EntryKind { Refund, Incoming, Outgoing, Neutral }
 
