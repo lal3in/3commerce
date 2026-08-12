@@ -9,8 +9,11 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Reference;
 /// currency (JPY) renders 100× too small and a 3-decimal one (KWD) loses a digit.
 /// <para>
 /// Rounding is away-from-zero (banker's rounding is wrong for retail money). Formatting is invariant-culture
-/// with grouping (e.g. "1,234.50") so server/client output is deterministic; the currency code/symbol is the
-/// caller's concern (use <see cref="WithCode"/> for the "1,234.50 EUR" form).
+/// and <b>plain — no thousand separators</b> (e.g. "1234.50"), because this helper feeds machine-readable
+/// backend outputs (Google-Merchant product feeds forbid grouping, audit summaries, provider payloads,
+/// emails). It is byte-identical to the old <c>:0.00</c>. The Admin dashboards use their own mirror which
+/// <i>does</i> group, since that is pure human display. The currency code/symbol is the caller's concern
+/// (use <see cref="WithCode"/> for the "1234.50 EUR" form).
 /// </para>
 /// </summary>
 public static class Money
@@ -21,13 +24,13 @@ public static class Money
     public static decimal ToMajor(long minor, string? currencyCode) => minor / Pow10[CurrencyDecimals.Digits(currencyCode)];
 
     /// <summary>
-    /// The amount only, with the currency's decimal places and grouping (no code/symbol): 1500 EUR → "1,500.00",
-    /// 1500 JPY → "1,500", 12345 KWD → "12.345".
+    /// The amount only, with the currency's decimal places, plain (no grouping, no code/symbol): 1500 EUR →
+    /// "15.00", 1500 JPY → "1500", 12345 KWD → "12.345", 362966 AUD → "3629.66".
     /// </summary>
     public static string Amount(long minor, string? currencyCode)
     {
         var digits = CurrencyDecimals.Digits(currencyCode);
-        return (minor / Pow10[digits]).ToString("N" + digits.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        return (minor / Pow10[digits]).ToString("F" + digits.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
     }
 
     /// <summary>The amount followed by the upper-cased ISO code: 1500 EUR → "1,500.00 EUR".</summary>

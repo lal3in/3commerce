@@ -8,6 +8,11 @@ namespace ThreeCommerce.Admin.Components.Shared;
 /// BuildingBlocks, so this mirrors <c>ThreeCommerce.BuildingBlocks.Contracts.Reference.Money</c> /
 /// <c>CurrencyDecimals</c> — keep them in sync. Every money render in the Admin pages goes through
 /// <see cref="Amount"/>/<see cref="WithCode"/> instead of a hardcoded <c>÷100</c>.
+/// <para>
+/// Deliberate divergence from the BuildingBlocks helper: this one <b>groups</b> (thousand separators, "N"),
+/// because the Admin dashboards are pure human display and the big financial tables already grouped (<c>:N2</c>).
+/// The BuildingBlocks version is plain (no grouping) as it feeds machine-readable outputs (product feeds, etc.).
+/// </para>
 /// </summary>
 public static class Money
 {

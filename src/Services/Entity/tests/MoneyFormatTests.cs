@@ -25,16 +25,16 @@ public class MoneyFormatTests
 
     [Theory]
     [InlineData(1500, "EUR", "15.00")]
-    [InlineData(1500, "JPY", "1,500")] // 0 decimals: minor == whole yen
+    [InlineData(1500, "JPY", "1500")] // 0 decimals: minor == whole yen, no grouping (machine-safe)
     [InlineData(12345, "KWD", "12.345")] // 3 decimals
-    [InlineData(123456, "USD", "1,234.56")] // grouping
+    [InlineData(123456, "USD", "1234.56")] // plain — no thousand separators
     [InlineData(0, "JPY", "0")]
     public void Amount_renders_currency_decimals(long minor, string code, string expected) =>
         Assert.Equal(expected, Money.Amount(minor, code));
 
     [Theory]
     [InlineData(1500, "EUR", "15.00 EUR")]
-    [InlineData(1500, "jpy", "1,500 JPY")]
+    [InlineData(1500, "jpy", "1500 JPY")]
     public void WithCode_appends_the_upper_cased_code(long minor, string code, string expected) =>
         Assert.Equal(expected, Money.WithCode(minor, code));
 
