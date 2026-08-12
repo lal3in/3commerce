@@ -529,6 +529,19 @@ seed_subscription_examples() {
     return
   fi
 
+  # Subscriptions require the member to purchase with a saved payment method / direct-debit mandate (the
+  # subscription purchase gate) — without one, checkout 400s "A saved payment method or direct-debit
+  # mandate is required for a subscription". Save a mock card for the demo customer (LocalMock resolves
+  # fake card details from the pm_fake_{brand}_{last4}_{expiry} id) and pass its id at checkout.
+  local pm_json pm_id
+  pm_json=$(api "sub-example-pm" POST "/api/payments/payment-methods/" "$CUSTOMER_JAR" \
+    "{\"email\":\"demo.customer.$RUN_ID@example.test\",\"providerPaymentMethodId\":\"pm_fake_visa_4242_1229\",\"makeDefault\":true}" "allow_4xx")
+  pm_id=$(printf '%s' "$pm_json" | json_get id)
+  if [[ -z "$pm_id" ]]; then
+    manifest_append "warnings" "$(json_string "subscription examples skipped: could not save a payment method")"
+    return
+  fi
+
   # A few more active subscriptions, each its own guest order (subscription is keyed per order).
   local eu_store; eu_store=$(manifest_get "storefronts.demoEu.id")
   for n in 1 2 3; do
@@ -536,10 +549,13 @@ seed_subscription_examples() {
     api "sub-example-$n-cart" POST "/api/ordering/cart/items" "$jar" \
       "{\"productId\":\"$sub_pid\",\"variantId\":\"$sub_vid\",\"quantity\":1}" "allow_4xx" >/dev/null
     ck=$(api "sub-example-$n-checkout" POST "/api/ordering/checkout" "$jar" \
-      "{\"email\":\"subscriber$n@example.test\",\"storefrontId\":\"$eu_store\",\"paymentOption\":\"CreditCard\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
+      "{\"email\":\"subscriber$n@example.test\",\"storefrontId\":\"$eu_store\",\"paymentOption\":\"CreditCard\",\"savedPaymentMethodId\":\"$pm_id\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
     oid=$(printf '%s' "$ck" | json_get orderId)
     [[ -z "$oid" ]] && continue
-    intent="pi_fake_${oid//-/}"
+    # Off-session (saved-method) charges: the mock intent id carries the payment-method suffix
+    # (FakePaymentProvider: pi_fake_{order}_{providerPaymentMethodId}), so settle THAT intent — the bare
+    # pi_fake_{order} would 404 and the order would never confirm (no subscription would be created).
+    intent="pi_fake_${oid//-/}_pm_fake_visa_4242_1229"
     settle_payment "$intent" "" "$jar" "sub-example-$n-pay"
     for _ in $(seq 1 15); do sleep 1; st=$(printf '%s' "$(api "sub-example-$n-status" GET "/api/ordering/orders/$oid/status" "$jar" "" "allow_4xx")" | json_get status); [[ "$st" == "Confirmed" ]] && break; done
   done
@@ -780,6 +796,11 @@ except Exception: print('')")
     oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
     [[ -n "$oid" ]] || return 0
     settle_order_payment "$oid" "$gross" "$jar" "xc-pay-$cur-$email"
+    # The verified buyer rates + comments on what they bought — reviews are verified-only (#131/#154), so
+    # this is the natural place to generate real review data for product pages, the storefront and admin.
+    local rating=$(( (${#email} % 3) + 3 )) # 3..5 stars, deterministic per shopper
+    api "xc-review-$cur-$email" POST "/api/catalog/products/$pid/reviews" "$jar" \
+      "{\"rating\":$rating,\"comment\":\"Great $cur buy — exactly as described and shipped fast.\"}" "allow_4xx" >/dev/null
   }
 
   local i idx=0
@@ -866,12 +887,17 @@ except Exception:
   upsert_demo_storefront "demoAu" "Demo AU Store" "http://localhost:3000/au" "AUD" 1 1000
   upsert_demo_storefront "demoEu" "Demo EU Store" "http://localhost:3000/eu" "EUR" 2 2000
   upsert_demo_storefront "demoUs" "Demo US Store" "http://localhost:3000/us" "USD" 3 825
+  # More currencies so the dashboards/Ledger/Financials/Mission Control show a real multi-currency book:
+  # CA (CAD, 5% GST exclusive like US), UK (GBP, 20% VAT inclusive like EU). No FX — amounts relabel into
+  # the store currency (ADR-0041 no-FX posture), so these need no separate per-currency product prices.
+  upsert_demo_storefront "demoCa" "Demo CA Store" "http://localhost:3000/ca" "CAD" 3 500
+  upsert_demo_storefront "demoUk" "Demo UK Store" "http://localhost:3000/uk" "GBP" 2 2000
 
   # Payment accounts are per-storefront (ADR-0042/0043): give each demo storefront its own default
   # account, and submit + activate it so the storefront is payment-ready (the go-live gate needs an
   # ACTIVE account — a Test-mode stripe account activates without an external ref).
   local pay_key pay_sf_id pay_acct_json pay_acct_id
-  for pay_key in demoEu demoAu demoUs; do
+  for pay_key in demoEu demoAu demoUs demoCa demoUk; do
     pay_sf_id=$(manifest_get "storefronts.$pay_key.id")
     [[ -n "$pay_sf_id" ]] || continue
     pay_acct_json=$(api "payment-account-$pay_key" POST "/api/payments/admin/payment-accounts" "$ADMIN_JAR" \

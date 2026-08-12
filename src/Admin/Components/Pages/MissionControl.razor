@@ -297,7 +297,7 @@
     {
         _audit = await Gateway.GetListAsync<AuditDto>($"/api/audit/admin/audit?tenantId={_tenant}");
         _runs = await Gateway.GetListAsync<RunDto>("/api/workflow/admin/workflow/runs");
-        _jobs = await SafeList<JobViewDto>("/api/workflow/admin/workflow/jobs");
+        _jobs = await LoadJobsAsync();
         // Live commerce activity — the same admin read models the Orders and RMA pages use, so a
         // payment/refund/return shows here the moment it lands (mc1: Mission Control as full monitor).
         _orders = await SafeList<OrderKpiDto>("/api/ordering/admin/orders");
@@ -315,8 +315,30 @@
         _obs = await ObsStats.GetSnapshotAsync();
     }
 
+    // Services that own scheduled jobs (their Program.cs calls AddScheduledJobs). The central Workflow
+    // registry only lists a job once it has published a descriptor (a schedule change or its first run),
+    // so on a fresh boot it is empty. Read the authoritative LIVE schedule straight from each owning
+    // service's job-control endpoint instead, and enrich last-run from the run history already loaded.
+    private static readonly string[] JobServices = ["payments", "usage", "marketing"];
+
+    private async Task<List<JobViewDto>> LoadJobsAsync()
+    {
+        var jobs = new List<JobViewDto>();
+        foreach (var service in JobServices)
+        {
+            foreach (var d in await SafeList<JobScheduleDto>($"/api/{service}/admin/jobs"))
+            {
+                var lastRun = _runs.Where(r => r.JobName == d.Name).OrderByDescending(r => r.StartedAt).FirstOrDefault();
+                jobs.Add(new JobViewDto(d.Service, d.Name, d.Cron, d.Paused, d.NextFireUtc,
+                    lastRun?.Status, lastRun?.StartedAt, lastRun?.DurationMs, lastRun?.Error));
+            }
+        }
+
+        return jobs.OrderBy(j => j.Service, StringComparer.Ordinal).ThenBy(j => j.Name, StringComparer.Ordinal).ToList();
+    }
+
     // Scheduled-Job Manager actions (jobmgr_1). Control routes to the OWNING service via the gateway
-    // (/api/{service}/admin/jobs/{name}/...); the Workflow registry re-projects the change, so a reload
+    // (/api/{service}/admin/jobs/{name}/...); a reload re-reads the live per-service schedule, so it
     // reflects the new state. _jobBusy serialises clicks so a double-tap can't fire two commands.
     private async Task RunNowAsync(JobViewDto job) => await JobActionAsync(() =>
         Gateway.PostAsync($"/api/{job.Service}/admin/jobs/{job.Name}/run"));
@@ -349,7 +371,7 @@
         try
         {
             await action();
-            _jobs = await SafeList<JobViewDto>("/api/workflow/admin/workflow/jobs");
+            _jobs = await LoadJobsAsync();
         }
         finally
         {
@@ -422,6 +444,8 @@
     private record AuditDto(Guid Id, long Sequence, DateTimeOffset OccurredAt, Guid? ActorId, string? ActorRole, string Action, string ResourceType, string ResourceId, string Outcome, string? Summary);
     private record RunDto(Guid Id, string JobName, string Status, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, long? DurationMs, string? Error);
     private record JobViewDto(string Service, string Name, string Cron, bool Paused, DateTimeOffset? NextFireUtc, string? LastStatus, DateTimeOffset? LastStartedAt, long? LastDurationMs, string? LastError);
+    // The live per-service schedule shape returned by /api/{service}/admin/jobs (ScheduledJobDescriptor).
+    private record JobScheduleDto(string Service, string Name, string Cron, bool Paused, DateTimeOffset? NextFireUtc);
 
     // Compact, locale-neutral run duration for the dashboard (ms under a second, else seconds).
     private static string FormatDuration(long ms) => ms < 1000 ? $"{ms} ms" : $"{ms / 1000.0:0.0} s";

@@ -387,6 +387,19 @@ public sealed class Storefront
             missing.Add("at least one domain");
         }
 
+        // A live-selling storefront must present a public URL and have chosen a tax regime — otherwise it
+        // would go live with no shopper-facing address and no tax treatment (the two gaps that let the
+        // "GoLive*" test storefronts activate half-configured). Both are set via ConfigureCommerce.
+        if (string.IsNullOrWhiteSpace(PublicUrl))
+        {
+            missing.Add("a public URL");
+        }
+
+        if (TaxRegime == StorefrontTaxRegime.None)
+        {
+            missing.Add("a tax regime");
+        }
+
         if (!Domains.Any(d => d.Canonical))
         {
             missing.Add("one canonical domain");
