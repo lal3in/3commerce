@@ -1,38 +1,60 @@
 @namespace ThreeCommerce.Admin.Components.Shared
+@inject GatewayClient Gateway
 
-@* Currency is always picked from the full ISO 4217 list (Currencies.All), never free-typed.
+@* Currency is picked from the tenant's managed registry (currency_2), never free-typed. Enabled codes are
+   offered; the current Value is always kept selectable even if later disabled, so editing never drops it.
+   Falls back to the full ISO 4217 list only when the registry hasn't projected yet (fresh environment).
    Usage: <CurrencySelect @bind-Value="variant.Currency" /> *@
 <select value="@Value" @onchange="OnChange" title="@(Title ?? L["Currency.Tip"])" @attributes="Attributes">
-    <optgroup label="@L["Currency.Group.Common"]">
-        @foreach (var cc in Currencies.Common)
-        {
-            var c = _byCode.GetValueOrDefault(cc);
-            <option value="@cc">@cc — @(c?.Name)</option>
-        }
-    </optgroup>
-    <optgroup label="@L["Currency.Group.All"]">
-        @foreach (var c in Currencies.All)
-        {
-            <option value="@c.Code">@c.Code — @c.Name</option>
-        }
-    </optgroup>
+    @foreach (var o in Options())
+    {
+        <option value="@o.Code">@o.Code — @o.Name</option>
+    }
 </select>
 
 @code {
-    private static readonly Dictionary<string, Currencies.Currency> _byCode =
-        Currencies.All.ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
+    private const string Tenant = "00000000-0000-0000-0000-000000000001";
+    // Enabled registry currencies (code → name), loaded from the Entity currency registry. Empty until
+    // loaded or when the registry hasn't projected — then Options() falls back to the static ISO list.
+    private List<RegistryCurrency> _registry = [];
 
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
-    // Null → use the localized default tooltip. Callers may still override with a specific string.
     [Parameter] public string? Title { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _registry = await Gateway.GetListAsync<RegistryCurrency>($"/api/entity/admin/currencies/?tenantId={Tenant}"); }
+        catch { /* registry unreachable/unprojected → Options() falls back to the ISO list */ }
+    }
+
+    // Enabled registry codes, plus the current Value if it isn't among them (a disabled/legacy code must
+    // stay selectable when editing). Fallback to the full ISO 4217 list when the registry is empty.
+    private IEnumerable<(string Code, string Name)> Options()
+    {
+        if (_registry.Count == 0)
+        {
+            return Currencies.All.Select(c => (c.Code, c.Name));
+        }
+
+        var options = _registry.Select(c => (c.Code, Name: string.IsNullOrWhiteSpace(c.Name) ? c.Code : c.Name)).ToList();
+        if (!string.IsNullOrWhiteSpace(Value) && !options.Any(o => string.Equals(o.Code, Value, StringComparison.OrdinalIgnoreCase)))
+        {
+            var known = Currencies.All.FirstOrDefault(c => string.Equals(c.Code, Value, StringComparison.OrdinalIgnoreCase));
+            options.Insert(0, (Value!, known?.Name ?? Value!));
+        }
+
+        return options;
+    }
 
     private async Task OnChange(ChangeEventArgs e)
     {
         Value = e.Value?.ToString();
         await ValueChanged.InvokeAsync(Value);
     }
+
+    private record RegistryCurrency(string Code, string Name, string Symbol, int DecimalPlaces, bool Enabled, DateTimeOffset UpdatedAt);
 }

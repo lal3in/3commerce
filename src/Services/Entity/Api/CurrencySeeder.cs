@@ -1,4 +1,6 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Reference;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Entity.Domain;
 using ThreeCommerce.Entity.Infrastructure;
@@ -32,6 +34,7 @@ public static class CurrencySeeder
 
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<EntityDbContext>();
+        var publish = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
         try
         {
             if (!await db.Database.CanConnectAsync())
@@ -41,30 +44,35 @@ public static class CurrencySeeder
 
             // Currencies is tenant-isolated with FORCE RLS, so the reads + writes must run inside a tenant
             // scope or the policy hides existing rows (→ duplicate inserts) and blocks new ones. Seed as the
-            // platform admin for the default tenant (transaction-local context, ADR-0024).
+            // platform admin for the default tenant (transaction-local context, ADR-0024). Publish
+            // CurrencyChanged for each new code (inside the tx so the bus outbox flushes on SaveChanges), so
+            // consumers (Catalog's SupportedCurrency projection, currency_2) learn about the seeded set too.
             var added = await db.RunInTenantScopeAsync(
                 new TenantContext(tenantId, null, IsPlatformAdmin: true),
                 async () =>
                 {
-                    var existing = await db.Currencies.Where(c => c.TenantId == tenantId).Select(c => c.Code).ToListAsync();
+                    var existing = await db.Currencies.Where(c => c.TenantId == tenantId).ToDictionaryAsync(c => c.Code);
                     var now = DateTimeOffset.UtcNow;
                     var count = 0;
                     foreach (var (code, name, symbol, decimals) in Defaults)
                     {
-                        if (existing.Contains(code))
+                        if (!existing.ContainsKey(code))
                         {
-                            continue;
+                            db.Currencies.Add(Currency.Create(tenantId, code, name, symbol, decimals, now));
+                            count++;
                         }
 
-                        db.Currencies.Add(Currency.Create(tenantId, code, name, symbol, decimals, now));
-                        count++;
+                        // Republish every default on each boot (the projection upsert is idempotent), so a
+                        // consumer's SupportedCurrency read model is complete even for codes seeded before it
+                        // existed (currency_2) — without this, enabled currencies seeded earlier would be
+                        // absent from the projection and wrongly rejected on input.
+                        var current = existing.GetValueOrDefault(code);
+                        await publish.Publish(new CurrencyChanged(
+                            tenantId, code, current?.Name ?? name, current?.Symbol ?? symbol,
+                            current?.DecimalPlaces ?? decimals, current?.Enabled ?? true));
                     }
 
-                    if (count > 0)
-                    {
-                        await db.SaveChangesAsync();
-                    }
-
+                    await db.SaveChangesAsync();
                     return count;
                 });
 

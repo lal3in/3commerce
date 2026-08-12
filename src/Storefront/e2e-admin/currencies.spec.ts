@@ -25,3 +25,17 @@ test("Currencies page lists the seeded set and can add a currency", async ({ pag
 
   await expect(page.locator("table").first().getByText(code, { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 });
+
+// currency_2: the storefront currency picker is driven by the registry (only registered codes), not the
+// full ISO 4217 list — so a currency the tenant hasn't registered (e.g. SEK) is not offered.
+test("Storefront currency picker offers only registered currencies", async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto("/commerce-ops");
+  await page.waitForTimeout(2500); // let the CurrencySelect fetch the registry
+  const select = page.locator("select").filter({ has: page.locator('option[value="EUR"]') }).first();
+  await expect(select).toBeVisible({ timeout: 10_000 });
+  // A registered currency is offered; an unregistered ISO code (SEK) is not (would appear if the picker
+  // still used the full ISO list).
+  await expect(select.locator('option[value="EUR"]')).toHaveCount(1);
+  await expect(select.locator('option[value="SEK"]')).toHaveCount(0);
+});

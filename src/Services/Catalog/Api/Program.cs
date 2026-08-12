@@ -31,6 +31,7 @@ builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.InventoryAvailabilityConsumer>();
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontCarrierReadinessConsumer>(); // go-live gate (ADR-0042)
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontPaymentReadinessConsumer>();
+    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.CurrencyProjectionConsumer>(); // currency registry projection (currency_2)
 });
 builder.Services.AddServiceHealth<CatalogDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

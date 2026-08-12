@@ -23,6 +23,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
     public DbSet<StorefrontServiceReadiness> StorefrontServiceReadiness => Set<StorefrontServiceReadiness>();
+    public DbSet<SupportedCurrency> SupportedCurrencies => Set<SupportedCurrency>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +40,14 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
         modelBuilder.Entity<StorefrontServiceReadiness>(readiness =>
         {
             readiness.HasKey(x => x.StorefrontId);
+        });
+
+        modelBuilder.Entity<SupportedCurrency>(currency =>
+        {
+            currency.HasKey(x => new { x.TenantId, x.Code });
+            currency.Property(x => x.Code).HasMaxLength(3);
+            currency.Property(x => x.Name).HasMaxLength(80);
+            currency.Property(x => x.Symbol).HasMaxLength(8);
         });
 
         modelBuilder.Entity<Offer>(offer =>
