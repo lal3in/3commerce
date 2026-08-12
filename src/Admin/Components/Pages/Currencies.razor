@@ -1,0 +1,172 @@
+@page "/currencies"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<div style="display:flex; align-items:baseline; gap:1rem;">
+    <h1 style="margin:0;">@L["Nav.Currencies"]</h1>
+    <span style="color:#6b7280; font-size:.85rem;">Supported currencies — add or retire the codes the platform prices, sells and settles in.</span>
+    <span style="flex:1;"></span>
+    <button @onclick="LoadAsync" title="@L["Common.Refresh.Tip"]" style="padding:.35rem .8rem;">↻ @L["Common.Refresh"]</button>
+</div>
+
+@if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+<section style="border:1px solid #e5e7eb; border-radius:10px; padding:1rem 1.2rem; margin:1rem 0;">
+    <h2 style="margin:0 0 .6rem; font-size:1rem;">Add a currency</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:end;">
+        <label style="font-size:.8rem; color:#6b7280;">Code (ISO-4217)<br />
+            <input @bind="_newCode" maxlength="3" placeholder="JPY" style="width:5rem; text-transform:uppercase; padding:.35rem;" /></label>
+        <label style="font-size:.8rem; color:#6b7280;">Name<br />
+            <input @bind="_newName" placeholder="Japanese Yen" style="width:12rem; padding:.35rem;" /></label>
+        <label style="font-size:.8rem; color:#6b7280;">Symbol<br />
+            <input @bind="_newSymbol" placeholder="¥" style="width:4rem; padding:.35rem;" /></label>
+        <label style="font-size:.8rem; color:#6b7280;">Decimals<br />
+            <input type="number" min="0" max="4" @bind="_newDecimals" style="width:4rem; padding:.35rem;" /></label>
+        <button disabled="@_busy" @onclick="AddAsync" style="padding:.4rem .9rem;">Add</button>
+    </div>
+</section>
+
+@if (_currencies is null)
+{
+    <p>@L["Common.Loading"]</p>
+}
+else
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+            <th style="padding:.4rem;">Code</th><th>Name</th><th>Symbol</th><th style="text-align:center;">Decimals</th>
+            <th style="text-align:center;">Status</th><th>@L["Common.Actions"]</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var c in _currencies)
+        {
+            var editing = _editCode == c.Code;
+            <tr style="border-bottom:1px solid #f3f4f6; @(c.Enabled ? "" : "opacity:.55;")">
+                <td style="padding:.4rem;"><code style="font-weight:600;">@c.Code</code></td>
+                <td>
+                    @if (editing) { <input @bind="_editName" style="width:12rem; padding:.25rem;" /> }
+                    else { @c.Name }
+                </td>
+                <td>
+                    @if (editing) { <input @bind="_editSymbol" style="width:4rem; padding:.25rem;" /> }
+                    else { @c.Symbol }
+                </td>
+                <td style="text-align:center;">
+                    @if (editing) { <input type="number" min="0" max="4" @bind="_editDecimals" style="width:3.5rem; padding:.25rem;" /> }
+                    else { @c.DecimalPlaces }
+                </td>
+                <td style="text-align:center;">
+                    <span style="padding:.05rem .5rem; border-radius:999px; font-size:.72rem; font-weight:600; color:@(c.Enabled ? "#047857" : "#6b7280"); background:@(c.Enabled ? "#d1fae5" : "#f3f4f6");">
+                        @(c.Enabled ? "Enabled" : "Disabled")
+                    </span>
+                </td>
+                <td style="white-space:nowrap;">
+                    @if (editing)
+                    {
+                        <button disabled="@_busy" @onclick="() => SaveAsync(c.Code)" style="margin-right:.25rem;">@L["Common.Save"]</button>
+                        <button disabled="@_busy" @onclick="() => _editCode = null">@L["Common.Cancel"]</button>
+                    }
+                    else
+                    {
+                        <button disabled="@_busy" @onclick="() => StartEdit(c)" style="margin-right:.25rem;">@L["Common.Edit"]</button>
+                        @if (c.Enabled)
+                        {
+                            <button disabled="@_busy" @onclick="() => ToggleAsync(c.Code, false)" style="color:#b91c1c;">Disable</button>
+                        }
+                        else
+                        {
+                            <button disabled="@_busy" @onclick="() => ToggleAsync(c.Code, true)" style="color:#047857;">Enable</button>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_currencies.Count == 0) { <p style="color:#9ca3af;">No currencies yet — add one above.</p> }
+}
+
+@code {
+    private const string Tenant = "00000000-0000-0000-0000-000000000001";
+    private List<CurrencyDto>? _currencies;
+    private bool _busy;
+    private string? _error;
+    private string? _status;
+
+    private string _newCode = "";
+    private string _newName = "";
+    private string _newSymbol = "";
+    private int _newDecimals = 2;
+
+    private string? _editCode;
+    private string _editName = "";
+    private string _editSymbol = "";
+    private int _editDecimals = 2;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            _currencies = await Gateway.GetListAsync<CurrencyDto>($"/api/entity/admin/currencies/?tenantId={Tenant}&includeDisabled=true");
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task AddAsync()
+    {
+        _error = _status = null;
+        _busy = true;
+        try
+        {
+            var response = await Gateway.PostAsync("/api/entity/admin/currencies/",
+                new { tenantId = Tenant, code = _newCode, name = _newName, symbol = _newSymbol, decimalPlaces = _newDecimals });
+            if (response.IsSuccessStatusCode)
+            {
+                _status = $"Added {_newCode.ToUpperInvariant()}.";
+                _newCode = _newName = _newSymbol = ""; _newDecimals = 2;
+                await LoadAsync();
+            }
+            else { _error = await GatewayError.ReadAsync(response); }
+        }
+        finally { _busy = false; }
+    }
+
+    private void StartEdit(CurrencyDto c)
+    {
+        _editCode = c.Code; _editName = c.Name; _editSymbol = c.Symbol; _editDecimals = c.DecimalPlaces;
+    }
+
+    private async Task SaveAsync(string code)
+    {
+        _error = _status = null;
+        _busy = true;
+        try
+        {
+            var response = await Gateway.PutAsync($"/api/entity/admin/currencies/{code}?tenantId={Tenant}",
+                new { tenantId = Tenant, name = _editName, symbol = _editSymbol, decimalPlaces = _editDecimals });
+            if (response.IsSuccessStatusCode) { _editCode = null; _status = $"Updated {code}."; await LoadAsync(); }
+            else { _error = await GatewayError.ReadAsync(response); }
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task ToggleAsync(string code, bool enable)
+    {
+        _error = _status = null;
+        _busy = true;
+        try
+        {
+            var response = await Gateway.PostAsync($"/api/entity/admin/currencies/{code}/{(enable ? "enable" : "disable")}?tenantId={Tenant}");
+            if (response.IsSuccessStatusCode) { _status = $"{(enable ? "Enabled" : "Disabled")} {code}."; await LoadAsync(); }
+            else { _error = await GatewayError.ReadAsync(response); }
+        }
+        finally { _busy = false; }
+    }
+
+    private record CurrencyDto(string Code, string Name, string Symbol, int DecimalPlaces, bool Enabled, DateTimeOffset UpdatedAt);
+}

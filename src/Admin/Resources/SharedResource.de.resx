@@ -1698,4 +1698,10 @@
   <data name="Ledger.Col.Type" xml:space="preserve">
     <value>Typ</value>
   </data>
+  <data name="Nav.Currencies" xml:space="preserve">
+    <value>Währungen</value>
+  </data>
+  <data name="Nav.Currencies.Tip" xml:space="preserve">
+    <value>Unterstützte Währungen verwalten</value>
+  </data>
 </root>
