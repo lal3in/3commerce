@@ -48,6 +48,20 @@ test.describe("Mission Control monitors", () => {
     await expect(page.locator("body")).not.toContainText("Mc.Process");
   });
 
+  test("scheduled jobs section lists the live per-service jobs", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/mission-control");
+    await expect(page.getByRole("heading", { name: /mission control/i })).toBeVisible();
+    await page.waitForTimeout(2000); // let the Blazor circuit aggregate the per-service job schedules
+
+    // Mission Control reads the LIVE per-service schedule (payments/usage/marketing). Previously it read
+    // the Workflow registry, which is empty until a job has run — so the section showed no jobs at all.
+    for (const job of ["subscription-auto-renew", "scheduled-publish", "usage-period-close"]) {
+      await expect(page.getByText(job, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+    }
+    await expect(page.locator("body")).not.toContainText("Mc.Jobs"); // localization resolved
+  });
+
   test("renders the Observability section with all three LGTM backends up", async ({ page }) => {
     // The section itself must always render; the up/down assertion only makes sense when the
     // LGTM containers (compose observability profile, always-on via dev-up) are actually running.

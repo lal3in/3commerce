@@ -51,7 +51,10 @@ public class StorefrontGoLiveReadinessTests(Phase2Fixture fixture) : IAsyncLifet
             tenantId = Tenant,
             name = $"GoLive-{Guid.NewGuid():N}",
             visibility = 4, // Public
+            publicUrl = "http://localhost:3000/golive", // required to go live (ledger_sf review #4)
             currency = "EUR",
+            taxRegime = 2, // EU VAT — a tax regime is required to go live
+            taxRateBasisPoints = 2000,
         });
         create.EnsureSuccessStatusCode();
         var storefront = (await create.Content.ReadFromJsonAsync<StorefrontDto>())!;

@@ -49,8 +49,10 @@ echo "admin login: 200"
 
 # 2. Fresh Public storefront (Draft).
 name="GoLiveVerify-$(date +%s)"
+# publicUrl + a tax regime are required to go live (a storefront can't activate half-configured), so set
+# them at creation — otherwise the activation step below is blocked on "a public URL, a tax regime".
 sf=$(body -X POST "$GATEWAY/api/catalog/admin/storefronts" -H "$JSON" \
-  -d "{\"tenantId\":\"$TENANT_ID\",\"name\":\"$name\",\"visibility\":4,\"currency\":\"EUR\"}")
+  -d "{\"tenantId\":\"$TENANT_ID\",\"name\":\"$name\",\"visibility\":4,\"publicUrl\":\"http://localhost:3000/golive-verify\",\"currency\":\"EUR\",\"taxRegime\":2,\"taxRateBasisPoints\":2000}")
 sfid=$(printf '%s' "$sf" | json_field id)
 [[ -n "$sfid" ]] || fail "could not create storefront: $sf"
 echo "create storefront: $sfid"

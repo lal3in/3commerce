@@ -31,6 +31,7 @@ public class StorefrontLifecycleTests
         var now = DateTimeOffset.UtcNow;
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", now);
         storefront.SetVisibility(StorefrontVisibility.Public, null, now);
+        storefront.ConfigureCommerce("http://localhost:3000/shop", "AUD", StorefrontTaxRegime.AuGst, 1000, now);
         storefront.AddDomain("SHOP.EXAMPLE.test", canonical: true, now);
 
         storefront.MoveToPreview(now.AddMinutes(1));
@@ -49,6 +50,7 @@ public class StorefrontLifecycleTests
         var now = DateTimeOffset.UtcNow;
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", now);
         storefront.SetVisibility(StorefrontVisibility.Public, null, now);
+        storefront.ConfigureCommerce("http://localhost:3000/shop", "AUD", StorefrontTaxRegime.AuGst, 1000, now);
         storefront.AddDomain("shop.example.test", canonical: true, now);
         storefront.MoveToPreview(now.AddMinutes(1));
 
@@ -158,6 +160,7 @@ public class StorefrontLifecycleTests
         var now = DateTimeOffset.UtcNow;
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", now);
         storefront.SetVisibility(StorefrontVisibility.Public, null, now);
+        storefront.ConfigureCommerce("http://localhost:3000/shop", "AUD", StorefrontTaxRegime.AuGst, 1000, now);
         storefront.AddDomain("shop.example.test", canonical: true, now);
         storefront.MoveToPreview(now);
         storefront.Activate(now);
@@ -175,6 +178,7 @@ public class StorefrontLifecycleTests
     {
         var storefront = Storefront.Create(Guid.CreateVersion7(), "Main store", DateTimeOffset.UtcNow);
         storefront.SetVisibility(StorefrontVisibility.Public, null, DateTimeOffset.UtcNow);
+        storefront.ConfigureCommerce("http://localhost:3000/shop", "AUD", StorefrontTaxRegime.AuGst, 1000, DateTimeOffset.UtcNow);
         storefront.AddDomain("shop.example.test", canonical: true, DateTimeOffset.UtcNow);
         storefront.MoveToPreview(DateTimeOffset.UtcNow);
         storefront.Activate(DateTimeOffset.UtcNow);

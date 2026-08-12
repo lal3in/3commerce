@@ -32,6 +32,7 @@ else
         <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
             <th style="padding:.4rem; width:1.5rem;"></th>
             <th style="padding:.4rem;">@L["Subs.Col.Subscriber"]</th>
+            <th>@L["Fin.Col.Storefront"]</th>
             <th>@L["Subs.Col.Product"]</th>
             <th>@L["Subs.Col.Status"]</th>
             <th>@L["Subs.Col.Billing"]</th>
@@ -48,6 +49,7 @@ else
                     <button @onclick="() => ToggleAsync(s.Id)" title="@L["Subs.Expand.Tip"]" style="border:0; background:none; cursor:pointer; font-size:.9rem;">@(_expanded.ContainsKey(s.Id) ? "▾" : "▸")</button>
                 </td>
                 <td style="padding:.4rem;">@s.CustomerEmail</td>
+                <td title="@(s.StorefrontId?.ToString() ?? "")">@StorefrontLabel(s.StorefrontId)</td>
                 <td title="@s.ProductId">@ProductLabel(s.ProductId)</td>
                 <td><span style="color:@StatusColor(s.Status); font-weight:600;">@StatusLabel(s.Status)</span></td>
                 <td>@BillingLabel(s.BillingPeriod)</td>
@@ -71,7 +73,7 @@ else
             </tr>
             @if (_expanded.TryGetValue(s.Id, out var detail))
             {
-                <tr><td></td><td colspan="8" style="padding:.4rem .4rem 1.2rem;">
+                <tr><td></td><td colspan="9" style="padding:.4rem .4rem 1.2rem;">
                     @if (detail is null)
                     {
                         <p style="color:#6b7280;">@L["Common.Loading"]</p>
@@ -83,6 +85,7 @@ else
                                 <h3 style="margin:0 0 .5rem; font-size:.95rem;">@L["Subs.Detail.Subscriber"]</h3>
                                 <dl style="margin:0; font-size:.85rem; display:grid; grid-template-columns:auto 1fr; gap:.2rem .6rem;">
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Email"]</dt><dd style="margin:0;">@detail.CustomerEmail</dd>
+                                    <dt style="color:#6b7280;">@L["Fin.Col.Storefront"]</dt><dd style="margin:0;">@StorefrontLabel(detail.StorefrontId)</dd>
                                     <dt style="color:#6b7280;">@L["Subs.Detail.Tenant"]</dt><dd style="margin:0;"><code>@detail.TenantId</code></dd>
                                 </dl>
                             </section>
@@ -146,6 +149,8 @@ else
     private List<SubscriptionDto>? _subs;
     // ProductId → title, loaded from the Catalog admin list so the table shows names, not GUIDs.
     private Dictionary<Guid, string> _productTitles = [];
+    // StorefrontId → name, loaded from Catalog so the table shows the store name, not a GUID.
+    private Dictionary<Guid, string> _storefrontNames = [];
     private string _filter = "";
     private bool _busy;
     private string? _error;
@@ -167,6 +172,17 @@ else
         try
         {
             _subs = await Gateway.GetListAsync<SubscriptionDto>($"/api/payments/admin/subscriptions/?tenantId={TenantId}");
+            // Resolve storefront names by id (Catalog owns them) so the table reads store names, not GUIDs.
+            // Best-effort: a failed lookup leaves the short id and must never blank the page.
+            if (_storefrontNames.Count == 0)
+            {
+                try
+                {
+                    var stores = await Gateway.GetListAsync<StorefrontRow>($"/api/catalog/admin/storefronts?tenantId={TenantId}");
+                    _storefrontNames = stores.ToDictionary(x => x.Id, x => x.Name);
+                }
+                catch { /* leave unresolved; StorefrontLabel falls back to the short id */ }
+            }
             // Resolve product titles by id (Catalog owns them) so the table reads names, not GUIDs.
             // Fetch only the distinct products actually referenced — the admin list is paged (~200) and
             // would miss these, and there are only a handful of subscribed products. Best-effort per id:
@@ -227,6 +243,10 @@ else
     private string Short(Guid id) => id.ToString()[..8];
     // The product's title when Catalog resolved it, else the short id (the full id is in the cell tooltip).
     private string ProductLabel(Guid id) => _productTitles.TryGetValue(id, out var title) ? title : Short(id);
+    // The storefront's name when Catalog resolved it, else the short id; "—" when the sub carries no store
+    // (legacy subscriptions from before StorefrontId was threaded through SubscriptionRequested, #210).
+    private string StorefrontLabel(Guid? id) =>
+        id is not { } sid ? "—" : _storefrontNames.TryGetValue(sid, out var name) ? name : Short(sid);
     private string Money(long minor, string currency) => $"{minor / 100m:0.00} {currency}";
     private string Period(DateTimeOffset start, DateTimeOffset end) =>
         $"{start.LocalDateTime:dd MMM yyyy} – {end.LocalDateTime:dd MMM yyyy}";
@@ -259,16 +279,19 @@ else
     };
 
     private record SubscriptionDto(
-        Guid Id, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
+        Guid Id, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
         string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
     // Minimal projection of Catalog's admin product list — only what the Product column needs.
     private record ProductRow(Guid Id, string Title);
 
+    // Minimal projection of Catalog's admin storefront list — only what the Storefront column needs.
+    private record StorefrontRow(Guid Id, string Name);
+
     private record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
 
     private record SubscriptionDetailDto(
-        Guid Id, Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
+        Guid Id, Guid TenantId, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
         string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt,
         DateTimeOffset UpdatedAt, IReadOnlyList<RenewalDto> Renewals);
 }

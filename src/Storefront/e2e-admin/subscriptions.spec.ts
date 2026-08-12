@@ -15,7 +15,8 @@ test.describe("Subscriptions", () => {
     await expect(page.locator("table thead")).toBeVisible({ timeout: 30_000 });
 
     // Localized column headers are present regardless of row count (real coverage even on an empty seed).
-    for (const header of [/subscriber/i, /product/i, /status/i, /billing cycle/i, /current period/i]) {
+    // Storefront sits between Subscriber and Product, so a subscription's owning store is visible.
+    for (const header of [/subscriber/i, /storefront/i, /product/i, /status/i, /billing cycle/i, /current period/i]) {
       await expect(page.getByRole("columnheader", { name: header })).toBeVisible();
     }
 
