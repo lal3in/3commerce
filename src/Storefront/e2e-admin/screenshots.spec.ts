@@ -34,6 +34,7 @@ test("admin screenshots", async ({ page }) => {
     ["/entities", "entities"], ["/imports", "imports"], ["/xero", "xero"],
     ["/rbac", "rbac"],
     ["/commerce-ops", "commerce-ops"], ["/catalog", "catalog"],
+    ["/currencies", "currencies"],
   ] as const) {
     await page.goto(href);
     await shot(page, name);

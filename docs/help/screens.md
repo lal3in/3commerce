@@ -17,7 +17,10 @@ GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screens
 
 - **Storefront** (`:3000`): home, search, product detail, cart, checkout (with selectable payment
   methods), sign in, register, account, privacy/consent settings.
-- **Admin** (`:5200`): sign in, dashboard, orders, ledger, RMA queue, entities & suppliers, imports,
-  Xero sync &amp; mappings, roles & permissions, operator users, mission control (with the live activity
-  timeline &amp; message-bus stats), commerce ops, catalog editor, offers, payment accounts, supplier
+- **Admin** (`:5200`): sign in, dashboard, orders, ledger (per-currency balances + a filterable
+  Journal-entries feed — full date/time, Start/End date, Storefront, Currency), RMA queue, entities &
+  suppliers, imports, Xero sync &amp; mappings, roles & permissions, operator users, mission control (live
+  activity timeline, message-bus stats, and the **Scheduled jobs** manager — Run now / Pause / Edit),
+  commerce ops (storefront lifecycle + product publication via a catalog dropdown), catalog editor,
+  **currencies** (the managed registry with per-currency decimals), offers, payment accounts, supplier
   payouts, and **security** (MFA enrollment, tenant MFA policy, webhook signing secrets).
