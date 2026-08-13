@@ -74,12 +74,42 @@ public static class AdminEndpoints
         return TypedResults.Ok(accounts);
     }
 
-    private static async Task<Ok<List<EntryDto>>> ListEntries(PaymentsDbContext db, string? reference, CancellationToken ct)
+    private static async Task<Ok<List<EntryDto>>> ListEntries(
+        PaymentsDbContext db, string? reference, string? currency, Guid? storefrontId,
+        DateOnly? start, DateOnly? end, CancellationToken ct)
     {
         var query = db.JournalEntries.AsNoTracking().Include(e => e.Lines).AsQueryable();
         if (!string.IsNullOrEmpty(reference))
         {
             query = query.Where(e => e.Reference == reference);
+        }
+
+        if (!string.IsNullOrWhiteSpace(currency))
+        {
+            var code = currency.Trim().ToUpperInvariant();
+            query = query.Where(e => e.Currency == code);
+        }
+
+        // A storefront isn't a column on the entry — it's encoded in the line account codes
+        // (revenue.store-{id}, cash.store-{id}.stripe, …). One order posts one store's lines, so an entry
+        // belongs to the store whose token any of its lines carries.
+        if (storefrontId is { } sid)
+        {
+            var token = $"store-{sid:N}";
+            query = query.Where(e => e.Lines.Any(l => l.AccountCode.Contains(token)));
+        }
+
+        // Date range on CreatedAt (UTC). The dates are inclusive calendar days: end covers the whole day.
+        if (start is { } from)
+        {
+            var fromInstant = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(e => e.CreatedAt >= fromInstant);
+        }
+
+        if (end is { } to)
+        {
+            var toExclusive = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(e => e.CreatedAt < toExclusive);
         }
 
         // Deterministic newest-first order: a secondary key on the time-ordered v7 Id breaks ties when two

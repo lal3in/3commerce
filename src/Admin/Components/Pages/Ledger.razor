@@ -55,6 +55,33 @@ else
 }
 
 <h2 style="margin:1.4rem 0 .4rem;">@L["Ledger.Entries"]</h2>
+<div style="display:flex; gap:.6rem; align-items:end; flex-wrap:wrap; margin:.2rem 0 .8rem;">
+    <label style="font-size:.8rem; color:#6b7280;">@L["Ledger.Filter.From"]<br />
+        <input type="date" @bind="_start" style="padding:.35rem;" title="@L["Ledger.Filter.From.Tip"]" /></label>
+    <label style="font-size:.8rem; color:#6b7280;">@L["Ledger.Filter.To"]<br />
+        <input type="date" @bind="_end" style="padding:.35rem;" title="@L["Ledger.Filter.To.Tip"]" /></label>
+    <label style="font-size:.8rem; color:#6b7280;">@L["Ledger.Filter.Storefront"]<br />
+        <select @bind="_storefrontId" style="padding:.35rem; min-width:12rem;" title="@L["Ledger.Filter.Storefront.Tip"]">
+            <option value="">@L["Ledger.Filter.AllStorefronts"]</option>
+            @if (_storefronts is not null)
+            {
+                @foreach (var s in _storefronts)
+                {
+                    <option value="@s.Id">@s.Name (@s.Currency)</option>
+                }
+            }
+        </select></label>
+    <label style="font-size:.8rem; color:#6b7280;">@L["Ledger.Filter.Currency"]<br />
+        <select @bind="_currency" style="padding:.35rem;" title="@L["Ledger.Filter.Currency.Tip"]">
+            <option value="">@L["Ledger.Filter.AllCurrencies"]</option>
+            @foreach (var c in CurrencyOptions)
+            {
+                <option value="@c">@c</option>
+            }
+        </select></label>
+    <button @onclick="ApplyFilters" disabled="@_loadingEntries" style="padding:.4rem .9rem;">@L["Ledger.Filter.Apply"]</button>
+    <button @onclick="ClearFilters" disabled="@_loadingEntries" title="@L["Ledger.Filter.Clear.Tip"]" style="padding:.4rem .9rem;">@L["Ledger.Filter.Clear"]</button>
+</div>
 @if (_entries is null) { <p>@L["Common.Loading"]</p> }
 else
 {
@@ -69,7 +96,7 @@ else
             @* Amount coloured by direction: green = money in, red = money out, amber = refund (distinct
                from an outgoing payment). Expands to a per-line breakdown; refund lines are highlighted. *@
             <tr style="border-top:1px solid #e5e7eb;">
-                <td>@e.CreatedAt.LocalDateTime.ToString("dd MMM HH:mm")</td>
+                <td style="white-space:nowrap;">@e.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
                 <td>@e.Description</td>
                 <td style="text-align:center;">@e.Reference</td>
                 <td style="text-align:center;">@e.Currency</td>
@@ -113,14 +140,60 @@ else
     </table>
 }
 @code {
+    private const string Tenant = "00000000-0000-0000-0000-000000000001";
     private List<EntryDto>? _entries;
     private List<BalanceDto>? _balances;
+    private List<StorefrontDto>? _storefronts;
     private readonly HashSet<Guid> _expanded = [];
+    private bool _loadingEntries;
+
+    // Journal-entry filters (server-side — the endpoint caps at 200 rows, so filtering the full set on the
+    // server, not the fetched page, is what makes the filter meaningful).
+    private DateOnly? _start;
+    private DateOnly? _end;
+    private string _storefrontId = "";
+    private string _currency = "";
+
+    // Currency options come from the currencies actually present in the ledger balances — no point offering
+    // a currency with no entries.
+    private IEnumerable<string> CurrencyOptions =>
+        (_balances ?? []).Select(b => b.Currency).Distinct().OrderBy(c => c, StringComparer.Ordinal);
 
     protected override async Task OnInitializedAsync()
     {
         _balances = await Gateway.GetListAsync<BalanceDto>("/api/payments/admin/ledger/balances");
-        _entries = await Gateway.GetListAsync<EntryDto>("/api/payments/admin/ledger/entries");
+        _storefronts = await SafeStorefronts();
+        await LoadEntries();
+    }
+
+    private async Task<List<StorefrontDto>> SafeStorefronts()
+    {
+        try { return await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Tenant}"); }
+        catch { return []; }
+    }
+
+    // Re-fetch the entries with the current filters as query-string params. Empty/unset filters are omitted.
+    private async Task LoadEntries()
+    {
+        _loadingEntries = true;
+        var q = new List<string>();
+        if (_start is { } s) { q.Add($"start={s:yyyy-MM-dd}"); }
+        if (_end is { } e) { q.Add($"end={e:yyyy-MM-dd}"); }
+        if (!string.IsNullOrEmpty(_storefrontId)) { q.Add($"storefrontId={_storefrontId}"); }
+        if (!string.IsNullOrWhiteSpace(_currency)) { q.Add($"currency={Uri.EscapeDataString(_currency)}"); }
+        var url = "/api/payments/admin/ledger/entries" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
+        _entries = await Gateway.GetListAsync<EntryDto>(url);
+        _expanded.Clear();
+        _loadingEntries = false;
+    }
+
+    private Task ApplyFilters() => LoadEntries();
+
+    private async Task ClearFilters()
+    {
+        _start = _end = null;
+        _storefrontId = _currency = "";
+        await LoadEntries();
     }
 
     private void Toggle(Guid id)
@@ -262,4 +335,6 @@ else
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
     public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
+    // Subset of the catalog admin storefront list — just what the storefront filter dropdown needs.
+    public record StorefrontDto(Guid Id, string Name, string Currency);
 }

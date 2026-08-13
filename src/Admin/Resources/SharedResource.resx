@@ -429,7 +429,20 @@
   <data name="Ledger.Col.Lines" xml:space="preserve"><value>Lines</value></data>
   <data name="Ledger.Col.Amount" xml:space="preserve"><value>Amount</value></data>
   <data name="Ledger.Entry.Breakdown.Tip" xml:space="preserve"><value>Show the line-by-line breakdown of this entry, including refunded amounts.</value></data>
-  <data name="Ledger.Col.When" xml:space="preserve"><value>When</value></data>
+  <data name="Ledger.Col.When" xml:space="preserve"><value>Date/time</value></data>
+  <data name="Ledger.Filter.From" xml:space="preserve"><value>Start date</value></data>
+  <data name="Ledger.Filter.From.Tip" xml:space="preserve"><value>Only entries on or after this date (inclusive).</value></data>
+  <data name="Ledger.Filter.To" xml:space="preserve"><value>End date</value></data>
+  <data name="Ledger.Filter.To.Tip" xml:space="preserve"><value>Only entries on or before this date (inclusive).</value></data>
+  <data name="Ledger.Filter.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Ledger.Filter.Storefront.Tip" xml:space="preserve"><value>Only entries posted to this storefront's accounts.</value></data>
+  <data name="Ledger.Filter.AllStorefronts" xml:space="preserve"><value>All storefronts</value></data>
+  <data name="Ledger.Filter.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Ledger.Filter.Currency.Tip" xml:space="preserve"><value>Only entries in this currency.</value></data>
+  <data name="Ledger.Filter.AllCurrencies" xml:space="preserve"><value>All currencies</value></data>
+  <data name="Ledger.Filter.Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Ledger.Filter.Clear" xml:space="preserve"><value>Clear</value></data>
+  <data name="Ledger.Filter.Clear.Tip" xml:space="preserve"><value>Reset all filters and reload.</value></data>
   <data name="Ledger.Col.Currency" xml:space="preserve"><value>Currency</value></data>
 
   <!-- ===== Xero sync ===== -->
