@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Read-copy Data Flow",
+    "subtitle": "How a fact reaches another service — the owner's event over the bus, an idempotent projection, and a local read model (never a cross-service query)",
+    "output": "docs/help/readcopy-dataflow.html",
+    "visual_preset": "signal-flow",
+    "animation": "none",
+    "quality_profile": "showcase",
+    "viewBox": [1120, 520],
+    "views": [
+      { "id": "currency", "label": "Currency registry", "focus": ["entity", "catalogProj", "supportedCurrency"], "note": "currency_2: Entity owns the registry; Catalog projects CurrencyChanged and validates storefront/product currencies locally." },
+      { "id": "snapshot", "label": "Order snapshot", "focus": ["ordering", "supportProj", "orderSnapshot"], "note": "Support materializes a per-order snapshot so RMA refund amounts come from line prices, not a call to Ordering." },
+      { "id": "offer", "label": "Offer copy", "focus": ["catalog", "orderingProj", "offerCopy"], "note": "Ordering keeps a copy of each offer so checkout resolves fulfilment without querying Catalog." }
+    ]
+  },
+  "stages": [
+    { "label": "Owner (source of truth)" },
+    { "label": "Projection consumer" },
+    { "label": "Local read-copy" }
+  ],
+  "nodes": [
+    { "id": "entity", "type": "backend", "label": "Entity", "sublabel": "currency registry", "stage": 0, "row": 0, "tag": "owner" },
+    { "id": "ordering", "type": "backend", "label": "Ordering", "sublabel": "order of record", "stage": 0, "row": 1, "tag": "owner" },
+    { "id": "catalog", "type": "backend", "label": "Catalog", "sublabel": "offers + pricing", "stage": 0, "row": 2, "tag": "owner" },
+
+    { "id": "catalogProj", "type": "backend", "label": "Catalog projector", "sublabel": "CurrencyProjectionConsumer", "stage": 1, "row": 0 },
+    { "id": "supportProj", "type": "backend", "label": "Support projector", "sublabel": "OrderSnapshotConsumer", "stage": 1, "row": 1 },
+    { "id": "orderingProj", "type": "backend", "label": "Ordering projector", "sublabel": "OfferCopyConsumer", "stage": 1, "row": 2 },
+
+    { "id": "supportedCurrency", "type": "database", "label": "SupportedCurrency", "sublabel": "validates input", "stage": 2, "row": 0, "tag": "read here" },
+    { "id": "orderSnapshot", "type": "database", "label": "OrderSnapshot", "sublabel": "RMA refund amounts", "stage": 2, "row": 1, "tag": "read here" },
+    { "id": "offerCopy", "type": "database", "label": "OfferCopy", "sublabel": "checkout fulfilment", "stage": 2, "row": 2, "tag": "read here" }
+  ],
+  "flows": [
+    { "from": "entity", "to": "catalogProj", "label": "CurrencyChanged", "classification": "RabbitMQ · outbox", "variant": "emphasis", "route": "straight" },
+    { "from": "catalogProj", "to": "supportedCurrency", "label": "upsert", "classification": "idempotent", "variant": "emphasis", "route": "straight" },
+
+    { "from": "ordering", "to": "supportProj", "label": "OrderConfirmed", "classification": "RabbitMQ · outbox", "route": "straight" },
+    { "from": "supportProj", "to": "orderSnapshot", "label": "upsert", "classification": "idempotent", "route": "straight" },
+
+    { "from": "catalog", "to": "orderingProj", "label": "OfferChanged", "classification": "RabbitMQ · outbox", "route": "straight" },
+    { "from": "orderingProj", "to": "offerCopy", "label": "upsert", "classification": "idempotent", "route": "straight" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "The pattern (ADR-0008 / 0011)", "items": ["The owner writes its DB and stages the event in the same transaction (outbox)", "The consumer projects it into a LOCAL read model, idempotently", "The consumer reads only that local copy — never a cross-service query", "A slow or absent owner never blocks a read"] },
+    { "dot": "violet", "title": "More read-copies in the platform", "items": ["StorefrontConfigChanged → per-service storefront copies (currency, tax)", "StorefrontLedgerAccounts → Payments' per-storefront chart of accounts", "JobRunRecorded → Workflow's aggregated scheduled-job run history", "ProductUpserted → Catalog's own FTS search projection"] },
+    { "dot": "emerald", "title": "Why it holds", "items": ["No distributed joins and no foreign-service reads at request time", "Each service deploys and scales on its own schema", "Projections are replay-safe, so redelivery is harmless", "An unprojected copy simply isn't enforced yet — fresh envs aren't blocked"] }
+  ]
+}
