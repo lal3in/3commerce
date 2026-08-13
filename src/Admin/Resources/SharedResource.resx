@@ -805,8 +805,9 @@
   <data name="Ops.Ready" xml:space="preserve"><value>Ready</value></data>
   <data name="Ops.NotReady" xml:space="preserve"><value>Not ready</value></data>
   <data name="Ops.Publication" xml:space="preserve"><value>Product publication</value></data>
-  <data name="Ops.Field.ProductId" xml:space="preserve"><value>Product ID</value></data>
-  <data name="Ops.Field.ProductId.Tip" xml:space="preserve"><value>The tenant product (GUID) to publish to this storefront.</value></data>
+  <data name="Ops.Field.ProductId" xml:space="preserve"><value>Product</value></data>
+  <data name="Ops.Field.ProductId.Tip" xml:space="preserve"><value>Pick a catalog product to assign or publish to this storefront.</value></data>
+  <data name="Ops.Field.ProductId.Placeholder" xml:space="preserve"><value>— Select a product —</value></data>
   <data name="Ops.Field.SeoTitle" xml:space="preserve"><value>SEO title</value></data>
   <data name="Ops.Field.SeoTitle.Tip" xml:space="preserve"><value>Optional SEO title override for this product on this storefront.</value></data>
   <data name="Ops.Field.Fulfillment" xml:space="preserve"><value>Fulfillment</value></data>

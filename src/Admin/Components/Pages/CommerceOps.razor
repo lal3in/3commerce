@@ -201,7 +201,18 @@
 
         <h3>@L["Ops.Publication"]</h3>
         <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:.5rem; align-items:end;">
-            <label>@L["Ops.Field.ProductId"]<br /><input @bind="_assignProductId" style="width:100%; padding:.4rem;" title="@L["Ops.Field.ProductId.Tip"]" /></label>
+            <label>@L["Ops.Field.ProductId"]<br />
+                <select @bind="_assignProductId" style="width:100%; padding:.4rem;" title="@L["Ops.Field.ProductId.Tip"]">
+                    <option value="">@L["Ops.Field.ProductId.Placeholder"]</option>
+                    @if (_catalogProducts is not null)
+                    {
+                        @foreach (var p in _catalogProducts)
+                        {
+                            <option value="@p.Id">@p.Title</option>
+                        }
+                    }
+                </select>
+            </label>
             <label>@L["Ops.Field.SeoTitle"]<br /><input @bind="_seoTitle" style="width:100%; padding:.4rem;" title="@L["Ops.Field.SeoTitle.Tip"]" /></label>
             <label>@L["Ops.Field.Fulfillment"]<br />
                 <select @bind="_fulfillmentSource" style="width:100%; padding:.4rem;" title="@L["Ops.Field.Fulfillment.Tip"]">
@@ -322,6 +333,9 @@
     // doesn't tell the operator WHAT the storefront is missing.
     private ReadinessDto? _transitionReadiness;
     private string _assignProductId = string.Empty;
+    // The tenant's catalog products, offered in the Publication section's Product dropdown so an operator
+    // picks a product to assign/publish instead of pasting a GUID. Loaded when a storefront is managed.
+    private List<CatalogProductOption>? _catalogProducts;
     private string? _seoTitle;
     private int _fulfillmentSource;
     private ReadinessDto? _publicationReadiness;
@@ -398,7 +412,18 @@
         _costMarketingBps = CostValue(storefront, "marketingBps");
         _costInsuranceBps = CostValue(storefront, "insuranceBps");
         _costBufferBps = CostValue(storefront, "bufferBps");
+        _assignProductId = string.Empty;
         await LoadStorefrontProducts();
+        await LoadCatalogProducts();
+    }
+
+    // The tenant's catalog products for the Publication dropdown. Loaded once (tenant-wide, not per
+    // storefront) and reused across manage sessions; failures leave the dropdown empty, not broken.
+    private async Task LoadCatalogProducts()
+    {
+        if (_catalogProducts is not null) { return; }
+        try { _catalogProducts = await Gateway.GetListAsync<CatalogProductOption>("/api/catalog/admin/products"); }
+        catch { _catalogProducts = []; }
     }
 
     private static string ThemeValue(StorefrontDto s, string key) =>
@@ -608,4 +633,7 @@
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);
+    // A subset of the catalog admin product list (extra fields ignored) — just enough to populate the
+    // Publication section's Product dropdown.
+    public sealed record CatalogProductOption(Guid Id, string Slug, string Title);
 }
