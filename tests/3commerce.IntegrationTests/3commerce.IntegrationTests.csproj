@@ -10,6 +10,9 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.RabbitMq" />
     <PackageReference Include="Testcontainers.Redis" />
+    <!-- Direct ref so the central SSH.NET pin (2026.0.0) binds and overrides the vulnerable transitive
+         2025.1.0 pulled by Testcontainers (GHSA-q939-rpr3-3284 / NU1903). -->
+    <PackageReference Include="SSH.NET" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/BuildingBlocks/Infrastructure/3commerce.BuildingBlocks.Infrastructure.csproj" />
