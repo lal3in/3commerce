@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" data-preset="classic">
+<html lang="en" data-theme="dark" data-preset="signal-flow">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.13.0">
-  <title>3commerce — Event-Driven Read Copies Diagram</title>
+  <title>Read-copy Data Flow Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4403,14 +4403,6 @@
   </style>
 </head>
 <body>
-<a class="wiki-back no-print" href="index.html" title="Back to the Operations Wiki">&#8592; Wiki</a>
-<style>
-.wiki-back{position:fixed;top:1rem;left:1rem;z-index:101;display:inline-flex;align-items:center;gap:.4rem;padding:.42rem .7rem;font:600 .82rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;border-radius:.5rem;border:1px solid rgba(128,128,128,.35);color:#e6e8ee;background:rgba(24,26,33,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
-:root[data-theme="light"] .wiki-back{color:#1f2430;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.18);}
-.wiki-back:hover{border-color:rgba(128,128,128,.75);}
-@media print{.wiki-back{display:none!important;}}
-</style>
-
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -4504,12 +4496,12 @@
     <div class="header">
       <div class="header-row">
         <div class="pulse-dot"></div>
-        <h1>3commerce — Event-Driven Read Copies</h1>
+        <h1>Read-copy Data Flow</h1>
       </div>
-      <p class="subtitle">A write becomes a domain event via the EF outbox, then fans out to build local read copies (ADR-0008)</p>
+      <p class="subtitle">How a fact reaches another service — the owner&#39;s event over the bus, an idempotent projection, and a local read model (never a cross-service query)</p>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"produce","label":"Produce","focus":["src","outbox","bus"],"note":"A write stages its event in the service's own outbox, delivered to the bus only when the write commits."},{"id":"consume","label":"Consume","focus":["bus","catalog_c","fulfil_c","support_c"],"note":"One event can feed many consumers in different services."},{"id":"read-copies","label":"Read copies","focus":["readiness","clones","snapshot"],"note":"Each consumer keeps its own local read copy — no service ever cross-queries a peer."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"currency","label":"Currency registry","focus":["entity","catalogProj","supportedCurrency"],"note":"currency_2: Entity owns the registry; Catalog projects CurrencyChanged and validates storefront/product currencies locally."},{"id":"snapshot","label":"Order snapshot","focus":["ordering","supportProj","orderSnapshot"],"note":"Support materializes a per-order snapshot so RMA refund amounts come from line prices, not a call to Ordering."},{"id":"offer","label":"Offer copy","focus":["catalog","orderingProj","offerCopy"],"note":"Ordering keeps a copy of each offer so checkout resolves fulfilment without querying Catalog."}]</script>
 
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
       <button id="guided-view-prev" type="button" aria-label="Previous guided view" title="Previous guided view ([)">&#8592;</button>
@@ -4552,9 +4544,9 @@
 
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read">
-      <svg viewBox="0 0 1200 760" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
-        <title id="archify-diagram-title">3commerce — Event-Driven Read Copies</title>
-        <desc id="archify-diagram-description">A write becomes a domain event via the EF outbox, then fans out to build local read copies (ADR-0008)</desc>
+      <svg viewBox="0 0 1120 520" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="signal-flow" data-quality-profile="showcase">
+        <title id="archify-diagram-title">Read-copy Data Flow</title>
+        <desc id="archify-diagram-description">How a fact reaches another service — the owner&#39;s event over the bus, an idempotent projection, and a local read model (never a cross-service query)</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -4578,199 +4570,178 @@
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Data Stages -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="0" x="16" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="100" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">01 / Write (source of truth)</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="0" x="16" y="46" width="168" height="400" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="100" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">01 / Owner (source of truth)</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="1" x="231" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="315" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">02 / Outbox</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="1" x="231" y="46" width="168" height="400" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="315" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">02 / Projection consumer</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="2" x="446" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="530" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">03 / Event bus</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="3" x="661" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="745" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">04 / Consume</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="4" x="876" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="960" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">05 / Read copy</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="2" x="446" y="46" width="168" height="400" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="530" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">03 / Local read-copy</text>
 
         <!-- Flow paths -->
-        <path data-edge-from="src" data-edge-to="outbox" data-edge-label="domain event" data-edge-key="0" data-edge-id="f1" data-composition-points="156,385;259,385" d="M 156 385 L 259 385" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="outbox" data-edge-to="bus" data-edge-label="delivered on commit" data-edge-key="1" data-edge-id="f2" data-composition-points="371,385;474,385" d="M 371 385 L 474 385" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="bus" data-edge-to="catalog_c" data-edge-label="readiness" data-edge-key="2" data-edge-id="f3" data-composition-points="530,356;609.5,356;609.5,157;689,157" d="M 530 356 L 609.5 356 L 609.5 157 L 689 157" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="bus" data-edge-to="fulfil_c" data-edge-label="duplicated" data-edge-key="3" data-edge-id="f4" data-composition-points="586,385;689,385" d="M 586 385 L 689 385" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="bus" data-edge-to="support_c" data-edge-label="confirmed" data-edge-key="4" data-edge-id="f5" data-composition-points="530,414;609.5,414;609.5,613;689,613" d="M 530 414 L 609.5 414 L 609.5 613 L 689 613" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="catalog_c" data-edge-to="readiness" data-edge-label="upsert" data-edge-key="5" data-edge-id="f6" data-composition-points="801,157;904,157" d="M 801 157 L 904 157" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="fulfil_c" data-edge-to="clones" data-edge-label="clone" data-edge-key="6" data-edge-id="f7" data-composition-points="801,385;904,385" d="M 801 385 L 904 385" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="support_c" data-edge-to="snapshot" data-edge-label="insert" data-edge-key="7" data-edge-id="f8" data-composition-points="801,613;904,613" d="M 801 613 L 904 613" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="entity" data-edge-to="catalogProj" data-edge-label="CurrencyChanged" data-edge-key="0" data-composition-points="156,157;259,157" d="M 156 157 L 259 157" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="catalogProj" data-edge-to="supportedCurrency" data-edge-label="upsert" data-edge-key="1" data-composition-points="371,157;474,157" d="M 371 157 L 474 157" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="ordering" data-edge-to="supportProj" data-edge-label="OrderConfirmed" data-edge-key="2" data-composition-points="156,271;259,271" d="M 156 271 L 259 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="supportProj" data-edge-to="orderSnapshot" data-edge-label="upsert" data-edge-key="3" data-composition-points="371,271;474,271" d="M 371 271 L 474 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="catalog" data-edge-to="orderingProj" data-edge-label="OfferChanged" data-edge-key="4" data-composition-points="156,385;259,385" d="M 156 385 L 259 385" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="orderingProj" data-edge-to="offerCopy" data-edge-label="upsert" data-edge-key="5" data-composition-points="371,385;474,385" d="M 371 385 L 474 385" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
 
         <!-- Nodes -->
-        <g id="node-src" data-node-id="src" data-node-label="Owning service" tabindex="0" role="button" aria-label="Focus Owning service, handles a write, 01 / Write (source of truth)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="handles a write" data-node-tag="producer" data-node-context="01 / Write (source of truth)">
-          <title>Owning service · handles a write · 01 / Write (source of truth) · producer</title>
+        <g id="node-entity" data-node-id="entity" data-node-label="Entity" tabindex="0" role="button" aria-label="Focus Entity, currency registry, 01 / Owner (source of truth)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="currency registry" data-node-tag="owner" data-node-context="01 / Owner (source of truth)">
+          <title>Entity · currency registry · 01 / Owner (source of truth) · owner</title>
+          <rect x="44" y="128" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="44" y="128" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(50 134) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-detail-anchor x="100" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Entity</text>
+          <text data-detail="context" x="100" y="165" class="t-muted" font-size="7" text-anchor="middle">currency registry</text>
+        <text data-detail="fine" x="100" y="175" class="t-backend" font-size="7" text-anchor="middle">owner</text>
+        </g>
+
+        <g id="node-ordering" data-node-id="ordering" data-node-label="Ordering" tabindex="0" role="button" aria-label="Focus Ordering, order of record, 01 / Owner (source of truth)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="order of record" data-node-tag="owner" data-node-context="01 / Owner (source of truth)">
+          <title>Ordering · order of record · 01 / Owner (source of truth) · owner</title>
+          <rect x="44" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="44" y="242" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(50 248) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-detail-anchor x="100" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Ordering</text>
+          <text data-detail="context" x="100" y="279" class="t-muted" font-size="7" text-anchor="middle">order of record</text>
+        <text data-detail="fine" x="100" y="289" class="t-backend" font-size="7" text-anchor="middle">owner</text>
+        </g>
+
+        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog" tabindex="0" role="button" aria-label="Focus Catalog, offers + pricing, 01 / Owner (source of truth)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="offers + pricing" data-node-tag="owner" data-node-context="01 / Owner (source of truth)">
+          <title>Catalog · offers + pricing · 01 / Owner (source of truth) · owner</title>
           <rect x="44" y="356" width="112" height="58" rx="6" class="c-mask"/>
           <rect x="44" y="356" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(50 362) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-detail-anchor x="100" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Owning service</text>
-          <text data-detail="context" x="100" y="393" class="t-muted" font-size="7" text-anchor="middle">handles a write</text>
-        <text data-detail="fine" x="100" y="403" class="t-backend" font-size="7" text-anchor="middle">producer</text>
+          <text data-detail-anchor x="100" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Catalog</text>
+          <text data-detail="context" x="100" y="393" class="t-muted" font-size="7" text-anchor="middle">offers + pricing</text>
+        <text data-detail="fine" x="100" y="403" class="t-backend" font-size="7" text-anchor="middle">owner</text>
         </g>
 
-        <g id="node-outbox" data-node-id="outbox" data-node-label="EF outbox" tabindex="0" role="button" aria-label="Focus EF outbox, atomic on SaveChanges, 02 / Outbox" aria-pressed="false" data-node-kind="database" data-node-sublabel="atomic on SaveChanges" data-node-tag="per service" data-node-context="02 / Outbox">
-          <title>EF outbox · atomic on SaveChanges · 02 / Outbox · per service</title>
+        <g id="node-catalogProj" data-node-id="catalogProj" data-node-label="Catalog projector" tabindex="0" role="button" aria-label="Focus Catalog projector, CurrencyProjectionConsumer, 02 / Projection consumer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="CurrencyProjectionConsumer" data-node-context="02 / Projection consumer">
+          <title>Catalog projector · CurrencyProjectionConsumer · 02 / Projection consumer</title>
+          <rect x="259" y="128" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="259" y="128" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(265 134) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-detail-anchor x="315" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Catalog projector</text>
+          <text data-detail="context" x="315" y="165" class="t-muted" font-size="6.6" text-anchor="middle">CurrencyProjectionConsumer</text>
+        </g>
+
+        <g id="node-supportProj" data-node-id="supportProj" data-node-label="Support projector" tabindex="0" role="button" aria-label="Focus Support projector, OrderSnapshotConsumer, 02 / Projection consumer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OrderSnapshotConsumer" data-node-context="02 / Projection consumer">
+          <title>Support projector · OrderSnapshotConsumer · 02 / Projection consumer</title>
+          <rect x="259" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="259" y="242" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(265 248) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-detail-anchor x="315" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Support projector</text>
+          <text data-detail="context" x="315" y="279" class="t-muted" font-size="7" text-anchor="middle">OrderSnapshotConsumer</text>
+        </g>
+
+        <g id="node-orderingProj" data-node-id="orderingProj" data-node-label="Ordering projector" tabindex="0" role="button" aria-label="Focus Ordering projector, OfferCopyConsumer, 02 / Projection consumer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OfferCopyConsumer" data-node-context="02 / Projection consumer">
+          <title>Ordering projector · OfferCopyConsumer · 02 / Projection consumer</title>
           <rect x="259" y="356" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="259" y="356" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(265 362) scale(0.6875)">
+          <rect x="259" y="356" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(265 362) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-detail-anchor x="315" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Ordering projector</text>
+          <text data-detail="context" x="315" y="393" class="t-muted" font-size="7" text-anchor="middle">OfferCopyConsumer</text>
+        </g>
+
+        <g id="node-supportedCurrency" data-node-id="supportedCurrency" data-node-label="SupportedCurrency" tabindex="0" role="button" aria-label="Focus SupportedCurrency, validates input, 03 / Local read-copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="validates input" data-node-tag="read here" data-node-context="03 / Local read-copy">
+          <title>SupportedCurrency · validates input · 03 / Local read-copy · read here</title>
+          <rect x="474" y="128" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="474" y="128" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(480 134) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-detail-anchor x="315" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">EF outbox</text>
-          <text data-detail="context" x="315" y="393" class="t-muted" font-size="7" text-anchor="middle">atomic on SaveChanges</text>
-        <text data-detail="fine" x="315" y="403" class="t-database" font-size="7" text-anchor="middle">per service</text>
+          <text data-detail-anchor x="530" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">SupportedCurrency</text>
+          <text data-detail="context" x="530" y="165" class="t-muted" font-size="7" text-anchor="middle">validates input</text>
+        <text data-detail="fine" x="530" y="175" class="t-database" font-size="7" text-anchor="middle">read here</text>
         </g>
 
-        <g id="node-bus" data-node-id="bus" data-node-label="RabbitMQ" tabindex="0" role="button" aria-label="Focus RabbitMQ, MassTransit, 03 / Event bus" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="MassTransit" data-node-tag="at-least-once" data-node-context="03 / Event bus">
-          <title>RabbitMQ · MassTransit · 03 / Event bus · at-least-once</title>
+        <g id="node-orderSnapshot" data-node-id="orderSnapshot" data-node-label="OrderSnapshot" tabindex="0" role="button" aria-label="Focus OrderSnapshot, RMA refund amounts, 03 / Local read-copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="RMA refund amounts" data-node-tag="read here" data-node-context="03 / Local read-copy">
+          <title>OrderSnapshot · RMA refund amounts · 03 / Local read-copy · read here</title>
+          <rect x="474" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="474" y="242" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(480 248) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-detail-anchor x="530" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">OrderSnapshot</text>
+          <text data-detail="context" x="530" y="279" class="t-muted" font-size="7" text-anchor="middle">RMA refund amounts</text>
+        <text data-detail="fine" x="530" y="289" class="t-database" font-size="7" text-anchor="middle">read here</text>
+        </g>
+
+        <g id="node-offerCopy" data-node-id="offerCopy" data-node-label="OfferCopy" tabindex="0" role="button" aria-label="Focus OfferCopy, checkout fulfilment, 03 / Local read-copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="checkout fulfilment" data-node-tag="read here" data-node-context="03 / Local read-copy">
+          <title>OfferCopy · checkout fulfilment · 03 / Local read-copy · read here</title>
           <rect x="474" y="356" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="474" y="356" width="112" height="58" rx="6" class="c-messagebus" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(480 362) scale(0.6875)">
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
-          </g>
-          <text data-detail-anchor x="530" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">RabbitMQ</text>
-          <text data-detail="context" x="530" y="393" class="t-muted" font-size="7" text-anchor="middle">MassTransit</text>
-        <text data-detail="fine" x="530" y="403" class="t-messagebus" font-size="7" text-anchor="middle">at-least-once</text>
-        </g>
-
-        <g id="node-catalog_c" data-node-id="catalog_c" data-node-label="Catalog" tabindex="0" role="button" aria-label="Focus Catalog, readiness, 04 / Consume" aria-pressed="false" data-node-kind="backend" data-node-sublabel="readiness" data-node-tag="consumer" data-node-context="04 / Consume">
-          <title>Catalog · readiness · 04 / Consume · consumer</title>
-          <rect x="689" y="128" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="689" y="128" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(695 134) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="745" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Catalog</text>
-          <text data-detail="context" x="745" y="165" class="t-muted" font-size="7" text-anchor="middle">readiness</text>
-        <text data-detail="fine" x="745" y="175" class="t-backend" font-size="7" text-anchor="middle">consumer</text>
-        </g>
-
-        <g id="node-fulfil_c" data-node-id="fulfil_c" data-node-label="Fulfillment" tabindex="0" role="button" aria-label="Focus Fulfillment, + Payments, 04 / Consume" aria-pressed="false" data-node-kind="backend" data-node-sublabel="+ Payments" data-node-tag="consumer" data-node-context="04 / Consume">
-          <title>Fulfillment · + Payments · 04 / Consume · consumer</title>
-          <rect x="689" y="356" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="689" y="356" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(695 362) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="745" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Fulfillment</text>
-          <text data-detail="context" x="745" y="393" class="t-muted" font-size="7" text-anchor="middle">+ Payments</text>
-        <text data-detail="fine" x="745" y="403" class="t-backend" font-size="7" text-anchor="middle">consumer</text>
-        </g>
-
-        <g id="node-support_c" data-node-id="support_c" data-node-label="Support" tabindex="0" role="button" aria-label="Focus Support, order snapshot, 04 / Consume" aria-pressed="false" data-node-kind="backend" data-node-sublabel="order snapshot" data-node-tag="consumer" data-node-context="04 / Consume">
-          <title>Support · order snapshot · 04 / Consume · consumer</title>
-          <rect x="689" y="584" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="689" y="584" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(695 590) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="745" y="605" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Support</text>
-          <text data-detail="context" x="745" y="621" class="t-muted" font-size="7" text-anchor="middle">order snapshot</text>
-        <text data-detail="fine" x="745" y="631" class="t-backend" font-size="7" text-anchor="middle">consumer</text>
-        </g>
-
-        <g id="node-readiness" data-node-id="readiness" data-node-label="Readiness" tabindex="0" role="button" aria-label="Focus Readiness, go-live gate copy, 05 / Read copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="go-live gate copy" data-node-tag="read model" data-node-context="05 / Read copy">
-          <title>Readiness · go-live gate copy · 05 / Read copy · read model</title>
-          <rect x="904" y="128" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="904" y="128" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(910 134) scale(0.6875)">
+          <rect x="474" y="356" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(480 362) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-detail-anchor x="960" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Readiness</text>
-          <text data-detail="context" x="960" y="165" class="t-muted" font-size="7" text-anchor="middle">go-live gate copy</text>
-        <text data-detail="fine" x="960" y="175" class="t-database" font-size="7" text-anchor="middle">read model</text>
-        </g>
-
-        <g id="node-clones" data-node-id="clones" data-node-label="Cloned rows" tabindex="0" role="button" aria-label="Focus Cloned rows, carriers + accounts, 05 / Read copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="carriers + accounts" data-node-tag="read model" data-node-context="05 / Read copy">
-          <title>Cloned rows · carriers + accounts · 05 / Read copy · read model</title>
-          <rect x="904" y="356" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="904" y="356" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(910 362) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-detail-anchor x="960" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Cloned rows</text>
-          <text data-detail="context" x="960" y="393" class="t-muted" font-size="7" text-anchor="middle">carriers + accounts</text>
-        <text data-detail="fine" x="960" y="403" class="t-database" font-size="7" text-anchor="middle">read model</text>
-        </g>
-
-        <g id="node-snapshot" data-node-id="snapshot" data-node-label="Snapshot" tabindex="0" role="button" aria-label="Focus Snapshot, order (RMA basis), 05 / Read copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="order (RMA basis)" data-node-tag="read model" data-node-context="05 / Read copy">
-          <title>Snapshot · order (RMA basis) · 05 / Read copy · read model</title>
-          <rect x="904" y="584" width="112" height="58" rx="6" class="c-mask"/>
-          <rect x="904" y="584" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(910 590) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
-          </g>
-          <text data-detail-anchor x="960" y="605" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Snapshot</text>
-          <text data-detail="context" x="960" y="621" class="t-muted" font-size="7" text-anchor="middle">order (RMA basis)</text>
-        <text data-detail="fine" x="960" y="631" class="t-database" font-size="7" text-anchor="middle">read model</text>
+          <text data-detail-anchor x="530" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">OfferCopy</text>
+          <text data-detail="context" x="530" y="393" class="t-muted" font-size="7" text-anchor="middle">checkout fulfilment</text>
+        <text data-detail="fine" x="530" y="403" class="t-database" font-size="7" text-anchor="middle">read here</text>
         </g>
 
         <!-- Flow labels -->
-        <g data-detail="context" data-edge-from="src" data-edge-to="outbox" data-edge-label="domain event" data-edge-key="0" data-edge-id="f1">
-          <rect x="172.1" y="364" width="70.8" height="16" rx="4" class="c-mask"/>
-          <text x="207.5" y="375" class="t-muted" font-size="8" text-anchor="middle">domain event</text>
+        <g data-detail="context" data-edge-from="entity" data-edge-to="catalogProj" data-edge-label="CurrencyChanged" data-edge-key="0">
+          <rect x="159.85" y="136" width="95.3" height="27" rx="4" class="c-mask"/>
+          <text x="207.5" y="147" class="t-backend" font-size="8" text-anchor="middle">CurrencyChanged</text>
+        <text data-detail="fine" x="207.5" y="158" class="t-dim" font-size="7" text-anchor="middle">RabbitMQ · outbox</text>
         </g>
-        <g data-detail="context" data-edge-from="outbox" data-edge-to="bus" data-edge-label="delivered on commit" data-edge-key="1" data-edge-id="f2">
-          <rect x="369.95" y="364" width="105.1" height="16" rx="4" class="c-mask"/>
-          <text x="422.5" y="375" class="t-backend" font-size="8" text-anchor="middle">delivered on commit</text>
+        <g data-detail="context" data-edge-from="catalogProj" data-edge-to="supportedCurrency" data-edge-label="upsert" data-edge-key="1">
+          <rect x="392" y="136" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="422.5" y="147" class="t-backend" font-size="8" text-anchor="middle">upsert</text>
+        <text data-detail="fine" x="422.5" y="158" class="t-dim" font-size="7" text-anchor="middle">idempotent</text>
         </g>
-        <g data-detail="context" data-edge-from="bus" data-edge-to="catalog_c" data-edge-label="readiness" data-edge-key="2" data-edge-id="f3">
-          <rect x="581.45" y="235.5" width="56.1" height="16" rx="4" class="c-mask"/>
-          <text x="609.5" y="246.5" class="t-muted" font-size="8" text-anchor="middle">readiness</text>
+        <g data-detail="context" data-edge-from="ordering" data-edge-to="supportProj" data-edge-label="OrderConfirmed" data-edge-key="2">
+          <rect x="159.85" y="250" width="95.3" height="27" rx="4" class="c-mask"/>
+          <text x="207.5" y="261" class="t-muted" font-size="8" text-anchor="middle">OrderConfirmed</text>
+        <text data-detail="fine" x="207.5" y="272" class="t-dim" font-size="7" text-anchor="middle">RabbitMQ · outbox</text>
         </g>
-        <g data-detail="context" data-edge-from="bus" data-edge-to="fulfil_c" data-edge-label="duplicated" data-edge-key="3" data-edge-id="f4">
-          <rect x="607" y="364" width="61" height="16" rx="4" class="c-mask"/>
-          <text x="637.5" y="375" class="t-muted" font-size="8" text-anchor="middle">duplicated</text>
+        <g data-detail="context" data-edge-from="supportProj" data-edge-to="orderSnapshot" data-edge-label="upsert" data-edge-key="3">
+          <rect x="392" y="250" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="422.5" y="261" class="t-muted" font-size="8" text-anchor="middle">upsert</text>
+        <text data-detail="fine" x="422.5" y="272" class="t-dim" font-size="7" text-anchor="middle">idempotent</text>
         </g>
-        <g data-detail="context" data-edge-from="bus" data-edge-to="support_c" data-edge-label="confirmed" data-edge-key="4" data-edge-id="f5">
-          <rect x="581.45" y="492.5" width="56.1" height="16" rx="4" class="c-mask"/>
-          <text x="609.5" y="503.5" class="t-muted" font-size="8" text-anchor="middle">confirmed</text>
+        <g data-detail="context" data-edge-from="catalog" data-edge-to="orderingProj" data-edge-label="OfferChanged" data-edge-key="4">
+          <rect x="159.85" y="364" width="95.3" height="27" rx="4" class="c-mask"/>
+          <text x="207.5" y="375" class="t-muted" font-size="8" text-anchor="middle">OfferChanged</text>
+        <text data-detail="fine" x="207.5" y="386" class="t-dim" font-size="7" text-anchor="middle">RabbitMQ · outbox</text>
         </g>
-        <g data-detail="context" data-edge-from="catalog_c" data-edge-to="readiness" data-edge-label="upsert" data-edge-key="5" data-edge-id="f6">
-          <rect x="831.8" y="136" width="41.4" height="16" rx="4" class="c-mask"/>
-          <text x="852.5" y="147" class="t-messagebus" font-size="8" text-anchor="middle">upsert</text>
-        </g>
-        <g data-detail="context" data-edge-from="fulfil_c" data-edge-to="clones" data-edge-label="clone" data-edge-key="6" data-edge-id="f7">
-          <rect x="834.25" y="364" width="36.5" height="16" rx="4" class="c-mask"/>
-          <text x="852.5" y="375" class="t-messagebus" font-size="8" text-anchor="middle">clone</text>
-        </g>
-        <g data-detail="context" data-edge-from="support_c" data-edge-to="snapshot" data-edge-label="insert" data-edge-key="7" data-edge-id="f8">
-          <rect x="831.8" y="592" width="41.4" height="16" rx="4" class="c-mask"/>
-          <text x="852.5" y="603" class="t-messagebus" font-size="8" text-anchor="middle">insert</text>
+        <g data-detail="context" data-edge-from="orderingProj" data-edge-to="offerCopy" data-edge-label="upsert" data-edge-key="5">
+          <rect x="392" y="364" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="422.5" y="375" class="t-muted" font-size="8" text-anchor="middle">upsert</text>
+        <text data-detail="fine" x="422.5" y="386" class="t-dim" font-size="7" text-anchor="middle">idempotent</text>
         </g>
 
         <!-- Legend -->
         <g data-legend data-legend-bridge>
-          <text x="40" y="704" class="t-primary" font-size="10" font-weight="600">Legend</text>
-          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="724" data-legend-width="103">
-            <path d="M 40 721 L 74 721" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-            <text x="83" y="724" class="t-muted" font-size="8">primary data</text>
+          <text x="40" y="464" class="t-primary" font-size="10" font-weight="600">Legend</text>
+          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="484" data-legend-width="103">
+            <path d="M 40 481 L 74 481" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+            <text x="83" y="484" class="t-muted" font-size="8">primary data</text>
           </g>
-          <g data-legend-semantic-kind="dashed" data-legend-x="165" data-legend-baseline="724" data-legend-width="98">
-            <path d="M 165 721 L 199 721" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-            <text x="208" y="724" class="t-muted" font-size="8">async batch</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="data store" data-legend-x="165" data-legend-baseline="484" data-legend-width="92">
+            <rect x="165" y="476" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="186" y="484" class="t-muted" font-size="8">data store</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="data store" data-legend-x="285" data-legend-baseline="724" data-legend-width="92">
-            <rect x="285" y="716" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="306" y="724" class="t-muted" font-size="8">data store</text>
-          </g>
-          <g data-legend-semantic-kind="default" data-legend-x="399" data-legend-baseline="724" data-legend-width="88">
-            <path d="M 399 721 L 433 721" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-            <text x="442" y="724" class="t-muted" font-size="8">data flow</text>
+          <g data-legend-semantic-kind="default" data-legend-x="279" data-legend-baseline="484" data-legend-width="88">
+            <path d="M 279 481 L 313 481" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+            <text x="322" y="484" class="t-muted" font-size="8">data flow</text>
           </g>
         </g>
       </svg>
@@ -4958,37 +4929,40 @@
     <div class="cards">
       <div class="card">
         <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>Outbox, not dual-write</h3>
+          <div class="card-dot cyan"></div>
+          <h3>The pattern (ADR-0008 / 0011)</h3>
         </div>
         <ul>
-          <li>&bull; The event is staged in the same DB transaction as the write</li>
-          <li>&bull; It is delivered to the bus only when SaveChanges commits</li>
-          <li>&bull; No lost events, no phantom events on rollback</li>
+          <li>&bull; The owner writes its DB and stages the event in the same transaction (outbox)</li>
+          <li>&bull; The consumer projects it into a LOCAL read model, idempotently</li>
+          <li>&bull; The consumer reads only that local copy — never a cross-service query</li>
+          <li>&bull; A slow or absent owner never blocks a read</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot violet"></div>
-          <h3>Fan-out to read copies</h3>
+          <h3>More read-copies in the platform</h3>
         </div>
         <ul>
-          <li>&bull; PaymentReadinessChanged → Catalog&#39;s go-live readiness</li>
-          <li>&bull; StorefrontDuplicated → Fulfillment/Payments clone carriers + accounts</li>
-          <li>&bull; OrderConfirmed → Support&#39;s order snapshot (RMA basis)</li>
+          <li>&bull; StorefrontConfigChanged → per-service storefront copies (currency, tax)</li>
+          <li>&bull; StorefrontLedgerAccounts → Payments&#39; per-storefront chart of accounts</li>
+          <li>&bull; JobRunRecorded → Workflow&#39;s aggregated scheduled-job run history</li>
+          <li>&bull; ProductUpserted → Catalog&#39;s own FTS search projection</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot cyan"></div>
-          <h3>Why (ADR-0008)</h3>
+          <div class="card-dot emerald"></div>
+          <h3>Why it holds</h3>
         </div>
         <ul>
-          <li>&bull; Services never cross-query each other&#39;s database</li>
-          <li>&bull; Read copies decouple services and survive peer downtime</li>
-          <li>&bull; Applying an event is idempotent — each carries the current truth</li>
+          <li>&bull; No distributed joins and no foreign-service reads at request time</li>
+          <li>&bull; Each service deploys and scales on its own schema</li>
+          <li>&bull; Projections are replay-safe, so redelivery is harmless</li>
+          <li>&bull; An unprojected copy simply isn&#39;t enforced yet — fresh envs aren&#39;t blocked</li>
         </ul>
       </div>
     </div>

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" data-preset="classic">
+<html lang="en" data-theme="dark" data-preset="blueprint">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.13.0">
-  <title>3commerce — Runtime Architecture Diagram</title>
+  <title>3commerce Runtime Architecture Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4403,14 +4403,6 @@
   </style>
 </head>
 <body>
-<a class="wiki-back no-print" href="index.html" title="Back to the Operations Wiki">&#8592; Wiki</a>
-<style>
-.wiki-back{position:fixed;top:1rem;left:1rem;z-index:101;display:inline-flex;align-items:center;gap:.4rem;padding:.42rem .7rem;font:600 .82rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;border-radius:.5rem;border:1px solid rgba(128,128,128,.35);color:#e6e8ee;background:rgba(24,26,33,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
-:root[data-theme="light"] .wiki-back{color:#1f2430;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.18);}
-.wiki-back:hover{border-color:rgba(128,128,128,.75);}
-@media print{.wiki-back{display:none!important;}}
-</style>
-
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -4504,12 +4496,12 @@
     <div class="header">
       <div class="header-row">
         <div class="pulse-dot"></div>
-        <h1>3commerce — Runtime Architecture</h1>
+        <h1>3commerce Runtime Architecture</h1>
       </div>
-      <p class="subtitle">Front-ends → YARP gateway → 13 .NET services on the RabbitMQ event bus, with a Redis fast-path lane (ADR-0008/0009/0044)</p>
+      <p class="subtitle">Front-ends, YARP gateway, the .NET microservice fleet, and the event + state fabric they run on</p>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"request-path","label":"Synchronous request path","focus":["storefront","gateway","catalog","ordering","postgres"],"note":"A buyer request enters through the gateway and is served by one service from its own schema."},{"id":"event-spine","label":"Asynchronous event spine","focus":["catalog","ordering","payments","bus"],"note":"Services never cross-query; they publish domain events through the transactional outbox and consume each other's."},{"id":"auth-and-async","label":"Identity + async work","focus":["gateway","identity","bus","notifications"],"note":"Identity signs the ES256 internal claims the gateway enforces; the worker drains the bus into email."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"request-path","label":"Request path","focus":["clients","storefront","admin","gateway","services"],"note":"Browser traffic enters the front-ends and is routed, authenticated, and claims-stamped by the gateway."},{"id":"state","label":"State ownership","focus":["services","postgres","redis"],"note":"Each service owns its own Postgres schema (FORCE RLS); Redis is the shared cache / session / idempotency store."},{"id":"events","label":"Event fabric","focus":["services","rabbitmq","kafka"],"note":"Services never call each other directly — RabbitMQ carries commands/sagas, Kafka carries committed facts."},{"id":"operations","label":"Providers \u0026 telemetry","focus":["services","providers","observability"],"note":"External money/accounting providers are adapter-gated; every hop emits OTLP to the LGTM stack."}]</script>
 
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
       <button id="guided-view-prev" type="button" aria-label="Previous guided view" title="Previous guided view ([)">&#8592;</button>
@@ -4552,9 +4544,9 @@
 
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read">
-      <svg viewBox="0 0 1346 684" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="standard">
-        <title id="archify-diagram-title">3commerce — Runtime Architecture</title>
-        <desc id="archify-diagram-description">Front-ends → YARP gateway → 13 .NET services on the RabbitMQ event bus, with a Redis fast-path lane (ADR-0008/0009/0044)</desc>
+      <svg viewBox="0 0 1206 674" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="blueprint" data-quality-profile="showcase">
+        <title id="archify-diagram-title">3commerce Runtime Architecture</title>
+        <desc id="archify-diagram-description">Front-ends, YARP gateway, the .NET microservice fleet, and the event + state fabric they run on</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -4578,218 +4570,195 @@
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" x="250" y="10" width="1056" height="606" rx="12" class="c-region" stroke-width="1"/>
-        <text x="258" y="28" class="t-cloud" font-size="9" font-weight="600">3commerce platform — bare `dotnet run` per process (ADR-0009)</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" x="510" y="10" width="232" height="606" rx="8" class="c-security-group" stroke-width="1"/>
-        <text x="518" y="28" class="t-security" font-size="9" font-weight="600">internal network — ES256 internal claims required</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="0" x="422" y="66" width="744" height="380" rx="8" class="c-security-group" stroke-width="1"/>
+        <text x="430" y="84" class="t-security" font-size="9" font-weight="600">Internal network — mesh over the bus, no direct service-to-service calls</text>
 
         <!-- Connection paths (before components for correct z-order) -->
-        <path data-edge-from="storefront" data-edge-to="gateway" data-edge-label="HTTPS" data-edge-key="0" data-composition-points="190,121;235,121;235,270;280,270" d="M 190 121 L 227 121 Q 235 121 235 129 L 235 262 Q 235 270 243 270 L 280 270" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="admin" data-edge-to="gateway" data-edge-key="1" data-composition-points="190,279;214,279;214,300;256,300;256,284;280,284" d="M 190 279 L 206 279 Q 214 279 214 287 L 214 292 Q 214 300 222 300 L 248 300 Q 256 300 256 292 L 256 292 Q 256 284 264 284 L 280 284" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="supplier" data-edge-to="gateway" data-edge-key="2" data-composition-points="190,437;235,437;235,298;280,298" d="M 190 437 L 227 437 Q 235 437 235 429 L 235 306 Q 235 298 243 298 L 280 298" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="gateway" data-edge-to="identity" data-edge-label="routes /api/*" data-edge-key="3" data-composition-points="442,262;491,262;491,72;540,72" d="M 442 262 L 483 262 Q 491 262 491 254 L 491 80 Q 491 72 499 72 L 540 72" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="catalog" data-edge-key="4" data-composition-points="442,269.3333333333333;491,269.3333333333333;491,169;540,169" d="M 442 269.3333333333333 L 483 269.3333333333333 Q 491 269.3333333333333 491 261.3333333333333 L 491 177 Q 491 169 499 169 L 540 169" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="ordering" data-edge-key="5" data-composition-points="442,276.6666666666667;466,276.6666666666667;466,292.6666666666667;516,292.6666666666667;516,267;540,267" d="M 442 276.6666666666667 L 458 276.6666666666667 Q 466 276.6666666666667 466 284.6666666666667 L 466 284.6666666666667 Q 466 292.6666666666667 474 292.6666666666667 L 508 292.6666666666667 Q 516 292.6666666666667 516 284.6666666666667 L 516 275 Q 516 267 524 267 L 540 267" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="payments" data-edge-key="6" data-composition-points="442,291.3333333333333;491,291.3333333333333;491,365;540,365" d="M 442 291.3333333333333 L 483 291.3333333333333 Q 491 291.3333333333333 491 299.3333333333333 L 491 357 Q 491 365 499 365 L 540 365" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="fulfillment" data-edge-key="7" data-composition-points="442,298.6666666666667;491,298.6666666666667;491,463;540,463" d="M 442 298.6666666666667 L 483 298.6666666666667 Q 491 298.6666666666667 491 306.6666666666667 L 491 455 Q 491 463 499 463 L 540 463" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="more_services" data-edge-key="8" data-composition-points="442,306;491,306;491,563;540,563" d="M 442 306 L 483 306 Q 491 306 491 314 L 491 555 Q 491 563 499 563 L 540 563" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="catalog" data-edge-to="bus" data-edge-key="9" data-composition-points="712,169;771,169;771,137;830,137" d="M 712 169 L 763 169 Q 771 169 771 161 L 771 145 Q 771 137 779 137 L 830 137" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="ordering" data-edge-to="bus" data-edge-key="10" data-composition-points="712,267;771,267;771,151;830,151" d="M 712 267 L 763 267 Q 771 267 771 259 L 771 159 Q 771 151 779 151 L 830 151" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="payments" data-edge-to="bus" data-edge-key="11" data-composition-points="712,358;771,358;771,165;830,165" d="M 712 358 L 763 358 Q 771 358 771 350 L 771 173 Q 771 165 779 165 L 830 165" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="fulfillment" data-edge-to="postgres" data-edge-label="SQL" data-edge-key="12" data-composition-points="712,463;736,463;736,481;806,481;806,465;830,465" d="M 712 463 L 728 463 Q 736 463 736 471 L 736 473 Q 736 481 744 481 L 798 481 Q 806 481 806 473 L 806 473 Q 806 465 814 465 L 830 465" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="more_services" data-edge-to="postgres" data-edge-key="13" data-composition-points="712,563;771,563;771,479;830,479" d="M 712 563 L 763 563 Q 771 563 771 555 L 771 487 Q 771 479 779 479 L 830 479" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="bus" data-edge-to="notifications" data-edge-label="events → email" data-edge-key="14" data-composition-points="1012,151;1036,151;1036,167;1076,167;1076,150;1100,150" d="M 1012 151 L 1028 151 Q 1036 151 1036 159 L 1036 159 Q 1036 167 1044 167 L 1068 167 Q 1076 167 1076 159 L 1076 158 Q 1076 150 1084 150 L 1100 150" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gateway" data-edge-to="redis" data-edge-label="rate limit" data-edge-key="15" data-composition-points="442,284;466,284;466,302;830,302" d="M 442 284 L 458 284 Q 466 284 466 292 L 466 294 Q 466 302 474 302 L 830 302" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="identity" data-edge-to="redis" data-edge-label="session cache" data-edge-key="16" data-composition-points="712,72;771,72;771,288;830,288" d="M 712 72 L 763 72 Q 771 72 771 80 L 771 280 Q 771 288 779 288 L 830 288" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="payments" data-edge-to="redis" data-edge-label="dedupe" data-edge-key="17" data-composition-points="712,372;771,372;771,316;830,316" d="M 712 372 L 763 372 Q 771 372 771 364 L 771 324 Q 771 316 779 316 L 830 316" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="clients" data-edge-to="storefront" data-edge-label="HTTPS" data-edge-key="0" data-composition-points="166,317;199,317;199,209;232,209" d="M 166 317 L 191 317 Q 199 317 199 309 L 199 217 Q 199 209 207 209 L 232 209" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="clients" data-edge-to="admin" data-edge-key="1" data-composition-points="166,331;190,331;190,347;208,347;208,329;232,329" d="M 166 331 L 182 331 Q 190 331 190 339 L 190 339 Q 190 347 198 347 L 200 347 Q 208 347 208 339 L 208 337 Q 208 329 216 329 L 232 329" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="clients" data-edge-to="supplier" data-edge-key="2" data-composition-points="166,345;199,345;199,449;232,449" d="M 166 345 L 191 345 Q 199 345 199 353 L 199 441 Q 199 449 207 449 L 232 449" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="storefront" data-edge-to="gateway" data-edge-label="/api/{service}" data-edge-key="3" data-composition-points="372,209;412,209;412,317;452,317" d="M 372 209 L 404 209 Q 412 209 412 217 L 412 309 Q 412 317 420 317 L 452 317" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="admin" data-edge-to="gateway" data-edge-key="4" data-composition-points="372,329;396,329;396,347;428,347;428,331;452,331" d="M 372 329 L 388 329 Q 396 329 396 337 L 396 339 Q 396 347 404 347 L 420 347 Q 428 347 428 339 L 428 339 Q 428 331 436 331 L 452 331" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="supplier" data-edge-to="gateway" data-edge-key="5" data-composition-points="372,449;412,449;412,345;452,345" d="M 372 449 L 404 449 Q 412 449 412 441 L 412 353 Q 412 345 420 345 L 452 345" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="gateway" data-edge-to="services" data-edge-key="6" data-composition-points="602,331;626,331;626,354;648,354;648,338;672,338" d="M 602 331 L 618 331 Q 626 331 626 339 L 626 346 Q 626 354 634 354 L 640 354 Q 648 354 648 346 L 648 346 Q 648 338 656 338 L 672 338" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="services" data-edge-to="postgres" data-edge-key="7" data-composition-points="844,312;912,312;912,126;980,126" d="M 844 312 L 904 312 Q 912 312 912 304 L 912 134 Q 912 126 920 126 L 980 126" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="services" data-edge-to="redis" data-edge-key="8" data-composition-points="844,322.4;912,322.4;912,216;980,216" d="M 844 322.4 L 904 322.4 Q 912 322.4 912 314.4 L 912 224 Q 912 216 920 216 L 980 216" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="services" data-edge-to="rabbitmq" data-edge-key="9" data-composition-points="844,332.8;912,332.8;912,306;980,306" d="M 844 332.8 L 904 332.8 Q 912 332.8 912 324.8 L 912 314 Q 912 306 920 306 L 980 306" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="services" data-edge-to="kafka" data-edge-key="10" data-composition-points="844,343.2;912,343.2;912,396;980,396" d="M 844 343.2 L 904 343.2 Q 912 343.2 912 351.2 L 912 388 Q 912 396 920 396 L 980 396" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="services" data-edge-to="providers" data-edge-key="11" data-composition-points="844,353.6;912,353.6;912,486;980,486" d="M 844 353.6 L 904 353.6 Q 912 353.6 912 361.6 L 912 478 Q 912 486 920 486 L 980 486" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="services" data-edge-to="observability" data-edge-key="12" data-composition-points="844,364;912,364;912,576;980,576" d="M 844 364 L 904 364 Q 912 364 912 372 L 912 568 Q 912 576 920 576 L 980 576" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
-        <g id="node-storefront" data-node-id="storefront" data-node-label="Storefront" tabindex="0" role="button" aria-label="Focus Storefront, Next.js :3000, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Next.js :3000" data-node-tag="buyer" data-node-context="Architecture component">
-          <title>Storefront · Next.js :3000 · Architecture component · buyer</title>
-          <rect x="40" y="90" width="150" height="62" rx="6" class="c-mask"/>
-          <rect x="40" y="90" width="150" height="62" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 96) scale(0.6875)">
+        <g id="node-clients" data-node-id="clients" data-node-label="Shoppers &amp; operators" tabindex="0" role="button" aria-label="Focus Shoppers &amp; operators, browsers, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="browsers" data-node-context="Architecture component">
+          <title>Shoppers &amp; operators · browsers · Architecture component</title>
+          <rect x="40" y="300" width="126" height="62" rx="6" class="c-mask"/>
+          <rect x="40" y="300" width="126" height="62" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 306) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <text data-detail-anchor x="103" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Shoppers &amp; operators</text>
+        <text data-detail="context" x="103" y="345" class="t-muted" font-size="9" text-anchor="middle">browsers</text>
+        </g>
+
+        <g id="node-storefront" data-node-id="storefront" data-node-label="Storefront" tabindex="0" role="button" aria-label="Focus Storefront, Next.js · :3000, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Next.js · :3000" data-node-context="Architecture component">
+          <title>Storefront · Next.js · :3000 · Architecture component</title>
+          <rect x="232" y="180" width="140" height="58" rx="6" class="c-mask"/>
+          <rect x="232" y="180" width="140" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(238 186) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-detail-anchor x="115" y="119" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Storefront</text>
-        <text data-detail="context" x="115" y="135" class="t-muted" font-size="9" text-anchor="middle">Next.js :3000</text>
-        <text data-detail="fine" x="115" y="144" class="t-frontend" font-size="7" text-anchor="middle">buyer</text>
+          <text data-detail-anchor x="302" y="207" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Storefront</text>
+        <text data-detail="context" x="302" y="223" class="t-muted" font-size="9" text-anchor="middle">Next.js · :3000</text>
         </g>
 
-        <g id="node-admin" data-node-id="admin" data-node-label="Admin Console" tabindex="0" role="button" aria-label="Focus Admin Console, Blazor Server :5200, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Blazor Server :5200" data-node-tag="operator" data-node-context="Architecture component">
-          <title>Admin Console · Blazor Server :5200 · Architecture component · operator</title>
-          <rect x="40" y="248" width="150" height="62" rx="6" class="c-mask"/>
-          <rect x="40" y="248" width="150" height="62" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 254) scale(0.6875)">
+        <g id="node-admin" data-node-id="admin" data-node-label="Admin console" tabindex="0" role="button" aria-label="Focus Admin console, Blazor Server · :5200, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Blazor Server · :5200" data-node-context="Architecture component">
+          <title>Admin console · Blazor Server · :5200 · Architecture component</title>
+          <rect x="232" y="300" width="140" height="58" rx="6" class="c-mask"/>
+          <rect x="232" y="300" width="140" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(238 306) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-detail-anchor x="115" y="277" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Admin Console</text>
-        <text data-detail="context" x="115" y="293" class="t-muted" font-size="9" text-anchor="middle">Blazor Server :5200</text>
-        <text data-detail="fine" x="115" y="302" class="t-frontend" font-size="7" text-anchor="middle">operator</text>
+          <text data-detail-anchor x="302" y="327" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Admin console</text>
+        <text data-detail="context" x="302" y="343" class="t-muted" font-size="9" text-anchor="middle">Blazor Server · :5200</text>
         </g>
 
-        <g id="node-supplier" data-node-id="supplier" data-node-label="Supplier Portal" tabindex="0" role="button" aria-label="Focus Supplier Portal, Blazor :5300, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Blazor :5300" data-node-tag="supplier" data-node-context="Architecture component">
-          <title>Supplier Portal · Blazor :5300 · Architecture component · supplier</title>
-          <rect x="40" y="406" width="150" height="62" rx="6" class="c-mask"/>
-          <rect x="40" y="406" width="150" height="62" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 412) scale(0.6875)">
+        <g id="node-supplier" data-node-id="supplier" data-node-label="Supplier portal" tabindex="0" role="button" aria-label="Focus Supplier portal, :5300, Architecture component" aria-pressed="false" data-node-kind="frontend" data-node-sublabel=":5300" data-node-context="Architecture component">
+          <title>Supplier portal · :5300 · Architecture component</title>
+          <rect x="232" y="420" width="140" height="58" rx="6" class="c-mask"/>
+          <rect x="232" y="420" width="140" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(238 426) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-detail-anchor x="115" y="435" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Supplier Portal</text>
-        <text data-detail="context" x="115" y="451" class="t-muted" font-size="9" text-anchor="middle">Blazor :5300</text>
-        <text data-detail="fine" x="115" y="460" class="t-frontend" font-size="7" text-anchor="middle">supplier</text>
+          <text data-detail-anchor x="302" y="447" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Supplier portal</text>
+        <text data-detail="context" x="302" y="463" class="t-muted" font-size="9" text-anchor="middle">:5300</text>
         </g>
 
-        <g id="node-gateway" data-node-id="gateway" data-node-label="YARP Gateway" tabindex="0" role="button" aria-label="Focus YARP Gateway, reverse proxy :8080, 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="reverse proxy :8080" data-node-tag="validates ES256 claims" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
-          <title>YARP Gateway · reverse proxy :8080 · 3commerce platform — bare `dotnet run` per process (ADR-0009) · validates ES256 claims</title>
-          <rect x="280" y="246" width="162" height="76" rx="6" class="c-mask"/>
-          <rect x="280" y="246" width="162" height="76" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(286 252) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="361" y="282" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">YARP Gateway</text>
-        <text data-detail="context" x="361" y="298" class="t-muted" font-size="9" text-anchor="middle">reverse proxy :8080</text>
-        <text data-detail="fine" x="361" y="314" class="t-backend" font-size="7" text-anchor="middle">validates ES256 claims</text>
-        </g>
-
-        <g id="node-identity" data-node-id="identity" data-node-label="Identity" tabindex="0" role="button" aria-label="Focus Identity, :5101, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="security" data-node-sublabel=":5101" data-node-tag="signs ES256 JWT" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>Identity · :5101 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required · signs ES256 JWT</title>
-          <rect x="540" y="40" width="172" height="64" rx="6" class="c-mask"/>
-          <rect x="540" y="40" width="172" height="64" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(546 46) scale(0.6875)">
+        <g id="node-gateway" data-node-id="gateway" data-node-label="YARP Gateway" tabindex="0" role="button" aria-label="Focus YARP Gateway, session → claims · :8080, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="security" data-node-sublabel="session → claims · :8080" data-node-tag="platform" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>YARP Gateway · session → claims · :8080 · Internal network — mesh over the bus, no direct service-to-service calls · platform</title>
+          <rect x="452" y="300" width="150" height="62" rx="6" class="c-mask"/>
+          <rect x="452" y="300" width="150" height="62" rx="6" class="c-security" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(458 306) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-detail-anchor x="626" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Identity</text>
-        <text data-detail="context" x="626" y="86" class="t-muted" font-size="9" text-anchor="middle">:5101</text>
-        <text data-detail="fine" x="626" y="96" class="t-security" font-size="7" text-anchor="middle">signs ES256 JWT</text>
+          <text data-detail-anchor x="527" y="329" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">YARP Gateway</text>
+        <text data-detail="context" x="527" y="345" class="t-muted" font-size="9" text-anchor="middle">session → claims · :8080</text>
+        <text data-detail="fine" x="527" y="354" class="t-security" font-size="7" text-anchor="middle">platform</text>
         </g>
 
-        <g id="node-catalog" data-node-id="catalog" data-node-label="Catalog" tabindex="0" role="button" aria-label="Focus Catalog, :5102, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="backend" data-node-sublabel=":5102" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>Catalog · :5102 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required</title>
-          <rect x="540" y="138" width="172" height="62" rx="6" class="c-mask"/>
-          <rect x="540" y="138" width="172" height="62" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 144) scale(0.6875)">
+        <g id="node-services" data-node-id="services" data-node-label="Domain services" tabindex="0" role="button" aria-label="Focus Domain services, 14 .NET microservices, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="backend" data-node-sublabel="14 .NET microservices" data-node-tag="one Postgres schema each" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>Domain services · 14 .NET microservices · Internal network — mesh over the bus, no direct service-to-service calls · one Postgres schema each</title>
+          <rect x="672" y="296" width="172" height="84" rx="6" class="c-mask"/>
+          <rect x="672" y="296" width="172" height="84" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(678 302) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-detail-anchor x="626" y="167" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Catalog</text>
-        <text data-detail="context" x="626" y="183" class="t-muted" font-size="9" text-anchor="middle">:5102</text>
+          <text data-detail-anchor x="758" y="336" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Domain services</text>
+        <text data-detail="context" x="758" y="352" class="t-muted" font-size="9" text-anchor="middle">14 .NET microservices</text>
+        <text data-detail="fine" x="758" y="372" class="t-backend" font-size="7" text-anchor="middle">one Postgres schema each</text>
         </g>
 
-        <g id="node-ordering" data-node-id="ordering" data-node-label="Ordering" tabindex="0" role="button" aria-label="Focus Ordering, :5103, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="backend" data-node-sublabel=":5103" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>Ordering · :5103 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required</title>
-          <rect x="540" y="236" width="172" height="62" rx="6" class="c-mask"/>
-          <rect x="540" y="236" width="172" height="62" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 242) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+        <g id="node-postgres" data-node-id="postgres" data-node-label="PostgreSQL" tabindex="0" role="button" aria-label="Focus PostgreSQL, schema per service · FORCE RLS, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="database" data-node-sublabel="schema per service · FORCE RLS" data-node-tag="data" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>PostgreSQL · schema per service · FORCE RLS · Internal network — mesh over the bus, no direct service-to-service calls · data</title>
+          <rect x="980" y="96" width="150" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="96" width="150" height="60" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(986 102) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-detail-anchor x="626" y="265" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Ordering</text>
-        <text data-detail="context" x="626" y="281" class="t-muted" font-size="9" text-anchor="middle">:5103</text>
+          <text data-detail-anchor x="1055" y="124" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PostgreSQL</text>
+        <text data-detail="context" x="1055" y="140" class="t-muted" font-size="7.8" text-anchor="middle">schema per service · FORCE RLS</text>
+        <text data-detail="fine" x="1055" y="148" class="t-database" font-size="7" text-anchor="middle">data</text>
         </g>
 
-        <g id="node-payments" data-node-id="payments" data-node-label="Payments" tabindex="0" role="button" aria-label="Focus Payments, :5104, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="backend" data-node-sublabel=":5104" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>Payments · :5104 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required</title>
-          <rect x="540" y="334" width="172" height="62" rx="6" class="c-mask"/>
-          <rect x="540" y="334" width="172" height="62" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 340) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+        <g id="node-redis" data-node-id="redis" data-node-label="Redis" tabindex="0" role="button" aria-label="Focus Redis, cache · sessions · idempotency, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="database" data-node-sublabel="cache · sessions · idempotency" data-node-tag="data" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>Redis · cache · sessions · idempotency · Internal network — mesh over the bus, no direct service-to-service calls · data</title>
+          <rect x="980" y="186" width="150" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="186" width="150" height="60" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(986 192) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-detail-anchor x="626" y="363" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Payments</text>
-        <text data-detail="context" x="626" y="379" class="t-muted" font-size="9" text-anchor="middle">:5104</text>
+          <text data-detail-anchor x="1055" y="214" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Redis</text>
+        <text data-detail="context" x="1055" y="230" class="t-muted" font-size="7.8" text-anchor="middle">cache · sessions · idempotency</text>
+        <text data-detail="fine" x="1055" y="238" class="t-database" font-size="7" text-anchor="middle">data</text>
         </g>
 
-        <g id="node-fulfillment" data-node-id="fulfillment" data-node-label="Fulfillment" tabindex="0" role="button" aria-label="Focus Fulfillment, :5105, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="backend" data-node-sublabel=":5105" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>Fulfillment · :5105 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required</title>
-          <rect x="540" y="432" width="172" height="62" rx="6" class="c-mask"/>
-          <rect x="540" y="432" width="172" height="62" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 438) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="626" y="461" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Fulfillment</text>
-        <text data-detail="context" x="626" y="477" class="t-muted" font-size="9" text-anchor="middle">:5105</text>
-        </g>
-
-        <g id="node-more_services" data-node-id="more_services" data-node-label="+8 domain services" tabindex="0" role="button" aria-label="Focus +8 domain services, 8 services · :5106–5113, 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required" aria-pressed="false" data-node-kind="backend" data-node-sublabel="8 services · :5106–5113" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required">
-          <title>+8 domain services · 8 services · :5106–5113 · 3commerce platform — bare `dotnet run` per process (ADR-0009) › internal network — ES256 internal claims required</title>
-          <rect x="540" y="530" width="172" height="66" rx="6" class="c-mask"/>
-          <rect x="540" y="530" width="172" height="66" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(546 536) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
-          </g>
-          <text data-detail-anchor x="626" y="561" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">+8 domain services</text>
-        <text data-detail="context" x="626" y="577" class="t-muted" font-size="9" text-anchor="middle">8 services · :5106–5113</text>
-        </g>
-
-        <g id="node-bus" data-node-id="bus" data-node-label="RabbitMQ" tabindex="0" role="button" aria-label="Focus RabbitMQ, MassTransit · EF outbox, 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="MassTransit · EF outbox" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
-          <title>RabbitMQ · MassTransit · EF outbox · 3commerce platform — bare `dotnet run` per process (ADR-0009)</title>
-          <rect x="830" y="108" width="182" height="86" rx="6" class="c-mask"/>
-          <rect x="830" y="108" width="182" height="86" rx="6" class="c-messagebus" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(836 114) scale(0.6875)">
+        <g id="node-rabbitmq" data-node-id="rabbitmq" data-node-label="RabbitMQ" tabindex="0" role="button" aria-label="Focus RabbitMQ, MassTransit · commands + sagas, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="MassTransit · commands + sagas" data-node-tag="ops lane" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>RabbitMQ · MassTransit · commands + sagas · Internal network — mesh over the bus, no direct service-to-service calls · ops lane</title>
+          <rect x="980" y="276" width="156" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="276" width="156" height="60" rx="6" class="c-messagebus" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(986 282) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-detail-anchor x="921" y="149" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">RabbitMQ</text>
-        <text data-detail="context" x="921" y="165" class="t-muted" font-size="9" text-anchor="middle">MassTransit · EF outbox</text>
+          <text data-detail-anchor x="1058" y="304" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">RabbitMQ</text>
+        <text data-detail="context" x="1058" y="320" class="t-muted" font-size="8.2" text-anchor="middle">MassTransit · commands + sagas</text>
+        <text data-detail="fine" x="1058" y="328" class="t-messagebus" font-size="7" text-anchor="middle">ops lane</text>
         </g>
 
-        <g id="node-postgres" data-node-id="postgres" data-node-label="PostgreSQL" tabindex="0" role="button" aria-label="Focus PostgreSQL, schema-per-service · 13 DBs, 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="database" data-node-sublabel="schema-per-service · 13 DBs" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
-          <title>PostgreSQL · schema-per-service · 13 DBs · 3commerce platform — bare `dotnet run` per process (ADR-0009)</title>
-          <rect x="830" y="430" width="182" height="84" rx="6" class="c-mask"/>
-          <rect x="830" y="430" width="182" height="84" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(836 436) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+        <g id="node-kafka" data-node-id="kafka" data-node-label="Kafka" tabindex="0" role="button" aria-label="Focus Kafka, committed facts (ADR-0034), Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="committed facts (ADR-0034)" data-node-tag="fact lane" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>Kafka · committed facts (ADR-0034) · Internal network — mesh over the bus, no direct service-to-service calls · fact lane</title>
+          <rect x="980" y="366" width="156" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="366" width="156" height="60" rx="6" class="c-messagebus" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(986 372) scale(0.6875)">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
+            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
+            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
+            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-detail-anchor x="921" y="470" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PostgreSQL</text>
-        <text data-detail="context" x="921" y="486" class="t-muted" font-size="9" text-anchor="middle">schema-per-service · 13 DBs</text>
+          <text data-detail-anchor x="1058" y="394" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Kafka</text>
+        <text data-detail="context" x="1058" y="410" class="t-muted" font-size="9" text-anchor="middle">committed facts (ADR-0034)</text>
+        <text data-detail="fine" x="1058" y="418" class="t-messagebus" font-size="7" text-anchor="middle">fact lane</text>
         </g>
 
-        <g id="node-notifications" data-node-id="notifications" data-node-label="Notifications Worker" tabindex="0" role="button" aria-label="Focus Notifications Worker, :5114, 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="backend" data-node-sublabel=":5114" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
-          <title>Notifications Worker · :5114 · 3commerce platform — bare `dotnet run` per process (ADR-0009)</title>
-          <rect x="1100" y="117" width="176" height="66" rx="6" class="c-mask"/>
-          <rect x="1100" y="117" width="176" height="66" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1106 123) scale(0.6875)">
-            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+        <g id="node-providers" data-node-id="providers" data-node-label="Money &amp; accounting" tabindex="0" role="button" aria-label="Focus Money &amp; accounting, Stripe · PayPal · Xero, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="Stripe · PayPal · Xero" data-node-context="Architecture component">
+          <title>Money &amp; accounting · Stripe · PayPal · Xero · Architecture component</title>
+          <rect x="980" y="456" width="150" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="456" width="150" height="60" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(986 462) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-detail-anchor x="1188" y="148" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Notifications Worker</text>
-        <text data-detail="context" x="1188" y="164" class="t-muted" font-size="9" text-anchor="middle">:5114</text>
+          <text data-detail-anchor x="1055" y="484" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Money &amp; accounting</text>
+        <text data-detail="context" x="1055" y="500" class="t-muted" font-size="9" text-anchor="middle">Stripe · PayPal · Xero</text>
         </g>
 
-        <g id="node-redis" data-node-id="redis" data-node-label="Valkey / Redis" tabindex="0" role="button" aria-label="Focus Valkey / Redis, cache · fast-path (ADR-0044), 3commerce platform — bare `dotnet run` per process (ADR-0009)" aria-pressed="false" data-node-kind="database" data-node-sublabel="cache · fast-path (ADR-0044)" data-node-tag="off by default" data-node-context="3commerce platform — bare `dotnet run` per process (ADR-0009)">
-          <title>Valkey / Redis · cache · fast-path (ADR-0044) · 3commerce platform — bare `dotnet run` per process (ADR-0009) · off by default</title>
-          <rect x="830" y="262" width="182" height="80" rx="6" class="c-mask"/>
-          <rect x="830" y="262" width="182" height="80" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(836 268) scale(0.6875)">
-            <ellipse cx="8" cy="4" rx="5" ry="2"/>
-            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+        <g id="node-observability" data-node-id="observability" data-node-label="Observability" tabindex="0" role="button" aria-label="Focus Observability, Loki · Tempo · Mimir · Grafana, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="Loki · Tempo · Mimir · Grafana" data-node-tag="OTLP" data-node-context="Architecture component">
+          <title>Observability · Loki · Tempo · Mimir · Grafana · Architecture component · OTLP</title>
+          <rect x="980" y="546" width="150" height="60" rx="6" class="c-mask"/>
+          <rect x="980" y="546" width="150" height="60" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(986 552) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-detail-anchor x="921" y="300" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Valkey / Redis</text>
-        <text data-detail="context" x="921" y="316" class="t-muted" font-size="9" text-anchor="middle">cache · fast-path (ADR-0044)</text>
-        <text data-detail="fine" x="921" y="334" class="t-database" font-size="7" text-anchor="middle">off by default</text>
+          <text data-detail-anchor x="1055" y="574" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Observability</text>
+        <text data-detail="context" x="1055" y="590" class="t-muted" font-size="7.8" text-anchor="middle">Loki · Tempo · Mimir · Grafana</text>
+        <text data-detail="fine" x="1055" y="598" class="t-external" font-size="7" text-anchor="middle">OTLP</text>
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="storefront" data-edge-to="gateway" data-edge-label="HTTPS" data-edge-key="0">
-          <rect x="218" y="175.5" width="34" height="14" rx="3" class="c-mask"/>
-          <text x="235" y="185.5" class="t-backend" font-size="8" text-anchor="middle">HTTPS</text>
+        <g data-detail="context" data-edge-from="clients" data-edge-to="storefront" data-edge-label="HTTPS" data-edge-key="0">
+          <rect x="182" y="243" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="199" y="253" class="t-backend" font-size="8" text-anchor="middle">HTTPS</text>
         </g>
 
 
-        <g data-detail="context" data-edge-from="gateway" data-edge-to="identity" data-edge-label="routes /api/*" data-edge-key="3">
-          <rect x="454.8" y="147" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="491" y="157" class="t-backend" font-size="8" text-anchor="middle">routes /api/*</text>
+        <g data-detail="context" data-edge-from="storefront" data-edge-to="gateway" data-edge-label="/api/{service}" data-edge-key="3">
+          <rect x="373.4" y="243" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="412" y="253" class="t-backend" font-size="8" text-anchor="middle">/api/{service}</text>
         </g>
 
 
@@ -4799,50 +4768,34 @@
 
 
 
-        <g data-detail="context" data-edge-from="fulfillment" data-edge-to="postgres" data-edge-label="SQL" data-edge-key="12">
-          <rect x="721" y="452" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="736" y="462" class="t-muted" font-size="8" text-anchor="middle">SQL</text>
-        </g>
 
-        <g data-detail="context" data-edge-from="bus" data-edge-to="notifications" data-edge-label="events → email" data-edge-key="14">
-          <rect x="997.4" y="198" width="77.2" height="14" rx="3" class="c-mask"/>
-          <text x="1036" y="208" class="t-backend" font-size="8" text-anchor="middle">events → email</text>
-        </g>
-        <g data-detail="context" data-edge-from="gateway" data-edge-to="redis" data-edge-label="rate limit" data-edge-key="15">
-          <rect x="437" y="326" width="58" height="14" rx="3" class="c-mask"/>
-          <text x="466" y="336" class="t-backend" font-size="8" text-anchor="middle">rate limit</text>
-        </g>
-        <g data-detail="context" data-edge-from="identity" data-edge-to="redis" data-edge-label="session cache" data-edge-key="16">
-          <rect x="734.8" y="160" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="771" y="170" class="t-messagebus" font-size="8" text-anchor="middle">session cache</text>
-        </g>
-        <g data-detail="context" data-edge-from="payments" data-edge-to="redis" data-edge-label="dedupe" data-edge-key="17">
-          <rect x="751.6" y="324" width="38.8" height="14" rx="3" class="c-mask"/>
-          <text x="771" y="334" class="t-messagebus" font-size="8" text-anchor="middle">dedupe</text>
-        </g>
 
         <!-- Legend -->
         <g data-legend data-legend-bridge>
-          <text x="40" y="648" class="t-primary" font-size="10" font-weight="600">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="668" data-legend-width="82">
-            <rect x="40" y="660" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="61" y="668" class="t-muted" font-size="8">Frontend</text>
+          <text x="40" y="638" class="t-primary" font-size="10" font-weight="600">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="658" data-legend-width="82">
+            <rect x="40" y="650" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+            <text x="61" y="658" class="t-muted" font-size="8">Frontend</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="144" data-legend-baseline="668" data-legend-width="77">
-            <rect x="144" y="660" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="165" y="668" class="t-muted" font-size="8">Backend</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="144" data-legend-baseline="658" data-legend-width="77">
+            <rect x="144" y="650" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="165" y="658" class="t-muted" font-size="8">Backend</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="243" data-legend-baseline="668" data-legend-width="82">
-            <rect x="243" y="660" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="264" y="668" class="t-muted" font-size="8">Database</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="243" data-legend-baseline="658" data-legend-width="82">
+            <rect x="243" y="650" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="264" y="658" class="t-muted" font-size="8">Database</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="347" data-legend-baseline="668" data-legend-width="82">
-            <rect x="347" y="660" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="368" y="668" class="t-muted" font-size="8">Security</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="347" data-legend-baseline="658" data-legend-width="82">
+            <rect x="347" y="650" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="368" y="658" class="t-muted" font-size="8">Security</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Message bus" data-legend-x="451" data-legend-baseline="668" data-legend-width="97">
-            <rect x="451" y="660" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
-            <text x="472" y="668" class="t-muted" font-size="8">Message bus</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Message bus" data-legend-x="451" data-legend-baseline="658" data-legend-width="97">
+            <rect x="451" y="650" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+            <text x="472" y="658" class="t-muted" font-size="8">Message bus</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="570" data-legend-baseline="658" data-legend-width="82">
+            <rect x="570" y="650" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+            <text x="591" y="658" class="t-muted" font-size="8">External</text>
           </g>
         </g>
       </svg>
@@ -5031,61 +4984,39 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Edge</h3>
+          <h3>The 14 microservices</h3>
         </div>
         <ul>
-          <li>&bull; Three front-ends call one YARP gateway</li>
-          <li>&bull; Gateway validates the ES256 internal-claims JWT and injects trusted headers</li>
-          <li>&bull; No client reaches a service directly</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot emerald"></div>
-          <h3>Services</h3>
-        </div>
-        <ul>
-          <li>&bull; 13 independent .NET services, one process each</li>
-          <li>&bull; Each owns a private Postgres schema — no cross-service SQL (ADR-0008)</li>
-          <li>&bull; Read copies are built by consuming events, not by querying peers</li>
+          <li>&bull; Identity · Catalog · Ordering · Payments · Fulfillment</li>
+          <li>&bull; Support · Entity · Marketing · Pricing · Usage</li>
+          <li>&bull; Entitlement · Workflow · Audit (+ Notifications worker)</li>
+          <li>&bull; Each owns its Postgres schema behind the gateway</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot violet"></div>
-          <h3>Event spine</h3>
+          <h3>How they communicate</h3>
         </div>
         <ul>
-          <li>&bull; MassTransit over RabbitMQ is the only inter-service coupling</li>
-          <li>&bull; Writes stage events in the EF transactional outbox, delivered on SaveChanges</li>
-          <li>&bull; The Notifications worker drains the bus into email</li>
+          <li>&bull; No service-to-service HTTP — events + read-copy projections</li>
+          <li>&bull; RabbitMQ / MassTransit: commands, sagas, transactional outbox</li>
+          <li>&bull; Kafka: committed facts only, for durable replay (ADR-0034)</li>
+          <li>&bull; Cross-service reads are local projections, never foreign queries</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>The +8 services</h3>
+          <div class="card-dot emerald"></div>
+          <h3>Recent additions</h3>
         </div>
         <ul>
-          <li>&bull; Support · Entity · Marketing · Pricing</li>
-          <li>&bull; Audit · Workflow · Entitlement · Usage</li>
-          <li>&bull; All follow the same gateway / outbox / own-schema pattern</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot rose"></div>
-          <h3>Redis fast-path (ADR-0044)</h3>
-        </div>
-        <ul>
-          <li>&bull; Self-hosted Valkey — a cache, never a source of truth</li>
-          <li>&bull; Gateway: distributed rate limiting</li>
-          <li>&bull; Identity: session introspection cache (off by default)</li>
-          <li>&bull; Payments: webhook dedupe; Postgres stays authoritative</li>
+          <li>&bull; Entity owns the currency registry (master data) → CurrencyChanged</li>
+          <li>&bull; Per-storefront ledger accounts live in Payments</li>
+          <li>&bull; Quartz schedules jobs per service; Workflow aggregates run history</li>
+          <li>&bull; Redis-backed rate-limit + idempotency + sessions (ADR-0044)</li>
         </ul>
       </div>
     </div>
