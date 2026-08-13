@@ -1,0 +1,342 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "3commerce Runtime Architecture",
+    "subtitle": "Front-ends, YARP gateway, the .NET microservice fleet, and the event + state fabric they run on",
+    "output": "docs/help/runtime-architecture.html",
+    "visual_preset": "blueprint",
+    "animation": "none",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Request path",
+        "focus": [
+          "clients",
+          "storefront",
+          "admin",
+          "gateway",
+          "services"
+        ],
+        "note": "Browser traffic enters the front-ends and is routed, authenticated, and claims-stamped by the gateway."
+      },
+      {
+        "id": "state",
+        "label": "State ownership",
+        "focus": [
+          "services",
+          "postgres",
+          "redis"
+        ],
+        "note": "Each service owns its own Postgres schema (FORCE RLS); Redis is the shared cache / session / idempotency store."
+      },
+      {
+        "id": "events",
+        "label": "Event fabric",
+        "focus": [
+          "services",
+          "rabbitmq",
+          "kafka"
+        ],
+        "note": "Services never call each other directly — RabbitMQ carries commands/sagas, Kafka carries committed facts."
+      },
+      {
+        "id": "operations",
+        "label": "Providers & telemetry",
+        "focus": [
+          "services",
+          "providers",
+          "observability"
+        ],
+        "note": "External money/accounting providers are adapter-gated; every hop emits OTLP to the LGTM stack."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "clients",
+      "type": "external",
+      "label": "Shoppers & operators",
+      "sublabel": "browsers",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        126,
+        62
+      ]
+    },
+    {
+      "id": "storefront",
+      "type": "frontend",
+      "label": "Storefront",
+      "sublabel": "Next.js · :3000",
+      "pos": [
+        232,
+        180
+      ],
+      "size": [
+        140,
+        58
+      ]
+    },
+    {
+      "id": "admin",
+      "type": "frontend",
+      "label": "Admin console",
+      "sublabel": "Blazor Server · :5200",
+      "pos": [
+        232,
+        300
+      ],
+      "size": [
+        140,
+        58
+      ]
+    },
+    {
+      "id": "supplier",
+      "type": "frontend",
+      "label": "Supplier portal",
+      "sublabel": ":5300",
+      "pos": [
+        232,
+        420
+      ],
+      "size": [
+        140,
+        58
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "YARP Gateway",
+      "sublabel": "session → claims · :8080",
+      "pos": [
+        452,
+        300
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "platform"
+    },
+    {
+      "id": "services",
+      "type": "backend",
+      "label": "Domain services",
+      "sublabel": "14 .NET microservices",
+      "pos": [
+        672,
+        296
+      ],
+      "size": [
+        172,
+        84
+      ],
+      "tag": "one Postgres schema each"
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "schema per service · FORCE RLS",
+      "pos": [
+        980,
+        96
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "data"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache · sessions · idempotency",
+      "pos": [
+        980,
+        186
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "data"
+    },
+    {
+      "id": "rabbitmq",
+      "type": "messagebus",
+      "label": "RabbitMQ",
+      "sublabel": "MassTransit · commands + sagas",
+      "pos": [
+        980,
+        276
+      ],
+      "size": [
+        156,
+        60
+      ],
+      "tag": "ops lane"
+    },
+    {
+      "id": "kafka",
+      "type": "messagebus",
+      "label": "Kafka",
+      "sublabel": "committed facts (ADR-0034)",
+      "pos": [
+        980,
+        366
+      ],
+      "size": [
+        156,
+        60
+      ],
+      "tag": "fact lane"
+    },
+    {
+      "id": "providers",
+      "type": "external",
+      "label": "Money & accounting",
+      "sublabel": "Stripe · PayPal · Xero",
+      "pos": [
+        980,
+        456
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "observability",
+      "type": "external",
+      "label": "Observability",
+      "sublabel": "Loki · Tempo · Mimir · Grafana",
+      "pos": [
+        980,
+        546
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "OTLP"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Internal network — mesh over the bus, no direct service-to-service calls",
+      "wraps": [
+        "gateway",
+        "services",
+        "postgres",
+        "redis",
+        "rabbitmq",
+        "kafka"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "clients",
+      "to": "storefront",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "clients",
+      "to": "admin"
+    },
+    {
+      "from": "clients",
+      "to": "supplier"
+    },
+    {
+      "from": "storefront",
+      "to": "gateway",
+      "label": "/api/{service}",
+      "variant": "emphasis"
+    },
+    {
+      "from": "admin",
+      "to": "gateway"
+    },
+    {
+      "from": "supplier",
+      "to": "gateway"
+    },
+    {
+      "from": "gateway",
+      "to": "services",
+      "variant": "emphasis"
+    },
+    {
+      "from": "services",
+      "to": "postgres"
+    },
+    {
+      "from": "services",
+      "to": "redis"
+    },
+    {
+      "from": "services",
+      "to": "rabbitmq",
+      "variant": "emphasis"
+    },
+    {
+      "from": "services",
+      "to": "kafka",
+      "variant": "dashed"
+    },
+    {
+      "from": "services",
+      "to": "providers",
+      "variant": "dashed"
+    },
+    {
+      "from": "services",
+      "to": "observability",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The 14 microservices",
+      "items": [
+        "Identity · Catalog · Ordering · Payments · Fulfillment",
+        "Support · Entity · Marketing · Pricing · Usage",
+        "Entitlement · Workflow · Audit (+ Notifications worker)",
+        "Each owns its Postgres schema behind the gateway"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "How they communicate",
+      "items": [
+        "No service-to-service HTTP — events + read-copy projections",
+        "RabbitMQ / MassTransit: commands, sagas, transactional outbox",
+        "Kafka: committed facts only, for durable replay (ADR-0034)",
+        "Cross-service reads are local projections, never foreign queries"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Recent additions",
+      "items": [
+        "Entity owns the currency registry (master data) → CurrencyChanged",
+        "Per-storefront ledger accounts live in Payments",
+        "Quartz schedules jobs per service; Workflow aggregates run history",
+        "Redis-backed rate-limit + idempotency + sessions (ADR-0044)"
+      ]
+    }
+  ]
+}
