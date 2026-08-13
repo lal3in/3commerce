@@ -59,6 +59,7 @@ Identity service via the gateway.
 | [Users, roles & permissions](./roles-permissions.md) | Principal types, the gateway→claims→PDP/PEP pipeline, the six built-in roles, the 24 code-defined permissions with risk, and dynamic admin RBAC. |
 | [UI screens](./screens.md) | Live Playwright screenshots of every storefront + admin screen with its buttons and use cases. |
 | [Currencies](./currencies.md) | The managed currency registry: the Admin **Currencies** page (`/currencies`), where registered currencies show up (pickers, validation, financial screens), variable-decimal money (JPY 0 / most 2 / KWD 3), and why disable is forward-only. |
+| [Scheduled jobs](./scheduled-jobs.md) | The platform's cron jobs (daily journal, subscription auto-renew, usage-period close, scheduled publish): what each does, how they run and record history, and how to run/pause/reschedule, add, or remove them from **Mission Control**. |
 | [Selling information](./selling-information.md) | Strategic product narrative for clients, suppliers, tenants, admins, technical evaluators, plus pros/cons and compliance-sensitive claims. |
 | **Project analysis** | [project-analysis.html](./project-analysis.html) — complete visual analysis: topology diagrams, capability heatmap, service-by-service assessment, flow maps, risks, launch gates, and verdict (open in a browser). |
 
