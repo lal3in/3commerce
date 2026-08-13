@@ -31,6 +31,34 @@ test("JPY amounts render with zero decimal places on the money dashboards", asyn
   await expect(page.getByText(/JPY \d[\d,]*\.\d/)).toHaveCount(0);
 });
 
+// currency_4: the 3-decimal case (KWD). A KWD demo storefront with KWD-priced products and placed KWD
+// orders is seeded, so KWD money surfaces on the dashboards and must render with EXACTLY three decimal
+// places (e.g. "11.733 KWD" / "KWD 11.733"), never two — the mirror of the JPY 0-decimal proof above.
+test("KWD amounts render with three decimal places on the money dashboards", async ({ page }) => {
+  await loginAsAdmin(page); // lands on the dashboard
+
+  // Dashboard renders money code-after. A 3-decimal KWD amount must be present; none may render with only
+  // two decimals (a regression to the old hardcoded ÷100 would show 2 places).
+  await page.waitForTimeout(2000);
+  await expect(page.getByText(/\d[\d,]*\.\d{3} KWD\b/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/\d[\d,]*\.\d{2}(?!\d) KWD/)).toHaveCount(0);
+
+  // Financials renders a per-currency KWD P&L section (<h2>) plus 3-decimal money rows.
+  await page.goto("/financials");
+  await expect(page.getByRole("heading", { name: /financials/i })).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(page.getByRole("heading", { name: "KWD", exact: true }).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/\d[\d,]*\.\d{3} KWD\b/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/\d[\d,]*\.\d{2}(?!\d) KWD/)).toHaveCount(0);
+
+  // Mission Control renders money code-before, e.g. "KWD 11.733".
+  await page.goto("/mission-control");
+  await expect(page.getByRole("heading", { name: /mission control/i })).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(page.getByText(/KWD \d[\d,]*\.\d{3}\b/).first()).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByText(/KWD \d[\d,]*\.\d{2}(?!\d)/)).toHaveCount(0);
+});
+
 // currency_2/currency_4: the storefront currency picker is driven by the ENABLED registry, so a currency an
 // operator has disabled is not offered for a new storefront. Add a throwaway code, disable it via the admin
 // UI, then confirm the /commerce-ops picker no longer lists it (while a known enabled code, EUR, remains).
