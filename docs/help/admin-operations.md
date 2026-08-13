@@ -52,7 +52,12 @@ antiforgery → authentication → authorization**.
   active sessions (ADR-0025).
 - **Commerce ops** (`/commerce-ops`, `Components/Pages/CommerceOps.razor`) —
   storefront lifecycle, domains, and product-publication operations, plus links into
-  the payment/pricing setup pages. The per-storefront **Manage** form closes and
+  the payment/pricing setup pages. The **Product publication** section picks the product
+  from a **catalog dropdown** (`/api/catalog/admin/products`), then Assign product /
+  Product readiness / Publish / Unpublish act on it; the assigned-products table has a
+  per-row Enable/Disable, and Publish is gated by product readiness (priced in the store
+  currency, a visible variant, an image, a fulfillment source, and — for physical
+  products — weight + dimensions). The per-storefront **Manage** form closes and
   resets after a successful save (a failed save stays open for retry); a failed
   **Preview** or **Activate** fetches `/readiness` and renders the concrete blocker
   checklist under the error banner (e.g. "at least one domain", "one canonical
@@ -277,13 +282,21 @@ Click **Deny** on a `Requested` row → `POST /api/support/admin/rmas/<id>/deny`
 
 File: `Components/Pages/Ledger.razor`. Calls
 `GET /api/payments/admin/ledger/entries`. Read-only view of the append-only
-double-entry ledger (the source of truth for all money facts).
+double-entry ledger (the source of truth for all money facts). Balances are grouped
+per currency with a trial-balance (Σ debits = Σ credits) check **per currency**.
 
-Each row shows the entry **Description**, **Reference**, and its **Lines**,
-formatted as `"<AccountCode> D<amount>"` for debits and `"<AccountCode> C<amount>"`
-for credits (amounts shown in major units, i.e. `minor / 100`). A confirmed sale
-posts a balanced entry; an approved refund posts a balanced reversal. Trial balance
-should always net to zero.
+**Journal-entries filters.** Above the entries a filter bar narrows the feed by
+**Start date**, **End date**, **Storefront**, and **Currency** (**Apply** re-fetches,
+**Clear** resets). Filters are applied **server-side** — before the 200-row cap, so
+they span the whole ledger: currency matches the entry currency, storefront is matched
+via the store token in the line account codes (`store-<id>`), and the date range is an
+inclusive day range on `CreatedAt`.
+
+Each row shows the full **Date/time** (`yyyy-MM-dd HH:mm:ss`), **Description**,
+**Reference**, **Currency**, and a colour-coded **Amount** that expands to the per-line
+debit/credit breakdown. Amounts honour **each currency's decimals** (JPY 0, most 2,
+KWD 3) — not a fixed `÷100` (see [Currencies](./currencies.md)). A confirmed sale posts
+a balanced entry; an approved refund a balanced reversal.
 
 The **Amount** column is colour-coded by direction: green = money in (a sale), red = money out
 (a supplier/carrier accrual, a write-off, or a chargeback), amber = a refund. Cost accruals
@@ -371,7 +384,7 @@ Steps:
 | Screen | Read | Action |
 |--------|------|--------|
 | RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas` (open an RMA/refund — optional `lines` for a **per-line partial** refund, else the whole order) · `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
-| Ledger | `GET /api/payments/admin/ledger/entries` | — |
+| Ledger | `GET /api/payments/admin/ledger/entries` (filters: `?start&end&storefrontId&currency`) · `.../balances` | — |
 | Financials | `GET /api/payments/admin/ledger/balances` · `GET /api/catalog/admin/storefronts?tenantId=...` | — (read-only; dev: `POST /api/payments/dev/simulate-chargeback/{intentId}`) |
 | Commerce-ops | `GET /api/catalog/admin/storefronts?tenantId=...` | `POST .../{id}/duplicate` (`{name}`) · `PUT .../{id}` (theme + `costAssumptions` bps) |
 | Reviews | `GET /api/catalog/admin/reviews` | `DELETE /api/catalog/admin/reviews/{id}` (removing a review/comment cascades its replies) |

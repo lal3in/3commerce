@@ -194,6 +194,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
           }
         ],
         "responses": {
@@ -227,6 +258,39 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/ledger/storefronts/{storefrontId}/chart": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "storefrontId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChartAccountDto"
                   }
                 }
               }
@@ -1420,6 +1484,206 @@
         }
       }
     },
+    "/mandates": {
+      "get": {
+        "tags": [
+          "Direct-debit mandates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MandateDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Direct-debit mandates"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMandateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateSetupDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mandates/{id}/confirm": {
+      "post": {
+        "tags": [
+          "Direct-debit mandates"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mandates/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Direct-debit mandates"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/billing-schedules": {
+      "get": {
+        "tags": [
+          "Billing schedules"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingScheduleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/billing-schedules/{storefrontId}": {
+      "put": {
+        "tags": [
+          "Billing schedules"
+        ],
+        "parameters": [
+          {
+            "name": "storefrontId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureBillingScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingScheduleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/subscriptions": {
       "get": {
         "tags": [
@@ -1581,6 +1845,148 @@
           }
         }
       }
+    },
+    "/admin/jobs": {
+      "get": {
+        "tags": [
+          "Jobs"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledJobDescriptor"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/jobs/{name}/run": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/jobs/{name}/pause": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/jobs/{name}/resume": {
+      "post": {
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/jobs/{name}/schedule": {
+      "put": {
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1643,6 +2049,87 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "BillingScheduleDto": {
+        "required": [
+          "storefrontId",
+          "dailyRunTime",
+          "enabled",
+          "lastRunOn"
+        ],
+        "type": "object",
+        "properties": {
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dailyRunTime": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastRunOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "ChartAccountDto": {
+        "required": [
+          "role",
+          "code",
+          "name",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigureBillingScheduleRequest": {
+        "required": [
+          "dailyRunTime"
+        ],
+        "type": "object",
+        "properties": {
+          "dailyRunTime": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "CreateMandateRequest": {
+        "required": [
+          "email",
+          "currency"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
           }
         }
       },
@@ -1880,6 +2367,62 @@
           }
         }
       },
+      "MandateDto": {
+        "required": [
+          "id",
+          "scheme",
+          "currency",
+          "status",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheme": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MandateSetupDto": {
+        "required": [
+          "mandateId",
+          "setupIntentId",
+          "clientSecret",
+          "scheme"
+        ],
+        "type": "object",
+        "properties": {
+          "mandateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "setupIntentId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scheme": {
+            "type": "string"
+          }
+        }
+      },
       "PaymentAccountDto": {
         "required": [
           "id",
@@ -2092,6 +2635,17 @@
           }
         }
       },
+      "RescheduleRequest": {
+        "required": [
+          "cron"
+        ],
+        "type": "object",
+        "properties": {
+          "cron": {
+            "type": "string"
+          }
+        }
+      },
       "SavedPaymentMethodDto": {
         "required": [
           "id",
@@ -2153,6 +2707,37 @@
           }
         }
       },
+      "ScheduledJobDescriptor": {
+        "required": [
+          "service",
+          "name",
+          "cron",
+          "paused",
+          "nextFireUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cron": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "nextFireUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "SetupIntentDto": {
         "required": [
           "setupIntentId",
@@ -2184,6 +2769,7 @@
           "id",
           "tenantId",
           "orderId",
+          "storefrontId",
           "customerEmail",
           "productId",
           "variantId",
@@ -2209,6 +2795,13 @@
           },
           "orderId": {
             "type": "string",
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "customerEmail": {
@@ -2270,6 +2863,7 @@
         "required": [
           "id",
           "orderId",
+          "storefrontId",
           "customerEmail",
           "productId",
           "variantId",
@@ -2290,6 +2884,13 @@
           },
           "orderId": {
             "type": "string",
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "customerEmail": {
@@ -2716,6 +3317,12 @@
     },
     {
       "name": "Payment methods"
+    },
+    {
+      "name": "Direct-debit mandates"
+    },
+    {
+      "name": "Billing schedules"
     }
   ]
 }

@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5999/"
+      "url": "http://localhost:5101/"
     }
   ],
   "paths": {
@@ -943,6 +943,88 @@
         }
       }
     },
+    "/admin/users/{id}/verify-email": {
+      "post": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Manually mark a user's email verified (operator fallback; attaches prior guest orders).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/make-supplier": {
+      "post": {
+        "tags": [
+          "Admin Users"
+        ],
+        "summary": "Turn a user into a supplier-portal login bound to a supplier entity.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tenantId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeSupplierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/users/{id}/email": {
       "put": {
         "tags": [
@@ -1299,6 +1381,18 @@
           },
           "mfaRequired": {
             "type": "boolean"
+          }
+        }
+      },
+      "MakeSupplierRequest": {
+        "required": [
+          "supplierEntityId"
+        ],
+        "type": "object",
+        "properties": {
+          "supplierEntityId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
