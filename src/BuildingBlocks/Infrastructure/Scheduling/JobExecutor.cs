@@ -82,13 +82,17 @@ public sealed class JobExecutor(
             logger.LogError(lastError, "Scheduled job {JobName} failed after {Attempts} attempt(s)", job.Name, maxRetries + 1);
         }
 
-        await store.SaveAsync(ct);
-
         // Project to the central Workflow service when a publisher is wired (tests run without one).
+        // A scoped IPublishEndpoint only STAGES to the EF outbox; the message is sent when the store's
+        // DbContext saves. So publish BEFORE the final SaveAsync — otherwise the staged JobRunRecorded is
+        // discarded when the scope disposes (no SaveChanges follows it), and Mission Control's run history
+        // stays empty even though every run is recorded locally.
         if (publisher is not null)
         {
             await publisher.Publish(new JobRunRecorded(run.Id, run.JobName, run.Status.ToString(), run.StartedAt, run.CompletedAt, run.Error, identity?.ServiceName), ct);
         }
+
+        await store.SaveAsync(ct); // persists the run's final status AND flushes the staged outbox message
 
         return run;
     }

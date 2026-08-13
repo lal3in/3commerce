@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheduled jobs — 3commerce Operations Wiki</title>
+<meta name="description" content="The platform's cron-driven scheduled jobs: what each one does, how they run and record history, and how to run/pause/reschedule, add, or remove them from Mission Control.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="assets/wiki.css">
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="layout">
+  <div class="scrim"></div>
+  <aside class="sidebar">
+    <a class="brand" href="index.html"><span class="brand-mark">3c</span><span class="brand-name">3commerce<small>Operations Wiki</small></span></a>
+    <nav class="nav">
+      <span class="nav-label">Guide</span>
+      <a href="index.html"><span class="idx">00</span>Overview</a>
+      <a href="getting-started.html"><span class="idx">01</span>Getting started</a>
+      <a href="storefront-operations.html"><span class="idx">02</span>Storefront</a>
+      <a href="admin-operations.html"><span class="idx">03</span>Admin</a>
+      <a href="testing.html"><span class="idx">04</span>Testing</a>
+      <a href="deployment.html"><span class="idx">05</span>Deployment</a>
+      <span class="nav-label">Reference</span>
+      <a href="runtime-architecture.html"><span class="idx">⬡</span>Runtime architecture</a>
+      <a href="order-workflow.html"><span class="idx">⑂</span>Order workflow</a>
+      <a href="checkout-sequence.html"><span class="idx">⇅</span>Checkout sequence</a>
+      <a href="readcopy-dataflow.html"><span class="idx">⇶</span>Read-copy dataflow</a>
+      <a href="order-lifecycle.html"><span class="idx">⭮</span>Order lifecycle</a>
+      <a href="services.html"><span class="idx">◆</span>Platform services</a>
+      <a href="roles-permissions.html"><span class="idx">◆</span>Roles &amp; permissions</a>
+      <a href="screens.html"><span class="idx">▣</span>UI screens</a>
+      <a href="currencies.html"><span class="idx">¤</span>Currencies</a>
+      <a href="scheduled-jobs.html" class="active"><span class="idx">⏱</span>Scheduled jobs</a>
+      <a href="selling-information.html"><span class="idx">$</span>Selling information</a>
+      <a href="project-analysis.html"><span class="idx">★</span>Project analysis</a>
+    </nav>
+    <div class="sidebar-foot">Jobs run on a cron in their owning service; Mission Control is the manager.</div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
+      <div class="crumb"><b>Reference</b><span class="sep">/</span>Scheduled jobs</div>
+      <span class="spacer"></span>
+      <button class="btn" data-open-palette>Search <kbd>/</kbd></button>
+      <button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button>
+    </header>
+    <main id="main" class="content"><div class="content-inner">
+      <p class="eyebrow">Reference · Scheduled jobs</p>
+      <h1>Scheduled jobs</h1>
+      <p class="lede">Recurring background work — posting the daily ledger journal, renewing subscriptions, closing usage periods, going live with scheduled content — runs as <strong>cron-triggered scheduled jobs</strong>. Each job lives in the service that owns its data; the Admin <strong>Mission&nbsp;Control</strong> page is the single manager where you see every job, run one on demand, pause/resume it, or change its schedule.</p>
+
+      <div class="callout note"><strong>Where:</strong> Admin → <strong>Mission Control</strong> → <em>Scheduled jobs</em> (<code>src/Admin/Components/Pages/MissionControl.razor</code>). The <code>admin</code> role is required. Mission Control reads each owning service's live schedule directly and enriches it with run history aggregated by the <strong>Workflow</strong> service.</p></div>
+
+      <h2 id="current">The jobs that exist today</h2>
+      <p>Four jobs ship with the platform. Each is registered in its owning service's <code>Program.cs</code> via <code>AddScheduledJobs(…)</code> and implements <code>IScheduledJob</code>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Service</th><th>Job</th><th>Schedule (cron)</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>marketing</td><td><code>scheduled-publish</code></td><td><code>0 * * * * ?</code> — every minute</td>
+            <td>Applies due <strong>content publishes</strong>: anything whose scheduled go-live time has arrived is published. Publish latency ≤ 60s. No-op when nothing is due. <code>ScheduledPublishJob</code>.</td>
+          </tr>
+          <tr>
+            <td>payments</td><td><code>subscription-auto-renew</code></td><td><code>0 0/15 * * * ?</code> — every 15 min</td>
+            <td>Sweeps <strong>due subscription renewals</strong> and charges them off-session against the saved payment method; each storefront renews at most once per day once its configured window has passed, and a failed charge marks the subscription past-due (dunning). Idempotent. <code>SubscriptionAutoRenewJob</code>.</td>
+          </tr>
+          <tr>
+            <td>payments</td><td><code>daily-journal</code></td><td><code>0 0 2 * * ?</code> — 02:00 UTC daily</td>
+            <td>Posts the prior UTC day's <strong>ledger journal to Xero</strong> (the scheduled half of the daily-journal job). Idempotent per date, so a re-run for the same day is safe. <code>DailyJournalScheduledJob</code>.</td>
+          </tr>
+          <tr>
+            <td>usage</td><td><code>usage-period-close</code></td><td><code>0 0 * * * ?</code> — hourly</td>
+            <td>Closes <strong>metered usage periods</strong> that have ended: bills any unbilled overage and rolls each due balance to its next period. Idempotent — a re-run before new usage is a no-op. <code>UsagePeriodCloseScheduledJob</code>.</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <p>The central <strong>workflow</strong> service registers the scheduler too but owns no jobs of its own — it is the aggregator that collects every service's run history (<code>JobRunRecorded</code> events) so Mission Control can show one unified list.</p>
+
+      <h2 id="how">How a job runs</h2>
+      <ol>
+        <li><strong>Trigger.</strong> Quartz fires the job's cron trigger (or you press <em>Run now</em>). A persistent, clustered Quartz store can be enabled so schedules survive restarts and only one node fires in a cluster (<code>Scheduling</code> options); otherwise an in-process scheduler is used.</li>
+        <li><strong>Execute.</strong> The job resolves in a fresh per-fire DI scope (so it can use a scoped <code>DbContext</code>) and <code>JobExecutor</code> runs its <code>ExecuteAsync</code>. Transient failures are retried up to a bounded count before the run is recorded failed.</li>
+        <li><strong>Record.</strong> Every fire is written to the owning service's local <code>JobRuns</code> table (Running → Succeeded/Failed, with duration and any error), and a <code>JobRunRecorded</code> event is published so the Workflow service projects it into the shared run history.</li>
+        <li><strong>Surface.</strong> Mission Control reads each service's live schedule (<em>Next fire</em>, paused state) and the Workflow run history (<em>Last run</em> status + duration) and renders them together.</li>
+      </ol>
+      <div class="callout note"><strong>Idempotency.</strong> Every job is safe to run more than once — <em>Run now</em> and retries never double-charge or double-post. That is why running a job on demand is a safe operator action.</div>
+
+      <h2 id="using">Using the jobs from Mission Control</h2>
+      <p>The <strong>Scheduled jobs</strong> table shows one row per job: <em>Service</em>, <em>Job</em>, <em>Schedule (cron)</em>, <em>Next fire</em>, <em>Last run</em>, <em>State</em>, and per-row actions.</p>
+      <ul>
+        <li><strong>Run now</strong> — triggers the job immediately, regardless of its cron (and even if paused). Because jobs are idempotent this is safe. The row's <em>Last run</em> updates to the new run's outcome once it completes and records.</li>
+        <li><strong>Pause / Resume</strong> — <em>Pause</em> stops the cron from firing the job without removing it; <em>Resume</em> re-enables it. A paused job can still be run with <em>Run now</em>. The paused state is persisted (a schedule override), so it survives restarts.</li>
+        <li><strong>Edit</strong> — change the <strong>cron</strong> expression inline and <strong>Save</strong>. The new schedule is persisted as an override and applied immediately; an invalid cron is rejected with the reason shown. Use standard 6-field Quartz cron (<code>sec min hour day month day-of-week</code>) — e.g. <code>0 0 2 * * ?</code> is 02:00 daily.</li>
+      </ul>
+
+      <h2 id="add">Adding a job</h2>
+      <p>A new scheduled job is code, added to the service that owns the data it touches:</p>
+      <ol>
+        <li><strong>Implement <code>IScheduledJob</code></strong> (<code>src/BuildingBlocks/Infrastructure/Scheduling/ScheduledJob.cs</code>): a <code>Name</code>, a default <code>CronSchedule</code>, and <code>ExecuteAsync</code> that does the work. Keep it <strong>idempotent</strong>. Inject the service's scoped services (e.g. its <code>DbContext</code>, a domain service) via the constructor.</li>
+        <li><strong>Register it</strong> in the service's <code>Program.cs</code>:
+          <div class="table-wrap"><table><tbody><tr><td><code>builder.Services.AddScheduledJobs(builder.Configuration, "usage", jobs =&gt; jobs.Add&lt;MyJob&gt;("my-job", "0 0 * * * ?"));</code></td></tr></tbody></table></div>
+          The first argument is the owning-service key (stamped on run/descriptor events so the manager can route control back here).</li>
+        <li><strong>Persist run history</strong> — the service's <code>DbContext</code> must call <code>modelBuilder.ConfigureJobRuns()</code> (and <code>ConfigureScheduleOverrides()</code>) so the local <code>JobRuns</code>/<code>ScheduleOverrides</code> tables exist, register <code>EfJobRunStore&lt;MyDbContext&gt;</code>, and expose the control endpoints with <code>app.MapJobControl()</code>. The service must also be added to <code>MissionControl.razor</code>'s <code>JobServices</code> list so the manager reads its schedule.</li>
+      </ol>
+      <div class="callout note"><strong>Outbox gotcha:</strong> the run-history event is published through the EF outbox, which only sends on the store's <code>SaveChanges</code>. <code>JobExecutor</code> publishes <code>JobRunRecorded</code> <em>before</em> its final save so the message actually flushes — a job whose run never appears in Mission Control is usually a broken publish-then-save order or a missing <code>ConfigureJobRuns</code>.</div>
+
+      <h2 id="remove">Removing or disabling a job</h2>
+      <ul>
+        <li><strong>Stop it temporarily</strong> — <em>Pause</em> it in Mission Control. It stays listed but never fires until resumed. No deploy needed.</li>
+        <li><strong>Remove it permanently</strong> — delete its <code>.Add&lt;MyJob&gt;("my-job", …)</code> registration from the owning service's <code>Program.cs</code> (and the job class) and redeploy. The historical <code>JobRuns</code> rows remain for the audit trail; the job simply no longer appears or fires.</li>
+      </ul>
+
+      <h2 id="api">API surface</h2>
+      <p>Mission Control drives everything through the gateway, which forwards <code>/api/{service}/admin/jobs/*</code> to the owning service. The <code>admin</code> role is required.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Purpose</th><th>Call</th></tr></thead>
+        <tbody>
+          <tr><td>List live schedule</td><td><code>GET /api/{service}/admin/jobs</code></td></tr>
+          <tr><td>Run now</td><td><code>POST /api/{service}/admin/jobs/{name}/run</code></td></tr>
+          <tr><td>Pause / Resume</td><td><code>POST /api/{service}/admin/jobs/{name}/pause</code> · <code>…/resume</code></td></tr>
+          <tr><td>Reschedule (cron)</td><td><code>PUT /api/{service}/admin/jobs/{name}/schedule</code> with <code>{ cron }</code></td></tr>
+          <tr><td>Aggregated run history</td><td><code>GET /api/workflow/admin/workflow/runs</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <footer class="page-nav">
+        <a class="prev" href="currencies.html">
+          <div class="dir">← Previous</div>
+          <div class="ttl">Currencies</div>
+        </a>
+        <a class="next" href="selling-information.html">
+          <div class="dir">Next →</div>
+          <div class="ttl">Selling information</div>
+        </a>
+      </footer>
+    </div></main>
+    <aside class="toc">
+      <div class="toc-title">On this page</div>
+      <nav></nav>
+    </aside>
+  </div>
+</div>
+<script src="assets/wiki.js"></script>
+</body>
+</html>
