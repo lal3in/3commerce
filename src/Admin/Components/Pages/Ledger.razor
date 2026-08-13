@@ -86,7 +86,7 @@ else
 else
 {
     <table style="border-collapse:collapse;width:100%;">
-        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th style="text-align:right;">@L["Ledger.Col.Amount"]</th></tr></thead>
+        <thead><tr><th style="text-align:left;">@L["Ledger.Col.When"]</th><th style="text-align:left;">@L["Ledger.Col.Description"]</th><th style="text-align:left;">@L["Ledger.Col.Storefront"]</th><th>@L["Ledger.Col.Reference"]</th><th>@L["Ledger.Col.Currency"]</th><th style="text-align:right;">@L["Ledger.Col.Amount"]</th></tr></thead>
         <tbody>
         @foreach (var e in _entries)
         {
@@ -98,6 +98,7 @@ else
             <tr style="border-top:1px solid #e5e7eb;">
                 <td style="white-space:nowrap;">@e.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
                 <td>@e.Description</td>
+                <td>@StorefrontName(e)</td>
                 <td style="text-align:center;">@e.Reference</td>
                 <td style="text-align:center;">@e.Currency</td>
                 <td style="text-align:right;">
@@ -110,7 +111,7 @@ else
             @if (open)
             {
                 <tr style="background:#f9fafb;">
-                    <td colspan="5" style="padding:.5rem .9rem;">
+                    <td colspan="6" style="padding:.5rem .9rem;">
                         <table style="border-collapse:collapse; font-size:.82rem; width:100%; max-width:34rem;">
                             <thead><tr><th style="text-align:left;">@L["Ledger.Col.Account"]</th><th style="text-align:right;">@L["Ledger.Col.Debit"]</th><th style="text-align:right;">@L["Ledger.Col.Credit"]</th></tr></thead>
                             <tbody>
@@ -333,6 +334,26 @@ else
     };
 
     public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
+    // The storefront an entry belongs to, derived from the store token (store-{id:N}) its line account codes
+    // carry — one order posts one store's lines (revenue.store-…, cash.store-….stripe, …). Mapped to the
+    // store name via the loaded list; shared/legacy accounts have no token → "—", an unknown/archived store
+    // shows a short id.
+    private static readonly System.Text.RegularExpressions.Regex StoreToken =
+        new("store-([0-9a-fA-F]{32})", System.Text.RegularExpressions.RegexOptions.Compiled);
+    private string StorefrontName(EntryDto e)
+    {
+        foreach (var l in e.Lines)
+        {
+            var m = StoreToken.Match(l.AccountCode);
+            if (m.Success && Guid.TryParseExact(m.Groups[1].Value, "N", out var sid))
+            {
+                return _storefronts?.FirstOrDefault(s => s.Id == sid)?.Name ?? sid.ToString()[..8];
+            }
+        }
+
+        return "—";
+    }
+
     public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
     public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
     // Subset of the catalog admin storefront list — just what the storefront filter dropdown needs.
