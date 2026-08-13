@@ -14,10 +14,10 @@ namespace ThreeCommerce.Entity.Api;
 /// </summary>
 public static class CurrencySeeder
 {
-    // (Code, Name, Symbol, DecimalPlaces) — mostly 2-decimal, plus JPY as the 0-decimal example so a
-    // 0-decimal currency flows registry → storefront → sale → dashboards out of the box (currency_4).
-    // Operators can add further 0-decimal codes via the admin page (currency_1); display honours the
-    // per-currency decimals (currency_3).
+    // (Code, Name, Symbol, DecimalPlaces) — mostly 2-decimal, plus JPY (0-decimal) and KWD (3-decimal) as
+    // the edge examples so both non-2-decimal cases flow registry → storefront → sale → dashboards out of
+    // the box (currency_4). Operators can add further codes via the admin page (currency_1); display honours
+    // the per-currency decimals (currency_3).
     private static readonly (string Code, string Name, string Symbol, int Decimals)[] Defaults =
     [
         ("AUD", "Australian Dollar", "A$", 2),
@@ -26,6 +26,7 @@ public static class CurrencySeeder
         ("EUR", "Euro", "€", 2),
         ("GBP", "British Pound", "£", 2),
         ("JPY", "Japanese Yen", "¥", 0),
+        ("KWD", "Kuwaiti Dinar", "KD", 3),
         ("USD", "US Dollar", "$", 2),
     ];
 

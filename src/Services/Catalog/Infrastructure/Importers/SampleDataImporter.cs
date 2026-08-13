@@ -254,10 +254,11 @@ public sealed class SampleDataImporter(
     // explicitly in the admin. Derived once from the base (EUR) so AU/US demo storefronts have prices.
     // Per-currency shelf prices (ADR-0038) for the demo storefront currencies, so each store can sell
     // products priced in its own currency. Factors are rough EUR→X rates — display only, no live FX.
-    // JPY is the 0-decimal example (currency_4): baseMinor is EUR cents, so for a 0-decimal currency the
-    // stored minor already IS whole yen — factor ~1.6 turns a €20.00 (2000-cent) base into ¥3,200.
+    // The factor folds in the currency's decimal places (baseMinor is EUR cents). JPY is the 0-decimal
+    // example (currency_4): factor ~1.6 turns a €20.00 (2000-cent) base into ¥3,200 (stored minor IS whole
+    // yen). KWD is the 3-decimal example: factor ~3.3 turns that base into 6.600 KWD (6600 thousandths).
     private static readonly (string Currency, double Factor)[] DemoCurrencies =
-        [("EUR", 1.0), ("AUD", 1.65), ("USD", 1.08), ("CAD", 1.47), ("GBP", 0.85), ("CNY", 7.6), ("JPY", 1.6)];
+        [("EUR", 1.0), ("AUD", 1.65), ("USD", 1.08), ("CAD", 1.47), ("GBP", 0.85), ("CNY", 7.6), ("JPY", 1.6), ("KWD", 3.3)];
 
     private static IEnumerable<VariantPrice> DemoPrices(Guid variantId, long baseMinor) =>
         DemoCurrencies.Select(c => new VariantPrice
