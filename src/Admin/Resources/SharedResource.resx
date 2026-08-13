@@ -1371,6 +1371,9 @@
   <data name="Home.Cash.Breakdown" xml:space="preserve">
     <value>How this adds up</value>
   </data>
+  <data name="Home.Cash.Shipping" xml:space="preserve">
+    <value>Shipping income</value>
+  </data>
   <data name="Home.Cash.TaxCollected" xml:space="preserve">
     <value>Tax collected</value>
   </data>

@@ -281,10 +281,16 @@ else
     private long Refunds(string cur) => _balances.Where(b => b.Currency == cur && IsScopedRevenue(b.AccountCode)).Sum(b => b.DebitMinor);
     // Cash held per provider (all) is debit-normal; the store's receivable is also debit-normal.
     private long CashOrReceivable(string cur) => _balances.Where(b => b.Currency == cur && IsScopedCash(b.AccountCode)).Sum(b => b.DebitMinor - b.CreditMinor);
-    // Cash-on-hand breakdown components (all-storefronts scope, per currency): cash = net revenue held
-    // + tax collected (a liability sitting in cash) − processing fees (an expense paid out of cash).
+    // Cash-on-hand breakdown components (all-storefronts scope, per currency). The identity that ties the
+    // breakdown to the actual cash.* balance is: cash = net revenue + shipping income + tax collected −
+    // cash-affecting fees. COGS, carrier cost and write-offs are accrued to LIABILITIES (supplier/carrier
+    // payable), not paid from cash, so they must NOT appear here — only the fees that actually leave cash.
     private long TaxCollected(string cur) => _balances.Where(b => b.Currency == cur && (b.AccountCode.StartsWith("tax.", StringComparison.Ordinal) || b.AccountCode == "liability.tax_collected")).Sum(b => b.CreditMinor - b.DebitMinor);
-    private long Fees(string cur) => _balances.Where(b => b.Currency == cur && b.AccountCode.StartsWith("expense.", StringComparison.Ordinal)).Sum(b => b.DebitMinor - b.CreditMinor);
+    // Shipping income shoppers paid (shipping.*), credit-normal — part of the cash collected at checkout.
+    private long ShippingIncome(string cur) => _balances.Where(b => b.Currency == cur && b.AccountCode.StartsWith("shipping.", StringComparison.Ordinal)).Sum(b => b.CreditMinor - b.DebitMinor);
+    // Processing + chargeback fees only (expense.*_fees, both end "_fees") — the expenses paid out of cash.
+    // Matches Financials' Fees + Chargebacks lines; excludes COGS/carrier/write-offs, which are accruals.
+    private long Fees(string cur) => _balances.Where(b => b.Currency == cur && b.AccountCode.StartsWith("expense.", StringComparison.Ordinal) && b.AccountCode.EndsWith("_fees", StringComparison.Ordinal)).Sum(b => b.DebitMinor - b.CreditMinor);
 
     private void RecomputeChart()
     {
@@ -336,11 +342,13 @@ else
             $"<div style=\"font-size:.8rem; color:#9ca3af;\">{sub}</div></div>");
     };
 
-    // Expandable "how cash on hand adds up" row: Net revenue + Tax collected − Processing fees = Cash.
-    // Native <details> disclosure — no interactivity/state needed. Labels come from resx (trusted).
+    // Expandable "how cash on hand adds up" row: Net revenue + Shipping income + Tax collected − Fees = Cash.
+    // The total equals the Cash figure shown above and the ledger cash.* balance (reconciliation identity,
+    // ADR-0040/0041). Native <details> disclosure — no interactivity/state needed. Labels from resx (trusted).
     private RenderFragment CashBreakdownRow(string cur) => builder =>
     {
         var net = Revenue(cur) - Refunds(cur);
+        var ship = ShippingIncome(cur);
         var tax = TaxCollected(cur);
         var fees = Fees(cur);
         string cell(string lbl, long minor, string color) =>
@@ -351,10 +359,11 @@ else
             $"<details style=\"margin:.1rem 0 .3rem;\"><summary style=\"cursor:pointer; font-size:.75rem; color:#6b7280;\">{L["Home.Cash.Breakdown"]}</summary>" +
             "<table style=\"width:100%; border-collapse:collapse; font-size:.82rem; margin-top:.2rem;\">" +
             cell(L["Home.Kpi.NetRevenue"], net, "#0e7490") +
+            cell("+ " + L["Home.Cash.Shipping"], ship, "#374151") +
             cell("+ " + L["Home.Cash.TaxCollected"], tax, "#374151") +
             cell("− " + L["Home.Cash.Fees"], fees, "#b45309") +
             $"<tr style=\"border-top:1px solid #e5e7eb;\"><td style=\"padding:.15rem 0 .1rem .8rem; font-weight:700;\">= {L["Home.Kpi.Cash"]}</td>" +
-            $"<td style=\"text-align:right; font-weight:700; color:#4f46e5; font-variant-numeric:tabular-nums;\">{Money.Amount(net + tax - fees, cur)} {cur}</td></tr>" +
+            $"<td style=\"text-align:right; font-weight:700; color:#4f46e5; font-variant-numeric:tabular-nums;\">{Money.Amount(net + ship + tax - fees, cur)} {cur}</td></tr>" +
             "</table></details></td></tr>");
     };
 
