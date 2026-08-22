@@ -113,12 +113,31 @@ public static class OrdersEndpoints
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListAllOrders(
-        OrderingDbContext db, string? status, CancellationToken ct)
+        OrderingDbContext db, string? status, Guid? storefrontId, DateOnly? start, DateOnly? end, CancellationToken ct)
     {
         var query = db.Orders.AsNoTracking().AsQueryable();
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ThreeCommerce.Ordering.Domain.OrderStatus>(status, out var s))
         {
             query = query.Where(o => o.Status == s);
+        }
+
+        if (storefrontId is { } sid)
+        {
+            query = query.Where(o => o.StorefrontId == sid);
+        }
+
+        // Inclusive calendar-day range on CreatedAt (UTC): end covers the whole day. Applied before the
+        // 200-row cap so the filter spans the whole order history, not just the loaded page.
+        if (start is { } from)
+        {
+            var fromInstant = new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(o => o.CreatedAt >= fromInstant);
+        }
+
+        if (end is { } to)
+        {
+            var toExclusive = new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(o => o.CreatedAt < toExclusive);
         }
 
         var orders = await query.OrderByDescending(o => o.CreatedAt).Take(200)
