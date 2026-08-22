@@ -5,10 +5,10 @@
    offered; the current Value is always kept selectable even if later disabled, so editing never drops it.
    Falls back to the full ISO 4217 list only when the registry hasn't projected yet (fresh environment).
    Usage: <CurrencySelect @bind-Value="variant.Currency" /> *@
-<select value="@Value" @onchange="OnChange" title="@(Title ?? L["Currency.Tip"])" @attributes="Attributes">
+<select @onchange="OnChange" title="@(Title ?? L["Currency.Tip"])" @attributes="Attributes">
     @foreach (var o in Options())
     {
-        <option value="@o.Code">@o.Code — @o.Name</option>
+        <option value="@o.Code" selected="@(string.Equals(o.Code, Value, StringComparison.OrdinalIgnoreCase))">@o.Code — @o.Name</option>
     }
 </select>
 
