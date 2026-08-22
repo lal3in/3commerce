@@ -141,7 +141,11 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
 
     private static async Task<EmailMessage> WaitForEmailAsync(RecordingEmailSender recorder, Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        // The email crosses the full async chain (checkout → outbox → RabbitMQ → this test's consumer host →
+        // recording sender) on the fixture's SHARED broker, which the whole integration suite hammers in
+        // parallel. 30s was occasionally too tight under that load (intermittent CI timeout) — 120s gives
+        // generous headroom without slowing the happy path (it returns as soon as the email lands).
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             var match = recorder.Sent.FirstOrDefault(m => m.Body.Contains(orderId.ToString()));
