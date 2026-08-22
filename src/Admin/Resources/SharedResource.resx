@@ -289,7 +289,18 @@
   <data name="Offers.Col.Supply" xml:space="preserve"><value>Supply</value></data>
   <data name="Offers.Col.Pricing" xml:space="preserve"><value>Pricing</value></data>
   <data name="Offers.Col.Price" xml:space="preserve"><value>Price</value></data>
+  <data name="Offers.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Offers.Col.Window" xml:space="preserve"><value>Active window</value></data>
   <data name="Offers.Col.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Offers.Scope.Legend" xml:space="preserve"><value>Storefront &amp; active window</value></data>
+  <data name="Offers.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Offers.Field.Storefront.Tip" xml:space="preserve"><value>Scope this offer's price to one storefront. Leave on "All storefronts" to apply it to every storefront of the offer's currency.</value></data>
+  <data name="Offers.Storefront.All" xml:space="preserve"><value>All storefronts</value></data>
+  <data name="Offers.Field.ActiveFrom" xml:space="preserve"><value>Active from</value></data>
+  <data name="Offers.Field.ActiveFrom.Tip" xml:space="preserve"><value>The offer price applies from this date (UTC). Leave blank for no start date.</value></data>
+  <data name="Offers.Field.ActiveUntil" xml:space="preserve"><value>Active until</value></data>
+  <data name="Offers.Field.ActiveUntil.Tip" xml:space="preserve"><value>The offer price applies through the end of this date (UTC). Leave blank for no end date.</value></data>
+  <data name="Offers.Window.Always" xml:space="preserve"><value>Always</value></data>
   <data name="Offers.Empty" xml:space="preserve"><value>No offers found.</value></data>
   <data name="Offers.Edit.Tip" xml:space="preserve"><value>Open this offer in the edit dialog.</value></data>
   <data name="Offers.New" xml:space="preserve"><value>New offer</value></data>

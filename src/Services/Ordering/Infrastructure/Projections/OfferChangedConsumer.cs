@@ -30,6 +30,10 @@ public sealed class OfferChangedConsumer(OrderingDbContext db) : IConsumer<Offer
         copy.Active = m.Active;
         copy.SupplierCostMinor = m.SupplierCostMinor;
         copy.Currency = m.Currency;
+        copy.PriceMinor = m.PriceMinor;
+        copy.StorefrontId = m.StorefrontId;
+        copy.ActiveFrom = m.ActiveFrom;
+        copy.ActiveUntil = m.ActiveUntil;
         await db.SaveChangesAsync(context.CancellationToken);
     }
 }

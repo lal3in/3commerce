@@ -46,6 +46,19 @@ public sealed class Offer
     /// <summary>Lower is preferred when several offers can fulfil a line.</summary>
     public int Priority { get; private set; }
 
+    /// <summary>
+    /// Restricts this offer's price to a single storefront (storefront-scoped pricing). Null = the offer
+    /// applies to every storefront of its <see cref="Currency"/>. A storefront's currency is 1:1, so a
+    /// scoped offer must carry the storefront's currency for its price to be charged/shown there.
+    /// </summary>
+    public Guid? StorefrontId { get; private set; }
+
+    /// <summary>Inclusive start of the offer's active window (UTC); null = open-ended (always started).</summary>
+    public DateTimeOffset? ActiveFrom { get; private set; }
+
+    /// <summary>Inclusive end of the offer's active window (UTC); null = open-ended (never expires).</summary>
+    public DateTimeOffset? ActiveUntil { get; private set; }
+
     public OfferStatus Status { get; private set; } = OfferStatus.Active;
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -129,6 +142,38 @@ public sealed class Offer
         Priority = priority;
         UpdatedAt = now;
     }
+
+    /// <summary>Scope this offer's price to a single storefront (null = all storefronts of its currency).</summary>
+    public void SetStorefront(Guid? storefrontId, DateTimeOffset now)
+    {
+        StorefrontId = storefrontId == Guid.Empty ? null : storefrontId;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Set the active window; either bound may be null (open-ended). From must not be after Until.</summary>
+    public void SetActiveWindow(DateTimeOffset? activeFrom, DateTimeOffset? activeUntil, DateTimeOffset now)
+    {
+        if (activeFrom is { } from && activeUntil is { } until && from > until)
+        {
+            throw new CatalogRuleException("Offer active-from must not be after active-until.");
+        }
+
+        ActiveFrom = activeFrom;
+        ActiveUntil = activeUntil;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Whether this offer's price applies for <paramref name="storefrontId"/> at <paramref name="now"/>:
+    /// the offer is Active, targets that storefront (or all storefronts), and <paramref name="now"/> falls
+    /// within its [ActiveFrom, ActiveUntil] window (null bounds are open-ended). Currency matching is the
+    /// caller's responsibility (a storefront's currency is 1:1).
+    /// </summary>
+    public bool IsEffectiveAt(DateTimeOffset now, Guid storefrontId) =>
+        Status == OfferStatus.Active
+        && (StorefrontId is null || StorefrontId == storefrontId)
+        && (ActiveFrom is null || ActiveFrom <= now)
+        && (ActiveUntil is null || now <= ActiveUntil);
 
     /// <summary>
     /// Set the offer's price model (Phase 7 / mt7_1): pricing model + billing cadence + optional

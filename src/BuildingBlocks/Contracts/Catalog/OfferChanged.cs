@@ -27,4 +27,13 @@ public record OfferChanged(
     // ProductType shipping policy to each line. Appended, back-compatible default; a copy that still
     // carries the default 0/Physical from before this field means "unknown" at checkout (falls back to
     // the fulfilment-type gate).
-    ProductType ProductType = ProductType.Physical);
+    ProductType ProductType = ProductType.Physical,
+    // Offer-as-price (ADR-0028): the offer's authoritative selling price + its storefront scope and active
+    // window, projected onto OfferCopy so an active, in-window offer for the line's storefront sets the
+    // charged price instead of the catalog SellingPriceMinor. Appended, back-compatible defaults — a copy
+    // from before these fields carries PriceMinor 0 (no offer price → checkout keeps the catalog price),
+    // StorefrontId null (all storefronts), and an open-ended window.
+    long PriceMinor = 0,
+    Guid? StorefrontId = null,
+    DateTimeOffset? ActiveFrom = null,
+    DateTimeOffset? ActiveUntil = null);

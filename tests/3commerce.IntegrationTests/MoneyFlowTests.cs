@@ -147,6 +147,72 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         }
     }
 
+    [Fact]
+    public async Task An_active_in_window_offer_for_the_storefront_is_charged_instead_of_the_catalog_price()
+    {
+        // offer-as-price (ADR-0028): a product listed at a catalog price of 10000, but with an active,
+        // in-window offer scoped to THIS storefront pricing it at 6000, must be CHARGED 6000 at checkout
+        // (shown == charged) — not the catalog price — and the sale must still post a balanced entry. A
+        // second checkout on a DIFFERENT storefront proves the scope holds: it pays the catalog price.
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        var storefrontId = Guid.CreateVersion7();
+        var otherStorefrontId = Guid.CreateVersion7();
+        var productId = await fixture.SeedProductAsync(10_000);
+
+        var now = DateTimeOffset.UtcNow;
+        await fixture.PublishAsync(new OfferChanged(
+            OfferId: Guid.CreateVersion7(), TenantId: tenantId, ProductId: productId, VariantId: null,
+            SupplierId: Guid.CreateVersion7(), SupplyCategory: SupplyCategory.Physical, FulfilmentType: FulfilmentType.Dropship,
+            PricingModel: PricingModel.OneTime, BillingPeriod: BillingPeriod.Once, Priority: 0, Active: true,
+            SupplierCostMinor: 0, Currency: "EUR", ProductType: ProductType.Physical,
+            PriceMinor: 6_000, StorefrontId: storefrontId, ActiveFrom: now.AddHours(-1), ActiveUntil: now.AddHours(1)));
+
+        // Projection test: the new OfferCopy fields (price, storefront scope, window) must project.
+        await WaitForOfferPriceCopyAsync(productId, 6_000, storefrontId);
+
+        // On the offer's storefront: charged the OFFER price.
+        using (var shopper = fixture.Ordering.CreateClient())
+        {
+            shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+            await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 2 });
+            var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+            Assert.Equal(12_000, order.NetMinor); // 2 × 6000 offer price, not 2 × 10000 catalog
+
+            await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+            await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+            Assert.Equal(0, await fixture.TrialBalanceAsync());
+        }
+
+        // On a different storefront the scoped offer does not apply: charged the CATALOG price.
+        using (var other = fixture.Ordering.CreateClient())
+        {
+            other.DefaultRequestHeaders.Add("X-3C-Storefront-Id", otherStorefrontId.ToString());
+            await other.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+            var order = (await (await other.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+            Assert.Equal(10_000, order.NetMinor); // catalog price — the offer is scoped to another store
+        }
+    }
+
+    private async Task WaitForOfferPriceCopyAsync(Guid productId, long priceMinor, Guid storefrontId)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            var copy = await db.OfferCopies.AsNoTracking().FirstOrDefaultAsync(o => o.ProductId == productId);
+            if (copy is not null && copy.PriceMinor == priceMinor && copy.StorefrontId == storefrontId
+                && copy.ActiveFrom is not null && copy.ActiveUntil is not null)
+            {
+                return;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new Xunit.Sdk.XunitException($"Offer-price OfferCopy for product {productId} never projected.");
+    }
+
     private async Task WaitForOfferCopyAsync(Guid productId)
     {
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
