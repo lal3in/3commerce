@@ -78,6 +78,7 @@
   <data name="Common.Saving" xml:space="preserve"><value>Saving…</value></data>
   <data name="Common.Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="Common.Cancel.Tip" xml:space="preserve"><value>Discard your changes and go back.</value></data>
+  <data name="Common.Close.Tip" xml:space="preserve"><value>Close this dialog.</value></data>
   <data name="Common.Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="Common.Delete" xml:space="preserve"><value>Delete</value></data>
   <data name="Common.Create" xml:space="preserve"><value>Create</value></data>
@@ -280,6 +281,7 @@
   <data name="Offers.ProductFilter" xml:space="preserve"><value>Product ID filter</value></data>
   <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optional product GUID filter — leave blank for every offer in the tenant.</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Offers.Col.Title" xml:space="preserve"><value>Title</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>Variant</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>Supplier</value></data>
   <data name="Offers.Col.Supply" xml:space="preserve"><value>Supply</value></data>
@@ -287,9 +289,12 @@
   <data name="Offers.Col.Price" xml:space="preserve"><value>Price</value></data>
   <data name="Offers.Col.Priority" xml:space="preserve"><value>Priority</value></data>
   <data name="Offers.Empty" xml:space="preserve"><value>No offers found.</value></data>
-  <data name="Offers.Edit.Tip" xml:space="preserve"><value>Load this offer into the form below.</value></data>
+  <data name="Offers.Edit.Tip" xml:space="preserve"><value>Open this offer in the edit dialog.</value></data>
   <data name="Offers.New" xml:space="preserve"><value>New offer</value></data>
+  <data name="Offers.NewButton" xml:space="preserve"><value>＋ New offer</value></data>
+  <data name="Offers.New.Tip" xml:space="preserve"><value>Open the form to create a new offer.</value></data>
   <data name="Offers.EditHeading" xml:space="preserve"><value>Edit offer</value></data>
+  <data name="Offers.Field.Title" xml:space="preserve"><value>Product</value></data>
   <data name="Offers.Field.ProductId" xml:space="preserve"><value>Product ID</value></data>
   <data name="Offers.Field.ProductId.Tip" xml:space="preserve"><value>Product GUID this offer supplies.</value></data>
   <data name="Offers.Field.VariantId" xml:space="preserve"><value>Variant ID</value></data>

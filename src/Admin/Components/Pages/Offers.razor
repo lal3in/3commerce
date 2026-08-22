@@ -14,6 +14,7 @@
         <input @bind="_productFilter" title="@L["Offers.ProductFilter.Tip"]" style="width:23rem; display:block;" />
     </label>
     <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
+    <button @onclick="NewOffer" title="@L["Offers.New.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Offers.NewButton"]</button>
 </div>
 
 @if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
@@ -23,13 +24,14 @@
 {
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
-            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Offers.Col.Product"]</th><th>@L["Offers.Col.Variant"]</th><th>@L["Offers.Col.Supplier"]</th><th>@L["Offers.Col.Supply"]</th><th>@L["Offers.Col.Pricing"]</th><th>@L["Offers.Col.Price"]</th><th>@L["Offers.Col.Priority"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Offers.Col.Product"]</th><th>@L["Offers.Col.Title"]</th><th>@L["Offers.Col.Variant"]</th><th>@L["Offers.Col.Supplier"]</th><th>@L["Offers.Col.Supply"]</th><th>@L["Offers.Col.Pricing"]</th><th>@L["Offers.Col.Price"]</th><th>@L["Offers.Col.Priority"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
         </thead>
         <tbody>
         @foreach (var offer in _offers)
         {
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:.4rem;"><code>@Short(offer.ProductId)</code></td>
+                <td>@offer.ProductTitle</td>
                 <td><code>@(offer.VariantId is null ? "—" : Short(offer.VariantId.Value))</code></td>
                 <td><code>@Short(offer.SupplierId)</code></td>
                 <td>@offer.SupplyCategory / @offer.FulfilmentType</td>
@@ -44,8 +46,18 @@
     </table>
     @if (_offers.Count == 0) { <p style="color:#9ca3af;">@L["Offers.Empty"]</p> }
 
-    <section style="margin-top:1.5rem; border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:900px; background:#fff;">
-        <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? L["Offers.New"] : L["Offers.EditHeading"])</h2>
+    @if (_showForm)
+    {
+    <div style="position:fixed; inset:0; background:rgba(17,24,39,.55); display:flex; align-items:flex-start; justify-content:center; padding:2rem 1rem; z-index:1000; overflow:auto;" @onclick="CloseForm">
+    <section @onclick:stopPropagation="true" style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem 1.25rem; width:100%; max-width:900px; max-height:90vh; overflow:auto; background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? L["Offers.New"] : L["Offers.EditHeading"])</h2>
+            <button @onclick="CloseForm" title="@L["Common.Close.Tip"]" style="border:0; background:none; font-size:1.3rem; line-height:1; cursor:pointer; color:#6b7280;">✕</button>
+        </div>
+        @if (_editingId is not null || !string.IsNullOrWhiteSpace(_form.ProductTitle))
+        {
+            <p style="margin:.2rem 0 .8rem; color:#374151;"><strong>@L["Offers.Field.Title"]:</strong> @(string.IsNullOrWhiteSpace(_form.ProductTitle) ? "—" : _form.ProductTitle)</p>
+        }
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
             <label>@L["Offers.Field.ProductId"] <input @bind="_form.ProductId" disabled="@(_editingId is not null)" title="@L["Offers.Field.ProductId.Tip"]" style="width:100%;" /></label>
             <label>@L["Offers.Field.VariantId"] <input @bind="_form.VariantId" disabled="@(_editingId is not null)" title="@L["Offers.Field.VariantId.Tip"]" style="width:100%;" /></label>
@@ -84,8 +96,10 @@
             <button @onclick="() => _form.Tiers.Add(new())" title="@L["Offers.Tier.Add.Tip"]">@L["Offers.Tier.Add"]</button>
         </fieldset>
 
-        <div style="margin-top:.8rem; display:flex; gap:.5rem;"><button @onclick="Save" title="@L["Offers.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Offers.Save"]</button><button @onclick="ResetForm" title="@L["Common.Clear.Tip"]">@L["Common.Clear"]</button></div>
+        <div style="margin-top:.8rem; display:flex; gap:.5rem;"><button @onclick="Save" title="@L["Offers.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Offers.Save"]</button><button @onclick="ResetForm" title="@L["Common.Clear.Tip"]">@L["Common.Clear"]</button><button @onclick="CloseForm" title="@L["Common.Cancel.Tip"]">@L["Common.Cancel"]</button></div>
     </section>
+    </div>
+    }
 }
 
 @code {
@@ -96,6 +110,7 @@
     private string? _status;
     private string? _error;
     private Guid? _editingId;
+    private bool _showForm;
     private readonly OfferForm _form = new();
 
     protected override Task OnInitializedAsync() => LoadAsync();
@@ -125,13 +140,27 @@
             ? new { tenantId = tenant, productId = product, variantId = variant, supplierId = supplier, supplyCategory = _form.SupplyCategory, fulfilmentType = _form.FulfilmentType, priceMinor = _form.PriceMinor, currency = _form.Currency, priority = _form.Priority, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers }
             : new { priceMinor = _form.PriceMinor, priority = _form.Priority, active = _form.Active, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers };
         var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
-        if (response.IsSuccessStatusCode) { ResetForm(); await LoadAsync(); _status = L["Offers.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+        if (response.IsSuccessStatusCode) { ResetForm(); _showForm = false; await LoadAsync(); _status = L["Offers.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private void NewOffer()
+    {
+        ResetForm();
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        ResetForm();
+        _showForm = false;
     }
 
     private void Edit(OfferDto offer)
     {
         _editingId = offer.Id;
+        _showForm = true;
+        _form.ProductTitle = offer.ProductTitle;
         _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString();
         _form.SupplyCategory = SupplyCategoryValue(offer.SupplyCategory); _form.FulfilmentType = FulfilmentTypeValue(offer.FulfilmentType); _form.PricingModel = PricingModelValue(offer.PricingModel); _form.BillingPeriod = BillingPeriodValue(offer.BillingPeriod);
         _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active";
@@ -140,7 +169,7 @@
 
     private void ResetForm()
     {
-        _editingId = null; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.Tiers.Clear();
+        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.Tiers.Clear();
     }
 
     private static int SupplyCategoryValue(string value) => value switch { "Physical" => 1, "Digital" => 2, "Service" => 3, _ => 1 };
@@ -150,8 +179,8 @@
     private static string Short(Guid id) => id.ToString()[..8];
     private string TierSummary(OfferDto offer) => offer.Tiers.Count == 0 ? string.Empty : L["Offers.Tier.Summary", offer.Tiers.Count];
 
-    private sealed class OfferForm { public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public List<TierForm> Tiers { get; } = []; }
+    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public List<TierForm> Tiers { get; } = []; }
     private sealed class TierForm { public int FromQuantity { get; set; } = 1; public long UnitPriceMinor { get; set; } }
     private record PriceTierDto(int FromQuantity, long UnitPriceMinor);
-    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers);
+    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, string ProductTitle = "");
 }
