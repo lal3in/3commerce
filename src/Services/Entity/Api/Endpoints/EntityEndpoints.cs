@@ -88,11 +88,22 @@ public static class EntityEndpoints
         EntityDbContext db,
         CancellationToken cancellationToken)
     {
-        var records = await db.Entities.AsNoTracking()
+        var entities = await db.Entities.AsNoTracking()
             .Where(e => e.TenantId == tenantId && e.Status != EntityRecordStatus.Archived)
             .OrderBy(e => e.DisplayName)
-            .Select(e => new EntitySummaryResponse(e.Id, e.TenantId, e.Type, e.LegalName, e.TradingName, e.DisplayName, e.Status, e.CreatedAt, e.UpdatedAt))
+            .Select(e => new { e.Id, e.TenantId, e.Type, e.LegalName, e.TradingName, e.DisplayName, e.Status, e.CreatedAt, e.UpdatedAt })
             .ToListAsync(cancellationToken);
+
+        // A supplier is an entity that has started supplier onboarding; expose its onboarding state so the
+        // admin Suppliers page can filter to suppliers and show the approval status (null = not a supplier).
+        var ids = entities.Select(e => e.Id).ToList();
+        var onboardingStates = await db.SupplierOnboardings.AsNoTracking()
+            .Where(s => ids.Contains(s.EntityId))
+            .ToDictionaryAsync(s => s.EntityId, s => s.State, cancellationToken);
+
+        var records = entities.Select(e => new EntitySummaryResponse(
+            e.Id, e.TenantId, e.Type, e.LegalName, e.TradingName, e.DisplayName, e.Status, e.CreatedAt, e.UpdatedAt,
+            onboardingStates.TryGetValue(e.Id, out var state) ? state : null)).ToList();
 
         return TypedResults.Ok(records);
     }
@@ -694,7 +705,9 @@ public sealed record EntitySummaryResponse(
     string DisplayName,
     EntityRecordStatus Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    // Supplier onboarding state when this entity is a supplier; null when it has never been onboarded.
+    SupplierOnboardingState? OnboardingState = null);
 
 public sealed record AddIdentifierRequest(
     [property: Required] EntityIdentifierType Type,

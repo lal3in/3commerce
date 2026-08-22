@@ -83,6 +83,12 @@
             }
         </div>
 
+        @* Supplier cost is read-only here — it is edited only on the Suppliers page. *@
+        @if (_editingId is not null)
+        {
+            <p style="margin:.6rem 0 0; color:#374151;" title="@L["Offers.Field.SupplierCost.Tip"]"><strong>@L["Offers.Field.SupplierCost"]:</strong> @_form.SupplierCostMinor @_form.Currency</p>
+        }
+
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
             <legend>@L["Offers.Tiers"]</legend>
             @foreach (var tier in _form.Tiers)
@@ -163,13 +169,13 @@
         _form.ProductTitle = offer.ProductTitle;
         _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString();
         _form.SupplyCategory = SupplyCategoryValue(offer.SupplyCategory); _form.FulfilmentType = FulfilmentTypeValue(offer.FulfilmentType); _form.PricingModel = PricingModelValue(offer.PricingModel); _form.BillingPeriod = BillingPeriodValue(offer.BillingPeriod);
-        _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active";
+        _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active"; _form.SupplierCostMinor = offer.SupplierCostMinor;
         _form.Tiers.Clear(); foreach (var tier in offer.Tiers) _form.Tiers.Add(new TierForm { FromQuantity = tier.FromQuantity, UnitPriceMinor = tier.UnitPriceMinor });
     }
 
     private void ResetForm()
     {
-        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.Tiers.Clear();
+        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.SupplierCostMinor = 0; _form.Tiers.Clear();
     }
 
     private static int SupplyCategoryValue(string value) => value switch { "Physical" => 1, "Digital" => 2, "Service" => 3, _ => 1 };
@@ -179,8 +185,8 @@
     private static string Short(Guid id) => id.ToString()[..8];
     private string TierSummary(OfferDto offer) => offer.Tiers.Count == 0 ? string.Empty : L["Offers.Tier.Summary", offer.Tiers.Count];
 
-    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public List<TierForm> Tiers { get; } = []; }
+    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public long SupplierCostMinor { get; set; } public List<TierForm> Tiers { get; } = []; }
     private sealed class TierForm { public int FromQuantity { get; set; } = 1; public long UnitPriceMinor { get; set; } }
     private record PriceTierDto(int FromQuantity, long UnitPriceMinor);
-    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, string ProductTitle = "");
+    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, long SupplierCostMinor = 0, string ProductTitle = "");
 }
