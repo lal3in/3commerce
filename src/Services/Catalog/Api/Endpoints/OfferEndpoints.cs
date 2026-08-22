@@ -40,7 +40,9 @@ public static class OfferEndpoints
         }
 
         var offers = await query.OrderBy(o => o.Priority).ToListAsync(ct);
-        return TypedResults.Ok(offers.Select(ToDto).ToList());
+        var ids = offers.Select(o => o.ProductId).Distinct().ToList();
+        var titles = await db.Products.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Title, ct);
+        return TypedResults.Ok(offers.Select(o => ToDto(o, titles.GetValueOrDefault(o.ProductId, string.Empty))).ToList());
     }
 
     private static async Task<Results<Created<OfferDto>, BadRequest<string>>> Create(
@@ -152,11 +154,11 @@ public static class OfferEndpoints
             ? tenantId
             : new Guid("00000000-0000-0000-0000-000000000001");
 
-    private static OfferDto ToDto(Offer o) =>
+    private static OfferDto ToDto(Offer o, string productTitle = "") =>
         new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory.ToString(),
             o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.BillingPeriod.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString(),
             o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList(),
-            o.SupplierCostMinor);
+            o.SupplierCostMinor, productTitle);
 }
 
 public record CreateOfferRequest(
@@ -183,4 +185,4 @@ public record PriceTierDto(int FromQuantity, long UnitPriceMinor);
 public record OfferDto(
     Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory,
     string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status,
-    List<PriceTierDto> Tiers, long SupplierCostMinor);
+    List<PriceTierDto> Tiers, long SupplierCostMinor, string ProductTitle);
