@@ -11,6 +11,14 @@ public enum SupplierChangeRequestType
 
     /// <summary>Change supplier bank/payout details (sensitive — Payments owns the actual instrument).</summary>
     BankAccount = 3,
+
+    /// <summary>
+    /// Change the supplier's own entity details (legal/trading name). Raised from the portal
+    /// "My details" page once the supplier is Active and can no longer edit directly (the
+    /// approval lock). <see cref="Detail"/> carries the proposed values as JSON; the Entity
+    /// service applies them when the request is approved.
+    /// </summary>
+    EntityDetails = 4,
 }
 
 public enum SupplierChangeRequestStatus

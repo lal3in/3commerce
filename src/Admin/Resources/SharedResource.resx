@@ -672,6 +672,7 @@
   <data name="Entities.ChangeType.UserAccess" xml:space="preserve"><value>User access</value></data>
   <data name="Entities.ChangeType.Contact" xml:space="preserve"><value>Contact</value></data>
   <data name="Entities.ChangeType.BankAccount" xml:space="preserve"><value>Bank account</value></data>
+  <data name="Entities.ChangeType.EntityDetails" xml:space="preserve"><value>Legal / trading name</value></data>
   <data name="Entities.ChangeType.Other" xml:space="preserve"><value>Type {0}</value></data>
   <data name="Entities.Error.TenantGuid" xml:space="preserve"><value>Tenant ID must be a GUID.</value></data>
   <data name="Entities.Error.SuspendReason" xml:space="preserve"><value>Suspend reason must be at least 8 characters.</value></data>

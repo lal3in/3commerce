@@ -1,0 +1,279 @@
+@page "/details"
+@attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
+@inject SupplierGatewayClient Gateway
+@rendermode InteractiveServer
+
+<PageTitle>@L["Details_Title"] — @L["App_Title"]</PageTitle>
+
+<h1>@L["Details_Title"]</h1>
+<p>@L["Details_Intro"]</p>
+
+@if (loading)
+{
+    <p style="color:#6b7280;">@L["Details_Loading"]</p>
+}
+else if (detail is null)
+{
+    <p style="color:#b45309;">@L["Details_NotFound"]</p>
+}
+else
+{
+    <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;">
+            <h2 style="margin:0;">@detail.DisplayName</h2>
+            <span style="font-size:.85rem;color:#6b7280;">@L["Details_State"]:
+                <strong style="color:@(detail.CanEditDirectly ? "#b45309" : "#047857");">@detail.OnboardingState</strong>
+            </span>
+        </div>
+
+        @if (detail.CanEditDirectly)
+        {
+            <p style="color:#6b7280;font-size:.85rem;margin:.4rem 0 0;">@L["Details_EditableHint"]</p>
+        }
+        else
+        {
+            <p style="color:#6b7280;font-size:.85rem;margin:.4rem 0 0;">@L["Details_LockedHint"]</p>
+        }
+    </section>
+
+    @if (error is not null)
+    {
+        <p style="color:#b91c1c;">@error</p>
+    }
+    @if (info is not null)
+    {
+        <p style="color:#047857;">@info</p>
+    }
+
+    @if (detail.CanEditDirectly)
+    {
+        @* Not yet approved: the supplier edits its own legal/trading name and saves via the Entity update path. *@
+        <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+            <h3 style="margin-top:0;">@L["Details_EditHeading"]</h3>
+            <label title="@L["Details_LegalName_Tooltip"]">
+                @L["Details_LegalName"]<br />
+                <input @bind="editLegalName" title="@L["Details_LegalName_Tooltip"]" style="width:100%;padding:.4rem;" />
+            </label><br /><br />
+            <label title="@L["Details_TradingName_Tooltip"]">
+                @L["Details_TradingName"]<br />
+                <input @bind="editTradingName" title="@L["Details_TradingName_Tooltip"]" style="width:100%;padding:.4rem;" />
+            </label><br /><br />
+            <button @onclick="SaveAsync" disabled="@saving" title="@L["Details_Save_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">
+                @(saving ? L["Details_Saving"] : L["Details_Save"])
+            </button>
+        </section>
+    }
+    else
+    {
+        @* Approved: fields are read-only and any change goes through a maker-checker change request. *@
+        <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+            <h3 style="margin-top:0;">@L["Details_ReadOnlyHeading"]</h3>
+            <p style="margin:.2rem 0;"><span style="color:#6b7280;">@L["Details_LegalName"]:</span> <strong>@detail.LegalName</strong></p>
+            <p style="margin:.2rem 0;"><span style="color:#6b7280;">@L["Details_TradingName"]:</span> <strong>@(string.IsNullOrWhiteSpace(detail.TradingName) ? "—" : detail.TradingName)</strong></p>
+        </section>
+
+        <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+            <h3 style="margin-top:0;">@L["Details_RequestHeading"]</h3>
+            <p style="color:#6b7280;font-size:.85rem;margin-top:0;">@L["Details_RequestIntro"]</p>
+            <label title="@L["Details_LegalName_Tooltip"]">
+                @L["Details_ProposedLegalName"]<br />
+                <input @bind="editLegalName" title="@L["Details_LegalName_Tooltip"]" style="width:100%;padding:.4rem;" />
+            </label><br /><br />
+            <label title="@L["Details_TradingName_Tooltip"]">
+                @L["Details_ProposedTradingName"]<br />
+                <input @bind="editTradingName" title="@L["Details_TradingName_Tooltip"]" style="width:100%;padding:.4rem;" />
+            </label><br /><br />
+            <label title="@L["Details_RequestSummary_Tooltip"]">
+                @L["Details_RequestSummary"]<br />
+                <textarea @bind="requestSummary" title="@L["Details_RequestSummary_Tooltip"]" style="width:100%;padding:.4rem;min-height:5rem;"></textarea>
+            </label><br /><br />
+            <button @onclick="RequestChangeAsync" disabled="@saving" title="@L["Details_RequestSubmit_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.5rem 1rem;border-radius:4px;">
+                @(saving ? L["Details_Saving"] : L["Details_RequestSubmit"])
+            </button>
+        </section>
+    }
+
+    <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+        <h3 style="margin-top:0;">@L["Details_Contacts"]</h3>
+        @if (detail.Contacts.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Details_None"]</p>
+        }
+        else
+        {
+            <ul style="margin:0;">
+                @foreach (var c in detail.Contacts)
+                {
+                    <li>@c.Value</li>
+                }
+            </ul>
+        }
+
+        <h3>@L["Details_Addresses"]</h3>
+        @if (detail.Addresses.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Details_None"]</p>
+        }
+        else
+        {
+            <ul style="margin:0;">
+                @foreach (var a in detail.Addresses)
+                {
+                    <li>@a.Line1, @a.City @a.Postcode @a.CountryCode</li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+        <h3 style="margin-top:0;">@L["Details_MyRequests"]</h3>
+        @if (requests.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Details_NoRequests"]</p>
+        }
+        else
+        {
+            @foreach (var r in requests)
+            {
+                <div style="border:1px solid #e5e7eb;border-radius:8px;padding:.6rem;margin-top:.5rem;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <strong>@r.Summary</strong>
+                        <span style="font-size:.8rem;color:@StatusColor(r.Status);">@StatusName(r.Status)</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(r.DecisionReason))
+                    {
+                        <div style="font-size:.8rem;color:#6b7280;">@r.DecisionReason</div>
+                    }
+                </div>
+            }
+        }
+    </section>
+}
+
+@code {
+    private const int EntityDetailsType = 4; // SupplierChangeRequestType.EntityDetails
+
+    private SupplierDetail? detail;
+    private List<ChangeRequest> requests = [];
+    private bool loading = true;
+    private bool saving;
+    private string? error;
+    private string? info;
+    private string editLegalName = string.Empty;
+    private string editTradingName = string.Empty;
+    private string requestSummary = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        detail = await Gateway.GetAsync<SupplierDetail>("/api/entity/entities/suppliers/me/detail");
+        if (detail is not null)
+        {
+            editLegalName = detail.LegalName;
+            editTradingName = detail.TradingName ?? string.Empty;
+            requests = await Gateway.GetAsync<List<ChangeRequest>>("/api/entity/entities/suppliers/me/change-requests") ?? [];
+        }
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        error = info = null;
+        if (string.IsNullOrWhiteSpace(editLegalName))
+        {
+            error = L["Details_Validation_LegalName"];
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var response = await Gateway.PutAsync("/api/entity/entities/suppliers/me",
+                new { legalName = editLegalName.Trim(), tradingName = string.IsNullOrWhiteSpace(editTradingName) ? null : editTradingName.Trim() });
+            if (response.IsSuccessStatusCode)
+            {
+                info = L["Details_Saved"];
+                await LoadAsync();
+            }
+            else
+            {
+                error = L["Details_SaveFailed"];
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task RequestChangeAsync()
+    {
+        error = info = null;
+        if (string.IsNullOrWhiteSpace(editLegalName))
+        {
+            error = L["Details_Validation_LegalName"];
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(requestSummary))
+        {
+            error = L["Details_Validation_Summary"];
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            // The proposed values ride in Detail as JSON so an approved request actually updates the
+            // supplier's names; the summary is the human-readable reason the admin reviews.
+            var proposed = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                legalName = editLegalName.Trim(),
+                tradingName = string.IsNullOrWhiteSpace(editTradingName) ? null : editTradingName.Trim(),
+            });
+            var response = await Gateway.PostAsync("/api/entity/entities/suppliers/me/change-requests",
+                new { type = EntityDetailsType, summary = requestSummary.Trim(), detail = proposed });
+            if (response.IsSuccessStatusCode)
+            {
+                info = L["Details_RequestSubmitted"];
+                requestSummary = string.Empty;
+                await LoadAsync();
+            }
+            else
+            {
+                error = L["Details_RequestFailed"];
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private string StatusName(int status) => status switch
+    {
+        1 => L["Details_Status_Pending"],
+        2 => L["Details_Status_Approved"],
+        3 => L["Details_Status_Rejected"],
+        _ => status.ToString(),
+    };
+
+    private static string StatusColor(int status) => status switch
+    {
+        2 => "#047857",
+        3 => "#b91c1c",
+        _ => "#b45309",
+    };
+
+    private sealed record SupplierDetail(
+        Guid EntityId, string LegalName, string? TradingName, string DisplayName, string OnboardingState,
+        bool CanEditDirectly, IReadOnlyList<IdentifierDto> Identifiers, IReadOnlyList<ContactDto> Contacts, IReadOnlyList<AddressDto> Addresses);
+    private sealed record IdentifierDto(Guid Id, int Type, string Value, int VerificationStatus);
+    private sealed record ContactDto(Guid Id, int Purpose, int Kind, string Value);
+    private sealed record AddressDto(Guid Id, int Purpose, string Line1, string? Line2, string City, string? Region, string Postcode, string CountryCode);
+    private sealed record ChangeRequest(Guid Id, int Type, string Summary, string? Detail, int Status, string? DecisionReason);
+}
