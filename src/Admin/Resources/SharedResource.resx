@@ -344,7 +344,21 @@
   <data name="Orders.Intro" xml:space="preserve"><value>Cancel an unpaid order (Pending/Awaiting payment), or refund a confirmed (paid) one. Refunds reverse the ledger; the order's own status stays Confirmed.</value></data>
   <data name="Orders.Empty" xml:space="preserve"><value>No orders yet.</value></data>
   <data name="Orders.Col.Order" xml:space="preserve"><value>Order</value></data>
+  <data name="Orders.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
   <data name="Orders.Col.Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Orders.Filter.From" xml:space="preserve"><value>Start date</value></data>
+  <data name="Orders.Filter.From.Tip" xml:space="preserve"><value>Only orders placed on or after this date (inclusive).</value></data>
+  <data name="Orders.Filter.To" xml:space="preserve"><value>End date</value></data>
+  <data name="Orders.Filter.To.Tip" xml:space="preserve"><value>Only orders placed on or before this date (inclusive).</value></data>
+  <data name="Orders.Filter.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Orders.Filter.Storefront.Tip" xml:space="preserve"><value>Only orders placed on this storefront.</value></data>
+  <data name="Orders.Filter.AllStorefronts" xml:space="preserve"><value>All storefronts</value></data>
+  <data name="Orders.Filter.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Orders.Filter.Status.Tip" xml:space="preserve"><value>Only orders in this status.</value></data>
+  <data name="Orders.Filter.AllStatuses" xml:space="preserve"><value>All statuses</value></data>
+  <data name="Orders.Filter.Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Orders.Filter.Clear" xml:space="preserve"><value>Clear</value></data>
+  <data name="Orders.Filter.Clear.Tip" xml:space="preserve"><value>Reset all filters and reload.</value></data>
   <data name="Orders.Col.Placed" xml:space="preserve"><value>Placed</value></data>
   <data name="Orders.Details.Tip" xml:space="preserve"><value>Show/hide full order details</value></data>
   <data name="Orders.Details.Unavailable" xml:space="preserve"><value>Order details are unavailable.</value></data>
