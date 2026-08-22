@@ -109,12 +109,28 @@ else
                                 </span>
                             }
                             <button @onclick="() => v.Prices.Add(new CurrencyPrice())" title="@L["Catalog.Prices.Add.Tip"]" style="margin-left:.5rem;">@L["Catalog.Prices.Add"]</button>
+                            @{ var vCosts = VariantCosts(v.Id); }
+                            @if (vCosts.Count > 0)
+                            {
+                                <span style="display:inline-block; margin-left:.75rem; font-size:.8rem; color:#374151;" title="@L["Catalog.SupplierCost.Tip"]">
+                                    <strong>@L["Catalog.SupplierCost"]:</strong>
+                                    @string.Join(", ", vCosts.Select(c => $"{c.SupplierCostMinor} {c.Currency}"))
+                                </span>
+                            }
                         </td>
                     </tr>
                 }
                 </tbody>
             </table>
             <button @onclick="AddVariant" title="@L["Catalog.Variant.Add.Tip"]" style="margin-top:.4rem;">@L["Catalog.Variant.Add"]</button>
+            @{ var productCosts = _productOffers?.Where(o => o.VariantId is null).ToList() ?? []; }
+            @if (productCosts.Count > 0)
+            {
+                <p style="margin-top:.5rem; font-size:.8rem; color:#374151;" title="@L["Catalog.SupplierCost.Tip"]">
+                    <strong>@L["Catalog.SupplierCost.Product"]:</strong>
+                    @string.Join(", ", productCosts.Select(c => $"{c.SupplierCostMinor} {c.Currency}"))
+                </p>
+            }
         </fieldset>
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
@@ -213,6 +229,11 @@ else
     private bool _isNew;
     private readonly List<KeyValueRow> _attributes = [];
     private List<ProductStorefrontDto>? _productStorefronts;
+    private List<OfferCostDto>? _productOffers;
+
+    // Supplier costs for the offers on the product being edited that reference this variant (read-only).
+    private List<OfferCostDto> VariantCosts(Guid? variantId) =>
+        variantId is null || _productOffers is null ? [] : _productOffers.Where(o => o.VariantId == variantId).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,6 +281,11 @@ else
 
         _isNew = false;
         _editing = dto;
+        _productOffers = null;
+        // Supplier costs for this product's offers (read-only here — edited only on the Suppliers page),
+        // shown against the matching variant row. Product-level offers (null VariantId) show separately.
+        try { _productOffers = await Gateway.GetListAsync<OfferCostDto>($"/api/catalog/admin/offers?productId={id}"); }
+        catch { _productOffers = []; }
         _productStorefronts = null;
         // Which storefronts this product is on, and whether it's priced in each store's currency.
         try { _productStorefronts = await Gateway.GetListAsync<ProductStorefrontDto>($"/api/catalog/admin/products/{id}/storefronts"); }
@@ -321,6 +347,7 @@ else
     public record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
     public record CategoryDto(Guid Id, string Slug, string Name, Guid? ParentId);
     public sealed record ProductStorefrontDto(Guid StorefrontId, string StorefrontName, string Currency, string StorefrontState, string PublicationState, bool CurrencyReady);
+    public sealed record OfferCostDto(Guid Id, Guid ProductId, Guid? VariantId, long SupplierCostMinor, string Currency);
 
     public sealed class ProductEditor
     {

@@ -1,0 +1,285 @@
+@page "/suppliers"
+@attribute [Authorize(Roles = "admin")]
+@using System.Net.Http.Json
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>@L["Suppliers.Title"]</h1>
+<p style="color:#6b7280;">@L["Suppliers.Intro"]</p>
+
+<div style="display:flex; gap:.5rem; align-items:center; margin-bottom:1rem;">
+    <label style="font-size:.85rem;">@L["Suppliers.Tenant"] <input @bind="_tenantId" style="width:24rem; padding:.3rem; margin-left:.3rem;" title="@L["Suppliers.Tenant.Tip"]" /></label>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.35rem .8rem;">@L["Common.Load"]</button>
+</div>
+
+@if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
+@if (_info is not null) { <p style="color:#15803d;">@_info</p> }
+
+@if (_selected is not null)
+{
+    <div style="display:flex; align-items:baseline; gap:1rem;">
+        <h2 style="margin:0;">@_selected.DisplayName</h2>
+        <button @onclick="CloseDetail" title="@L["Common.Back.Tip"]">@L["Common.Back"]</button>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:1rem; margin:.6rem 0;">
+        <span style="font-size:.9rem;">@L["Suppliers.Status"]:
+            <strong style="color:@(IsActive(_selected) ? "#047857" : "#b45309");">@StateName(_selected.OnboardingState)</strong>
+        </span>
+        <button @onclick="Approve" disabled="@(IsActive(_selected) || _saving)" title="@L["Suppliers.Approve.Tip"]"
+                style="padding:.35rem .9rem; background:@(IsActive(_selected) ? "#9ca3af" : "#047857"); color:#fff; border:0; border-radius:5px;">
+            @L["Suppliers.Approve"]
+        </button>
+    </div>
+
+    <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; max-width:34rem;">
+        <h3 style="margin-top:0;">@L["Suppliers.Details.Heading"]</h3>
+        <div style="display:flex; flex-direction:column; gap:.5rem;">
+            <label>@L["Suppliers.Field.LegalName"] <input @bind="_editLegalName" style="width:100%; padding:.4rem;" title="@L["Suppliers.Field.LegalName.Tip"]" /></label>
+            <label>@L["Suppliers.Field.TradingName"] <input @bind="_editTradingName" style="width:100%; padding:.4rem;" title="@L["Suppliers.Field.TradingName.Tip"]" /></label>
+            <label>@L["Common.Type"] <input value="@TypeName(_selected.Type)" disabled style="width:100%; padding:.4rem; background:#f9fafb;" /></label>
+            <div>
+                <button @onclick="SaveDetails" disabled="@_saving" title="@L["Common.Save.Tip"]" style="padding:.4rem 1rem; background:#111827; color:#fff; border:0; border-radius:5px;">@(_saving ? L["Common.Saving"] : L["Common.Save"])</button>
+            </div>
+        </div>
+    </section>
+
+    <section style="margin-top:1.2rem;">
+        <h3>@L["Suppliers.Offers.Heading"]</h3>
+        <p style="color:#6b7280; font-size:.85rem;">@L["Suppliers.Offers.Intro"]</p>
+        @if (_offers is null) { <p style="color:#9ca3af;">@L["Common.Loading"]</p> }
+        else if (_offers.Count == 0) { <p style="color:#9ca3af;">@L["Suppliers.Offers.Empty"]</p> }
+        else
+        {
+            <table style="border-collapse:collapse; width:100%; font-size:.9rem; max-width:60rem;">
+                <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                    <th style="padding:.4rem;">@L["Suppliers.Offers.Col.Product"]</th>
+                    <th>@L["Suppliers.Offers.Col.Sku"]</th>
+                    <th>@L["Suppliers.Offers.Col.Currency"]</th>
+                    <th>@L["Suppliers.Offers.Col.Cost"]</th>
+                    <th>@L["Common.Actions"]</th>
+                </tr></thead>
+                <tbody>
+                @foreach (var row in _offers)
+                {
+                    <tr style="border-bottom:1px solid #f3f4f6;">
+                        <td style="padding:.4rem;">@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)</td>
+                        <td><code>@(string.IsNullOrWhiteSpace(row.VariantSku) ? "—" : row.VariantSku)</code></td>
+                        <td>@row.Currency</td>
+                        <td><input type="number" @bind="row.SupplierCostMinor" title="@L["Suppliers.Offers.Col.Cost.Tip"]" style="width:9rem; padding:.25rem;" /></td>
+                        <td><button @onclick="() => SaveCost(row)" disabled="@_saving" title="@L["Suppliers.Offers.Save.Tip"]" style="padding:.25rem .7rem;">@L["Common.Save"]</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+}
+else
+{
+    <h2>@L["Suppliers.List"]</h2>
+    @if (_suppliers.Count == 0) { <p style="color:#9ca3af;">@L["Suppliers.Empty"]</p> }
+    else
+    {
+        <table style="border-collapse:collapse; width:100%; font-size:.9rem; max-width:50rem;">
+            <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
+                <th style="padding:.4rem;">@L["Common.Name"]</th>
+                <th>@L["Common.Type"]</th>
+                <th>@L["Suppliers.Status"]</th>
+                <th>@L["Common.Actions"]</th>
+            </tr></thead>
+            <tbody>
+            @foreach (var s in _suppliers)
+            {
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:.4rem;">@s.DisplayName</td>
+                    <td>@TypeName(s.Type)</td>
+                    <td><strong style="color:@(IsActive(s) ? "#047857" : "#b45309");">@StateName(s.OnboardingState)</strong></td>
+                    <td><button @onclick="() => OpenDetail(s)" title="@L["Suppliers.Manage.Tip"]" style="padding:.25rem .7rem;">@L["Suppliers.Manage"]</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private const int ActiveState = 4; // SupplierOnboardingState.Active
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string? _error;
+    private string? _info;
+    private bool _saving;
+    private List<SupplierSummary> _suppliers = [];
+    private SupplierSummary? _selected;
+    private string _editLegalName = string.Empty;
+    private string _editTradingName = string.Empty;
+    private List<OfferRow>? _offers;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _info = null;
+        if (!Guid.TryParse(_tenantId, out _))
+        {
+            _error = L["Suppliers.Error.TenantGuid"];
+            return;
+        }
+
+        // A supplier is an entity that has started onboarding (OnboardingState is non-null); other
+        // entities in the tenant are hidden from this page.
+        var entities = await Gateway.GetListAsync<SupplierSummary>($"/api/entity/entities?tenantId={_tenantId}");
+        _suppliers = entities.Where(e => e.OnboardingState is not null).ToList();
+        _selected = null;
+        _offers = null;
+    }
+
+    private async Task OpenDetail(SupplierSummary supplier)
+    {
+        _error = _info = null;
+        _selected = supplier;
+        _editLegalName = supplier.LegalName;
+        _editTradingName = supplier.TradingName ?? string.Empty;
+        await LoadOffersAsync();
+    }
+
+    private void CloseDetail()
+    {
+        _selected = null;
+        _offers = null;
+    }
+
+    private async Task LoadOffersAsync()
+    {
+        if (_selected is null) { return; }
+        _offers = await Gateway.GetListAsync<OfferRow>($"/api/catalog/admin/offers?tenantId={_tenantId}&supplierId={_selected.Id}");
+    }
+
+    private async Task SaveDetails()
+    {
+        if (_selected is null) { return; }
+        _error = _info = null;
+        _saving = true;
+        try
+        {
+            var response = await Gateway.PutAsync($"/api/entity/entities/{_selected.Id}",
+                new { legalName = _editLegalName, tradingName = string.IsNullOrWhiteSpace(_editTradingName) ? null : _editTradingName });
+            if (response.IsSuccessStatusCode)
+            {
+                _info = L["Suppliers.Info.Updated"];
+                await ReloadKeepingSelection();
+            }
+            else
+            {
+                _error = L["Suppliers.Error.UpdateFailed", await GatewayError.ReadAsync(response)];
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task Approve()
+    {
+        if (_selected is null) { return; }
+        _error = _info = null;
+        _saving = true;
+        try
+        {
+            var response = await Gateway.PostAsync($"/api/entity/entities/{_selected.Id}/suppliers/activate");
+            if (response.IsSuccessStatusCode)
+            {
+                _info = L["Suppliers.Info.Approved"];
+                await ReloadKeepingSelection();
+            }
+            else
+            {
+                _error = L["Suppliers.Error.ApproveFailed", await GatewayError.ReadAsync(response)];
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SaveCost(OfferRow row)
+    {
+        _error = _info = null;
+        _saving = true;
+        try
+        {
+            var response = await Gateway.PutAsync($"/api/catalog/admin/offers/{row.Id}", new { supplierCostMinor = row.SupplierCostMinor });
+            if (response.IsSuccessStatusCode)
+            {
+                _info = L["Suppliers.Info.CostSaved", string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle];
+                await LoadOffersAsync();
+            }
+            else
+            {
+                _error = L["Suppliers.Error.CostFailed", await GatewayError.ReadAsync(response)];
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // Refresh the supplier list (to pick up a changed name/status) and keep the same supplier open.
+    private async Task ReloadKeepingSelection()
+    {
+        var id = _selected!.Id;
+        var entities = await Gateway.GetListAsync<SupplierSummary>($"/api/entity/entities?tenantId={_tenantId}");
+        _suppliers = entities.Where(e => e.OnboardingState is not null).ToList();
+        _selected = _suppliers.FirstOrDefault(s => s.Id == id);
+        if (_selected is not null)
+        {
+            _editLegalName = _selected.LegalName;
+            _editTradingName = _selected.TradingName ?? string.Empty;
+        }
+        else
+        {
+            _offers = null;
+        }
+    }
+
+    private static bool IsActive(SupplierSummary s) => s.OnboardingState == ActiveState;
+
+    private string StateName(int? state) => state switch
+    {
+        1 => L["Suppliers.State.Draft"],
+        2 => L["Suppliers.State.PendingVerification"],
+        3 => L["Suppliers.State.PendingApproval"],
+        4 => L["Suppliers.State.Active"],
+        5 => L["Suppliers.State.Suspended"],
+        6 => L["Suppliers.State.Archived"],
+        _ => L["Suppliers.State.None"],
+    };
+
+    private string TypeName(int t) => t switch
+    {
+        1 => L["Entities.Type.NaturalPerson"], 2 => L["Entities.Type.Company"], 3 => L["Entities.Type.Trust"],
+        4 => L["Entities.Type.Partnership"], 5 => L["Entities.Type.SoleTrader"], 6 => L["Entities.Type.GovernmentBody"],
+        7 => L["Entities.Type.NonProfit"], _ => L["Entities.Type.Other"],
+    };
+
+    private static string Short(Guid id) => id.ToString()[..8];
+
+    // Enums arrive numeric on the wire (platform invariant), so int? for the onboarding state.
+    private sealed record SupplierSummary(
+        Guid Id, Guid TenantId, int Type, string LegalName, string? TradingName, string DisplayName,
+        int Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int? OnboardingState);
+
+    private sealed class OfferRow
+    {
+        public Guid Id { get; set; }
+        public Guid ProductId { get; set; }
+        public Guid? VariantId { get; set; }
+        public string ProductTitle { get; set; } = string.Empty;
+        public string? VariantSku { get; set; }
+        public string Currency { get; set; } = string.Empty;
+        public long SupplierCostMinor { get; set; }
+    }
+}

@@ -129,6 +129,8 @@
   <data name="Nav.Users.Tip" xml:space="preserve"><value>The accounts that sign in to a tenant: reset passwords, change emails.</value></data>
   <data name="Nav.Entities" xml:space="preserve"><value>Entities &amp; suppliers</value></data>
   <data name="Nav.Entities.Tip" xml:space="preserve"><value>Party master data, supplier onboarding, and the maker-checker change-request queue.</value></data>
+  <data name="Nav.Suppliers" xml:space="preserve"><value>Suppliers</value></data>
+  <data name="Nav.Suppliers.Tip" xml:space="preserve"><value>Manage suppliers: details, approval, and the per-variant supplier cost of what they supply.</value></data>
   <data name="Nav.CommerceOps" xml:space="preserve"><value>Commerce ops</value></data>
   <data name="Nav.CommerceOps.Tip" xml:space="preserve"><value>Storefronts, domains, publication, tax regime and the policy surfaces around them.</value></data>
   <data name="Nav.PaymentAccounts" xml:space="preserve"><value>Payment accounts</value></data>
@@ -1758,4 +1760,49 @@
   <data name="Nav.Currencies.Tip" xml:space="preserve">
     <value>Manage supported currencies</value>
   </data>
+  <!-- ===== Suppliers ===== -->
+  <data name="Suppliers.Title" xml:space="preserve"><value>Suppliers</value></data>
+  <data name="Suppliers.Intro" xml:space="preserve"><value>Manage suppliers: edit their details, approve onboarding, and set the supplier cost of each product/variant they supply.</value></data>
+  <data name="Suppliers.Tenant" xml:space="preserve"><value>Tenant</value></data>
+  <data name="Suppliers.Tenant.Tip" xml:space="preserve"><value>The tenant (GUID) whose suppliers you are managing.</value></data>
+  <data name="Suppliers.List" xml:space="preserve"><value>Suppliers</value></data>
+  <data name="Suppliers.Empty" xml:space="preserve"><value>No suppliers found for this tenant. Onboard a supplier from the Entities page first.</value></data>
+  <data name="Suppliers.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Suppliers.Manage" xml:space="preserve"><value>Manage</value></data>
+  <data name="Suppliers.Manage.Tip" xml:space="preserve"><value>Open this supplier to edit its details, approve it, and set supplier costs.</value></data>
+  <data name="Suppliers.Approve" xml:space="preserve"><value>Approve</value></data>
+  <data name="Suppliers.Approve.Tip" xml:space="preserve"><value>Activate this supplier (approve its onboarding). Only available once it is pending approval.</value></data>
+  <data name="Suppliers.Details.Heading" xml:space="preserve"><value>Details</value></data>
+  <data name="Suppliers.Field.LegalName" xml:space="preserve"><value>Legal name</value></data>
+  <data name="Suppliers.Field.LegalName.Tip" xml:space="preserve"><value>The supplier's registered legal name.</value></data>
+  <data name="Suppliers.Field.TradingName" xml:space="preserve"><value>Trading name</value></data>
+  <data name="Suppliers.Field.TradingName.Tip" xml:space="preserve"><value>The name the supplier trades under, if different from the legal name.</value></data>
+  <data name="Suppliers.Offers.Heading" xml:space="preserve"><value>Supplied products &amp; variants</value></data>
+  <data name="Suppliers.Offers.Intro" xml:space="preserve"><value>The offers this supplier backs. Set the supplier cost (minor units) per variant — this is the only place it is edited.</value></data>
+  <data name="Suppliers.Offers.Empty" xml:space="preserve"><value>This supplier does not supply any products yet.</value></data>
+  <data name="Suppliers.Offers.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Suppliers.Offers.Col.Sku" xml:space="preserve"><value>Variant SKU</value></data>
+  <data name="Suppliers.Offers.Col.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Suppliers.Offers.Col.Cost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
+  <data name="Suppliers.Offers.Col.Cost.Tip" xml:space="preserve"><value>What this supplier charges for the variant, in minor units (e.g. cents).</value></data>
+  <data name="Suppliers.Offers.Save.Tip" xml:space="preserve"><value>Save the supplier cost for this line.</value></data>
+  <data name="Suppliers.State.Draft" xml:space="preserve"><value>Draft</value></data>
+  <data name="Suppliers.State.PendingVerification" xml:space="preserve"><value>Pending verification</value></data>
+  <data name="Suppliers.State.PendingApproval" xml:space="preserve"><value>Pending approval</value></data>
+  <data name="Suppliers.State.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Suppliers.State.Suspended" xml:space="preserve"><value>Suspended</value></data>
+  <data name="Suppliers.State.Archived" xml:space="preserve"><value>Archived</value></data>
+  <data name="Suppliers.State.None" xml:space="preserve"><value>Not onboarded</value></data>
+  <data name="Suppliers.Error.TenantGuid" xml:space="preserve"><value>Tenant must be a valid GUID.</value></data>
+  <data name="Suppliers.Info.Updated" xml:space="preserve"><value>Supplier details updated.</value></data>
+  <data name="Suppliers.Error.UpdateFailed" xml:space="preserve"><value>Could not update the supplier: {0}</value></data>
+  <data name="Suppliers.Info.Approved" xml:space="preserve"><value>Supplier approved and activated.</value></data>
+  <data name="Suppliers.Error.ApproveFailed" xml:space="preserve"><value>Could not approve the supplier: {0}</value></data>
+  <data name="Suppliers.Info.CostSaved" xml:space="preserve"><value>Supplier cost saved for '{0}'.</value></data>
+  <data name="Suppliers.Error.CostFailed" xml:space="preserve"><value>Could not save the supplier cost: {0}</value></data>
+  <data name="Offers.Field.SupplierCost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
+  <data name="Offers.Field.SupplierCost.Tip" xml:space="preserve"><value>What the supplier charges, in minor units. Edited only on the Suppliers page.</value></data>
+  <data name="Catalog.SupplierCost" xml:space="preserve"><value>Supplier cost</value></data>
+  <data name="Catalog.SupplierCost.Product" xml:space="preserve"><value>Supplier cost (product-level offer)</value></data>
+  <data name="Catalog.SupplierCost.Tip" xml:space="preserve"><value>Supplier cost from this product's offers, in minor units. Edited only on the Suppliers page.</value></data>
 </root>

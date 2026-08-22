@@ -30,7 +30,7 @@ public static class OfferEndpoints
     }
 
     private static async Task<Ok<List<OfferDto>>> List(
-        Guid? tenantId, Guid? productId, CatalogDbContext db, IConfiguration config, CancellationToken ct)
+        Guid? tenantId, Guid? productId, Guid? supplierId, CatalogDbContext db, IConfiguration config, CancellationToken ct)
     {
         var tid = tenantId ?? DefaultTenantId(config);
         var query = db.Offers.AsNoTracking().Where(o => o.TenantId == tid);
@@ -39,10 +39,22 @@ public static class OfferEndpoints
             query = query.Where(o => o.ProductId == pid);
         }
 
+        if (supplierId is { } sid)
+        {
+            query = query.Where(o => o.SupplierId == sid);
+        }
+
         var offers = await query.OrderBy(o => o.Priority).ToListAsync(ct);
         var ids = offers.Select(o => o.ProductId).Distinct().ToList();
         var titles = await db.Products.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Title, ct);
-        return TypedResults.Ok(offers.Select(o => ToDto(o, titles.GetValueOrDefault(o.ProductId, string.Empty))).ToList());
+        // Resolve variant SKUs for the referenced variants in one query, so the Suppliers page can label
+        // each supplied line by its variant SKU rather than a bare GUID.
+        var variantIds = offers.Where(o => o.VariantId is not null).Select(o => o.VariantId!.Value).Distinct().ToList();
+        var skus = await db.Variants.AsNoTracking().Where(v => variantIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id, v => v.Sku, ct);
+        return TypedResults.Ok(offers.Select(o => ToDto(
+            o,
+            titles.GetValueOrDefault(o.ProductId, string.Empty),
+            o.VariantId is { } vid ? skus.GetValueOrDefault(vid) : null)).ToList());
     }
 
     private static async Task<Results<Created<OfferDto>, BadRequest<string>>> Create(
@@ -154,11 +166,11 @@ public static class OfferEndpoints
             ? tenantId
             : new Guid("00000000-0000-0000-0000-000000000001");
 
-    private static OfferDto ToDto(Offer o, string productTitle = "") =>
+    private static OfferDto ToDto(Offer o, string productTitle = "", string? variantSku = null) =>
         new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory.ToString(),
             o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.BillingPeriod.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString(),
             o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList(),
-            o.SupplierCostMinor, productTitle);
+            o.SupplierCostMinor, productTitle, variantSku);
 }
 
 public record CreateOfferRequest(
@@ -185,4 +197,4 @@ public record PriceTierDto(int FromQuantity, long UnitPriceMinor);
 public record OfferDto(
     Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory,
     string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status,
-    List<PriceTierDto> Tiers, long SupplierCostMinor, string ProductTitle);
+    List<PriceTierDto> Tiers, long SupplierCostMinor, string ProductTitle, string? VariantSku = null);
