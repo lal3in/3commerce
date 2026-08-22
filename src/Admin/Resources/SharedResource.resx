@@ -356,6 +356,9 @@
   <data name="Orders.Filter.Status" xml:space="preserve"><value>Status</value></data>
   <data name="Orders.Filter.Status.Tip" xml:space="preserve"><value>Only orders in this status.</value></data>
   <data name="Orders.Filter.AllStatuses" xml:space="preserve"><value>All statuses</value></data>
+  <data name="Orders.Filter.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Orders.Filter.Product.Tip" xml:space="preserve"><value>Only orders containing this product. Enter a product ID (GUID) for an exact match, or any text to match the product title.</value></data>
+  <data name="Orders.Filter.Product.Placeholder" xml:space="preserve"><value>Product ID or title</value></data>
   <data name="Orders.Filter.Apply" xml:space="preserve"><value>Apply</value></data>
   <data name="Orders.Filter.Clear" xml:space="preserve"><value>Clear</value></data>
   <data name="Orders.Filter.Clear.Tip" xml:space="preserve"><value>Reset all filters and reload.</value></data>

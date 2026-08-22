@@ -113,7 +113,7 @@ public static class OrdersEndpoints
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListAllOrders(
-        OrderingDbContext db, string? status, Guid? storefrontId, DateOnly? start, DateOnly? end, CancellationToken ct)
+        OrderingDbContext db, string? status, Guid? storefrontId, string? product, DateOnly? start, DateOnly? end, CancellationToken ct)
     {
         var query = db.Orders.AsNoTracking().AsQueryable();
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ThreeCommerce.Ordering.Domain.OrderStatus>(status, out var s))
@@ -124,6 +124,22 @@ public static class OrdersEndpoints
         if (storefrontId is { } sid)
         {
             query = query.Where(o => o.StorefrontId == sid);
+        }
+
+        // Product filter: one term matching a line by product id OR title. A GUID term matches the exact
+        // ProductId; any other term is a case-insensitive substring match on the line Title. Uses Any() →
+        // an EXISTS over the order's lines, so an order matches when any of its lines does.
+        if (!string.IsNullOrWhiteSpace(product))
+        {
+            var term = product.Trim();
+            if (Guid.TryParse(term, out var pid))
+            {
+                query = query.Where(o => o.Lines.Any(l => l.ProductId == pid));
+            }
+            else
+            {
+                query = query.Where(o => o.Lines.Any(l => EF.Functions.ILike(l.Title, $"%{term}%")));
+            }
         }
 
         // Inclusive calendar-day range on CreatedAt (UTC): end covers the whole day. Applied before the
