@@ -30,6 +30,8 @@
                 <option value="@st">@st</option>
             }
         </select></label>
+    <label style="font-size:.8rem; color:#6b7280;">@L["Orders.Filter.Product"]<br />
+        <input @bind="_product" @bind:event="oninput" @onkeydown="OnProductKeyDown" placeholder="@L["Orders.Filter.Product.Placeholder"]" style="padding:.35rem; min-width:14rem;" title="@L["Orders.Filter.Product.Tip"]" /></label>
     <button @onclick="ApplyFilters" disabled="@_loading" style="padding:.4rem .9rem;">@L["Orders.Filter.Apply"]</button>
     <button @onclick="ClearFilters" disabled="@_loading" title="@L["Orders.Filter.Clear.Tip"]" style="padding:.4rem .9rem;">@L["Orders.Filter.Clear"]</button>
 </div>
@@ -172,6 +174,7 @@ else
     private DateOnly? _end;
     private string _storefrontId = "";
     private string _statusFilter = "";
+    private string _product = "";
 
     // Expanded rows + their fetched detail (null value = fetch failed → "unavailable"; missing key = loading).
     private readonly HashSet<Guid> _expanded = [];
@@ -215,6 +218,7 @@ else
         if (_end is { } e) { q.Add($"end={e:yyyy-MM-dd}"); }
         if (!string.IsNullOrEmpty(_storefrontId)) { q.Add($"storefrontId={_storefrontId}"); }
         if (!string.IsNullOrEmpty(_statusFilter)) { q.Add($"status={Uri.EscapeDataString(_statusFilter)}"); }
+        if (!string.IsNullOrWhiteSpace(_product)) { q.Add($"product={Uri.EscapeDataString(_product.Trim())}"); }
         var url = "/api/ordering/admin/orders" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
         _orders = await Gateway.GetListAsync<OrderDto>(url);
         _loading = false;
@@ -222,10 +226,18 @@ else
 
     private Task ApplyFilters() => LoadAsync();
 
+    private async Task OnProductKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
+    }
+
     private async Task ClearFilters()
     {
         _start = _end = null;
-        _storefrontId = _statusFilter = "";
+        _storefrontId = _statusFilter = _product = "";
         await LoadAsync();
     }
 

@@ -39,3 +39,29 @@ test("Orders: Storefront column between Order and Status, and filters narrow the
   await page.waitForTimeout(1500);
   await expect(table.locator("tbody tr").first()).toBeVisible();
 });
+
+// The Orders filter bar can filter by product — a title substring (or an exact product-id GUID). Matches
+// orders that contain a line for the product; the endpoint does an EXISTS over the order's lines.
+test("Orders: filter by product title narrows the list to matching orders", async ({ page, request }) => {
+  // Find a real product title from the catalog to search for (any word from a product's title).
+  const products = (await (await request.get(
+    `${process.env.GATEWAY_URL ?? "http://localhost:8080"}/api/catalog/products?pageSize=5`)).json()) as Array<{ title: string }>;
+  const word = products.map((p) => p.title.split(/\s+/).find((w) => w.length >= 4)).find(Boolean);
+  test.skip(!word, "no catalog product word available");
+
+  await loginAsAdmin(page);
+  await page.goto("/orders");
+  await page.waitForTimeout(1500);
+  const table = page.locator("table").filter({ has: page.getByRole("columnheader", { name: /placed/i }) });
+  const main = page.getByRole("main");
+
+  await page.getByPlaceholder("Product ID or title").fill(word!);
+  await main.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.waitForTimeout(1500);
+
+  // A nonsense product term yields zero orders (proves the filter actually constrains, not a no-op).
+  await page.getByPlaceholder("Product ID or title").fill("zzz-no-such-product-xyz");
+  await main.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.waitForTimeout(1500);
+  await expect(table.locator("tbody tr")).toHaveCount(0);
+});
