@@ -45,6 +45,17 @@ antiforgery → authentication → authorization**.
   8–500 characters**. The page loads `/api/identity/me` to know who "you" are, and
   unwraps `ValidationProblem` errors into the banner (e.g. "Only active suppliers can
   be suspended."). Backed by the **Entity** service (`/api/entity/...`).
+- **Suppliers** (`/suppliers`, `Components/Pages/Suppliers.razor`) — the per-supplier
+  management surface: pick a supplier, **edit** its legal/trading name, **Approve**
+  it (one click = `POST /api/entity/entities/{id}/suppliers/activate`, disabled once
+  Active — this is what makes its offers count, ADR-0048), and edit **per-variant
+  supplier cost**. The page lists every product/variant the supplier supplies (its
+  Offers, via `GET /api/catalog/admin/offers?tenantId=...&supplierId=...`) and each
+  row's cost input writes `Offer.SupplierCostMinor` (`PUT /api/catalog/admin/offers/{id}`).
+  **This is the only place supplier cost is edited** — it is COGS (what the platform
+  pays the supplier), shown read-only on the Catalog product editor and the `/offers`
+  form. Distinct from the sell price. See
+  [Supplier functionality & management](./supplier-functionality.md).
 - **Roles & permissions** (`/rbac`, `Components/Pages/Rbac.razor`) — the dynamic
   RBAC console: view the code-defined permission registry and the tenant's roles
   (seeded catalog: admin/ops/finance/support/merchandiser/customer), editable and
@@ -65,7 +76,14 @@ antiforgery → authentication → authorization**.
 - **Offers & pricing** (`/offers`, `Components/Pages/Offers.razor`) — Catalog Offer
   CRUD for `(product/variant × supplier)` supply profiles: supply category,
   fulfilment type, price, pricing model, billing period, tiers, priority, and active
-  state.
+  state. Arriving with the offer-pricing epic (built, not yet merged): **storefront
+  scope** (`StorefrontId`, blank = all storefronts of the offer's currency) and an
+  **active window** (`ActiveFrom`/`ActiveUntil`). An **active,
+  in-window** offer for a line's storefront + currency sets the **charged** price at
+  checkout **and** the price **shown** on the storefront (shown == charged, ADR-0047),
+  overriding the catalog shelf price without a price-drift 409. The offer's **supplier
+  cost** (COGS) is shown **read-only** here — it is edited only on the **Suppliers**
+  page. See [Supplier functionality & management](./supplier-functionality.md).
 - **Payment accounts** (`/payment-accounts`, `Components/Pages/PaymentAccounts.razor`) —
   Payments-owned tenant/storefront payment accounts: create Draft accounts, submit,
   readiness-gated activate, suspend, and archive. Each row also offers **Edit** (an
@@ -98,8 +116,19 @@ antiforgery → authentication → authorization**.
   invariant — the earlier string-scope path 400'd on save); **Edit** maps the
   response's scope name back to its numeric value and re-shows the target id.
 - **Supplier Portal** (separate app, `:5300`) — suppliers sign in to view
-  readiness, upload stock feeds, and raise user/contact/bank **change requests**
-  that operators approve here.
+  readiness, upload stock feeds, and raise **change requests** that operators approve
+  here. Arriving with the supplier epic (built, not yet merged): a **My details** page
+  (`Components/Pages/MyDetails.razor`) with the **approval lock** — a supplier edits
+  its details **directly** while not yet approved
+  (`Draft`/`PendingVerification`/`PendingApproval`); once an admin **Approves** it
+  (`Active`), direct edits are locked server-side and every change goes through a
+  maker-checker `SupplierChangeRequest` (ADR-0025). Also a **Warehouse** page
+  (`Warehouse.razor`) where a warehouse supplier manages its warehouse address under the
+  same approval lock (feeding "Collect at warehouse" checkout, ADR-0049), and an
+  **Orders** page (`Orders.razor`) listing the orders it fulfils with a **mark
+  delivered** action (`Confirmed → Delivered`; the operator approval queue for
+  warehouse-address change requests is the same maker-checker queue on `/entities`). See
+  [Supplier functionality & management](./supplier-functionality.md).
 - **Security** (`/security`, `Components/Pages/Security.razor`) — three sections:
   **Your second factor (TOTP)** (Enable MFA → add the secret/otpauth URI to an
   authenticator app → confirm with a code → **recovery codes shown once**, store
@@ -202,7 +231,7 @@ File: `Components/Pages/Home.razor`. `[Authorize(Roles = "admin")]`. A landing p
 RMAs, the ledger, and Xero sync." The left nav (`MainLayout.razor`) links to
 Dashboard, Catalog, Offers & pricing, Orders, RMA queue, Ledger, Xero sync,
 Xero mappings, Imports, Roles & permissions, Operator users, Entities & suppliers,
-Commerce ops, Payment accounts, Supplier payouts, Mission control, Security,
+Suppliers, Commerce ops, Payment accounts, Supplier payouts, Mission control, Security,
 plus **Log out**.
 
 ---
