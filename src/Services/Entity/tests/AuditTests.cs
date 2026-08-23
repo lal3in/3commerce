@@ -203,7 +203,7 @@ public class SupplierChangeRequestAuditTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
         var store = new FakeAuditStore();
-        var service = new SupplierChangeRequestService(db, new AuditRecorder(store, TimeProvider.System), TimeProvider.System);
+        var service = new SupplierChangeRequestService(db, new AuditRecorder(store, TimeProvider.System), TimeProvider.System, new NoopPublishEndpoint());
         return new Harness(service, store, db);
     }
 

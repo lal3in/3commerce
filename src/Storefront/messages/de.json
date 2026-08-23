@@ -223,9 +223,13 @@
       "saveCard": "Einen Anbieter-Token für diese Karte speichern, damit Ihr nächster Checkout nur einen Klick benötigt. Die unverschlüsselte Nummer wird niemals gespeichert.",
       "billingAddress": "Die Adresse, auf die Ihre Karte registriert ist — wird für die Adressprüfung der Bank (AVS) verwendet.",
       "quantity": "Ändern Sie, wie viele dieses Artikels Sie bestellen.",
-      "placeOrder": "Zahlung autorisieren und Bestellung aufgeben. Anschließend sehen Sie die Bestätigung."
+      "placeOrder": "Zahlung autorisieren und Bestellung aufgeben. Anschließend sehen Sie die Bestätigung.",
+      "collectAtWarehouse": "Holen Sie Ihre Bestellung im Lager des Lieferanten ab, statt sie liefern zu lassen — keine Versandkosten."
     },
-    "selectCountry": "Land auswählen"
+    "selectCountry": "Land auswählen",
+    "collectAtWarehouse": "Abholung im Lager (kostenlos)",
+    "collectAtWarehouseNote": "Sie holen diese Bestellung im Lager des Lieferanten ab. Es fallen keine Versandkosten an.",
+    "collectFree": "Kostenlos (Abholung im Lager)"
   },
   "confirmation": {
     "noOrder": "Keine Bestellung angegeben.",

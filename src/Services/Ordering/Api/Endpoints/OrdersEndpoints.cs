@@ -30,6 +30,14 @@ public static class OrdersEndpoints
         admin.MapGet("/{id:guid}", GetAnyOrder);
         admin.MapPost("/{id:guid}/cancel", CancelOrder);
 
+        // Supplier portal: the orders a supplier fulfils (its offers' SupplierId on order lines) and the
+        // "mark delivered" action. SupplierPolicy also admits operators (admin/master); the handlers
+        // self-scope a supplier login to its own supplier_entity (never a client-supplied id).
+        var supplier = app.MapGroup("/orders/supplier").WithTags("Supplier Orders")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy);
+        supplier.MapGet("/me", ListSupplierOrders);
+        supplier.MapPost("/{id:guid}/mark-delivered", MarkDelivered);
+
         // Checkout-saga monitor (mc_proc_1): counts by saga state so Mission Control can show how many
         // checkouts are in-flight (AwaitingPayment) vs. concluded (Confirmed/Cancelled).
         app.MapGet("/admin/checkouts", CheckoutStateCounts).WithTags("Admin")
@@ -73,6 +81,74 @@ public static class OrdersEndpoints
             order.TenantId, "Order", order.Id.ToString(), "ordering.order.cancel", reason), ct);
         await db.SaveChangesAsync(ct); // flush the bus outbox (OrderCancelled + AuditEntryRecorded)
         return TypedResults.Accepted($"/admin/orders/{id}");
+    }
+
+    // The orders a supplier fulfils: any order carrying a line whose SupplierId is this supplier's entity id.
+    // A supplier login is scoped to its own supplier_entity claim; an operator (admin/master) with no binding
+    // gets an empty list here (they use the admin order surfaces). Most-recent first, capped.
+    private static async Task<Results<Ok<List<SupplierOrderSummary>>, NotFound>> ListSupplierOrders(
+        ClaimsPrincipal user, OrderingDbContext db, CancellationToken ct)
+    {
+        var supplierId = InternalClaimsAuth.SupplierEntityId(user);
+        if (supplierId is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var orders = await db.Orders.AsNoTracking()
+            .Where(o => o.Lines.Any(l => l.SupplierId == supplierId.Value))
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(200)
+            .Select(o => new SupplierOrderSummary(
+                o.Id, o.PublicOrderNumber, o.Status.ToString(), o.GrossMinor, o.Currency, o.CreatedAt,
+                o.CollectAtWarehouse, o.Email,
+                o.Lines.Where(l => l.SupplierId == supplierId.Value)
+                    .Select(l => new SupplierOrderLine(l.Title, l.Quantity, l.FulfilmentType.ToString())).ToList()))
+            .ToListAsync(ct);
+        return TypedResults.Ok(orders);
+    }
+
+    // A supplier (or an operator) marks one of its orders delivered: Confirmed → Delivered, then publish
+    // OrderDelivered so Fulfillment closes the order's shipments and Notifications sends the confirmation.
+    // Authorized to the FULFILLING supplier only (a line SupplierId matching the caller's supplier_entity)
+    // or an operator (admin/master); any other supplier is forbidden even if signed in. Idempotent: an
+    // already-Delivered order returns 200 with no second event.
+    private static async Task<Results<Ok<OrderStatusResponse>, NotFound, ForbidHttpResult, Conflict<string>>> MarkDelivered(
+        Guid id, ClaimsPrincipal user, OrderingDbContext db, IPublishEndpoint publisher,
+        IAuditRecorder audit, CancellationToken ct)
+    {
+        var order = await db.Orders.Include(o => o.Lines).SingleOrDefaultAsync(o => o.Id == id, ct);
+        if (order is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Only a supplier that actually fulfils a line on this order (or an operator) may mark it delivered.
+        var isOperator = user.IsInRole("admin") || user.IsInRole(InternalClaimsAuth.MasterRole);
+        var supplierId = InternalClaimsAuth.SupplierEntityId(user);
+        var fulfilsALine = supplierId is { } sid && order.Lines.Any(l => l.SupplierId == sid);
+        if (!isOperator && !fulfilsALine)
+        {
+            return TypedResults.Forbid();
+        }
+
+        if (order.Status == OrderStatus.Delivered)
+        {
+            return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString())); // idempotent
+        }
+
+        if (order.Status != OrderStatus.Confirmed)
+        {
+            return TypedResults.Conflict("Only a confirmed order can be marked delivered.");
+        }
+
+        order.Status = OrderStatus.Delivered;
+        var actingSupplier = supplierId ?? Guid.Empty;
+        await publisher.Publish(new OrderDelivered(order.Id, order.TenantId, actingSupplier), ct);
+        await audit.RecordAsync(user.Mutation(
+            order.TenantId, "Order", order.Id.ToString(), "ordering.order.mark_delivered", $"#{order.PublicOrderNumber}"), ct);
+        await db.SaveChangesAsync(ct); // flush the bus outbox (OrderDelivered + AuditEntryRecorded)
+        return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListMyOrders(
@@ -189,4 +265,8 @@ public record OrderDetail(
     string PaymentProvider = "Stripe", bool PartiallyRefunded = false, bool Disputed = false, ShippingAddressResponse? ShippingAddress = null);
 public record OrderStatusResponse(Guid Id, string Status);
 public record CancelOrderRequest(string? Reason);
+public record SupplierOrderLine(string Title, int Quantity, string FulfilmentType);
+public record SupplierOrderSummary(
+    Guid Id, long PublicOrderNumber, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt,
+    bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines);
 public record CheckoutStateCountDto(string State, int Count);

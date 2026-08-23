@@ -34,7 +34,7 @@ public sealed class Phase3Fixture : IAsyncLifetime
     private string PublicKeyPem => _ecdsa.ExportSubjectPublicKeyInfoPem();
 
     /// <summary>Mints an internal-claims JWT (as the gateway would) so tests can call admin endpoints.</summary>
-    public string MintInternalClaims(Guid userId, string role, string? email = null, bool emailVerified = false)
+    public string MintInternalClaims(Guid userId, string role, string? email = null, bool emailVerified = false, Guid? supplierEntity = null)
     {
         var claims = new Dictionary<string, object>
         {
@@ -47,6 +47,12 @@ public sealed class Phase3Fixture : IAsyncLifetime
         if (!string.IsNullOrWhiteSpace(email))
         {
             claims["email"] = email;
+        }
+
+        // Supplier-portal logins carry the supplier entity they are scoped to (self-scope guard).
+        if (supplierEntity is { } se)
+        {
+            claims["supplier_entity"] = se.ToString();
         }
 
         return _jwt.CreateToken(new SecurityTokenDescriptor

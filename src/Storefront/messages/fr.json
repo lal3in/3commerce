@@ -223,9 +223,13 @@
       "saveCard": "Enregistrez un jeton du prestataire pour cette carte afin que votre prochain paiement se fasse en un clic. Le numéro brut n'est jamais stocké.",
       "billingAddress": "L'adresse à laquelle votre carte est enregistrée — utilisée pour la vérification d'adresse de la banque (AVS).",
       "quantity": "Modifiez le nombre d'exemplaires de cet article que vous commandez.",
-      "placeOrder": "Autorisez le paiement et passez la commande. Vous verrez ensuite la confirmation."
+      "placeOrder": "Autorisez le paiement et passez la commande. Vous verrez ensuite la confirmation.",
+      "collectAtWarehouse": "Retirez votre commande à l'entrepôt du fournisseur au lieu d'une livraison par transporteur — aucuns frais de port."
     },
-    "selectCountry": "Sélectionnez un pays"
+    "selectCountry": "Sélectionnez un pays",
+    "collectAtWarehouse": "Retrait à l'entrepôt (gratuit)",
+    "collectAtWarehouseNote": "Vous retirerez cette commande à l'entrepôt du fournisseur. Aucuns frais de livraison.",
+    "collectFree": "Gratuit (retrait à l'entrepôt)"
   },
   "confirmation": {
     "noOrder": "Aucune commande spécifiée.",

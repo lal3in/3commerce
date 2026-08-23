@@ -79,6 +79,36 @@ public class SupplierSelfServiceTests
     }
 
     [Fact]
+    public async Task Approving_a_warehouse_address_request_supersedes_the_warehouse_address()
+    {
+        var (service, db) = NewService();
+        var entity = EntityRecord.Create(Tenant, EntityType.Company, "Demo Supplier Pty Ltd", "Demo Supplier", DateTimeOffset.UtcNow, []);
+        var old = entity.AddAddress(EntityAddressPurpose.Warehouse, "1 Old Way", null, "Sydney", "NSW", "2000", "AU", DateTimeOffset.UtcNow);
+        db.Entities.Add(entity);
+        await db.SaveChangesAsync();
+
+        var detail = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            line1 = "2 New Road",
+            line2 = "Bay 5",
+            city = "Melbourne",
+            region = "VIC",
+            postcode = "3000",
+            countryCode = "AU",
+        });
+        var request = await service.OpenAsync(Tenant, entity.Id, SupplierChangeRequestType.WarehouseAddress, "Relocating warehouse", detail, Requester, default);
+
+        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "approved", default);
+
+        var updated = await db.Entities.Include(e => e.Addresses).SingleAsync(e => e.Id == entity.Id);
+        var current = updated.Addresses.Single(a => a.Purpose == EntityAddressPurpose.Warehouse && a.IsCurrent);
+        Assert.Equal("2 New Road", current.Line1);
+        Assert.Equal("Melbourne", current.City);
+        Assert.Equal("3000", current.Postcode);
+        Assert.False(updated.Addresses.Single(a => a.Id == old.Id).IsCurrent); // the old warehouse address is superseded
+    }
+
+    [Fact]
     public async Task Approving_a_non_entity_details_request_does_not_touch_the_entity()
     {
         var (service, db) = NewService();
@@ -146,7 +176,7 @@ public class SupplierSelfServiceTests
         var db = new EntityDbContext(new DbContextOptionsBuilder<EntityDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
-        var service = new SupplierChangeRequestService(db, new AuditRecorder(new FakeAuditStore(), TimeProvider.System), TimeProvider.System);
+        var service = new SupplierChangeRequestService(db, new AuditRecorder(new FakeAuditStore(), TimeProvider.System), TimeProvider.System, new NoopPublishEndpoint());
         return (service, db);
     }
 }

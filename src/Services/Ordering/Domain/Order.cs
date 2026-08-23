@@ -2,7 +2,7 @@ using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 
 namespace ThreeCommerce.Ordering.Domain;
 
-public enum OrderStatus { Pending = 1, AwaitingPayment = 2, Confirmed = 3, Cancelled = 4, Refunded = 5 }
+public enum OrderStatus { Pending = 1, AwaitingPayment = 2, Confirmed = 3, Cancelled = 4, Refunded = 5, Delivered = 6 }
 
 public class Order
 {
@@ -36,6 +36,19 @@ public class Order
     public required string ShipCity { get; set; }
     public required string ShipPostcode { get; set; }
     public required string ShipCountry { get; set; }
+
+    /// <summary>
+    /// The shopper chose to collect this order at the fulfilling supplier's warehouse rather than have it
+    /// shipped by a carrier (mt4 / ADR-0028). A collect order carries no carrier and zero
+    /// <see cref="ShippingMinor"/>; the warehouse it is collected from is recorded in the Warehouse* fields.
+    /// </summary>
+    public bool CollectAtWarehouse { get; set; }
+    public string? WarehouseName { get; set; }
+    public string? WarehouseLine1 { get; set; }
+    public string? WarehouseCity { get; set; }
+    public string? WarehousePostcode { get; set; }
+    public string? WarehouseCountry { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public List<OrderLine> Lines { get; init; } = [];
 }

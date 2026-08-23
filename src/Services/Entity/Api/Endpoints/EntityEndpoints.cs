@@ -87,6 +87,14 @@ public static class EntityEndpoints
             .WithTags("Entities")
             .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
             .WithSummary("Update the caller's own legal/trading name — rejected once the supplier is approved (the approval lock).");
+        app.MapGet("/entities/suppliers/me/warehouse", GetMySupplierWarehouse)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("The caller's own supplier warehouse address (the Warehouse-purpose address) + whether it can still be edited directly.");
+        app.MapPut("/entities/suppliers/me/warehouse", UpdateMySupplierWarehouse)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("Set the caller's own warehouse address — rejected once the supplier is approved (the approval lock; raise a change request instead).");
         app.MapGet("/entities/suppliers/me/change-requests", ListMySupplierChangeRequests)
             .WithTags("Entities")
             .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
@@ -288,6 +296,7 @@ public static class EntityEndpoints
         Guid id,
         AddAddressRequest request,
         EntityDbContext db,
+        IPublishEndpoint publish,
         AuditRecorder audit,
         ClaimsPrincipal user,
         TimeProvider timeProvider,
@@ -303,6 +312,14 @@ public static class EntityEndpoints
         {
             var address = entity.AddAddress(request.Purpose, request.Line1, request.Line2, request.City, request.Region, request.Postcode, request.CountryCode, timeProvider.GetUtcNow());
             db.Entry(address).State = EntityState.Added; // only the NEW address; any superseded ones stay Modified (see AddIdentifier)
+            // A warehouse address feeds Ordering's read model (ADR-0008) for "Collect at warehouse" checkout.
+            if (request.Purpose == EntityAddressPurpose.Warehouse)
+            {
+                await publish.Publish(new SupplierWarehouseChanged(
+                    entity.TenantId, entity.Id, entity.DisplayName, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.CountryCode),
+                    cancellationToken);
+            }
+
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.address.add", $"{request.Purpose}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -395,6 +412,73 @@ public static class EntityEndpoints
             entity.Id, entity.LegalName, entity.TradingName, entity.DisplayName,
             state.ToString(), AllowsDirectEdit(state),
             detail.Identifiers, detail.Contacts, detail.Addresses));
+    }
+
+    // Supplier-self warehouse view: the caller's current Warehouse-purpose address (the warehouse), plus
+    // whether it can still be edited directly. A supplier that backs Warehouse-fulfilment offers has a
+    // warehouse; a supplier with no warehouse address yet returns HasWarehouse=false so the portal offers
+    // to add one.
+    private static async Task<Results<Ok<SupplierWarehouseResponse>, NotFound>> GetMySupplierWarehouse(
+        ClaimsPrincipal user,
+        EntityDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities.AsNoTracking(), cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var state = await MyOnboardingStateAsync(db, entity.Id, cancellationToken);
+        var warehouse = entity.Addresses
+            .Where(a => a.Purpose == EntityAddressPurpose.Warehouse && a.IsCurrent)
+            .OrderByDescending(a => a.Version)
+            .Select(a => new EntityAddressResponse(a.Id, a.Purpose, a.Line1, a.Line2, a.City, a.Region, a.Postcode, a.CountryCode))
+            .FirstOrDefault();
+        return TypedResults.Ok(new SupplierWarehouseResponse(
+            entity.Id, entity.DisplayName, state.ToString(), AllowsDirectEdit(state), warehouse));
+    }
+
+    // The supplier-facing warehouse edit. Rejected once the supplier is approved (Active/Suspended/Archived):
+    // the same approval-lock guard as the detail edit, so it cannot be bypassed by calling the API directly.
+    // Adds/supersedes the Warehouse-purpose address and publishes SupplierWarehouseChanged so Ordering's
+    // read model tracks the warehouse address for "Collect at warehouse" checkout.
+    private static async Task<Results<Ok<EntityAddressResponse>, NotFound, ValidationProblem>> UpdateMySupplierWarehouse(
+        ClaimsPrincipal user,
+        AddAddressRequest request,
+        EntityDbContext db,
+        IPublishEndpoint publish,
+        AuditRecorder audit,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            var onboarding = await db.SupplierOnboardings.SingleOrDefaultAsync(s => s.EntityId == entity.Id, cancellationToken);
+            onboarding?.EnsureDirectDetailEditAllowed();
+            var now = timeProvider.GetUtcNow();
+            var address = entity.AddAddress(
+                EntityAddressPurpose.Warehouse, request.Line1, request.Line2, request.City, request.Region, request.Postcode, request.CountryCode, now);
+            db.Entry(address).State = EntityState.Added; // client-generated PK via loaded nav — force INSERT (see AddAddress)
+            await publish.Publish(new SupplierWarehouseChanged(
+                entity.TenantId, entity.Id, entity.DisplayName, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.CountryCode),
+                cancellationToken);
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.supplier.self_warehouse_update", entity.DisplayName), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(new EntityAddressResponse(
+                address.Id, address.Purpose, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.CountryCode));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Line1)] = [ex.Message] });
+        }
     }
 
     // The supplier-facing detail edit. Rejected once the supplier is approved (Active/Suspended/Archived):
@@ -911,6 +995,15 @@ public sealed record SupplierSelfDetailResponse(
     IReadOnlyList<EntityIdentifierResponse> Identifiers,
     IReadOnlyList<EntityContactResponse> Contacts,
     IReadOnlyList<EntityAddressResponse> Addresses);
+
+public sealed record SupplierWarehouseResponse(
+    Guid EntityId,
+    string DisplayName,
+    string OnboardingState,
+    // False once the supplier is approved (Active onwards): the portal switches to read-only + a change request.
+    bool CanEditDirectly,
+    // Null when the supplier has no current warehouse address yet.
+    EntityAddressResponse? Warehouse);
 
 public sealed record SupplierOnboardingResponse(
     Guid Id,

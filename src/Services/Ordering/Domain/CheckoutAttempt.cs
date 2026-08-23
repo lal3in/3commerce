@@ -33,6 +33,15 @@ public class CheckoutAttempt
     public required string ShipCity { get; init; }
     public required string ShipPostcode { get; init; }
     public required string ShipCountry { get; init; }
+
+    /// <summary>The shopper chose to collect at the fulfilling supplier's warehouse (zero shipping, no carrier).</summary>
+    public bool CollectAtWarehouse { get; init; }
+    public string? WarehouseName { get; init; }
+    public string? WarehouseLine1 { get; init; }
+    public string? WarehouseCity { get; init; }
+    public string? WarehousePostcode { get; init; }
+    public string? WarehouseCountry { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public List<CheckoutAttemptLine> Lines { get; init; } = [];
 
@@ -67,6 +76,12 @@ public class CheckoutAttempt
             ShipCity = ShipCity,
             ShipPostcode = ShipPostcode,
             ShipCountry = ShipCountry,
+            CollectAtWarehouse = CollectAtWarehouse,
+            WarehouseName = WarehouseName,
+            WarehouseLine1 = WarehouseLine1,
+            WarehouseCity = WarehouseCity,
+            WarehousePostcode = WarehousePostcode,
+            WarehouseCountry = WarehouseCountry,
             CreatedAt = now,
             Lines = Lines.Select(l => new OrderLine
             {

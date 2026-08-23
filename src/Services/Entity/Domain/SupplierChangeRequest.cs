@@ -19,6 +19,15 @@ public enum SupplierChangeRequestType
     /// service applies them when the request is approved.
     /// </summary>
     EntityDetails = 4,
+
+    /// <summary>
+    /// Change the supplier's warehouse address (the <c>Warehouse</c>-purpose address). Raised from
+    /// the portal "Warehouse" page once the supplier is Active and can no longer edit directly (the
+    /// approval lock). <see cref="Detail"/> carries the proposed address as JSON; the Entity service
+    /// supersedes the current warehouse address with it (and republishes <c>SupplierWarehouseChanged</c>)
+    /// when the request is approved.
+    /// </summary>
+    WarehouseAddress = 5,
 }
 
 public enum SupplierChangeRequestStatus
