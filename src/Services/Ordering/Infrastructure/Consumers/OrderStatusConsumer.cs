@@ -173,11 +173,20 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
             .Where(o => o.TenantId == order.TenantId && productIds.Contains(o.ProductId))
             .ToListAsync(context.CancellationToken);
 
+        // Approval-gated COGS (DECISION A): an unapproved supplier's offer never counts. Resolve the cost
+        // offer only among approved suppliers, so a supplier suspended between checkout and confirmation
+        // no longer accrues COGS (mirrors the checkout gate that stamped the line's supplier).
+        var offerSupplierIds = offerCopies.Select(o => o.SupplierId).Distinct().ToList();
+        var approvedSupplierIds = (await db.SupplierApprovalCopies.AsNoTracking()
+            .Where(s => s.Approved && offerSupplierIds.Contains(s.SupplierId))
+            .Select(s => s.SupplierId)
+            .ToListAsync(context.CancellationToken)).ToHashSet();
+
         var perSupplier = new Dictionary<Guid, long>();
         var relabelledFrom = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in supplierLines)
         {
-            var offer = OfferResolution.ResolveOffer(offerCopies, order.TenantId, line.ProductId, line.VariantId);
+            var offer = OfferResolution.ResolveOffer(offerCopies, order.TenantId, line.ProductId, line.VariantId, approvedSupplierIds);
             if (offer is null)
             {
                 continue;

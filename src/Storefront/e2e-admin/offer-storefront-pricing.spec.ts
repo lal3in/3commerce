@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { provisionApprovedSupplier } from "./approved-supplier";
 
 // Offer-as-price, shown == charged (ADR-0028): an admin creates an active, in-window offer SCOPED to a
 // storefront, priced below the catalog price. The storefront's product detail (the same catalog API the
@@ -48,11 +49,14 @@ test("Storefront shows the active, in-window offer price for its storefront", as
 
   const offerPrice = Math.max(1, basePrice - 500);
   expect(offerPrice).not.toBe(basePrice);
+  // DECISION A: an offer only sets the price when its supplier is APPROVED — provision one.
+  const supplierId = await provisionApprovedSupplier(request, GATEWAY);
+  test.skip(supplierId === null, "could not provision an approved supplier in this harness");
   const now = Date.now();
   const create = await request.post(`${GATEWAY}/api/catalog/admin/offers`, {
     data: {
       productId: detail.id,
-      supplierId: crypto.randomUUID(),
+      supplierId,
       supplyCategory: 1, // Physical
       fulfilmentType: 2, // Warehouse
       priceMinor: offerPrice,

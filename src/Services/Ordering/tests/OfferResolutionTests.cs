@@ -9,13 +9,16 @@ public class OfferResolutionTests
     private static readonly Guid Product = Guid.NewGuid();
     private static readonly Guid Variant = Guid.NewGuid();
 
-    private static OfferCopy Offer(Guid? variant, FulfilmentType type, int priority, bool active = true) =>
+    private static readonly Guid Supplier = Guid.NewGuid();
+
+    private static OfferCopy Offer(Guid? variant, FulfilmentType type, int priority, bool active = true, Guid? supplierId = null) =>
         new()
         {
             OfferId = Guid.NewGuid(),
             TenantId = Tenant,
             ProductId = Product,
             VariantId = variant,
+            SupplierId = supplierId ?? Supplier,
             FulfilmentType = type,
             Priority = priority,
             Active = active,
@@ -68,13 +71,14 @@ public class OfferResolutionTests
 
     private static OfferCopy PricingOffer(
         Guid? variant, long price, int priority = 0, bool active = true, Guid? storefrontId = null,
-        string currency = "EUR", DateTimeOffset? from = null, DateTimeOffset? until = null) =>
+        string currency = "EUR", DateTimeOffset? from = null, DateTimeOffset? until = null, Guid? supplierId = null) =>
         new()
         {
             OfferId = Guid.NewGuid(),
             TenantId = Tenant,
             ProductId = Product,
             VariantId = variant,
+            SupplierId = supplierId ?? Supplier,
             PriceMinor = price,
             Priority = priority,
             Active = active,
@@ -149,5 +153,53 @@ public class OfferResolutionTests
     {
         Assert.Null(Price([PricingOffer(null, 1_500, active: false)]));
         Assert.Null(Price([PricingOffer(null, 0)]));
+    }
+
+    // --- Approval gating (DECISION A, strict): an unapproved supplier's offer never counts ---
+
+    [Fact]
+    public void An_unapproved_suppliers_offer_is_not_resolved_for_fulfilment()
+    {
+        var offers = new[] { Offer(Variant, FulfilmentType.Warehouse, 1, supplierId: Supplier) };
+        // No approved suppliers → the only covering offer is ignored → Unassigned (no valid supply).
+        Assert.Equal(FulfilmentType.Unassigned,
+            OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant, new HashSet<Guid>()));
+        // Approving the supplier makes the offer count again.
+        Assert.Equal(FulfilmentType.Warehouse,
+            OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant, new HashSet<Guid> { Supplier }));
+    }
+
+    [Fact]
+    public void An_approved_offer_is_preferred_over_a_better_grained_unapproved_one()
+    {
+        var approvedSupplier = Guid.NewGuid();
+        var offers = new[]
+        {
+            // Variant-specific but UNAPPROVED (would normally win on grain)...
+            Offer(Variant, FulfilmentType.Dropship, 0, supplierId: Guid.NewGuid()),
+            // ...loses to the product-level APPROVED offer, which is the only valid supply.
+            Offer(null, FulfilmentType.Warehouse, 5, supplierId: approvedSupplier),
+        };
+        Assert.Equal(FulfilmentType.Warehouse,
+            OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant, new HashSet<Guid> { approvedSupplier }));
+    }
+
+    [Fact]
+    public void An_unapproved_suppliers_offer_does_not_set_the_price()
+    {
+        var offers = new[] { PricingOffer(null, 1_500, supplierId: Supplier) };
+        Assert.Null(OfferResolution.ResolvePricingOffer(
+            offers, Tenant, Product, null, Store, "EUR", Now, new HashSet<Guid>())?.PriceMinor);
+        Assert.Equal(1_500, OfferResolution.ResolvePricingOffer(
+            offers, Tenant, Product, null, Store, "EUR", Now, new HashSet<Guid> { Supplier })?.PriceMinor);
+    }
+
+    [Fact]
+    public void A_null_approval_set_leaves_resolution_ungated()
+    {
+        // The pre-approval callers (order-line COGS where the supplier was already gated at checkout) pass
+        // null and keep resolving every active offer.
+        var offers = new[] { Offer(Variant, FulfilmentType.Warehouse, 1) };
+        Assert.Equal(FulfilmentType.Warehouse, OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant));
     }
 }

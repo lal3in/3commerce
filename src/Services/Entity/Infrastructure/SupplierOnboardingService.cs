@@ -1,9 +1,11 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Entity;
 using ThreeCommerce.Entity.Domain;
 
 namespace ThreeCommerce.Entity.Infrastructure;
 
-public sealed class SupplierOnboardingService(EntityDbContext db, TimeProvider timeProvider)
+public sealed class SupplierOnboardingService(EntityDbContext db, TimeProvider timeProvider, IPublishEndpoint publish)
 {
     public async Task<SupplierOnboarding> StartAsync(Guid entityId, CancellationToken cancellationToken)
     {
@@ -54,6 +56,11 @@ public sealed class SupplierOnboardingService(EntityDbContext db, TimeProvider t
     {
         var onboarding = await db.SupplierOnboardings.SingleAsync(s => s.EntityId == entityId, cancellationToken);
         onboarding.Activate(timeProvider.GetUtcNow());
+        // Approval-gated availability (DECISION A): the supplier is now approved. Publish BEFORE Save so the
+        // SupplierApprovalChanged outbox row commits in the same transaction and is actually delivered —
+        // publishing after SaveChanges strands it in the change tracker (repo outbox convention; see how
+        // EntityRecordCreated / OfferChanged publish before Save). The supplier id is the entity id.
+        await PublishApprovalAsync(onboarding, approved: true, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return onboarding;
     }
@@ -62,6 +69,8 @@ public sealed class SupplierOnboardingService(EntityDbContext db, TimeProvider t
     {
         var onboarding = await db.SupplierOnboardings.SingleAsync(s => s.EntityId == entityId, cancellationToken);
         onboarding.Suspend(reason, timeProvider.GetUtcNow());
+        // Approval revoked: a suspended supplier's offers stop counting everywhere (publish before Save).
+        await PublishApprovalAsync(onboarding, approved: false, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return onboarding;
     }
@@ -69,10 +78,21 @@ public sealed class SupplierOnboardingService(EntityDbContext db, TimeProvider t
     public async Task<SupplierOnboarding> ArchiveAsync(Guid entityId, CancellationToken cancellationToken)
     {
         var onboarding = await db.SupplierOnboardings.SingleAsync(s => s.EntityId == entityId, cancellationToken);
+        var wasApproved = onboarding.State == SupplierOnboardingState.Active;
         onboarding.Archive(timeProvider.GetUtcNow());
+        // Only an already-active (approved) supplier needs its approval revoked on archive; a Draft/pending
+        // supplier was never approved, so re-publishing false for it is harmless but unnecessary.
+        if (wasApproved)
+        {
+            await PublishApprovalAsync(onboarding, approved: false, cancellationToken);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return onboarding;
     }
+
+    private Task PublishApprovalAsync(SupplierOnboarding onboarding, bool approved, CancellationToken cancellationToken) =>
+        publish.Publish(new SupplierApprovalChanged(onboarding.TenantId, onboarding.EntityId, approved), cancellationToken);
 
     private async Task<SupplierOnboarding> GetOrCreateDraftAsync(EntityRecord entity, CancellationToken cancellationToken)
     {

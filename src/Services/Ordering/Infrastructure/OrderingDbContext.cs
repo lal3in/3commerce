@@ -22,6 +22,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
     public DbSet<ProductTypeShippingPolicyCopy> ProductTypeShippingPolicyCopies => Set<ProductTypeShippingPolicyCopy>();
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
+    public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +115,11 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         {
             copy.HasKey(x => x.Email);
             copy.Property(x => x.Email).HasMaxLength(320);
+        });
+
+        modelBuilder.Entity<SupplierApprovalCopy>(approval =>
+        {
+            approval.HasKey(x => x.SupplierId);
         });
 
         // Saga state persistence (MassTransit EF saga repository).

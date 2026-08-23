@@ -24,6 +24,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
     public DbSet<StorefrontServiceReadiness> StorefrontServiceReadiness => Set<StorefrontServiceReadiness>();
     public DbSet<SupportedCurrency> SupportedCurrencies => Set<SupportedCurrency>();
+    public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,11 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             currency.Property(x => x.Code).HasMaxLength(3);
             currency.Property(x => x.Name).HasMaxLength(80);
             currency.Property(x => x.Symbol).HasMaxLength(8);
+        });
+
+        modelBuilder.Entity<SupplierApprovalCopy>(approval =>
+        {
+            approval.HasKey(x => x.SupplierId);
         });
 
         modelBuilder.Entity<Offer>(offer =>

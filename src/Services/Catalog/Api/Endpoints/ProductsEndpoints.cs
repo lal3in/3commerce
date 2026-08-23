@@ -51,17 +51,35 @@ public static class ProductsEndpoints
         if (cur is not null && hits.Count > 0)
         {
             var now = clock.GetUtcNow();
+            var store = storefrontId ?? Guid.Empty;
             var hitIds = hits.Select(h => h.Id).ToList();
+            // All ACTIVE offers for these products in the store's currency (any grain/price): used both to
+            // gate availability on supplier approval (DECISION A) and to apply the product-level offer price.
             var offers = await db.Offers.AsNoTracking()
-                .Where(o => hitIds.Contains(o.ProductId) && o.VariantId == null && o.PriceMinor > 0 && o.Currency == cur)
+                .Where(o => hitIds.Contains(o.ProductId) && o.Currency == cur && o.Status == OfferStatus.Active)
                 .ToListAsync(cancellationToken);
             if (offers.Count > 0)
             {
+                var approved = await ApprovedSupplierSetAsync(db, offers, cancellationToken);
+
+                // DECISION A (strict): a product whose covering offers (this store + currency) are ALL from
+                // unapproved suppliers is unavailable → hidden from the listing. A product with no covering
+                // offer keeps its catalog behaviour (offerless scope guard). "Covering" = active,
+                // currency-matching, storefront null-or-match.
+                hits = hits.Where(h =>
+                {
+                    var covering = offers.Where(o => o.ProductId == h.Id
+                        && (o.StorefrontId == null || o.StorefrontId == store)).ToList();
+                    return covering.Count == 0 || covering.Exists(o => approved.Contains(o.SupplierId));
+                }).ToList();
+
+                // Offer-as-price: only an APPROVED, product-level, in-window offer sets the listed min price.
                 hits = hits.Select(h =>
                 {
                     var offerPrice = offers
-                        .Where(o => o.ProductId == h.Id && o.IsEffectiveAt(now, storefrontId ?? Guid.Empty))
-                        .OrderByDescending(o => o.StorefrontId == (storefrontId ?? Guid.Empty))
+                        .Where(o => o.ProductId == h.Id && o.VariantId == null && o.PriceMinor > 0
+                            && approved.Contains(o.SupplierId) && o.IsEffectiveAt(now, store))
+                        .OrderByDescending(o => o.StorefrontId == store)
                         .ThenBy(o => o.Priority)
                         .Select(o => (long?)o.PriceMinor)
                         .FirstOrDefault();
@@ -101,17 +119,30 @@ public static class ProductsEndpoints
         // price the shopper will be CHARGED (shown == charged). Loaded once and applied per variant below —
         // a variant-specific offer beats a product-level one; a storefront-scoped offer beats an all-store one.
         var now = clock.GetUtcNow();
+        var store = storefrontId ?? Guid.Empty;
+        // All ACTIVE offers for this product (any grain/price): drive both the approval-availability gate
+        // (DECISION A) and offer-as-price. Loaded regardless of price so a zero-price supply offer (e.g. a
+        // usage meter) still counts toward coverage.
         var offers = await db.Offers.AsNoTracking()
-            .Where(o => o.ProductId == product.Id && o.TenantId == product.TenantId && o.PriceMinor > 0)
+            .Where(o => o.ProductId == product.Id && o.TenantId == product.TenantId && o.Status == OfferStatus.Active)
             .ToListAsync(cancellationToken);
+        var approved = await ApprovedSupplierSetAsync(db, offers, cancellationToken);
+        var pricedApprovedOffers = offers.Where(o => o.PriceMinor > 0 && approved.Contains(o.SupplierId)).ToList();
         var variants = product.Variants
             .Select(v => (v, price: VariantPriceIn(v, cur)))
             .Where(x => x.price is not null)
             .Select(x =>
             {
                 var lineCurrency = cur ?? x.v.Currency;
-                var offerPrice = EffectiveOfferPrice(offers, x.v.Id, storefrontId ?? Guid.Empty, lineCurrency, now);
-                return new VariantResponse(x.v.Id, x.v.Sku, offerPrice ?? x.price!.Value, lineCurrency, x.v.StockQuantity > 0);
+                // DECISION A (strict): a variant whose covering offers (this store + currency) are ALL from
+                // unapproved suppliers is unavailable (out of stock), regardless of stock. A variant with no
+                // covering offer keeps its catalog stock flag (offerless scope guard).
+                var covering = offers.Where(o => (o.VariantId == x.v.Id || o.VariantId == null)
+                    && string.Equals(o.Currency, lineCurrency, StringComparison.OrdinalIgnoreCase)
+                    && (o.StorefrontId == null || o.StorefrontId == store)).ToList();
+                var supplierApproved = covering.Count == 0 || covering.Exists(o => approved.Contains(o.SupplierId));
+                var offerPrice = EffectiveOfferPrice(pricedApprovedOffers, x.v.Id, store, lineCurrency, now);
+                return new VariantResponse(x.v.Id, x.v.Sku, offerPrice ?? x.price!.Value, lineCurrency, supplierApproved && x.v.StockQuantity > 0);
             })
             .ToList();
 
@@ -171,6 +202,19 @@ public static class ProductsEndpoints
             .ThenBy(o => o.Priority)
             .Select(o => (long?)o.PriceMinor)
             .FirstOrDefault();
+
+    // The approved suppliers among a set of offers' suppliers (DECISION A). An offer whose supplier has no
+    // SupplierApprovalCopy row — or a row with Approved false — is excluded everywhere it would be resolved.
+    private static async Task<HashSet<Guid>> ApprovedSupplierSetAsync(
+        CatalogDbContext db, IEnumerable<Offer> offers, CancellationToken cancellationToken)
+    {
+        var supplierIds = offers.Select(o => o.SupplierId).Distinct().ToList();
+        var approved = await db.SupplierApprovalCopies.AsNoTracking()
+            .Where(s => s.Approved && supplierIds.Contains(s.SupplierId))
+            .Select(s => s.SupplierId)
+            .ToListAsync(cancellationToken);
+        return approved.ToHashSet();
+    }
 
     private static async Task<Ok<List<CategoryResponse>>> ListCategories(
         CatalogDbContext db, CancellationToken cancellationToken)

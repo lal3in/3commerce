@@ -75,7 +75,7 @@ public class SupplierOnboardingTests
         var entity = NewReadySupplier();
         db.Entities.Add(entity);
         await db.SaveChangesAsync();
-        var service = new SupplierOnboardingService(db, TimeProvider.System);
+        var service = new SupplierOnboardingService(db, TimeProvider.System, new NoopPublishEndpoint());
 
         var first = await service.StartAsync(entity.Id, default);
         var second = await service.StartAsync(entity.Id, default);
