@@ -245,21 +245,6 @@ run_live() {
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
   fi
 
-  stage "Seeding demo data (--profile full)"
-  # The L20 admin/supplier specs (currency coverage + variable-decimals, suppliers, ledger/orders
-  # storefront columns, mission-control jobs) and the storefront fixture-manifest specs assert data
-  # that ONLY the full demo seed creates: multi-currency storefronts, a Demo Supplier with offers,
-  # scenario products, attributed multi-currency orders/ledger, and .run/dev-dummy-data/fixtures.json.
-  # Without it those specs fail (unguarded) or skip (guarded) — the reason browser-e2e was red. Seed it
-  # here, concurrently with the background storefront build above, so L14–L20 run against real data.
-  for _ in $(seq 1 90); do curl -fsS -o /dev/null "$GATEWAY/health" 2>/dev/null && break; sleep 2; done
-  rm -rf "$ROOT/.run/dev-dummy-data"   # never let a stale manifest from a prior run drive the specs
-  if GATEWAY="$GATEWAY" "$ROOT/scripts/dev-dummy-data.sh" --profile full --gateway "$GATEWAY" >/tmp/3c-seed.log 2>&1; then
-    pass "Seed full demo data ($(grep -oE 'step classifications:.*' /tmp/3c-seed.log | tail -1))"
-  else
-    fail "Seed full demo data"; tail -25 /tmp/3c-seed.log
-  fi
-
   stage "L3–L4  Gateway routing"
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
     "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if grep -aq 'PONG received' '$ROOT/.run/notifications.log'; then grep -a 'PONG received' '$ROOT/.run/notifications.log' | tail -1; exit 0; fi; sleep 1; done; exit 1"
@@ -308,6 +293,27 @@ run_live() {
   curl -s -X POST $GATEWAY/api/identity/password-reset/confirm -H 'content-type: application/json' -d "{\"token\":\"$rt\",\"newPassword\":\"brand-new-password-9\"}" >/dev/null
   check "L13b login with new password" "200" bash -c \
     "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/login -H 'content-type: application/json' -d '{\"email\":\"$email\",\"password\":\"brand-new-password-9\"}'"
+
+  stage "Seeding demo data (--profile full)"
+  # Seed AFTER the L5–L13 auth/catalog smoke, not before it. Those checks need no demo data — and the seed
+  # drives all 13 services hard (hundreds of registrations/logins/orders → an outbox + DB-connection burst),
+  # which on a 2-vCPU CI runner transiently saturates the stack. Run before L5, that burst was still draining
+  # when the rapid-fire auth checks fired, so register/login intermittently timed out and L5–L13 (+ the
+  # admin-jar-dependent L10/L19) failed — while the same checks pass on a quiescent stack. Seeding here lets
+  # L1–L13 run clean, then a settle drains the burst before the storefront/money/L20 stages that DO need the
+  # demo data (multi-currency storefronts, Demo Supplier, scenario products, attributed orders/ledger, and
+  # .run/dev-dummy-data/fixtures.json). The background storefront build (started above) finishes during it.
+  rm -rf "$ROOT/.run/dev-dummy-data"   # never let a stale manifest from a prior run drive the specs
+  if GATEWAY="$GATEWAY" "$ROOT/scripts/dev-dummy-data.sh" --profile full --gateway "$GATEWAY" >/tmp/3c-seed.log 2>&1; then
+    pass "Seed full demo data ($(grep -oE 'step classifications:.*' /tmp/3c-seed.log | tail -1))"
+  else
+    fail "Seed full demo data"; tail -25 /tmp/3c-seed.log
+  fi
+  # Settle: let the seed's outbox/projection burst drain and every service report ready again before the
+  # storefront + money-flow stages read the just-seeded state (avoids a post-seed saturation false-negative).
+  local settle_ok=1; for p in 5101 5102 5103 5104 5105 5106 5107; do wait_health "$p" || settle_ok=0; done
+  [[ $settle_ok == 1 ]] && echo "  services healthy after seed" || echo "  WARNING: a service was slow to re-report ready after seed"
+  sleep 10
 
   stage "L14  Storefront SSR"
   wait_http "$STOREFRONT/" || fail "L14 storefront did not come up"
@@ -370,9 +376,14 @@ run_live() {
 
     # Unique key per order — a fixed key would (correctly) dedupe across re-runs on a persistent DB.
     curl -s -o /dev/null -b "$admin" -X POST $GATEWAY/api/payments/admin/refunds -H 'content-type: application/json' -H "Idempotency-Key: e2e-refund-$oid" -d "{\"orderId\":\"$oid\",\"amountMinor\":$gross,\"reason\":\"e2e\"}"
-    sleep 4
-    local refTb; refTb="$(pay_scalar "$trialbal")"
-    local refunded; refunded="$(pay_scalar "SELECT count(*) FROM payments.\"Refunds\" WHERE \"OrderId\"='$oid'")"
+    # Poll for the refund saga (RefundRequested → ExecuteRefundConsumer → Refunds row + reversal): a fixed
+    # sleep is too tight on a loaded CI runner, so wait up to ~30s for the row to land instead of racing it.
+    local refunded=0 refTb
+    for _ in $(seq 1 15); do
+      refunded="$(pay_scalar "SELECT count(*) FROM payments.\"Refunds\" WHERE \"OrderId\"='$oid'")"
+      [[ "${refunded:-0}" -ge 1 ]] && break; sleep 2
+    done
+    refTb="$(pay_scalar "$trialbal")"
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
   elif [[ -z "$prod" ]]; then
     fail "L15-L19 no product in Ordering projection (import may not have propagated)"
