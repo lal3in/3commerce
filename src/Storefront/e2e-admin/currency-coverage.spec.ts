@@ -37,8 +37,13 @@ test("Mission Control shows a revenue tile for every currency", async ({ page })
   }
 });
 
-// Reads the When + Description of each row from the table identified by a distinctive column header,
-// skipping the expandable per-line detail rows (which carry a single colspan cell, not a date).
+// Reads each entry's DESCRIPTION (unique — it carries the entry/order GUIDs) in row order, from the table
+// identified by a distinctive column header, skipping the expandable per-line detail rows (a single colspan
+// cell, not a date). We key on the description, NOT the "When" cell: the two surfaces deliberately format
+// the timestamp differently (the dashboard feed shows a short "24 Aug 02:22"; the Ledger page shows the full
+// "2026-08-24 02:22:02" date/time it added for its date filter — see ledger-filters.spec), so comparing the
+// rendered timestamp would couple an ORDER check to incidental formatting. Order of unique descriptions is
+// the real invariant. The When cell (present in both formats as \d{2}:\d{2}) still gates out detail rows.
 async function feedRows(page: Page, columnHeader: RegExp): Promise<string[]> {
   const table = page.locator("table").filter({ has: page.getByRole("columnheader", { name: columnHeader }) }).first();
   const rows = table.locator("tbody tr");
@@ -48,7 +53,7 @@ async function feedRows(page: Page, columnHeader: RegExp): Promise<string[]> {
     if ((await cells.count()) < 2) continue;
     const when = (await cells.nth(0).innerText()).trim();
     const desc = (await cells.nth(1).innerText()).trim();
-    if (/\d{2}:\d{2}/.test(when)) out.push(`${when} | ${desc}`);
+    if (/\d{2}:\d{2}/.test(when)) out.push(desc);
   }
   return out;
 }

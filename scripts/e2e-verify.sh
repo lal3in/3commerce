@@ -209,7 +209,13 @@ run_live() {
   [[ "$dbcount" == "$expected" ]] && pass "L1 $expected service databases" || fail "L1 service databases (saw '$dbcount', expected '$expected')"
 
   stage "Applying migrations"
-  for svc in Identity Catalog Entity Ordering Payments Fulfillment Support; do
+  # ALL db-owning services (mirrors dev-up.sh / scripts/lib/services.sh) — not just the seven core ones.
+  # Audit, Workflow, Marketing, Usage, Pricing and Entitlement do NOT self-migrate at startup, so leaving
+  # them out left their DBs table-less: /api/audit/admin/audit and /api/workflow/admin/workflow/runs 500,
+  # which crashes the (unguarded) Mission Control load → every commerce/revenue tile reads 0; and the
+  # marketing/usage job endpoints 500, so the scheduled-jobs monitor lists no jobs. The L20 admin specs
+  # (per-currency revenue, variable-decimals, scheduled jobs + run-now) assert that data, so migrate the lot.
+  for svc in Identity Catalog Entity Ordering Payments Fulfillment Support Marketing Pricing Audit Workflow Entitlement Usage; do
     dotnet ef database update -p "$ROOT/src/Services/$svc/Infrastructure" -s "$ROOT/src/Services/$svc/Api" >/dev/null 2>&1 \
       && printf '  migrated %s\n' "$svc" || printf '  (migrate %s skipped/failed)\n' "$svc"
   done
@@ -237,6 +243,21 @@ run_live() {
     ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >/tmp/3c-supplier-portal.log 2>&1 & )
   else
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
+  fi
+
+  stage "Seeding demo data (--profile full)"
+  # The L20 admin/supplier specs (currency coverage + variable-decimals, suppliers, ledger/orders
+  # storefront columns, mission-control jobs) and the storefront fixture-manifest specs assert data
+  # that ONLY the full demo seed creates: multi-currency storefronts, a Demo Supplier with offers,
+  # scenario products, attributed multi-currency orders/ledger, and .run/dev-dummy-data/fixtures.json.
+  # Without it those specs fail (unguarded) or skip (guarded) — the reason browser-e2e was red. Seed it
+  # here, concurrently with the background storefront build above, so L14–L20 run against real data.
+  for _ in $(seq 1 90); do curl -fsS -o /dev/null "$GATEWAY/health" 2>/dev/null && break; sleep 2; done
+  rm -rf "$ROOT/.run/dev-dummy-data"   # never let a stale manifest from a prior run drive the specs
+  if GATEWAY="$GATEWAY" "$ROOT/scripts/dev-dummy-data.sh" --profile full --gateway "$GATEWAY" >/tmp/3c-seed.log 2>&1; then
+    pass "Seed full demo data ($(grep -oE 'step classifications:.*' /tmp/3c-seed.log | tail -1))"
+  else
+    fail "Seed full demo data"; tail -25 /tmp/3c-seed.log
   fi
 
   stage "L3–L4  Gateway routing"

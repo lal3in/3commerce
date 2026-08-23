@@ -21,7 +21,7 @@ test.describe("Collect at warehouse checkout", () => {
     await shipping.getByLabel("Address").fill("1 Test Street");
     await shipping.getByLabel("City").fill("Berlin");
     await shipping.getByLabel("Postcode").fill("10115");
-    await shipping.getByLabel(/country/i).fill("DE");
+    await shipping.getByLabel(/country/i).selectOption("DE");
 
     // Opt into collect-at-warehouse: the carrier-rate button disappears and shipping shows Free.
     await page.getByText(/collect at warehouse \(free\)/i).click();

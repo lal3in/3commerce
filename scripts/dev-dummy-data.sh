@@ -679,6 +679,30 @@ try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load
 except Exception: pass")
 }
 
+# Publish the EUR-priced demo SCENARIO products (created by seed_scenario_matrix) to the EU demo store, so
+# they surface on that store's storefront home/PDP. The browser E2E specs pin the EU store and click through
+# a[href*="physical-warehouse"] on the store home, and the storefront PDP 404s for a product NOT published
+# to the pinned store — without this the scenario products exist only in the global catalog, never on a
+# store, so cart-checkout and collect-at-warehouse can't reach them. We publish only the PHYSICAL scenarios
+# (the ones a storefront checkout flow exercises); the non-physical scenarios are covered by the direct-PDP
+# catalog-product-types spec, which is store-agnostic. The home lists newest-first (CreatedAt DESC), and the
+# physical scenarios are the newest EUR products, so physical-warehouse-flat lands within the featured page.
+seed_scenario_publications() {
+  echo "== scenario product storefront publications (EU demo store) =="
+  local eu_store code pid
+  eu_store=$(manifest_get "storefronts.demoEu.id")
+  [[ -n "$eu_store" ]] || { manifest_append "warnings" "$(json_string "seed_scenario_publications: no EU demo store")"; return; }
+  for code in physical-warehouse-flat physical-dropship-flat physical-multi-variant-tiered; do
+    pid=$(manifest_get "products.$code.id")
+    [[ -n "$pid" ]] || { manifest_append "warnings" "$(json_string "seed_scenario_publications: no product id for $code")"; continue; }
+    # fulfillmentSource=2 (Warehouse) + the product's image + a EUR-priced variant satisfy publish readiness.
+    api "scenario-pub-$code-assign" POST "/api/catalog/admin/storefronts/$eu_store/products" "$ADMIN_JAR" \
+      "{\"productId\":\"$pid\",\"fulfillmentSource\":2}" "allow_4xx" >/dev/null
+    api "scenario-pub-$code-publish" POST "/api/catalog/admin/storefronts/$eu_store/products/$pid/publish" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    manifest_set "products.$code.publishedTo" "$(json_string "demoEu")"
+  done
+}
+
 # Settle a payment, retrying until the checkout saga has created the payment intent — a bare
 # simulate-payment fired right after checkout races intent creation and 500s (leaving the order unpaid,
 # so it never posts to the ledger). Args: <intentId> <amountQuery e.g. "?amountMinor=1234" or ""> <jar>
@@ -970,6 +994,7 @@ except Exception:
   sleep 5
   seed_historical_flows
   seed_storefront_publications
+  seed_scenario_publications
   seed_store_product_costs
   seed_storefront_orders
   seed_extra_customers

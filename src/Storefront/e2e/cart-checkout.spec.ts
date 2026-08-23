@@ -32,7 +32,7 @@ test.describe("Cart & checkout", () => {
     await shipping.getByLabel("Address").fill("1 Test Street");
     await shipping.getByLabel("City").fill("Berlin");
     await shipping.getByLabel("Postcode").fill("10115");
-    await shipping.getByLabel(/country/i).fill("DE");
+    await shipping.getByLabel(/country/i).selectOption("DE");
     await page.getByRole("button", { name: /get shipping rates/i }).click();
     await expect(page.getByText(/standard/i)).toBeVisible();
     await page.getByRole("button", { name: /authorize & place order/i }).click();
@@ -81,7 +81,7 @@ test.describe("Cart & checkout", () => {
     await shipping.getByLabel("Address").fill("2 Wallet Way");
     await shipping.getByLabel("City").fill("Berlin");
     await shipping.getByLabel("Postcode").fill("10115");
-    await shipping.getByLabel(/country/i).fill("DE");
+    await shipping.getByLabel(/country/i).selectOption("DE");
     await page.getByRole("button", { name: /get shipping rates/i }).click();
     await expect(page.getByText(/standard/i)).toBeVisible();
 
