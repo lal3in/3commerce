@@ -174,7 +174,12 @@ Steps:
    and warehouse origin. The returned Fake/sandbox carrier rates are rendered as
    radio options.
 4. Select a shipping method. The selected service, amount in minor units, and
-   quote expiry are posted with checkout.
+   quote expiry are posted with checkout. **Collect at warehouse** (built with the
+   supplier epic, ADR-0049): when the cart holds a physical warehouse-fulfilment line
+   from an approved supplier, the form offers collection instead of carrier delivery —
+   the order then carries **no carrier and zero shipping** and records the supplier's
+   warehouse address to collect from. Ordering rejects a collect request that isn't
+   eligible, so the shopper falls back to a shipped rate.
 5. Pick a **payment option**: Credit card, Stripe Payment Element, **Apple Pay**,
    **Google Pay**, or **PayPal**. Wallets are payment *methods* tokenized through
    the storefront's payment provider, not separate providers (ADR-0039). In
