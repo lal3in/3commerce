@@ -31,9 +31,14 @@ public partial class EntityChildTablesRls : Migration
     {
         foreach (var table in OwnTenantTables)
         {
+            // DROP … IF EXISTS first: EntityTenantTablesRls (20260703165540) already created
+            // TenantIsolation_* on four of these five tables, so a plain CREATE POLICY fails with
+            // 42710 on a fresh database (the whole migrate step exits 1). Dropping first makes this
+            // migration idempotent; the recreated policy is byte-for-byte identical.
             migrationBuilder.Sql($@"
                     ALTER TABLE entity.""{table}"" ENABLE ROW LEVEL SECURITY;
                     ALTER TABLE entity.""{table}"" FORCE ROW LEVEL SECURITY;
+                    DROP POLICY IF EXISTS ""TenantIsolation_{table}"" ON entity.""{table}"";
                     CREATE POLICY ""TenantIsolation_{table}"" ON entity.""{table}""
                         USING (current_setting('app.is_platform_admin', true) = 'true'
                             OR ""TenantId"" = nullif(current_setting('app.tenant_id', true), '')::uuid)
@@ -46,6 +51,7 @@ public partial class EntityChildTablesRls : Migration
             migrationBuilder.Sql($@"
                     ALTER TABLE entity.""{table}"" ENABLE ROW LEVEL SECURITY;
                     ALTER TABLE entity.""{table}"" FORCE ROW LEVEL SECURITY;
+                    DROP POLICY IF EXISTS ""TenantIsolation_{table}"" ON entity.""{table}"";
                     CREATE POLICY ""TenantIsolation_{table}"" ON entity.""{table}""
                         USING (current_setting('app.is_platform_admin', true) = 'true'
                             OR EXISTS (SELECT 1 FROM entity.""Entities"" e
