@@ -70,6 +70,8 @@ public static class OfferEndpoints
                 request.Priority, now);
             offer.SetPricing(request.PricingModel, request.BillingPeriod, ToTiers(request.Tiers), now);
             offer.SetSupplierCost(request.SupplierCostMinor, now);
+            offer.SetStorefront(request.StorefrontId, now);
+            offer.SetActiveWindow(request.ActiveFrom, request.ActiveUntil, now);
             db.Offers.Add(offer);
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.create", offer.ProductId.ToString()), ct);
@@ -136,6 +138,15 @@ public static class OfferEndpoints
                 db.AddRange(offer.PriceTiers);
             }
 
+            // Storefront scope + active window are set together, only when the caller opts in (ApplyScope) —
+            // any of the three may legitimately be null (all-storefront / open-ended), so a partial update
+            // that omits them (e.g. the Suppliers page editing only supplier cost) must not wipe them.
+            if (request.ApplyScope)
+            {
+                offer.SetStorefront(request.StorefrontId, now);
+                offer.SetActiveWindow(request.ActiveFrom, request.ActiveUntil, now);
+            }
+
             await audit.RecordAsync(user.Mutation(
                 offer.TenantId, "Offer", offer.Id.ToString(), "catalog.offer.update", offer.ProductId.ToString()), ct);
             // Publish before Save (see Create) so the OfferChanged outbox row is committed and delivered.
@@ -153,7 +164,8 @@ public static class OfferEndpoints
         tiers is null ? [] : tiers.Select(t => (t.FromQuantity, t.UnitPriceMinor)).ToList();
 
     private static OfferChanged ToEvent(Offer o, ProductType productType) =>
-        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive, o.SupplierCostMinor, o.Currency, productType);
+        new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory, o.FulfilmentType, o.PricingModel, o.BillingPeriod, o.Priority, o.IsActive, o.SupplierCostMinor, o.Currency, productType,
+            o.PriceMinor, o.StorefrontId, o.ActiveFrom, o.ActiveUntil);
 
     // The product's nature drives the checkout shipping policy (projected onto OfferCopy). Returns the
     // default 0 ("unknown") only if the product row can't be found — an offer always references a real
@@ -170,7 +182,7 @@ public static class OfferEndpoints
         new(o.Id, o.TenantId, o.ProductId, o.VariantId, o.SupplierId, o.SupplyCategory.ToString(),
             o.FulfilmentType.ToString(), o.PricingModel.ToString(), o.BillingPeriod.ToString(), o.PriceMinor, o.Currency, o.Priority, o.Status.ToString(),
             o.PriceTiers.OrderBy(t => t.FromQuantity).Select(t => new PriceTierDto(t.FromQuantity, t.UnitPriceMinor)).ToList(),
-            o.SupplierCostMinor, productTitle, variantSku);
+            o.SupplierCostMinor, productTitle, variantSku, o.StorefrontId, o.ActiveFrom, o.ActiveUntil);
 }
 
 public record CreateOfferRequest(
@@ -186,15 +198,27 @@ public record CreateOfferRequest(
     PricingModel PricingModel = PricingModel.OneTime,
     BillingPeriod BillingPeriod = BillingPeriod.Once,
     List<PriceTierDto>? Tiers = null,
-    [property: Range(0, long.MaxValue)] long SupplierCostMinor = 0);
+    [property: Range(0, long.MaxValue)] long SupplierCostMinor = 0,
+    // Storefront scope + active window (offer-as-price). StorefrontId null = all storefronts of the currency;
+    // the window bounds are open-ended when null.
+    Guid? StorefrontId = null,
+    DateTimeOffset? ActiveFrom = null,
+    DateTimeOffset? ActiveUntil = null);
 
 public record UpdateOfferRequest(
     long? PriceMinor, int? Priority, bool? Active, PricingModel? PricingModel = null, BillingPeriod? BillingPeriod = null, List<PriceTierDto>? Tiers = null,
-    [property: Range(0, long.MaxValue)] long? SupplierCostMinor = null);
+    [property: Range(0, long.MaxValue)] long? SupplierCostMinor = null,
+    // ApplyScope opts the update in to setting StorefrontId + the active window (any of which may be null).
+    // A partial update that leaves it false keeps the offer's current scope/window (e.g. the Suppliers page).
+    bool ApplyScope = false,
+    Guid? StorefrontId = null,
+    DateTimeOffset? ActiveFrom = null,
+    DateTimeOffset? ActiveUntil = null);
 
 public record PriceTierDto(int FromQuantity, long UnitPriceMinor);
 
 public record OfferDto(
     Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory,
     string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status,
-    List<PriceTierDto> Tiers, long SupplierCostMinor, string ProductTitle, string? VariantSku = null);
+    List<PriceTierDto> Tiers, long SupplierCostMinor, string ProductTitle, string? VariantSku = null,
+    Guid? StorefrontId = null, DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);

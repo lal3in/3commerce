@@ -46,18 +46,62 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Cart is empty.");
         }
 
-        // Re-validate prices against the current ProductCopy (plan edge case: price drift → 409).
+        // Resolve tenant + storefront + the offer read model UP FRONT: an active, in-window offer for this
+        // storefront (offer-as-price, ADR-0028) sets the CHARGED price, so it must be known before prices are
+        // revalidated below. The storefront also gates shipping and rides AuthorizePayment for attribution.
+        var checkoutTenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var tenantId = checkoutTenantId;
+        // The first-party storefront app resolves the exact active store and sends it in the body, so it
+        // wins for attribution; the gateway's host-derived header is only a fallback (it collapses all
+        // path-based demo stores to one configured default), then the tenant default.
+        var storefrontId = request.StorefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
+
+        // Every order must belong to a real storefront (rev_5). The gateway stamps its synthetic
+        // DefaultStorefrontId when a request carries no resolvable store context (no /{slug}, no
+        // domain) — that is not a real storefront (no published catalog, no ledger accounts), so
+        // reject rather than book an orphan order that lands on the shared revenue.sales /
+        // liability.tax_collected accounts. The first-party app always sends the active store.
+        var defaultStorefrontId = Guid.TryParse(config["Tenancy:DefaultStorefrontId"], out var d)
+            ? d
+            : Guid.Parse("00000000-0000-0000-0000-000000000101");
+        if (storefrontId == defaultStorefrontId)
+        {
+            return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
+        }
+
+        // offerCopies is reused for the shipping gate, the offer price override, and the per-line attempt build.
+        var cartProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+        var offerCopies = await db.OfferCopies.AsNoTracking()
+            .Where(o => o.TenantId == checkoutTenantId && cartProductIds.Contains(o.ProductId))
+            .ToListAsync(ct);
+        var now = time.GetUtcNow();
+
+        // Re-validate prices against the current catalog copy (plan edge case: price drift → 409), then apply
+        // the offer-as-price override: when an effective offer applies to a line's storefront, its price is the
+        // AUTHORITATIVE charge (shown == charged), so it wins over the catalog price and does NOT trip the drift
+        // 409 — the shopper saw that offer price on the storefront.
         var priceChanged = false;
         foreach (var item in cart.Items)
         {
+            var original = item.UnitPriceMinor;
             var current = item.VariantId is { } variantId
                 ? await db.ProductVariantCopies.Include(v => v.Prices).FirstOrDefaultAsync(v => v.VariantId == variantId, ct)
                 : null;
             // Revalidate against the tenant's current price in the cart item's currency (per-currency pricing).
-            var currentPrice = current?.PriceInCurrency(item.Currency) ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
-            if (currentPrice is { } price && price != item.UnitPriceMinor)
+            var catalogPrice = current?.PriceInCurrency(item.Currency) ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
+            var offerPrice = OfferResolution.ResolvePricingOffer(
+                offerCopies, checkoutTenantId, item.ProductId, item.VariantId, storefrontId, item.Currency, now)?.PriceMinor;
+
+            // The offer price (when one is effective) is the authoritative charge; else fall back to the
+            // current catalog price. Only a CATALOG drift (no offer overriding it) trips the review-your-cart
+            // 409 — the offer price is what the shopper saw on the storefront, so charge it without a 409.
+            if ((offerPrice ?? catalogPrice) is { } price)
             {
                 item.UnitPriceMinor = price;
+            }
+
+            if (offerPrice is null && catalogPrice is { } cp && cp != original)
+            {
                 priceChanged = true;
             }
         }
@@ -73,17 +117,11 @@ public static class CheckoutEndpoints
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
         var discountMinor = 0L;
 
-        // Resolve the cart's fulfilment up front (from the OfferCopy read model) so shipping can be gated:
-        // only a cart with at least one shippable line is charged shipping — a non-shippable (e.g. digital/
-        // service/usage) order ships nothing and must not pay shipping (mt4 / ADR-0028). Which product types
-        // ship is the tenant's configurable ProductType policy (projected as ProductTypeShippingPolicyCopy);
-        // when no policy copy or a line's product type is unknown, it falls back to the fulfilment-type gate.
-        // offerCopies is reused below for the per-line attempt build, so it's loaded once here.
-        var checkoutTenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
-        var cartProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
-        var offerCopies = await db.OfferCopies.AsNoTracking()
-            .Where(o => o.TenantId == checkoutTenantId && cartProductIds.Contains(o.ProductId))
-            .ToListAsync(ct);
+        // Gate shipping from the OfferCopy read model (loaded up front): only a cart with at least one
+        // shippable line is charged shipping — a non-shippable (e.g. digital/service/usage) order ships
+        // nothing and must not pay shipping (mt4 / ADR-0028). Which product types ship is the tenant's
+        // configurable ProductType policy (projected as ProductTypeShippingPolicyCopy); when no policy copy
+        // or a line's product type is unknown, it falls back to the fulfilment-type gate.
         var shippingPolicy = await db.ProductTypeShippingPolicyCopies.AsNoTracking()
             .FirstOrDefaultAsync(p => p.TenantId == checkoutTenantId, ct);
         var anyShippable = cart.Items.Any(i => LineRequiresShipping(
@@ -144,26 +182,8 @@ public static class CheckoutEndpoints
 
         var orderId = Guid.CreateVersion7();
         var idempotencyKey = orderId.ToString();
-        // Resolve tenant/storefront up front (gateway-trusted headers) so the storefront rides the
-        // AuthorizePayment request → Payment, letting the sale post to the storefront's own accounts.
-        var tenantId = checkoutTenantId; // resolved up front for the shipping gate; reused here
-        // The first-party storefront app resolves the exact active store and sends it in the body, so it
-        // wins for attribution; the gateway's host-derived header is only a fallback (it collapses all
-        // path-based demo stores to one configured default), then the tenant default.
-        var storefrontId = request.StorefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
-
-        // Every order must belong to a real storefront (rev_5). The gateway stamps its synthetic
-        // DefaultStorefrontId when a request carries no resolvable store context (no /{slug}, no
-        // domain) — that is not a real storefront (no published catalog, no ledger accounts), so
-        // reject rather than book an orphan order that lands on the shared revenue.sales /
-        // liability.tax_collected accounts. The first-party app always sends the active store.
-        var defaultStorefrontId = Guid.TryParse(config["Tenancy:DefaultStorefrontId"], out var d)
-            ? d
-            : Guid.Parse("00000000-0000-0000-0000-000000000101");
-        if (storefrontId == defaultStorefrontId)
-        {
-            return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
-        }
+        // tenantId + storefrontId were resolved up front (they gate the offer price + shipping); the
+        // storefront rides the AuthorizePayment request → Payment so the sale posts to the store's accounts.
 
         // A recurring (subscription/periodic) line can only be purchased by a verified, signed-in member
         // with a reusable payment instrument — never as a guest, and never with a one-off card, so renewals
@@ -200,8 +220,6 @@ public static class CheckoutEndpoints
         {
             return TypedResults.BadRequest("Payment service unavailable; please retry.");
         }
-
-        var now = time.GetUtcNow();
 
         // Each line's fulfilment is resolved from offerCopies (loaded up front for the shipping gate):
         // the OfferCopy read model is fed by Catalog's OfferChanged events. No offer → Unassigned.

@@ -60,4 +60,94 @@ public class OfferResolutionTests
         };
         Assert.Equal(FulfilmentType.Unassigned, OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant));
     }
+
+    // --- Offer-as-price selection (ResolvePricingOffer): storefront + window + currency + active ---
+
+    private static readonly Guid Store = Guid.NewGuid();
+    private static readonly DateTimeOffset Now = new(2026, 6, 15, 12, 0, 0, TimeSpan.Zero);
+
+    private static OfferCopy PricingOffer(
+        Guid? variant, long price, int priority = 0, bool active = true, Guid? storefrontId = null,
+        string currency = "EUR", DateTimeOffset? from = null, DateTimeOffset? until = null) =>
+        new()
+        {
+            OfferId = Guid.NewGuid(),
+            TenantId = Tenant,
+            ProductId = Product,
+            VariantId = variant,
+            PriceMinor = price,
+            Priority = priority,
+            Active = active,
+            StorefrontId = storefrontId,
+            Currency = currency,
+            ActiveFrom = from,
+            ActiveUntil = until,
+        };
+
+    private static long? Price(IEnumerable<OfferCopy> offers, Guid? variant = null, Guid? store = null, string currency = "EUR") =>
+        OfferResolution.ResolvePricingOffer(offers, Tenant, Product, variant, store ?? Store, currency, Now)?.PriceMinor;
+
+    [Fact]
+    public void No_effective_offer_returns_null_so_checkout_keeps_the_catalog_price() =>
+        Assert.Null(Price([]));
+
+    [Fact]
+    public void An_all_storefront_offer_prices_any_storefront_of_its_currency() =>
+        Assert.Equal(1_500, Price([PricingOffer(null, 1_500, storefrontId: null)]));
+
+    [Fact]
+    public void A_storefront_scoped_offer_only_prices_its_own_storefront()
+    {
+        var offers = new[] { PricingOffer(null, 1_500, storefrontId: Guid.NewGuid()) };
+        Assert.Null(Price(offers)); // scoped to a different store
+        Assert.Equal(1_500, Price([PricingOffer(null, 1_500, storefrontId: Store)]));
+    }
+
+    [Fact]
+    public void A_storefront_scoped_offer_beats_an_all_storefront_one_at_the_same_grain()
+    {
+        var offers = new[]
+        {
+            PricingOffer(null, 2_000, storefrontId: null),
+            PricingOffer(null, 1_200, storefrontId: Store),
+        };
+        Assert.Equal(1_200, Price(offers));
+    }
+
+    [Fact]
+    public void A_variant_specific_offer_beats_a_product_level_one()
+    {
+        var offers = new[] { PricingOffer(null, 2_000), PricingOffer(Variant, 900) };
+        Assert.Equal(900, Price(offers, variant: Variant));
+    }
+
+    [Fact]
+    public void Lowest_priority_wins_among_the_same_grain_and_scope()
+    {
+        var offers = new[]
+        {
+            PricingOffer(null, 2_000, priority: 10, storefrontId: Store),
+            PricingOffer(null, 1_100, priority: 1, storefrontId: Store),
+        };
+        Assert.Equal(1_100, Price(offers));
+    }
+
+    [Fact]
+    public void An_offer_outside_its_active_window_does_not_price()
+    {
+        Assert.Null(Price([PricingOffer(null, 1_500, from: Now.AddDays(1))])); // not started
+        Assert.Null(Price([PricingOffer(null, 1_500, until: Now.AddDays(-1))])); // expired
+        Assert.Equal(1_500, Price([PricingOffer(null, 1_500, from: Now.AddDays(-1), until: Now.AddDays(1))]));
+    }
+
+    [Fact]
+    public void An_offer_in_a_different_currency_does_not_price() =>
+        Assert.Null(Price([PricingOffer(null, 1_500, currency: "USD")], currency: "EUR"));
+
+    [Fact]
+    public void An_inactive_or_zero_price_offer_does_not_price()
+    {
+        Assert.Null(Price([PricingOffer(null, 1_500, active: false)]));
+        Assert.Null(Price([PricingOffer(null, 0)]));
+    }
 }

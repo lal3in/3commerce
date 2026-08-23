@@ -24,7 +24,7 @@
 {
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
-            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Offers.Col.Product"]</th><th>@L["Offers.Col.Title"]</th><th>@L["Offers.Col.Variant"]</th><th>@L["Offers.Col.Supplier"]</th><th>@L["Offers.Col.Supply"]</th><th>@L["Offers.Col.Pricing"]</th><th>@L["Offers.Col.Price"]</th><th>@L["Offers.Col.Priority"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Offers.Col.Product"]</th><th>@L["Offers.Col.Title"]</th><th>@L["Offers.Col.Variant"]</th><th>@L["Offers.Col.Supplier"]</th><th>@L["Offers.Col.Supply"]</th><th>@L["Offers.Col.Pricing"]</th><th>@L["Offers.Col.Price"]</th><th>@L["Offers.Col.Storefront"]</th><th>@L["Offers.Col.Window"]</th><th>@L["Offers.Col.Priority"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
         </thead>
         <tbody>
         @foreach (var offer in _offers)
@@ -37,6 +37,8 @@
                 <td>@offer.SupplyCategory / @offer.FulfilmentType</td>
                 <td>@offer.PricingModel / @offer.BillingPeriod @TierSummary(offer)</td>
                 <td style="text-align:right;">@offer.PriceMinor @offer.Currency</td>
+                <td>@StorefrontLabel(offer.StorefrontId)</td>
+                <td style="white-space:nowrap;">@WindowLabel(offer)</td>
                 <td style="text-align:center;">@offer.Priority</td>
                 <td>@offer.Status</td>
                 <td style="white-space:nowrap;"><button @onclick="() => Edit(offer)" title="@L["Offers.Edit.Tip"]">@L["Common.Edit"]</button></td>
@@ -90,6 +92,26 @@
         }
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>@L["Offers.Scope.Legend"]</legend>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+                <label>@L["Offers.Field.Storefront"]
+                    <select @bind="_form.StorefrontId" title="@L["Offers.Field.Storefront.Tip"]" style="width:100%;">
+                        <option value="">@L["Offers.Storefront.All"]</option>
+                        @if (_storefronts is not null)
+                        {
+                            @foreach (var s in _storefronts)
+                            {
+                                <option value="@s.Id">@s.Name (@s.Currency)</option>
+                            }
+                        }
+                    </select>
+                </label>
+                <label>@L["Offers.Field.ActiveFrom"] <input type="date" @bind="_form.ActiveFrom" title="@L["Offers.Field.ActiveFrom.Tip"]" style="width:100%;" /></label>
+                <label>@L["Offers.Field.ActiveUntil"] <input type="date" @bind="_form.ActiveUntil" title="@L["Offers.Field.ActiveUntil.Tip"]" style="width:100%;" /></label>
+            </div>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
             <legend>@L["Offers.Tiers"]</legend>
             @foreach (var tier in _form.Tiers)
             {
@@ -113,6 +135,7 @@
     private string _tenantId = "00000000-0000-0000-0000-000000000001";
     private string _productFilter = string.Empty;
     private List<OfferDto>? _offers;
+    private List<StorefrontDto>? _storefronts;
     private string? _status;
     private string? _error;
     private Guid? _editingId;
@@ -129,6 +152,8 @@
             var query = $"tenantId={Uri.EscapeDataString(_tenantId)}";
             if (!string.IsNullOrWhiteSpace(_productFilter)) query += $"&productId={Uri.EscapeDataString(_productFilter)}";
             _offers = await Gateway.GetListAsync<OfferDto>($"{Base}?{query}");
+            // Storefronts feed the scope picker + the table labels; a failure here must not block offers.
+            _storefronts = await SafeStorefronts();
         }
         catch (Exception ex) { _error = ex.Message; }
     }
@@ -142,9 +167,14 @@
         Guid? variant = Guid.TryParse(_form.VariantId, out var parsedVariant) ? parsedVariant : null;
         var tiers = _form.Tiers.Where(t => t.FromQuantity > 0).Select(t => new { t.FromQuantity, t.UnitPriceMinor }).ToList();
 
+        Guid? storefrontId = Guid.TryParse(_form.StorefrontId, out var sf) ? sf : null;
+        DateTimeOffset? activeFrom = _form.ActiveFrom is { } from ? new DateTimeOffset(from, TimeSpan.Zero) : null;
+        // Include the whole ActiveUntil day: an end date of the 5th means "effective through end of the 5th".
+        DateTimeOffset? activeUntil = _form.ActiveUntil is { } until ? new DateTimeOffset(until, TimeSpan.Zero).AddDays(1).AddTicks(-1) : null;
+
         object body = _editingId is null
-            ? new { tenantId = tenant, productId = product, variantId = variant, supplierId = supplier, supplyCategory = _form.SupplyCategory, fulfilmentType = _form.FulfilmentType, priceMinor = _form.PriceMinor, currency = _form.Currency, priority = _form.Priority, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers }
-            : new { priceMinor = _form.PriceMinor, priority = _form.Priority, active = _form.Active, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers };
+            ? new { tenantId = tenant, productId = product, variantId = variant, supplierId = supplier, supplyCategory = _form.SupplyCategory, fulfilmentType = _form.FulfilmentType, priceMinor = _form.PriceMinor, currency = _form.Currency, priority = _form.Priority, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers, storefrontId, activeFrom, activeUntil }
+            : new { priceMinor = _form.PriceMinor, priority = _form.Priority, active = _form.Active, pricingModel = _form.PricingModel, billingPeriod = _form.BillingPeriod, tiers, applyScope = true, storefrontId, activeFrom, activeUntil };
         var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
         if (response.IsSuccessStatusCode) { ResetForm(); _showForm = false; await LoadAsync(); _status = L["Offers.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
@@ -170,12 +200,31 @@
         _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString();
         _form.SupplyCategory = SupplyCategoryValue(offer.SupplyCategory); _form.FulfilmentType = FulfilmentTypeValue(offer.FulfilmentType); _form.PricingModel = PricingModelValue(offer.PricingModel); _form.BillingPeriod = BillingPeriodValue(offer.BillingPeriod);
         _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active"; _form.SupplierCostMinor = offer.SupplierCostMinor;
+        _form.StorefrontId = offer.StorefrontId?.ToString() ?? string.Empty;
+        _form.ActiveFrom = offer.ActiveFrom?.UtcDateTime.Date; _form.ActiveUntil = offer.ActiveUntil?.UtcDateTime.Date;
         _form.Tiers.Clear(); foreach (var tier in offer.Tiers) _form.Tiers.Add(new TierForm { FromQuantity = tier.FromQuantity, UnitPriceMinor = tier.UnitPriceMinor });
     }
 
     private void ResetForm()
     {
-        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.SupplierCostMinor = 0; _form.Tiers.Clear();
+        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.SupplierCostMinor = 0; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null; _form.Tiers.Clear();
+    }
+
+    private async Task<List<StorefrontDto>> SafeStorefronts()
+    {
+        try { return await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Uri.EscapeDataString(_tenantId)}"); }
+        catch { return []; }
+    }
+
+    private string StorefrontLabel(Guid? storefrontId) =>
+        storefrontId is { } sid ? _storefronts?.FirstOrDefault(s => s.Id == sid)?.Name ?? Short(sid) : L["Offers.Storefront.All"];
+
+    private string WindowLabel(OfferDto offer)
+    {
+        if (offer.ActiveFrom is null && offer.ActiveUntil is null) { return L["Offers.Window.Always"]; }
+        var from = offer.ActiveFrom?.UtcDateTime.ToString("yyyy-MM-dd") ?? "…";
+        var until = offer.ActiveUntil?.UtcDateTime.ToString("yyyy-MM-dd") ?? "…";
+        return $"{from} → {until}";
     }
 
     private static int SupplyCategoryValue(string value) => value switch { "Physical" => 1, "Digital" => 2, "Service" => 3, _ => 1 };
@@ -185,8 +234,9 @@
     private static string Short(Guid id) => id.ToString()[..8];
     private string TierSummary(OfferDto offer) => offer.Tiers.Count == 0 ? string.Empty : L["Offers.Tier.Summary", offer.Tiers.Count];
 
-    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public long SupplierCostMinor { get; set; } public List<TierForm> Tiers { get; } = []; }
+    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public long SupplierCostMinor { get; set; } public string StorefrontId { get; set; } = string.Empty; public DateTime? ActiveFrom { get; set; } public DateTime? ActiveUntil { get; set; } public List<TierForm> Tiers { get; } = []; }
     private sealed class TierForm { public int FromQuantity { get; set; } = 1; public long UnitPriceMinor { get; set; } }
     private record PriceTierDto(int FromQuantity, long UnitPriceMinor);
-    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, long SupplierCostMinor = 0, string ProductTitle = "");
+    private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, long SupplierCostMinor = 0, string ProductTitle = "", string? VariantSku = null, Guid? StorefrontId = null, DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);
+    private record StorefrontDto(Guid Id, string Name, string Currency);
 }

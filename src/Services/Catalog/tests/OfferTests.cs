@@ -116,6 +116,44 @@ public class OfferTests
     }
 
     [Fact]
+    public void SetActiveWindow_rejects_from_after_until()
+    {
+        var offer = Warehouse();
+        Assert.Throws<CatalogRuleException>(
+            () => offer.SetActiveWindow(Now.AddDays(2), Now.AddDays(1), Now));
+        // Equal bounds and open-ended bounds are allowed.
+        offer.SetActiveWindow(Now, Now, Now);
+        offer.SetActiveWindow(null, null, Now);
+    }
+
+    [Fact]
+    public void IsEffectiveAt_requires_active_storefront_match_and_window()
+    {
+        var store = Guid.NewGuid();
+        var offer = Warehouse();
+        offer.SetStorefront(store, Now);
+        offer.SetActiveWindow(Now.AddDays(-1), Now.AddDays(1), Now);
+
+        Assert.True(offer.IsEffectiveAt(Now, store));
+        Assert.False(offer.IsEffectiveAt(Now, Guid.NewGuid())); // wrong storefront
+        Assert.False(offer.IsEffectiveAt(Now.AddDays(-2), store)); // before window
+        Assert.False(offer.IsEffectiveAt(Now.AddDays(2), store)); // after window
+
+        offer.Deactivate(Now);
+        Assert.False(offer.IsEffectiveAt(Now, store)); // inactive
+    }
+
+    [Fact]
+    public void An_all_storefront_offer_is_effective_for_every_storefront_and_open_window()
+    {
+        var offer = Warehouse();
+        offer.SetStorefront(null, Now);
+        offer.SetActiveWindow(null, null, Now);
+        Assert.True(offer.IsEffectiveAt(Now, Guid.NewGuid()));
+        Assert.True(offer.IsEffectiveAt(Now.AddYears(5), Guid.NewGuid()));
+    }
+
+    [Fact]
     public void SetSupplierCost_updates_and_guards_negative()
     {
         var offer = Warehouse();

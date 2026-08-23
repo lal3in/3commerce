@@ -23,6 +23,8 @@ public static class ProductsEndpoints
     private static async Task<Ok<List<ProductHit>>> Search(
         HttpContext httpContext,
         ISearchProvider search,
+        CatalogDbContext db,
+        TimeProvider clock,
         string? q,
         string? category,
         string? attrs,
@@ -40,12 +42,40 @@ public static class ProductsEndpoints
         var result = await search.SearchAsync(
             new SearchQuery(q, category, filters, page, pageSize, currency, productType, storefrontId), cancellationToken);
 
+        // Offer-as-price on the listing (shown == charged): a PRODUCT-LEVEL offer that is active + in-window
+        // for this storefront + currency sets every variant's price, so it sets the listed min price too.
+        // (Variant-specific listing overrides are resolved on the detail page.) Applied only when a currency
+        // is requested, so single-currency admin/global listings are unaffected.
+        var hits = result.Hits.ToList();
+        var cur = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
+        if (cur is not null && hits.Count > 0)
+        {
+            var now = clock.GetUtcNow();
+            var hitIds = hits.Select(h => h.Id).ToList();
+            var offers = await db.Offers.AsNoTracking()
+                .Where(o => hitIds.Contains(o.ProductId) && o.VariantId == null && o.PriceMinor > 0 && o.Currency == cur)
+                .ToListAsync(cancellationToken);
+            if (offers.Count > 0)
+            {
+                hits = hits.Select(h =>
+                {
+                    var offerPrice = offers
+                        .Where(o => o.ProductId == h.Id && o.IsEffectiveAt(now, storefrontId ?? Guid.Empty))
+                        .OrderByDescending(o => o.StorefrontId == (storefrontId ?? Guid.Empty))
+                        .ThenBy(o => o.Priority)
+                        .Select(o => (long?)o.PriceMinor)
+                        .FirstOrDefault();
+                    return offerPrice is { } p ? h with { MinPriceMinor = p } : h;
+                }).ToList();
+            }
+        }
+
         httpContext.Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
-        return TypedResults.Ok(result.Hits.ToList());
+        return TypedResults.Ok(hits);
     }
 
     private static async Task<Results<Ok<ProductDetailResponse>, NotFound>> GetBySlug(
-        string slug, CatalogDbContext db, string? currency, Guid? storefrontId, CancellationToken cancellationToken)
+        string slug, CatalogDbContext db, TimeProvider clock, string? currency, Guid? storefrontId, CancellationToken cancellationToken)
     {
         // Public detail gate: an Inactive product is treated as non-existent here (404). Admin
         // GetProduct (by id) stays unfiltered so the catalog editor can still load/edit it.
@@ -66,10 +96,23 @@ public static class ProductsEndpoints
         }
 
         var cur = string.IsNullOrWhiteSpace(currency) ? null : currency.Trim().ToUpperInvariant();
+
+        // Offer-as-price (ADR-0028): an active, in-window offer for this storefront + currency SHOWS the
+        // price the shopper will be CHARGED (shown == charged). Loaded once and applied per variant below —
+        // a variant-specific offer beats a product-level one; a storefront-scoped offer beats an all-store one.
+        var now = clock.GetUtcNow();
+        var offers = await db.Offers.AsNoTracking()
+            .Where(o => o.ProductId == product.Id && o.TenantId == product.TenantId && o.PriceMinor > 0)
+            .ToListAsync(cancellationToken);
         var variants = product.Variants
             .Select(v => (v, price: VariantPriceIn(v, cur)))
             .Where(x => x.price is not null)
-            .Select(x => new VariantResponse(x.v.Id, x.v.Sku, x.price!.Value, cur ?? x.v.Currency, x.v.StockQuantity > 0))
+            .Select(x =>
+            {
+                var lineCurrency = cur ?? x.v.Currency;
+                var offerPrice = EffectiveOfferPrice(offers, x.v.Id, storefrontId ?? Guid.Empty, lineCurrency, now);
+                return new VariantResponse(x.v.Id, x.v.Sku, offerPrice ?? x.price!.Value, lineCurrency, x.v.StockQuantity > 0);
+            })
             .ToList();
 
         // Hidden on a storefront whose currency the tenant priced no variant in.
@@ -112,6 +155,22 @@ public static class ProductsEndpoints
 
         return string.Equals(v.Currency, currency, StringComparison.OrdinalIgnoreCase) ? v.PriceMinor : null;
     }
+
+    // The price an effective offer sets for a variant on a storefront (offer-as-price, ADR-0028): among the
+    // offers targeting this product that are active + in-window for the storefront and denominated in the
+    // line's currency, a variant-specific offer beats a product-level (VariantId null) one, a storefront-scoped
+    // offer beats an all-storefront one, then lowest priority wins. Null = no effective offer (keep catalog).
+    private static long? EffectiveOfferPrice(
+        IReadOnlyList<Offer> offers, Guid variantId, Guid storefrontId, string currency, DateTimeOffset now) =>
+        offers
+            .Where(o => (o.VariantId == variantId || o.VariantId == null)
+                && string.Equals(o.Currency, currency, StringComparison.OrdinalIgnoreCase)
+                && o.IsEffectiveAt(now, storefrontId))
+            .OrderByDescending(o => o.VariantId == variantId)
+            .ThenByDescending(o => o.StorefrontId == storefrontId)
+            .ThenBy(o => o.Priority)
+            .Select(o => (long?)o.PriceMinor)
+            .FirstOrDefault();
 
     private static async Task<Ok<List<CategoryResponse>>> ListCategories(
         CatalogDbContext db, CancellationToken cancellationToken)

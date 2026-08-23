@@ -32,6 +32,30 @@ public class OfferCopy
     /// COGS from this offer when it matches the order's currency (no FX in this codebase).</summary>
     public string Currency { get; set; } = "";
 
+    /// <summary>The offer's authoritative selling price (minor units in <see cref="Currency"/>). When this
+    /// offer is effective for a line's storefront + currency at checkout, it sets the line's charged price
+    /// instead of the catalog SellingPriceMinor. 0 = no offer price projected (keep the catalog price).</summary>
+    public long PriceMinor { get; set; }
+
+    /// <summary>Restricts the offer price to a single storefront; null = all storefronts of <see cref="Currency"/>.</summary>
+    public Guid? StorefrontId { get; set; }
+
+    /// <summary>Inclusive start of the active window (UTC); null = open-ended.</summary>
+    public DateTimeOffset? ActiveFrom { get; set; }
+
+    /// <summary>Inclusive end of the active window (UTC); null = open-ended.</summary>
+    public DateTimeOffset? ActiveUntil { get; set; }
+
+    /// <summary>Whether this offer's price applies for <paramref name="storefrontId"/> in
+    /// <paramref name="currency"/> at <paramref name="now"/>: Active, storefront-matching (or all-storefront),
+    /// currency-matching, and within the [ActiveFrom, ActiveUntil] window (null bounds are open-ended).</summary>
+    public bool IsEffectiveFor(Guid storefrontId, string currency, DateTimeOffset now) =>
+        Active
+        && (StorefrontId is null || StorefrontId == storefrontId)
+        && string.Equals(Currency, currency, StringComparison.OrdinalIgnoreCase)
+        && (ActiveFrom is null || ActiveFrom <= now)
+        && (ActiveUntil is null || now <= ActiveUntil);
+
     /// <summary>How this offer's line is charged (Phase 7): recurring for subscriptions, metered for usage.</summary>
     public BillingMode BillingMode => PricingModel switch
     {
@@ -57,4 +81,25 @@ public static class OfferResolution
     public static FulfilmentType ResolveFulfilment(
         IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId) =>
         ResolveOffer(offers, tenantId, productId, variantId)?.FulfilmentType ?? FulfilmentType.Unassigned;
+
+    /// <summary>
+    /// Picks the offer whose price should be CHARGED for a line on a specific storefront (offer-as-price,
+    /// ADR-0028): the same grain precedence as <see cref="ResolveOffer"/> (a variant-specific offer beats a
+    /// product-level one; lowest priority wins), but filtered to offers that are effective for the line's
+    /// storefront + currency at <paramref name="now"/> (active, in-window, storefront-matching, and carrying
+    /// a non-zero price). A storefront-scoped offer is preferred over an all-storefront one at the same grain.
+    /// Null = no effective offer → checkout keeps the catalog price.
+    /// </summary>
+    public static OfferCopy? ResolvePricingOffer(
+        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
+        Guid storefrontId, string currency, DateTimeOffset now) =>
+        offers
+            .Where(o => o.TenantId == tenantId && o.ProductId == productId
+                && (o.VariantId == variantId || o.VariantId == null)
+                && o.PriceMinor > 0
+                && o.IsEffectiveFor(storefrontId, currency, now))
+            .OrderByDescending(o => o.VariantId == variantId)
+            .ThenByDescending(o => o.StorefrontId == storefrontId)
+            .ThenBy(o => o.Priority)
+            .FirstOrDefault();
 }
