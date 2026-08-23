@@ -79,6 +79,22 @@ public static class EntityEndpoints
             .WithTags("Entities")
             .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
             .WithSummary("The caller's own supplier entity summary + onboarding readiness.");
+        app.MapGet("/entities/suppliers/me/detail", GetMySupplierDetail)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("The caller's own supplier details (names, contacts, addresses) + whether they can still edit directly.");
+        app.MapPut("/entities/suppliers/me", UpdateMySupplier)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("Update the caller's own legal/trading name — rejected once the supplier is approved (the approval lock).");
+        app.MapGet("/entities/suppliers/me/change-requests", ListMySupplierChangeRequests)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("List the caller's own supplier change requests.");
+        app.MapPost("/entities/suppliers/me/change-requests", OpenMySupplierChangeRequest)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("Raise a change request for the caller's own supplier entity (used once direct edits are locked).");
 
         return group;
     }
@@ -359,6 +375,138 @@ public static class EntityEndpoints
             (state ?? SupplierOnboardingState.Draft).ToString(),
             readiness.IsReady, readiness.MissingRequirements));
     }
+
+    // Supplier-self detail view: the caller's own entity with contacts/addresses, plus whether the
+    // supplier may still edit directly. Resolves the entity from the supplier_entity claim only.
+    private static async Task<Results<Ok<SupplierSelfDetailResponse>, NotFound>> GetMySupplierDetail(
+        ClaimsPrincipal user,
+        EntityDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities.AsNoTracking(), cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var state = await MyOnboardingStateAsync(db, entity.Id, cancellationToken);
+        var detail = ToDetail(entity);
+        return TypedResults.Ok(new SupplierSelfDetailResponse(
+            entity.Id, entity.LegalName, entity.TradingName, entity.DisplayName,
+            state.ToString(), AllowsDirectEdit(state),
+            detail.Identifiers, detail.Contacts, detail.Addresses));
+    }
+
+    // The supplier-facing detail edit. Rejected once the supplier is approved (Active/Suspended/Archived):
+    // the domain guard enforces the approval lock so it cannot be bypassed by calling the API directly.
+    private static async Task<Results<Ok<EntitySummaryResponse>, NotFound, ValidationProblem>> UpdateMySupplier(
+        ClaimsPrincipal user,
+        UpdateEntityRequest request,
+        EntityDbContext db,
+        AuditRecorder audit,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            var onboarding = await db.SupplierOnboardings.SingleOrDefaultAsync(s => s.EntityId == entity.Id, cancellationToken);
+            onboarding?.EnsureDirectDetailEditAllowed();
+            entity.UpdateNames(request.LegalName, request.TradingName, timeProvider.GetUtcNow());
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.supplier.self_update", entity.DisplayName), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(new EntitySummaryResponse(
+                entity.Id, entity.TenantId, entity.Type, entity.LegalName, entity.TradingName, entity.DisplayName, entity.Status, entity.CreatedAt, entity.UpdatedAt));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.LegalName)] = [ex.Message] });
+        }
+    }
+
+    private static async Task<Results<Ok<List<SupplierChangeRequestResponse>>, NotFound>> ListMySupplierChangeRequests(
+        ClaimsPrincipal user,
+        SupplierChangeRequestStatus? status,
+        EntityDbContext db,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities.AsNoTracking(), cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var requests = await service.ListForEntityAsync(entity.TenantId, entity.Id, status, cancellationToken);
+        return TypedResults.Ok(requests.Select(ToResponse).ToList());
+    }
+
+    private static async Task<Results<Created<SupplierChangeRequestResponse>, NotFound, ValidationProblem>> OpenMySupplierChangeRequest(
+        ClaimsPrincipal user,
+        HttpContext http,
+        OpenSupplierChangeRequestBody request,
+        EntityDbContext db,
+        SupplierChangeRequestService service,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities.AsNoTracking(), cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            // TenantId + entityId come from the resolved record, never the client; the requesting
+            // principal is the supplier's own sub claim, so maker-checker holds when an admin decides.
+            var created = await service.OpenAsync(entity.TenantId, entity.Id, request.Type, request.Summary, request.Detail, ActingPrincipal(http), cancellationToken);
+            return TypedResults.Created($"/entities/suppliers/change-requests/{created.Id}", ToResponse(created));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["changeRequest"] = [ex.Message] });
+        }
+    }
+
+    // Resolve the caller's own supplier entity from the supplier_entity claim (never a client id), with
+    // the same tenant guard as GetMySupplier. The query is passed in so callers pick tracking vs no-tracking.
+    private static async Task<EntityRecord?> ResolveMySupplierAsync(
+        ClaimsPrincipal user, IQueryable<EntityRecord> entities, CancellationToken cancellationToken)
+    {
+        var entityId = InternalClaimsAuth.SupplierEntityId(user);
+        if (entityId is null)
+        {
+            return null;
+        }
+
+        var entity = await entities
+            .Include(e => e.Identifiers)
+            .Include(e => e.ContactMethods)
+            .Include(e => e.Addresses)
+            .SingleOrDefaultAsync(e => e.Id == entityId.Value, cancellationToken);
+        return entity is not null && InternalClaimsAuth.CanActForTenant(user, entity.TenantId) ? entity : null;
+    }
+
+    private static async Task<SupplierOnboardingState> MyOnboardingStateAsync(EntityDbContext db, Guid entityId, CancellationToken cancellationToken)
+    {
+        var state = await db.SupplierOnboardings.AsNoTracking()
+            .Where(s => s.EntityId == entityId)
+            .Select(s => (SupplierOnboardingState?)s.State)
+            .SingleOrDefaultAsync(cancellationToken);
+        return state ?? SupplierOnboardingState.Draft;
+    }
+
+    // Pre-approval onboarding states let the supplier edit its own details directly; everything from
+    // Active onwards is locked (mirrors SupplierOnboarding.AllowsDirectDetailEdit for a bare state).
+    private static bool AllowsDirectEdit(SupplierOnboardingState state) => state is SupplierOnboardingState.Draft
+        or SupplierOnboardingState.PendingVerification
+        or SupplierOnboardingState.PendingApproval;
 
     private static async Task<Results<Ok<SupplierOnboardingResponse>, ValidationProblem>> SubmitSupplierVerification(
         Guid id,
@@ -751,6 +899,18 @@ public sealed record SupplierReadinessResponse(bool IsReady, IReadOnlyList<strin
 public sealed record SupplierSelfResponse(
     Guid EntityId, string LegalName, string? TradingName, string OnboardingState,
     bool IsReady, IReadOnlyList<string> MissingRequirements);
+
+public sealed record SupplierSelfDetailResponse(
+    Guid EntityId,
+    string LegalName,
+    string? TradingName,
+    string DisplayName,
+    string OnboardingState,
+    // False once the supplier is approved (Active onwards): the portal switches to read-only + change requests.
+    bool CanEditDirectly,
+    IReadOnlyList<EntityIdentifierResponse> Identifiers,
+    IReadOnlyList<EntityContactResponse> Contacts,
+    IReadOnlyList<EntityAddressResponse> Addresses);
 
 public sealed record SupplierOnboardingResponse(
     Guid Id,

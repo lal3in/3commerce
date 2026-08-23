@@ -41,4 +41,10 @@ public sealed class SupplierGatewayClient(IHttpClientFactory factory, Authentica
         var client = await ClientAsync();
         return body is null ? await client.PostAsync(path, null) : await client.PostAsJsonAsync(path, body);
     }
+
+    public async Task<HttpResponseMessage> PutAsync(string path, object body)
+    {
+        var client = await ClientAsync();
+        return await client.PutAsJsonAsync(path, body);
+    }
 }

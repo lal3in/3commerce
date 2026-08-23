@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Entity.Domain;
@@ -27,6 +28,13 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    /// <summary>The change requests a single supplier has raised — the portal "My details" view of its own history.</summary>
+    public Task<List<SupplierChangeRequest>> ListForEntityAsync(Guid tenantId, Guid entityId, SupplierChangeRequestStatus? status, CancellationToken cancellationToken) =>
+        db.SupplierChangeRequests.AsNoTracking()
+            .Where(r => r.TenantId == tenantId && r.EntityId == entityId && (status == null || r.Status == status))
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     /// <param name="approverRole">
     /// The deciding principal's <c>role</c> claim (mt6_1) — recorded on the audit entry so a
     /// maker-checker decision shows WHO, in WHICH role, decided. Null only when unauthenticated.
@@ -49,6 +57,11 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
             await RecordDeniedAsync(tenantId, requestId, approverPrincipalId, approverRole, "supplier.change_request.approve", ex.Message, cancellationToken);
             throw;
         }
+
+        // Applying an approved change is the owning service's job (ADR-0025). For an entity-details
+        // request the proposed values live in Detail as JSON; apply them to the supplier's record so
+        // approval actually updates the details, then persist request + entity in one transaction.
+        await ApplyApprovedChangeAsync(request, cancellationToken);
 
         await audit.RecordAsync(AuditCategories.Mutation(
             tenantId, approverPrincipalId, approverRole, "SupplierChangeRequest", requestId.ToString(),
@@ -94,4 +107,38 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
 
     private Task<SupplierChangeRequest?> LoadAsync(Guid tenantId, Guid requestId, CancellationToken cancellationToken) =>
         db.SupplierChangeRequests.SingleOrDefaultAsync(r => r.Id == requestId && r.TenantId == tenantId, cancellationToken);
+
+    // Only EntityDetails carries a machine-applicable payload today; the other types (user access,
+    // contact, bank) are provisioned by their owning surface and remain intent-only records.
+    private async Task ApplyApprovedChangeAsync(SupplierChangeRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Type != SupplierChangeRequestType.EntityDetails || string.IsNullOrWhiteSpace(request.Detail))
+        {
+            return;
+        }
+
+        EntityDetailsChange? change;
+        try
+        {
+            change = JsonSerializer.Deserialize<EntityDetailsChange>(request.Detail, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            // Detail is free text (or a legacy shape), not an applicable payload — approve as intent only.
+            return;
+        }
+
+        if (change is null || string.IsNullOrWhiteSpace(change.LegalName))
+        {
+            return;
+        }
+
+        var entity = await db.Entities.SingleOrDefaultAsync(e => e.Id == request.EntityId, cancellationToken);
+        entity?.UpdateNames(change.LegalName, change.TradingName, timeProvider.GetUtcNow());
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>The proposed legal/trading name carried in an <see cref="SupplierChangeRequestType.EntityDetails"/> request's Detail.</summary>
+    public sealed record EntityDetailsChange(string LegalName, string? TradingName);
 }

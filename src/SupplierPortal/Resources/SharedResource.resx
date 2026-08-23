@@ -89,6 +89,12 @@
   <data name="Nav_Requests_Tooltip" xml:space="preserve">
     <value>Request supplier user, contact, or bank-account changes</value>
   </data>
+  <data name="Nav_Details" xml:space="preserve">
+    <value>My details</value>
+  </data>
+  <data name="Nav_Details_Tooltip" xml:space="preserve">
+    <value>View and maintain your supplier legal/trading name, contacts, and addresses</value>
+  </data>
   <data name="Nav_Logout" xml:space="preserve">
     <value>Log out</value>
   </data>
@@ -264,6 +270,122 @@
   </data>
   <data name="Requests_Submitted" xml:space="preserve">
     <value>Change request captured locally. Approval workflow persistence is scheduled for Phase 6.</value>
+  </data>
+
+  <!-- My details -->
+  <data name="Details_Title" xml:space="preserve">
+    <value>My details</value>
+  </data>
+  <data name="Details_Intro" xml:space="preserve">
+    <value>Maintain your supplier details. While onboarding you can edit them directly; once your supplier account is approved, changes go through an approval request.</value>
+  </data>
+  <data name="Details_Loading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="Details_NotFound" xml:space="preserve">
+    <value>No supplier record is linked to your login. Contact platform support.</value>
+  </data>
+  <data name="Details_State" xml:space="preserve">
+    <value>Onboarding state</value>
+  </data>
+  <data name="Details_EditableHint" xml:space="preserve">
+    <value>Your account is not yet approved, so you can edit these details directly.</value>
+  </data>
+  <data name="Details_LockedHint" xml:space="preserve">
+    <value>Your account is approved, so these details are read-only. Use “Request a change” to propose an update for platform approval.</value>
+  </data>
+  <data name="Details_EditHeading" xml:space="preserve">
+    <value>Edit details</value>
+  </data>
+  <data name="Details_ReadOnlyHeading" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Details_LegalName" xml:space="preserve">
+    <value>Legal name</value>
+  </data>
+  <data name="Details_LegalName_Tooltip" xml:space="preserve">
+    <value>The registered legal name of your business</value>
+  </data>
+  <data name="Details_TradingName" xml:space="preserve">
+    <value>Trading name</value>
+  </data>
+  <data name="Details_TradingName_Tooltip" xml:space="preserve">
+    <value>The trading or “doing business as” name, if different from the legal name</value>
+  </data>
+  <data name="Details_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Details_Saving" xml:space="preserve">
+    <value>Saving…</value>
+  </data>
+  <data name="Details_Save_Tooltip" xml:space="preserve">
+    <value>Save these details</value>
+  </data>
+  <data name="Details_Saved" xml:space="preserve">
+    <value>Your details were saved.</value>
+  </data>
+  <data name="Details_SaveFailed" xml:space="preserve">
+    <value>Unable to save your details. Please review and try again.</value>
+  </data>
+  <data name="Details_RequestHeading" xml:space="preserve">
+    <value>Request a change</value>
+  </data>
+  <data name="Details_RequestIntro" xml:space="preserve">
+    <value>Propose new values and describe why. A platform administrator must approve the request before it takes effect.</value>
+  </data>
+  <data name="Details_ProposedLegalName" xml:space="preserve">
+    <value>Proposed legal name</value>
+  </data>
+  <data name="Details_ProposedTradingName" xml:space="preserve">
+    <value>Proposed trading name</value>
+  </data>
+  <data name="Details_RequestSummary" xml:space="preserve">
+    <value>Reason for the change</value>
+  </data>
+  <data name="Details_RequestSummary_Tooltip" xml:space="preserve">
+    <value>Explain why the change is needed so the reviewer can approve it</value>
+  </data>
+  <data name="Details_RequestSubmit" xml:space="preserve">
+    <value>Request a change</value>
+  </data>
+  <data name="Details_RequestSubmit_Tooltip" xml:space="preserve">
+    <value>Send this change request to the platform for approval</value>
+  </data>
+  <data name="Details_RequestSubmitted" xml:space="preserve">
+    <value>Your change request was submitted for approval.</value>
+  </data>
+  <data name="Details_RequestFailed" xml:space="preserve">
+    <value>Unable to submit your change request. Please review and try again.</value>
+  </data>
+  <data name="Details_Contacts" xml:space="preserve">
+    <value>Contacts</value>
+  </data>
+  <data name="Details_Addresses" xml:space="preserve">
+    <value>Addresses</value>
+  </data>
+  <data name="Details_None" xml:space="preserve">
+    <value>None recorded.</value>
+  </data>
+  <data name="Details_MyRequests" xml:space="preserve">
+    <value>My change requests</value>
+  </data>
+  <data name="Details_NoRequests" xml:space="preserve">
+    <value>You have no change requests.</value>
+  </data>
+  <data name="Details_Status_Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Details_Status_Approved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="Details_Status_Rejected" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="Details_Validation_LegalName" xml:space="preserve">
+    <value>Legal name is required.</value>
+  </data>
+  <data name="Details_Validation_Summary" xml:space="preserve">
+    <value>Please describe the change you are requesting.</value>
   </data>
 
   <!-- Error -->

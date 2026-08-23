@@ -122,6 +122,29 @@ public sealed class SupplierOnboarding
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// Whether the supplier may still edit its own entity details directly from the portal. True only
+    /// BEFORE the tenant approves the supplier (Draft/PendingVerification/PendingApproval); once the
+    /// supplier is Active — or Suspended/Archived after having been activated — direct edits are locked
+    /// and every change must go through a maker-checker change request (the "approval lock", ADR-0025).
+    /// </summary>
+    public bool AllowsDirectDetailEdit => State is SupplierOnboardingState.Draft
+        or SupplierOnboardingState.PendingVerification
+        or SupplierOnboardingState.PendingApproval;
+
+    /// <summary>
+    /// Guards the supplier-facing detail edit. Enforced server-side (defense in depth) so the lock
+    /// cannot be bypassed by calling the API directly — not just hidden in the portal UI.
+    /// </summary>
+    public void EnsureDirectDetailEditAllowed()
+    {
+        if (!AllowsDirectDetailEdit)
+        {
+            throw new DomainRuleException(
+                "This supplier is approved; details can no longer be edited directly. Raise a change request instead.");
+        }
+    }
+
     private void EnsureState(SupplierOnboardingState expected)
     {
         if (State != expected)
