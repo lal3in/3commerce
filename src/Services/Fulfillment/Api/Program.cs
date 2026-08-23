@@ -22,6 +22,7 @@ builder.Services.AddDbContext<FulfillmentDbContext>(options =>
 builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<OrderConfirmedConsumer>();
+    bus.AddConsumer<OrderDeliveredConsumer>();
     bus.AddConsumer<RestockRequestedConsumer>();
     bus.AddConsumer<StorefrontDuplicatedConsumer>();
 });

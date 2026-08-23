@@ -223,9 +223,13 @@
       "saveCard": "为此卡存储服务商令牌，让您下次结账一键完成。绝不存储原始卡号。",
       "billingAddress": "您卡片注册的地址——用于银行的地址验证（AVS）。",
       "quantity": "修改此商品的订购数量。",
-      "placeOrder": "授权支付并下单。随后您将看到确认页面。"
+      "placeOrder": "授权支付并下单。随后您将看到确认页面。",
+      "collectAtWarehouse": "在供应商仓库自提你的订单，而非快递配送 — 不收取运费。"
     },
-    "selectCountry": "选择国家/地区"
+    "selectCountry": "选择国家/地区",
+    "collectAtWarehouse": "到仓库自提（免费）",
+    "collectAtWarehouseNote": "你将在供应商仓库自提此订单，不收取运费。",
+    "collectFree": "免费（仓库自提）"
   },
   "confirmation": {
     "noOrder": "未指定订单。",

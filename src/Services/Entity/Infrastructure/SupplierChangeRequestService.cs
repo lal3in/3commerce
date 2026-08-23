@@ -1,5 +1,7 @@
 using System.Text.Json;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Entity;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.Entity.Domain;
 
@@ -11,7 +13,7 @@ namespace ThreeCommerce.Entity.Infrastructure;
 /// requester, ADR-0025). Applying an approved change stays with the owning service.
 /// Maker-checker decisions are written to the local audit log (mt6_1).
 /// </summary>
-public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecorder audit, TimeProvider timeProvider)
+public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecorder audit, TimeProvider timeProvider, IPublishEndpoint publish)
 {
     public async Task<SupplierChangeRequest> OpenAsync(
         Guid tenantId, Guid entityId, SupplierChangeRequestType type, string summary, string? detail, Guid requestedByPrincipalId, CancellationToken cancellationToken)
@@ -108,11 +110,24 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
     private Task<SupplierChangeRequest?> LoadAsync(Guid tenantId, Guid requestId, CancellationToken cancellationToken) =>
         db.SupplierChangeRequests.SingleOrDefaultAsync(r => r.Id == requestId && r.TenantId == tenantId, cancellationToken);
 
-    // Only EntityDetails carries a machine-applicable payload today; the other types (user access,
+    // EntityDetails and WarehouseAddress carry a machine-applicable payload; the other types (user access,
     // contact, bank) are provisioned by their owning surface and remain intent-only records.
     private async Task ApplyApprovedChangeAsync(SupplierChangeRequest request, CancellationToken cancellationToken)
     {
-        if (request.Type != SupplierChangeRequestType.EntityDetails || string.IsNullOrWhiteSpace(request.Detail))
+        switch (request.Type)
+        {
+            case SupplierChangeRequestType.EntityDetails:
+                await ApplyEntityDetailsChangeAsync(request, cancellationToken);
+                break;
+            case SupplierChangeRequestType.WarehouseAddress:
+                await ApplyWarehouseAddressChangeAsync(request, cancellationToken);
+                break;
+        }
+    }
+
+    private async Task ApplyEntityDetailsChangeAsync(SupplierChangeRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Detail))
         {
             return;
         }
@@ -137,8 +152,53 @@ public sealed class SupplierChangeRequestService(EntityDbContext db, AuditRecord
         entity?.UpdateNames(change.LegalName, change.TradingName, timeProvider.GetUtcNow());
     }
 
+    // Applying an approved warehouse-address change supersedes the current Warehouse-purpose address with
+    // the proposed one and republishes SupplierWarehouseChanged so Ordering's read model tracks it (the
+    // same event the direct pre-approval edit publishes). Published before the caller's SaveChanges so the
+    // outbox row commits in the same transaction (repo outbox convention).
+    private async Task ApplyWarehouseAddressChangeAsync(SupplierChangeRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Detail))
+        {
+            return;
+        }
+
+        WarehouseAddressChange? change;
+        try
+        {
+            change = JsonSerializer.Deserialize<WarehouseAddressChange>(request.Detail, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        if (change is null || string.IsNullOrWhiteSpace(change.Line1) || string.IsNullOrWhiteSpace(change.City)
+            || string.IsNullOrWhiteSpace(change.Postcode) || string.IsNullOrWhiteSpace(change.CountryCode))
+        {
+            return;
+        }
+
+        var entity = await db.Entities.Include(e => e.Addresses).SingleOrDefaultAsync(e => e.Id == request.EntityId, cancellationToken);
+        if (entity is null)
+        {
+            return;
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var address = entity.AddAddress(
+            EntityAddressPurpose.Warehouse, change.Line1, change.Line2, change.City, change.Region, change.Postcode, change.CountryCode, now);
+        db.Entry(address).State = EntityState.Added;
+        await publish.Publish(new SupplierWarehouseChanged(
+            entity.TenantId, entity.Id, entity.DisplayName, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.CountryCode),
+            cancellationToken);
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>The proposed legal/trading name carried in an <see cref="SupplierChangeRequestType.EntityDetails"/> request's Detail.</summary>
     public sealed record EntityDetailsChange(string LegalName, string? TradingName);
+
+    /// <summary>The proposed warehouse address carried in a <see cref="SupplierChangeRequestType.WarehouseAddress"/> request's Detail.</summary>
+    public sealed record WarehouseAddressChange(string Line1, string? Line2, string City, string? Region, string Postcode, string CountryCode);
 }

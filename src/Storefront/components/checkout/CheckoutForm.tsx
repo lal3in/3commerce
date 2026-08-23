@@ -36,6 +36,10 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  // "Collect at warehouse": the shopper collects from the fulfilling supplier's warehouse instead of
+  // carrier delivery — no carrier, zero shipping. Eligibility (a warehouse-fulfilled line) is enforced
+  // server-side at checkout, which rejects an ineligible cart so the shopper falls back to a shipped rate.
+  const [collect, setCollect] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [paymentOption, setPaymentOption] = useState("CreditCard");
   const paymentGroupRef = useRef<HTMLDivElement>(null);
@@ -54,7 +58,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const name = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
   // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
-  const taxBaseMinor = cart.subtotalMinor + (selectedRate?.amountMinor ?? 0);
+  const shippingMinorForTax = collect ? 0 : (selectedRate?.amountMinor ?? 0);
+  const taxBaseMinor = cart.subtotalMinor + shippingMinorForTax;
   const estimatedTaxMinor = taxInclusive
     ? Math.round(taxBaseMinor * taxRateBasisPoints / (10000 + taxRateBasisPoints))
     : Math.round(taxBaseMinor * taxRateBasisPoints / 10000);
@@ -94,8 +99,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
           <Row label={t("subtotal")} value={formatMoney(cart.subtotalMinor, cart.currency)} />
           <Row
             label={t("shipping")}
-            value={selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : t("chooseRate")}
-            muted={!selectedRate}
+            value={collect ? t("collectFree") : selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : t("chooseRate")}
+            muted={!collect && !selectedRate}
           />
           <Row
             label={taxInclusive ? t("includesTax", { percent: formatRate(taxRateBasisPoints) }) : t("taxAdded")}
@@ -135,6 +140,21 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
         <h2 className="font-medium">{t("shippingMethod")}</h2>
+        <label
+          title={t("tips.collectAtWarehouse")}
+          className="flex items-center gap-2 rounded border border-neutral-200 p-3 text-sm"
+        >
+          <input
+            type="checkbox"
+            checked={collect}
+            onChange={(event) => setCollect(event.target.checked)}
+            title={t("tips.collectAtWarehouse")}
+          />
+          <span>{t("collectAtWarehouse")}</span>
+        </label>
+        {collect && <p className="text-sm text-neutral-600">{t("collectAtWarehouseNote")}</p>}
+        {collect && <input type="hidden" name="collectAtWarehouse" value="true" />}
+        {!collect && (
         <button
           type="button"
           disabled={quoting}
@@ -144,8 +164,9 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         >
           {quoting ? t("gettingRates") : t("getRates")}
         </button>
-        {quoteError && <p className="text-sm text-red-700">{quoteError}</p>}
-        {shippingRates.length > 0 && (
+        )}
+        {!collect && quoteError && <p className="text-sm text-red-700">{quoteError}</p>}
+        {!collect && shippingRates.length > 0 && (
           <div className="space-y-2" role="radiogroup" aria-label={t("shippingRateChoice")}>
             {shippingRates.map((rate) => (
               <label
@@ -168,7 +189,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
             ))}
           </div>
         )}
-        {selectedRate && (
+        {!collect && selectedRate && (
           <>
             <input type="hidden" name="selectedShippingService" value={selectedRate.service} />
             <input type="hidden" name="selectedShippingAmountMinor" value={selectedRate.amountMinor} />

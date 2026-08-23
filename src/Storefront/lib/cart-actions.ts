@@ -115,6 +115,9 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     selectedShippingService: String(formData.get("selectedShippingService") || "") || null,
     selectedShippingAmountMinor: Number(formData.get("selectedShippingAmountMinor") || "") || null,
     selectedShippingExpiresAt: String(formData.get("selectedShippingExpiresAt") || "") || null,
+    // Collect at warehouse (zero shipping, no carrier). The checkout endpoint validates eligibility
+    // (a warehouse-fulfilled line) and rejects an ineligible cart.
+    collectAtWarehouse: formData.get("collectAtWarehouse") === "true",
   };
   // Attribute the order to the active storefront (rev_5): Ordering reads these headers (and the body
   // storefrontId above) into CheckoutAttempt.TenantId/StorefrontId; else it falls back to the default.

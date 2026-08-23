@@ -149,24 +149,49 @@ public static class CheckoutEndpoints
         var anyShippable = cart.Items.Any(i => LineRequiresShipping(
             OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds), shippingPolicy));
 
+        // "Collect at warehouse" (mt4 / ADR-0028): the shopper elects to collect the order from the fulfilling
+        // supplier's warehouse instead of carrier delivery. Eligible only when the cart has at least one
+        // physical Warehouse-fulfilment line from an approved supplier — that line's stock is collected, not
+        // shipped. A collect order carries NO carrier and ZERO shipping and records the warehouse address it
+        // is collected from (projected from Entity into SupplierWarehouseCopy). An ineligible collect request
+        // is rejected so the client falls back to a shipped rate — normal shipped/dropship flows are untouched.
+        SupplierWarehouseCopy? collectWarehouse = null;
+        if (request.CollectAtWarehouse)
+        {
+            var warehouseOffer = cart.Items
+                .Select(i => OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds))
+                .FirstOrDefault(o => o is { FulfilmentType: FulfilmentType.Warehouse });
+            if (warehouseOffer is null)
+            {
+                return TypedResults.BadRequest("Collect at warehouse is only available for warehouse-fulfilled items.");
+            }
+
+            collectWarehouse = await db.SupplierWarehouseCopies.AsNoTracking()
+                .FirstOrDefaultAsync(w => w.SupplierId == warehouseOffer.SupplierId, ct);
+        }
+
         var requestedShippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
         if (requestedShippingMinor < 0)
         {
             return TypedResults.BadRequest("Selected shipping amount cannot be negative.");
         }
 
-        // Nothing shippable in the cart → no shipping charge, whatever the client sent.
-        var shippingMinor = anyShippable ? requestedShippingMinor : 0L;
+        // Nothing shippable, or collect-at-warehouse → no carrier and no shipping charge, whatever the client sent.
+        var shippingMinor = (anyShippable && !request.CollectAtWarehouse) ? requestedShippingMinor : 0L;
 
-        if (request.SelectedShippingAmountMinor is not null &&
-            (string.IsNullOrWhiteSpace(request.SelectedShippingService) || request.SelectedShippingExpiresAt is null))
+        // Carrier-rate validation applies to shipped orders only; a collect order ignores any selected rate.
+        if (!request.CollectAtWarehouse)
         {
-            return TypedResults.BadRequest("Selected shipping requires a service and expiry.");
-        }
+            if (request.SelectedShippingAmountMinor is not null &&
+                (string.IsNullOrWhiteSpace(request.SelectedShippingService) || request.SelectedShippingExpiresAt is null))
+            {
+                return TypedResults.BadRequest("Selected shipping requires a service and expiry.");
+            }
 
-        if (request.SelectedShippingExpiresAt is { } expiresAt && expiresAt <= time.GetUtcNow())
-        {
-            return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
+            if (request.SelectedShippingExpiresAt is { } expiresAt && expiresAt <= time.GetUtcNow())
+            {
+                return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
+            }
         }
 
         // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
@@ -270,6 +295,12 @@ public static class CheckoutEndpoints
             ShipCity = request.ShippingAddress.City,
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
+            CollectAtWarehouse = request.CollectAtWarehouse,
+            WarehouseName = collectWarehouse?.Name,
+            WarehouseLine1 = collectWarehouse?.Line1,
+            WarehouseCity = collectWarehouse?.City,
+            WarehousePostcode = collectWarehouse?.Postcode,
+            WarehouseCountry = collectWarehouse?.CountryCode,
             CreatedAt = now,
             Lines = cart.Items.Select(i =>
             {
@@ -362,6 +393,9 @@ public record CheckoutRequest(
     string? SelectedShippingService = null,
     long? SelectedShippingAmountMinor = null,
     DateTimeOffset? SelectedShippingExpiresAt = null,
+    // "Collect at warehouse" (mt4 / ADR-0028): collect from the fulfilling supplier's warehouse instead of
+    // carrier delivery — zero shipping, no carrier. Requires an eligible Warehouse-fulfilment line.
+    bool CollectAtWarehouse = false,
     // The active storefront (phase 2). The gateway derives the trusted X-3C-Storefront-Id from the host,
     // which can't distinguish path-based demo storefronts, so the first-party storefront app also sends
     // it here for per-storefront order/ledger attribution. Header wins when present.

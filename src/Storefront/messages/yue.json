@@ -223,9 +223,13 @@
       "saveCard": "儲存呢張卡嘅供應商權杖，令你下次結帳一撳就得。原始卡號永遠唔會儲存。",
       "billingAddress": "你張卡登記嘅地址——用嚟做銀行嘅地址核對（AVS）。",
       "quantity": "更改呢件貨品訂購嘅數量。",
-      "placeOrder": "授權付款並下單。之後你會見到確認。"
+      "placeOrder": "授權付款並下單。之後你會見到確認。",
+      "collectAtWarehouse": "喺供應商倉庫自取你嘅訂單，唔使快遞送貨 — 唔收運費。"
     },
-    "selectCountry": "揀選國家/地區"
+    "selectCountry": "揀選國家/地區",
+    "collectAtWarehouse": "喺倉庫自取（免費）",
+    "collectAtWarehouseNote": "你會喺供應商倉庫自取呢張訂單，唔收運費。",
+    "collectFree": "免費（倉庫自取）"
   },
   "confirmation": {
     "noOrder": "冇指定訂單。",

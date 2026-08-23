@@ -1,0 +1,133 @@
+@page "/orders"
+@attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
+@inject SupplierGatewayClient Gateway
+@rendermode InteractiveServer
+
+<PageTitle>@L["Orders_Title"] — @L["App_Title"]</PageTitle>
+
+<h1>@L["Orders_Title"]</h1>
+<p>@L["Orders_Intro"]</p>
+
+@if (loading)
+{
+    <p style="color:#6b7280;">@L["Orders_Loading"]</p>
+}
+else if (orders.Count == 0)
+{
+    <p style="color:#9ca3af;">@L["Orders_None"]</p>
+}
+else
+{
+    @if (error is not null)
+    {
+        <p style="color:#b91c1c;">@error</p>
+    }
+    @if (info is not null)
+    {
+        <p style="color:#047857;">@info</p>
+    }
+
+    <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:8px;">
+        <thead>
+            <tr style="text-align:left;background:#f1f5f9;">
+                <th style="padding:.5rem;">@L["Orders_Number"]</th>
+                <th style="padding:.5rem;">@L["Orders_Items"]</th>
+                <th style="padding:.5rem;">@L["Orders_Delivery"]</th>
+                <th style="padding:.5rem;">@L["Orders_Status"]</th>
+                <th style="padding:.5rem;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var o in orders)
+            {
+                <tr style="border-top:1px solid #e5e7eb;">
+                    <td style="padding:.5rem;">#@o.PublicOrderNumber</td>
+                    <td style="padding:.5rem;">
+                        @foreach (var line in o.Lines)
+                        {
+                            <div>@line.Quantity × @line.Title</div>
+                        }
+                    </td>
+                    <td style="padding:.5rem;">
+                        @(o.CollectAtWarehouse ? L["Orders_Collect"] : L["Orders_Shipped"])
+                    </td>
+                    <td style="padding:.5rem;">
+                        <span style="color:@StatusColor(o.Status);">@StatusName(o.Status)</span>
+                    </td>
+                    <td style="padding:.5rem;">
+                        @if (o.Status == "Confirmed")
+                        {
+                            <button @onclick="() => MarkDeliveredAsync(o.Id)" disabled="@(marking == o.Id)"
+                                    title="@L["Orders_MarkDelivered_Tooltip"]"
+                                    style="background:#047857;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">
+                                @(marking == o.Id ? L["Orders_Marking"] : L["Orders_MarkDelivered"])
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<SupplierOrder> orders = [];
+    private bool loading = true;
+    private Guid? marking;
+    private string? error;
+    private string? info;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        orders = await Gateway.GetAsync<List<SupplierOrder>>("/api/ordering/orders/supplier/me") ?? [];
+        loading = false;
+    }
+
+    private async Task MarkDeliveredAsync(Guid id)
+    {
+        error = info = null;
+        marking = id;
+        try
+        {
+            var response = await Gateway.PostAsync($"/api/ordering/orders/supplier/{id}/mark-delivered");
+            if (response.IsSuccessStatusCode)
+            {
+                info = L["Orders_MarkedDelivered"];
+                await LoadAsync();
+            }
+            else
+            {
+                error = L["Orders_MarkFailed"];
+            }
+        }
+        finally
+        {
+            marking = null;
+        }
+    }
+
+    private string StatusName(string status) => status switch
+    {
+        "Confirmed" => L["Orders_Status_Confirmed"],
+        "Delivered" => L["Orders_Status_Delivered"],
+        "Cancelled" => L["Orders_Status_Cancelled"],
+        "Refunded" => L["Orders_Status_Refunded"],
+        _ => status,
+    };
+
+    private static string StatusColor(string status) => status switch
+    {
+        "Delivered" => "#047857",
+        "Cancelled" or "Refunded" => "#b91c1c",
+        _ => "#b45309",
+    };
+
+    private sealed record SupplierOrder(
+        Guid Id, long PublicOrderNumber, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt,
+        bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines);
+    private sealed record SupplierOrderLine(string Title, int Quantity, string FulfilmentType);
+}

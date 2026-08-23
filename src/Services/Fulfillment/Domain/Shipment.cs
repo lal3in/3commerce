@@ -1,6 +1,6 @@
 namespace ThreeCommerce.Fulfillment.Domain;
 
-public enum ShipmentStatus { Created = 1, Dispatched = 2 }
+public enum ShipmentStatus { Created = 1, Dispatched = 2, Delivered = 3 }
 
 /// <summary>One shipment per (order, fulfillment source) — lines are grouped by source (ADR-0003).</summary>
 public class Shipment

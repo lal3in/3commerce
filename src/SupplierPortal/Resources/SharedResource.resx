@@ -388,6 +388,192 @@
     <value>Please describe the change you are requesting.</value>
   </data>
 
+  <!-- Nav (warehouse + orders) -->
+  <data name="Nav_Warehouse" xml:space="preserve">
+    <value>Warehouse</value>
+  </data>
+  <data name="Nav_Warehouse_Tooltip" xml:space="preserve">
+    <value>View and manage your warehouse address.</value>
+  </data>
+  <data name="Nav_Orders" xml:space="preserve">
+    <value>Orders</value>
+  </data>
+  <data name="Nav_Orders_Tooltip" xml:space="preserve">
+    <value>See the orders you fulfil and mark them delivered.</value>
+  </data>
+
+  <!-- Warehouse -->
+  <data name="Warehouse_Title" xml:space="preserve">
+    <value>Warehouse</value>
+  </data>
+  <data name="Warehouse_Intro" xml:space="preserve">
+    <value>The address your warehouse-fulfilled stock is collected from. Shoppers who choose "Collect at warehouse" pick their order up here.</value>
+  </data>
+  <data name="Warehouse_Loading" xml:space="preserve">
+    <value>Loading your warehouse…</value>
+  </data>
+  <data name="Warehouse_NotFound" xml:space="preserve">
+    <value>We could not find your supplier record.</value>
+  </data>
+  <data name="Warehouse_State" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Warehouse_EditableHint" xml:space="preserve">
+    <value>You can edit your warehouse address directly until your account is approved.</value>
+  </data>
+  <data name="Warehouse_LockedHint" xml:space="preserve">
+    <value>Your account is approved, so warehouse changes now go through a change request for review.</value>
+  </data>
+  <data name="Warehouse_Current" xml:space="preserve">
+    <value>Current warehouse address</value>
+  </data>
+  <data name="Warehouse_None" xml:space="preserve">
+    <value>No warehouse address on file yet.</value>
+  </data>
+  <data name="Warehouse_EditHeading" xml:space="preserve">
+    <value>Set warehouse address</value>
+  </data>
+  <data name="Warehouse_RequestHeading" xml:space="preserve">
+    <value>Request a warehouse address change</value>
+  </data>
+  <data name="Warehouse_RequestIntro" xml:space="preserve">
+    <value>Propose a new warehouse address. A platform administrator reviews and approves it before it takes effect.</value>
+  </data>
+  <data name="Warehouse_Line1" xml:space="preserve">
+    <value>Address line 1</value>
+  </data>
+  <data name="Warehouse_Line1_Tooltip" xml:space="preserve">
+    <value>Street address of your warehouse.</value>
+  </data>
+  <data name="Warehouse_Line2" xml:space="preserve">
+    <value>Address line 2 (optional)</value>
+  </data>
+  <data name="Warehouse_Line2_Tooltip" xml:space="preserve">
+    <value>Unit, suite, or building — optional.</value>
+  </data>
+  <data name="Warehouse_City" xml:space="preserve">
+    <value>City</value>
+  </data>
+  <data name="Warehouse_City_Tooltip" xml:space="preserve">
+    <value>City or suburb of your warehouse.</value>
+  </data>
+  <data name="Warehouse_Region" xml:space="preserve">
+    <value>Region / state (optional)</value>
+  </data>
+  <data name="Warehouse_Region_Tooltip" xml:space="preserve">
+    <value>State, province, or region — optional.</value>
+  </data>
+  <data name="Warehouse_Postcode" xml:space="preserve">
+    <value>Postcode</value>
+  </data>
+  <data name="Warehouse_Postcode_Tooltip" xml:space="preserve">
+    <value>Postal or ZIP code of your warehouse.</value>
+  </data>
+  <data name="Warehouse_Country" xml:space="preserve">
+    <value>Country (2-letter code)</value>
+  </data>
+  <data name="Warehouse_Country_Tooltip" xml:space="preserve">
+    <value>ISO 3166-1 alpha-2 country code, e.g. AU.</value>
+  </data>
+  <data name="Warehouse_RequestSummary" xml:space="preserve">
+    <value>Reason for the change</value>
+  </data>
+  <data name="Warehouse_RequestSummary_Tooltip" xml:space="preserve">
+    <value>Briefly describe why the warehouse address is changing.</value>
+  </data>
+  <data name="Warehouse_Save" xml:space="preserve">
+    <value>Save warehouse address</value>
+  </data>
+  <data name="Warehouse_Save_Tooltip" xml:space="preserve">
+    <value>Save your warehouse address.</value>
+  </data>
+  <data name="Warehouse_Saving" xml:space="preserve">
+    <value>Saving…</value>
+  </data>
+  <data name="Warehouse_Saved" xml:space="preserve">
+    <value>Warehouse address saved.</value>
+  </data>
+  <data name="Warehouse_SaveFailed" xml:space="preserve">
+    <value>Could not save the warehouse address. Try again.</value>
+  </data>
+  <data name="Warehouse_RequestSubmit" xml:space="preserve">
+    <value>Submit change request</value>
+  </data>
+  <data name="Warehouse_RequestSubmit_Tooltip" xml:space="preserve">
+    <value>Send this warehouse change for administrator review.</value>
+  </data>
+  <data name="Warehouse_RequestSubmitted" xml:space="preserve">
+    <value>Change request submitted for review.</value>
+  </data>
+  <data name="Warehouse_RequestFailed" xml:space="preserve">
+    <value>Could not submit the change request. Try again.</value>
+  </data>
+  <data name="Warehouse_Validation_Address" xml:space="preserve">
+    <value>Enter a complete address, including a 2-letter country code.</value>
+  </data>
+  <data name="Warehouse_Validation_Summary" xml:space="preserve">
+    <value>Please describe the change you are requesting.</value>
+  </data>
+
+  <!-- Orders (fulfilment) -->
+  <data name="Orders_Title" xml:space="preserve">
+    <value>Orders</value>
+  </data>
+  <data name="Orders_Intro" xml:space="preserve">
+    <value>Orders that include items you fulfil. Mark an order delivered once the shopper has received or collected it.</value>
+  </data>
+  <data name="Orders_Loading" xml:space="preserve">
+    <value>Loading your orders…</value>
+  </data>
+  <data name="Orders_None" xml:space="preserve">
+    <value>No orders to fulfil yet.</value>
+  </data>
+  <data name="Orders_Number" xml:space="preserve">
+    <value>Order</value>
+  </data>
+  <data name="Orders_Items" xml:space="preserve">
+    <value>Items</value>
+  </data>
+  <data name="Orders_Delivery" xml:space="preserve">
+    <value>Delivery</value>
+  </data>
+  <data name="Orders_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Orders_Collect" xml:space="preserve">
+    <value>Collect at warehouse</value>
+  </data>
+  <data name="Orders_Shipped" xml:space="preserve">
+    <value>Shipped</value>
+  </data>
+  <data name="Orders_MarkDelivered" xml:space="preserve">
+    <value>Mark delivered</value>
+  </data>
+  <data name="Orders_MarkDelivered_Tooltip" xml:space="preserve">
+    <value>Record this order as delivered to the shopper.</value>
+  </data>
+  <data name="Orders_Marking" xml:space="preserve">
+    <value>Marking…</value>
+  </data>
+  <data name="Orders_MarkedDelivered" xml:space="preserve">
+    <value>Order marked delivered.</value>
+  </data>
+  <data name="Orders_MarkFailed" xml:space="preserve">
+    <value>Could not mark the order delivered. Try again.</value>
+  </data>
+  <data name="Orders_Status_Confirmed" xml:space="preserve">
+    <value>Confirmed</value>
+  </data>
+  <data name="Orders_Status_Delivered" xml:space="preserve">
+    <value>Delivered</value>
+  </data>
+  <data name="Orders_Status_Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="Orders_Status_Refunded" xml:space="preserve">
+    <value>Refunded</value>
+  </data>
+
   <!-- Error -->
   <data name="Error_Title" xml:space="preserve">
     <value>Something went wrong</value>

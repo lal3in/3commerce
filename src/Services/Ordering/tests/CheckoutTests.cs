@@ -30,6 +30,57 @@ public class CheckoutTests
     }
 
     [Fact]
+    public void CheckoutAttempt_carries_collect_at_warehouse_and_warehouse_address_onto_the_order()
+    {
+        var collectAttempt = new CheckoutAttempt
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = Guid.CreateVersion7(),
+            StorefrontId = Guid.CreateVersion7(),
+            Email = "buyer@example.test",
+            NetMinor = 1000,
+            ShippingMinor = 0,
+            GrossMinor = 1000,
+            Currency = "AUD",
+            PaymentIntentId = "pi_fake",
+            ShipName = "Buyer",
+            ShipLine1 = "1 Street",
+            ShipCity = "Sydney",
+            ShipPostcode = "2000",
+            ShipCountry = "AU",
+            CollectAtWarehouse = true,
+            WarehouseName = "Demo Supplier",
+            WarehouseLine1 = "1 Supplier Way",
+            WarehouseCity = "Sydney",
+            WarehousePostcode = "2000",
+            WarehouseCountry = "AU",
+            CreatedAt = DateTimeOffset.UtcNow,
+            Lines =
+            [
+                new CheckoutAttemptLine
+                {
+                    Id = Guid.CreateVersion7(),
+                    CheckoutAttemptId = Guid.CreateVersion7(),
+                    ProductId = Guid.CreateVersion7(),
+                    Title = "Warehouse product",
+                    UnitPriceMinor = 1000,
+                    Quantity = 1,
+                    FulfilmentType = FulfilmentType.Warehouse,
+                },
+            ],
+        };
+
+        var order = collectAttempt.ToOrder(1000, DateTimeOffset.UtcNow);
+
+        Assert.True(order.CollectAtWarehouse);
+        Assert.Equal(0, order.ShippingMinor);
+        Assert.Equal("Demo Supplier", order.WarehouseName);
+        Assert.Equal("1 Supplier Way", order.WarehouseLine1);
+        Assert.Equal("Sydney", order.WarehouseCity);
+        Assert.Equal("AU", order.WarehouseCountry);
+    }
+
+    [Fact]
     public void OrderNumberSequence_allocates_per_storefront_order_numbers()
     {
         var sequence = new OrderNumberSequence { StorefrontId = Guid.CreateVersion7() };

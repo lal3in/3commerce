@@ -32,6 +32,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<StorefrontConfigConsumer>();
         bus.AddConsumer<OfferChangedConsumer>();
         bus.AddConsumer<SupplierApprovalChangedConsumer>(); // approval-gated availability (DECISION A)
+        bus.AddConsumer<SupplierWarehouseChangedConsumer>(); // warehouse address read model (Collect at warehouse)
         bus.AddConsumer<ProductTypeShippingPolicyChangedConsumer>();
         bus.AddConsumer<OrderStatusConsumer>();
         bus.AddConsumer<GuestOrderAttachConsumer>();

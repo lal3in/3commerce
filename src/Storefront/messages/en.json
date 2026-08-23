@@ -223,9 +223,13 @@
       "saveCard": "Store a provider token for this card so your next checkout is one click. The raw number is never stored.",
       "billingAddress": "The address your card is registered to — used for the bank's address check (AVS).",
       "quantity": "Change how many of this item you're ordering.",
-      "placeOrder": "Authorize payment and place the order. You'll see the confirmation next."
+      "placeOrder": "Authorize payment and place the order. You'll see the confirmation next.",
+      "collectAtWarehouse": "Collect your order from the supplier's warehouse instead of carrier delivery — no shipping charge."
     },
-    "selectCountry": "Select a country"
+    "selectCountry": "Select a country",
+    "collectAtWarehouse": "Collect at warehouse (free)",
+    "collectAtWarehouseNote": "You'll collect this order from the supplier's warehouse. No shipping is charged.",
+    "collectFree": "Free (collect at warehouse)"
   },
   "confirmation": {
     "noOrder": "No order specified.",
