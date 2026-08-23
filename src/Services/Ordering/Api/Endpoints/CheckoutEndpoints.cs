@@ -76,6 +76,28 @@ public static class CheckoutEndpoints
             .ToListAsync(ct);
         var now = time.GetUtcNow();
 
+        // Approval-gated availability (DECISION A, strict): an unapproved supplier's offer never counts —
+        // not for pricing, not for fulfilment, not at checkout. Load which of the offers' suppliers are
+        // approved (SupplierApprovalCopy, fed by Entity's SupplierApprovalChanged), then gate every
+        // resolution below on that set. A line whose ONLY covering offers are unapproved has no valid
+        // supply and is rejected. Offerless products are unaffected (no supplier to gate — scope guard).
+        var offerSupplierIds = offerCopies.Select(o => o.SupplierId).Distinct().ToList();
+        var approvedSupplierIds = (await db.SupplierApprovalCopies.AsNoTracking()
+            .Where(s => s.Approved && offerSupplierIds.Contains(s.SupplierId))
+            .Select(s => s.SupplierId)
+            .ToListAsync(ct)).ToHashSet();
+
+        // Block a line that HAS a covering offer but none from an approved supplier (its only supply is
+        // unapproved). A line with no offer at all resolves to null in both and keeps catalog behaviour.
+        var unavailableLine = cart.Items.FirstOrDefault(i =>
+            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId) is not null
+            && OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds) is null);
+        if (unavailableLine is not null)
+        {
+            return TypedResults.BadRequest(
+                $"{unavailableLine.Title} is currently unavailable and was removed; its supplier is not approved.");
+        }
+
         // Re-validate prices against the current catalog copy (plan edge case: price drift → 409), then apply
         // the offer-as-price override: when an effective offer applies to a line's storefront, its price is the
         // AUTHORITATIVE charge (shown == charged), so it wins over the catalog price and does NOT trip the drift
@@ -90,7 +112,7 @@ public static class CheckoutEndpoints
             // Revalidate against the tenant's current price in the cart item's currency (per-currency pricing).
             var catalogPrice = current?.PriceInCurrency(item.Currency) ?? (await db.ProductCopies.FindAsync([item.ProductId], ct))?.MinPriceMinor;
             var offerPrice = OfferResolution.ResolvePricingOffer(
-                offerCopies, checkoutTenantId, item.ProductId, item.VariantId, storefrontId, item.Currency, now)?.PriceMinor;
+                offerCopies, checkoutTenantId, item.ProductId, item.VariantId, storefrontId, item.Currency, now, approvedSupplierIds)?.PriceMinor;
 
             // The offer price (when one is effective) is the authoritative charge; else fall back to the
             // current catalog price. Only a CATALOG drift (no offer overriding it) trips the review-your-cart
@@ -125,7 +147,7 @@ public static class CheckoutEndpoints
         var shippingPolicy = await db.ProductTypeShippingPolicyCopies.AsNoTracking()
             .FirstOrDefaultAsync(p => p.TenantId == checkoutTenantId, ct);
         var anyShippable = cart.Items.Any(i => LineRequiresShipping(
-            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId), shippingPolicy));
+            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds), shippingPolicy));
 
         var requestedShippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
         if (requestedShippingMinor < 0)
@@ -190,7 +212,7 @@ public static class CheckoutEndpoints
         // can charge off-session (a stored card or a direct-debit mandate). Non-recurring carts are
         // unaffected. email_verified rides the gateway-minted internal claims (InternalClaimsMinter).
         var hasRecurringLine = cart.Items.Any(i =>
-            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId)?.BillingMode == BillingMode.Recurring);
+            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds)?.BillingMode == BillingMode.Recurring);
         if (hasRecurringLine)
         {
             if (userId is null)
@@ -251,7 +273,7 @@ public static class CheckoutEndpoints
             CreatedAt = now,
             Lines = cart.Items.Select(i =>
             {
-                var offer = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId);
+                var offer = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds);
                 return new CheckoutAttemptLine
                 {
                     Id = Guid.CreateVersion7(),

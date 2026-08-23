@@ -111,10 +111,12 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     {
         var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
         var productId = await fixture.SeedProductAsync(5_000);
+        var supplierId = Guid.CreateVersion7();
+        await fixture.ApproveSupplierAsync(supplierId); // DECISION A: the offer only counts once approved.
 
         // A service line: its fulfilment type (ManualService) ships nothing, but its product type is Service.
         await fixture.PublishAsync(new OfferChanged(
-            Guid.CreateVersion7(), tenantId, productId, null, Guid.CreateVersion7(),
+            Guid.CreateVersion7(), tenantId, productId, null, supplierId,
             SupplyCategory.Service, FulfilmentType.ManualService, PricingModel.OneTime, BillingPeriod.Once,
             Priority: 0, Active: true, SupplierCostMinor: 0, Currency: "EUR", ProductType: ProductType.Service));
         await WaitForOfferCopyAsync(productId);
@@ -158,11 +160,13 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         var storefrontId = Guid.CreateVersion7();
         var otherStorefrontId = Guid.CreateVersion7();
         var productId = await fixture.SeedProductAsync(10_000);
+        var supplierId = Guid.CreateVersion7();
+        await fixture.ApproveSupplierAsync(supplierId); // DECISION A: approve so the offer prices/covers.
 
         var now = DateTimeOffset.UtcNow;
         await fixture.PublishAsync(new OfferChanged(
             OfferId: Guid.CreateVersion7(), TenantId: tenantId, ProductId: productId, VariantId: null,
-            SupplierId: Guid.CreateVersion7(), SupplyCategory: SupplyCategory.Physical, FulfilmentType: FulfilmentType.Dropship,
+            SupplierId: supplierId, SupplyCategory: SupplyCategory.Physical, FulfilmentType: FulfilmentType.Dropship,
             PricingModel: PricingModel.OneTime, BillingPeriod: BillingPeriod.Once, Priority: 0, Active: true,
             SupplierCostMinor: 0, Currency: "EUR", ProductType: ProductType.Physical,
             PriceMinor: 6_000, StorefrontId: storefrontId, ActiveFrom: now.AddHours(-1), ActiveUntil: now.AddHours(1)));
@@ -191,6 +195,34 @@ public class MoneyFlowTests(Phase3Fixture fixture)
             var order = (await (await other.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
             Assert.Equal(10_000, order.NetMinor); // catalog price — the offer is scoped to another store
         }
+    }
+
+    [Fact]
+    public async Task A_line_whose_only_offer_is_from_an_unapproved_supplier_is_blocked_then_buyable_once_approved()
+    {
+        // DECISION A (strict): a product whose only covering offer is from an UNAPPROVED supplier has no
+        // valid supply — checkout rejects it (no price, no availability). Approving the supplier makes it
+        // buyable and the sale still posts a balanced entry (trial balance nets 0).
+        var (productId, supplierId) = await fixture.SeedSuppliedProductAsync(
+            priceMinor: 5_000, supplierCostMinor: 0, fulfilmentType: FulfilmentType.Warehouse, approved: false);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+
+        // Unapproved supplier → the line is unavailable → 400 (not booked).
+        var blocked = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        Assert.Equal(HttpStatusCode.BadRequest, blocked.StatusCode);
+
+        // Approve the supplier; the same cart now checks out and confirms a balanced sale.
+        await fixture.ApproveSupplierAsync(supplierId);
+        var allowed = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        allowed.EnsureSuccessStatusCode();
+        var order = (await allowed.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(5_000, order.NetMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
     private async Task WaitForOfferPriceCopyAsync(Guid productId, long priceMinor, Guid storefrontId)

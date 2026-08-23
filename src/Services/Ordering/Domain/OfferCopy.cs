@@ -66,21 +66,29 @@ public class OfferCopy
 }
 
 /// <summary>Picks the offer that fulfils a line (ADR-0028): a variant-specific offer beats a
-/// product-level one; ties break on lowest priority; no active offer means none.</summary>
+/// product-level one; ties break on lowest priority; no active offer means none.
+///
+/// Approval-gated availability (DECISION A, strict): when <c>approvedSupplierIds</c> is supplied, an offer
+/// backed by a supplier that is not in that set never counts — not for pricing, not for fulfilment, not for
+/// COGS. Passing null leaves resolution ungated (the pre-approval behaviour, kept for callers/paths where
+/// the supplier is already known-approved, e.g. an order line whose supplier was gated at checkout).</summary>
 public static class OfferResolution
 {
     public static OfferCopy? ResolveOffer(
-        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId) =>
+        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
+        IReadOnlySet<Guid>? approvedSupplierIds = null) =>
         offers
             .Where(o => o.Active && o.TenantId == tenantId && o.ProductId == productId
-                && (o.VariantId == variantId || o.VariantId == null))
+                && (o.VariantId == variantId || o.VariantId == null)
+                && (approvedSupplierIds is null || approvedSupplierIds.Contains(o.SupplierId)))
             .OrderByDescending(o => o.VariantId == variantId)
             .ThenBy(o => o.Priority)
             .FirstOrDefault();
 
     public static FulfilmentType ResolveFulfilment(
-        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId) =>
-        ResolveOffer(offers, tenantId, productId, variantId)?.FulfilmentType ?? FulfilmentType.Unassigned;
+        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
+        IReadOnlySet<Guid>? approvedSupplierIds = null) =>
+        ResolveOffer(offers, tenantId, productId, variantId, approvedSupplierIds)?.FulfilmentType ?? FulfilmentType.Unassigned;
 
     /// <summary>
     /// Picks the offer whose price should be CHARGED for a line on a specific storefront (offer-as-price,
@@ -88,15 +96,18 @@ public static class OfferResolution
     /// product-level one; lowest priority wins), but filtered to offers that are effective for the line's
     /// storefront + currency at <paramref name="now"/> (active, in-window, storefront-matching, and carrying
     /// a non-zero price). A storefront-scoped offer is preferred over an all-storefront one at the same grain.
-    /// Null = no effective offer → checkout keeps the catalog price.
+    /// Null = no effective offer → checkout keeps the catalog price. When <paramref name="approvedSupplierIds"/>
+    /// is supplied, an unapproved supplier's offer is excluded (DECISION A) so it can never set the price.
     /// </summary>
     public static OfferCopy? ResolvePricingOffer(
         IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
-        Guid storefrontId, string currency, DateTimeOffset now) =>
+        Guid storefrontId, string currency, DateTimeOffset now,
+        IReadOnlySet<Guid>? approvedSupplierIds = null) =>
         offers
             .Where(o => o.TenantId == tenantId && o.ProductId == productId
                 && (o.VariantId == variantId || o.VariantId == null)
                 && o.PriceMinor > 0
+                && (approvedSupplierIds is null || approvedSupplierIds.Contains(o.SupplierId))
                 && o.IsEffectiveFor(storefrontId, currency, now))
             .OrderByDescending(o => o.VariantId == variantId)
             .ThenByDescending(o => o.StorefrontId == storefrontId)

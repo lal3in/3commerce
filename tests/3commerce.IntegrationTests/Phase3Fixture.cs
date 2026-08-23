@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Entity;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -63,15 +64,22 @@ public sealed class Phase3Fixture : IAsyncLifetime
     /// Seeds a product whose offer projects as a <see cref="PricingModel.Subscription"/> copy, so a cart line
     /// resolves to <c>BillingMode.Recurring</c> at checkout (drives the verified-member subscription gate).
     /// </summary>
-    public async Task<Guid> SeedRecurringProductAsync(long priceMinor, string currency = "EUR")
+    public async Task<Guid> SeedRecurringProductAsync(long priceMinor, string currency = "EUR", bool approved = true)
     {
         var productId = await SeedProductAsync(priceMinor, currency);
+        var supplierId = Guid.CreateVersion7();
+        // DECISION A: the supplier must be approved for the offer to count at checkout (approve by default).
+        if (approved)
+        {
+            await ApproveSupplierAsync(supplierId);
+        }
+
         await PublishAsync(new OfferChanged(
             OfferId: Guid.CreateVersion7(),
             TenantId: new Guid("00000000-0000-0000-0000-000000000001"),
             ProductId: productId,
             VariantId: null,
-            SupplierId: Guid.CreateVersion7(),
+            SupplierId: supplierId,
             SupplyCategory: SupplyCategory.Digital,
             FulfilmentType: FulfilmentType.DigitalDownload,
             PricingModel: PricingModel.Subscription,
@@ -116,6 +124,33 @@ public sealed class Phase3Fixture : IAsyncLifetime
 
     /// <summary>Publishes straight to the broker (no outbox), standing in for another service.</summary>
     public Task PublishAsync<T>(T message) where T : class => _publishBus!.Publish(message);
+
+    /// <summary>
+    /// Approval-gated availability (DECISION A): publishes <see cref="SupplierApprovalChanged"/> (as the
+    /// Entity service would) and waits for Ordering's SupplierApprovalCopy projection. Checkout only counts
+    /// an offer whose supplier is approved, so any seeded offer must have its supplier approved to be
+    /// buyable; pass <paramref name="approved"/> false to leave (or revoke) it unapproved.
+    /// </summary>
+    public async Task ApproveSupplierAsync(Guid supplierId, bool approved = true)
+    {
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await PublishAsync(new SupplierApprovalChanged(tenantId, supplierId, approved));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            if (await db.SupplierApprovalCopies.AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved))
+            {
+                return;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException($"SupplierApprovalCopy for supplier {supplierId} did not project (approved={approved}).");
+    }
 
     /// <summary>
     /// Chaos hook (NFR-2): tears down and re-creates the Ordering host — the saga's owner —
@@ -229,12 +264,19 @@ public sealed class Phase3Fixture : IAsyncLifetime
     /// </summary>
     public async Task<(Guid ProductId, Guid SupplierId)> SeedSuppliedProductAsync(
         long priceMinor, long supplierCostMinor, string currency = "EUR", string? offerCurrency = null,
-        FulfilmentType fulfilmentType = FulfilmentType.Dropship)
+        FulfilmentType fulfilmentType = FulfilmentType.Dropship, bool approved = true)
     {
         var productId = await SeedProductAsync(priceMinor, currency);
         var supplierId = Guid.CreateVersion7();
         var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
         var costCurrency = offerCurrency ?? currency;
+
+        // DECISION A: approve the supplier by default so its offer counts at checkout; a caller wanting to
+        // prove the block passes approved:false (the offer projects but the line has no valid supply).
+        if (approved)
+        {
+            await ApproveSupplierAsync(supplierId);
+        }
 
         await PublishAsync(new OfferChanged(
             OfferId: Guid.CreateVersion7(),

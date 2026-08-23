@@ -846,6 +846,24 @@ seed_full() {
   if [[ -n "$entity_id" ]]; then
     api "entity-supplier-start" POST "/api/entity/entities/$entity_id/suppliers" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-duplicate-scan" POST "/api/entity/entities/$entity_id/duplicate-warnings/scan" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    # DECISION A (approval-gated availability): a supplier's offers only count once the supplier is APPROVED
+    # (SupplierOnboardingState.Active). Drive the full onboarding so dev-up produces a WORKING storefront —
+    # add the readiness data (verified ABN, ops email, warehouse address), then submit → verify → activate.
+    # Activating publishes SupplierApprovalChanged(Approved) → Catalog + Ordering project it, so the seeded
+    # offers below all resolve. Skipping this would leave every offer from an unapproved supplier and hide
+    # the whole demo catalog / block checkout. Idempotent: re-runs 4xx harmlessly on the already-active path.
+    local ident_body ident_id
+    ident_body=$(api "entity-supplier-abn" POST "/api/entity/entities/$entity_id/identifiers" "$ADMIN_JAR" \
+      '{"type":1,"value":"12345678901"}' "allow_4xx")
+    ident_id=$(printf '%s' "$ident_body" | json_get 'identifiers.0.id')
+    [[ -n "$ident_id" ]] && api "entity-supplier-abn-verify" POST "/api/entity/entities/$entity_id/identifiers/$ident_id/verify" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    api "entity-supplier-contact" POST "/api/entity/entities/$entity_id/contacts" "$ADMIN_JAR" \
+      '{"purpose":3,"kind":1,"value":"ops@demo-supplier.test"}' "allow_4xx" >/dev/null
+    api "entity-supplier-address" POST "/api/entity/entities/$entity_id/addresses" "$ADMIN_JAR" \
+      '{"purpose":4,"line1":"1 Supplier Way","line2":null,"city":"Sydney","region":"NSW","postcode":"2000","countryCode":"AU"}' "allow_4xx" >/dev/null
+    api "entity-supplier-submit" POST "/api/entity/entities/$entity_id/suppliers/submit-verification" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    api "entity-supplier-verify-complete" POST "/api/entity/entities/$entity_id/suppliers/verification-complete" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    api "entity-supplier-activate" POST "/api/entity/entities/$entity_id/suppliers/activate" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-change-request" POST "/api/entity/entities/$entity_id/suppliers/change-requests?tenantId=$TENANT_ID" "$ADMIN_JAR" \
       '{"type":2,"summary":"Demo supplier contact update","detail":"Seeded by scripts/dev-dummy-data.sh"}' "allow_4xx" >/dev/null
     supplier_id="$entity_id"
