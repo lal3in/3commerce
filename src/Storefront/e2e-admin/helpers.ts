@@ -13,14 +13,23 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
 }
 
-/** Resolve a live demo storefront id (au/eu/us) so seeded orders belong to a storefront (never the
- *  synthetic default). Returns null when none is published — callers should test.skip in that case. */
-export async function demoStorefrontId(request: APIRequestContext): Promise<string | null> {
+/** Resolve a live demo storefront (au/eu/us) — its id AND currency — so seeded orders belong to a real
+ *  storefront (never the synthetic default) and we can pick a product priced in that store's currency.
+ *  Returns null when none is published — callers should test.skip in that case. */
+export async function demoStorefront(request: APIRequestContext): Promise<{ id: string; currency: string } | null> {
   for (const slug of ["eu", "au", "us"]) {
     const r = await request.get(`${GATEWAY}/api/catalog/storefronts/public?slug=${slug}`);
-    if (r.ok()) return ((await r.json()) as { id: string }).id;
+    if (r.ok()) {
+      const s = (await r.json()) as { id: string; currency: string };
+      return { id: s.id, currency: s.currency };
+    }
   }
   return null;
+}
+
+/** Back-compat: just the id (callers that only guard with test.skip on presence). */
+export async function demoStorefrontId(request: APIRequestContext): Promise<string | null> {
+  return (await demoStorefront(request))?.id ?? null;
 }
 
 /**
@@ -30,16 +39,24 @@ export async function demoStorefrontId(request: APIRequestContext): Promise<stri
  * demoStorefrontId(...) + test.skip when no demo store is published (import-only stack).
  */
 export async function seedPaidOrder(request: APIRequestContext): Promise<{ orderId: string; gross: number }> {
-  const storefrontId = await demoStorefrontId(request);
-  expect(storefrontId, "a demo storefront must be published to attribute the order (dev-up --data full)").toBeTruthy();
+  const store = await demoStorefront(request);
+  expect(store, "a demo storefront must be published to attribute the order (dev-up --data full)").toBeTruthy();
+  const { id: storefrontId, currency } = store!;
   // Admin session also satisfies the customer policy (cart/checkout/rma).
   const login = await request.post(`${GATEWAY}/api/identity/login`, {
     data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
   expect(login.ok()).toBeTruthy();
 
-  // Pick a product the Ordering projection knows about.
-  const products = await (await request.get(`${GATEWAY}/api/catalog/products?pageSize=1`)).json();
+  // Pick a product actually SELLABLE on this storefront: scoped to the store's PUBLISHED catalog in its
+  // currency, so it passes the approval-gated availability gate (DECISION A) and has a resolvable price.
+  // A bare global products[0] can be an unapproved / unpublished / 0-stock fixture (e.g. the products the
+  // approval-gated-availability spec creates, which are newest and Active) — checkout rejects those with a
+  // 400, leaving orderId undefined and the whole seed helper throwing.
+  const products = await (
+    await request.get(`${GATEWAY}/api/catalog/products?storefrontId=${storefrontId}&currency=${currency}&pageSize=1`)
+  ).json();
+  expect(Array.isArray(products) && products.length > 0, "the demo storefront must publish a sellable product").toBeTruthy();
   const productId = products[0].id as string;
 
   await request.post(`${GATEWAY}/api/ordering/cart/items`, { data: { productId, quantity: 1 } });

@@ -74,7 +74,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 40 (was 30): e2e-verify now seeds full demo data (multi-currency storefronts, Demo Supplier,
+    # attributed orders/ledger, fixture manifest) so the L20 admin/supplier specs run for real.
+    timeout-minutes: 40
     env:
       # Keep the catalog import small on the 2-vCPU runner (the 10k-event projection
       # storm starves the other processes). The full-scale import is asserted by the
