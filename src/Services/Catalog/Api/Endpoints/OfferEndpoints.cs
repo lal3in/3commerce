@@ -44,7 +44,10 @@ public static class OfferEndpoints
             query = query.Where(o => o.SupplierId == sid);
         }
 
-        var offers = await query.OrderBy(o => o.Priority).ToListAsync(ct);
+        // Priority alone leaves equal-priority offers (the seed sets many to the same priority) in an
+        // arbitrary, run-to-run order; a stable secondary key (the Guid v7 id, creation-ordered) makes the
+        // Suppliers cost table render the same rows in the same order across reloads.
+        var offers = await query.OrderBy(o => o.Priority).ThenBy(o => o.Id).ToListAsync(ct);
         var ids = offers.Select(o => o.ProductId).Distinct().ToList();
         var titles = await db.Products.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Title, ct);
         // Resolve variant SKUs for the referenced variants in one query, so the Suppliers page can label

@@ -87,6 +87,10 @@ public static class EntityEndpoints
             .WithTags("Entities")
             .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
             .WithSummary("Update the caller's own legal/trading name — rejected once the supplier is approved (the approval lock).");
+        app.MapPost("/entities/suppliers/me/identifiers", AddMySupplierIdentifier)
+            .WithTags("Entities")
+            .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
+            .WithSummary("Add an identifier (ABN/ACN/GST/other) to the caller's own supplier entity — rejected once the supplier is approved (the approval lock; raise a change request instead).");
         app.MapGet("/entities/suppliers/me/warehouse", GetMySupplierWarehouse)
             .WithTags("Entities")
             .RequireAuthorization(InternalClaimsAuth.SupplierPolicy)
@@ -511,6 +515,41 @@ public static class EntityEndpoints
         catch (DomainRuleException ex)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.LegalName)] = [ex.Message] });
+        }
+    }
+
+    // The supplier-facing identifier add (ABN/ACN/GST/other). Rejected once the supplier is approved
+    // (Active/Suspended/Archived): the same approval-lock guard as the detail/warehouse edits, enforced
+    // server-side so it cannot be bypassed by calling the API directly. Post-approval identifier changes
+    // go through the maker-checker change-request flow instead.
+    private static async Task<Results<Ok<EntityIdentifierResponse>, NotFound, ValidationProblem>> AddMySupplierIdentifier(
+        ClaimsPrincipal user,
+        AddIdentifierRequest request,
+        EntityDbContext db,
+        AuditRecorder audit,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var entity = await ResolveMySupplierAsync(user, db.Entities, cancellationToken);
+        if (entity is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        try
+        {
+            var onboarding = await db.SupplierOnboardings.SingleOrDefaultAsync(s => s.EntityId == entity.Id, cancellationToken);
+            onboarding?.EnsureDirectDetailEditAllowed();
+            var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow());
+            db.Entry(identifier).State = EntityState.Added; // client-generated PK via loaded nav — force INSERT (see AddIdentifier)
+            await audit.RecordAsync(user.Mutation(
+                entity.TenantId, "Entity", entity.Id.ToString(), "entity.supplier.self_identifier_add", $"{request.Type}"), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(new EntityIdentifierResponse(identifier.Id, identifier.Type, identifier.Value, identifier.VerificationStatus));
+        }
+        catch (DomainRuleException ex)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Value)] = [ex.Message] });
         }
     }
 
