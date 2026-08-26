@@ -388,6 +388,59 @@
     <value>Please describe the change you are requesting.</value>
   </data>
 
+  <!-- My details — identifiers (ABN/ACN/GST) -->
+  <data name="Details_Identifiers" xml:space="preserve">
+    <value>Registration identifiers</value>
+  </data>
+  <data name="Details_Identifiers_Intro" xml:space="preserve">
+    <value>Your business registration numbers, such as your ABN and ACN.</value>
+  </data>
+  <data name="Details_IdType_Abn" xml:space="preserve">
+    <value>ABN</value>
+  </data>
+  <data name="Details_IdType_Acn" xml:space="preserve">
+    <value>ACN</value>
+  </data>
+  <data name="Details_IdType_Gst" xml:space="preserve">
+    <value>GST</value>
+  </data>
+  <data name="Details_IdType_Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Details_Ident_Verified" xml:space="preserve">
+    <value>Verified</value>
+  </data>
+  <data name="Details_Ident_Unverified" xml:space="preserve">
+    <value>Pending verification</value>
+  </data>
+  <data name="Details_Ident_Type_Tooltip" xml:space="preserve">
+    <value>The kind of registration identifier you are adding</value>
+  </data>
+  <data name="Details_Ident_Value" xml:space="preserve">
+    <value>Identifier number</value>
+  </data>
+  <data name="Details_Ident_Value_Tooltip" xml:space="preserve">
+    <value>The identifier value, e.g. an 11-digit ABN</value>
+  </data>
+  <data name="Details_Ident_Add" xml:space="preserve">
+    <value>Add identifier</value>
+  </data>
+  <data name="Details_Ident_Add_Tooltip" xml:space="preserve">
+    <value>Add this registration identifier to your supplier record</value>
+  </data>
+  <data name="Details_Ident_Added" xml:space="preserve">
+    <value>Identifier added. Platform support verifies it before onboarding completes.</value>
+  </data>
+  <data name="Details_Ident_Failed" xml:space="preserve">
+    <value>Unable to add the identifier. Check the value and try again.</value>
+  </data>
+  <data name="Details_Ident_Validation_Value" xml:space="preserve">
+    <value>Enter the identifier number.</value>
+  </data>
+  <data name="Details_Ident_LockedHint" xml:space="preserve">
+    <value>Identifiers are read-only now that your supplier account is approved. Use “Request a change” above to propose an update for platform approval.</value>
+  </data>
+
   <!-- Nav (warehouse + orders) -->
   <data name="Nav_Warehouse" xml:space="preserve">
     <value>Warehouse</value>

@@ -863,10 +863,23 @@ seed_full() {
   echo "== full best-effort operator data =="
 
   local entity_json entity_id supplier_id location_json location_id carrier_json carrier_id product_json product_id variant_id variant_json price_product_id
+  # Idempotency: the create endpoint always inserts a NEW entity, so re-running the seed against an
+  # existing DB would spawn duplicate "Demo Supplier" rows (breaking the admin Suppliers list/e2e).
+  # Reuse the existing demo supplier by legalName when one is already present.
+  entity_json=$(api "entity-list-suppliers" GET "/api/entity/entities?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  entity_id=$(printf '%s' "$entity_json" | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    m = [e for e in d if isinstance(e, dict) and e.get("legalName") == "Demo Supplier Pty Ltd"]
+    print(m[0]["id"] if m else "")
+except Exception:
+    print("")')
   # Enums bind as numbers (System.Text.Json default): EntityType.Company=2, EntityRoleKind.Supplier=2.
-  entity_json=$(api "entity-create-supplier" POST "/api/entity/entities" "$ADMIN_JAR" \
-    "{\"tenantId\":\"$TENANT_ID\",\"type\":2,\"legalName\":\"Demo Supplier Pty Ltd\",\"tradingName\":\"Demo Supplier\",\"roles\":[2]}" "allow_4xx")
-  entity_id=$(printf '%s' "$entity_json" | json_get id)
+  if [[ -z "$entity_id" ]]; then
+    entity_json=$(api "entity-create-supplier" POST "/api/entity/entities" "$ADMIN_JAR" \
+      "{\"tenantId\":\"$TENANT_ID\",\"type\":2,\"legalName\":\"Demo Supplier Pty Ltd\",\"tradingName\":\"Demo Supplier\",\"roles\":[2]}" "allow_4xx")
+    entity_id=$(printf '%s' "$entity_json" | json_get id)
+  fi
   if [[ -n "$entity_id" ]]; then
     api "entity-supplier-start" POST "/api/entity/entities/$entity_id/suppliers" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-duplicate-scan" POST "/api/entity/entities/$entity_id/duplicate-warnings/scan" "$ADMIN_JAR" "" "allow_4xx" >/dev/null

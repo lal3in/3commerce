@@ -19,7 +19,7 @@ public sealed class DistributedRateLimitMiddleware(
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        var decision = RateLimitPolicy.Resolve(context);
+        var decision = RateLimitPolicy.Resolve(context, options);
 
         var allowed = options.Backend == RateLimitBackend.Redis
             ? await AllowedViaRedisAsync(decision, context.RequestAborted)

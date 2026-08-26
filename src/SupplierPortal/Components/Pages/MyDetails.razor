@@ -95,6 +95,52 @@ else
     }
 
     <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
+        <h3 style="margin-top:0;">@L["Details_Identifiers"]</h3>
+        <p style="color:#6b7280;font-size:.85rem;margin-top:0;">@L["Details_Identifiers_Intro"]</p>
+        @if (detail.Identifiers.Count == 0)
+        {
+            <p style="color:#9ca3af;">@L["Details_None"]</p>
+        }
+        else
+        {
+            <ul style="margin:0;padding-left:1rem;">
+                @foreach (var i in detail.Identifiers)
+                {
+                    <li style="margin:.3rem 0;">
+                        <strong>@IdTypeName(i.Type)</strong> <code>@i.Value</code>
+                        @if (i.VerificationStatus == VerifiedStatus)
+                        {
+                            <span style="color:#047857;font-size:.8rem;">✓ @L["Details_Ident_Verified"]</span>
+                        }
+                        else
+                        {
+                            <span style="color:#b45309;font-size:.8rem;">@L["Details_Ident_Unverified"]</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (detail.CanEditDirectly)
+        {
+            <div style="display:flex;gap:.4rem;margin-top:.6rem;align-items:center;flex-wrap:wrap;">
+                <select @bind="newIdentType" title="@L["Details_Ident_Type_Tooltip"]" style="padding:.35rem;">
+                    <option value="1">@L["Details_IdType_Abn"]</option>
+                    <option value="2">@L["Details_IdType_Acn"]</option>
+                    <option value="3">@L["Details_IdType_Gst"]</option>
+                    <option value="4">@L["Details_IdType_Other"]</option>
+                </select>
+                <input @bind="newIdentValue" placeholder="@L["Details_Ident_Value"]" title="@L["Details_Ident_Value_Tooltip"]" style="flex:1;min-width:12rem;padding:.35rem;" />
+                <button @onclick="AddIdentifierAsync" disabled="@saving" title="@L["Details_Ident_Add_Tooltip"]" style="background:#0f172a;color:#fff;border:0;padding:.4rem 1rem;border-radius:4px;">@L["Details_Ident_Add"]</button>
+            </div>
+        }
+        else
+        {
+            <p style="color:#6b7280;font-size:.8rem;margin:.5rem 0 0;">@L["Details_Ident_LockedHint"]</p>
+        }
+    </section>
+
+    <section style="margin:1rem 0;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:8px;max-width:42rem;">
         <h3 style="margin-top:0;">@L["Details_Contacts"]</h3>
         @if (detail.Contacts.Count == 0)
         {
@@ -153,6 +199,7 @@ else
 
 @code {
     private const int EntityDetailsType = 4; // SupplierChangeRequestType.EntityDetails
+    private const int VerifiedStatus = 3; // EntityVerificationStatus.Verified
 
     private SupplierDetail? detail;
     private List<ChangeRequest> requests = [];
@@ -163,6 +210,8 @@ else
     private string editLegalName = string.Empty;
     private string editTradingName = string.Empty;
     private string requestSummary = string.Empty;
+    private int newIdentType = 1; // ABN
+    private string newIdentValue = string.Empty;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -253,6 +302,45 @@ else
             saving = false;
         }
     }
+
+    private async Task AddIdentifierAsync()
+    {
+        error = info = null;
+        if (string.IsNullOrWhiteSpace(newIdentValue))
+        {
+            error = L["Details_Ident_Validation_Value"];
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var response = await Gateway.PostAsync("/api/entity/entities/suppliers/me/identifiers",
+                new { type = newIdentType, value = newIdentValue.Trim() });
+            if (response.IsSuccessStatusCode)
+            {
+                info = L["Details_Ident_Added"];
+                newIdentValue = string.Empty;
+                await LoadAsync();
+            }
+            else
+            {
+                error = L["Details_Ident_Failed"];
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private string IdTypeName(int type) => type switch
+    {
+        1 => L["Details_IdType_Abn"],
+        2 => L["Details_IdType_Acn"],
+        3 => L["Details_IdType_Gst"],
+        _ => L["Details_IdType_Other"],
+    };
 
     private string StatusName(int status) => status switch
     {

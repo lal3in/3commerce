@@ -1812,6 +1812,12 @@
   <data name="Suppliers.Error.ApproveFailed" xml:space="preserve"><value>Could not approve the supplier: {0}</value></data>
   <data name="Suppliers.Info.CostSaved" xml:space="preserve"><value>Supplier cost saved for '{0}'.</value></data>
   <data name="Suppliers.Error.CostFailed" xml:space="preserve"><value>Could not save the supplier cost: {0}</value></data>
+  <data name="Suppliers.Lifecycle.Heading" xml:space="preserve"><value>Onboarding lifecycle</value></data>
+  <data name="Suppliers.Addr.WarehouseHint" xml:space="preserve"><value>The Warehouse address powers "Collect at warehouse" checkout and supplier fulfilment. Add it here.</value></data>
+  <data name="Suppliers.Requests.Heading" xml:space="preserve"><value>Change requests</value></data>
+  <data name="Suppliers.Requests.Empty" xml:space="preserve"><value>No pending change requests for this supplier.</value></data>
+  <data name="Suppliers.Offers.Count" xml:space="preserve"><value>{0} products / variants</value></data>
+  <data name="Suppliers.Info.Approved.Request" xml:space="preserve"><value>Change request approved.</value></data>
   <data name="Offers.Field.SupplierCost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
   <data name="Offers.Field.SupplierCost.Tip" xml:space="preserve"><value>What the supplier charges, in minor units. Edited only on the Suppliers page.</value></data>
   <data name="Catalog.SupplierCost" xml:space="preserve"><value>Supplier cost</value></data>

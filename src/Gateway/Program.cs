@@ -47,7 +47,7 @@ builder.AddRedis();
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimiting"));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RateLimitOptions>>().Value);
 builder.Services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
-builder.Services.AddSingleton(_ => RateLimitPolicy.CreateInProcessLimiter());
+builder.Services.AddSingleton(sp => RateLimitPolicy.CreateInProcessLimiter(sp.GetRequiredService<RateLimitOptions>()));
 
 builder.Services.Configure<StorefrontDomainOptions>(builder.Configuration.GetSection("Tenancy"));
 builder.Services.AddMemoryCache();

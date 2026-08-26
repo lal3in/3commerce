@@ -28,6 +28,17 @@ public sealed class RateLimitOptions
 {
     public RateLimitBackend Backend { get; set; } = RateLimitBackend.InMemory;
     public RateLimitOutageMode OnRedisOutage { get; set; } = RateLimitOutageMode.FailOpen;
+
+    /// <summary>
+    /// Per-minute permit limit for auth endpoints (login/register/password-reset) against credential
+    /// stuffing. Production default is 30; a single-IP environment (dev/E2E, where the whole test suite
+    /// shares one client IP + partition) can raise it via <c>RateLimiting:AuthPermitLimit</c> so the
+    /// harness doesn't throttle itself — the enforcement path stays identical.
+    /// </summary>
+    public int AuthPermitLimit { get; set; } = 30;
+
+    /// <summary>Per-minute permit limit for every other (non-auth) endpoint.</summary>
+    public int AnyPermitLimit { get; set; } = 1000;
 }
 
 /// <summary>
@@ -39,12 +50,10 @@ public sealed class RateLimitOptions
 public static class RateLimitPolicy
 {
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
-    private const int AuthPermitLimit = 30;
-    private const int AnyPermitLimit = 1000;
 
     public readonly record struct Decision(string Key, string Kind, int PermitLimit, TimeSpan Window);
 
-    public static Decision Resolve(HttpContext context)
+    public static Decision Resolve(HttpContext context, RateLimitOptions options)
     {
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var path = context.Request.Path.Value ?? string.Empty;
@@ -60,20 +69,20 @@ public static class RateLimitPolicy
 
         var kind = isAuthPath ? "auth" : "any";
         var key = kind + ":" + tenant + ":" + storefront + ":" + ip;
-        return new Decision(key, kind, isAuthPath ? AuthPermitLimit : AnyPermitLimit, Window);
+        return new Decision(key, kind, isAuthPath ? options.AuthPermitLimit : options.AnyPermitLimit, Window);
     }
 
     /// <summary>
     /// The legacy per-instance limiter (the <c>InMemory</c> backend and the fail-open fallback). The permit
     /// limit is derived from the key's <c>auth:</c> / <c>any:</c> prefix so it matches <see cref="Resolve"/>.
     /// </summary>
-    public static PartitionedRateLimiter<string> CreateInProcessLimiter() =>
+    public static PartitionedRateLimiter<string> CreateInProcessLimiter(RateLimitOptions options) =>
         PartitionedRateLimiter.Create<string, string>(key =>
             RateLimitPartition.GetFixedWindowLimiter(
                 key,
                 _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = key.StartsWith("auth:", StringComparison.Ordinal) ? AuthPermitLimit : AnyPermitLimit,
+                    PermitLimit = key.StartsWith("auth:", StringComparison.Ordinal) ? options.AuthPermitLimit : options.AnyPermitLimit,
                     Window = Window,
                     QueueLimit = 0,
                 }));
