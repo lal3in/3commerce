@@ -86,16 +86,22 @@ else
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem;">
             <legend>@L["Catalog.Variants"]</legend>
             <table style="width:100%; border-collapse:collapse;">
-                <thead><tr><th style="text-align:left;">@L["Catalog.Variant.Sku"]</th><th>@L["Catalog.Variant.Price"]</th><th>@L["Catalog.Variant.Currency"]</th><th>@L["Catalog.Variant.Stock"]</th><th></th></tr></thead>
+                <thead><tr>
+                    <th style="text-align:left; padding:.3rem .6rem;">@L["Catalog.Variant.Sku"]</th>
+                    <th style="padding:.3rem .6rem;">@L["Catalog.Variant.Price"]</th>
+                    <th style="padding:.3rem .6rem;">@L["Catalog.Variant.Currency"]</th>
+                    <th style="padding:.3rem .6rem;">@L["Catalog.Variant.Stock"]</th>
+                    <th style="padding:.3rem .6rem;"></th>
+                </tr></thead>
                 <tbody>
                 @foreach (var v in _editing.Variants)
                 {
                     <tr>
-                        <td><input @bind="v.Sku" style="width:100%;" title="@L["Catalog.Variant.Sku.Tip"]" /></td>
-                        <td><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="@L["Catalog.Variant.Price.Tip"]" /></td>
-                        <td><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
-                        <td><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="@L["Catalog.Variant.Stock.Tip"]" /></td>
-                        <td><button @onclick="() => _editing.Variants.Remove(v)" title="@L["Catalog.Variant.Remove.Tip"]" style="color:#b91c1c;">✕</button></td>
+                        <td style="padding:.2rem .6rem;"><input @bind="v.Sku" style="width:100%; max-width:16rem; box-sizing:border-box;" title="@L["Catalog.Variant.Sku.Tip"]" /></td>
+                        <td style="padding:.2rem .6rem;"><input type="number" @bind="v.PriceMinor" style="width:6rem;" title="@L["Catalog.Variant.Price.Tip"]" /></td>
+                        <td style="padding:.2rem .6rem;"><CurrencySelect @bind-Value="v.Currency" style="width:11rem;padding:.2rem;" /></td>
+                        <td style="padding:.2rem .6rem;"><input type="number" @bind="v.StockQuantity" style="width:5rem;" title="@L["Catalog.Variant.Stock.Tip"]" /></td>
+                        <td style="padding:.2rem .6rem;"><button @onclick="() => _editing.Variants.Remove(v)" title="@L["Catalog.Variant.Remove.Tip"]" style="color:#b91c1c;">✕</button></td>
                     </tr>
                     <tr>
                         <td colspan="5" style="padding:.2rem .4rem .8rem 1.5rem; background:#f9fafb;">

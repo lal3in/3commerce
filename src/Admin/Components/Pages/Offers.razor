@@ -32,7 +32,7 @@
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:.4rem;"><code>@Short(offer.ProductId)</code></td>
                 <td>@offer.ProductTitle</td>
-                <td><code>@(offer.VariantId is null ? "—" : Short(offer.VariantId.Value))</code></td>
+                <td><code>@(offer.VariantId is null ? L["Suppliers.Offer.AllVariants"] : Short(offer.VariantId.Value))</code></td>
                 <td><code>@Short(offer.SupplierId)</code></td>
                 <td>@offer.SupplyCategory / @offer.FulfilmentType</td>
                 <td>@offer.PricingModel / @offer.BillingPeriod @TierSummary(offer)</td>

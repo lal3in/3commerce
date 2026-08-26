@@ -4,6 +4,9 @@ import { loginAsAdmin } from "./helpers";
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 const DEMO_SUPPLIER = "Demo Supplier"; // seeded supplier that backs the demo offers
+// A product-level offer (no VariantId) applies to the whole product, so its SKU cell reads
+// "(all variants)" rather than a real SKU (localized Suppliers.Offer.AllVariants).
+const ALL_VARIANTS = "(all variants)";
 // Where before/after cost-edit screenshots land. Overridable so a local run can drop them in the
 // scratchpad; defaults under test-results so CI keeps them with the run artifacts.
 const SHOT_DIR = process.env.SUPPLIER_SHOT_DIR ?? "test-results/suppliers-cost";
@@ -26,7 +29,7 @@ async function openDemoSupplierOffers(page: Page): Promise<Locator> {
 }
 
 /**
- * Finds the first PRODUCT-level row (variant SKU shown as "—") and the first VARIANT-level row
+ * Finds the first PRODUCT-level row (SKU shown as "(all variants)") and the first VARIANT-level row
  * (a real SKU) in the offers table. Offers are ordered by priority, so these indices are stable
  * across reloads. The demo supplier seeds both kinds (61 product-level, 22 variant-level).
  */
@@ -37,7 +40,7 @@ async function locateRows(table: Locator): Promise<{ productIdx: number; variant
   let variantIdx = -1;
   for (let i = 0; i < count; i++) {
     const sku = (await rows.nth(i).locator("td").nth(1).innerText()).trim();
-    if (sku === "—") {
+    if (sku === ALL_VARIANTS) {
       if (productIdx < 0) productIdx = i;
     } else if (sku.length > 0) {
       if (variantIdx < 0) variantIdx = i;
@@ -61,22 +64,23 @@ test("Suppliers: product-level AND variant-level supplier costs are editable and
   // Open the demo supplier's supplied-products/cost table and confirm BOTH row kinds render.
   const table = await openDemoSupplierOffers(page);
   const { productIdx, variantIdx } = await locateRows(table);
-  expect(productIdx, "a product-level offer row (variant SKU '—') must render").toBeGreaterThanOrEqual(0);
+  expect(productIdx, `a product-level offer row (SKU '${ALL_VARIANTS}') must render`).toBeGreaterThanOrEqual(0);
   expect(variantIdx, "a variant-level offer row (real variant SKU) must render").toBeGreaterThanOrEqual(0);
 
   const productRow = table.locator("tbody tr").nth(productIdx);
   const variantRow = table.locator("tbody tr").nth(variantIdx);
 
-  // Product-level row: a product title in col 1, a "—" SKU in col 2, and an editable cost input.
+  // Product-level row: a product title in col 1, an "(all variants)" SKU in col 2 (the offer applies to
+  // the whole product, not one variant), and an editable cost input.
   const productTitle = (await productRow.locator("td").first().innerText()).trim();
   expect(productTitle.length).toBeGreaterThan(0);
-  expect((await productRow.locator("td").nth(1).innerText()).trim()).toBe("—");
+  expect((await productRow.locator("td").nth(1).innerText()).trim()).toBe(ALL_VARIANTS);
   await expect(productRow.locator('input[type="number"]')).toBeEditable();
 
-  // Variant-level row: a real (non-"—") variant SKU and its own editable cost input.
+  // Variant-level row: a real SKU (not the "(all variants)" placeholder) and its own editable cost input.
   const variantSku = (await variantRow.locator("td").nth(1).innerText()).trim();
   expect(variantSku.length).toBeGreaterThan(0);
-  expect(variantSku).not.toBe("—");
+  expect(variantSku).not.toBe(ALL_VARIANTS);
   await expect(variantRow.locator('input[type="number"]')).toBeEditable();
 
   // BEFORE screenshot: the supplied-products/cost table with both row kinds visible.

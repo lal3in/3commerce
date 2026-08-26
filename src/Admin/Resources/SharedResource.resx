@@ -1798,6 +1798,7 @@
   <data name="Suppliers.Offers.Col.Cost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
   <data name="Suppliers.Offers.Col.Cost.Tip" xml:space="preserve"><value>What this supplier charges for the variant, in minor units (e.g. cents).</value></data>
   <data name="Suppliers.Offers.Save.Tip" xml:space="preserve"><value>Save the supplier cost for this line.</value></data>
+  <data name="Suppliers.Offer.AllVariants" xml:space="preserve"><value>(all variants)</value></data>
   <data name="Suppliers.State.Draft" xml:space="preserve"><value>Draft</value></data>
   <data name="Suppliers.State.PendingVerification" xml:space="preserve"><value>Pending verification</value></data>
   <data name="Suppliers.State.PendingApproval" xml:space="preserve"><value>Pending approval</value></data>
