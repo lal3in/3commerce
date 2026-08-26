@@ -1,52 +1,108 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page, type Locator } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 const DEMO_SUPPLIER = "Demo Supplier"; // seeded supplier that backs the demo offers
+// Where before/after cost-edit screenshots land. Overridable so a local run can drop them in the
+// scratchpad; defaults under test-results so CI keeps them with the run artifacts.
+const SHOT_DIR = process.env.SUPPLIER_SHOT_DIR ?? "test-results/suppliers-cost";
 
 // Locates the "Supplied products & variants" table by its distinctive Variant SKU header.
-function offersTable(page: import("@playwright/test").Page) {
+function offersTable(page: Page): Locator {
   return page.locator("table").filter({ has: page.getByRole("columnheader", { name: "Variant SKU" }) });
 }
 
-test("Suppliers: lists a supplier, shows its supplied products, and edits a supplier cost that persists", async ({ page }) => {
-  await loginAsAdmin(page);
-  await page.goto("/suppliers");
+/** Opens the demo supplier from the Suppliers list and returns its supplied-products/cost table. */
+async function openDemoSupplierOffers(page: Page): Promise<Locator> {
   await expect(page.getByRole("heading", { name: "Suppliers", exact: true }).first()).toBeVisible();
-
-  // The seeded Demo Supplier appears in the list.
   const supplierRow = page.locator("tr", { hasText: DEMO_SUPPLIER });
   await expect(supplierRow).toBeVisible({ timeout: 15_000 });
-
-  // Open it → the supplied products/variants table renders with rows.
   await supplierRow.getByRole("button", { name: "Manage", exact: true }).click();
   const table = offersTable(page);
   await expect(table).toBeVisible({ timeout: 10_000 });
-  const firstRow = table.locator("tbody tr").first();
-  await expect(firstRow).toBeVisible();
-  const productTitle = (await firstRow.locator("td").first().innerText()).trim();
-  expect(productTitle.length).toBeGreaterThan(0);
+  await expect(table.locator("tbody tr").first()).toBeVisible();
+  return table;
+}
 
-  // Edit the first row's supplier cost to a fresh value and save it.
-  const newCost = String(10000 + (Date.now() % 90000));
-  const costInput = firstRow.locator('input[type="number"]');
-  await costInput.fill(newCost);
-  await firstRow.getByRole("button", { name: "Save", exact: true }).click();
+/**
+ * Finds the first PRODUCT-level row (variant SKU shown as "—") and the first VARIANT-level row
+ * (a real SKU) in the offers table. Offers are ordered by priority, so these indices are stable
+ * across reloads. The demo supplier seeds both kinds (61 product-level, 22 variant-level).
+ */
+async function locateRows(table: Locator): Promise<{ productIdx: number; variantIdx: number }> {
+  const rows = table.locator("tbody tr");
+  const count = await rows.count();
+  let productIdx = -1;
+  let variantIdx = -1;
+  for (let i = 0; i < count; i++) {
+    const sku = (await rows.nth(i).locator("td").nth(1).innerText()).trim();
+    if (sku === "—") {
+      if (productIdx < 0) productIdx = i;
+    } else if (sku.length > 0) {
+      if (variantIdx < 0) variantIdx = i;
+    }
+    if (productIdx >= 0 && variantIdx >= 0) break;
+  }
+  return { productIdx, variantIdx };
+}
+
+/** Edits one row's supplier cost, saves, and waits for the confirmation toast. */
+async function editCost(page: Page, row: Locator, newCost: string): Promise<void> {
+  await row.locator('input[type="number"]').fill(newCost);
+  await row.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText(/Supplier cost saved/i)).toBeVisible({ timeout: 10_000 });
+}
 
-  // Persistence: reload the page (fresh circuit), re-open the supplier, and the value is still there.
+test("Suppliers: product-level AND variant-level supplier costs are editable and persist", async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto("/suppliers");
+
+  // Open the demo supplier's supplied-products/cost table and confirm BOTH row kinds render.
+  const table = await openDemoSupplierOffers(page);
+  const { productIdx, variantIdx } = await locateRows(table);
+  expect(productIdx, "a product-level offer row (variant SKU '—') must render").toBeGreaterThanOrEqual(0);
+  expect(variantIdx, "a variant-level offer row (real variant SKU) must render").toBeGreaterThanOrEqual(0);
+
+  const productRow = table.locator("tbody tr").nth(productIdx);
+  const variantRow = table.locator("tbody tr").nth(variantIdx);
+
+  // Product-level row: a product title in col 1, a "—" SKU in col 2, and an editable cost input.
+  const productTitle = (await productRow.locator("td").first().innerText()).trim();
+  expect(productTitle.length).toBeGreaterThan(0);
+  expect((await productRow.locator("td").nth(1).innerText()).trim()).toBe("—");
+  await expect(productRow.locator('input[type="number"]')).toBeEditable();
+
+  // Variant-level row: a real (non-"—") variant SKU and its own editable cost input.
+  const variantSku = (await variantRow.locator("td").nth(1).innerText()).trim();
+  expect(variantSku.length).toBeGreaterThan(0);
+  expect(variantSku).not.toBe("—");
+  await expect(variantRow.locator('input[type="number"]')).toBeEditable();
+
+  // BEFORE screenshot: the supplied-products/cost table with both row kinds visible.
+  await table.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOT_DIR}/cost-edit-before.png`, fullPage: true });
+
+  // Edit BOTH a product-level and a variant-level cost to fresh, distinct values and save each.
+  const productCost = String(10000 + (Date.now() % 80000));
+  const variantCost = String(90000 + (Date.now() % 9000));
+  await editCost(page, productRow, productCost);
+  await editCost(page, variantRow, variantCost);
+
+  // Persistence: reload (fresh Blazor circuit), re-open the supplier, and BOTH edits are still there.
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Suppliers", exact: true }).first()).toBeVisible();
-  const reopenedRow = page.locator("tr", { hasText: DEMO_SUPPLIER });
-  await expect(reopenedRow).toBeVisible({ timeout: 15_000 });
-  await reopenedRow.getByRole("button", { name: "Manage", exact: true }).click();
-  const table2 = offersTable(page);
-  await expect(table2).toBeVisible({ timeout: 10_000 });
-  const firstRow2 = table2.locator("tbody tr").first();
-  // Offers are ordered by priority, so the first row is stable across reloads.
-  expect((await firstRow2.locator("td").first().innerText()).trim()).toBe(productTitle);
-  await expect(firstRow2.locator('input[type="number"]')).toHaveValue(newCost);
+  const table2 = await openDemoSupplierOffers(page);
+  const productRow2 = table2.locator("tbody tr").nth(productIdx);
+  const variantRow2 = table2.locator("tbody tr").nth(variantIdx);
+  // Row order is priority-stable, so the same indices address the same offers after reload.
+  expect((await productRow2.locator("td").first().innerText()).trim()).toBe(productTitle);
+  expect((await variantRow2.locator("td").nth(1).innerText()).trim()).toBe(variantSku);
+  await expect(productRow2.locator('input[type="number"]')).toHaveValue(productCost);
+  await expect(variantRow2.locator('input[type="number"]')).toHaveValue(variantCost);
+
+  // AFTER screenshot: the reloaded table showing the persisted product-level and variant-level costs.
+  await table2.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOT_DIR}/cost-edit-after.png`, fullPage: true });
 });
 
 test("Suppliers: the Approve action activates a pending supplier", async ({ page, request }) => {

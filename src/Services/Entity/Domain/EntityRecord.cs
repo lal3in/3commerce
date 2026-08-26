@@ -161,6 +161,16 @@ public sealed class EntityRecord
     public EntityContactMethod AddContactMethod(EntityContactPurpose purpose, EntityContactKind kind, string value, DateTimeOffset now)
     {
         var normalizedValue = NormalizeContactValue(kind, value);
+        // Dedupe guard (mirrors AddIdentifier): an exact-duplicate contact — same purpose + kind + value
+        // (case-insensitive) — must not create a second row. An operator (or a re-run of the seed) adding
+        // the same contact twice is rejected cleanly rather than producing a duplicate "Operations · Email"
+        // entry on the admin Suppliers page.
+        if (ContactMethods.Any(c => c.Purpose == purpose && c.Kind == kind
+            && string.Equals(c.Value, normalizedValue, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new DomainRuleException($"Contact '{purpose}/{kind}' with this value already exists on this entity.");
+        }
+
         var contact = new EntityContactMethod
         {
             Id = Guid.CreateVersion7(),
