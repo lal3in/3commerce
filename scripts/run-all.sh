@@ -57,6 +57,11 @@ start_all() {
     # explicitly-empty OTEL_EXPORTER_OTLP_ENDPOINT= still opts a run back out to console traces.
     e+=( "OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" )
     [[ -n "$port" ]] && e+=( "ASPNETCORE_URLS=http://localhost:$port" )
+    # The gateway's auth rate limit (30/min per tenant+storefront+IP, ADR-0044) is a credential-stuffing
+    # guard for real, many-IP traffic. In the single-IP dev/E2E stack the whole test suite + seed share one
+    # partition and would throttle themselves (429 → flaky login-dependent specs), so raise the limit here
+    # only. Production keeps the 30/min default (RateLimitOptions.AuthPermitLimit); enforcement is unchanged.
+    [[ "$name" == "gateway" ]] && e+=( "RateLimiting__AuthPermitLimit=100000" "RateLimiting__AnyPermitLimit=1000000" )
     # Clear the port BEFORE overwriting the .pid file below: whatever still holds it is a stray
     # from an earlier run that would otherwise become untrackable (and would win the bind, leaving
     # this generation dead on arrival while the stale code keeps serving).
