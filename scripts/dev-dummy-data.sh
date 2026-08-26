@@ -919,8 +919,28 @@ except Exception:
     api "entity-supplier-submit" POST "/api/entity/entities/$entity_id/suppliers/submit-verification" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-supplier-verify-complete" POST "/api/entity/entities/$entity_id/suppliers/verification-complete" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     api "entity-supplier-activate" POST "/api/entity/entities/$entity_id/suppliers/activate" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
-    api "entity-change-request" POST "/api/entity/entities/$entity_id/suppliers/change-requests?tenantId=$TENANT_ID" "$ADMIN_JAR" \
-      '{"type":2,"summary":"Demo supplier contact update","detail":"Seeded by scripts/dev-dummy-data.sh"}' "allow_4xx" >/dev/null
+    # Idempotency: supplier change-requests are legitimately repeatable (an operator/supplier may raise
+    # the same change twice on purpose), so we DON'T dedupe at the endpoint — we just avoid the seed
+    # itself re-adding its own demo request on every re-run (which showed TWO identical "Demo supplier
+    # contact update" entries in the console's change-requests section). Skip when a matching seeded
+    # request for this entity already exists. Match on entity + summary + the seed marker in detail.
+    local existing_change_requests existing_seeded_cr
+    existing_change_requests=$(api "entity-change-request-list" GET "/api/entity/entities/suppliers/change-requests?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+    existing_seeded_cr=$(printf '%s' "$existing_change_requests" | ENTITY_ID="$entity_id" python3 -c 'import json,os,sys
+try:
+    d = json.load(sys.stdin)
+    rows = d if isinstance(d, list) else []
+    eid = (os.environ.get("ENTITY_ID") or "").lower()
+    hit = any(isinstance(r, dict) and str(r.get("entityId", "")).lower() == eid
+              and (r.get("summary") or "") == "Demo supplier contact update"
+              and (r.get("detail") or "") == "Seeded by scripts/dev-dummy-data.sh" for r in rows)
+    print("yes" if hit else "")
+except Exception:
+    print("")')
+    if [[ -z "$existing_seeded_cr" ]]; then
+      api "entity-change-request" POST "/api/entity/entities/$entity_id/suppliers/change-requests?tenantId=$TENANT_ID" "$ADMIN_JAR" \
+        '{"type":2,"summary":"Demo supplier contact update","detail":"Seeded by scripts/dev-dummy-data.sh"}' "allow_4xx" >/dev/null
+    fi
     supplier_id="$entity_id"
     manifest_set "entities.demoSupplier.id" "$(json_string "$entity_id")"
   else
