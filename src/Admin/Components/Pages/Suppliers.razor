@@ -230,9 +230,9 @@
                 <tbody>
                 @foreach (var row in _offers)
                 {
-                    <tr data-offer-row="@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)|@(string.IsNullOrWhiteSpace(row.VariantSku) ? "—" : row.VariantSku)" style="border-bottom:1px solid #f3f4f6;">
+                    <tr data-offer-row="@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)|@(string.IsNullOrWhiteSpace(row.VariantSku) ? L["Suppliers.Offer.AllVariants"] : row.VariantSku)" style="border-bottom:1px solid #f3f4f6;">
                         <td style="padding:.4rem;">@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)</td>
-                        <td><code>@(string.IsNullOrWhiteSpace(row.VariantSku) ? "—" : row.VariantSku)</code></td>
+                        <td><code>@(string.IsNullOrWhiteSpace(row.VariantSku) ? L["Suppliers.Offer.AllVariants"] : row.VariantSku)</code></td>
                         <td>@row.Currency</td>
                         <td><input type="number" @bind="row.SupplierCostMinor" title="@L["Suppliers.Offers.Col.Cost.Tip"]" style="width:9rem; padding:.25rem;" /></td>
                         <td><button @onclick="() => SaveCost(row)" disabled="@_saving" title="@L["Suppliers.Offers.Save.Tip"]" style="padding:.25rem .7rem;">@L["Common.Save"]</button></td>
