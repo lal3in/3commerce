@@ -67,8 +67,28 @@ public static class OfferEndpoints
         try
         {
             var now = clock.GetUtcNow();
+            var tenantId = request.TenantId ?? DefaultTenantId(config);
+            // An offer is uniquely identified by (TenantId, ProductId, VariantId, SupplierId, StorefrontId).
+            // Different suppliers on one product (multi-supplier) and the same supplier with a different
+            // StorefrontId (per-storefront pricing) are legitimately distinct and must still create. Only the
+            // EXACT same key repeated is a duplicate — reject it so a non-idempotent caller (e.g. a re-run seed)
+            // can't pile many rows onto one key and make the Suppliers cost table list a variant twice.
+            var duplicate = await db.Offers.AsNoTracking().AnyAsync(
+                o => o.TenantId == tenantId
+                    && o.ProductId == request.ProductId
+                    && o.VariantId == request.VariantId
+                    && o.SupplierId == request.SupplierId
+                    && o.StorefrontId == request.StorefrontId,
+                ct);
+            if (duplicate)
+            {
+                return TypedResults.BadRequest(
+                    "An offer already exists for this tenant, product, variant, supplier and storefront. "
+                    + "Update the existing offer instead of creating a duplicate.");
+            }
+
             var offer = Offer.Create(
-                request.TenantId ?? DefaultTenantId(config), request.ProductId, request.VariantId, request.SupplierId,
+                tenantId, request.ProductId, request.VariantId, request.SupplierId,
                 request.SupplyCategory, request.FulfilmentType, request.PriceMinor, request.Currency,
                 request.Priority, now);
             offer.SetPricing(request.PricingModel, request.BillingPeriod, ToTiers(request.Tiers), now);

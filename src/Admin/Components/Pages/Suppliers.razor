@@ -219,7 +219,7 @@
         else if (_offers.Count == 0) { <p style="color:#9ca3af;">@L["Suppliers.Offers.Empty"]</p> }
         else
         {
-            <table style="border-collapse:collapse; width:100%; font-size:.9rem;">
+            <table data-testid="supplier-offer-cost-table" style="border-collapse:collapse; width:100%; font-size:.9rem;">
                 <thead><tr style="text-align:left; border-bottom:2px solid #e5e7eb;">
                     <th style="padding:.4rem;">@L["Suppliers.Offers.Col.Product"]</th>
                     <th>@L["Suppliers.Offers.Col.Sku"]</th>
@@ -230,7 +230,7 @@
                 <tbody>
                 @foreach (var row in _offers)
                 {
-                    <tr style="border-bottom:1px solid #f3f4f6;">
+                    <tr data-offer-row="@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)|@(string.IsNullOrWhiteSpace(row.VariantSku) ? "—" : row.VariantSku)" style="border-bottom:1px solid #f3f4f6;">
                         <td style="padding:.4rem;">@(string.IsNullOrWhiteSpace(row.ProductTitle) ? Short(row.ProductId) : row.ProductTitle)</td>
                         <td><code>@(string.IsNullOrWhiteSpace(row.VariantSku) ? "—" : row.VariantSku)</code></td>
                         <td>@row.Currency</td>
