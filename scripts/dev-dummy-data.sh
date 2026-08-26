@@ -894,8 +894,26 @@ except Exception:
       '{"type":1,"value":"12345678901"}' "allow_4xx")
     ident_id=$(printf '%s' "$ident_body" | json_get 'identifiers.0.id')
     [[ -n "$ident_id" ]] && api "entity-supplier-abn-verify" POST "/api/entity/entities/$entity_id/identifiers/$ident_id/verify" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
-    api "entity-supplier-contact" POST "/api/entity/entities/$entity_id/contacts" "$ADMIN_JAR" \
-      '{"purpose":3,"kind":1,"value":"ops@demo-supplier.test"}' "allow_4xx" >/dev/null
+    # Idempotency: re-running the seed reuses the existing demo supplier (above), so an unconditional
+    # POST here appends a SECOND identical ops contact (purpose=3/kind=1/same value) on every re-run —
+    # the "Operations · Email · ops@demo-supplier.test" duplicate on the admin Suppliers page. Only add
+    # it when it's not already present. (The Entity add-contact path now also rejects exact duplicates,
+    # but we still gate here so the seed stays a clean no-op rather than a logged 4xx on re-run.)
+    local existing_contacts existing_ops_contact
+    existing_contacts=$(api "entity-supplier-detail" GET "/api/entity/entities/$entity_id" "$ADMIN_JAR" "" "allow_4xx")
+    existing_ops_contact=$(printf '%s' "$existing_contacts" | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    cs = d.get("contacts", []) if isinstance(d, dict) else []
+    hit = any(isinstance(c, dict) and c.get("purpose") == 3 and c.get("kind") == 1
+              and (c.get("value") or "").strip().lower() == "ops@demo-supplier.test" for c in cs)
+    print("yes" if hit else "")
+except Exception:
+    print("")')
+    if [[ -z "$existing_ops_contact" ]]; then
+      api "entity-supplier-contact" POST "/api/entity/entities/$entity_id/contacts" "$ADMIN_JAR" \
+        '{"purpose":3,"kind":1,"value":"ops@demo-supplier.test"}' "allow_4xx" >/dev/null
+    fi
     api "entity-supplier-address" POST "/api/entity/entities/$entity_id/addresses" "$ADMIN_JAR" \
       '{"purpose":4,"line1":"1 Supplier Way","line2":null,"city":"Sydney","region":"NSW","postcode":"2000","countryCode":"AU"}' "allow_4xx" >/dev/null
     api "entity-supplier-submit" POST "/api/entity/entities/$entity_id/suppliers/submit-verification" "$ADMIN_JAR" "" "allow_4xx" >/dev/null

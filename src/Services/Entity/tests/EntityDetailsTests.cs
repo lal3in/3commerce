@@ -50,6 +50,31 @@ public class EntityDetailsTests
     }
 
     [Fact]
+    public void EntityDetails_duplicate_contact_on_same_entity_is_rejected()
+    {
+        var entity = NewEntity();
+        entity.AddContactMethod(EntityContactPurpose.Operations, EntityContactKind.Email, "ops@demo-supplier.test", DateTimeOffset.UtcNow);
+
+        // Same purpose + kind + value, differing only by surrounding whitespace and case → still a duplicate.
+        Assert.Throws<DomainRuleException>(() => entity.AddContactMethod(
+            EntityContactPurpose.Operations, EntityContactKind.Email, " OPS@Demo-Supplier.TEST ", DateTimeOffset.UtcNow));
+
+        Assert.Single(entity.ContactMethods);
+    }
+
+    [Fact]
+    public void EntityDetails_contact_same_value_different_purpose_or_kind_is_allowed()
+    {
+        var entity = NewEntity();
+        entity.AddContactMethod(EntityContactPurpose.Operations, EntityContactKind.Email, "ops@demo-supplier.test", DateTimeOffset.UtcNow);
+
+        // A different purpose (Support) with the same email is a distinct contact, not a duplicate.
+        entity.AddContactMethod(EntityContactPurpose.Support, EntityContactKind.Email, "ops@demo-supplier.test", DateTimeOffset.UtcNow);
+
+        Assert.Equal(2, entity.ContactMethods.Count);
+    }
+
+    [Fact]
     public void EntityDetails_relationships_cannot_self_reference()
     {
         var id = Guid.CreateVersion7();
