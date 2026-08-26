@@ -207,6 +207,43 @@ api_noauth() {
   api "$name" "$method" "$path" "$jar" "$data" "$expectation"
 }
 
+# Idempotency guard for supplier offers. An offer is uniquely identified by the FULL key
+# (TenantId, ProductId, VariantId, SupplierId, StorefrontId) — the same tenant/supplier may
+# legitimately hold DIFFERENT offers per storefront (per-storefront pricing) and different suppliers
+# may cover the same product (multi-supplier). A true duplicate is that exact key appearing twice, and
+# the create endpoint always inserts, so an unguarded re-run — or two seed iterations that hit the same
+# key (e.g. multiple stores of one currency) — piled 83 offers onto 33 unique keys for the demo supplier.
+# Returns "yes" when an offer for the given key already exists (tenant is fixed to $TENANT_ID; variant
+# and storefront are matched null-aware, empty/"null" == unset). Callers skip the POST when it prints yes.
+offer_key_exists() {
+  local supplier_id="$1" product_id="$2" variant_id="${3:-}" storefront_id="${4:-}"
+  local existing
+  existing=$(api "offer-dedupe-${product_id:0:8}" GET \
+    "/api/catalog/admin/offers?tenantId=$TENANT_ID&supplierId=$supplier_id&productId=$product_id" \
+    "$ADMIN_JAR" "" "allow_4xx")
+  printf '%s' "$existing" | VARIANT_ID="$variant_id" STOREFRONT_ID="$storefront_id" python3 -c '
+import json, os, sys
+
+def norm(v):
+    v = (v or "").strip().lower()
+    return None if v in ("", "null", "none") else v
+
+want_variant = norm(os.environ.get("VARIANT_ID"))
+want_storefront = norm(os.environ.get("STOREFRONT_ID"))
+try:
+    rows = json.load(sys.stdin)
+    rows = rows if isinstance(rows, list) else []
+    hit = any(
+        isinstance(r, dict)
+        and norm(r.get("variantId")) == want_variant
+        and norm(r.get("storefrontId")) == want_storefront
+        for r in rows
+    )
+    print("yes" if hit else "")
+except Exception:
+    print("")'
+}
+
 # Poll the admin RMA list until <rma_id> reaches <target_state> (RMA saga transitions are eventually
 # consistent, so acting immediately can 409). Returns 0 when reached, 1 on timeout.
 rma_wait_state() {
@@ -371,10 +408,14 @@ print(json.dumps(payload))
     manifest_set "products.$code.slug" "$(json_string "e2e-scenario-$code")"
     if [[ -n "$variant_id" ]]; then manifest_set "products.$code.variantId" "$(json_string "$variant_id")"; fi
 
-    offer_json=$(scenario_offer_json "$code" "$product_id" "$variant_id" "$supplier_id")
-    offer_body=$(api "scenario-$code-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" "$offer_json" "allow_4xx")
-    offer_id=$(printf '%s' "$offer_body" | json_get id)
-    if [[ -n "$offer_id" ]]; then manifest_set "offers.$code.id" "$(json_string "$offer_id")"; fi
+    # Idempotent on the full offer key: only POST when no offer for this
+    # (tenant, product, variant, supplier, storefront=all) already exists, so re-seeds don't pile dups.
+    if [[ -z "$(offer_key_exists "$supplier_id" "$product_id" "$variant_id" "")" ]]; then
+      offer_json=$(scenario_offer_json "$code" "$product_id" "$variant_id" "$supplier_id")
+      offer_body=$(api "scenario-$code-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" "$offer_json" "allow_4xx")
+      offer_id=$(printf '%s' "$offer_body" | json_get id)
+      if [[ -n "$offer_id" ]]; then manifest_set "offers.$code.id" "$(json_string "$offer_id")"; fi
+    fi
 
     case "$code" in
       physical-warehouse-flat|physical-multi-variant-tiered|bundle-mixed-physical) stock_qty=25 ;;
@@ -745,6 +786,10 @@ try:
     print(p['id']+'|'+str(price))
 except Exception: pass" | while IFS='|' read -r pid price; do
       [[ -n "$pid" ]] || continue
+      # These COGS offers are all-storefront (StorefrontId=null), so the same product reached through
+      # several stores of the same currency collapses to ONE key — guard so the loop creates it once,
+      # and re-seeds stay a no-op. (First currency to reach a product wins its costed offer.)
+      [[ -z "$(offer_key_exists "$supplier_id" "$pid" "" "")" ]] || continue
       api "cost-offer-$cur-${pid:0:8}" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
         "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$pid\",\"variantId\":null,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":$price,\"supplierCostMinor\":$((price/2)),\"currency\":\"$cur\",\"priority\":5}" "allow_4xx" >/dev/null
     done
@@ -1056,8 +1101,11 @@ except Exception:
   variant_id=$(printf '%s' "$product_json" | json_get '0.variants.0.id')
   if [[ -n "$product_id" ]]; then
     if [[ -n "$variant_id" ]]; then variant_json="\"$variant_id\""; else variant_json="null"; fi
-    api "catalog-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
-      "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"supplierCostMinor\":1250,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
+    # Idempotent on the full key so re-seeding this sample offer stays a no-op (StorefrontId=null).
+    if [[ -z "$(offer_key_exists "$supplier_id" "$product_id" "$variant_id" "")" ]]; then
+      api "catalog-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
+        "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"supplierCostMinor\":1250,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
+    fi
     manifest_set "products.importedSample.id" "$(json_string "$product_id")"
     if [[ -n "$variant_id" ]]; then manifest_set "products.importedSample.variantId" "$(json_string "$variant_id")"; fi
   fi

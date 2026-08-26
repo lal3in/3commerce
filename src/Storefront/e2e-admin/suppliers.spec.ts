@@ -105,6 +105,33 @@ test("Suppliers: product-level AND variant-level supplier costs are editable and
   await page.screenshot({ path: `${SHOT_DIR}/cost-edit-after.png`, fullPage: true });
 });
 
+test("Suppliers: the demo supplier's cost table lists each product/variant exactly once", async ({ page }) => {
+  // Regression: a non-idempotent seed (re-run on every dev-up, plus multiple same-currency stores) once
+  // piled 83 offers onto 33 unique (product, variant, supplier, storefront) keys, so the cost table showed
+  // the SAME product/variant twice with different costs. The seed is now idempotent and the create endpoint
+  // rejects an exact-key duplicate, so every (product title, SKU) pair must appear on exactly one row.
+  await loginAsAdmin(page);
+  await page.goto("/suppliers");
+
+  const table = await openDemoSupplierOffers(page);
+  await table.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOT_DIR}/no-duplicate-rows.png`, fullPage: true });
+
+  // Each row carries a stable "<product title>|<SKU>" key; collect them and assert none repeats.
+  const keys = await table.locator("tbody tr[data-offer-row]").evaluateAll(
+    (rows) => rows.map((r) => r.getAttribute("data-offer-row") ?? ""),
+  );
+  expect(keys.length, "the demo supplier must have costed offer rows").toBeGreaterThan(0);
+
+  const seen = new Map<string, number>();
+  for (const k of keys) seen.set(k, (seen.get(k) ?? 0) + 1);
+  const duplicates = [...seen.entries()].filter(([, n]) => n > 1).map(([k, n]) => `${k} ×${n}`);
+  expect(duplicates, `duplicate product/variant rows: ${duplicates.join(", ")}`).toEqual([]);
+
+  // The distinct-key count equals the row count — no key is represented more than once.
+  expect(new Set(keys).size).toBe(keys.length);
+});
+
 test("Suppliers: the Approve action activates a pending supplier", async ({ page, request }) => {
   // Seed a fresh supplier and drive it (via the gateway API) all the way to PendingApproval so the UI
   // Approve button (which calls suppliers/activate) has a valid transition to exercise.
