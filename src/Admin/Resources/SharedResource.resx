@@ -308,12 +308,20 @@
   <data name="Offers.New.Tip" xml:space="preserve"><value>Open the form to create a new offer.</value></data>
   <data name="Offers.EditHeading" xml:space="preserve"><value>Edit offer</value></data>
   <data name="Offers.Field.Title" xml:space="preserve"><value>Product</value></data>
-  <data name="Offers.Field.ProductId" xml:space="preserve"><value>Product ID</value></data>
-  <data name="Offers.Field.ProductId.Tip" xml:space="preserve"><value>Product GUID this offer supplies.</value></data>
-  <data name="Offers.Field.VariantId" xml:space="preserve"><value>Variant ID</value></data>
-  <data name="Offers.Field.VariantId.Tip" xml:space="preserve"><value>Optional variant GUID. Blank applies to the product.</value></data>
-  <data name="Offers.Field.SupplierId" xml:space="preserve"><value>Supplier ID</value></data>
-  <data name="Offers.Field.SupplierId.Tip" xml:space="preserve"><value>Supplier Entity GUID.</value></data>
+  <data name="Offers.Field.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Offers.Field.Product.Tip" xml:space="preserve"><value>The catalog product this offer supplies. Immutable after creation.</value></data>
+  <data name="Offers.Field.ProductSearch" xml:space="preserve"><value>Filter products…</value></data>
+  <data name="Offers.Field.ProductSearch.Tip" xml:space="preserve"><value>Type to narrow the product list by title.</value></data>
+  <data name="Offers.Field.Variant" xml:space="preserve"><value>Variant</value></data>
+  <data name="Offers.Field.Variant.Tip" xml:space="preserve"><value>Optional variant. Leave on "(all variants)" for a product-level offer. Immutable after creation.</value></data>
+  <data name="Offers.Field.Supplier" xml:space="preserve"><value>Supplier</value></data>
+  <data name="Offers.Field.Supplier.Tip" xml:space="preserve"><value>The supplier entity providing this offer. Immutable after creation.</value></data>
+  <data name="Offers.Product.Choose" xml:space="preserve"><value>Choose a product…</value></data>
+  <data name="Offers.Product.Empty" xml:space="preserve"><value>No products found</value></data>
+  <data name="Offers.Variant.All" xml:space="preserve"><value>(all variants)</value></data>
+  <data name="Offers.Supplier.Choose" xml:space="preserve"><value>Choose a supplier…</value></data>
+  <data name="Offers.Supplier.Empty" xml:space="preserve"><value>No suppliers found</value></data>
+  <data name="Offers.Loading" xml:space="preserve"><value>Loading…</value></data>
   <data name="Offers.Field.SupplyCategory" xml:space="preserve"><value>Supply category</value></data>
   <data name="Offers.Field.SupplyCategory.Tip" xml:space="preserve"><value>Physical/Digital/Service compatibility is enforced by Catalog.</value></data>
   <data name="Offers.Field.FulfilmentType" xml:space="preserve"><value>Fulfilment type</value></data>

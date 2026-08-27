@@ -61,9 +61,53 @@
             <p style="margin:.2rem 0 .8rem; color:#374151;"><strong>@L["Offers.Field.Title"]:</strong> @(string.IsNullOrWhiteSpace(_form.ProductTitle) ? "—" : _form.ProductTitle)</p>
         }
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
-            <label>@L["Offers.Field.ProductId"] <input @bind="_form.ProductId" disabled="@(_editingId is not null)" title="@L["Offers.Field.ProductId.Tip"]" style="width:100%;" /></label>
-            <label>@L["Offers.Field.VariantId"] <input @bind="_form.VariantId" disabled="@(_editingId is not null)" title="@L["Offers.Field.VariantId.Tip"]" style="width:100%;" /></label>
-            <label>@L["Offers.Field.SupplierId"] <input @bind="_form.SupplierId" disabled="@(_editingId is not null)" title="@L["Offers.Field.SupplierId.Tip"]" style="width:100%;" /></label>
+            @if (_editingId is not null)
+            {
+                @* Product / Variant / Supplier are immutable after creation — show the resolved names read-only. *@
+                <label>@L["Offers.Field.Product"] <input value="@(string.IsNullOrWhiteSpace(_form.ProductTitle) ? Short(ParseGuid(_form.ProductId)) : _form.ProductTitle)" disabled title="@L["Offers.Field.Product.Tip"]" style="width:100%;" /></label>
+                <label>@L["Offers.Field.Variant"] <input value="@(string.IsNullOrWhiteSpace(_form.VariantSku) ? L["Offers.Variant.All"] : _form.VariantSku)" disabled title="@L["Offers.Field.Variant.Tip"]" style="width:100%;" /></label>
+                <label>@L["Offers.Field.Supplier"] <input value="@SupplierName(_form.SupplierId)" disabled title="@L["Offers.Field.Supplier.Tip"]" style="width:100%;" /></label>
+            }
+            else
+            {
+                <label>@L["Offers.Field.Product"]
+                    <input @bind="_productSearch" @bind:event="oninput" placeholder="@L["Offers.Field.ProductSearch"]" title="@L["Offers.Field.ProductSearch.Tip"]" style="width:100%; margin-bottom:.25rem;" />
+                    <select value="@_form.ProductId" @onchange="OnProductChanged" title="@L["Offers.Field.Product.Tip"]" style="width:100%;">
+                        <option value="">@(_products is null ? L["Offers.Loading"] : _products.Count == 0 ? L["Offers.Product.Empty"] : L["Offers.Product.Choose"])</option>
+                        @if (_products is not null)
+                        {
+                            @foreach (var p in FilteredProducts())
+                            {
+                                <option value="@p.Id">@p.Title — @Short(p.Id)</option>
+                            }
+                        }
+                    </select>
+                </label>
+                <label>@L["Offers.Field.Variant"]
+                    <select @bind="_form.VariantId" disabled="@(!Guid.TryParse(_form.ProductId, out _))" title="@L["Offers.Field.Variant.Tip"]" style="width:100%;">
+                        <option value="">@L["Offers.Variant.All"]</option>
+                        @if (_variants is not null)
+                        {
+                            @foreach (var v in _variants)
+                            {
+                                <option value="@v.Id">@v.Sku</option>
+                            }
+                        }
+                    </select>
+                </label>
+                <label>@L["Offers.Field.Supplier"]
+                    <select @bind="_form.SupplierId" title="@L["Offers.Field.Supplier.Tip"]" style="width:100%;">
+                        <option value="">@(_suppliers is null ? L["Offers.Loading"] : _suppliers.Count == 0 ? L["Offers.Supplier.Empty"] : L["Offers.Supplier.Choose"])</option>
+                        @if (_suppliers is not null)
+                        {
+                            @foreach (var s in _suppliers)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        }
+                    </select>
+                </label>
+            }
             <label>@L["Offers.Field.SupplyCategory"]
                 <select @bind="_form.SupplyCategory" disabled="@(_editingId is not null)" title="@L["Offers.Field.SupplyCategory.Tip"]" style="width:100%;"><option value="1">@L["Catalog.Type.Physical"]</option><option value="2">@L["Catalog.Type.Digital"]</option><option value="3">@L["Catalog.Type.Service"]</option></select>
             </label>
@@ -136,6 +180,10 @@
     private string _productFilter = string.Empty;
     private List<OfferDto>? _offers;
     private List<StorefrontDto>? _storefronts;
+    private List<ProductListItem>? _products;
+    private List<SupplierOption>? _suppliers;
+    private List<VariantOption>? _variants;
+    private string _productSearch = string.Empty;
     private string? _status;
     private string? _error;
     private Guid? _editingId;
@@ -154,6 +202,9 @@
             _offers = await Gateway.GetListAsync<OfferDto>($"{Base}?{query}");
             // Storefronts feed the scope picker + the table labels; a failure here must not block offers.
             _storefronts = await SafeStorefronts();
+            // Products + suppliers feed the New-offer dropdowns; a failure here must not block the list/modal.
+            _products = await SafeProducts();
+            _suppliers = await SafeSuppliers();
         }
         catch (Exception ex) { _error = ex.Message; }
     }
@@ -197,7 +248,7 @@
         _editingId = offer.Id;
         _showForm = true;
         _form.ProductTitle = offer.ProductTitle;
-        _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString();
+        _form.ProductId = offer.ProductId.ToString(); _form.VariantId = offer.VariantId?.ToString() ?? string.Empty; _form.SupplierId = offer.SupplierId.ToString(); _form.VariantSku = offer.VariantSku ?? string.Empty;
         _form.SupplyCategory = SupplyCategoryValue(offer.SupplyCategory); _form.FulfilmentType = FulfilmentTypeValue(offer.FulfilmentType); _form.PricingModel = PricingModelValue(offer.PricingModel); _form.BillingPeriod = BillingPeriodValue(offer.BillingPeriod);
         _form.PriceMinor = offer.PriceMinor; _form.Currency = offer.Currency; _form.Priority = offer.Priority; _form.Active = offer.Status == "Active"; _form.SupplierCostMinor = offer.SupplierCostMinor;
         _form.StorefrontId = offer.StorefrontId?.ToString() ?? string.Empty;
@@ -207,8 +258,75 @@
 
     private void ResetForm()
     {
-        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.SupplierCostMinor = 0; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null; _form.Tiers.Clear();
+        _editingId = null; _form.ProductTitle = string.Empty; _form.ProductId = string.Empty; _form.VariantId = string.Empty; _form.VariantSku = string.Empty; _form.SupplierId = string.Empty; _form.SupplyCategory = 1; _form.FulfilmentType = 2; _form.PriceMinor = 0; _form.Currency = "EUR"; _form.Priority = 0; _form.PricingModel = 1; _form.BillingPeriod = 1; _form.Active = true; _form.SupplierCostMinor = 0; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null; _form.Tiers.Clear();
+        _variants = null; _productSearch = string.Empty;
     }
+
+    // The New-offer dropdowns are populated from live data; failures degrade to an empty list (the modal
+    // still opens) rather than blocking the page.
+    private async Task<List<ProductListItem>> SafeProducts()
+    {
+        // ~200 products live; ask for the whole page so the picker lists them all (server clamps at 200).
+        try { return await Gateway.GetListAsync<ProductListItem>("/api/catalog/admin/products?pageSize=200"); }
+        catch { return []; }
+    }
+
+    private async Task<List<SupplierOption>> SafeSuppliers()
+    {
+        // A supplier is a tenant entity that has started onboarding (OnboardingState non-null) — same filter
+        // the Suppliers page uses. Show trading name, falling back to legal name.
+        try
+        {
+            var entities = await Gateway.GetListAsync<SupplierSummary>($"/api/entity/entities?tenantId={Uri.EscapeDataString(_tenantId)}");
+            return entities.Where(e => e.OnboardingState is not null)
+                .Select(e => new SupplierOption(e.Id, string.IsNullOrWhiteSpace(e.TradingName) ? e.LegalName : e.TradingName!))
+                .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+        catch { return []; }
+    }
+
+    // Product selection drives the dependent variant dropdown: reset the variant and reload the SKUs.
+    private async Task OnProductChanged(ChangeEventArgs e)
+    {
+        _form.ProductId = e.Value?.ToString() ?? string.Empty;
+        _form.VariantId = string.Empty;
+        _form.ProductTitle = _products?.FirstOrDefault(p => p.Id.ToString() == _form.ProductId)?.Title ?? string.Empty;
+        await LoadVariantsAsync();
+    }
+
+    private async Task LoadVariantsAsync()
+    {
+        _variants = null;
+        if (!Guid.TryParse(_form.ProductId, out var productId)) { _variants = []; return; }
+        try
+        {
+            var product = await Gateway.GetAsync<ProductEditorDto>($"/api/catalog/admin/products/{productId}");
+            _variants = product?.Variants?.Where(v => v.Id is not null)
+                .Select(v => new VariantOption(v.Id!.Value, string.IsNullOrWhiteSpace(v.Sku) ? Short(v.Id!.Value) : v.Sku))
+                .ToList() ?? [];
+        }
+        catch { _variants = []; }
+    }
+
+    // Filter the product picker by the search box; always keep the currently-selected product listed so a
+    // filter that excludes it doesn't visually clear the selection.
+    private IEnumerable<ProductListItem> FilteredProducts()
+    {
+        if (_products is null) { return []; }
+        if (string.IsNullOrWhiteSpace(_productSearch)) { return _products; }
+        var term = _productSearch.Trim();
+        return _products.Where(p =>
+            p.Id.ToString() == _form.ProductId ||
+            p.Title.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private string SupplierName(string supplierId) =>
+        Guid.TryParse(supplierId, out var id)
+            ? _suppliers?.FirstOrDefault(s => s.Id == id)?.Name ?? Short(id)
+            : supplierId;
+
+    private static Guid ParseGuid(string value) => Guid.TryParse(value, out var id) ? id : Guid.Empty;
 
     private async Task<List<StorefrontDto>> SafeStorefronts()
     {
@@ -234,9 +352,18 @@
     private static string Short(Guid id) => id.ToString()[..8];
     private string TierSummary(OfferDto offer) => offer.Tiers.Count == 0 ? string.Empty : L["Offers.Tier.Summary", offer.Tiers.Count];
 
-    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public long SupplierCostMinor { get; set; } public string StorefrontId { get; set; } = string.Empty; public DateTime? ActiveFrom { get; set; } public DateTime? ActiveUntil { get; set; } public List<TierForm> Tiers { get; } = []; }
+    private sealed class OfferForm { public string ProductTitle { get; set; } = string.Empty; public string ProductId { get; set; } = string.Empty; public string VariantId { get; set; } = string.Empty; public string VariantSku { get; set; } = string.Empty; public string SupplierId { get; set; } = string.Empty; public int SupplyCategory { get; set; } = 1; public int FulfilmentType { get; set; } = 2; public long PriceMinor { get; set; } public string Currency { get; set; } = "EUR"; public int Priority { get; set; } public int PricingModel { get; set; } = 1; public int BillingPeriod { get; set; } = 1; public bool Active { get; set; } = true; public long SupplierCostMinor { get; set; } public string StorefrontId { get; set; } = string.Empty; public DateTime? ActiveFrom { get; set; } public DateTime? ActiveUntil { get; set; } public List<TierForm> Tiers { get; } = []; }
     private sealed class TierForm { public int FromQuantity { get; set; } = 1; public long UnitPriceMinor { get; set; } }
     private record PriceTierDto(int FromQuantity, long UnitPriceMinor);
     private record OfferDto(Guid Id, Guid TenantId, Guid ProductId, Guid? VariantId, Guid SupplierId, string SupplyCategory, string FulfilmentType, string PricingModel, string BillingPeriod, long PriceMinor, string Currency, int Priority, string Status, List<PriceTierDto> Tiers, long SupplierCostMinor = 0, string ProductTitle = "", string? VariantSku = null, Guid? StorefrontId = null, DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);
     private record StorefrontDto(Guid Id, string Name, string Currency);
+
+    // New-offer dropdown data. Products come from the admin catalog list; variants from a single product's
+    // editor DTO; suppliers from the entity list (mirrors the Suppliers page shape).
+    private sealed record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
+    private sealed record ProductEditorDto(Guid Id, string Title, List<VariantEditorDto> Variants);
+    private sealed record VariantEditorDto(Guid? Id, string Sku);
+    private sealed record SupplierSummary(Guid Id, Guid TenantId, int Type, string LegalName, string? TradingName, string DisplayName, int Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, int? OnboardingState);
+    private sealed record SupplierOption(Guid Id, string Name);
+    private sealed record VariantOption(Guid Id, string Sku);
 }
