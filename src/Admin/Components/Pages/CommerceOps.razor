@@ -642,24 +642,6 @@
 
     private string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? L["Ops.TaxRegime.None"] : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
 
-    // Mirrors Catalog's StorefrontState enum (Storefront.cs) — the lifecycle is
-    // Draft → Preview → Active ⇄ Paused (Paused can also re-enter Preview), Archive from anywhere.
-    private const int DraftState = 1;
-    private const int PreviewState = 2;
-    private const int ActiveState = 3;
-    private const int PausedState = 4;
-    private const int ArchivedState = 5;
-
-    private static string StateName(int state) => state switch
-    {
-        DraftState => "Draft",
-        PreviewState => "Preview",
-        ActiveState => "Active",
-        PausedState => "Paused",
-        ArchivedState => "Archived",
-        _ => state.ToString(),
-    };
-
     public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);

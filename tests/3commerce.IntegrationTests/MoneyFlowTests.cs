@@ -411,11 +411,12 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     public async Task Checkout_skips_destination_tax_when_product_rule_exempts_the_country()
     {
         // A live tax regime in a currency no other test uses, so this 10% rate never bleeds into
-        // the shared EUR/AUD assertions elsewhere in the collection.
-        await SeedLiveTaxAsync("SGD", 1_000);
-        var exempt = await SeedProductWithRulesAsync(10_000, "SGD",
+        // the shared EUR/AUD assertions elsewhere in the collection. (CHF — SGD is taken by the
+        // exclusive-tax ledger test at 2000 bps; a second live SGD copy would collide on resolution.)
+        await SeedLiveTaxAsync("CHF", 1_000);
+        var exempt = await SeedProductWithRulesAsync(10_000, "CHF",
             new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: false, ShippingCovered: false));
-        var taxed = await SeedProductWithRulesAsync(10_000, "SGD"); // no rule → taxed (control)
+        var taxed = await SeedProductWithRulesAsync(10_000, "CHF"); // no rule → taxed (control)
 
         // Control: no rule → full 10% destination tax (shipping forced to 0 to isolate goods tax).
         using var control = fixture.Ordering.CreateClient();

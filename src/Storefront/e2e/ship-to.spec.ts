@@ -72,9 +72,12 @@ async function setShipTo(request: APIRequestContext, store: Record<string, unkno
 }
 
 async function addFirstInStockProduct(page: Page): Promise<void> {
-  await page.goto("/search?q=lamp");
+  // Use the storefront's own product grid (the caller has already pinned /au) rather than a
+  // keyword search — the CI importer seed has no fixed product name, and stock is randomized, so
+  // walk the first few PDPs until one is in stock (mirrors currency-tax.spec.ts).
+  await page.goto("/search");
   const links = page.locator('a[href^="/products/"]');
-  const count = Math.min(await links.count(), 5);
+  const count = Math.min(await links.count(), 8);
   for (let i = 0; i < count; i++) {
     await links.nth(i).click();
     const add = page.getByRole("button", { name: /add to cart/i });
@@ -85,5 +88,5 @@ async function addFirstInStockProduct(page: Page): Promise<void> {
     }
     await page.goBack();
   }
-  throw new Error("No in-stock product found in the first five results.");
+  throw new Error("No in-stock product found in the first eight results.");
 }
