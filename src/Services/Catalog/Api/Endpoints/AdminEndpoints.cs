@@ -108,7 +108,8 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? DefaultTenantId(config);
-        if (await RequireShipRulesProblem(db, tenantId, request, cancellationToken) is { } shipRuleProblem)
+        // A brand-new product has no existing rules, so null/empty would leave it with none.
+        if (await RequireShipRulesProblem(db, tenantId, request, existingRuleCount: 0, cancellationToken) is { } shipRuleProblem)
         {
             return shipRuleProblem;
         }
@@ -176,7 +177,15 @@ public static class AdminEndpoints
             product.Variants.Add(variant);
         }
 
-        product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), now);
+        try
+        {
+            product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), now);
+        }
+        catch (CatalogRuleException ex)
+        {
+            // A malformed country code is a client error — surface a 400, not a 500 (mirrors the Storefront paths).
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["ShipRules"] = [ex.Message] });
+        }
 
         db.Products.Add(product);
         await PublishUpsertedAsync(publisher, product, defaultCurrency, cancellationToken);
@@ -203,7 +212,9 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? product.TenantId;
-        if (await RequireShipRulesProblem(db, tenantId, request, cancellationToken) is { } shipRuleProblem)
+        // A null ShipRules keeps the product's current rules, so an already-ruled product still satisfies
+        // the mandatory gate even when the PUT omits the field (see RequireShipRulesProblem).
+        if (await RequireShipRulesProblem(db, tenantId, request, product.ShipRules.Count, cancellationToken) is { } shipRuleProblem)
         {
             return shipRuleProblem;
         }
@@ -238,7 +249,15 @@ public static class AdminEndpoints
         product.Status = request.Status ?? product.Status; // preserve current status when the editor omits it
         product.ProductType = request.ProductType ?? product.ProductType; // preserve type when omitted
         product.UpdatedAt = time.GetUtcNow();
-        product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), product.UpdatedAt);
+        try
+        {
+            product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), product.UpdatedAt);
+        }
+        catch (CatalogRuleException ex)
+        {
+            // A malformed country code is a client error — surface a 400, not a 500 (mirrors the Storefront paths).
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["ShipRules"] = [ex.Message] });
+        }
 
         // Reconcile variants: update matched, add new (Id null/empty), remove the rest.
         var keptIds = new HashSet<Guid>();
@@ -356,12 +375,23 @@ public static class AdminEndpoints
         return TypedResults.Ok(new CatalogSettingsResponse(tenant, settings.RequireProductShipRules));
     }
 
-    // When the tenant's mandatory gate is on, a product write must carry at least one ship rule.
+    // When the tenant's mandatory gate is on, a product write must not leave the product with zero ship
+    // rules. SetShipRules(null) KEEPS the product's existing rules, so a PUT that omits the field on an
+    // already-ruled product still satisfies the gate; only a product that would end up with no rules —
+    // a new product with null/empty, or an explicit empty list that clears them — trips it.
     private static async Task<ValidationProblem?> RequireShipRulesProblem(
-        CatalogDbContext db, Guid tenantId, ProductWriteRequest request, CancellationToken cancellationToken)
+        CatalogDbContext db, Guid tenantId, ProductWriteRequest request, int existingRuleCount, CancellationToken cancellationToken)
     {
         var settings = await db.TenantCatalogSettings.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
-        if (settings?.RequireProductShipRules == true && (request.ShipRules is null || request.ShipRules.Count == 0))
+        if (settings?.RequireProductShipRules != true)
+        {
+            return null;
+        }
+
+        var wouldEndWithNoRules = request.ShipRules is null
+            ? existingRuleCount == 0        // null leaves the existing rules in place
+            : request.ShipRules.Count == 0; // an explicit empty list clears them
+        if (wouldEndWithNoRules)
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
             {

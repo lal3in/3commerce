@@ -69,3 +69,18 @@ release.
   explicitly safe; over-chatty PDP calls are an anti-pattern.
 - Role/membership changes must invalidate claims; the permission registry is the single source
   of truth for what roles may reference.
+
+## Amendment (2026-08-28): tenant admins are exempt from the self-approval bar
+
+The maker-checker rule above ("requester cannot approve") is relaxed for **tenant admins**: an
+admin **may approve their own** supplier change request, whereas a **non-admin** requester still
+cannot. This is a deliberate, approved decision — a tenant admin already holds the standing
+authority the second-approver check exists to obtain, so requiring a distinct human adds friction
+without adding control; a non-admin requester continues to need a different approver (service
+accounts still cannot approve, and MasterGlobal bypass is unchanged).
+
+Enforced in the domain, not the UI: `SupplierChangeRequest.Approve(...)` takes an
+`approverIsAdmin` flag and only applies the different-human check when the approver is not an
+admin. Covered by `Entity/tests/SupplierChangeRequestTests.cs`:
+`An_admin_can_self_approve_their_own_request` (allowed) and
+`A_non_admin_requester_cannot_approve_their_own_request` (rejected with a maker-checker error).

@@ -75,6 +75,33 @@ public class StorefrontTaxProjectionTests(Phase3Fixture fixture)
         Assert.Empty(cleared.ShipRules);
     }
 
+    [Fact]
+    public async Task ProductUpserted_with_null_ship_rules_preserves_the_existing_copy_rules()
+    {
+        var productId = Guid.CreateVersion7();
+
+        // Seed the copy WITH an admin-set rule.
+        await PublishProductAsync(new ProductUpserted(
+            productId, $"p-{productId:N}", "Rule Product", 1_000, "EUR", null,
+            [new ProductVariantUpserted(Guid.CreateVersion7(), "SKU-1", 1_000, "EUR", 5)],
+            ShipRules: [new ProductShipRuleContract("DE", false, true)]));
+        await WaitForProductCopyAsync(productId, c => c.ShipRules.Count == 1);
+
+        // A re-upsert that OMITS ShipRules (null — e.g. the CSV importer) must NOT wipe the rules; the
+        // contract's null = "no per-country overrides carried", i.e. leave as-is (regression guard: it
+        // used to clear to []). We wait on the rename to know the second message was projected, then
+        // assert the rule is still present.
+        await PublishProductAsync(new ProductUpserted(
+            productId, $"p-{productId:N}", "Rule Product Renamed", 1_000, "EUR", null,
+            [new ProductVariantUpserted(Guid.CreateVersion7(), "SKU-1", 1_000, "EUR", 5)],
+            ShipRules: null));
+        var after = await WaitForProductCopyAsync(productId, c => c.Title == "Rule Product Renamed");
+        var rule = Assert.Single(after.ShipRules);
+        Assert.Equal("DE", rule.CountryCode);
+        Assert.False(rule.ChargeDestinationTax);
+        Assert.True(rule.ShippingCovered);
+    }
+
     private async Task PublishProductAsync(ProductUpserted message)
     {
         using var scope = fixture.Ordering.Services.CreateScope();

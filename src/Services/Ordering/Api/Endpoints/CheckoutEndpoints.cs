@@ -243,7 +243,10 @@ public static class CheckoutEndpoints
         var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
         // Tax base excludes ship-rule-exempt goods; the charge base always keeps the full subtotal so the
         // shopper still pays for exempt lines — only the tax portion shrinks (see ProductShipRule).
-        var taxBaseMinor = taxableSubtotal - discountMinor + shippingMinor;
+        // Shipping follows the goods' taxability: when no goods are destination-taxable (a fully exempt
+        // cart, taxableSubtotal == 0) shipping is not destination-taxed either.
+        var taxableShippingMinor = taxableSubtotal > 0 ? shippingMinor : 0;
+        var taxBaseMinor = taxableSubtotal - discountMinor + taxableShippingMinor;
         var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
         long taxMinor, netMinor;
         if (taxConfig?.TaxInclusive == true)

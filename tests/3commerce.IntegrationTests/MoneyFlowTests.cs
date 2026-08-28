@@ -457,6 +457,30 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
+    [Fact]
+    public async Task Checkout_does_not_tax_shipping_when_all_lines_are_destination_tax_exempt()
+    {
+        // A live 10% regime in a currency no other test uses, so it never bleeds into shared assertions.
+        await SeedLiveTaxAsync("PLN", 1_000);
+        var exempt = await SeedProductWithRulesAsync(10_000, "PLN",
+            new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: false, ShippingCovered: false));
+
+        using var shopper = fixture.Ordering.CreateClient();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = exempt, quantity = 1 })).EnsureSuccessStatusCode();
+
+        // Shipping is charged (500) but every line is destination-tax-exempt → tax must be 0. Shipping
+        // follows the goods' taxability; taxing it here (regression) would break the exemption.
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(500))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal(0, order.TaxMinor);
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(500, order.ShippingMinor);
+        Assert.Equal(10_500, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
     private async Task<Guid> SeedProductWithRulesAsync(long priceMinor, string currency, params ThreeCommerce.Ordering.Domain.ProductShipRule[] rules)
     {
         var id = Guid.CreateVersion7();

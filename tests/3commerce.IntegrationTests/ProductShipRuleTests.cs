@@ -116,4 +116,73 @@ public class ProductShipRuleTests(Phase2Fixture fixture) : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Created, resp.StatusCode);
     }
+
+    [Fact]
+    public async Task Create_with_a_malformed_country_code_returns_400_not_500()
+    {
+        await SetRequireShipRules(false);
+
+        // A bad ISO code makes SetShipRules throw CatalogRuleException; the endpoint must turn that into a
+        // clean 400 ValidationProblem, not leak a 500 (regression — mirrors the Storefront ship-to paths).
+        var resp = await _admin.PostAsJsonAsync("/admin/products", WriteBody($"shiprule-bad-{Guid.NewGuid():N}", "Bad Code",
+            [new ShipRuleDto("USA", true, false)],
+            new VariantDto(null, "SB-1", 1999, "EUR", 5)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_with_a_malformed_country_code_returns_400_not_500()
+    {
+        await SetRequireShipRules(false);
+
+        var slug = $"shiprule-badupd-{Guid.NewGuid():N}";
+        var created = await _admin.PostAsJsonAsync("/admin/products", WriteBody(slug, "Good",
+            [new ShipRuleDto("DE", true, false)], new VariantDto(null, "SBU-1", 1999, "EUR", 5)));
+        var dto = await created.Content.ReadFromJsonAsync<EditorDto>();
+
+        var resp = await _admin.PutAsJsonAsync($"/admin/products/{dto!.Id}", WriteBody(slug, "Good",
+            [new ShipRuleDto("1X", true, false)], new VariantDto(null, "SBU-1", 1999, "EUR", 5)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_existing_ruled_product_with_null_rules_passes_the_mandatory_gate_and_keeps_rules()
+    {
+        await SetRequireShipRules(true);
+
+        // Create WITH a rule so the mandatory gate is satisfied.
+        var slug = $"shiprule-keep-{Guid.NewGuid():N}";
+        var created = await _admin.PostAsJsonAsync("/admin/products", WriteBody(slug, "Keeps Rules",
+            [new ShipRuleDto("*", false, true)], new VariantDto(null, "SK-1", 1999, "EUR", 5)));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var dto = await created.Content.ReadFromJsonAsync<EditorDto>();
+
+        // A PUT that OMITS shipRules (null) must NOT be rejected — the product already has rules, and
+        // SetShipRules(null) leaves them in place (regression: the gate used to reject this outright).
+        var updated = await _admin.PutAsJsonAsync($"/admin/products/{dto!.Id}",
+            WriteBody(slug, "Keeps Rules Renamed", shipRules: null, new VariantDto(null, "SK-1", 2999, "EUR", 5)));
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var after = await updated.Content.ReadFromJsonAsync<EditorDto>();
+        var rule = Assert.Single(after!.ShipRules);
+        Assert.Equal("*", rule.CountryCode);
+    }
+
+    [Fact]
+    public async Task Update_that_explicitly_clears_rules_is_rejected_when_mandatory()
+    {
+        await SetRequireShipRules(true);
+
+        var slug = $"shiprule-clear-{Guid.NewGuid():N}";
+        var created = await _admin.PostAsJsonAsync("/admin/products", WriteBody(slug, "Has Rules",
+            [new ShipRuleDto("*", false, true)], new VariantDto(null, "SC-1", 1999, "EUR", 5)));
+        var dto = await created.Content.ReadFromJsonAsync<EditorDto>();
+
+        // An explicit EMPTY list clears the rules → the product would end up with none → 400.
+        var updated = await _admin.PutAsJsonAsync($"/admin/products/{dto!.Id}",
+            WriteBody(slug, "Has Rules", shipRules: [], new VariantDto(null, "SC-1", 2999, "EUR", 5)));
+
+        Assert.Equal(HttpStatusCode.BadRequest, updated.StatusCode);
+    }
 }
