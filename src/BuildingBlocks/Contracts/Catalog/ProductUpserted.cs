@@ -11,7 +11,13 @@ public record ProductUpserted(
     long MinPriceMinor,
     string Currency,
     string? ImageUrl,
-    IReadOnlyList<ProductVariantUpserted> Variants);
+    IReadOnlyList<ProductVariantUpserted> Variants,
+    // Per-destination ship rules (ISO-2 country or '*' whole-world default). Optional/back-compatible:
+    // null means the publisher predates the field — consumers treat it as "no per-country overrides".
+    IReadOnlyList<ProductShipRuleContract>? ShipRules = null);
+
+// Per-product, per-destination tax/shipping override projected into consuming services (ADR-0008).
+public record ProductShipRuleContract(string CountryCode, bool ChargeDestinationTax, bool ShippingCovered);
 
 public record ProductVariantUpserted(
     Guid VariantId,

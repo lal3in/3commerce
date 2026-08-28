@@ -24,6 +24,7 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
                 SellingPriceMinor = m.MinPriceMinor,
                 Currency = m.Currency,
                 ImageUrl = m.ImageUrl,
+                ShipRules = m.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList() ?? [],
             };
             db.ProductCopies.Add(copy);
         }
@@ -35,6 +36,14 @@ public sealed class ProductCopyConsumer(OrderingDbContext db) : IConsumer<Produc
             copy.SellingPriceMinor = m.MinPriceMinor;
             copy.Currency = m.Currency;
             copy.ImageUrl = m.ImageUrl;
+            // Contract (ProductUpserted): null ShipRules means "no per-country overrides carried" — the
+            // publisher omitted the field (e.g. the CSV importer), so LEAVE the admin-set rules in place.
+            // Only an explicit list replaces them (an empty list clears). Overwriting on null would let a
+            // re-import silently wipe admin-configured rules and diverge from Catalog.
+            if (m.ShipRules is not null)
+            {
+                copy.ShipRules = m.ShipRules.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList();
+            }
         }
 
         var kept = new HashSet<Guid>();

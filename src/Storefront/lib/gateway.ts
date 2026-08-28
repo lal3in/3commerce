@@ -123,6 +123,9 @@ export type StorefrontConfig = {
   // Per-storefront theme token overrides (mt5_6), already sanitized server-side. Undefined → default look.
   // mergeTheme() re-sanitizes as defence-in-depth before these become CSS vars.
   theme?: Partial<ThemeTokens>;
+  // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = ships worldwide; non-empty = checkout limits the
+  // country picker to these and the checkout API rejects anything outside the list.
+  shipToCountries: string[];
 };
 
 // Enum ordinals from Catalog StorefrontTaxRegime (System.Text.Json serializes enums as numbers).
@@ -145,10 +148,11 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
-  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "theme"> & {
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "theme" | "shipToCountries"> & {
     taxRegime: StorefrontTaxRegime | number;
     defaultLanguage?: string;
     theme?: Partial<ThemeTokens> | null;
+    shipToCountries?: string[];
   };
   return {
     ...raw,
@@ -157,6 +161,8 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
     defaultLanguage: raw.defaultLanguage ?? "en",
     // Pre-mt5_6 storefronts (or an unthemed store) have no theme → the default look.
     theme: raw.theme ?? undefined,
+    // Older Catalog with no allowlist field → empty (ships worldwide).
+    shipToCountries: raw.shipToCountries ?? [],
   };
 }
 
@@ -183,6 +189,7 @@ export type AddressDto = {
   line1: string;
   line2: string | null;
   city: string;
+  region: string | null;
   postcode: string;
   country: string;
 };

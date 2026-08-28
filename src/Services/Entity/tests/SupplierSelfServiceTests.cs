@@ -52,7 +52,7 @@ public class SupplierSelfServiceTests
         var detail = System.Text.Json.JsonSerializer.Serialize(new { legalName = "New Legal Pty Ltd", tradingName = "New Trading" });
         var request = await service.OpenAsync(Tenant, entity.Id, SupplierChangeRequestType.EntityDetails, "Rebrand", detail, Requester, default);
 
-        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "approved", default);
+        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", true, "approved", default);
 
         var updated = await db.Entities.SingleAsync(e => e.Id == entity.Id);
         Assert.Equal("New Legal Pty Ltd", updated.LegalName);
@@ -71,7 +71,7 @@ public class SupplierSelfServiceTests
         var detail = System.Text.Json.JsonSerializer.Serialize(new { legalName = "New Legal Pty Ltd", tradingName = "New Trading" });
         var request = await service.OpenAsync(Tenant, entity.Id, SupplierChangeRequestType.EntityDetails, "Rebrand", detail, Requester, default);
 
-        await service.RejectAsync(Tenant, request.Id, Approver, "tenant_admin", "not verified yet", default);
+        await service.RejectAsync(Tenant, request.Id, Approver, "tenant_admin", true, "not verified yet", default);
 
         var unchanged = await db.Entities.SingleAsync(e => e.Id == entity.Id);
         Assert.Equal("Old Legal Pty Ltd", unchanged.LegalName);
@@ -98,7 +98,7 @@ public class SupplierSelfServiceTests
         });
         var request = await service.OpenAsync(Tenant, entity.Id, SupplierChangeRequestType.WarehouseAddress, "Relocating warehouse", detail, Requester, default);
 
-        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "approved", default);
+        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", true, "approved", default);
 
         var updated = await db.Entities.Include(e => e.Addresses).SingleAsync(e => e.Id == entity.Id);
         var current = updated.Addresses.Single(a => a.Purpose == EntityAddressPurpose.Warehouse && a.IsCurrent);
@@ -117,7 +117,7 @@ public class SupplierSelfServiceTests
         await db.SaveChangesAsync();
 
         var request = await service.OpenAsync(Tenant, entity.Id, SupplierChangeRequestType.BankAccount, "Rotate payout", "BSB ****999", Requester, default);
-        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "approved", default);
+        await service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", true, "approved", default);
 
         var unchanged = await db.Entities.SingleAsync(e => e.Id == entity.Id);
         Assert.Equal("Old Legal Pty Ltd", unchanged.LegalName);

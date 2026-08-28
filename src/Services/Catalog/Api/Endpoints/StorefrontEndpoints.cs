@@ -103,7 +103,8 @@ public static class StorefrontEndpoints
                 storefront.TaxRegime, storefront.TaxRateBasisPoints, storefront.DefaultLanguage,
                 // Theme rides on the (anon, uncached) public config so the storefront app can render per-store
                 // CSS vars server-side. Null when unthemed → the app falls back to the default look.
-                storefront.ThemeJson.Length > 0 ? ParseTheme(storefront.ThemeJson) : null));
+                storefront.ThemeJson.Length > 0 ? ParseTheme(storefront.ThemeJson) : null,
+                storefront.ShipToCountries));
     }
 
     // Turn a create/update request's theme dict into a JSON string for Storefront.SetTheme. Null (theme
@@ -193,6 +194,7 @@ public static class StorefrontEndpoints
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow(), request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), time.GetUtcNow());
             storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), time.GetUtcNow());
+            storefront.SetShipToCountries(request.ShipToCountries, time.GetUtcNow());
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -329,6 +331,7 @@ public static class StorefrontEndpoints
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now, request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), now); // null = leave the current theme as-is
             storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), now);
+            storefront.SetShipToCountries(request.ShipToCountries, now); // null = leave as-is (older client can't wipe it)
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -467,7 +470,8 @@ public static class StorefrontEndpoints
             ReceivableAccountCode: s.ReceivableAccountCode,
             RevenueAccountCode: s.RevenueAccountCode,
             TaxAccountCode: s.TaxAccountCode,
-            ShippingAccountCode: s.ShippingAccountCode), ct);
+            ShippingAccountCode: s.ShippingAccountCode,
+            ShipToCountries: s.ShipToCountries.ToArray()), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
@@ -689,6 +693,7 @@ public static class StorefrontEndpoints
         ParseTheme(storefront.ThemeJson),
         ParseCostAssumptions(storefront.CostAssumptionsJson),
         storefront.Domains.Select(d => new StorefrontDomainResponse(d.Id, d.Host, d.Canonical)).ToList(),
+        storefront.ShipToCountries.ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
         storefront.ActivatedAt);
@@ -713,7 +718,9 @@ public sealed record CreateStorefrontRequest(
     // Per-storefront theme tokens (mt5_6); omit → unthemed. Validated + sanitized by Storefront.SetTheme.
     IReadOnlyDictionary<string, string>? Theme = null,
     // Per-storefront cost-assumption bps (phase 4); omit → none. Validated by Storefront.SetCostAssumptions.
-    IReadOnlyDictionary<string, int>? CostAssumptions = null);
+    IReadOnlyDictionary<string, int>? CostAssumptions = null,
+    // Ship-to allowlist (ISO 3166-1 alpha-2); omit/empty → ships worldwide.
+    IReadOnlyList<string>? ShipToCountries = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -733,7 +740,9 @@ public sealed record UpdateStorefrontRequest(
     // Per-storefront theme tokens (mt5_6); omit → the storefront keeps its current theme. Sanitized server-side.
     IReadOnlyDictionary<string, string>? Theme = null,
     // Per-storefront cost-assumption bps (phase 4); omit → keeps current. Validated by Storefront.SetCostAssumptions.
-    IReadOnlyDictionary<string, int>? CostAssumptions = null);
+    IReadOnlyDictionary<string, int>? CostAssumptions = null,
+    // Optional: null → the storefront keeps its current ship-to allowlist; [] → clears it (worldwide).
+    IReadOnlyList<string>? ShipToCountries = null);
 
 public sealed record DuplicateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name);
@@ -760,6 +769,7 @@ public sealed record StorefrontResponse(
     IReadOnlyDictionary<string, string> Theme,
     IReadOnlyDictionary<string, int> CostAssumptions,
     IReadOnlyList<StorefrontDomainResponse> Domains,
+    IReadOnlyList<string> ShipToCountries,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ActivatedAt);
@@ -779,7 +789,10 @@ public sealed record PublicStorefrontResponse(
     int TaxRateBasisPoints,
     string DefaultLanguage,
     // Sanitized per-storefront theme tokens (mt5_6), or null when unthemed → the app renders the default look.
-    IReadOnlyDictionary<string, string>? Theme);
+    IReadOnlyDictionary<string, string>? Theme,
+    // Ship-to allowlist (ISO 3166-1 alpha-2); empty = worldwide. The storefront app filters its checkout
+    // country picker to these and the checkout API rejects a ship-to country outside the list.
+    IReadOnlyList<string> ShipToCountries);
 
 // The languages a storefront's UI can be set to (i18n_0). Label is an endonym ("中文"), not a translation.
 public sealed record SupportedLanguageResponse(string Code, string Label);

@@ -21,4 +21,8 @@ public record StorefrontConfigChanged(
     string RevenueAccountCode = "",
     string TaxAccountCode = "",
     // Per-storefront shipping-income account (income.shipping fallback when absent). Back-compatible.
-    string ShippingAccountCode = "");
+    string ShippingAccountCode = "",
+    // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = ships worldwide; non-empty = checkout rejects a
+    // ship-to country not in the list. A concrete array (not IReadOnlyList) so MassTransit's serializer
+    // materializes it on the consumer; optional → back-compatible with older publishers/consumers.
+    string[]? ShipToCountries = null);

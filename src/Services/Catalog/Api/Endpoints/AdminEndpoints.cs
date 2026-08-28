@@ -30,6 +30,10 @@ public static class AdminEndpoints
         group.MapPut("/products/{id:guid}", UpdateProduct);
         group.MapDelete("/products/{id:guid}", DeleteProduct);
 
+        // Tenant-scoped catalog feature switches (mandatory per-country ship rules).
+        group.MapGet("/settings", GetSettings);
+        group.MapPut("/settings", UpdateSettings);
+
         return app;
     }
 
@@ -104,6 +108,12 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? DefaultTenantId(config);
+        // A brand-new product has no existing rules, so null/empty would leave it with none.
+        if (await RequireShipRulesProblem(db, tenantId, request, existingRuleCount: 0, cancellationToken) is { } shipRuleProblem)
+        {
+            return shipRuleProblem;
+        }
+
         if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
@@ -167,6 +177,16 @@ public static class AdminEndpoints
             product.Variants.Add(variant);
         }
 
+        try
+        {
+            product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), now);
+        }
+        catch (CatalogRuleException ex)
+        {
+            // A malformed country code is a client error — surface a 400, not a 500 (mirrors the Storefront paths).
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["ShipRules"] = [ex.Message] });
+        }
+
         db.Products.Add(product);
         await PublishUpsertedAsync(publisher, product, defaultCurrency, cancellationToken);
         await audit.RecordAsync(user.Mutation(
@@ -192,6 +212,13 @@ public static class AdminEndpoints
         }
 
         var tenantId = request.TenantId ?? product.TenantId;
+        // A null ShipRules keeps the product's current rules, so an already-ruled product still satisfies
+        // the mandatory gate even when the PUT omits the field (see RequireShipRulesProblem).
+        if (await RequireShipRulesProblem(db, tenantId, request, product.ShipRules.Count, cancellationToken) is { } shipRuleProblem)
+        {
+            return shipRuleProblem;
+        }
+
         if (await db.Products.AnyAsync(p => p.TenantId == tenantId && p.Slug == request.Slug && p.Id != id, cancellationToken))
         {
             return TypedResults.Conflict($"A product with slug '{request.Slug}' already exists.");
@@ -222,6 +249,15 @@ public static class AdminEndpoints
         product.Status = request.Status ?? product.Status; // preserve current status when the editor omits it
         product.ProductType = request.ProductType ?? product.ProductType; // preserve type when omitted
         product.UpdatedAt = time.GetUtcNow();
+        try
+        {
+            product.SetShipRules(request.ShipRules?.Select(r => new ProductShipRule(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)), product.UpdatedAt);
+        }
+        catch (CatalogRuleException ex)
+        {
+            // A malformed country code is a client error — surface a 400, not a 500 (mirrors the Storefront paths).
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["ShipRules"] = [ex.Message] });
+        }
 
         // Reconcile variants: update matched, add new (Id null/empty), remove the rest.
         var keptIds = new HashSet<Guid>();
@@ -311,6 +347,61 @@ public static class AdminEndpoints
         return TypedResults.NoContent();
     }
 
+    private static async Task<Ok<CatalogSettingsResponse>> GetSettings(
+        CatalogDbContext db, IConfiguration config, Guid? tenantId, CancellationToken cancellationToken)
+    {
+        var tenant = tenantId ?? DefaultTenantId(config);
+        var settings = await db.TenantCatalogSettings.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant, cancellationToken);
+        return TypedResults.Ok(new CatalogSettingsResponse(tenant, settings?.RequireProductShipRules ?? false));
+    }
+
+    private static async Task<Ok<CatalogSettingsResponse>> UpdateSettings(
+        CatalogSettingsRequest request, CatalogDbContext db, IAuditRecorder audit, ClaimsPrincipal user,
+        IConfiguration config, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var tenant = request.TenantId ?? DefaultTenantId(config);
+        var settings = await db.TenantCatalogSettings.SingleOrDefaultAsync(s => s.TenantId == tenant, cancellationToken);
+        if (settings is null)
+        {
+            settings = new TenantCatalogSettings { TenantId = tenant };
+            db.TenantCatalogSettings.Add(settings);
+        }
+
+        settings.RequireProductShipRules = request.RequireProductShipRules;
+        settings.UpdatedAt = time.GetUtcNow();
+        await audit.RecordAsync(user.Mutation(
+            tenant, "CatalogSettings", tenant.ToString(), "catalog.settings.update", $"RequireProductShipRules={request.RequireProductShipRules}"), cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(new CatalogSettingsResponse(tenant, settings.RequireProductShipRules));
+    }
+
+    // When the tenant's mandatory gate is on, a product write must not leave the product with zero ship
+    // rules. SetShipRules(null) KEEPS the product's existing rules, so a PUT that omits the field on an
+    // already-ruled product still satisfies the gate; only a product that would end up with no rules —
+    // a new product with null/empty, or an explicit empty list that clears them — trips it.
+    private static async Task<ValidationProblem?> RequireShipRulesProblem(
+        CatalogDbContext db, Guid tenantId, ProductWriteRequest request, int existingRuleCount, CancellationToken cancellationToken)
+    {
+        var settings = await db.TenantCatalogSettings.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+        if (settings?.RequireProductShipRules != true)
+        {
+            return null;
+        }
+
+        var wouldEndWithNoRules = request.ShipRules is null
+            ? existingRuleCount == 0        // null leaves the existing rules in place
+            : request.ShipRules.Count == 0; // an explicit empty list clears them
+        if (wouldEndWithNoRules)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["ShipRules"] = ["At least one per-country ship rule is required."],
+            });
+        }
+
+        return null;
+    }
+
     private static Task PublishUpsertedAsync(IPublishEndpoint publisher, Product product, string fallbackCurrency, CancellationToken ct) =>
         publisher.Publish(new ProductUpserted(
             product.Id,
@@ -321,7 +412,8 @@ public static class AdminEndpoints
             product.ImageUrls.FirstOrDefault(),
             product.Variants.Select(v => new ProductVariantUpserted(
                 v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity,
-                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList()), ct);
+                v.Prices.Select(p => new VariantCurrencyPrice(p.Currency, p.PriceMinor)).ToList())).ToList(),
+            product.ShipRules.Select(r => new ProductShipRuleContract(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList()), ct);
 
     /// <summary>
     /// Validates every variant currency against the projected registry (currency_2), mirroring
@@ -424,7 +516,8 @@ public static class AdminEndpoints
         p.Variants.Select(v => new VariantEditorDto(v.Id, v.Sku, v.PriceMinor, v.Currency, v.StockQuantity, v.WeightGrams, v.LengthMm, v.WidthMm, v.HeightMm,
             v.PackageWeightGrams, v.PackageLengthMm, v.PackageWidthMm, v.PackageHeightMm,
             v.Prices.Select(pr => new CurrencyPriceDto(pr.Currency, pr.PriceMinor)).ToList())).ToList(),
-        p.ProductType == 0 ? ProductType.Physical : p.ProductType);
+        p.ProductType == 0 ? ProductType.Physical : p.ProductType,
+        p.ShipRules.Select(r => new ProductShipRuleDto(r.CountryCode, r.ChargeDestinationTax, r.ShippingCovered)).ToList());
 }
 
 public record ImportRunResponse(
@@ -444,16 +537,24 @@ public record ProductListItem(
 public record ProductEditorDto(
     Guid Id, Guid TenantId, string Slug, string Title, string Brand, string Description, Guid CategoryId,
     Dictionary<string, string> Attributes, List<string> ImageUrls, ProductStatus Status, List<VariantEditorDto> Variants,
-    ProductType ProductType);
+    ProductType ProductType, List<ProductShipRuleDto> ShipRules);
 
 public record VariantEditorDto(Guid Id, string Sku, long PriceMinor, string Currency, int StockQuantity, int? WeightGrams, int? LengthMm, int? WidthMm, int? HeightMm, int? PackageWeightGrams, int? PackageLengthMm, int? PackageWidthMm, int? PackageHeightMm, List<CurrencyPriceDto> Prices);
 
 // Tenant-authored explicit price per currency (no FX).
 public record CurrencyPriceDto(string Currency, long PriceMinor);
 
+// Per-product, per-destination ship rule (ISO-2 country or '*' whole-world default).
+public record ProductShipRuleDto(string CountryCode, bool ChargeDestinationTax, bool ShippingCovered);
+
 public record ProductWriteRequest(
     Guid? TenantId, string Slug, string Title, string Brand, string? Description, Guid CategoryId,
     Dictionary<string, string>? Attributes, List<string>? ImageUrls, List<VariantWriteDto> Variants,
-    ProductStatus? Status = null, ProductType? ProductType = null);
+    ProductStatus? Status = null, ProductType? ProductType = null, List<ProductShipRuleDto>? ShipRules = null);
+
+// Tenant-scoped catalog feature switches surfaced to the Admin portal.
+public record CatalogSettingsResponse(Guid TenantId, bool RequireProductShipRules);
+
+public record CatalogSettingsRequest(Guid? TenantId, bool RequireProductShipRules);
 
 public record VariantWriteDto(Guid? Id, string Sku, long PriceMinor, string? Currency, int StockQuantity, int? WeightGrams = null, int? LengthMm = null, int? WidthMm = null, int? HeightMm = null, int? PackageWeightGrams = null, int? PackageLengthMm = null, int? PackageWidthMm = null, int? PackageHeightMm = null, List<CurrencyPriceDto>? Prices = null);

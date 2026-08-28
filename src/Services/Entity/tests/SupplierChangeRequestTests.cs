@@ -34,7 +34,7 @@ public class SupplierChangeRequestTests
     public void A_different_principal_can_approve()
     {
         var req = NewPending();
-        req.Approve(Approver, "looks good", DateTimeOffset.UtcNow);
+        req.Approve(Approver, approverIsAdmin: false, "looks good", DateTimeOffset.UtcNow);
 
         Assert.Equal(SupplierChangeRequestStatus.Approved, req.Status);
         Assert.Equal(Approver, req.DecidedByPrincipalId);
@@ -43,25 +43,35 @@ public class SupplierChangeRequestTests
     }
 
     [Fact]
-    public void The_requester_cannot_approve_their_own_request()
+    public void A_non_admin_requester_cannot_approve_their_own_request()
     {
         var req = NewPending();
-        var ex = Assert.Throws<DomainRuleException>(() => req.Approve(Requester, null, DateTimeOffset.UtcNow));
+        var ex = Assert.Throws<DomainRuleException>(() => req.Approve(Requester, approverIsAdmin: false, null, DateTimeOffset.UtcNow));
         Assert.Contains("maker-checker", ex.Message);
+    }
+
+    [Fact]
+    public void An_admin_can_self_approve_their_own_request()
+    {
+        var req = NewPending();
+        req.Approve(Requester, approverIsAdmin: true, "self-approved by admin", DateTimeOffset.UtcNow);
+
+        Assert.Equal(SupplierChangeRequestStatus.Approved, req.Status);
+        Assert.Equal(Requester, req.DecidedByPrincipalId);
     }
 
     [Fact]
     public void Rejection_requires_a_reason()
     {
         var req = NewPending();
-        Assert.Throws<DomainRuleException>(() => req.Reject(Approver, "  ", DateTimeOffset.UtcNow));
+        Assert.Throws<DomainRuleException>(() => req.Reject(Approver, approverIsAdmin: false, "  ", DateTimeOffset.UtcNow));
     }
 
     [Fact]
     public void Rejection_records_the_decision()
     {
         var req = NewPending();
-        req.Reject(Approver, "incomplete details", DateTimeOffset.UtcNow);
+        req.Reject(Approver, approverIsAdmin: false, "incomplete details", DateTimeOffset.UtcNow);
         Assert.Equal(SupplierChangeRequestStatus.Rejected, req.Status);
         Assert.Equal("incomplete details", req.DecisionReason);
     }
@@ -70,7 +80,7 @@ public class SupplierChangeRequestTests
     public void A_decided_request_cannot_be_decided_again()
     {
         var req = NewPending();
-        req.Approve(Approver, null, DateTimeOffset.UtcNow);
-        Assert.Throws<DomainRuleException>(() => req.Reject(Approver, "changed my mind", DateTimeOffset.UtcNow));
+        req.Approve(Approver, approverIsAdmin: false, null, DateTimeOffset.UtcNow);
+        Assert.Throws<DomainRuleException>(() => req.Reject(Approver, approverIsAdmin: false, "changed my mind", DateTimeOffset.UtcNow));
     }
 }

@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     line1: formText(formData, "line1"),
     line2: formText(formData, "line2") || null,
     city: formText(formData, "city"),
+    region: formText(formData, "region") || null,
     postcode: formText(formData, "postcode"),
     country: formText(formData, "country").toUpperCase(),
   };

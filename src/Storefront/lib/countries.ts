@@ -1,14 +1,45 @@
-// AUTO-GENERATED canonical country list (ISO 3166-1 alpha-2), sorted by name.
-// Single source of truth for every storefront address/country dropdown.
-export interface Country { code: string; name: string; }
-export const COUNTRIES: readonly Country[] = [
+// ISO 3166-1 countries (alpha-2 + English name). Single source for the country <select>, so the
+// shopper picks a country instead of typing a 2-letter code.
+export type Country = { code: string; name: string };
+
+export const COMMON_COUNTRIES = ["AU", "US", "GB", "NZ", "CA", "DE", "FR", "ES", "IT", "NL", "IE", "CN", "JP", "SG", "IN"];
+
+// The country-appropriate term for the sub-national region, so the address form's label adapts to the
+// selected country (Australia → State, Canada → Province, UK → County, Colombia → Department, …).
+// Kept in sync with the admin Countries.RegionLabel.
+export function regionLabel(countryCode: string | null | undefined): string {
+  switch ((countryCode ?? "").trim().toUpperCase()) {
+    case "US": case "AU": case "IN": case "BR": case "MX": case "MY": case "NG": case "MM":
+    case "FM": case "PW": case "SS": case "VE":
+      return "State";
+    case "CA": case "CN": case "VN": case "ID": case "AR": case "PK": case "IR": case "SA":
+    case "KR": case "KP": case "ZA": case "PH": case "TR":
+      return "Province";
+    case "GB": case "IE":
+      return "County";
+    case "CO": case "PE": case "BO": case "PY": case "NI": case "UY": case "HN": case "SV": case "GT":
+      return "Department";
+    case "IT": case "ES": case "CL": case "EC": case "AO": case "MZ":
+      return "Province";
+    case "JP":
+      return "Prefecture";
+    case "DE": case "AT": case "CH": case "NP": case "ET": case "SD":
+      return "State / Province";
+    default:
+      return "State / Region";
+  }
+}
+
+export const COUNTRIES: Country[] = [
   { code: "AF", name: "Afghanistan" },
+  { code: "AX", name: "Åland Islands" },
   { code: "AL", name: "Albania" },
   { code: "DZ", name: "Algeria" },
   { code: "AS", name: "American Samoa" },
   { code: "AD", name: "Andorra" },
   { code: "AO", name: "Angola" },
   { code: "AI", name: "Anguilla" },
+  { code: "AQ", name: "Antarctica" },
   { code: "AG", name: "Antigua and Barbuda" },
   { code: "AR", name: "Argentina" },
   { code: "AM", name: "Armenia" },
@@ -51,15 +82,15 @@ export const COUNTRIES: readonly Country[] = [
   { code: "CO", name: "Colombia" },
   { code: "KM", name: "Comoros" },
   { code: "CG", name: "Congo" },
-  { code: "CD", name: "Congo (Democratic Republic)" },
+  { code: "CD", name: "Congo, Democratic Republic of the" },
   { code: "CK", name: "Cook Islands" },
   { code: "CR", name: "Costa Rica" },
+  { code: "CI", name: "Côte d'Ivoire" },
   { code: "HR", name: "Croatia" },
   { code: "CU", name: "Cuba" },
   { code: "CW", name: "Curaçao" },
   { code: "CY", name: "Cyprus" },
   { code: "CZ", name: "Czechia" },
-  { code: "CI", name: "Côte d'Ivoire" },
   { code: "DK", name: "Denmark" },
   { code: "DJ", name: "Djibouti" },
   { code: "DM", name: "Dominica" },
@@ -118,8 +149,8 @@ export const COUNTRIES: readonly Country[] = [
   { code: "KZ", name: "Kazakhstan" },
   { code: "KE", name: "Kenya" },
   { code: "KI", name: "Kiribati" },
-  { code: "KP", name: "Korea (North)" },
-  { code: "KR", name: "Korea (South)" },
+  { code: "KP", name: "Korea, North" },
+  { code: "KR", name: "Korea, South" },
   { code: "KW", name: "Kuwait" },
   { code: "KG", name: "Kyrgyzstan" },
   { code: "LA", name: "Laos" },
@@ -170,7 +201,7 @@ export const COUNTRIES: readonly Country[] = [
   { code: "OM", name: "Oman" },
   { code: "PK", name: "Pakistan" },
   { code: "PW", name: "Palau" },
-  { code: "PS", name: "Palestine" },
+  { code: "PS", name: "Palestine, State of" },
   { code: "PA", name: "Panama" },
   { code: "PG", name: "Papua New Guinea" },
   { code: "PY", name: "Paraguay" },
@@ -181,10 +212,10 @@ export const COUNTRIES: readonly Country[] = [
   { code: "PT", name: "Portugal" },
   { code: "PR", name: "Puerto Rico" },
   { code: "QA", name: "Qatar" },
-  { code: "RO", name: "Romania" },
-  { code: "RU", name: "Russia" },
-  { code: "RW", name: "Rwanda" },
   { code: "RE", name: "Réunion" },
+  { code: "RO", name: "Romania" },
+  { code: "RU", name: "Russian Federation" },
+  { code: "RW", name: "Rwanda" },
   { code: "BL", name: "Saint Barthélemy" },
   { code: "SH", name: "Saint Helena, Ascension and Tristan da Cunha" },
   { code: "KN", name: "Saint Kitts and Nevis" },
@@ -216,7 +247,7 @@ export const COUNTRIES: readonly Country[] = [
   { code: "SJ", name: "Svalbard and Jan Mayen" },
   { code: "SE", name: "Sweden" },
   { code: "CH", name: "Switzerland" },
-  { code: "SY", name: "Syria" },
+  { code: "SY", name: "Syrian Arab Republic" },
   { code: "TW", name: "Taiwan" },
   { code: "TJ", name: "Tajikistan" },
   { code: "TZ", name: "Tanzania" },
@@ -227,10 +258,10 @@ export const COUNTRIES: readonly Country[] = [
   { code: "TO", name: "Tonga" },
   { code: "TT", name: "Trinidad and Tobago" },
   { code: "TN", name: "Tunisia" },
+  { code: "TR", name: "Türkiye" },
   { code: "TM", name: "Turkmenistan" },
   { code: "TC", name: "Turks and Caicos Islands" },
   { code: "TV", name: "Tuvalu" },
-  { code: "TR", name: "Türkiye" },
   { code: "UG", name: "Uganda" },
   { code: "UA", name: "Ukraine" },
   { code: "AE", name: "United Arab Emirates" },
@@ -241,7 +272,7 @@ export const COUNTRIES: readonly Country[] = [
   { code: "UZ", name: "Uzbekistan" },
   { code: "VU", name: "Vanuatu" },
   { code: "VE", name: "Venezuela" },
-  { code: "VN", name: "Vietnam" },
+  { code: "VN", name: "Viet Nam" },
   { code: "VG", name: "Virgin Islands (British)" },
   { code: "VI", name: "Virgin Islands (U.S.)" },
   { code: "WF", name: "Wallis and Futuna" },
@@ -249,5 +280,4 @@ export const COUNTRIES: readonly Country[] = [
   { code: "YE", name: "Yemen" },
   { code: "ZM", name: "Zambia" },
   { code: "ZW", name: "Zimbabwe" },
-  { code: "AX", name: "Åland Islands" },
 ];

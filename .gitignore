@@ -30,3 +30,6 @@ deploy/.env.prod
 # Local dev object store (uploaded files; bytes live outside git)
 object-store/
 **/object-store/
+
+# CodeGraph local index artifacts (per-machine; never committed)
+.codegraph/

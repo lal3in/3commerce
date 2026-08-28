@@ -217,7 +217,7 @@ public class SupplierChangeRequestAuditTests
         var harness = NewHarness();
         var request = await OpenAsync(harness);
 
-        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", "looks good", default);
+        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, "tenant_admin", true, "looks good", default);
 
         var entry = Assert.Single(harness.Store.Entries);
         Assert.Equal("supplier.change_request.approved", entry.Action);
@@ -231,7 +231,7 @@ public class SupplierChangeRequestAuditTests
         var harness = NewHarness();
         var request = await OpenAsync(harness);
 
-        await harness.Service.RejectAsync(Tenant, request.Id, Approver, "compliance", "incomplete details", default);
+        await harness.Service.RejectAsync(Tenant, request.Id, Approver, "compliance", true, "incomplete details", default);
 
         var entry = Assert.Single(harness.Store.Entries);
         Assert.Equal("supplier.change_request.rejected", entry.Action);
@@ -246,7 +246,7 @@ public class SupplierChangeRequestAuditTests
 
         // The requester deciding their own request is denied (ADR-0025) and audited as such.
         await Assert.ThrowsAsync<DomainRuleException>(() =>
-            harness.Service.ApproveAsync(Tenant, request.Id, Requester, "tenant_admin", null, default));
+            harness.Service.ApproveAsync(Tenant, request.Id, Requester, "tenant_admin", false, null, default));
 
         var entry = Assert.Single(harness.Store.Entries);
         Assert.Equal(AuditOutcome.Denied, entry.Outcome);
@@ -261,7 +261,7 @@ public class SupplierChangeRequestAuditTests
         var harness = NewHarness();
         var request = await OpenAsync(harness);
 
-        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, null, null, default);
+        await harness.Service.ApproveAsync(Tenant, request.Id, Approver, null, false, null, default);
 
         Assert.Null(Assert.Single(harness.Store.Entries).ActorRole);
     }

@@ -88,11 +88,12 @@
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
                     <td style="text-align:right; white-space:nowrap;">
+                        @* Only offer the transitions VALID from the current state — otherwise clicking e.g.
+                           Preview on an already-Preview/Active storefront 400s ("state Preview cannot
+                           perform this transition"). Draft→preview/pause · Preview→activate/pause ·
+                           Active→pause · Paused→preview/activate · Archived→(none). *@
                         <button @onclick="() => SelectStorefront(s)" title="@L["Ops.Manage.Tip"]">@L["Ops.Manage"]</button>
                         <button @onclick="() => BeginDuplicate(s)" title="@L["Ops.Duplicate.Tip"]">@L["Ops.Duplicate"]</button>
-                        @* Only offer transitions the domain state machine allows from this row's state
-                           (Storefront.EnsureState) — e.g. Preview on an already-previewing storefront
-                           was refused with a 400 "cannot perform this transition". *@
                         @if (s.State is DraftState or PausedState)
                         {
                             <button @onclick='() => Transition(s.Id, "preview")' title="@L["Ops.Preview.Tip"]">@L["Ops.Preview"]</button>
@@ -179,6 +180,26 @@
             <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
         </div>
 
+        <div style="margin-bottom:1rem;">
+            <label style="font-weight:600;">@L["Ops.Field.ShipTo"]
+                <span style="font-weight:400; color:#6b7280;">— @L["Ops.ShipTo.Hint"]</span>
+            </label>
+            <select multiple @bind="_editShipTo" size="7" style="width:100%; padding:.4rem; margin-top:.25rem;" title="@L["Ops.Field.ShipTo.Tip"]">
+                @foreach (var c in Countries.Common)
+                {
+                    <option value="@c">@(Countries.NameOf(c)) (@c)</option>
+                }
+                <option disabled>──────────</option>
+                @foreach (var c in Countries.All.Where(x => !Countries.Common.Contains(x.Code)))
+                {
+                    <option value="@c.Code">@c.Name (@c.Code)</option>
+                }
+            </select>
+            @if (_editShipTo.Length > 0)
+            {
+                <p style="margin:.25rem 0 0; font-size:.85rem; color:#374151;">@L["Ops.ShipTo.Selected"] <strong>@string.Join(", ", _editShipTo)</strong></p>
+            }
+        </div>
         <div style="display:flex; gap:.5rem; align-items:end; flex-wrap:wrap; margin-top:.6rem;">
             <label>@L["Ops.DomainHost"]<br /><input @bind="_domainHost" placeholder="@L["Ops.DomainHost.Placeholder"]" style="padding:.4rem;" title="@L["Ops.DomainHost.Tip"]" /></label>
             <label><input type="checkbox" @bind="_domainCanonical" title="@L["Ops.Canonical.Tip"]" /> @L["Ops.Canonical"]</label>
@@ -312,6 +333,14 @@
 </section>
 
 @code {
+    // StorefrontState (Catalog domain) numeric values — enums cross HTTP as numbers.
+    private const int DraftState = 1, PreviewState = 2, ActiveState = 3, PausedState = 4, ArchivedState = 5;
+    private static string StateName(int s) => s switch
+    {
+        DraftState => "Draft", PreviewState => "Preview", ActiveState => "Active",
+        PausedState => "Paused", ArchivedState => "Archived", _ => s.ToString(),
+    };
+
     private string _tenantId = "00000000-0000-0000-0000-000000000001";
     private string _newStorefrontName = string.Empty;
     private int _newVisibility = 1;
@@ -350,6 +379,7 @@
     private int _editTaxRegime;
     private int _editTaxRateBasisPoints;
     private int _editVisibility = 1;
+    private string[] _editShipTo = [];
 
     // Per-storefront theme tokens (mt5_6), edited on the Manage surface. Blank = leave that token defaulted.
     private string _themeColorPrimary = string.Empty;
@@ -401,6 +431,7 @@
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
         _editVisibility = storefront.Visibility;
+        _editShipTo = storefront.ShipToCountries?.ToArray() ?? [];
         _themeColorPrimary = ThemeValue(storefront, "colorPrimary");
         _themeColorBg = ThemeValue(storefront, "colorBg");
         _themeColorText = ThemeValue(storefront, "colorText");
@@ -497,7 +528,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict() });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -611,25 +642,7 @@
 
     private string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? L["Ops.TaxRegime.None"] : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
 
-    // Mirrors Catalog's StorefrontState enum (Storefront.cs) — the lifecycle is
-    // Draft → Preview → Active ⇄ Paused (Paused can also re-enter Preview), Archive from anywhere.
-    private const int DraftState = 1;
-    private const int PreviewState = 2;
-    private const int ActiveState = 3;
-    private const int PausedState = 4;
-    private const int ArchivedState = 5;
-
-    private static string StateName(int state) => state switch
-    {
-        DraftState => "Draft",
-        PreviewState => "Preview",
-        ActiveState => "Active",
-        PausedState => "Paused",
-        ArchivedState => "Archived",
-        _ => state.ToString(),
-    };
-
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

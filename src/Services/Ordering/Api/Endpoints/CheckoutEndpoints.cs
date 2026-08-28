@@ -136,7 +136,38 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
         }
 
+        // Ship-to allowlist (cross-border guardrail): reject a destination the storefront doesn't serve
+        // BEFORE authorizing any payment. Empty allowlist / no projected config = ships worldwide.
+        // storefrontId is resolved up front (above) for attribution — reuse it here.
+        var shipToCountry = request.ShippingAddress.Country.Trim().ToUpperInvariant();
+        // Fetch the copy entity (not a .Select of the property) so EF applies the ShipToCountries value
+        // converter on materialization — a projected converted collection comes back empty.
+        var storefrontCopy = await db.StorefrontTaxCopies.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.StorefrontId == storefrontId, ct);
+        if (storefrontCopy is { ShipToCountries.Count: > 0 } && !storefrontCopy.ShipToCountries.Contains(shipToCountry))
+        {
+            return TypedResults.BadRequest($"This storefront does not ship to {shipToCountry}.");
+        }
+
+        // Per-product, per-country ship rules (projected from Catalog via ProductUpserted, ADR-0008).
+        // Load the copies as entities (not a .Select of the property) so EF applies the jsonb ShipRules
+        // value converter on materialization — a projected converted collection comes back empty.
+        // cartProductIds is computed up front (reused for the offer read model) — reuse it here.
+        var ruleCopies = await db.ProductCopies.AsNoTracking()
+            .Where(p => cartProductIds.Contains(p.ProductId))
+            .ToListAsync(ct);
+        ProductShipRule? RuleFor(Guid productId) =>
+            ruleCopies.FirstOrDefault(c => c.ProductId == productId)?.RuleFor(shipToCountry);
+
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
+        // Goods subject to destination tax: a rule with ChargeDestinationTax=false exempts the line
+        // (no resolved rule = taxed as normal). The full subtotal is still charged; only tax shrinks.
+        var taxableSubtotal = cart.Items
+            .Where(i => RuleFor(i.ProductId) is not { ChargeDestinationTax: false })
+            .Sum(i => i.UnitPriceMinor * i.Quantity);
+        // Shipping is waived only when EVERY line's resolved rule marks shipping already covered.
+        var allShippingCovered = cart.Items.All(i => RuleFor(i.ProductId)?.ShippingCovered == true);
+
         var discountMinor = 0L;
 
         // Gate shipping from the OfferCopy read model (loaded up front): only a cart with at least one
@@ -194,6 +225,12 @@ public static class CheckoutEndpoints
             }
         }
 
+        // Waive shipping AFTER the selected-shipping guards so a covered order still validates its quote.
+        if (allShippingCovered)
+        {
+            shippingMinor = 0;
+        }
+
         // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
         // the cart's currency. Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already
         // CONTAIN the tax — the shopper pays exactly the listed amount and the contained portion is
@@ -204,17 +241,23 @@ public static class CheckoutEndpoints
             .Select(t => new { t.TaxRateBasisPoints, t.TaxInclusive })
             .FirstOrDefaultAsync(ct);
         var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
-        var baseMinor = subtotal - discountMinor + shippingMinor;
+        // Tax base excludes ship-rule-exempt goods; the charge base always keeps the full subtotal so the
+        // shopper still pays for exempt lines — only the tax portion shrinks (see ProductShipRule).
+        // Shipping follows the goods' taxability: when no goods are destination-taxable (a fully exempt
+        // cart, taxableSubtotal == 0) shipping is not destination-taxed either.
+        var taxableShippingMinor = taxableSubtotal > 0 ? shippingMinor : 0;
+        var taxBaseMinor = taxableSubtotal - discountMinor + taxableShippingMinor;
+        var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
         long taxMinor, netMinor;
         if (taxConfig?.TaxInclusive == true)
         {
-            taxMinor = (long)Math.Round(baseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
-            netMinor = baseMinor; // listed price IS the charge
+            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
+            netMinor = chargeBaseMinor; // listed price IS the charge
         }
         else
         {
-            taxMinor = (long)Math.Round(baseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
-            netMinor = baseMinor + taxMinor;
+            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
+            netMinor = chargeBaseMinor + taxMinor;
         }
 
         if (priceChanged)
@@ -293,6 +336,7 @@ public static class CheckoutEndpoints
             ShipName = request.ShippingAddress.Name,
             ShipLine1 = request.ShippingAddress.Line1,
             ShipCity = request.ShippingAddress.City,
+            ShipRegion = string.IsNullOrWhiteSpace(request.ShippingAddress.Region) ? null : request.ShippingAddress.Region.Trim(),
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
             CollectAtWarehouse = request.CollectAtWarehouse,
@@ -380,7 +424,9 @@ public record AddressRequest(
     [property: Required] string Line1,
     [property: Required] string City,
     [property: Required] string Postcode,
-    [property: Required, StringLength(2, MinimumLength = 2)] string Country);
+    [property: Required, StringLength(2, MinimumLength = 2)] string Country,
+    // Sub-national region (state/province/county/…); optional — not every country's address has one.
+    [property: StringLength(120)] string? Region = null);
 
 public record CheckoutRequest(
     [property: Required, EmailAddress] string Email,

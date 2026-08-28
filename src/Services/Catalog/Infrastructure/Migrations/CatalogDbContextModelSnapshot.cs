@@ -408,6 +408,12 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.Property<int>("ProductType")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ShipRules")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValueSql("'[]'::jsonb");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
@@ -715,6 +721,11 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasDefaultValue("");
 
+                    b.Property<string>("ShipToCountries")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<string>("ShippingAccountCode")
                         .IsRequired()
                         .HasColumnType("text");
@@ -894,6 +905,23 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.HasKey("TenantId", "Code");
 
                     b.ToTable("SupportedCurrencies", "catalog");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.TenantCatalogSettings", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("RequireProductShipRules")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TenantId");
+
+                    b.ToTable("TenantCatalogSettings", "catalog");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Variant", b =>
