@@ -42,6 +42,11 @@ How it fits together:
 - **Schema:** each service's tables (domain + MassTransit outbox/inbox/saga) live in a **named
   schema** within its own database (`<service>.*`, not `public`; ADR-0022). The migration creates
   the schema (`EnsureSchema`); `__EFMigrationsHistory` stays in `public`.
+- **Fresh-deploy note:** the Entity service's `EntityChildTablesRls` migration is **idempotent** — it
+  guards each `CREATE POLICY` (drop-if-exists / `IF NOT EXISTS`) so a brand-new database applies it cleanly
+  and re-applying it never errors on an already-present RLS policy. This unblocks fresh-DB deploys where the
+  policies would otherwise collide. (Dev `--fresh` reseeds can still leave stale unrecorded policies — drop
+  them and re-migrate; see the dev-stack runbook.)
 
 ## Optional PgBouncer runtime pooling (ADR-0032)
 
@@ -216,6 +221,7 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | `ConnectionStrings:Database` / `RabbitMq` | every service | `localhost` (bare) / `postgres`,`rabbitmq` (container) | Overridden by `appsettings.Container.json` when `USE_CONTAINER_CONFIG=true` (all 13 DB-owning services ship one). |
 | `ConnectionStrings:Redis` | gateway, Payments, Identity | unset (Redis-less no-op) | Valkey/Redis fast-path (ADR-0044). Unset ⇒ features fall back to Postgres/in-process. |
 | `RateLimiting:Backend` / `OnRedisOutage` | gateway | `InMemory` / `FailOpen` | `Redis` = shared limit across replicas; outage toggle fail-open vs fail-closed (429). |
+| `RateLimiting:AuthPermitLimit` / `AnyPermitLimit` | gateway | `30` / `1000` per minute | Per-`{tenant}:{storefront}:{IP}` partition (ADR-0044). `Auth` covers login/register/password-reset — a credential-stuffing guard sized for real many-IP traffic; **prod keeps 30/min** (no appsettings override). `run-all.sh` raises `RateLimiting__AuthPermitLimit` for the **bare-run dev/E2E** stack only, where the whole suite + seed share one IP / the no-tenant partition and would otherwise 429 themselves. |
 | `Sessions:Cache:Enabled` | Identity | `false` | Session introspection cache; enable only after a security review. |
 | `Store:Currency` | `SampleDataImporter`, Catalog admin defaults, cart fallback (BL-9) | `EUR` | Default store currency; tenant per-currency product pricing rides the data model (#40). |
 | `Importer:TargetRows` | `SampleDataImporter` (Catalog) | `10_500` | Sample-import row count. CI sets `400` to keep the projection storm light. |

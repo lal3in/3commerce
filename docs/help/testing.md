@@ -141,8 +141,14 @@ This is the single "did anything break?" script.
 ```bash
 scripts/e2e-verify.sh            # automated suites only (A1–A8)
 scripts/e2e-verify.sh --live     # ALSO boot the stack and run live flows (L1–L20)
-scripts/e2e-verify.sh --live-only
+scripts/e2e-verify.sh --live-only  # ONLY the live group (skip A1–A8) — what CI's browser-e2e runs
 ```
+
+The live group seeds the **full demo profile** (`scripts/dev-dummy-data.sh --profile full`) after the
+L5–L13 auth/catalog smoke — multi-currency storefronts, the Demo Supplier, scenario products, and
+attributed orders/ledger — so the browser specs run against realistic data (e.g. the ship-to and supplier
+specs need a published storefront and a supplier). The seed is **idempotent** (contacts, change-requests,
+and offers are guarded on their unique keys), so a re-run doesn't pile up duplicate rows.
 
 **Automated group (A1–A8):** A1 build with 0 warnings · A2 `dotnet format`
 clean · A3 unit/contract · A4–A6 integration · A6b/c/d ledger/money/RMA/fulfillment ·

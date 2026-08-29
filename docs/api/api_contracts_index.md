@@ -63,7 +63,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
 | GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create (optional `defaultLanguage`, BCP-47; omit → `en`) |
-| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate, `defaultLanguage`). `defaultLanguage` is optional and **independent of currency/tax** (i18n_0): omit it and the storefront keeps its current language |
+| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate, `defaultLanguage`, `shipToCountries`). `defaultLanguage` is optional and **independent of currency/tax** (i18n_0): omit it and the storefront keeps its current language. `shipToCountries` (ISO-2 allowlist, empty = worldwide) rides `StorefrontConfigChanged` into Ordering's `StorefrontTaxCopy`; checkout rejects an out-of-allowlist destination (ADR-0050) |
 | GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints, **defaultLanguage**) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
 | GET | `/storefronts/languages` | anon | Supported UI languages (`code` BCP-47 + endonym `label`, e.g. `zh`/`中文`) — the vocabulary a storefront's `defaultLanguage` and the storefront language switcher draw from (i18n_0) |
 | POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
@@ -75,7 +75,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | GET/POST | `/admin/products` | admin | Tenant-scoped catalog product list/create with variants. Create/update accept a trailing `shipRules: [{ countryCode, chargeDestinationTax, shippingCovered }]` (`countryCode` = ISO-2 or `*` whole-world default); **400** (`ValidationProblem`, key `ShipRules`) when the tenant switch requires rules and none are supplied |
 | GET/PUT/DELETE | `/admin/products/{id}` | admin | Tenant-scoped product detail/update/remove (GET/response echo `shipRules`) |
 | GET/PUT | `/admin/settings` | admin | Tenant catalog settings (`CatalogSettingsResponse/Request` = `{ tenantId, requireProductShipRules }`). The switch makes ≥1 per-product ship rule mandatory at product write; PUT audits `catalog.settings.update` |
-| GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; publishes `OfferChanged` |
+| GET/POST | `/admin/offers` | admin | Offers (product supply profiles, ADR-0028): `(product/variant × supplier) → supply category + fulfilment type + price + pricing model + priority`. Multi-supplier; unique on `(Tenant, Product, Variant, Supplier, Storefront)` — an exact-key duplicate POST is rejected **400**. Supports `supplierId` filter (Admin Suppliers page). Publishes `OfferChanged` |
 | PUT | `/admin/offers/{id}` | admin | Update an offer's price / priority / active state, or its **price model** (Phase 7 mt7_1): `pricing_model` + `billing_period` + graduated `tiers` |
 | GET | `/admin/product-types?tenantId=...` | admin | The tenant's product-type shipping policy: all six `ProductType`s with a `requiresShipping` flag (ADR-0042). Default: Physical only |
 | PUT | `/admin/product-types` | admin | Replace the shippable set (`{tenantId, requiresShippingTypes: string[]}`); rejects unknown type names. Publishes `ProductTypeShippingPolicyChanged`; drives the publish gate + the checkout shipping charge |
@@ -181,7 +181,11 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | POST | `/entities/{id}/suppliers/suspend` | admin/internal claims | Active → Suspended with reason |
 | POST | `/entities/{id}/suppliers/archive` | admin/internal claims | Any non-archived state → Archived |
 | POST | `/entities/{id}/suppliers/change-requests` · GET `/entities/suppliers/change-requests` | admin/internal claims | Supplier change requests: raise against an entity; tenant-wide queue |
-| POST | `/entities/suppliers/change-requests/{requestId}/approve\|reject` | admin/internal claims | Approve/reject a change request (audited via the local hash chain) |
+| POST | `/entities/suppliers/change-requests/{requestId}/approve\|reject` | admin/internal claims | Approve/reject a change request (audited via the local hash chain). Maker-checker binds a **non-admin** requester; a **tenant admin may self-approve** (ADR-0025 amendment) |
+| GET/PUT | `/entities/suppliers/me` · GET `/entities/suppliers/me/detail` | supplier session | Supplier self-service: read/update its **own** details. Under the **approval lock** — direct PUT allowed only before approval, else 400 ("raise a change request instead") |
+| POST | `/entities/suppliers/me/identifiers` | supplier session | Supplier adds its **own** ABN/ACN/GST/other identifier (same approval-lock guard; read-only once Active) |
+| GET/PUT | `/entities/suppliers/me/warehouse` | supplier session | Supplier reads/sets its **own** `Warehouse`-purpose address; edit routes through a type-5 `WarehouseAddress` change request once approved (ADR-0049). Publishes `SupplierWarehouseChanged` |
+| GET/POST | `/entities/suppliers/me/change-requests` | supplier session | The supplier's own change-request history / raise one |
 | GET/POST | `/entities/{id}/customer-links` · GET `/entities/customer-links` | admin/internal claims | Link customer accounts to an entity; list per entity or tenant-wide |
 | POST | `/entities/customer-links/{linkId}/unlink` | admin/internal claims | Unlink a customer from an entity |
 
@@ -196,6 +200,8 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 | GET | `/admin/orders` · `/admin/orders/{id}` | admin | Admin order list / detail |
 | GET | `/admin/checkouts` | admin | Checkout-saga state counts (in-flight vs concluded) — Mission Control process monitor |
 | POST | `/admin/orders/{id}/cancel` | admin | Admin order cancel (audited — emits `AuditEntryRecorded`) |
+| GET | `/orders/supplier/me` | supplier session | The orders a supplier fulfils (any order line whose `SupplierId` is the caller's `supplier_entity`; self-scoped, never a client-supplied id) |
+| POST | `/orders/supplier/{id}/mark-delivered` | supplier session / admin | Fulfilling supplier (or operator) marks `Confirmed → Delivered` and publishes `OrderDelivered` (**idempotent** — an already-delivered order returns 200; ADR-0049) |
 
 > `RefundCompleted` now carries `FullyRefunded`; `OrderStatusConsumer` moves a Confirmed order to the
 > new `OrderStatus.Refunded` (=5) on a **full** refund only (partial refunds leave it Confirmed). The
@@ -296,6 +302,18 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > Payments publishes `StorefrontPaymentReadinessChanged` (per storefront, current boolean); Catalog
 > projects both into a `StorefrontServiceReadiness` read model and blocks storefront activation without an
 > active payment account (and an active carrier when the store lists a published physical product).
+>
+> Supplier/offer epic bus contracts (ADR-0047/0048/0049): `OfferChanged` also carries the price + storefront
+> scope + active window (→ Ordering's `OfferCopy` for the checkout charge); Entity publishes
+> `SupplierApprovalChanged` (→ Catalog/Ordering `SupplierApprovalCopy`, gating availability, Decision A) and
+> `SupplierWarehouseChanged` (→ Ordering's `SupplierWarehouseCopy` for collect-at-warehouse); Ordering
+> publishes `OrderDelivered` on supplier mark-delivered (→ Fulfillment closes shipments, Notifications
+> confirms).
+>
+> Ship-to / per-country rules (ADR-0050): `StorefrontConfigChanged.ShipToCountries` (→ Ordering's
+> `StorefrontTaxCopy`, the ship-to allowlist) and `ProductUpserted.ShipRules`
+> (`{countryCode|*, chargeDestinationTax, shippingCovered}` → Ordering's `ProductCopy.ShipRules`) are both
+> **optional/back-compatible** (null = a publisher predating the field: no restriction / no overrides).
 
 ## Support (`/api/support`)
 
