@@ -277,8 +277,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>供货与定价</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>管理目录供货（Offer）：商品/变体 × 供应商供货配置、履约类型、价格模型、计费周期、优先级及启用状态。</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>拥有这些供货的租户。</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>商品 ID 筛选</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>可选的商品 GUID 筛选——留空则显示该租户的所有供货。</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>商品（ID 或名称）</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>可选的筛选，可用商品 ID（GUID）或名称片段——留空则显示该租户的所有供货。</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>商品</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>变体</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>供应商</value></data>

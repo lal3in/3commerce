@@ -300,8 +300,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>Offers &amp; pricing</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>Manage Catalog Offers: product/variant × supplier supply profiles, fulfilment type, price model, billing period, priority, and active state.</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Tenant owning these offers.</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>Product ID filter</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optional product GUID filter — leave blank for every offer in the tenant.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Product (ID or title)</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optional filter by product ID (GUID) or a title substring — leave blank for every offer in the tenant.</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>Product</value></data>
   <data name="Offers.Col.Title" xml:space="preserve"><value>Title</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>Variant</value></data>

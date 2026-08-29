@@ -198,7 +198,7 @@
         try
         {
             var query = $"tenantId={Uri.EscapeDataString(_tenantId)}";
-            if (!string.IsNullOrWhiteSpace(_productFilter)) query += $"&productId={Uri.EscapeDataString(_productFilter)}";
+            if (!string.IsNullOrWhiteSpace(_productFilter)) query += $"&product={Uri.EscapeDataString(_productFilter)}";
             _offers = await Gateway.GetListAsync<OfferDto>($"{Base}?{query}");
             // Storefronts feed the scope picker + the table labels; a failure here must not block offers.
             _storefronts = await SafeStorefronts();

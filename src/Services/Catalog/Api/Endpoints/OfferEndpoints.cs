@@ -30,13 +30,29 @@ public static class OfferEndpoints
     }
 
     private static async Task<Ok<List<OfferDto>>> List(
-        Guid? tenantId, Guid? productId, Guid? supplierId, CatalogDbContext db, IConfiguration config, CancellationToken ct)
+        Guid? tenantId, string? product, Guid? supplierId, CatalogDbContext db, IConfiguration config, CancellationToken ct)
     {
         var tid = tenantId ?? DefaultTenantId(config);
         var query = db.Offers.AsNoTracking().Where(o => o.TenantId == tid);
-        if (productId is { } pid)
+        // Product filter: one term matching by product id OR title. A GUID term matches the exact ProductId
+        // (the Catalog page's per-product cost table relies on this). Any other non-empty term is a
+        // case-insensitive title substring: resolve the tenant's matching product ids and keep offers whose
+        // ProductId is one of them. Empty → no product filter. Mirrors the Orders page's id-or-title search,
+        // and (unlike a bare Guid? param) no longer 400s on free text at minimal-API model binding.
+        if (!string.IsNullOrWhiteSpace(product))
         {
-            query = query.Where(o => o.ProductId == pid);
+            var term = product.Trim();
+            if (Guid.TryParse(term, out var pid))
+            {
+                query = query.Where(o => o.ProductId == pid);
+            }
+            else
+            {
+                var matchingProductIds = db.Products
+                    .Where(p => p.TenantId == tid && EF.Functions.ILike(p.Title, $"%{term}%"))
+                    .Select(p => p.Id);
+                query = query.Where(o => matchingProductIds.Contains(o.ProductId));
+            }
         }
 
         if (supplierId is { } sid)

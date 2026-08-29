@@ -277,8 +277,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>供應方案同定價</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>管理目錄供應方案：產品/款式 × 供應商供貨檔案、履行類型、價格模式、計費週期、優先次序同啟用狀態。</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>擁有呢啲供應方案嘅租戶。</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>產品 ID 篩選</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>選填嘅產品 GUID 篩選 — 留空就顯示租戶入面所有供應方案。</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>產品（ID 或名稱）</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>選填嘅篩選，可用產品 ID（GUID）或名稱片段 — 留空就顯示租戶入面所有供應方案。</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>產品</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>款式</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>供應商</value></data>

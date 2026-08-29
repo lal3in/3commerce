@@ -277,8 +277,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>Verwalten Sie Katalogangebote: Produkt/Variante × Lieferantenprofile, Fulfillment-Typ, Preismodell, Abrechnungszeitraum, Priorität und Aktivstatus.</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Mandant, dem diese Angebote gehören.</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>Produkt-ID-Filter</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optionaler Produkt-GUID-Filter — leer lassen für jedes Angebot im Mandanten.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Produkt (ID oder Titel)</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Optionaler Filter nach Produkt-ID (GUID) oder Titel-Teilzeichenfolge — leer lassen für jedes Angebot im Mandanten.</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>Produkt</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>Variante</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>Lieferant</value></data>
