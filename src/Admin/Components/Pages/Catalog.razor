@@ -350,7 +350,7 @@ else
         _productOffers = null;
         // Supplier costs for this product's offers (read-only here — edited only on the Suppliers page),
         // shown against the matching variant row. Product-level offers (null VariantId) show separately.
-        try { _productOffers = await Gateway.GetListAsync<OfferCostDto>($"/api/catalog/admin/offers?productId={id}"); }
+        try { _productOffers = await Gateway.GetListAsync<OfferCostDto>($"/api/catalog/admin/offers?product={id}"); }
         catch { _productOffers = []; }
         _productStorefronts = null;
         // Which storefronts this product is on, and whether it's priced in each store's currency.

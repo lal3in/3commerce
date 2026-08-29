@@ -277,8 +277,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>Offres et tarification</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>Gérez les Offres du catalogue : profils d'approvisionnement produit/variante × fournisseur, type d'exécution, modèle de prix, période de facturation, priorité et état actif.</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Locataire propriétaire de ces offres.</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>Filtre par ID de produit</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Filtre facultatif par GUID de produit — laissez vide pour toutes les offres du locataire.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Produit (ID ou titre)</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Filtre facultatif par ID de produit (GUID) ou fragment de titre — laissez vide pour toutes les offres du locataire.</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>Produit</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>Variante</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>Fournisseur</value></data>

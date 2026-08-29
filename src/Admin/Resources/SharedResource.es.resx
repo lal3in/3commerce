@@ -277,8 +277,8 @@
   <data name="Offers.Title" xml:space="preserve"><value>Ofertas y precios</value></data>
   <data name="Offers.Intro" xml:space="preserve"><value>Gestione las Ofertas del catálogo: perfiles de suministro de producto/variante × proveedor, tipo de cumplimiento, modelo de precio, período de facturación, prioridad y estado activo.</value></data>
   <data name="Offers.TenantId.Tip" xml:space="preserve"><value>Inquilino propietario de estas ofertas.</value></data>
-  <data name="Offers.ProductFilter" xml:space="preserve"><value>Filtro por ID de producto</value></data>
-  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Filtro opcional por GUID de producto: déjelo en blanco para todas las ofertas del inquilino.</value></data>
+  <data name="Offers.ProductFilter" xml:space="preserve"><value>Producto (ID o título)</value></data>
+  <data name="Offers.ProductFilter.Tip" xml:space="preserve"><value>Filtro opcional por ID de producto (GUID) o parte del título: déjelo en blanco para todas las ofertas del inquilino.</value></data>
   <data name="Offers.Col.Product" xml:space="preserve"><value>Producto</value></data>
   <data name="Offers.Col.Variant" xml:space="preserve"><value>Variante</value></data>
   <data name="Offers.Col.Supplier" xml:space="preserve"><value>Proveedor</value></data>
