@@ -5,8 +5,9 @@ How suppliers work end-to-end in 3commerce: what a supplier **is** (Entity maste
 how a supplier **self-serves** its own details under an approval lock, how **Offers** turn a supplier
 into a priced, storefront-scoped supply of a product, how **supplier approval gates availability**, and
 how **warehouse collection** and **supplier-recorded delivery** work. Accurate to the code. The whole
-epic (PRs 1–5) is built; the Admin **Suppliers** page (PR 1) is merged and the remaining slices are on
-the epic branch pending merge — merge status is noted where it matters.
+supplier/offer epic is **shipped on `main`** — the Admin **Suppliers** console, Supplier Portal
+self-service, storefront-scoped windowed offer price, approval-gated availability, and
+warehouse/collect/mark-delivered are all merged.
 
 > **One-line model.** A supplier is an **Entity** party record with a supplier profile and an onboarding
 > state. It becomes sellable only when a tenant admin **approves** (activates) it. The link between a
@@ -33,10 +34,14 @@ It is an `EntityRecord` (a company, person, trust…) that carries a **supplier 
 Ordering, Payments and the portals reference a supplier by its Entity id and learn about it through
 projected read copies (ADR-0008), never by cross-service query.
 
-The **link from a supplier to a product/variant is the Offer** (Catalog, ADR-0028), keyed
-`(TenantId, ProductId, VariantId?, SupplierId)`. One product/variant can have many offers (multi-supplier);
-the Offer — not the supplier record — carries what the platform pays the supplier (`SupplierCostMinor`,
-COGS) and what the shopper pays (`PriceMinor`, the sell price).
+The **link from a supplier to a product/variant is the Offer** (Catalog, ADR-0028), uniquely keyed on the
+**full five-part key** `(TenantId, ProductId, VariantId?, SupplierId, StorefrontId)`. One product/variant
+can have many offers — a different **supplier** (multi-supplier) or a different **storefront**
+(per-storefront pricing, ADR-0047) is a distinct offer — but the **exact same key repeated is a
+duplicate**: `POST /api/catalog/admin/offers` rejects it with a clean **400** ("An offer already exists
+for this tenant, product, variant, supplier and storefront…"), and the demo seed guards the same key so a
+re-run yields exactly one offer per key. The Offer — not the supplier record — carries what the platform
+pays the supplier (`SupplierCostMinor`, COGS) and what the shopper pays (`PriceMinor`, the sell price).
 
 `src/Services/Entity/Domain/SupplierOnboarding.cs` · `src/Services/Catalog/Domain/Offer.cs`
 
@@ -85,18 +90,35 @@ registered-office or warehouse **address**. Suspending requires a reason of **8�
 
 ## Admin: the Suppliers management page
 
-`/suppliers` — `src/Admin/Components/Pages/Suppliers.razor` (merged; PR #241).
+`/suppliers` — `src/Admin/Components/Pages/Suppliers.razor` (PR #241; grown into the complete console in
+PR #249).
 
-The single operator surface for managing an individual supplier. Pick a supplier from the list, then:
+The **complete** operator surface for one supplier — everything that used to require the generic
+Entities page now lives here. Pick a supplier from the list, then:
 
 - **Edit details** — legal name and trading name, saved to the Entity record.
+- **Identifiers** — view, add, and **verify** the entity's **ABN/ACN/GST/Other** identifiers (onboarding
+  readiness needs a *verified* ABN or ACN).
+- **Contacts** — view and add contact methods. An **exact-duplicate** contact (same purpose + kind +
+  value, case-insensitive) is rejected with a clean 400 — the domain dedupe guard
+  (`EntityRecord.AddContactMethod`), so re-adding "Operations · Email · ops@…" no longer produces a
+  duplicate row.
+- **Addresses** — view and add, including the **Warehouse** address (purpose 4).
+- **Onboarding lifecycle** — submit-verification / verification-complete / activate / suspend / archive,
+  with a **readiness banner**, plus the **Approve** shortcut below.
+- **Change requests** — review and approve/reject this supplier's maker-checker change requests (subject
+  to the tenant-admin self-approve exemption, ADR-0025 amendment).
 - **Approve** — activates the supplier (`POST /api/entity/entities/{id}/suppliers/activate`). This is
   the same activation as the [lifecycle](#lifecycle) `PendingApproval → Active` step and is disabled once
   the supplier is already Active. Approving is what makes the supplier's offers count everywhere
   (ADR-0048).
-- **Per-variant supplier cost** — the page lists every product/variant this supplier supplies (its
-  Offers, loaded via `GET /api/catalog/admin/offers?tenantId=...&supplierId=...`) and lets the operator
-  edit each row's **cost** (`Offer.SupplierCostMinor`, saved with `PUT /api/catalog/admin/offers/{id}`).
+- **Per-variant supplier cost** — a prominent, bordered, count-badged table lists every product/variant
+  this supplier supplies (its Offers, loaded via
+  `GET /api/catalog/admin/offers?tenantId=...&supplierId=...`, with a stable `ThenBy id` secondary sort)
+  and lets the operator edit each row's **cost** (`Offer.SupplierCostMinor`, saved with
+  `PUT /api/catalog/admin/offers/{id}`). A product-level offer (null variant) shows the product title;
+  because offers are unique on the full `(Tenant, Product, Variant, Supplier, Storefront)` key, each
+  product/variant appears exactly once.
 
 > **The Suppliers page is the *only* place supplier cost is edited.** The supplier↔product/variant link
 > is the Offer, so cost lives on the Offer and is edited here. It is shown **read-only** elsewhere (the
@@ -122,12 +144,16 @@ A supplier signs into the Supplier Portal and manages its **own** details, with 
 approval lock:
 
 - **Before approval** (`Draft` / `PendingVerification` / `PendingApproval`) the supplier may **edit its
-  details directly** (`PUT /api/entity/entities/suppliers/me`).
-- **Once approved** (`Active`, and thereafter `Suspended`/`Archived`) direct edits are **locked**. Every
-  change must go through a **maker-checker `SupplierChangeRequest`** (ADR-0025): the supplier raises a
-  request, and a tenant admin (a *different* principal — makers can't approve their own) approves or
-  rejects it in the Admin change-request queue. Approving an entity-details request **applies** the
-  proposed legal/trading name to the supplier record; rejection requires a reason.
+  details directly** (`PUT /api/entity/entities/suppliers/me`) and **add its own identifiers**
+  (`POST /api/entity/entities/suppliers/me/identifiers`). My details renders the identifiers labelled
+  **ABN/ACN/GST/Other** with their verification status.
+- **Once approved** (`Active`, and thereafter `Suspended`/`Archived`) direct edits — details **and**
+  identifiers — are **locked**. Every change must go through a **maker-checker `SupplierChangeRequest`**
+  (ADR-0025): the supplier raises a request, and a tenant admin approves or rejects it in the Admin
+  change-request queue. The two-person rule binds a **non-admin** requester (makers can't approve their
+  own), but a **tenant admin may self-approve** their own request (ADR-0025 amendment, 2026-08-28).
+  Approving an entity-details request **applies** the proposed legal/trading name to the supplier record;
+  rejection requires a reason.
 
 The lock is enforced **server-side** in the domain (`SupplierOnboarding.EnsureDirectDetailEditAllowed`),
 not just hidden in the portal UI — calling the API directly after approval is rejected with
@@ -140,14 +166,18 @@ The portal's `Requests.razor` lists the supplier's own change-request history.
 ## Offers: cost vs price, storefront scope, active window
 
 An **Offer** (ADR-0028) is how a `(product, variant)` is sourced from a specific supplier — its supply
-category + fulfilment type — and the price it sells at. Two distinct money fields:
+category + fulfilment type — and the price it sells at. Operators create one on the Admin **Offers &
+pricing** page (`/offers`), whose New-offer form picks **Product**, **Variant**, and **Supplier** from
+**live-data dropdowns** (not raw GUIDs): the variant `<select>` is dependent on the chosen product and
+carries an explicit **"(all variants)"** option for a product-level offer (`VariantId = null`). All three
+are immutable after creation. Two distinct money fields:
 
 | Field | Meaning | Edited where |
 |-------|---------|--------------|
 | `SupplierCostMinor` | **COGS** — what the platform pays the supplier per unit | Admin **Suppliers** page only (read-only elsewhere) |
 | `PriceMinor` | **Sell price** — what the shopper pays per unit | `/offers` Offer form |
 
-**Storefront-scoped, active-window sell price (ADR-0047, epic PR 3 — built, not yet merged).** The Offer gains nullable
+**Storefront-scoped, active-window sell price (ADR-0047 — shipped).** The Offer gains nullable
 `StorefrontId` (null = all storefronts of its currency) and nullable `ActiveFrom` / `ActiveUntil` (UTC,
 inclusive; null = open-ended). When an offer is **active, in-window, and matches a line's storefront +
 currency**, its `PriceMinor` is the **authoritative charge at checkout** *and* the **price shown on the
@@ -183,7 +213,7 @@ Charged: `src/Services/Ordering/Api/Endpoints/CheckoutEndpoints.cs` +
 
 ## Approval-gated availability (Decision A)
 
-**ADR-0048, Decision A (strict) — implemented (epic PR 4, built on the epic branch).** An offer backed by
+**ADR-0048, Decision A (strict) — shipped.** An offer backed by
 an **unapproved** supplier (any state other than `Active`) **never counts** — no storefront price, no
 availability, no checkout — **regardless of fulfilment type or on-hand stock**. Even owned-warehouse stock
 behind an unapproved supplier's offer does not sell. A variant is **unavailable unless another *approved*
@@ -210,7 +240,7 @@ enforces it:
 
 ## Warehouses, collect-at-warehouse, and mark-delivered
 
-**Implemented (epic PR 5, built on the epic branch).** See ADR-0049. Three connected capabilities:
+**Shipped.** See ADR-0049. Three connected capabilities:
 
 - **Warehouse details, supplier-managed under the approval lock.** A supplier that backs `Warehouse`
   fulfilment manages its warehouse address on the Supplier Portal **Warehouse** page
@@ -240,7 +270,7 @@ enforces it:
   order's shipments (`ShipmentStatus.Delivered`), including a collect order's warehouse shipment;
   Notifications sends the confirmation.
 
-Built on the portal + approval lock (PR 2) and approval-gated availability (PR 4).
+Built on the portal + approval lock and approval-gated availability.
 
 ## Related ADRs and pages
 
