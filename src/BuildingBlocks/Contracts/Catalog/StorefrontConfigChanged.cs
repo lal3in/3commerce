@@ -25,4 +25,7 @@ public record StorefrontConfigChanged(
     // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = ships worldwide; non-empty = checkout rejects a
     // ship-to country not in the list. A concrete array (not IReadOnlyList) so MassTransit's serializer
     // materializes it on the consumer; optional → back-compatible with older publishers/consumers.
-    string[]? ShipToCountries = null);
+    string[]? ShipToCountries = null,
+    // Storefront-wide discount in basis points (0–10000; 0 = none). Deducted from the items' subtotal only
+    // at checkout (not shipping, not tax), applied after offer/catalog pricing. Optional → back-compatible.
+    int DiscountBps = 0);

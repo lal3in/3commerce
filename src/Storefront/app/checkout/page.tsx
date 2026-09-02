@@ -26,6 +26,8 @@ export default async function CheckoutPage() {
   const taxInclusive = taxSource?.taxRegime === "AuGst" || taxSource?.taxRegime === "EuVat";
   // Ship-to allowlist (empty = worldwide) restricts the checkout country picker to served destinations.
   const shipToCountries = taxSource?.shipToCountries ?? [];
+  // Storefront-wide discount (bps; 0 = none) — deducted from the items' subtotal only, shown as its own line.
+  const discountBps = taxSource?.discountBps ?? 0;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -37,7 +39,7 @@ export default async function CheckoutPage() {
         </div>
         <p className="mt-1 text-neutral-500">{t("taxNote")}</p>
       </div>
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} />
     </div>
   );
 }

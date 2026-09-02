@@ -117,6 +117,9 @@ export type StorefrontConfig = {
   currency: string;
   taxRegime: StorefrontTaxRegime;
   taxRateBasisPoints: number;
+  // Storefront-wide discount in basis points (1000 = 10%; 0 = none). Deducted from the items' subtotal
+  // only at checkout — shown as its own line in the cart/checkout summary so shown == charged.
+  discountBps: number;
   // BCP-47 UI language this storefront defaults to (i18n_0). A shopper's `3c_locale` cookie overrides
   // it for their session. Independent of currency/tax — see i18n/request.ts.
   defaultLanguage: string;
@@ -148,11 +151,14 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
 
   const response = await gatewayFetch(`/api/catalog/storefronts/public?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
-  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "theme" | "shipToCountries"> & {
+  const raw = (await response.json()) as Omit<StorefrontConfig, "taxRegime" | "defaultLanguage" | "theme" | "shipToCountries" | "discountBps"> & {
     taxRegime: StorefrontTaxRegime | number;
     defaultLanguage?: string;
     theme?: Partial<ThemeTokens> | null;
     shipToCountries?: string[];
+    // Catalog serializes the field as `discountBasisPoints` (like `taxRateBasisPoints`); we expose it
+    // as the shorter `discountBps` on StorefrontConfig.
+    discountBasisPoints?: number;
   };
   return {
     ...raw,
@@ -163,6 +169,8 @@ export async function getStorefrontConfig(params: { slug?: string; host?: string
     theme: raw.theme ?? undefined,
     // Older Catalog with no allowlist field → empty (ships worldwide).
     shipToCountries: raw.shipToCountries ?? [],
+    // Older Catalog with no discount field → 0 (no discount).
+    discountBps: raw.discountBasisPoints ?? 0,
   };
 }
 

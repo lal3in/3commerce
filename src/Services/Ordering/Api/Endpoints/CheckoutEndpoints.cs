@@ -168,7 +168,16 @@ public static class CheckoutEndpoints
         // Shipping is waived only when EVERY line's resolved rule marks shipping already covered.
         var allShippingCovered = cart.Items.All(i => RuleFor(i.ProductId)?.ShippingCovered == true);
 
-        var discountMinor = 0L;
+        // Storefront-wide discount (rev_disc): a per-storefront percentage deducted from the ITEMS' subtotal
+        // only — never shipping, never tax — applied AFTER the per-line offer/catalog price resolved above
+        // (it rides on whatever the shopper was charged per line). Basis points come from the same projected
+        // StorefrontTaxCopy (by storefront id) fetched for the ship-to gate. Capped at the subtotal so the
+        // discount can never exceed the goods value (nor turn the order negative), matching PricingEngine.
+        var discountBps = storefrontCopy?.DiscountBasisPoints ?? 0;
+        var storefrontDiscountMinor = discountBps > 0
+            ? (long)Math.Round(subtotal * discountBps / 10000.0, MidpointRounding.AwayFromZero)
+            : 0L;
+        var discountMinor = Math.Clamp(storefrontDiscountMinor, 0, subtotal);
 
         // Gate shipping from the OfferCopy read model (loaded up front): only a cart with at least one
         // shippable line is charged shipping — a non-shippable (e.g. digital/service/usage) order ships
@@ -246,7 +255,12 @@ public static class CheckoutEndpoints
         // Shipping follows the goods' taxability: when no goods are destination-taxable (a fully exempt
         // cart, taxableSubtotal == 0) shipping is not destination-taxed either.
         var taxableShippingMinor = taxableSubtotal > 0 ? shippingMinor : 0;
-        var taxBaseMinor = taxableSubtotal - discountMinor + taxableShippingMinor;
+        // The storefront discount reduces the taxable base PROPORTIONALLY to the taxable share of the goods
+        // (it is a uniform percentage across all lines), so a cart mixing taxable and tax-exempt lines only
+        // shrinks the tax on the taxable part. subtotal > 0 whenever discountMinor > 0 (a discount needs
+        // goods value), so the divide is safe. With no discount this is 0 → the base is unchanged.
+        var taxableDiscountMinor = subtotal > 0 ? discountMinor * taxableSubtotal / subtotal : 0;
+        var taxBaseMinor = taxableSubtotal - taxableDiscountMinor + taxableShippingMinor;
         var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
         long taxMinor, netMinor;
         if (taxConfig?.TaxInclusive == true)

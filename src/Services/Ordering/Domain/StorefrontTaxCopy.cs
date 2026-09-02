@@ -13,6 +13,12 @@ public class StorefrontTaxCopy
     /// <summary>Tenant-set tax rate in basis points (1000 = 10%).</summary>
     public int TaxRateBasisPoints { get; set; }
 
+    /// <summary>
+    /// Storefront-wide discount in basis points (0–10000; 0 = none). Checkout deducts it from the items'
+    /// subtotal only (never shipping, never tax), applied after the per-line offer/catalog price resolves.
+    /// </summary>
+    public int DiscountBasisPoints { get; set; }
+
     /// <summary>Active/Preview storefronts only participate in checkout tax resolution.</summary>
     public bool IsLive { get; set; }
 

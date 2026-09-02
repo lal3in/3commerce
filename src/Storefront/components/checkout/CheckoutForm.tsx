@@ -21,6 +21,9 @@ interface CheckoutFormProps {
   // Ship-to allowlist (ISO 3166-1 alpha-2). Empty = worldwide. Restricts the SHIPPING country picker
   // (a billing address is a card's address, not a shipment destination, so it stays unrestricted).
   shipToCountries: string[];
+  // Storefront-wide discount in basis points (1000 = 10%; 0 = none). Deducted from the items' subtotal
+  // only — never shipping, never tax — the same math Ordering charges at checkout (shown == charged).
+  discountBps: number;
 }
 
 // Wire values are fixed; the visible label comes from the `checkout.methods.*` catalog (i18n_1).
@@ -32,7 +35,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -62,7 +65,14 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
   const shippingMinorForTax = collect ? 0 : (selectedRate?.amountMinor ?? 0);
-  const taxBaseMinor = cart.subtotalMinor + shippingMinorForTax;
+  // Storefront-wide discount: deducted from the ITEMS' subtotal only (never shipping, never tax), applied
+  // after the per-line offer/catalog price the shopper already sees. Capped at the subtotal. The tax base
+  // then follows the DISCOUNTED goods — matching the proportional discount Ordering charges at checkout.
+  const storefrontDiscountMinor = discountBps > 0
+    ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
+    : 0;
+  const discountedSubtotalMinor = cart.subtotalMinor - storefrontDiscountMinor;
+  const taxBaseMinor = discountedSubtotalMinor + shippingMinorForTax;
   const estimatedTaxMinor = taxInclusive
     ? Math.round(taxBaseMinor * taxRateBasisPoints / (10000 + taxRateBasisPoints))
     : Math.round(taxBaseMinor * taxRateBasisPoints / 10000);
@@ -100,6 +110,12 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         </ul>
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
           <Row label={t("subtotal")} value={formatMoney(cart.subtotalMinor, cart.currency)} />
+          {storefrontDiscountMinor > 0 && (
+            <Row
+              label={t("discount", { percent: formatRate(discountBps) })}
+              value={`−${formatMoney(storefrontDiscountMinor, cart.currency)}`}
+            />
+          )}
           <Row
             label={t("shipping")}
             value={collect ? t("collectFree") : selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : t("chooseRate")}

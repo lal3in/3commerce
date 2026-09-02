@@ -729,6 +729,8 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>地區稅務規則。AU GST / EU VAT 係含稅：上架價已經包含稅款（客戶付標示價；稅款只作資訊顯示）。US 銷售稅喺結賬時喺標示價之上另加（ADR-0038）。</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>稅率（基點）</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>以基點計嘅稅率，例如 1000 = 10%。對 AU GST / EU VAT 嚟講呢個係已包含喺上架價嘅稅率；對 US 嚟講就係結賬時另加（ADR-0038）。</value></data>
+  <data name="Ops.Field.Discount" xml:space="preserve"><value>折扣 %</value></data>
+  <data name="Ops.Field.Discount.Tip" xml:space="preserve"><value>全店折扣百分比（例如 10 = 10%）。結帳時只從商品小計扣除——唔包運費、唔包稅——並喺任何生效嘅優惠或目錄價之上再應用。0 = 冇折扣。</value></data>
   <data name="Ops.Field.Visibility" xml:space="preserve"><value>可見度</value></data>
   <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>邊個睇到呢個店面：公開（上線）或私人（草稿）。</value></data>
   <data name="Ops.CreateStorefront" xml:space="preserve"><value>建立店面</value></data>
@@ -747,6 +749,7 @@
   <data name="Ops.Col.Url" xml:space="preserve"><value>網址</value></data>
   <data name="Ops.Col.Currency" xml:space="preserve"><value>貨幣</value></data>
   <data name="Ops.Col.Tax" xml:space="preserve"><value>稅</value></data>
+  <data name="Ops.Col.Discount" xml:space="preserve"><value>折扣</value></data>
   <data name="Ops.Col.State" xml:space="preserve"><value>狀態</value></data>
   <data name="Ops.Col.Visibility" xml:space="preserve"><value>可見度</value></data>
   <data name="Ops.Col.Domains" xml:space="preserve"><value>網域</value></data>

@@ -26,7 +26,11 @@ public sealed record PricingInput(
     IReadOnlyList<PricingLineInput> Lines,
     long ShippingMinor,
     string? CouponCode = null,
-    string? ShipCountry = null);
+    string? ShipCountry = null,
+    // Storefront-wide discount in basis points (0–10000; 0 = none). Deducted from the items' subtotal only
+    // (never shipping, never tax), applied AFTER the per-line offer/catalog price is already reflected in
+    // each line's SellingPriceMinor. Stacks additively with any promotion; the total is capped at subtotal.
+    int StorefrontDiscountBps = 0);
 
 public sealed record PricingLineInput(
     Guid ProductId,
@@ -159,7 +163,15 @@ public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
             .ThenBy(p => p.PromotionId)
             .FirstOrDefault();
 
-        var discountMinor = Math.Min(best?.DiscountMinor ?? 0, subtotal);
+        // Storefront-wide discount (rev_disc): a per-storefront percentage on the items' subtotal only,
+        // applied AFTER the effective offer/catalog per-line price is already reflected in SellingPriceMinor.
+        // It stacks additively with any promotion discount, and the combined total is capped at the subtotal
+        // so the goods can never be discounted below zero (shipping and tax stay outside the base).
+        var promotionDiscount = best?.DiscountMinor ?? 0;
+        var storefrontDiscount = input.StorefrontDiscountBps > 0
+            ? (long)Math.Round(subtotal * input.StorefrontDiscountBps / 10000m, MidpointRounding.AwayFromZero)
+            : 0;
+        var discountMinor = Math.Min(promotionDiscount + storefrontDiscount, subtotal);
         var shippingMinor = best?.FreeShippingApplied == true ? 0 : input.ShippingMinor;
         var taxMinor = _taxStrategy.TaxFor(new TaxCalculationInput(input.Currency, input.ShipCountry, input.Lines, discountMinor));
         var gross = subtotal - discountMinor + shippingMinor + taxMinor;
@@ -182,6 +194,11 @@ public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
         if (input.ShippingMinor < 0)
         {
             throw new PricingRuleException("Shipping cannot be negative.");
+        }
+
+        if (input.StorefrontDiscountBps is < 0 or > 10000)
+        {
+            throw new PricingRuleException("Storefront discount basis points must be between 0 and 10000.");
         }
 
         if (input.Lines.Count == 0)
