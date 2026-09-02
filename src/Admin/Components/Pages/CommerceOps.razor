@@ -52,6 +52,7 @@
             </select>
         </label>
         <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_newTaxRateBasisPoints" style="width:6rem; padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
+        <label>@L["Ops.Field.Discount"]<br /><input type="number" min="0" max="100" step="0.01" @bind="_newDiscountPercent" style="width:6rem; padding:.4rem;" title="@L["Ops.Field.Discount.Tip"]" /></label>
         <label>@L["Ops.Field.Visibility"]<br />
             <select @bind="_newVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]">
                 <option value="1">@L["Ops.Visibility.Private"]</option>
@@ -74,7 +75,7 @@
     else
     {
         <table style="border-collapse:collapse;width:100%;">
-            <thead><tr><th style="text-align:left;">@L["Ops.Field.Name"]</th><th>@L["Ops.Col.Url"]</th><th>@L["Ops.Col.Currency"]</th><th>@L["Ops.Col.Receivable"]</th><th>@L["Ops.Col.Tax"]</th><th>@L["Ops.Col.State"]</th><th>@L["Ops.Col.Visibility"]</th><th>@L["Ops.Col.Domains"]</th><th></th></tr></thead>
+            <thead><tr><th style="text-align:left;">@L["Ops.Field.Name"]</th><th>@L["Ops.Col.Url"]</th><th>@L["Ops.Col.Currency"]</th><th>@L["Ops.Col.Receivable"]</th><th>@L["Ops.Col.Tax"]</th><th>@L["Ops.Col.Discount"]</th><th>@L["Ops.Col.State"]</th><th>@L["Ops.Col.Visibility"]</th><th>@L["Ops.Col.Domains"]</th><th></th></tr></thead>
             <tbody>
             @foreach (var s in _storefronts)
             {
@@ -84,6 +85,7 @@
                     <td style="text-align:center;">@s.Currency</td>
                     <td style="text-align:center;"><code style="font-size:.76rem;" title="@L["Ops.Col.Receivable.Tip"]">@s.ReceivableAccountCode</code></td>
                     <td style="text-align:center;">@TaxLabel(s)</td>
+                    <td style="text-align:center;">@DiscountLabel(s)</td>
                     <td style="text-align:center;">@StateName(s.State)</td>
                     <td style="text-align:center;">@s.Visibility</td>
                     <td>@string.Join(", ", s.Domains.Select(d => d.Canonical ? $"{d.Host} (canonical)" : d.Host))</td>
@@ -146,6 +148,7 @@
                 </select>
             </label>
             <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
+            <label>@L["Ops.Field.Discount"]<br /><input type="number" min="0" max="100" step="0.01" @bind="_editDiscountPercent" style="padding:.4rem;" title="@L["Ops.Field.Discount.Tip"]" /></label>
             <label>@L["Ops.Field.Visibility"]<br /><select @bind="_editVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]"><option value="1">@L["Ops.Visibility.Private"]</option><option value="2">@L["Ops.Visibility.Password"]</option><option value="3">@L["Ops.Visibility.InviteOnly"]</option><option value="4">@L["Ops.Visibility.Public"]</option></select></label>
             <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
         </div>
@@ -349,6 +352,8 @@
     private string _newReceivableAccount = string.Empty; // blank → auto-derived from the storefront id
     private int _newTaxRegime = 1;
     private int _newTaxRateBasisPoints = 1000;
+    // Storefront-wide discount entered as a PERCENT (e.g. 10 = 10%); converted to basis points on save.
+    private decimal _newDiscountPercent;
     private List<StorefrontDto>? _storefronts;
     private StorefrontDto? _selectedStorefront;
     private string? _status;
@@ -378,6 +383,8 @@
     private string _editCurrency = "EUR";
     private int _editTaxRegime;
     private int _editTaxRateBasisPoints;
+    // Storefront-wide discount entered as a PERCENT on the Manage form; converted to basis points on save.
+    private decimal _editDiscountPercent;
     private int _editVisibility = 1;
     private string[] _editShipTo = [];
 
@@ -411,7 +418,7 @@
     private async Task CreateStorefront()
     {
         _error = null;
-        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints, receivableAccountCode = string.IsNullOrWhiteSpace(_newReceivableAccount) ? null : _newReceivableAccount });
+        var response = await Gateway.PostAsync("/api/catalog/admin/storefronts", new { tenantId = Guid.Parse(_tenantId), name = _newStorefrontName, visibility = _newVisibility, publicUrl = _newPublicUrl, currency = _newCurrency, taxRegime = _newTaxRegime, taxRateBasisPoints = _newTaxRateBasisPoints, discountBasisPoints = PercentToBps(_newDiscountPercent), receivableAccountCode = string.IsNullOrWhiteSpace(_newReceivableAccount) ? null : _newReceivableAccount });
         // LoadStorefronts clears _error, so refresh FIRST then report the outcome (D3: errors were being wiped).
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.StorefrontCreated"]))
@@ -430,6 +437,7 @@
         _editCurrency = storefront.Currency;
         _editTaxRegime = storefront.TaxRegime;
         _editTaxRateBasisPoints = storefront.TaxRateBasisPoints;
+        _editDiscountPercent = storefront.DiscountBasisPoints / 100m;
         _editVisibility = storefront.Visibility;
         _editShipTo = storefront.ShipToCountries?.ToArray() ?? [];
         _themeColorPrimary = ThemeValue(storefront, "colorPrimary");
@@ -528,7 +536,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, discountBasisPoints = PercentToBps(_editDiscountPercent), theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -637,12 +645,19 @@
         _newReceivableAccount = string.Empty;
         _newTaxRegime = 1;
         _newTaxRateBasisPoints = 1000;
+        _newDiscountPercent = 0;
         _newVisibility = 1;
     }
 
     private string TaxLabel(StorefrontDto s) => s.TaxRegime == 0 ? L["Ops.TaxRegime.None"] : $"{s.TaxRegime} · {s.TaxRateBasisPoints / 100m:0.##}%";
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null);
+    // Storefront-wide discount shown as a percent (basis points / 100), or "—" when none.
+    private static string DiscountLabel(StorefrontDto s) => s.DiscountBasisPoints == 0 ? "—" : $"{s.DiscountBasisPoints / 100m:0.##}%";
+
+    // A percent entered in the UI (e.g. 8.25) → basis points (825), clamped to the domain's 0–100% range.
+    private static int PercentToBps(decimal percent) => (int)Math.Round(Math.Clamp(percent, 0m, 100m) * 100m, MidpointRounding.AwayFromZero);
+
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null, int DiscountBasisPoints = 0);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

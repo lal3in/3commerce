@@ -104,7 +104,8 @@ public static class StorefrontEndpoints
                 // Theme rides on the (anon, uncached) public config so the storefront app can render per-store
                 // CSS vars server-side. Null when unthemed → the app falls back to the default look.
                 storefront.ThemeJson.Length > 0 ? ParseTheme(storefront.ThemeJson) : null,
-                storefront.ShipToCountries));
+                storefront.ShipToCountries,
+                storefront.DiscountBasisPoints));
     }
 
     // Turn a create/update request's theme dict into a JSON string for Storefront.SetTheme. Null (theme
@@ -190,6 +191,7 @@ public static class StorefrontEndpoints
             var storefront = Storefront.Create(request.TenantId, request.Name, time.GetUtcNow());
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, time.GetUtcNow());
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency ?? "EUR", request.TaxRegime, request.TaxRateBasisPoints, time.GetUtcNow());
+            storefront.SetDiscount(request.DiscountBasisPoints, time.GetUtcNow());
             storefront.SetDefaultLanguage(request.DefaultLanguage, time.GetUtcNow());
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, time.GetUtcNow(), request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), time.GetUtcNow());
@@ -327,6 +329,7 @@ public static class StorefrontEndpoints
             storefront.Rename(request.Name, now);
             storefront.SetVisibility(request.Visibility, request.AccessPasswordHash, now);
             storefront.ConfigureCommerce(request.PublicUrl ?? string.Empty, request.Currency, request.TaxRegime, request.TaxRateBasisPoints, now);
+            storefront.SetDiscount(request.DiscountBasisPoints, now); // null = leave as-is (older client can't wipe it)
             storefront.SetDefaultLanguage(request.DefaultLanguage, now); // null = leave as-is (language is not commerce)
             storefront.SetLedgerAccounts(request.ReceivableAccountCode, request.RevenueAccountCode, request.TaxAccountCode, now, request.ShippingAccountCode);
             storefront.SetTheme(ThemeJsonFrom(request.Theme), now); // null = leave the current theme as-is
@@ -471,7 +474,8 @@ public static class StorefrontEndpoints
             RevenueAccountCode: s.RevenueAccountCode,
             TaxAccountCode: s.TaxAccountCode,
             ShippingAccountCode: s.ShippingAccountCode,
-            ShipToCountries: s.ShipToCountries.ToArray()), ct);
+            ShipToCountries: s.ShipToCountries.ToArray(),
+            DiscountBps: s.DiscountBasisPoints), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
@@ -685,6 +689,7 @@ public static class StorefrontEndpoints
         storefront.Currency,
         storefront.TaxRegime,
         storefront.TaxRateBasisPoints,
+        storefront.DiscountBasisPoints,
         storefront.DefaultLanguage,
         storefront.ReceivableAccountCode,
         storefront.RevenueAccountCode,
@@ -708,6 +713,8 @@ public sealed record CreateStorefrontRequest(
     string? Currency = "EUR",
     StorefrontTaxRegime TaxRegime = StorefrontTaxRegime.None,
     int TaxRateBasisPoints = 0,
+    // Storefront-wide discount in basis points (0–10000; 0 = none). Omit → no discount.
+    [property: Range(0, 10000)] int? DiscountBasisPoints = null,
     // BCP-47 default UI language (i18n_0); omit → "en". Independent of Currency/TaxRegime.
     [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
     // Per-storefront ledger accounts (phase 2); omit → auto-derived from the storefront id.
@@ -730,6 +737,9 @@ public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(3, MinimumLength = 3)] string Currency,
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
+    // Storefront-wide discount in basis points (0–10000; 0 = none). Optional: null → the storefront keeps
+    // its current discount (an older admin client that doesn't send the field can't wipe it).
+    [property: Range(0, 10000)] int? DiscountBasisPoints = null,
     // Optional: omitted → the storefront keeps its current language (a currency/tax edit never resets it).
     [property: StringLength(16, MinimumLength = 2)] string? DefaultLanguage = null,
     // Per-storefront ledger accounts (phase 2); omit any → re-derived from the storefront id.
@@ -761,6 +771,7 @@ public sealed record StorefrontResponse(
     string Currency,
     StorefrontTaxRegime TaxRegime,
     int TaxRateBasisPoints,
+    int DiscountBasisPoints,
     string DefaultLanguage,
     string ReceivableAccountCode,
     string RevenueAccountCode,
@@ -792,7 +803,10 @@ public sealed record PublicStorefrontResponse(
     IReadOnlyDictionary<string, string>? Theme,
     // Ship-to allowlist (ISO 3166-1 alpha-2); empty = worldwide. The storefront app filters its checkout
     // country picker to these and the checkout API rejects a ship-to country outside the list.
-    IReadOnlyList<string> ShipToCountries);
+    IReadOnlyList<string> ShipToCountries,
+    // Storefront-wide discount in basis points (0–10000; 0 = none). The storefront app shows it as its own
+    // line in the cart/checkout summary (shown == charged); checkout deducts it from the items' subtotal.
+    int DiscountBasisPoints);
 
 // The languages a storefront's UI can be set to (i18n_0). Label is an endonym ("中文"), not a translation.
 public sealed record SupportedLanguageResponse(string Code, string Label);

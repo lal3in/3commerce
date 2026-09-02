@@ -729,6 +729,8 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Règle fiscale régionale. AU GST / EU VAT sont HORS taxe incluse : les prix de vente contiennent déjà la taxe (les acheteurs paient le prix affiché ; la taxe est indiquée à titre informatif). La taxe de vente US est AJOUTÉE au paiement, en plus des prix affichés (ADR-0038).</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Taxe en points de base</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Taux de taxe en points de base, par ex. 1000 = 10 %. Pour AU GST / EU VAT, c'est le taux CONTENU dans les prix de vente ; pour US, il est AJOUTÉ au paiement (ADR-0038).</value></data>
+  <data name="Ops.Field.Discount" xml:space="preserve"><value>Remise %</value></data>
+  <data name="Ops.Field.Discount.Tip" xml:space="preserve"><value>Remise applicable à toute la boutique en pourcentage (p. ex. 10 = 10 %). Déduite uniquement du sous-total des articles au paiement — jamais des frais de port ni des taxes — et appliquée en plus de toute offre ou de tout prix catalogue en vigueur. 0 = aucune remise.</value></data>
   <data name="Ops.Field.Visibility" xml:space="preserve"><value>Visibilité</value></data>
   <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Qui peut voir la vitrine : Publique (en ligne) ou Privée (brouillon).</value></data>
   <data name="Ops.CreateStorefront" xml:space="preserve"><value>Créer la vitrine</value></data>
@@ -747,6 +749,7 @@
   <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
   <data name="Ops.Col.Currency" xml:space="preserve"><value>Devise</value></data>
   <data name="Ops.Col.Tax" xml:space="preserve"><value>Taxe</value></data>
+  <data name="Ops.Col.Discount" xml:space="preserve"><value>Remise</value></data>
   <data name="Ops.Col.State" xml:space="preserve"><value>État</value></data>
   <data name="Ops.Col.Visibility" xml:space="preserve"><value>Visibilité</value></data>
   <data name="Ops.Col.Domains" xml:space="preserve"><value>Domaines</value></data>

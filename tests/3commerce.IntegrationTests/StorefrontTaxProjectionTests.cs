@@ -31,6 +31,25 @@ public class StorefrontTaxProjectionTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task StorefrontConfigChanged_projects_the_storefront_discount()
+    {
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+        // The storefront-wide discount (bps) must project onto the read copy so checkout can charge it.
+        await PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Discount Store", "NZD", 0, IsLive: true, DiscountBps: 1_500));
+        var withDiscount = await WaitForCopyAsync(storefrontId, c => c.DiscountBasisPoints == 1_500);
+        Assert.Equal(1_500, withDiscount.DiscountBasisPoints);
+
+        // Lowering it to 0 (discount removed) also projects — the copy is not left stale with the old rate.
+        await PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Discount Store", "NZD", 0, IsLive: true, DiscountBps: 0));
+        var cleared = await WaitForCopyAsync(storefrontId, c => c.DiscountBasisPoints == 0);
+        Assert.Equal(0, cleared.DiscountBasisPoints);
+    }
+
+    [Fact]
     public async Task StorefrontConfigChanged_projects_the_ship_to_allowlist()
     {
         var storefrontId = Guid.CreateVersion7();

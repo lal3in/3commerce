@@ -22,6 +22,7 @@ public sealed class StorefrontConfigConsumer(OrderingDbContext db) : IConsumer<S
                 IsLive = m.IsLive,
                 TaxInclusive = m.TaxInclusive,
                 ShipToCountries = m.ShipToCountries?.ToList() ?? [],
+                DiscountBasisPoints = m.DiscountBps,
             };
             db.StorefrontTaxCopies.Add(copy);
         }
@@ -33,6 +34,7 @@ public sealed class StorefrontConfigConsumer(OrderingDbContext db) : IConsumer<S
             copy.IsLive = m.IsLive;
             copy.TaxInclusive = m.TaxInclusive;
             copy.ShipToCountries = m.ShipToCountries?.ToList() ?? [];
+            copy.DiscountBasisPoints = m.DiscountBps;
         }
 
         await db.SaveChangesAsync(context.CancellationToken);

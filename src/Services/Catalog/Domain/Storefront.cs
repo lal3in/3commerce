@@ -25,6 +25,14 @@ public sealed class Storefront
     public int TaxRateBasisPoints { get; private set; }
 
     /// <summary>
+    /// Storefront-wide percentage discount in basis points (0–10000; 0 = none). Deducted from the ITEMS'
+    /// subtotal only at checkout — never shipping, never tax — and applied AFTER the per-line price is
+    /// resolved (offer-as-price or catalog price), i.e. on top of whatever the shopper was charged per line.
+    /// Projected to Ordering via <c>StorefrontConfigChanged</c> so checkout charges the discounted total.
+    /// </summary>
+    public int DiscountBasisPoints { get; private set; }
+
+    /// <summary>
     /// The ledger accounts this storefront's sales post to (per-storefront books, phase 2). Each store
     /// keeps its own receivable / revenue / tax accounts in its own currency, so balances and P&amp;L are
     /// per-storefront. Auto-derived from the storefront id when left blank and editable at create/update
@@ -139,6 +147,28 @@ public sealed class Storefront
         }
 
         return normalized;
+    }
+
+    /// <summary>
+    /// Sets the storefront-wide discount (basis points, 0–10000; 0 = none). A null value leaves the current
+    /// discount untouched — an older admin client that doesn't send the field can't silently wipe it (mirrors
+    /// <see cref="SetShipToCountries"/>). Deducted from the items' subtotal only at checkout, applied after
+    /// offer/catalog price resolution.
+    /// </summary>
+    public void SetDiscount(int? discountBasisPoints, DateTimeOffset now)
+    {
+        if (discountBasisPoints is null)
+        {
+            return;
+        }
+
+        if (discountBasisPoints is < 0 or > 10000)
+        {
+            throw new CatalogRuleException("Discount basis points must be between 0 and 10000.");
+        }
+
+        DiscountBasisPoints = discountBasisPoints.Value;
+        UpdatedAt = now;
     }
 
     /// <summary>
@@ -355,6 +385,7 @@ public sealed class Storefront
     {
         var clone = Create(source.TenantId, name, now);
         clone.ConfigureCommerce(string.Empty, source.Currency, source.TaxRegime, source.TaxRateBasisPoints, now);
+        clone.SetDiscount(source.DiscountBasisPoints, now);
         clone.SetDefaultLanguage(source.DefaultLanguage, now);
         clone.SetTheme(source.ThemeJson, now);
         clone.SetCostAssumptions(source.CostAssumptionsJson, now);

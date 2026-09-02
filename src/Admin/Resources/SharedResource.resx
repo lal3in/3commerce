@@ -812,6 +812,8 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Region tax rule. AU GST / EU VAT are tax-INCLUSIVE: shelf prices already contain the tax (shoppers pay the listed price; tax shown informationally). US sales tax is ADDED at checkout on top of listed prices (ADR-0038).</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Tax bps</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Tax rate in basis points, e.g. 1000 = 10%. For AU GST / EU VAT this is the rate CONTAINED in shelf prices; for US it is ADDED at checkout (ADR-0038).</value></data>
+  <data name="Ops.Field.Discount" xml:space="preserve"><value>Discount %</value></data>
+  <data name="Ops.Field.Discount.Tip" xml:space="preserve"><value>Storefront-wide discount as a percentage (e.g. 10 = 10%). Deducted from the items' subtotal only at checkout — never shipping, never tax — and applied on top of any effective offer or catalog price. 0 = no discount.</value></data>
   <data name="Ops.Field.ShipTo" xml:space="preserve"><value>Ships to</value></data>
   <data name="Ops.Field.ShipTo.Tip" xml:space="preserve"><value>Ctrl/Cmd-click to pick the countries this storefront ships to. Leave everything unselected to ship worldwide. Checkout rejects a destination outside this list and the storefront's country picker is limited to it.</value></data>
   <data name="Ops.ShipTo.Hint" xml:space="preserve"><value>none selected = ships worldwide</value></data>
@@ -834,6 +836,7 @@
   <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
   <data name="Ops.Col.Currency" xml:space="preserve"><value>Currency</value></data>
   <data name="Ops.Col.Tax" xml:space="preserve"><value>Tax</value></data>
+  <data name="Ops.Col.Discount" xml:space="preserve"><value>Discount</value></data>
   <data name="Ops.Col.State" xml:space="preserve"><value>State</value></data>
   <data name="Ops.Col.Visibility" xml:space="preserve"><value>Visibility</value></data>
   <data name="Ops.Col.Domains" xml:space="preserve"><value>Domains</value></data>

@@ -194,6 +194,93 @@ public class PricingTests
     }
 
     [Fact]
+    public void Storefront_discount_deducts_from_items_only_not_shipping()
+    {
+        // 10% storefront discount on a 1000 items subtotal → 100 off the goods; shipping (499) is NOT
+        // discounted and no tax applies. Gross = 1000 − 100 + 499 = 1399, and the money identity holds.
+        var result = _engine.Price(NewInput(lines: [Line(price: 1000)], storefrontDiscountBps: 1000), []);
+
+        Assert.Equal(1000, result.SubtotalMinor);
+        Assert.Equal(100, result.DiscountMinor);
+        Assert.Equal(499, result.ShippingMinor);
+        Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(1399, result.GrossMinor);
+        // Net + Ship + Tax = Gross (Net = Subtotal − Discount).
+        Assert.Equal(result.GrossMinor, result.SubtotalMinor - result.DiscountMinor + result.ShippingMinor + result.TaxMinor);
+    }
+
+    [Fact]
+    public void Storefront_discount_applies_on_top_of_the_already_resolved_offer_price()
+    {
+        // The line's SellingPriceMinor already reflects the effective offer price (600, resolved upstream) —
+        // NOT the catalog price. The 10% storefront discount then rides on top of THAT: 60 off 600, so the
+        // discount is computed on the offer price the shopper was charged, exactly as checkout does.
+        var result = _engine.Price(NewInput(lines: [Line(price: 600)], storefrontDiscountBps: 1000), []);
+
+        Assert.Equal(600, result.SubtotalMinor);
+        Assert.Equal(60, result.DiscountMinor);
+        Assert.Equal(1039, result.GrossMinor); // 600 − 60 + 499 shipping
+    }
+
+    [Fact]
+    public void Storefront_discount_stacks_additively_with_a_promotion()
+    {
+        // A 100 fixed automatic-storefront promotion PLUS a 10% storefront discount on a 1000 subtotal:
+        // the two stack additively → 100 + 100 = 200 total off the goods. Gross = 1000 − 200 + 499 = 1299.
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var promotion = new Promotion(Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.AutomaticStorefront, AmountMinor: 100);
+
+        var result = _engine.Price(NewInput(tenantId, storefrontId, lines: [Line(price: 1000)], storefrontDiscountBps: 1000), [promotion]);
+
+        Assert.Equal(200, result.DiscountMinor);
+        Assert.Equal(1299, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Combined_discount_is_capped_at_the_subtotal()
+    {
+        // A 900 fixed coupon PLUS a 50% storefront discount on a 1000 subtotal would total 1400, but the
+        // combined discount can never exceed the goods value → capped at 1000. Gross = 0 goods + 499 shipping.
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var coupon = new Promotion(Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.CouponFixed, AmountMinor: 900, CouponCode: "BIG");
+
+        var result = _engine.Price(NewInput(tenantId, storefrontId, couponCode: "BIG", lines: [Line(price: 1000)], storefrontDiscountBps: 5000), [coupon]);
+
+        Assert.Equal(1000, result.DiscountMinor);
+        Assert.Equal(499, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Storefront_discount_taxes_the_discounted_base_for_a_tax_added_regime()
+    {
+        // Tax-added (US-style exclusive) storefront at 10%: the 10% storefront discount shrinks the taxable
+        // base to 900, so tax = 90 (not 100), added on top. Gross = 1000 − 100 discount + 499 ship + 90 tax.
+        var engine = new PricingEngine(new HomeRegimeTaxStrategy("AU", rateBasisPoints: 1000));
+
+        var result = engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "AU", storefrontDiscountBps: 1000), []);
+
+        Assert.Equal(90, result.TaxMinor);
+        Assert.Equal(1489, result.GrossMinor);
+    }
+
+    [Fact]
+    public void Storefront_discount_taxes_the_discounted_base_for_a_tax_inclusive_regime()
+    {
+        // Tax-inclusive (AU GST / EU VAT) storefront at 10%: the shelf price already contains the tax. The
+        // 10% storefront discount reduces the taxable base to 900, so the CONTAINED tax reported drops to
+        // round(900 × 1000 / 11000) = 82 (it is 91 without the discount) — the discount lowers the tax too.
+        var engine = new PricingEngine(new HomeRegimeTaxStrategy("AU", rateBasisPoints: 1000, pricesIncludeTax: true));
+
+        var discounted = engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "AU", storefrontDiscountBps: 1000), []);
+        var undiscounted = engine.Price(NewInput(lines: [Line(price: 1000)], shipCountry: "AU"), []);
+
+        Assert.Equal(82, discounted.TaxMinor);
+        Assert.Equal(91, undiscounted.TaxMinor);
+    }
+
+    [Fact]
     public void Pricing_rejects_negative_money()
     {
         var ex = Assert.Throws<PricingRuleException>(() => _engine.Price(NewInput(lines: [Line(price: -1)]), []));
@@ -201,14 +288,15 @@ public class PricingTests
         Assert.Contains("non-negative money", ex.Message, StringComparison.Ordinal);
     }
 
-    private static PricingInput NewInput(Guid? tenantId = null, Guid? storefrontId = null, string? couponCode = null, IReadOnlyList<PricingLineInput>? lines = null, string? shipCountry = null) => new(
+    private static PricingInput NewInput(Guid? tenantId = null, Guid? storefrontId = null, string? couponCode = null, IReadOnlyList<PricingLineInput>? lines = null, string? shipCountry = null, int storefrontDiscountBps = 0) => new(
         tenantId ?? Guid.CreateVersion7(),
         storefrontId ?? Guid.CreateVersion7(),
         "AUD",
         lines ?? [Line(price: 1000)],
         499,
         couponCode,
-        shipCountry);
+        shipCountry,
+        storefrontDiscountBps);
 
     private static PricingLineInput Line(Guid? productId = null, long price = 1000, int quantity = 1, Guid? categoryId = null, TaxMode taxMode = TaxMode.Exclusive) => new(
         productId ?? Guid.CreateVersion7(),

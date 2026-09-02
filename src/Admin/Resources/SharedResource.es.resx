@@ -729,6 +729,8 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Regla fiscal de la región. El GST de AU / IVA de la UE son con impuestos INCLUIDOS: los precios de venta ya contienen el impuesto (los compradores pagan el precio indicado; el impuesto se muestra a título informativo). El impuesto sobre ventas de EE. UU. se AÑADE en el pago sobre los precios indicados (ADR-0038).</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Impuesto en pb</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Tipo impositivo en puntos básicos, p. ej. 1000 = 10 %. Para el GST de AU / IVA de la UE es el tipo CONTENIDO en los precios de venta; para EE. UU. es el que se AÑADE en el pago (ADR-0038).</value></data>
+  <data name="Ops.Field.Discount" xml:space="preserve"><value>Descuento %</value></data>
+  <data name="Ops.Field.Discount.Tip" xml:space="preserve"><value>Descuento para toda la tienda en porcentaje (p. ej. 10 = 10 %). Se deduce solo del subtotal de los artículos al finalizar la compra — nunca del envío ni de los impuestos — y se aplica sobre cualquier oferta o precio de catálogo vigente. 0 = sin descuento.</value></data>
   <data name="Ops.Field.Visibility" xml:space="preserve"><value>Visibilidad</value></data>
   <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Quién puede ver la tienda: Pública (en vivo) o Privada (borrador).</value></data>
   <data name="Ops.CreateStorefront" xml:space="preserve"><value>Crear tienda</value></data>
@@ -747,6 +749,7 @@
   <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
   <data name="Ops.Col.Currency" xml:space="preserve"><value>Moneda</value></data>
   <data name="Ops.Col.Tax" xml:space="preserve"><value>Impuesto</value></data>
+  <data name="Ops.Col.Discount" xml:space="preserve"><value>Descuento</value></data>
   <data name="Ops.Col.State" xml:space="preserve"><value>Estado</value></data>
   <data name="Ops.Col.Visibility" xml:space="preserve"><value>Visibilidad</value></data>
   <data name="Ops.Col.Domains" xml:space="preserve"><value>Dominios</value></data>

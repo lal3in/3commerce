@@ -729,6 +729,8 @@
   <data name="Ops.Field.TaxRegime.Tip" xml:space="preserve"><value>Regionale Steuerregel. AU GST / EU VAT sind steuer-INKLUSIVE: Verkaufspreise enthalten die Steuer bereits (Käufer zahlen den angegebenen Preis; die Steuer wird informativ angezeigt). Die US-Verkaufssteuer wird beim Checkout auf die angegebenen Preise HINZUGEFÜGT (ADR-0038).</value></data>
   <data name="Ops.Field.TaxBps" xml:space="preserve"><value>Steuer (Bps)</value></data>
   <data name="Ops.Field.TaxBps.Tip" xml:space="preserve"><value>Steuersatz in Basispunkten, z. B. 1000 = 10 %. Bei AU GST / EU VAT ist dies der in den Verkaufspreisen ENTHALTENE Satz; bei US wird er beim Checkout HINZUGEFÜGT (ADR-0038).</value></data>
+  <data name="Ops.Field.Discount" xml:space="preserve"><value>Rabatt %</value></data>
+  <data name="Ops.Field.Discount.Tip" xml:space="preserve"><value>Storefront-weiter Rabatt als Prozentsatz (z. B. 10 = 10 %). Wird beim Checkout nur vom Zwischensumme der Artikel abgezogen — nie Versand, nie Steuer — und zusätzlich zu einem geltenden Angebots- oder Katalogpreis angewendet. 0 = kein Rabatt.</value></data>
   <data name="Ops.Field.Visibility" xml:space="preserve"><value>Sichtbarkeit</value></data>
   <data name="Ops.Field.Visibility.Tip" xml:space="preserve"><value>Wer die Storefront sehen kann: Öffentlich (live) oder Privat (Entwurf).</value></data>
   <data name="Ops.CreateStorefront" xml:space="preserve"><value>Storefront erstellen</value></data>
@@ -747,6 +749,7 @@
   <data name="Ops.Col.Url" xml:space="preserve"><value>URL</value></data>
   <data name="Ops.Col.Currency" xml:space="preserve"><value>Währung</value></data>
   <data name="Ops.Col.Tax" xml:space="preserve"><value>Steuer</value></data>
+  <data name="Ops.Col.Discount" xml:space="preserve"><value>Rabatt</value></data>
   <data name="Ops.Col.State" xml:space="preserve"><value>Zustand</value></data>
   <data name="Ops.Col.Visibility" xml:space="preserve"><value>Sichtbarkeit</value></data>
   <data name="Ops.Col.Domains" xml:space="preserve"><value>Domains</value></data>
