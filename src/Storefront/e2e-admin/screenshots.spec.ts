@@ -49,6 +49,7 @@ test("admin screenshots", async ({ page }) => {
     ["/payment-accounts", "payment-accounts"],
     ["/supplier-payouts", "supplier-payouts"],
     ["/offers", "offers"],
+    ["/promotions", "promotions"],
     ["/mission-control", "mission-control"],
   ] as const) {
     await page.goto(href);
