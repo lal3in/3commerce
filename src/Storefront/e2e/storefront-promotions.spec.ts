@@ -139,18 +139,21 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Walks the store's grid for a buyable product. The window is deliberately wider than the sibling
+// discount spec's five items: earlier specs in a full-suite run consume stock, so the first few tiles
+// are often sold out by the time this spec runs.
 async function addFirstInStockProduct(page: Page): Promise<void> {
   const links = page.locator('a[href^="/products/"]');
-  const count = Math.min(await links.count(), 5);
+  const count = Math.min(await links.count(), 20);
   for (let i = 0; i < count; i++) {
     await links.nth(i).click();
     const add = page.getByRole("button", { name: /add to cart/i });
-    if (await add.isEnabled()) {
+    if (await add.isEnabled().catch(() => false)) {
       await add.click();
       await page.waitForURL(/\/cart/);
       return;
     }
     await page.goBack();
   }
-  throw new Error("No in-stock product found in the first five grid items.");
+  throw new Error(`No in-stock product found in the first ${count} grid items (stock depleted?).`);
 }
