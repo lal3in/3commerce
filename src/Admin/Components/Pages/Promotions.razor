@@ -1,0 +1,349 @@
+@page "/promotions"
+@attribute [Authorize(Roles = "admin")]
+@inject GatewayClient Gateway
+@rendermode AdminRenderModes.InteractiveServerNoPrerender
+
+<h1>@L["Promotions.Title"]</h1>
+<p style="color:#6b7280;">@L["Promotions.Intro"]</p>
+
+<div style="display:flex; gap:.6rem; align-items:end; margin:1rem 0; flex-wrap:wrap;">
+    <label>@L["Common.TenantId"]
+        <input @bind="_tenantId" title="@L["Promotions.TenantId.Tip"]" style="width:23rem; display:block;" />
+    </label>
+    <label>@L["Promotions.Filter.Storefront"]
+        <select @bind="_storefrontFilter" title="@L["Promotions.Filter.Storefront.Tip"]" style="width:16rem; display:block;">
+            <option value="">@L["Promotions.Storefront.Any"]</option>
+            @if (_storefronts is not null)
+            {
+                @foreach (var s in _storefronts)
+                {
+                    <option value="@s.Id">@s.Name (@s.Currency)</option>
+                }
+            }
+        </select>
+    </label>
+    <button @onclick="LoadAsync" title="@L["Common.Load.Tip"]" style="padding:.45rem .8rem;">@L["Common.Load"]</button>
+    <button @onclick="NewPromotion" title="@L["Promotions.New.Tip"]" style="padding:.45rem .8rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Promotions.NewButton"]</button>
+</div>
+
+@if (_error is not null) { <p style="color:#b91c1c; white-space:pre-wrap;">@_error</p> }
+@if (_status is not null) { <p style="color:#047857;">@_status</p> }
+
+@if (_promotions is not null)
+{
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Promotions.Col.Name"]</th><th>@L["Promotions.Col.Scope"]</th><th>@L["Promotions.Col.Product"]</th><th>@L["Promotions.Col.Storefront"]</th><th>@L["Promotions.Col.Threshold"]</th><th>@L["Promotions.Col.Reward"]</th><th>@L["Promotions.Col.Combinable"]</th><th>@L["Promotions.Col.Window"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var promotion in _promotions)
+        {
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.4rem;">@promotion.Name</td>
+                <td>@ScopeLabel(promotion.Scope)</td>
+                <td>@(promotion.ProductId is null ? "—" : string.IsNullOrWhiteSpace(promotion.ProductTitle) ? Short(promotion.ProductId.Value) : promotion.ProductTitle)</td>
+                <td>@StorefrontLabel(promotion.StorefrontId)</td>
+                <td style="white-space:nowrap;">@ThresholdLabel(promotion)</td>
+                <td style="white-space:nowrap;">@RewardLabel(promotion)</td>
+                <td style="text-align:center;">@(promotion.Combinable ? L["Promotions.Combinable.Yes"] : L["Promotions.Combinable.No"])</td>
+                <td style="white-space:nowrap;">@WindowLabel(promotion)</td>
+                <td>@promotion.Status</td>
+                <td style="white-space:nowrap;"><button @onclick="() => Edit(promotion)" title="@L["Promotions.Edit.Tip"]">@L["Common.Edit"]</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (_promotions.Count == 0) { <p style="color:#9ca3af;">@L["Promotions.Empty"]</p> }
+
+    @if (_showForm)
+    {
+    <div style="position:fixed; inset:0; background:rgba(17,24,39,.55); display:flex; align-items:flex-start; justify-content:center; padding:2rem 1rem; z-index:1000; overflow:auto;" @onclick="CloseForm">
+    <section @onclick:stopPropagation="true" style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem 1.25rem; width:100%; max-width:900px; max-height:90vh; overflow:auto; background:#fff; box-shadow:0 10px 40px rgba(0,0,0,.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin-top:0; font-size:1.1rem;">@(_editingId is null ? L["Promotions.New"] : L["Promotions.EditHeading"])</h2>
+            <button @onclick="CloseForm" title="@L["Common.Close.Tip"]" style="border:0; background:none; font-size:1.3rem; line-height:1; cursor:pointer; color:#6b7280;">✕</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+            <label>@L["Promotions.Field.Name"] <input @bind="_form.Name" title="@L["Promotions.Field.Name.Tip"]" style="width:100%;" /></label>
+            <label>@L["Promotions.Field.Currency"] <CurrencySelect @bind-Value="_form.Currency" style="width:100%;" /></label>
+            <label>@L["Promotions.Field.Scope"]
+                <select value="@_form.Scope" @onchange="OnScopeChanged" disabled="@(_editingId is not null)" title="@L["Promotions.Field.Scope.Tip"]" style="width:100%;"><option value="1">@L["Promotions.Scope.Storefront"]</option><option value="2">@L["Promotions.Scope.Product"]</option></select>
+            </label>
+            @if (_editingId is not null)
+            {
+                @* Scope, product and currency are identity — immutable after creation; show them read-only. *@
+                <label>@L["Promotions.Field.Product"] <input value="@(string.IsNullOrWhiteSpace(_form.ProductTitle) ? "—" : _form.ProductTitle)" disabled title="@L["Promotions.Field.Product.Tip"]" style="width:100%;" /></label>
+            }
+            else
+            {
+                <label>@L["Promotions.Field.Product"]
+                    <input @bind="_productSearch" @bind:event="oninput" disabled="@(_form.Scope != 2)" placeholder="@L["Promotions.Field.ProductSearch"]" title="@L["Promotions.Field.ProductSearch.Tip"]" style="width:100%; margin-bottom:.25rem;" />
+                    <select value="@_form.ProductId" @onchange="OnProductChanged" disabled="@(_form.Scope != 2)" title="@L["Promotions.Field.Product.Tip"]" style="width:100%;">
+                        <option value="">@(_products is null ? L["Promotions.Loading"] : _products.Count == 0 ? L["Promotions.Product.Empty"] : L["Promotions.Product.Choose"])</option>
+                        @if (_products is not null)
+                        {
+                            @foreach (var p in FilteredProducts())
+                            {
+                                <option value="@p.Id">@p.Title — @Short(p.Id)</option>
+                            }
+                        }
+                    </select>
+                </label>
+            }
+            @if (_editingId is not null)
+            {
+                <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Active" title="@L["Promotions.Field.Active.Tip"]" /> @L["Common.Active"]</label>
+            }
+        </div>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>@L["Promotions.Threshold.Legend"]</legend>
+            <p style="margin:.1rem 0 .5rem; color:#6b7280; font-size:.85rem;">@L["Promotions.Threshold.Note"]</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+                <label>@L["Promotions.Field.MinimumAmount"] <input type="number" step="0.01" @bind="_form.MinimumAmount" title="@L["Promotions.Field.MinimumAmount.Tip"]" style="width:100%;" /></label>
+                <label>@L["Promotions.Field.MinimumQuantity"] <input type="number" @bind="_form.MinimumQuantity" title="@L["Promotions.Field.MinimumQuantity.Tip"]" style="width:100%;" /></label>
+            </div>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>@L["Promotions.Reward.Legend"]</legend>
+            <p style="margin:.1rem 0 .5rem; color:#6b7280; font-size:.85rem;">@L["Promotions.Reward.Note"]</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+                <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.GrantsFreeShipping" title="@L["Promotions.Field.FreeShipping.Tip"]" /> @L["Promotions.Field.FreeShipping"]</label>
+                <label>@L["Promotions.Field.PercentOff"] <input type="number" @bind="_form.PercentOff" title="@L["Promotions.Field.PercentOff.Tip"]" style="width:100%;" /></label>
+                <label>@L["Promotions.Field.FixedDiscount"] <input type="number" step="0.01" @bind="_form.DiscountAmount" title="@L["Promotions.Field.FixedDiscount.Tip"]" style="width:100%;" /></label>
+                <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Combinable" title="@L["Promotions.Field.Combinable.Tip"]" /> @L["Promotions.Field.Combinable"]</label>
+            </div>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>@L["Promotions.Scope.Legend"]</legend>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+                <label>@L["Promotions.Field.Storefront"]
+                    <select @bind="_form.StorefrontId" title="@L["Promotions.Field.Storefront.Tip"]" style="width:100%;">
+                        <option value="">@L["Promotions.Storefront.All"]</option>
+                        @if (_storefronts is not null)
+                        {
+                            @foreach (var s in _storefronts)
+                            {
+                                <option value="@s.Id">@s.Name (@s.Currency)</option>
+                            }
+                        }
+                    </select>
+                </label>
+                <label>@L["Promotions.Field.ActiveFrom"] <input type="date" @bind="_form.ActiveFrom" title="@L["Promotions.Field.ActiveFrom.Tip"]" style="width:100%;" /></label>
+                <label>@L["Promotions.Field.ActiveUntil"] <input type="date" @bind="_form.ActiveUntil" title="@L["Promotions.Field.ActiveUntil.Tip"]" style="width:100%;" /></label>
+            </div>
+        </fieldset>
+
+        <div style="margin-top:.8rem; display:flex; gap:.5rem;"><button @onclick="Save" title="@L["Promotions.Save.Tip"]" style="padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Promotions.Save"]</button><button @onclick="ResetForm" title="@L["Common.Clear.Tip"]">@L["Common.Clear"]</button><button @onclick="CloseForm" title="@L["Common.Cancel.Tip"]">@L["Common.Cancel"]</button></div>
+    </section>
+    </div>
+    }
+}
+
+@code {
+    private const string Base = "/api/catalog/admin/promotions";
+
+    // Money crosses the wire in MINOR units; the form takes major units for the operator's convenience
+    // and converts on save/load. Two decimal places matches every currency this admin surface offers.
+    private const decimal MinorPerMajor = 100m;
+
+    private string _tenantId = "00000000-0000-0000-0000-000000000001";
+    private string _storefrontFilter = string.Empty;
+    private List<PromotionDto>? _promotions;
+    private List<StorefrontDto>? _storefronts;
+    private List<ProductListItem>? _products;
+    private string _productSearch = string.Empty;
+    private string? _status;
+    private string? _error;
+    private Guid? _editingId;
+    private bool _showForm;
+    private readonly PromotionForm _form = new();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = _status = null;
+        try
+        {
+            var query = $"tenantId={Uri.EscapeDataString(_tenantId)}";
+            if (Guid.TryParse(_storefrontFilter, out var filter)) { query += $"&storefrontId={filter}"; }
+            _promotions = await Gateway.GetListAsync<PromotionDto>($"{Base}?{query}");
+            // Storefronts feed the scope picker + the table labels; a failure here must not block the list.
+            _storefronts = await SafeStorefronts();
+            // Products feed the product-scope picker; a failure here must not block the list/modal.
+            _products = await SafeProducts();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task Save()
+    {
+        _error = _status = null;
+        if (!Guid.TryParse(_tenantId, out var tenant)) { _error = L["Promotions.Error.TenantGuid"]; return; }
+        if (string.IsNullOrWhiteSpace(_form.Name)) { _error = L["Promotions.Error.Name"]; return; }
+        Guid? productId = Guid.TryParse(_form.ProductId, out var parsedProduct) ? parsedProduct : null;
+        if (_form.Scope == 2 && productId is null) { _error = L["Promotions.Error.Product"]; return; }
+
+        Guid? storefrontId = Guid.TryParse(_form.StorefrontId, out var sf) ? sf : null;
+        DateTimeOffset? activeFrom = _form.ActiveFrom is { } from ? new DateTimeOffset(from, TimeSpan.Zero) : null;
+        // Include the whole ActiveUntil day: an end date of the 5th means "effective through end of the 5th".
+        DateTimeOffset? activeUntil = _form.ActiveUntil is { } until ? new DateTimeOffset(until, TimeSpan.Zero).AddDays(1).AddTicks(-1) : null;
+        var minimumAmountMinor = ToMinor(_form.MinimumAmount);
+        var discountAmountMinor = ToMinor(_form.DiscountAmount);
+
+        object body = _editingId is null
+            ? new { tenantId = tenant, name = _form.Name.Trim(), currency = _form.Currency, scope = _form.Scope, productId, storefrontId, minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, activeFrom, activeUntil }
+            : new { name = _form.Name.Trim(), minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, active = _form.Active, applyScope = true, storefrontId, activeFrom, activeUntil };
+        var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
+        if (response.IsSuccessStatusCode) { ResetForm(); _showForm = false; await LoadAsync(); _status = L["Promotions.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
+        else { _error = await response.Content.ReadAsStringAsync(); }
+    }
+
+    private void NewPromotion()
+    {
+        ResetForm();
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        ResetForm();
+        _showForm = false;
+    }
+
+    private void Edit(PromotionDto promotion)
+    {
+        _editingId = promotion.Id;
+        _showForm = true;
+        _form.Name = promotion.Name;
+        _form.Currency = promotion.Currency;
+        _form.Scope = promotion.Scope;
+        _form.ProductId = promotion.ProductId?.ToString() ?? string.Empty;
+        _form.ProductTitle = promotion.ProductTitle;
+        _form.MinimumAmount = ToMajor(promotion.MinimumAmountMinor);
+        _form.MinimumQuantity = promotion.MinimumQuantity;
+        _form.GrantsFreeShipping = promotion.GrantsFreeShipping;
+        _form.PercentOff = promotion.PercentOff;
+        _form.DiscountAmount = ToMajor(promotion.DiscountAmountMinor);
+        _form.Combinable = promotion.Combinable;
+        _form.Active = promotion.Active;
+        _form.StorefrontId = promotion.StorefrontId?.ToString() ?? string.Empty;
+        _form.ActiveFrom = promotion.ActiveFrom?.UtcDateTime.Date;
+        _form.ActiveUntil = promotion.ActiveUntil?.UtcDateTime.Date;
+    }
+
+    private void ResetForm()
+    {
+        _editingId = null;
+        _form.Name = string.Empty; _form.Currency = "EUR"; _form.Scope = 1; _form.ProductId = string.Empty; _form.ProductTitle = string.Empty;
+        _form.MinimumAmount = 0; _form.MinimumQuantity = 0; _form.GrantsFreeShipping = false; _form.PercentOff = 0; _form.DiscountAmount = 0;
+        _form.Combinable = false; _form.Active = true; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null;
+        _productSearch = string.Empty;
+    }
+
+    // Switching back to storefront scope clears any product selection — the API rejects a storefront-scoped
+    // promotion that still carries a product.
+    private void OnScopeChanged(ChangeEventArgs e)
+    {
+        _form.Scope = int.TryParse(e.Value?.ToString(), out var scope) ? scope : 1;
+        if (_form.Scope != 2) { _form.ProductId = string.Empty; _form.ProductTitle = string.Empty; }
+    }
+
+    private void OnProductChanged(ChangeEventArgs e)
+    {
+        _form.ProductId = e.Value?.ToString() ?? string.Empty;
+        _form.ProductTitle = _products?.FirstOrDefault(p => p.Id.ToString() == _form.ProductId)?.Title ?? string.Empty;
+    }
+
+    // Live-data dropdowns; failures degrade to an empty list (the modal still opens) rather than blocking.
+    private async Task<List<ProductListItem>> SafeProducts()
+    {
+        // ~200 products live; ask for the whole page so the picker lists them all (server clamps at 200).
+        try { return await Gateway.GetListAsync<ProductListItem>("/api/catalog/admin/products?pageSize=200"); }
+        catch { return []; }
+    }
+
+    private async Task<List<StorefrontDto>> SafeStorefronts()
+    {
+        try { return await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Uri.EscapeDataString(_tenantId)}"); }
+        catch { return []; }
+    }
+
+    // Filter the product picker by the search box; always keep the currently-selected product listed so a
+    // filter that excludes it doesn't visually clear the selection.
+    private IEnumerable<ProductListItem> FilteredProducts()
+    {
+        if (_products is null) { return []; }
+        if (string.IsNullOrWhiteSpace(_productSearch)) { return _products; }
+        var term = _productSearch.Trim();
+        return _products.Where(p =>
+            p.Id.ToString() == _form.ProductId ||
+            p.Title.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private string ScopeLabel(int scope) => scope == 2 ? L["Promotions.Scope.Product"] : L["Promotions.Scope.Storefront"];
+
+    private string StorefrontLabel(Guid? storefrontId) =>
+        storefrontId is { } sid ? _storefronts?.FirstOrDefault(s => s.Id == sid)?.Name ?? Short(sid) : L["Promotions.Storefront.All"];
+
+    // Both thresholds set are ANDed at evaluation (ADR-0051), so the label joins them with "+".
+    private string ThresholdLabel(PromotionDto promotion)
+    {
+        var parts = new List<string>();
+        if (promotion.MinimumAmountMinor > 0) { parts.Add($"{ToMajor(promotion.MinimumAmountMinor):0.##} {promotion.Currency}"); }
+        if (promotion.MinimumQuantity > 0) { parts.Add(L["Promotions.Threshold.Qty", promotion.MinimumQuantity]); }
+        return parts.Count == 0 ? "—" : string.Join(" + ", parts);
+    }
+
+    private string RewardLabel(PromotionDto promotion)
+    {
+        var parts = new List<string>();
+        if (promotion.GrantsFreeShipping) { parts.Add(L["Promotions.Reward.FreeShipping"]); }
+        if (promotion.PercentOff > 0) { parts.Add($"{promotion.PercentOff}%"); }
+        if (promotion.DiscountAmountMinor > 0) { parts.Add($"{ToMajor(promotion.DiscountAmountMinor):0.##} {promotion.Currency}"); }
+        return parts.Count == 0 ? "—" : string.Join(" + ", parts);
+    }
+
+    private string WindowLabel(PromotionDto promotion)
+    {
+        if (promotion.ActiveFrom is null && promotion.ActiveUntil is null) { return L["Promotions.Window.Always"]; }
+        var from = promotion.ActiveFrom?.UtcDateTime.ToString("yyyy-MM-dd") ?? "…";
+        var until = promotion.ActiveUntil?.UtcDateTime.ToString("yyyy-MM-dd") ?? "…";
+        return $"{from} → {until}";
+    }
+
+    private static long ToMinor(decimal major) => (long)Math.Round(Math.Max(0m, major) * MinorPerMajor, MidpointRounding.AwayFromZero);
+    private static decimal ToMajor(long minor) => minor / MinorPerMajor;
+    private static string Short(Guid id) => id.ToString()[..8];
+
+    private sealed class PromotionForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Currency { get; set; } = "EUR";
+        public int Scope { get; set; } = 1;
+        public string ProductId { get; set; } = string.Empty;
+        public string ProductTitle { get; set; } = string.Empty;
+        public decimal MinimumAmount { get; set; }
+        public int MinimumQuantity { get; set; }
+        public bool GrantsFreeShipping { get; set; }
+        public int PercentOff { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public bool Combinable { get; set; }
+        public bool Active { get; set; } = true;
+        public string StorefrontId { get; set; } = string.Empty;
+        public DateTime? ActiveFrom { get; set; }
+        public DateTime? ActiveUntil { get; set; }
+    }
+
+    private record PromotionDto(
+        Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Currency, int Scope, string ScopeName,
+        Guid? ProductId, long MinimumAmountMinor, int MinimumQuantity, bool GrantsFreeShipping, int PercentOff,
+        long DiscountAmountMinor, bool Combinable, string Status, bool Active, string ProductTitle = "",
+        DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);
+    private record StorefrontDto(Guid Id, string Name, string Currency);
+    private sealed record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
+}

@@ -110,6 +110,8 @@
   <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Erstellen und bearbeiten Sie Produkte, Varianten, Preise, Bilder und Attribute.</value></data>
   <data name="Nav.Offers" xml:space="preserve"><value>Angebote &amp; Preise</value></data>
   <data name="Nav.Offers.Tip" xml:space="preserve"><value>Lieferantenprofile: Fulfillment-Typ, Preismodell, Abrechnungszeitraum, Priorität.</value></data>
+  <data name="Nav.Promotions" xml:space="preserve"><value>Aktionen</value></data>
+  <data name="Nav.Promotions.Tip" xml:space="preserve"><value>Schwellenwert-Aktionen: kostenloser Versand und/oder Rabatt, sobald der Warenkorb einen Betrags- oder Mengenschwellenwert erreicht.</value></data>
   <data name="Nav.Orders" xml:space="preserve"><value>Bestellungen</value></data>
   <data name="Nav.Orders.Tip" xml:space="preserve"><value>Bestellungen durchsuchen; unbezahlte stornieren und bezahlte erstatten.</value></data>
   <data name="Nav.Rmas" xml:space="preserve"><value>RMA-Warteschlange</value></data>
@@ -338,6 +340,76 @@
   <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>Die Mandanten-ID muss eine gültige GUID sein.</value></data>
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>Die Produkt-ID muss eine gültige GUID sein.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>Die Lieferanten-ID muss eine gültige GUID sein.</value></data>
+  <data name="Promotions.Title" xml:space="preserve"><value>Aktionen</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Schwellenwert-Aktionen: kostenloser Versand und/oder Rabatt, sobald der Warenkorb (oder ein Produkt) einen Betrags- und/oder Mengenschwellenwert erreicht. Sind beide gesetzt, müssen BEIDE erfüllt sein.</value></data>
+  <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Aktionen angezeigt werden.</value></data>
+  <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Shop</value></data>
+  <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Nur Aktionen dieses Shops anzeigen. Leer lassen für alle.</value></data>
+  <data name="Promotions.NewButton" xml:space="preserve"><value>Neue Aktion</value></data>
+  <data name="Promotions.New.Tip" xml:space="preserve"><value>Eine Schwellenwert-Aktion für diesen Mandanten erstellen.</value></data>
+  <data name="Promotions.New" xml:space="preserve"><value>Neue Aktion</value></data>
+  <data name="Promotions.EditHeading" xml:space="preserve"><value>Aktion bearbeiten</value></data>
+  <data name="Promotions.Edit.Tip" xml:space="preserve"><value>Schwellenwerte, Prämien, Geltungsbereich und Zeitraum dieser Aktion bearbeiten.</value></data>
+  <data name="Promotions.Empty" xml:space="preserve"><value>Noch keine Aktionen für diesen Mandanten.</value></data>
+  <data name="Promotions.Loading" xml:space="preserve"><value>Wird geladen…</value></data>
+  <data name="Promotions.Save" xml:space="preserve"><value>Aktion speichern</value></data>
+  <data name="Promotions.Save.Tip" xml:space="preserve"><value>Aktion speichern; sie greift an der Kasse, sobald die Projektion angekommen ist.</value></data>
+  <data name="Promotions.Status.Saved" xml:space="preserve"><value>Aktion gespeichert.</value></data>
+  <data name="Promotions.Col.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Promotions.Col.Scope" xml:space="preserve"><value>Geltungsbereich</value></data>
+  <data name="Promotions.Col.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="Promotions.Col.Storefront" xml:space="preserve"><value>Shop</value></data>
+  <data name="Promotions.Col.Threshold" xml:space="preserve"><value>Schwellenwert</value></data>
+  <data name="Promotions.Col.Reward" xml:space="preserve"><value>Prämie</value></data>
+  <data name="Promotions.Col.Combinable" xml:space="preserve"><value>Kombinierbar</value></data>
+  <data name="Promotions.Col.Window" xml:space="preserve"><value>Zeitraum</value></data>
+  <data name="Promotions.Scope.Legend" xml:space="preserve"><value>Shop-Geltungsbereich &amp; Laufzeit</value></data>
+  <data name="Promotions.Scope.Storefront" xml:space="preserve"><value>Ganzer Warenkorb</value></data>
+  <data name="Promotions.Scope.Product" xml:space="preserve"><value>Ein Produkt</value></data>
+  <data name="Promotions.Storefront.All" xml:space="preserve"><value>Alle Shops</value></data>
+  <data name="Promotions.Storefront.Any" xml:space="preserve"><value>Beliebiger Shop</value></data>
+  <data name="Promotions.Window.Always" xml:space="preserve"><value>Immer</value></data>
+  <data name="Promotions.Combinable.Yes" xml:space="preserve"><value>Stapelbar</value></data>
+  <data name="Promotions.Combinable.No" xml:space="preserve"><value>Exklusiv</value></data>
+  <data name="Promotions.Reward.FreeShipping" xml:space="preserve"><value>Kostenloser Versand</value></data>
+  <data name="Promotions.Threshold.Qty" xml:space="preserve"><value>{0} Artikel</value></data>
+  <data name="Promotions.Threshold.Legend" xml:space="preserve"><value>Schwellenwert</value></data>
+  <data name="Promotions.Threshold.Note" xml:space="preserve"><value>Betrags- und/oder Mengenschwelle festlegen — sind beide gesetzt, müssen BEIDE erfüllt sein. Gemessen am berechneten Warenwert (dem effektiven Angebotspreis), OHNE Steuern, Versand und Gebühren.</value></data>
+  <data name="Promotions.Field.MinimumAmount" xml:space="preserve"><value>Mindestbetrag</value></data>
+  <data name="Promotions.Field.MinimumAmount.Tip" xml:space="preserve"><value>Betragsschwelle in der Währung der Aktion (Haupteinheiten, z. B. 100 = 100,00). Gemessen am Warenwert OHNE Steuern und Versand. 0 = keine Betragsschwelle. Keine Umrechnung — die Aktion gilt nur für Warenkörbe in dieser Währung.</value></data>
+  <data name="Promotions.Field.MinimumQuantity" xml:space="preserve"><value>Mindestmenge</value></data>
+  <data name="Promotions.Field.MinimumQuantity.Tip" xml:space="preserve"><value>Mengenschwelle für den Geltungsbereich der Aktion. 0 = keine Mengenschwelle.</value></data>
+  <data name="Promotions.Reward.Legend" xml:space="preserve"><value>Prämie &amp; Kombinierbarkeit</value></data>
+  <data name="Promotions.Reward.Note" xml:space="preserve"><value>Kostenlosen Versand und/oder einen Rabatt gewähren — der Rabatt ist entweder ein Prozentsatz ODER ein Festbetrag, nie beides. Mindestens eine Prämie ist erforderlich.</value></data>
+  <data name="Promotions.Field.FreeShipping" xml:space="preserve"><value>Kostenloser Versand</value></data>
+  <data name="Promotions.Field.FreeShipping.Tip" xml:space="preserve"><value>Setzt die Versandkosten auf 0, wenn die Aktion greift. Ein bereits versandkostenfreier Warenkorb bleibt unverändert.</value></data>
+  <data name="Promotions.Field.PercentOff" xml:space="preserve"><value>Rabatt in Prozent</value></data>
+  <data name="Promotions.Field.PercentOff.Tip" xml:space="preserve"><value>Prozentsatz (0–100) auf die Basis des Geltungsbereichs. Schließt den Festbetrag aus.</value></data>
+  <data name="Promotions.Field.FixedDiscount" xml:space="preserve"><value>Festbetrag-Rabatt</value></data>
+  <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Fester Rabattbetrag in der Währung der Aktion (Haupteinheiten). Auf die Basis begrenzt und nie umgerechnet. Schließt den Prozentsatz aus.</value></data>
+  <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Kombinierbar</value></data>
+  <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Stapelt mit anderen kombinierbaren Aktionen. Nicht aktiviert = exklusiv (nur diese greift). Es gewinnt der größere Kundenvorteil.</value></data>
+  <data name="Promotions.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Für Käufer sichtbare Bezeichnung im Warenkorb und in der Kassenübersicht.</value></data>
+  <data name="Promotions.Field.Currency" xml:space="preserve"><value>Währung</value></data>
+  <data name="Promotions.Field.Scope" xml:space="preserve"><value>Geltungsbereich</value></data>
+  <data name="Promotions.Field.Scope.Tip" xml:space="preserve"><value>Ganzer Warenkorb misst und rabattiert alle Positionen; ein Produkt misst und rabattiert nur dessen Positionen.</value></data>
+  <data name="Promotions.Field.Product" xml:space="preserve"><value>Produkt</value></data>
+  <data name="Promotions.Field.Product.Tip" xml:space="preserve"><value>Das gemessene und rabattierte Produkt. Für Produkt-Geltungsbereich erforderlich, sonst ignoriert.</value></data>
+  <data name="Promotions.Field.ProductSearch" xml:space="preserve"><value>Produkte suchen…</value></data>
+  <data name="Promotions.Field.ProductSearch.Tip" xml:space="preserve"><value>Filtert die Produktliste unten nach Titel.</value></data>
+  <data name="Promotions.Product.Choose" xml:space="preserve"><value>Produkt wählen…</value></data>
+  <data name="Promotions.Product.Empty" xml:space="preserve"><value>Keine Produkte gefunden</value></data>
+  <data name="Promotions.Field.Storefront" xml:space="preserve"><value>Shop</value></data>
+  <data name="Promotions.Field.Storefront.Tip" xml:space="preserve"><value>Aktion auf einen Shop beschränken. Leer = alle Shops mit der Währung der Aktion.</value></data>
+  <data name="Promotions.Field.ActiveFrom" xml:space="preserve"><value>Aktiv ab</value></data>
+  <data name="Promotions.Field.ActiveFrom.Tip" xml:space="preserve"><value>Inklusives Startdatum (UTC). Leer = bereits gestartet.</value></data>
+  <data name="Promotions.Field.ActiveUntil" xml:space="preserve"><value>Aktiv bis</value></data>
+  <data name="Promotions.Field.ActiveUntil.Tip" xml:space="preserve"><value>Inklusives Enddatum (UTC) — der ganze Tag zählt. Leer = läuft nie ab.</value></data>
+  <data name="Promotions.Field.Active.Tip" xml:space="preserve"><value>Deaktivieren, um die Aktion abzuschalten; sie greift nicht mehr, sobald die Projektion angekommen ist.</value></data>
+  <data name="Promotions.Error.TenantGuid" xml:space="preserve"><value>Mandanten-ID muss eine GUID sein.</value></data>
+  <data name="Promotions.Error.Name" xml:space="preserve"><value>Ein Aktionsname ist erforderlich.</value></data>
+  <data name="Promotions.Error.Product" xml:space="preserve"><value>Für eine produktbezogene Aktion ein Produkt auswählen.</value></data>
 
   <!-- ===== Orders ===== -->
   <data name="Orders.Title" xml:space="preserve"><value>Bestellungen</value></data>

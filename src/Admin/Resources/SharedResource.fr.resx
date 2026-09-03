@@ -110,6 +110,8 @@
   <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Créez et modifiez des produits, variantes, prix, images et attributs.</value></data>
   <data name="Nav.Offers" xml:space="preserve"><value>Offres et tarification</value></data>
   <data name="Nav.Offers.Tip" xml:space="preserve"><value>Profils d'approvisionnement fournisseur : type d'exécution, modèle de prix, période de facturation, priorité.</value></data>
+  <data name="Nav.Promotions" xml:space="preserve"><value>Promotions</value></data>
+  <data name="Nav.Promotions.Tip" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier franchit un seuil de montant ou de quantité.</value></data>
   <data name="Nav.Orders" xml:space="preserve"><value>Commandes</value></data>
   <data name="Nav.Orders.Tip" xml:space="preserve"><value>Parcourez les commandes ; annulez celles non payées et remboursez celles payées.</value></data>
   <data name="Nav.Rmas" xml:space="preserve"><value>File RMA</value></data>
@@ -338,6 +340,76 @@
   <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>L'ID du locataire doit être un GUID valide.</value></data>
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>L'ID du produit doit être un GUID valide.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>L'ID du fournisseur doit être un GUID valide.</value></data>
+  <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier (ou un produit) franchit un seuil de montant et/ou de quantité. Si les deux seuils sont définis, LES DEUX doivent être atteints.</value></data>
+  <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>Le locataire dont les promotions sont listées.</value></data>
+  <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Afficher uniquement les promotions de cette boutique. Laisser vide pour toutes.</value></data>
+  <data name="Promotions.NewButton" xml:space="preserve"><value>Nouvelle promotion</value></data>
+  <data name="Promotions.New.Tip" xml:space="preserve"><value>Créer une promotion à seuil pour ce locataire.</value></data>
+  <data name="Promotions.New" xml:space="preserve"><value>Nouvelle promotion</value></data>
+  <data name="Promotions.EditHeading" xml:space="preserve"><value>Modifier la promotion</value></data>
+  <data name="Promotions.Edit.Tip" xml:space="preserve"><value>Modifier les seuils, récompenses, portée et période de cette promotion.</value></data>
+  <data name="Promotions.Empty" xml:space="preserve"><value>Aucune promotion pour ce locataire pour l’instant.</value></data>
+  <data name="Promotions.Loading" xml:space="preserve"><value>Chargement…</value></data>
+  <data name="Promotions.Save" xml:space="preserve"><value>Enregistrer la promotion</value></data>
+  <data name="Promotions.Save.Tip" xml:space="preserve"><value>Enregistrer la promotion ; elle s’applique au paiement dès l’arrivée de la projection.</value></data>
+  <data name="Promotions.Status.Saved" xml:space="preserve"><value>Promotion enregistrée.</value></data>
+  <data name="Promotions.Col.Name" xml:space="preserve"><value>Nom</value></data>
+  <data name="Promotions.Col.Scope" xml:space="preserve"><value>Portée</value></data>
+  <data name="Promotions.Col.Product" xml:space="preserve"><value>Produit</value></data>
+  <data name="Promotions.Col.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Promotions.Col.Threshold" xml:space="preserve"><value>Seuil</value></data>
+  <data name="Promotions.Col.Reward" xml:space="preserve"><value>Récompense</value></data>
+  <data name="Promotions.Col.Combinable" xml:space="preserve"><value>Cumulable</value></data>
+  <data name="Promotions.Col.Window" xml:space="preserve"><value>Période</value></data>
+  <data name="Promotions.Scope.Legend" xml:space="preserve"><value>Portée boutique et période d’activité</value></data>
+  <data name="Promotions.Scope.Storefront" xml:space="preserve"><value>Panier entier</value></data>
+  <data name="Promotions.Scope.Product" xml:space="preserve"><value>Un produit</value></data>
+  <data name="Promotions.Storefront.All" xml:space="preserve"><value>Toutes les boutiques</value></data>
+  <data name="Promotions.Storefront.Any" xml:space="preserve"><value>Toutes boutiques</value></data>
+  <data name="Promotions.Window.Always" xml:space="preserve"><value>Toujours</value></data>
+  <data name="Promotions.Combinable.Yes" xml:space="preserve"><value>Cumulable</value></data>
+  <data name="Promotions.Combinable.No" xml:space="preserve"><value>Exclusive</value></data>
+  <data name="Promotions.Reward.FreeShipping" xml:space="preserve"><value>Livraison offerte</value></data>
+  <data name="Promotions.Threshold.Qty" xml:space="preserve"><value>{0} articles</value></data>
+  <data name="Promotions.Threshold.Legend" xml:space="preserve"><value>Seuil</value></data>
+  <data name="Promotions.Threshold.Note" xml:space="preserve"><value>Définissez un seuil de montant, de quantité ou les deux — si les deux sont définis, LES DEUX doivent être atteints. Mesuré sur la valeur des articles facturée (le prix d’offre effectif), HORS taxes, livraison et frais.</value></data>
+  <data name="Promotions.Field.MinimumAmount" xml:space="preserve"><value>Montant minimum</value></data>
+  <data name="Promotions.Field.MinimumAmount.Tip" xml:space="preserve"><value>Seuil de montant dans la devise de la promotion (unités majeures, p. ex. 100 = 100,00). Mesuré sur la valeur des articles HORS taxes et livraison. 0 = pas de seuil de montant. Jamais converti : la promotion ne s’applique qu’aux paniers dans cette devise.</value></data>
+  <data name="Promotions.Field.MinimumQuantity" xml:space="preserve"><value>Quantité minimum</value></data>
+  <data name="Promotions.Field.MinimumQuantity.Tip" xml:space="preserve"><value>Seuil en nombre d’unités sur la portée de la promotion. 0 = pas de seuil de quantité.</value></data>
+  <data name="Promotions.Reward.Legend" xml:space="preserve"><value>Récompense et cumul</value></data>
+  <data name="Promotions.Reward.Note" xml:space="preserve"><value>Accordez la livraison offerte et/ou une remise — la remise est soit un pourcentage, soit un montant fixe, jamais les deux. Au moins une récompense est requise.</value></data>
+  <data name="Promotions.Field.FreeShipping" xml:space="preserve"><value>Livraison offerte</value></data>
+  <data name="Promotions.Field.FreeShipping.Tip" xml:space="preserve"><value>Met les frais de livraison à zéro lorsque la promotion s’applique. Un panier déjà livré gratuitement n’est pas affecté.</value></data>
+  <data name="Promotions.Field.PercentOff" xml:space="preserve"><value>Pourcentage de remise</value></data>
+  <data name="Promotions.Field.PercentOff.Tip" xml:space="preserve"><value>Pourcentage (0–100) sur la base de la portée. Exclusif avec la remise fixe.</value></data>
+  <data name="Promotions.Field.FixedDiscount" xml:space="preserve"><value>Remise fixe</value></data>
+  <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Montant fixe de remise dans la devise de la promotion (unités majeures). Plafonné à la base et jamais converti. Exclusif avec le pourcentage.</value></data>
+  <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Cumulable</value></data>
+  <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Se cumule avec d’autres promotions cumulables. Décoché = exclusive (seule celle-ci s’applique). C’est le plus grand avantage client qui l’emporte.</value></data>
+  <data name="Promotions.Field.Name" xml:space="preserve"><value>Nom</value></data>
+  <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Libellé visible par l’acheteur dans le panier et le récapitulatif de paiement.</value></data>
+  <data name="Promotions.Field.Currency" xml:space="preserve"><value>Devise</value></data>
+  <data name="Promotions.Field.Scope" xml:space="preserve"><value>Portée</value></data>
+  <data name="Promotions.Field.Scope.Tip" xml:space="preserve"><value>Panier entier : mesure et remise sur toutes les lignes ; un produit : uniquement ses lignes.</value></data>
+  <data name="Promotions.Field.Product" xml:space="preserve"><value>Produit</value></data>
+  <data name="Promotions.Field.Product.Tip" xml:space="preserve"><value>Le produit mesuré et remisé. Requis pour la portée produit ; ignoré pour le panier entier.</value></data>
+  <data name="Promotions.Field.ProductSearch" xml:space="preserve"><value>Rechercher des produits…</value></data>
+  <data name="Promotions.Field.ProductSearch.Tip" xml:space="preserve"><value>Filtre la liste des produits par titre.</value></data>
+  <data name="Promotions.Product.Choose" xml:space="preserve"><value>Choisir un produit…</value></data>
+  <data name="Promotions.Product.Empty" xml:space="preserve"><value>Aucun produit trouvé</value></data>
+  <data name="Promotions.Field.Storefront" xml:space="preserve"><value>Boutique</value></data>
+  <data name="Promotions.Field.Storefront.Tip" xml:space="preserve"><value>Limiter la promotion à une boutique. Vide = toutes les boutiques utilisant la devise de la promotion.</value></data>
+  <data name="Promotions.Field.ActiveFrom" xml:space="preserve"><value>Actif à partir du</value></data>
+  <data name="Promotions.Field.ActiveFrom.Tip" xml:space="preserve"><value>Date de début incluse (UTC). Vide = déjà démarrée.</value></data>
+  <data name="Promotions.Field.ActiveUntil" xml:space="preserve"><value>Actif jusqu’au</value></data>
+  <data name="Promotions.Field.ActiveUntil.Tip" xml:space="preserve"><value>Date de fin incluse (UTC) — la journée entière compte. Vide = pas d’expiration.</value></data>
+  <data name="Promotions.Field.Active.Tip" xml:space="preserve"><value>Décochez pour désactiver la promotion ; elle cesse de s’appliquer dès l’arrivée de la projection.</value></data>
+  <data name="Promotions.Error.TenantGuid" xml:space="preserve"><value>L’identifiant de locataire doit être un GUID.</value></data>
+  <data name="Promotions.Error.Name" xml:space="preserve"><value>Un nom de promotion est requis.</value></data>
+  <data name="Promotions.Error.Product" xml:space="preserve"><value>Choisissez un produit pour une promotion à portée produit.</value></data>
 
   <!-- ===== Orders ===== -->
   <data name="Orders.Title" xml:space="preserve"><value>Commandes</value></data>
