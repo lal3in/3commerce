@@ -21,6 +21,18 @@ public class CheckoutAttempt
     public long ShippingMinor { get; init; }
     public long TaxMinor { get; init; }
     public long DiscountMinor { get; init; }
+
+    /// <summary>The promotion share of <see cref="DiscountMinor"/> (ADR-0051); the remainder is the
+    /// storefront-wide discount, which is a store setting rather than a promotion.</summary>
+    public long PromotionDiscountMinor { get; init; }
+
+    /// <summary>Comma-joined ids of every promotion that applied, or null when none did — the audit trail
+    /// for why this charge was what it was. Combinable promotions stack, so there may be several.</summary>
+    public string? AppliedPromotionIds { get; init; }
+
+    /// <summary>Whether a promotion zeroed the shipping charge on this attempt.</summary>
+    public bool FreeShippingApplied { get; init; }
+
     public long GrossMinor { get; init; }
     public required string Currency { get; init; }
     public required string PaymentIntentId { get; init; }
@@ -66,6 +78,9 @@ public class CheckoutAttempt
             ShippingMinor = ShippingMinor,
             TaxMinor = TaxMinor,
             DiscountMinor = DiscountMinor,
+            PromotionDiscountMinor = PromotionDiscountMinor,
+            AppliedPromotionIds = AppliedPromotionIds,
+            FreeShippingApplied = FreeShippingApplied,
             GrossMinor = GrossMinor,
             Currency = Currency,
             PaymentIntentId = PaymentIntentId,

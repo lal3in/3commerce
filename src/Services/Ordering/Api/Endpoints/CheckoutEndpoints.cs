@@ -74,6 +74,13 @@ public static class CheckoutEndpoints
         var offerCopies = await db.OfferCopies.AsNoTracking()
             .Where(o => o.TenantId == checkoutTenantId && cartProductIds.Contains(o.ProductId))
             .ToListAsync(ct);
+        // Threshold promotions (ADR-0051): the tenant's active promotions for this storefront (or all
+        // storefronts), read from the local projection — checkout never queries Catalog (ADR-0008).
+        // Currency, window and threshold are all decided by the shared PromotionEvaluator below.
+        var promotionCopies = await db.PromotionCopies.AsNoTracking()
+            .Where(p => p.TenantId == checkoutTenantId && p.Active
+                && (p.StorefrontId == null || p.StorefrontId == storefrontId))
+            .ToListAsync(ct);
         var now = time.GetUtcNow();
 
         // Approval-gated availability (DECISION A, strict): an unapproved supplier's offer never counts —
@@ -174,10 +181,10 @@ public static class CheckoutEndpoints
         // StorefrontTaxCopy (by storefront id) fetched for the ship-to gate. Capped at the subtotal so the
         // discount can never exceed the goods value (nor turn the order negative), matching PricingEngine.
         var discountBps = storefrontCopy?.DiscountBasisPoints ?? 0;
+        // It is combined with the promotion discount (ADR-0051) only AFTER shipping is final — see below.
         var storefrontDiscountMinor = discountBps > 0
             ? (long)Math.Round(subtotal * discountBps / 10000.0, MidpointRounding.AwayFromZero)
             : 0L;
-        var discountMinor = Math.Clamp(storefrontDiscountMinor, 0, subtotal);
 
         // Gate shipping from the OfferCopy read model (loaded up front): only a cart with at least one
         // shippable line is charged shipping — a non-shippable (e.g. digital/service/usage) order ships
@@ -240,6 +247,29 @@ public static class CheckoutEndpoints
             shippingMinor = 0;
         }
 
+        // Threshold promotions (ADR-0051) are evaluated HERE, last on the shipping side, through the SAME
+        // PromotionEvaluator that PricingEngine and GET /cart/summary use — the promotion algorithm exists
+        // in exactly one place. shippingMinor is only final after the non-shippable / collect-at-warehouse /
+        // quote-validation / allShippingCovered guards above, so a free-shipping promotion scores its
+        // benefit against the rate the cart would ACTUALLY pay (0 when the cart already ships free) and can
+        // never resurrect a rate a quote guard rejected — it only ever zeroes an already-computed charge.
+        // The measurement base is each line's UnitPriceMinor, i.e. the offer-resolved effective selling
+        // price settled above (ADR-0047/0048), excluding tax, shipping and fees.
+        var promotionLines = cart.Items
+            .Select(i => new PromotionLine(i.ProductId, i.UnitPriceMinor, i.Quantity))
+            .ToList();
+        var promotionOutcome = PromotionEvaluator.Evaluate(
+            promotionLines, promotionCopies, checkoutTenantId, storefrontId, currency, shippingMinor, now);
+        if (promotionOutcome.FreeShippingApplied)
+        {
+            shippingMinor = 0;
+        }
+
+        // The promotion discount and the storefront-wide discount (a store SETTING, never governed by the
+        // combinable flag) stack additively and are jointly capped at the subtotal, so the goods can never
+        // be discounted below zero. Same shape as PricingEngine.
+        var discountMinor = Math.Clamp(promotionOutcome.DiscountMinor + storefrontDiscountMinor, 0, subtotal);
+
         // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
         // the cart's currency. Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already
         // CONTAIN the tax — the shopper pays exactly the listed amount and the contained portion is
@@ -255,11 +285,27 @@ public static class CheckoutEndpoints
         // Shipping follows the goods' taxability: when no goods are destination-taxable (a fully exempt
         // cart, taxableSubtotal == 0) shipping is not destination-taxed either.
         var taxableShippingMinor = taxableSubtotal > 0 ? shippingMinor : 0;
-        // The storefront discount reduces the taxable base PROPORTIONALLY to the taxable share of the goods
-        // (it is a uniform percentage across all lines), so a cart mixing taxable and tax-exempt lines only
-        // shrinks the tax on the taxable part. subtotal > 0 whenever discountMinor > 0 (a discount needs
-        // goods value), so the divide is safe. With no discount this is 0 → the base is unchanged.
-        var taxableDiscountMinor = subtotal > 0 ? discountMinor * taxableSubtotal / subtotal : 0;
+        // The discount reduces the taxable base EXACTLY, per line (ADR-0051). A single proportional ratio
+        // is right for a uniform storefront-wide percentage but wrong for a product-scoped promotion, whose
+        // discount may fall entirely on a tax-exempt line (or entirely on a taxable one). So: the promotion
+        // part comes from the evaluator's per-line vector, the storefront-wide part is a uniform percentage
+        // spread proportionally by line value (largest remainder, so the parts sum to the whole), and only
+        // the allocations landing on destination-taxable lines enter the base. Clamped at the taxable
+        // subtotal so the base can never go negative.
+        var lineTotalsMinor = cart.Items.Select(i => (long)i.UnitPriceMinor * i.Quantity).ToArray();
+        var storefrontLineDiscounts = PromotionEvaluator.AllocateProportionally(storefrontDiscountMinor, lineTotalsMinor);
+        long taxableDiscountMinor = 0;
+        for (var i = 0; i < cart.Items.Count; i++)
+        {
+            if (RuleFor(cart.Items[i].ProductId) is { ChargeDestinationTax: false })
+            {
+                continue;
+            }
+
+            taxableDiscountMinor += promotionOutcome.LineDiscountsMinor[i] + storefrontLineDiscounts[i];
+        }
+
+        taxableDiscountMinor = Math.Min(taxableDiscountMinor, taxableSubtotal);
         var taxBaseMinor = taxableSubtotal - taxableDiscountMinor + taxableShippingMinor;
         var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
         long taxMinor, netMinor;
@@ -278,7 +324,8 @@ public static class CheckoutEndpoints
         {
             await db.SaveChangesAsync(ct);
             return TypedResults.Conflict(new CheckoutResponse(
-                Guid.Empty, null, subtotal, discountMinor, shippingMinor, taxMinor, netMinor, currency, "Prices changed; review your cart."));
+                Guid.Empty, null, subtotal, discountMinor, shippingMinor, taxMinor, netMinor, currency, "Prices changed; review your cart.",
+                promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds));
         }
 
         var paymentOption = NormalizePaymentOption(request.PaymentOption);
@@ -338,6 +385,13 @@ public static class CheckoutEndpoints
             NetMinor = subtotal,
             ShippingMinor = shippingMinor,
             DiscountMinor = discountMinor,
+            // Promotion snapshot (ADR-0051): why this charge was what it was. The ids are comma-joined
+            // (null when none applied) so a past order can be explained without re-running the evaluator.
+            PromotionDiscountMinor = promotionOutcome.DiscountMinor,
+            AppliedPromotionIds = promotionOutcome.AppliedPromotionIds.Count == 0
+                ? null
+                : string.Join(',', promotionOutcome.AppliedPromotionIds),
+            FreeShippingApplied = promotionOutcome.FreeShippingApplied,
             // Ordering owns storefront tax (ADR-0008 projection); Payments' flat-rate seam is unused here.
             TaxMinor = taxMinor,
             GrossMinor = intent.GrossMinor,
@@ -360,7 +414,7 @@ public static class CheckoutEndpoints
             WarehousePostcode = collectWarehouse?.Postcode,
             WarehouseCountry = collectWarehouse?.CountryCode,
             CreatedAt = now,
-            Lines = cart.Items.Select(i =>
+            Lines = cart.Items.Select((i, index) =>
             {
                 var offer = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds);
                 return new CheckoutAttemptLine
@@ -372,7 +426,9 @@ public static class CheckoutEndpoints
                     VariantSku = i.VariantSku,
                     Title = i.Title,
                     UnitPriceMinor = i.UnitPriceMinor,
-                    DiscountMinor = 0,
+                    // The promotion allocation for THIS line (largest remainder; the vector sums to
+                    // PromotionDiscountMinor exactly). The storefront-wide discount stays at the order level.
+                    DiscountMinor = promotionOutcome.LineDiscountsMinor[index],
                     Quantity = i.Quantity,
                     FulfilmentType = offer?.FulfilmentType ?? FulfilmentType.Unassigned,
                     SupplierId = offer?.SupplierId,
@@ -389,7 +445,8 @@ public static class CheckoutEndpoints
         await db.SaveChangesAsync(ct);
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
-            orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, taxMinor, intent.GrossMinor, currency, null));
+            orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, taxMinor, intent.GrossMinor, currency, null,
+            promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -461,4 +518,9 @@ public record CheckoutRequest(
     // it here for per-storefront order/ledger attribution. Header wins when present.
     Guid? StorefrontId = null);
 
-public record CheckoutResponse(Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
+// Positional record: NEW FIELDS MUST BE APPENDED WITH DEFAULTS, or every call site and the storefront
+// client break. FreeShippingApplied / AppliedPromotionIds are the threshold-promotion outcome (ADR-0051).
+public record CheckoutResponse(
+    Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor,
+    long GrossMinor, string Currency, string? Message,
+    bool FreeShippingApplied = false, IReadOnlyList<Guid>? AppliedPromotionIds = null);

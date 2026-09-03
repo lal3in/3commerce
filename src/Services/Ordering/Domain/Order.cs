@@ -25,6 +25,18 @@ public class Order
     public long TaxMinor { get; set; }
     public long ShippingMinor { get; set; }
     public long DiscountMinor { get; set; }
+
+    /// <summary>The promotion share of <see cref="DiscountMinor"/> (ADR-0051); the remainder is the
+    /// storefront-wide discount, which is a store setting rather than a promotion.</summary>
+    public long PromotionDiscountMinor { get; set; }
+
+    /// <summary>Comma-joined ids of every promotion that applied, or null when none did — the audit trail
+    /// for why this order was charged what it was. Combinable promotions stack, so there may be several.</summary>
+    public string? AppliedPromotionIds { get; set; }
+
+    /// <summary>Whether a promotion zeroed the shipping charge on this order.</summary>
+    public bool FreeShippingApplied { get; set; }
+
     public long GrossMinor { get; set; }
     public required string Currency { get; set; }
     public string? PaymentIntentId { get; set; }

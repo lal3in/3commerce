@@ -251,6 +251,15 @@ public static class PromotionEvaluator
             discountMinor, freeShipping, winners.Select(w => w.PromotionId).ToArray(), allocation);
     }
 
+    /// <summary>
+    /// Spreads a single amount across <paramref name="weights"/> in proportion to them, using the same
+    /// largest-remainder rule as the promotion allocation so the parts sum to the amount EXACTLY. Exposed
+    /// for the caller's own uniform deductions — checkout apportions the storefront-wide discount with it
+    /// so the per-line tax base is exact rather than a rounded ratio.
+    /// </summary>
+    public static long[] AllocateProportionally(long amount, IReadOnlyList<long> weights) =>
+        AllocateByWeight(amount, Enumerable.Range(0, weights.Count).ToArray(), weights);
+
     private static long Benefit(long discountMinor, bool freeShipping, long shippingMinor) =>
         checked(discountMinor + (freeShipping ? shippingMinor : 0));
 

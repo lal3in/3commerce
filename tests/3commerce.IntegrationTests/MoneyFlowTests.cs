@@ -22,7 +22,9 @@ namespace ThreeCommerce.IntegrationTests;
 [Collection(Phase3Collection.Name)]
 public class MoneyFlowTests(Phase3Fixture fixture)
 {
-    private sealed record CheckoutResponseDto(Guid OrderId, string ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message);
+    // CheckoutResponse is a positional record whose promotion fields are APPENDED with defaults
+    // (ADR-0051), so this DTO mirrors that shape — older payloads simply deserialize the defaults.
+    private sealed record CheckoutResponseDto(Guid OrderId, string ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor, long GrossMinor, string Currency, string? Message, bool FreeShippingApplied = false, List<Guid>? AppliedPromotionIds = null);
     private sealed record StatusDto(Guid Id, string Status);
 
     private static object Checkout() => new
@@ -455,6 +457,285 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Threshold_promotion_grants_free_shipping_when_the_money_threshold_is_met()
+    {
+        // ADR-0051: a storefront-scoped promotion granting FREE SHIPPING once the cart's item value clears
+        // 10000. The cart is 2 × 10000 = 20000, so shipping (499) drops to 0 and the goods are untouched.
+        // A distinct currency (QCC) isolates this live storefront/promotion pair from every other test.
+        const string currency = "QCC";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Free Ship Store", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
+        await WaitForDiscountCopyAsync(storefrontId, 0);
+
+        var promotionId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            promotionId, tenantId, storefrontId, "Spend 100 ship free", currency,
+            PromotionScopeKind.Storefront, ProductId: null,
+            MinimumAmountMinor: 10_000, MinimumQuantity: 0,
+            GrantsFreeShipping: true, PercentOff: 0, DiscountAmountMinor: 0,
+            Combinable: false, Active: true));
+        await WaitForPromotionCopyAsync(promotionId);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 2 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(20_000, order.NetMinor);
+        Assert.Equal(0, order.DiscountMinor); // free shipping only — the goods keep their price
+        Assert.Equal(0, order.ShippingMinor);
+        Assert.True(order.FreeShippingApplied);
+        Assert.Equal([promotionId], order.AppliedPromotionIds);
+        Assert.Equal(20_000, order.GrossMinor);
+        Assert.Equal(order.GrossMinor, order.NetMinor - order.DiscountMinor + order.ShippingMinor + order.TaxMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        // The promotion lowers the charged gross; no new ledger line, so the trial balance still nets 0.
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Threshold_promotion_below_the_threshold_charges_full_price()
+    {
+        // Control for the case above: the same promotion, a cart BELOW the threshold → full shipping, no
+        // discount, no applied promotion. Distinct currency (QDD).
+        const string currency = "QDD";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Below Threshold Store", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
+        await WaitForDiscountCopyAsync(storefrontId, 0);
+
+        var promotionId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            promotionId, tenantId, storefrontId, "Spend 500 ship free", currency,
+            PromotionScopeKind.Storefront, ProductId: null,
+            MinimumAmountMinor: 50_000, MinimumQuantity: 0,
+            GrantsFreeShipping: true, PercentOff: 0, DiscountAmountMinor: 0,
+            Combinable: false, Active: true));
+        await WaitForPromotionCopyAsync(promotionId);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(0, order.DiscountMinor);
+        Assert.Equal(499, order.ShippingMinor);
+        Assert.False(order.FreeShippingApplied);
+        Assert.Empty(order.AppliedPromotionIds!);
+        Assert.Equal(10_499, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Product_scoped_threshold_discounts_only_that_products_lines()
+    {
+        // Product scope (ADR-0051): the promotion measures and discounts ONLY product A's lines. The cart
+        // also holds product B at 10000, which must be charged in full. Distinct currency (QEE).
+        const string currency = "QEE";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Product Scope Store", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
+        await WaitForDiscountCopyAsync(storefrontId, 0);
+
+        var productA = await fixture.SeedProductAsync(6_000, currency);
+        var productB = await fixture.SeedProductAsync(10_000, currency);
+
+        var promotionId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            promotionId, tenantId, storefrontId, "10% off product A", currency,
+            PromotionScopeKind.Product, productA,
+            MinimumAmountMinor: 5_000, MinimumQuantity: 0,
+            GrantsFreeShipping: false, PercentOff: 10, DiscountAmountMinor: 0,
+            Combinable: false, Active: true));
+        await WaitForPromotionCopyAsync(promotionId);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId = productA, quantity = 1 });
+        await shopper.PostAsJsonAsync("/cart/items", new { productId = productB, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        // 10% of product A's 6000 ONLY = 600 — not 10% of the 16000 cart.
+        Assert.Equal(16_000, order.NetMinor);
+        Assert.Equal(600, order.DiscountMinor);
+        Assert.Equal(499, order.ShippingMinor);
+        Assert.Equal(15_899, order.GrossMinor);
+        Assert.Equal(order.GrossMinor, order.NetMinor - order.DiscountMinor + order.ShippingMinor + order.TaxMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Threshold_promotion_measures_the_offer_resolved_price_not_the_catalog_price()
+    {
+        // THE key test of the feature (ADR-0051 + ADR-0047): the threshold is measured on the
+        // OFFER-RESOLVED effective selling price, never the catalog price. Catalog price 10000 would clear
+        // an 8000 threshold; the effective offer price of 6000 does NOT — so nothing applies, and the
+        // charge is the offer price. Distinct currency (QFF).
+        const string currency = "QFF";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Offer Base Store", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
+        await WaitForDiscountCopyAsync(storefrontId, 0);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        var supplierId = Guid.CreateVersion7();
+        await fixture.ApproveSupplierAsync(supplierId); // DECISION A: an unapproved supplier's offer sets no price.
+
+        var now = DateTimeOffset.UtcNow;
+        await fixture.PublishAsync(new OfferChanged(
+            OfferId: Guid.CreateVersion7(), TenantId: tenantId, ProductId: productId, VariantId: null,
+            SupplierId: supplierId, SupplyCategory: SupplyCategory.Physical, FulfilmentType: FulfilmentType.Dropship,
+            PricingModel: PricingModel.OneTime, BillingPeriod: BillingPeriod.Once, Priority: 0, Active: true,
+            SupplierCostMinor: 0, Currency: currency, ProductType: ProductType.Physical,
+            PriceMinor: 6_000, StorefrontId: storefrontId, ActiveFrom: now.AddHours(-1), ActiveUntil: now.AddHours(1)));
+        await WaitForOfferPriceCopyAsync(productId, 6_000, storefrontId);
+
+        var promotionId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            promotionId, tenantId, storefrontId, "Spend 80 take 10%", currency,
+            PromotionScopeKind.Storefront, ProductId: null,
+            MinimumAmountMinor: 8_000, MinimumQuantity: 0,
+            GrantsFreeShipping: false, PercentOff: 10, DiscountAmountMinor: 0,
+            Combinable: false, Active: true));
+        await WaitForPromotionCopyAsync(promotionId);
+
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(6_000, order.NetMinor); // the offer price is what is charged
+        Assert.Equal(0, order.DiscountMinor); // …and what the threshold was measured against — 6000 < 8000
+        Assert.Empty(order.AppliedPromotionIds!);
+        Assert.Equal(6_499, order.GrossMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Combinable_promotions_stack_and_beat_a_smaller_exclusive()
+    {
+        // Combinability (ADR-0051): two combinable 10% promotions (2000 together) beat a single exclusive
+        // 15% (1500), and BOTH ids are reported on the response. Distinct currency (QGG).
+        const string currency = "QGG";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Stacking Store", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
+        await WaitForDiscountCopyAsync(storefrontId, 0);
+
+        var exclusiveId = Guid.CreateVersion7();
+        var firstCombinableId = Guid.CreateVersion7();
+        var secondCombinableId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            exclusiveId, tenantId, storefrontId, "Exclusive 15%", currency,
+            PromotionScopeKind.Storefront, null, 5_000, 0, false, 15, 0, Combinable: false, Active: true));
+        await fixture.PublishAsync(new PromotionChanged(
+            firstCombinableId, tenantId, storefrontId, "Stack 10% A", currency,
+            PromotionScopeKind.Storefront, null, 5_000, 0, false, 10, 0, Combinable: true, Active: true));
+        await fixture.PublishAsync(new PromotionChanged(
+            secondCombinableId, tenantId, storefrontId, "Stack 10% B", currency,
+            PromotionScopeKind.Storefront, null, 5_000, 0, false, 10, 0, Combinable: true, Active: true));
+        await WaitForPromotionCopyAsync(exclusiveId);
+        await WaitForPromotionCopyAsync(firstCombinableId);
+        await WaitForPromotionCopyAsync(secondCombinableId);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        Assert.Equal(2_000, order.DiscountMinor);
+        Assert.Equal(2, order.AppliedPromotionIds!.Count);
+        Assert.DoesNotContain(exclusiveId, order.AppliedPromotionIds!);
+        Assert.Equal(8_499, order.GrossMinor); // 10000 − 2000 + 499
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task Promotion_stacks_with_the_storefront_wide_discount_and_tax_follows_the_discounted_base()
+    {
+        // The storefront-wide discount (PR #256) is a store SETTING, not a promotion: it always applies and
+        // the combinable flag never governs it. Here a 10% promotion (1000) and a 10% storefront discount
+        // (1000) stack additively to 2000, and the exclusive 10% tax is computed on the DOUBLY discounted
+        // base. Distinct currency (QHH).
+        const string currency = "QHH";
+        var storefrontId = Guid.CreateVersion7();
+        var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
+        await fixture.PublishAsync(new StorefrontConfigChanged(
+            storefrontId, tenantId, "Double Discount Store", currency, 1_000, IsLive: true, TaxInclusive: false, DiscountBps: 1_000));
+        await WaitForDiscountCopyAsync(storefrontId, 1_000);
+
+        var promotionId = Guid.CreateVersion7();
+        await fixture.PublishAsync(new PromotionChanged(
+            promotionId, tenantId, storefrontId, "Spend 50 take 10%", currency,
+            PromotionScopeKind.Storefront, ProductId: null,
+            MinimumAmountMinor: 5_000, MinimumQuantity: 0,
+            GrantsFreeShipping: false, PercentOff: 10, DiscountAmountMinor: 0,
+            Combinable: false, Active: true));
+        await WaitForPromotionCopyAsync(promotionId);
+
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
+        var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+
+        // discount = 1000 promotion + 1000 storefront = 2000. Taxable base = (10000 − 2000) + 499 shipping
+        // = 8499; exclusive 10% tax = round(849.9) = 850. Gross = 10000 − 2000 + 499 + 850 = 9349.
+        Assert.Equal(10_000, order.NetMinor);
+        Assert.Equal(2_000, order.DiscountMinor);
+        Assert.Equal(499, order.ShippingMinor);
+        Assert.Equal(850, order.TaxMinor);
+        Assert.Equal(9_349, order.GrossMinor);
+        Assert.Equal(order.GrossMinor, order.NetMinor - order.DiscountMinor + order.ShippingMinor + order.TaxMinor);
+
+        await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
+        await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private async Task WaitForPromotionCopyAsync(Guid promotionId)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            if (await db.PromotionCopies.AsNoTracking().AnyAsync(p => p.PromotionId == promotionId))
+            {
+                return;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException($"PromotionCopy {promotionId} did not project.");
     }
 
     private async Task WaitForDiscountCopyAsync(Guid storefrontId, int discountBps)
