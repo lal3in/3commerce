@@ -62,6 +62,7 @@ app.MapAdmin();
 app.MapStorefrontAdmin();
 app.MapProductTypes();
 app.MapOffers();
+app.MapPromotions();
 app.MapCatalogImages();
 
 app.Run();
