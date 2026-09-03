@@ -22,6 +22,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
+    public DbSet<PromotionCopy> PromotionCopies => Set<PromotionCopy>();
     public DbSet<ProductTypeShippingPolicyCopy> ProductTypeShippingPolicyCopies => Set<ProductTypeShippingPolicyCopy>();
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
     public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
@@ -42,6 +43,17 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             // ("unknown"), which checkout treats as a fulfilment-type decision until the offer is
             // re-projected — never mis-typing a legacy copy as Physical.
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
+        });
+
+        // Threshold promotions (ADR-0051). The covering index matters: checkout and every /cart/summary
+        // call load the tenant's active promotions for the line's storefront (or all-storefront).
+        modelBuilder.Entity<PromotionCopy>(promotion =>
+        {
+            promotion.HasKey(p => p.PromotionId);
+            promotion.Property(p => p.Currency).HasMaxLength(3);
+            promotion.Property(p => p.Name).HasMaxLength(120);
+            promotion.Property(p => p.Scope).HasConversion<string>().HasMaxLength(16);
+            promotion.HasIndex(p => new { p.TenantId, p.StorefrontId, p.Active });
         });
 
         modelBuilder.Entity<ProductTypeShippingPolicyCopy>(policy =>
