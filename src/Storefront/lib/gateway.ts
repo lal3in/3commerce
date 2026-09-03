@@ -259,6 +259,31 @@ export async function getCart(): Promise<CartDto> {
   return (await response.json()) as CartDto;
 }
 
+export type AppliedPromotionDto = { promotionId: string; name: string; discountMinor: number };
+
+// The cart's money preview (ADR-0051). Ordering resolves the offer prices, the storefront-wide discount
+// and every threshold promotion with the SAME evaluator checkout uses, so what the cart shows is what the
+// shopper is charged. The storefront must never compute a promotion itself — GET /cart alone returns the
+// ADD-TIME catalog price and knows nothing about promotions.
+export type CartSummaryDto = {
+  subtotalMinor: number;
+  storefrontDiscountMinor: number;
+  promotionDiscountMinor: number;
+  itemsTotalMinor: number;
+  freeShippingApplied: boolean;
+  appliedPromotions: AppliedPromotionDto[];
+  currency: string;
+};
+
+export async function getCartSummary(storefrontId?: string): Promise<CartSummaryDto | null> {
+  // Cookie-keyed like getCart, and never cached. Null on any non-OK response so callers fall back to
+  // the plain cart's local math (no promotion rows) instead of failing the page.
+  const query = storefrontId ? `?storefrontId=${encodeURIComponent(storefrontId)}` : "";
+  const response = await gatewayFetch(`/api/ordering/cart/summary${query}`, { cache: "no-store" });
+  if (!response.ok) return null;
+  return (await response.json()) as CartSummaryDto;
+}
+
 export async function getOrderStatus(orderId: string): Promise<string | null> {
   const response = await gatewayFetch(`/api/ordering/orders/${orderId}/status`, { cache: "no-store" });
   return response.ok ? ((await response.json()) as { status: string }).status : null;

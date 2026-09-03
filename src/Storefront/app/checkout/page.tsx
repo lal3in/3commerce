@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getAddresses, getCart, getProfile, getSavedPaymentMethods, getStorefrontConfig } from "@/lib/gateway";
+import { getAddresses, getCart, getCartSummary, getProfile, getSavedPaymentMethods, getStorefrontConfig } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
@@ -28,6 +28,12 @@ export default async function CheckoutPage() {
   const shipToCountries = taxSource?.shipToCountries ?? [];
   // Storefront-wide discount (bps; 0 = none) — deducted from the items' subtotal only, shown as its own line.
   const discountBps = taxSource?.discountBps ?? 0;
+  // Threshold promotions (ADR-0051): decided by Ordering with the SAME evaluator checkout runs, so the
+  // estimate matches the charge. Null (unavailable) → no promotion rows and today's local math.
+  const summary = await getCartSummary(storefront?.id);
+  const promotionDiscountMinor = summary?.promotionDiscountMinor ?? 0;
+  const appliedPromotions = summary?.appliedPromotions ?? [];
+  const freeShippingApplied = summary?.freeShippingApplied ?? false;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -39,7 +45,7 @@ export default async function CheckoutPage() {
         </div>
         <p className="mt-1 text-neutral-500">{t("taxNote")}</p>
       </div>
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} promotionDiscountMinor={promotionDiscountMinor} appliedPromotions={appliedPromotions} freeShippingApplied={freeShippingApplied} />
     </div>
   );
 }

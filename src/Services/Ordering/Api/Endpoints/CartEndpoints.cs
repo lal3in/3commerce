@@ -18,6 +18,7 @@ public static class CartEndpoints
     {
         var group = app.MapGroup("/cart").WithTags("Cart");
         group.MapGet("/", GetCart);
+        group.MapGet("/summary", GetSummary);
         group.MapPost("/items", AddItem);
         group.MapPut("/items/{productId:guid}", UpdateItem);
         group.MapPut("/items/{productId:guid}/{variantId:guid}", UpdateVariantItem);
@@ -55,6 +56,91 @@ public static class CartEndpoints
         var cart = await carts.GetOrCreateAsync(UserId(http.User), key, ct);
         return TypedResults.Ok(ToResponse(cart));
     }
+
+    /// <summary>
+    /// The money preview for the current cart — the ONLY place the storefront learns what promotions
+    /// apply, so the promotion algorithm is never re-implemented in TypeScript (ADR-0051, "shown ==
+    /// charged"). Anonymous and cookie-keyed exactly like <c>GET /cart</c>, which is left untouched
+    /// because many callers depend on its shape (and it deliberately returns the ADD-TIME catalog price).
+    /// <para>
+    /// Every input is resolved the way checkout resolves it: the offer-resolved effective selling price
+    /// per line (approval-gated, ADR-0047/0048), the storefront-wide discount from the projected config,
+    /// and the SAME shared PromotionEvaluator. The one difference is shipping: the preview has no carrier
+    /// quote yet, so it scores free shipping against the flat fallback rate. That only affects which
+    /// promotion WINS in the rare case a free-shipping promotion ties on benefit — the discount figure
+    /// shown for the goods is computed identically to the charge.
+    /// </para>
+    /// </summary>
+    private static async Task<Ok<CartSummaryResponse>> GetSummary(
+        Guid? storefrontId, HttpContext http, CartService carts, OrderingDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var cart = await carts.GetOrCreateAsync(UserId(http.User), EnsureCartKey(http), ct);
+        var currency = cart.Items.FirstOrDefault()?.Currency ?? StoreCurrency;
+        if (cart.Items.Count == 0)
+        {
+            return TypedResults.Ok(new CartSummaryResponse(0, 0, 0, 0, false, [], currency));
+        }
+
+        // Same resolution order as checkout: tenant/storefront from the body-or-header, then the read copies.
+        var tenantId = HeaderGuid(http, "X-3C-Tenant-Id") ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var storeId = storefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
+        var now = time.GetUtcNow();
+
+        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+        var offerCopies = await db.OfferCopies.AsNoTracking()
+            .Where(o => o.TenantId == tenantId && productIds.Contains(o.ProductId))
+            .ToListAsync(ct);
+        var offerSupplierIds = offerCopies.Select(o => o.SupplierId).Distinct().ToList();
+        // DECISION A (ADR-0048): an unapproved supplier's offer must not set a price here either, or the
+        // preview would show a price checkout refuses to charge.
+        var approvedSupplierIds = (await db.SupplierApprovalCopies.AsNoTracking()
+            .Where(x => x.Approved && offerSupplierIds.Contains(x.SupplierId))
+            .Select(x => x.SupplierId)
+            .ToListAsync(ct)).ToHashSet();
+
+        var lines = cart.Items.Select(i =>
+        {
+            var offerPrice = OfferResolution.ResolvePricingOffer(
+                offerCopies, tenantId, i.ProductId, i.VariantId, storeId, i.Currency, now, approvedSupplierIds)?.PriceMinor;
+            return new PromotionLine(i.ProductId, offerPrice ?? i.UnitPriceMinor, i.Quantity);
+        }).ToList();
+        var subtotalMinor = lines.Sum(l => l.TotalMinor);
+
+        var promotionCopies = await db.PromotionCopies.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.Active
+                && (p.StorefrontId == null || p.StorefrontId == storeId))
+            .ToListAsync(ct);
+        var outcome = PromotionEvaluator.Evaluate(
+            lines, promotionCopies, tenantId, storeId, currency, CheckoutEndpoints.FlatShippingMinor, now);
+
+        var discountBps = await db.StorefrontTaxCopies.AsNoTracking()
+            .Where(t => t.StorefrontId == storeId)
+            .Select(t => (int?)t.DiscountBasisPoints)
+            .FirstOrDefaultAsync(ct) ?? 0;
+        var storefrontDiscountMinor = discountBps > 0
+            ? (long)Math.Round(subtotalMinor * discountBps / 10000.0, MidpointRounding.AwayFromZero)
+            : 0L;
+
+        // Same joint cap as checkout: the goods can never be discounted below zero.
+        var totalDiscount = Math.Clamp(outcome.DiscountMinor + storefrontDiscountMinor, 0, subtotalMinor);
+        var applied = outcome.AppliedPromotionIds
+            .Select(id => promotionCopies.First(p => p.PromotionId == id))
+            .Select(p => new AppliedPromotionResponse(
+                p.PromotionId,
+                p.Name,
+                // The shopper-facing share of this promotion: its own reward on its own scope base.
+                PromotionEvaluator.CandidateFor(
+                    lines, p.PromotionId, p.Scope, p.ProductId, p.MinimumAmountMinor, p.MinimumQuantity,
+                    p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor, p.Combinable)?.DiscountMinor ?? 0))
+            .ToList();
+
+        return TypedResults.Ok(new CartSummaryResponse(
+            subtotalMinor, storefrontDiscountMinor, outcome.DiscountMinor,
+            subtotalMinor - totalDiscount, outcome.FreeShippingApplied, applied, currency));
+    }
+
+    private static Guid? HeaderGuid(HttpContext http, string name) =>
+        Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
 
     private static async Task<Results<Ok<CartResponse>, NotFound<string>, Conflict<string>>> AddItem(
         AddItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
@@ -207,3 +293,16 @@ public record AddItemRequest([property: Required] Guid ProductId, Guid? VariantI
 public record UpdateItemRequest([property: Range(0, 99)] int Quantity);
 public record CartItemResponse(Guid ProductId, Guid? VariantId, string? VariantSku, string Slug, string Title, string? ImageUrl, long UnitPriceMinor, string Currency, int Quantity);
 public record CartResponse(Guid CartId, List<CartItemResponse> Items, long SubtotalMinor, string Currency);
+
+/// <summary>One promotion the cart currently qualifies for, and what it takes off (ADR-0051).</summary>
+public record AppliedPromotionResponse(Guid PromotionId, string Name, long DiscountMinor);
+
+/// <summary>
+/// The cart's money preview (ADR-0051). SubtotalMinor is the offer-resolved item value; the two discount
+/// figures are reported separately because the storefront-wide discount is a store SETTING, not a
+/// promotion; ItemsTotalMinor is what the goods cost after both, jointly capped at the subtotal.
+/// </summary>
+public record CartSummaryResponse(
+    long SubtotalMinor, long StorefrontDiscountMinor, long PromotionDiscountMinor,
+    long ItemsTotalMinor, bool FreeShippingApplied,
+    List<AppliedPromotionResponse> AppliedPromotions, string Currency);

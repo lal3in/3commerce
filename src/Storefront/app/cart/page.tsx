@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { getCart } from "@/lib/gateway";
+import { getCart, getCartSummary } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { CartItemRow } from "@/components/cart/CartItemRow";
@@ -20,10 +20,21 @@ export default async function CartPage() {
   // line so what the cart shows matches what checkout charges. Null storefront (no context) → no discount.
   const storefront = await resolveStorefront();
   const discountBps = storefront?.discountBps ?? 0;
-  const storefrontDiscountMinor = discountBps > 0
-    ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
-    : 0;
-  const discountedSubtotalMinor = cart.subtotalMinor - storefrontDiscountMinor;
+  // Threshold promotions (ADR-0051) are decided by Ordering, never here: /cart/summary runs the same
+  // evaluator checkout runs, so shown == charged. When it is unavailable (null) the page falls back to
+  // today's local storefront-discount math and simply shows no promotion rows.
+  const summary = await getCartSummary(storefront?.id);
+  const storefrontDiscountMinor = summary
+    ? summary.storefrontDiscountMinor
+    : discountBps > 0
+      ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
+      : 0;
+  const promotions = summary?.appliedPromotions ?? [];
+  const freeShippingApplied = summary?.freeShippingApplied ?? false;
+  const discountedSubtotalMinor = summary
+    ? summary.itemsTotalMinor
+    : cart.subtotalMinor - storefrontDiscountMinor;
+  const anyDeduction = storefrontDiscountMinor > 0 || promotions.length > 0;
 
   if (cart.items.length === 0) {
     return (
@@ -50,16 +61,28 @@ export default async function CartPage() {
           <span className="font-semibold">{formatMoney(cart.subtotalMinor, cart.currency)}</span>
         </div>
         {storefrontDiscountMinor > 0 && (
-          <>
-            <div className="flex justify-between text-emerald-700">
-              <span>{t("discount", { percent: formatRate(discountBps) })}</span>
-              <span>−{formatMoney(storefrontDiscountMinor, cart.currency)}</span>
-            </div>
-            <div className="flex justify-between border-t border-neutral-100 pt-2">
-              <span className="font-medium">{t("itemsTotal")}</span>
-              <span className="font-semibold">{formatMoney(discountedSubtotalMinor, cart.currency)}</span>
-            </div>
-          </>
+          <div className="flex justify-between text-emerald-700">
+            <span>{t("discount", { percent: formatRate(discountBps) })}</span>
+            <span>−{formatMoney(storefrontDiscountMinor, cart.currency)}</span>
+          </div>
+        )}
+        {promotions.map((promotion) => (
+          <div key={promotion.promotionId} className="flex justify-between text-emerald-700">
+            <span>{t("promotion", { name: promotion.name })}</span>
+            <span>−{formatMoney(promotion.discountMinor, cart.currency)}</span>
+          </div>
+        ))}
+        {freeShippingApplied && (
+          <div className="flex justify-between text-emerald-700">
+            <span>{t("freeShipping")}</span>
+            <span>−</span>
+          </div>
+        )}
+        {anyDeduction && (
+          <div className="flex justify-between border-t border-neutral-100 pt-2">
+            <span className="font-medium">{t("itemsTotal")}</span>
+            <span className="font-semibold">{formatMoney(discountedSubtotalMinor, cart.currency)}</span>
+          </div>
         )}
       </div>
       <p className="text-sm text-neutral-500">{t("taxNote")}</p>
