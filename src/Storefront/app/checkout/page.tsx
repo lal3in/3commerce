@@ -31,6 +31,9 @@ export default async function CheckoutPage() {
   // Threshold promotions (ADR-0051): decided by Ordering with the SAME evaluator checkout runs, so the
   // estimate matches the charge. Null (unavailable) → no promotion rows and today's local math.
   const summary = await getCartSummary(storefront?.id);
+  // Same basis rule as the cart: the summary's subtotal is the OFFER-RESOLVED item value actually
+  // charged, so the estimate lines add up even when an offer overrides a line's catalog price.
+  const subtotalMinor = summary?.subtotalMinor ?? cart.subtotalMinor;
   const promotionDiscountMinor = summary?.promotionDiscountMinor ?? 0;
   const appliedPromotions = summary?.appliedPromotions ?? [];
   const freeShippingApplied = summary?.freeShippingApplied ?? false;
@@ -41,11 +44,11 @@ export default async function CheckoutPage() {
       <div className="rounded-md border border-neutral-200 p-4 text-sm">
         <div className="flex justify-between">
           <span>{t("subtotalItems", { count: cart.items.length })}</span>
-          <span>{formatMoney(cart.subtotalMinor, cart.currency)}</span>
+          <span>{formatMoney(subtotalMinor, cart.currency)}</span>
         </div>
         <p className="mt-1 text-neutral-500">{t("taxNote")}</p>
       </div>
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} promotionDiscountMinor={promotionDiscountMinor} appliedPromotions={appliedPromotions} freeShippingApplied={freeShippingApplied} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} subtotalMinor={subtotalMinor} promotionDiscountMinor={promotionDiscountMinor} appliedPromotions={appliedPromotions} freeShippingApplied={freeShippingApplied} />
     </div>
   );
 }

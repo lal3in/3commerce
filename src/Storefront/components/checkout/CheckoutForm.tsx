@@ -24,6 +24,10 @@ interface CheckoutFormProps {
   // Storefront-wide discount in basis points (1000 = 10%; 0 = none). Deducted from the items' subtotal
   // only — never shipping, never tax — the same math Ordering charges at checkout (shown == charged).
   discountBps: number;
+  // The OFFER-RESOLVED item subtotal from Ordering's /cart/summary (falling back to the cart's add-time
+  // catalog subtotal when the summary is unavailable). Every money line below sits on this basis so the
+  // estimate adds up and matches what checkout charges (ADR-0047 shown == charged).
+  subtotalMinor: number;
   // Threshold promotions (ADR-0051), decided server-side by Ordering's shared PromotionEvaluator — never
   // recomputed here. The discount is deducted from the items' subtotal alongside the storefront-wide one.
   promotionDiscountMinor: number;
@@ -41,7 +45,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, promotionDiscountMinor, appliedPromotions, freeShippingApplied }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -78,12 +82,12 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   // after the per-line offer/catalog price the shopper already sees. Capped at the subtotal. The tax base
   // then follows the DISCOUNTED goods — matching the proportional discount Ordering charges at checkout.
   const storefrontDiscountMinor = discountBps > 0
-    ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
+    ? Math.min(Math.round(subtotalMinor * discountBps / 10000), subtotalMinor)
     : 0;
   // The promotion discount is subtracted BEFORE the tax base, exactly as Ordering charges it, so the
   // estimate shown here matches the charge. The pair is capped at the subtotal (goods never go negative).
-  const totalItemDiscountMinor = Math.min(storefrontDiscountMinor + promotionDiscountMinor, cart.subtotalMinor);
-  const discountedSubtotalMinor = cart.subtotalMinor - totalItemDiscountMinor;
+  const totalItemDiscountMinor = Math.min(storefrontDiscountMinor + promotionDiscountMinor, subtotalMinor);
+  const discountedSubtotalMinor = subtotalMinor - totalItemDiscountMinor;
   const taxBaseMinor = discountedSubtotalMinor + shippingMinorForTax;
   const estimatedTaxMinor = taxInclusive
     ? Math.round(taxBaseMinor * taxRateBasisPoints / (10000 + taxRateBasisPoints))
@@ -121,7 +125,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
           ))}
         </ul>
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
-          <Row label={t("subtotal")} value={formatMoney(cart.subtotalMinor, cart.currency)} />
+          <Row label={t("subtotal")} value={formatMoney(subtotalMinor, cart.currency)} />
           {storefrontDiscountMinor > 0 && (
             <Row
               label={t("discount", { percent: formatRate(discountBps) })}

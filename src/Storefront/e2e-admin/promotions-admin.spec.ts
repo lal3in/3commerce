@@ -66,7 +66,12 @@ test("promotions: create a threshold promotion through the modal and see it pers
   await page.getByLabel("Combinable", { exact: true }).check();
 
   // Scope the promotion to the storefront this test created, so nothing else on the stack sees it.
-  await page.getByLabel("Storefront", { exact: true }).selectOption(storefrontId);
+  // getByLabel is unusable for a <select> wrapped in its <label>: the accessible name absorbs the option
+  // text, and "Storefront" is also the filter row's label. Scope by the fieldset instead.
+  await page
+    .locator("fieldset", { hasText: "Storefront scope & active window" })
+    .locator("select")
+    .selectOption(storefrontId);
 
   await page.getByRole("button", { name: "Save promotion", exact: true }).click();
 

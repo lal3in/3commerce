@@ -39,7 +39,9 @@ test.describe("Threshold promotions (ADR-0051)", () => {
       // The Catalog -> Ordering projection is asynchronous, and the cart page is server-rendered
       // (no-store), so the wait is a reload loop: once the promotion row renders, /cart/summary has seen
       // the projected PromotionCopy and evaluated it with the same evaluator checkout uses.
-      const promotionText = new RegExp(`^Promotion: ${escapeRegExp(promotionName)}$`);
+      // Anchored at the start only: the row's <div> holds the label span AND the amount span, so its
+      // combined text is "Promotion: <name>−€x.xx" and a trailing $ would never match.
+      const promotionText = new RegExp(`^Promotion: ${escapeRegExp(promotionName)}`);
       await expect
         .poll(
           async () => {
@@ -56,6 +58,19 @@ test.describe("Threshold promotions (ADR-0051)", () => {
       await expect(page.getByText(/^Items total$/)).toBeVisible();
       await expect(page.getByText(/^Free shipping$/)).toBeVisible();
       await page.screenshot({ path: "test-results/promotion-cart.png", fullPage: true });
+
+      // The rows must ADD UP: subtotal − promotion = items total. GET /cart carries the ADD-TIME catalog
+      // price while /cart/summary carries the OFFER-RESOLVED price actually charged, so mixing the two
+      // bases silently renders a summary that does not reconcile (regression guard).
+      // .first() is the OUTERMOST div whose text starts with "Subtotal" — the summary container holding
+      // every row (.last() would be the Subtotal row alone). Only currency-prefixed numbers are read, so
+      // the digits in the promotion's generated name are ignored.
+      const summaryText = (await page.locator("div", { hasText: /^Subtotal/ }).first().textContent()) ?? "";
+      const amounts = [...summaryText.matchAll(/[€$£¥]\s?([\d.,]+)/g)].map((m) => Number(m[1].replace(/,/g, "")));
+      expect(amounts.length, `expected subtotal/promotion/items-total amounts in "${summaryText}"`).toBeGreaterThanOrEqual(3);
+      const [subtotal, promotionOff] = amounts;
+      const itemsTotal = amounts[amounts.length - 1];
+      expect(Math.abs(subtotal - promotionOff - itemsTotal)).toBeLessThan(0.02);
 
       // Shown == charged: the checkout summary carries the same promotion row and free shipping.
       await page.goto("/checkout");

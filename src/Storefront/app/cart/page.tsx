@@ -24,16 +24,20 @@ export default async function CartPage() {
   // evaluator checkout runs, so shown == charged. When it is unavailable (null) the page falls back to
   // today's local storefront-discount math and simply shows no promotion rows.
   const summary = await getCartSummary(storefront?.id);
+  // GET /cart carries the ADD-TIME catalog price; the summary carries the OFFER-RESOLVED price actually
+  // charged (ADR-0047). Every row below must sit on the SAME basis, or the subtotal, the deductions and
+  // the items total visibly fail to add up when an offer overrides a line's catalog price.
+  const subtotalMinor = summary?.subtotalMinor ?? cart.subtotalMinor;
   const storefrontDiscountMinor = summary
     ? summary.storefrontDiscountMinor
     : discountBps > 0
-      ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
+      ? Math.min(Math.round(subtotalMinor * discountBps / 10000), subtotalMinor)
       : 0;
   const promotions = summary?.appliedPromotions ?? [];
   const freeShippingApplied = summary?.freeShippingApplied ?? false;
   const discountedSubtotalMinor = summary
     ? summary.itemsTotalMinor
-    : cart.subtotalMinor - storefrontDiscountMinor;
+    : subtotalMinor - storefrontDiscountMinor;
   const anyDeduction = storefrontDiscountMinor > 0 || promotions.length > 0;
 
   if (cart.items.length === 0) {
@@ -58,7 +62,7 @@ export default async function CartPage() {
       <div className="space-y-2 border-t border-neutral-200 pt-4">
         <div className="flex justify-between">
           <span className="font-medium">{t("subtotal")}</span>
-          <span className="font-semibold">{formatMoney(cart.subtotalMinor, cart.currency)}</span>
+          <span className="font-semibold">{formatMoney(subtotalMinor, cart.currency)}</span>
         </div>
         {storefrontDiscountMinor > 0 && (
           <div className="flex justify-between text-emerald-700">
