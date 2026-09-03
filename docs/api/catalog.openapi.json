@@ -1671,6 +1671,136 @@
           }
         }
       }
+    },
+    "/admin/promotions": {
+      "get": {
+        "tags": [
+          "Promotions"
+        ],
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromotionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Promotions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromotionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/promotions/{id}": {
+      "put": {
+        "tags": [
+          "Promotions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePromotionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3776,6 +3906,234 @@
             }
           }
         }
+      },
+      "PromotionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "scope": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 = Storefront (whole cart), 2 = Product. Enums cross HTTP as numbers."
+          },
+          "scopeName": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "grantsFreeShipping": {
+            "type": "boolean"
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "combinable": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "productTitle": {
+            "type": "string"
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CreatePromotionRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "currency",
+          "scope"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "Thresholds and the fixed discount are denominated in THIS currency and are never converted (no FX)."
+          },
+          "scope": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Money threshold, minor units. 0 = none. Both thresholds set are ANDed."
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "grantsFreeShipping": {
+            "type": "boolean"
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "combinable": {
+            "type": "boolean",
+            "description": "true stacks with other combinable promotions; false = exclusive."
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "UpdatePromotionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "grantsFreeShipping": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "combinable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "applyScope": {
+            "type": "boolean",
+            "description": "Opt in to setting storefrontId + the active window; false preserves the current scope/window."
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
       }
     }
   },
@@ -3812,6 +4170,9 @@
     },
     {
       "name": "Offers"
+    },
+    {
+      "name": "Promotions"
     }
   ]
 }

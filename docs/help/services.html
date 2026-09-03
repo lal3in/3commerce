@@ -66,6 +66,13 @@
           <li>Define a subscription price with a billing period.</li>
           <li>Define graduated tiers (first tier must start at qty 1) and quote the per-block charge for any quantity.</li>
         </ul>
+        <p><b>Not here: threshold promotions.</b> Promotions (ADR-0051) are owned by <b>Catalog</b>, not this service — Catalog already owns the Storefront and Offer a promotion references and already projects into Ordering, whereas Pricing has no bus wiring and no path to checkout. The surfaces are:</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>GET/POST</code></td><td><code>/api/catalog/admin/promotions</code></td><td>admin</td><td>List/create a threshold promotion: money and/or quantity threshold (both set ⇒ AND) at storefront or product scope, rewarding free shipping and/or a percent-or-fixed discount, with a combinable/exclusive flag. Amounts are minor units in the promotion's own currency (never converted)</td></tr>
+              <tr><td><code>PUT</code></td><td><code>/api/catalog/admin/promotions/{id}</code></td><td>admin</td><td>Partial update: thresholds, rewards, combinability, activate/deactivate; <code>applyScope</code> opts in to storefront scope + active window</td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/ordering/cart/summary</code></td><td>anonymous</td><td>The cart's money preview — offer-resolved subtotal, storefront-wide discount, promotion discount, items total, free shipping and the applied promotions. Computed with the same <code>PromotionEvaluator</code> checkout uses, so shown == charged</td></tr>
+        </tbody></table>
+        <p>Catalog publishes <code>PromotionChanged</code>; Ordering projects it into a local <code>PromotionCopy</code> and evaluates promotions there (no cross-service query, ADR-0008). The promotion lowers the charged gross — there is no new ledger line and the trial balance is unaffected.</p>
         <h2 id="audit">Audit <span style="opacity:.6">(<code>/api/audit</code> · <code>:5110</code>)</span></h2>
         <p>Central searchable projection of every service’s local audit entry (mt6_1). Read-only; the owning service’s hash-chained log stays authoritative. Consumes <code>AuditEntryRecorded</code> — admin mutations across Catalog, Payments, Entity, Identity, Support, and Ordering now emit these (mr_8), and this projection powers the Admin <b>Mission Control</b> activity timeline.</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>

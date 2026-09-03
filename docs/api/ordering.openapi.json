@@ -512,6 +512,36 @@
           }
         }
       }
+    },
+    "/cart/summary": {
+      "get": {
+        "tags": [
+          "Cart"
+        ],
+        "summary": "The cart's money preview: offer-resolved subtotal, storefront-wide discount, threshold-promotion discount, items total, free shipping and the applied promotions (ADR-0051). Computed with the same evaluator checkout uses.",
+        "parameters": [
+          {
+            "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -837,6 +867,17 @@
               "null",
               "string"
             ]
+          },
+          "freeShippingApplied": {
+            "type": "boolean"
+          },
+          "appliedPromotionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
           }
         }
       },
@@ -1159,6 +1200,55 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "AppliedPromotionResponse": {
+        "type": "object",
+        "properties": {
+          "promotionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "discountMinor": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CartSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "subtotalMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "storefrontDiscountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "promotionDiscountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "itemsTotalMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "freeShippingApplied": {
+            "type": "boolean"
+          },
+          "appliedPromotions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppliedPromotionResponse"
+            }
+          },
+          "currency": {
+            "type": "string"
           }
         }
       }
