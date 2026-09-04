@@ -662,6 +662,80 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.ToTable("ProductTypeShippingPolicies", "catalog");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Promotion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ActiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ActiveUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Combinable")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<long>("DiscountAmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("GrantsFreeShipping")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("MinimumAmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("MinimumQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("PercentOff")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ProductId");
+
+                    b.HasIndex("TenantId", "StorefrontId");
+
+                    b.ToTable("Promotions", "catalog");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Catalog.Domain.Storefront", b =>
                 {
                     b.Property<Guid>("Id")

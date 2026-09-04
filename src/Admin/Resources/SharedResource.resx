@@ -111,6 +111,8 @@
   <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Create and edit products, variants, prices, images and attributes.</value></data>
   <data name="Nav.Offers" xml:space="preserve"><value>Offers &amp; pricing</value></data>
   <data name="Nav.Offers.Tip" xml:space="preserve"><value>Supplier supply profiles: fulfilment type, price model, billing period, priority.</value></data>
+  <data name="Nav.Promotions" xml:space="preserve"><value>Promotions</value></data>
+  <data name="Nav.Promotions.Tip" xml:space="preserve"><value>Threshold promotions: free shipping and/or a discount once the cart clears a money or quantity threshold.</value></data>
   <data name="Nav.Orders" xml:space="preserve"><value>Orders</value></data>
   <data name="Nav.Orders.Tip" xml:space="preserve"><value>Browse orders; cancel unpaid ones and refund paid ones.</value></data>
   <data name="Nav.Rmas" xml:space="preserve"><value>RMA queue</value></data>
@@ -1859,6 +1861,76 @@
   <data name="Suppliers.Info.Approved.Request" xml:space="preserve"><value>Change request approved.</value></data>
   <data name="Offers.Field.SupplierCost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
   <data name="Offers.Field.SupplierCost.Tip" xml:space="preserve"><value>What the supplier charges, in minor units. Edited only on the Suppliers page.</value></data>
+  <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Threshold promotions: grant free shipping and/or a discount once the cart (or one product) clears a money and/or quantity threshold. Both thresholds set means BOTH must be met.</value></data>
+  <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>The tenant whose promotions are listed.</value></data>
+  <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Show only promotions scoped to this storefront. Leave blank for all.</value></data>
+  <data name="Promotions.NewButton" xml:space="preserve"><value>New promotion</value></data>
+  <data name="Promotions.New.Tip" xml:space="preserve"><value>Create a threshold promotion for this tenant.</value></data>
+  <data name="Promotions.New" xml:space="preserve"><value>New promotion</value></data>
+  <data name="Promotions.EditHeading" xml:space="preserve"><value>Edit promotion</value></data>
+  <data name="Promotions.Edit.Tip" xml:space="preserve"><value>Edit this promotion’s thresholds, rewards, scope and window.</value></data>
+  <data name="Promotions.Empty" xml:space="preserve"><value>No promotions for this tenant yet.</value></data>
+  <data name="Promotions.Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="Promotions.Save" xml:space="preserve"><value>Save promotion</value></data>
+  <data name="Promotions.Save.Tip" xml:space="preserve"><value>Save this promotion; it applies at checkout as soon as the projection lands.</value></data>
+  <data name="Promotions.Status.Saved" xml:space="preserve"><value>Promotion saved.</value></data>
+  <data name="Promotions.Col.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Promotions.Col.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="Promotions.Col.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Promotions.Col.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Promotions.Col.Threshold" xml:space="preserve"><value>Threshold</value></data>
+  <data name="Promotions.Col.Reward" xml:space="preserve"><value>Reward</value></data>
+  <data name="Promotions.Col.Combinable" xml:space="preserve"><value>Combinable</value></data>
+  <data name="Promotions.Col.Window" xml:space="preserve"><value>Window</value></data>
+  <data name="Promotions.Scope.Legend" xml:space="preserve"><value>Storefront scope &amp; active window</value></data>
+  <data name="Promotions.Scope.Storefront" xml:space="preserve"><value>Whole cart</value></data>
+  <data name="Promotions.Scope.Product" xml:space="preserve"><value>One product</value></data>
+  <data name="Promotions.Storefront.All" xml:space="preserve"><value>All storefronts</value></data>
+  <data name="Promotions.Storefront.Any" xml:space="preserve"><value>Any storefront</value></data>
+  <data name="Promotions.Window.Always" xml:space="preserve"><value>Always</value></data>
+  <data name="Promotions.Combinable.Yes" xml:space="preserve"><value>Stacks</value></data>
+  <data name="Promotions.Combinable.No" xml:space="preserve"><value>Exclusive</value></data>
+  <data name="Promotions.Reward.FreeShipping" xml:space="preserve"><value>Free shipping</value></data>
+  <data name="Promotions.Threshold.Qty" xml:space="preserve"><value>{0} items</value></data>
+  <data name="Promotions.Threshold.Legend" xml:space="preserve"><value>Threshold</value></data>
+  <data name="Promotions.Threshold.Note" xml:space="preserve"><value>Set a money threshold, a quantity threshold, or both — when both are set BOTH must be met. Measured on the item value the shopper is charged (the effective offer price), EXCLUDING tax, shipping and fees.</value></data>
+  <data name="Promotions.Field.MinimumAmount" xml:space="preserve"><value>Minimum amount</value></data>
+  <data name="Promotions.Field.MinimumAmount.Tip" xml:space="preserve"><value>Money threshold in the promotion’s currency (major units, e.g. 100 = 100.00). Measured on the item value EXCLUDING tax and shipping. 0 = no money threshold. Never converted — the promotion only applies to carts in this currency.</value></data>
+  <data name="Promotions.Field.MinimumQuantity" xml:space="preserve"><value>Minimum quantity</value></data>
+  <data name="Promotions.Field.MinimumQuantity.Tip" xml:space="preserve"><value>Unit-count threshold on the promotion’s scope. 0 = no quantity threshold.</value></data>
+  <data name="Promotions.Reward.Legend" xml:space="preserve"><value>Reward &amp; combinability</value></data>
+  <data name="Promotions.Reward.Note" xml:space="preserve"><value>Grant free shipping and/or a discount — the discount is either a percentage OR a fixed amount, never both. At least one reward is required.</value></data>
+  <data name="Promotions.Field.FreeShipping" xml:space="preserve"><value>Free shipping</value></data>
+  <data name="Promotions.Field.FreeShipping.Tip" xml:space="preserve"><value>Zeroes the cart’s shipping charge when the promotion wins. A cart that already ships free is unaffected.</value></data>
+  <data name="Promotions.Field.PercentOff" xml:space="preserve"><value>Percent off</value></data>
+  <data name="Promotions.Field.PercentOff.Tip" xml:space="preserve"><value>Percentage (0–100) off the promotion’s scope base. Mutually exclusive with the fixed discount.</value></data>
+  <data name="Promotions.Field.FixedDiscount" xml:space="preserve"><value>Fixed discount</value></data>
+  <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Fixed amount off, in the promotion’s currency (major units). Clamped to the scope base, and never converted. Mutually exclusive with the percentage.</value></data>
+  <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Combinable</value></data>
+  <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Stacks with other combinable promotions. Unchecked = exclusive (only this one applies). The engine keeps whichever gives the shopper the greater benefit.</value></data>
+  <data name="Promotions.Field.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Shopper-visible label shown on the cart and checkout summary.</value></data>
+  <data name="Promotions.Field.Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Promotions.Field.Scope" xml:space="preserve"><value>Scope</value></data>
+  <data name="Promotions.Field.Scope.Tip" xml:space="preserve"><value>Whole cart measures and discounts every item line; one product measures and discounts only that product’s lines.</value></data>
+  <data name="Promotions.Field.Product" xml:space="preserve"><value>Product</value></data>
+  <data name="Promotions.Field.Product.Tip" xml:space="preserve"><value>The product measured and discounted. Required for product scope; ignored for whole-cart scope.</value></data>
+  <data name="Promotions.Field.ProductSearch" xml:space="preserve"><value>Search products…</value></data>
+  <data name="Promotions.Field.ProductSearch.Tip" xml:space="preserve"><value>Filters the product list below by title.</value></data>
+  <data name="Promotions.Product.Choose" xml:space="preserve"><value>Choose a product…</value></data>
+  <data name="Promotions.Product.Empty" xml:space="preserve"><value>No products found</value></data>
+  <data name="Promotions.Field.Storefront" xml:space="preserve"><value>Storefront</value></data>
+  <data name="Promotions.Field.Storefront.Tip" xml:space="preserve"><value>Restrict the promotion to one storefront. Blank = every storefront using the promotion’s currency.</value></data>
+  <data name="Promotions.Field.ActiveFrom" xml:space="preserve"><value>Active from</value></data>
+  <data name="Promotions.Field.ActiveFrom.Tip" xml:space="preserve"><value>Inclusive start date (UTC). Blank = already started.</value></data>
+  <data name="Promotions.Field.ActiveUntil" xml:space="preserve"><value>Active until</value></data>
+  <data name="Promotions.Field.ActiveUntil.Tip" xml:space="preserve"><value>Inclusive end date (UTC) — the whole day counts. Blank = never expires.</value></data>
+  <data name="Promotions.Field.Active.Tip" xml:space="preserve"><value>Uncheck to switch the promotion off; it stops applying as soon as the projection lands.</value></data>
+  <data name="Promotions.Error.TenantGuid" xml:space="preserve"><value>Tenant id must be a GUID.</value></data>
+  <data name="Promotions.Error.Name" xml:space="preserve"><value>A promotion name is required.</value></data>
+  <data name="Promotions.Error.Product" xml:space="preserve"><value>Choose a product for a product-scoped promotion.</value></data>
   <data name="Catalog.SupplierCost" xml:space="preserve"><value>Supplier cost</value></data>
   <data name="Catalog.SupplierCost.Product" xml:space="preserve"><value>Supplier cost (product-level offer)</value></data>
   <data name="Catalog.SupplierCost.Tip" xml:space="preserve"><value>Supplier cost from this product's offers, in minor units. Edited only on the Suppliers page.</value></data>

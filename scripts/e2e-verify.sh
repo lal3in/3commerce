@@ -25,9 +25,18 @@
 #       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
 #       Catalog Storefront lifecycle plus public URL/currency/tax config invariants;
 #       Catalog Publication readiness/SEO/fulfillment-source invariants;
+#       Catalog Promotion aggregate invariants (ADR-0051): >=1 threshold (money and/or
+#       quantity), >=1 reward, percent XOR fixed amount, scope<->product binding,
+#       ordered inclusive active window, storefront match, activate/deactivate;
 #       Ordering Pricing engine: supplier/selling price inputs, tax-mode seam,
 #       fixed/percent/product/category/storefront/bundle/free-shipping promotions,
 #       best-discount-wins, quantity-tier promotions, DiscountMinor snapshots,
+#       THRESHOLD promotions (money and/or quantity, storefront or product scope,
+#       measured on the offer-resolved effective selling price excl. tax/ship/fees) and
+#       combinability resolved by the SHARED PromotionEvaluator that checkout also calls —
+#       best-exclusive vs sum-of-combinables by customer benefit, tie to the combinable set,
+#       ascending-id tiebreak, no-FX currency guard, window bounds, fixed amount clamped to
+#       its scope base, and a largest-remainder per-line allocation that sums exactly;
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -63,6 +72,14 @@
 #       duplicate webhook = one entry, refund reverses + ledger stays balanced;
 #       saga survives an Ordering-host outage mid-payment (NFR-2 chaos/BL-6);
 #       admin order cancel guard (confirmed→409 refund-instead, unknown→404);
+#       threshold promotions end-to-end (ADR-0051): free shipping above the money threshold,
+#       the below-threshold control, product-scoped discount touching only that product's
+#       lines, the threshold measured on the OFFER-resolved price (not the catalog price),
+#       combinables stacking past a bigger exclusive, and a promotion stacking with the
+#       storefront-wide discount with tax on the doubly-discounted base — trial balance 0 in
+#       every case (no new ledger line);
+#       Catalog PromotionChanged → Ordering PromotionCopy projection: insert, idempotent
+#       re-consume (no duplicate row), deactivation (PromotionProjectionTests);
 #       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
@@ -117,9 +134,11 @@
 #   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
 #       fixture-manifest catalog scenario products (when seeded), cart + full guest checkout
 #       (test payment), account flows; admin login, broad operations page rendering
-#       (catalog/offers/orders/commerce ops/payments/payouts/Xero/mission control),
+#       (catalog/offers/promotions/orders/commerce ops/payments/payouts/Xero/mission control),
 #       RMA action availability, supplier portal readiness/stock/change-request flows,
-#       and operator RMA approve → refund → RefundIssued + ledger reversal
+#       operator RMA approve → refund → RefundIssued + ledger reversal, threshold-promotion
+#       authoring through the admin modal (round-tripped via the API, then deactivated), and
+#       the shopper seeing the promotion row + free shipping in the cart and checkout summary
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -157,6 +176,11 @@ run_automated() {
 
   stage "A3  Backend unit + contract tests"
   if dotnet test "$ROOT/3commerce.sln" --no-build --filter 'Category!=Integration' 2>&1 | grep -q 'Failed: *0'; then pass "A3 unit/contract"; else fail "A3 unit/contract"; fi
+
+  stage "A3b Threshold promotions (ADR-0051) — Catalog domain + shared evaluator + engine"
+  if dotnet test "$ROOT/3commerce.sln" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PricingTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3b threshold promotions"; else fail "A3b threshold promotions"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

@@ -110,6 +110,8 @@
   <data name="Nav.Catalog.Tip" xml:space="preserve"><value>Cree y edite productos, variantes, precios, imágenes y atributos.</value></data>
   <data name="Nav.Offers" xml:space="preserve"><value>Ofertas y precios</value></data>
   <data name="Nav.Offers.Tip" xml:space="preserve"><value>Perfiles de suministro del proveedor: tipo de cumplimiento, modelo de precio, período de facturación, prioridad.</value></data>
+  <data name="Nav.Promotions" xml:space="preserve"><value>Promociones</value></data>
+  <data name="Nav.Promotions.Tip" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito supera un umbral de importe o cantidad.</value></data>
   <data name="Nav.Orders" xml:space="preserve"><value>Pedidos</value></data>
   <data name="Nav.Orders.Tip" xml:space="preserve"><value>Explore los pedidos; cancele los no pagados y reembolse los pagados.</value></data>
   <data name="Nav.Rmas" xml:space="preserve"><value>Cola de RMA</value></data>
@@ -338,6 +340,76 @@
   <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>El ID de inquilino debe ser un GUID válido.</value></data>
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>El ID de producto debe ser un GUID válido.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>El ID de proveedor debe ser un GUID válido.</value></data>
+  <data name="Promotions.Title" xml:space="preserve"><value>Promociones</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito (o un producto) supera un umbral de importe o cantidad. Si defines ambos umbrales, deben cumplirse LOS DOS.</value></data>
+  <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>El inquilino cuyas promociones se muestran.</value></data>
+  <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Tienda</value></data>
+  <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Mostrar solo las promociones de esta tienda. Déjalo vacío para todas.</value></data>
+  <data name="Promotions.NewButton" xml:space="preserve"><value>Nueva promoción</value></data>
+  <data name="Promotions.New.Tip" xml:space="preserve"><value>Crear una promoción por umbral para este inquilino.</value></data>
+  <data name="Promotions.New" xml:space="preserve"><value>Nueva promoción</value></data>
+  <data name="Promotions.EditHeading" xml:space="preserve"><value>Editar promoción</value></data>
+  <data name="Promotions.Edit.Tip" xml:space="preserve"><value>Editar los umbrales, recompensas, alcance y periodo de esta promoción.</value></data>
+  <data name="Promotions.Empty" xml:space="preserve"><value>Todavía no hay promociones para este inquilino.</value></data>
+  <data name="Promotions.Loading" xml:space="preserve"><value>Cargando…</value></data>
+  <data name="Promotions.Save" xml:space="preserve"><value>Guardar promoción</value></data>
+  <data name="Promotions.Save.Tip" xml:space="preserve"><value>Guardar la promoción; se aplica en el pago en cuanto llega la proyección.</value></data>
+  <data name="Promotions.Status.Saved" xml:space="preserve"><value>Promoción guardada.</value></data>
+  <data name="Promotions.Col.Name" xml:space="preserve"><value>Nombre</value></data>
+  <data name="Promotions.Col.Scope" xml:space="preserve"><value>Alcance</value></data>
+  <data name="Promotions.Col.Product" xml:space="preserve"><value>Producto</value></data>
+  <data name="Promotions.Col.Storefront" xml:space="preserve"><value>Tienda</value></data>
+  <data name="Promotions.Col.Threshold" xml:space="preserve"><value>Umbral</value></data>
+  <data name="Promotions.Col.Reward" xml:space="preserve"><value>Recompensa</value></data>
+  <data name="Promotions.Col.Combinable" xml:space="preserve"><value>Combinable</value></data>
+  <data name="Promotions.Col.Window" xml:space="preserve"><value>Periodo</value></data>
+  <data name="Promotions.Scope.Legend" xml:space="preserve"><value>Alcance de tienda y periodo activo</value></data>
+  <data name="Promotions.Scope.Storefront" xml:space="preserve"><value>Todo el carrito</value></data>
+  <data name="Promotions.Scope.Product" xml:space="preserve"><value>Un producto</value></data>
+  <data name="Promotions.Storefront.All" xml:space="preserve"><value>Todas las tiendas</value></data>
+  <data name="Promotions.Storefront.Any" xml:space="preserve"><value>Cualquier tienda</value></data>
+  <data name="Promotions.Window.Always" xml:space="preserve"><value>Siempre</value></data>
+  <data name="Promotions.Combinable.Yes" xml:space="preserve"><value>Se acumula</value></data>
+  <data name="Promotions.Combinable.No" xml:space="preserve"><value>Exclusiva</value></data>
+  <data name="Promotions.Reward.FreeShipping" xml:space="preserve"><value>Envío gratis</value></data>
+  <data name="Promotions.Threshold.Qty" xml:space="preserve"><value>{0} artículos</value></data>
+  <data name="Promotions.Threshold.Legend" xml:space="preserve"><value>Umbral</value></data>
+  <data name="Promotions.Threshold.Note" xml:space="preserve"><value>Define un umbral de importe, de cantidad o ambos — si defines los dos, deben cumplirse LOS DOS. Se mide sobre el valor de los artículos que se cobra (el precio de oferta efectivo), SIN impuestos, envío ni comisiones.</value></data>
+  <data name="Promotions.Field.MinimumAmount" xml:space="preserve"><value>Importe mínimo</value></data>
+  <data name="Promotions.Field.MinimumAmount.Tip" xml:space="preserve"><value>Umbral de importe en la moneda de la promoción (unidades mayores, p. ej. 100 = 100,00). Se mide sobre el valor de los artículos SIN impuestos ni envío. 0 = sin umbral de importe. Nunca se convierte: la promoción solo se aplica a carritos en esta moneda.</value></data>
+  <data name="Promotions.Field.MinimumQuantity" xml:space="preserve"><value>Cantidad mínima</value></data>
+  <data name="Promotions.Field.MinimumQuantity.Tip" xml:space="preserve"><value>Umbral de unidades en el alcance de la promoción. 0 = sin umbral de cantidad.</value></data>
+  <data name="Promotions.Reward.Legend" xml:space="preserve"><value>Recompensa y combinabilidad</value></data>
+  <data name="Promotions.Reward.Note" xml:space="preserve"><value>Concede envío gratis o un descuento: el descuento es un porcentaje O un importe fijo, nunca ambos. Se requiere al menos una recompensa.</value></data>
+  <data name="Promotions.Field.FreeShipping" xml:space="preserve"><value>Envío gratis</value></data>
+  <data name="Promotions.Field.FreeShipping.Tip" xml:space="preserve"><value>Pone a cero los gastos de envío cuando gana la promoción. Un carrito que ya envía gratis no se ve afectado.</value></data>
+  <data name="Promotions.Field.PercentOff" xml:space="preserve"><value>Porcentaje de descuento</value></data>
+  <data name="Promotions.Field.PercentOff.Tip" xml:space="preserve"><value>Porcentaje (0–100) sobre la base del alcance. Excluyente con el descuento fijo.</value></data>
+  <data name="Promotions.Field.FixedDiscount" xml:space="preserve"><value>Descuento fijo</value></data>
+  <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Importe fijo de descuento en la moneda de la promoción (unidades mayores). Limitado a la base y nunca convertido. Excluyente con el porcentaje.</value></data>
+  <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Combinable</value></data>
+  <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Se acumula con otras promociones combinables. Sin marcar = exclusiva (solo se aplica esta). Gana la que dé mayor beneficio al comprador.</value></data>
+  <data name="Promotions.Field.Name" xml:space="preserve"><value>Nombre</value></data>
+  <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Etiqueta visible para el comprador en el carrito y el resumen de pago.</value></data>
+  <data name="Promotions.Field.Currency" xml:space="preserve"><value>Moneda</value></data>
+  <data name="Promotions.Field.Scope" xml:space="preserve"><value>Alcance</value></data>
+  <data name="Promotions.Field.Scope.Tip" xml:space="preserve"><value>Todo el carrito mide y descuenta todas las líneas; un producto mide y descuenta solo sus líneas.</value></data>
+  <data name="Promotions.Field.Product" xml:space="preserve"><value>Producto</value></data>
+  <data name="Promotions.Field.Product.Tip" xml:space="preserve"><value>El producto medido y descontado. Obligatorio para el alcance de producto; se ignora para el carrito completo.</value></data>
+  <data name="Promotions.Field.ProductSearch" xml:space="preserve"><value>Buscar productos…</value></data>
+  <data name="Promotions.Field.ProductSearch.Tip" xml:space="preserve"><value>Filtra la lista de productos por título.</value></data>
+  <data name="Promotions.Product.Choose" xml:space="preserve"><value>Elige un producto…</value></data>
+  <data name="Promotions.Product.Empty" xml:space="preserve"><value>No se encontraron productos</value></data>
+  <data name="Promotions.Field.Storefront" xml:space="preserve"><value>Tienda</value></data>
+  <data name="Promotions.Field.Storefront.Tip" xml:space="preserve"><value>Limita la promoción a una tienda. Vacío = todas las tiendas con la moneda de la promoción.</value></data>
+  <data name="Promotions.Field.ActiveFrom" xml:space="preserve"><value>Activa desde</value></data>
+  <data name="Promotions.Field.ActiveFrom.Tip" xml:space="preserve"><value>Fecha de inicio incluida (UTC). Vacío = ya iniciada.</value></data>
+  <data name="Promotions.Field.ActiveUntil" xml:space="preserve"><value>Activa hasta</value></data>
+  <data name="Promotions.Field.ActiveUntil.Tip" xml:space="preserve"><value>Fecha de fin incluida (UTC): cuenta el día completo. Vacío = no caduca.</value></data>
+  <data name="Promotions.Field.Active.Tip" xml:space="preserve"><value>Desmarca para desactivar la promoción; deja de aplicarse en cuanto llega la proyección.</value></data>
+  <data name="Promotions.Error.TenantGuid" xml:space="preserve"><value>El id de inquilino debe ser un GUID.</value></data>
+  <data name="Promotions.Error.Name" xml:space="preserve"><value>Se requiere un nombre de promoción.</value></data>
+  <data name="Promotions.Error.Product" xml:space="preserve"><value>Elige un producto para una promoción con alcance de producto.</value></data>
 
   <!-- ===== Orders ===== -->
   <data name="Orders.Title" xml:space="preserve"><value>Pedidos</value></data>

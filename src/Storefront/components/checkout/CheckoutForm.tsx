@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition, type ReactN
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
-import type { AddressDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
+import type { AddressDto, AppliedPromotionDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
 
@@ -24,6 +24,16 @@ interface CheckoutFormProps {
   // Storefront-wide discount in basis points (1000 = 10%; 0 = none). Deducted from the items' subtotal
   // only — never shipping, never tax — the same math Ordering charges at checkout (shown == charged).
   discountBps: number;
+  // The OFFER-RESOLVED item subtotal from Ordering's /cart/summary (falling back to the cart's add-time
+  // catalog subtotal when the summary is unavailable). Every money line below sits on this basis so the
+  // estimate adds up and matches what checkout charges (ADR-0047 shown == charged).
+  subtotalMinor: number;
+  // Threshold promotions (ADR-0051), decided server-side by Ordering's shared PromotionEvaluator — never
+  // recomputed here. The discount is deducted from the items' subtotal alongside the storefront-wide one.
+  promotionDiscountMinor: number;
+  appliedPromotions: AppliedPromotionDto[];
+  // A promotion granted free shipping: the shipping line shows free and contributes nothing to the tax base.
+  freeShippingApplied: boolean;
 }
 
 // Wire values are fixed; the visible label comes from the `checkout.methods.*` catalog (i18n_1).
@@ -35,7 +45,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -64,14 +74,20 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const name = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
   // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
-  const shippingMinorForTax = collect ? 0 : (selectedRate?.amountMinor ?? 0);
+  // Collect-at-warehouse already yields 0; a free-shipping promotion zeroes whatever rate remains, so
+  // the two never double-handle each other.
+  const shippingShownMinor = collect || freeShippingApplied ? 0 : (selectedRate?.amountMinor ?? 0);
+  const shippingMinorForTax = shippingShownMinor;
   // Storefront-wide discount: deducted from the ITEMS' subtotal only (never shipping, never tax), applied
   // after the per-line offer/catalog price the shopper already sees. Capped at the subtotal. The tax base
   // then follows the DISCOUNTED goods — matching the proportional discount Ordering charges at checkout.
   const storefrontDiscountMinor = discountBps > 0
-    ? Math.min(Math.round(cart.subtotalMinor * discountBps / 10000), cart.subtotalMinor)
+    ? Math.min(Math.round(subtotalMinor * discountBps / 10000), subtotalMinor)
     : 0;
-  const discountedSubtotalMinor = cart.subtotalMinor - storefrontDiscountMinor;
+  // The promotion discount is subtracted BEFORE the tax base, exactly as Ordering charges it, so the
+  // estimate shown here matches the charge. The pair is capped at the subtotal (goods never go negative).
+  const totalItemDiscountMinor = Math.min(storefrontDiscountMinor + promotionDiscountMinor, subtotalMinor);
+  const discountedSubtotalMinor = subtotalMinor - totalItemDiscountMinor;
   const taxBaseMinor = discountedSubtotalMinor + shippingMinorForTax;
   const estimatedTaxMinor = taxInclusive
     ? Math.round(taxBaseMinor * taxRateBasisPoints / (10000 + taxRateBasisPoints))
@@ -109,17 +125,32 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
           ))}
         </ul>
         <div className="space-y-1 border-t border-neutral-100 pt-3 text-sm">
-          <Row label={t("subtotal")} value={formatMoney(cart.subtotalMinor, cart.currency)} />
+          <Row label={t("subtotal")} value={formatMoney(subtotalMinor, cart.currency)} />
           {storefrontDiscountMinor > 0 && (
             <Row
               label={t("discount", { percent: formatRate(discountBps) })}
               value={`−${formatMoney(storefrontDiscountMinor, cart.currency)}`}
             />
           )}
+          {appliedPromotions.map((promotion) => (
+            <Row
+              key={promotion.promotionId}
+              label={t("promotion", { name: promotion.name })}
+              value={`−${formatMoney(promotion.discountMinor, cart.currency)}`}
+            />
+          ))}
           <Row
             label={t("shipping")}
-            value={collect ? t("collectFree") : selectedRate ? formatMoney(selectedRate.amountMinor, selectedRate.currency) : t("chooseRate")}
-            muted={!collect && !selectedRate}
+            value={
+              collect
+                ? t("collectFree")
+                : freeShippingApplied
+                  ? t("freeShipping")
+                  : selectedRate
+                    ? formatMoney(selectedRate.amountMinor, selectedRate.currency)
+                    : t("chooseRate")
+            }
+            muted={!collect && !freeShippingApplied && !selectedRate}
           />
           <Row
             label={taxInclusive ? t("includesTax", { percent: formatRate(taxRateBasisPoints) }) : t("taxAdded")}

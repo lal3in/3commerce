@@ -22,6 +22,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<OrderNumberSequence> OrderNumberSequences => Set<OrderNumberSequence>();
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
+    public DbSet<PromotionCopy> PromotionCopies => Set<PromotionCopy>();
     public DbSet<ProductTypeShippingPolicyCopy> ProductTypeShippingPolicyCopies => Set<ProductTypeShippingPolicyCopy>();
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
     public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
@@ -42,6 +43,17 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             // ("unknown"), which checkout treats as a fulfilment-type decision until the offer is
             // re-projected — never mis-typing a legacy copy as Physical.
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
+        });
+
+        // Threshold promotions (ADR-0051). The covering index matters: checkout and every /cart/summary
+        // call load the tenant's active promotions for the line's storefront (or all-storefront).
+        modelBuilder.Entity<PromotionCopy>(promotion =>
+        {
+            promotion.HasKey(p => p.PromotionId);
+            promotion.Property(p => p.Currency).HasMaxLength(3);
+            promotion.Property(p => p.Name).HasMaxLength(120);
+            promotion.Property(p => p.Scope).HasConversion<string>().HasMaxLength(16);
+            promotion.HasIndex(p => new { p.TenantId, p.StorefrontId, p.Active });
         });
 
         modelBuilder.Entity<ProductTypeShippingPolicyCopy>(policy =>
@@ -113,12 +125,16 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             o.Property(x => x.PaymentOption).HasMaxLength(40);
             o.Property(x => x.PaymentInstrumentSummary).HasMaxLength(120);
             o.Property(x => x.PaymentProvider).HasMaxLength(40);
+            // Comma-joined promotion ids (ADR-0051): a handful of GUIDs at most, bounded so the column
+            // can't grow unbounded on a pathological cart.
+            o.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
 
         modelBuilder.Entity<CheckoutAttempt>(attempt =>
         {
+            attempt.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
             attempt.Property(x => x.Currency).HasMaxLength(3);
             attempt.Property(x => x.PaymentIntentId).HasMaxLength(200);
             attempt.Property(x => x.PaymentOption).HasMaxLength(40);

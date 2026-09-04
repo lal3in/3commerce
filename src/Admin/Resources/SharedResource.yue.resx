@@ -110,6 +110,8 @@
   <data name="Nav.Catalog.Tip" xml:space="preserve"><value>建立同編輯產品、款式、價錢、圖片同屬性。</value></data>
   <data name="Nav.Offers" xml:space="preserve"><value>供應方案同定價</value></data>
   <data name="Nav.Offers.Tip" xml:space="preserve"><value>供應商嘅供貨檔案：履行類型、價格模式、計費週期、優先次序。</value></data>
+  <data name="Nav.Promotions" xml:space="preserve"><value>優惠</value></data>
+  <data name="Nav.Promotions.Tip" xml:space="preserve"><value>門檻優惠：購物車達到金額或數量門檻時，提供免運費及／或折扣。</value></data>
   <data name="Nav.Orders" xml:space="preserve"><value>訂單</value></data>
   <data name="Nav.Orders.Tip" xml:space="preserve"><value>瀏覽訂單；取消未付款嘅、退款已付款嘅。</value></data>
   <data name="Nav.Rmas" xml:space="preserve"><value>RMA 隊列</value></data>
@@ -338,6 +340,76 @@
   <data name="Offers.Error.TenantGuid" xml:space="preserve"><value>租戶 ID 必須係有效嘅 GUID。</value></data>
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>產品 ID 必須係有效嘅 GUID。</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>供應商 ID 必須係有效嘅 GUID。</value></data>
+  <data name="Promotions.Title" xml:space="preserve"><value>優惠</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>門檻優惠：購物車（或某件商品）達到金額及／或數量門檻時，提供免運費及／或折扣。若兩個門檻都設定，就必須同時符合。</value></data>
+  <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>顯示哪個租戶的優惠。</value></data>
+  <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>商店</value></data>
+  <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>只顯示屬於這間商店的優惠；留空則顯示全部。</value></data>
+  <data name="Promotions.NewButton" xml:space="preserve"><value>新增優惠</value></data>
+  <data name="Promotions.New.Tip" xml:space="preserve"><value>為此租戶建立門檻優惠。</value></data>
+  <data name="Promotions.New" xml:space="preserve"><value>新增優惠</value></data>
+  <data name="Promotions.EditHeading" xml:space="preserve"><value>編輯優惠</value></data>
+  <data name="Promotions.Edit.Tip" xml:space="preserve"><value>編輯此優惠的門檻、獎勵、範圍與有效期。</value></data>
+  <data name="Promotions.Empty" xml:space="preserve"><value>此租戶尚未有任何優惠。</value></data>
+  <data name="Promotions.Loading" xml:space="preserve"><value>載入中…</value></data>
+  <data name="Promotions.Save" xml:space="preserve"><value>儲存優惠</value></data>
+  <data name="Promotions.Save.Tip" xml:space="preserve"><value>儲存此優惠；投影同步後即於結帳時生效。</value></data>
+  <data name="Promotions.Status.Saved" xml:space="preserve"><value>優惠已儲存。</value></data>
+  <data name="Promotions.Col.Name" xml:space="preserve"><value>名稱</value></data>
+  <data name="Promotions.Col.Scope" xml:space="preserve"><value>範圍</value></data>
+  <data name="Promotions.Col.Product" xml:space="preserve"><value>商品</value></data>
+  <data name="Promotions.Col.Storefront" xml:space="preserve"><value>商店</value></data>
+  <data name="Promotions.Col.Threshold" xml:space="preserve"><value>門檻</value></data>
+  <data name="Promotions.Col.Reward" xml:space="preserve"><value>獎勵</value></data>
+  <data name="Promotions.Col.Combinable" xml:space="preserve"><value>可疊加</value></data>
+  <data name="Promotions.Col.Window" xml:space="preserve"><value>有效期</value></data>
+  <data name="Promotions.Scope.Legend" xml:space="preserve"><value>商店範圍與有效期</value></data>
+  <data name="Promotions.Scope.Storefront" xml:space="preserve"><value>整個購物車</value></data>
+  <data name="Promotions.Scope.Product" xml:space="preserve"><value>單一商品</value></data>
+  <data name="Promotions.Storefront.All" xml:space="preserve"><value>所有商店</value></data>
+  <data name="Promotions.Storefront.Any" xml:space="preserve"><value>任何商店</value></data>
+  <data name="Promotions.Window.Always" xml:space="preserve"><value>永久</value></data>
+  <data name="Promotions.Combinable.Yes" xml:space="preserve"><value>可疊加</value></data>
+  <data name="Promotions.Combinable.No" xml:space="preserve"><value>獨佔</value></data>
+  <data name="Promotions.Reward.FreeShipping" xml:space="preserve"><value>免運費</value></data>
+  <data name="Promotions.Threshold.Qty" xml:space="preserve"><value>{0} 件</value></data>
+  <data name="Promotions.Threshold.Legend" xml:space="preserve"><value>門檻</value></data>
+  <data name="Promotions.Threshold.Note" xml:space="preserve"><value>可設定金額門檻、數量門檻或兩者 — 若兩者都設定，必須同時符合。以實際收費的商品金額（有效供應價）計算，不含稅金、運費與手續費。</value></data>
+  <data name="Promotions.Field.MinimumAmount" xml:space="preserve"><value>最低金額</value></data>
+  <data name="Promotions.Field.MinimumAmount.Tip" xml:space="preserve"><value>以優惠幣別計算的金額門檻（主單位，例如 100 = 100.00）。以不含稅金與運費的商品金額計算。0 表示不設金額門檻。金額不會換算，優惠只適用於此幣別的購物車。</value></data>
+  <data name="Promotions.Field.MinimumQuantity" xml:space="preserve"><value>最低數量</value></data>
+  <data name="Promotions.Field.MinimumQuantity.Tip" xml:space="preserve"><value>優惠範圍內的件數門檻。0 表示不設數量門檻。</value></data>
+  <data name="Promotions.Reward.Legend" xml:space="preserve"><value>獎勵與疊加</value></data>
+  <data name="Promotions.Reward.Note" xml:space="preserve"><value>可提供免運費及／或折扣 — 折扣只能是百分比或固定金額，不能兩者並存。至少要設定一項獎勵。</value></data>
+  <data name="Promotions.Field.FreeShipping" xml:space="preserve"><value>免運費</value></data>
+  <data name="Promotions.Field.FreeShipping.Tip" xml:space="preserve"><value>優惠成立時將運費歸零；本來就免運的購物車不受影響。</value></data>
+  <data name="Promotions.Field.PercentOff" xml:space="preserve"><value>折扣百分比</value></data>
+  <data name="Promotions.Field.PercentOff.Tip" xml:space="preserve"><value>以優惠範圍金額為基礎的百分比（0–100），不能與固定折扣併用。</value></data>
+  <data name="Promotions.Field.FixedDiscount" xml:space="preserve"><value>固定折扣</value></data>
+  <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>以優惠幣別計的固定折扣金額（主單位），上限為範圍金額，且不會換算；不能與百分比併用。</value></data>
+  <data name="Promotions.Field.Combinable" xml:space="preserve"><value>可疊加</value></data>
+  <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>可與其他可疊加優惠同時套用；未勾選＝獨佔（只套用這一個）。系統會選對顧客最有利的組合。</value></data>
+  <data name="Promotions.Field.Name" xml:space="preserve"><value>名稱</value></data>
+  <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>顯示於購物車與結帳摘要的名稱。</value></data>
+  <data name="Promotions.Field.Currency" xml:space="preserve"><value>幣別</value></data>
+  <data name="Promotions.Field.Scope" xml:space="preserve"><value>範圍</value></data>
+  <data name="Promotions.Field.Scope.Tip" xml:space="preserve"><value>「整個購物車」以全部品項計算並折扣；「單一商品」只計算並折扣該商品的品項。</value></data>
+  <data name="Promotions.Field.Product" xml:space="preserve"><value>商品</value></data>
+  <data name="Promotions.Field.Product.Tip" xml:space="preserve"><value>要計算與折扣的商品。單一商品範圍必填；整車範圍會忽略。</value></data>
+  <data name="Promotions.Field.ProductSearch" xml:space="preserve"><value>搜尋商品…</value></data>
+  <data name="Promotions.Field.ProductSearch.Tip" xml:space="preserve"><value>依名稱篩選下方的商品清單。</value></data>
+  <data name="Promotions.Product.Choose" xml:space="preserve"><value>選擇商品…</value></data>
+  <data name="Promotions.Product.Empty" xml:space="preserve"><value>找不到商品</value></data>
+  <data name="Promotions.Field.Storefront" xml:space="preserve"><value>商店</value></data>
+  <data name="Promotions.Field.Storefront.Tip" xml:space="preserve"><value>將優惠限制在單一商店；留空＝所有使用該幣別的商店。</value></data>
+  <data name="Promotions.Field.ActiveFrom" xml:space="preserve"><value>生效日</value></data>
+  <data name="Promotions.Field.ActiveFrom.Tip" xml:space="preserve"><value>起始日期（含當日，UTC）。留空＝已生效。</value></data>
+  <data name="Promotions.Field.ActiveUntil" xml:space="preserve"><value>結束日</value></data>
+  <data name="Promotions.Field.ActiveUntil.Tip" xml:space="preserve"><value>結束日期（含整日，UTC）。留空＝永不到期。</value></data>
+  <data name="Promotions.Field.Active.Tip" xml:space="preserve"><value>取消勾選即停用優惠；投影同步後立即失效。</value></data>
+  <data name="Promotions.Error.TenantGuid" xml:space="preserve"><value>租戶 ID 必須是 GUID。</value></data>
+  <data name="Promotions.Error.Name" xml:space="preserve"><value>必須輸入優惠名稱。</value></data>
+  <data name="Promotions.Error.Product" xml:space="preserve"><value>單一商品範圍的優惠必須選擇商品。</value></data>
 
   <!-- ===== Orders ===== -->
   <data name="Orders.Title" xml:space="preserve"><value>訂單</value></data>

@@ -267,6 +267,10 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AppliedPromotionIds")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<string>("CampaignRef")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
@@ -288,6 +292,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("FreeShippingApplied")
+                        .HasColumnType("boolean");
 
                     b.Property<long>("GrossMinor")
                         .HasColumnType("bigint");
@@ -313,6 +320,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<long>("PromotionDiscountMinor")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("ShipCity")
                         .IsRequired()
@@ -498,6 +508,10 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AppliedPromotionIds")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<bool>("CollectAtWarehouse")
                         .HasColumnType("boolean");
 
@@ -518,6 +532,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("FreeShippingApplied")
+                        .HasColumnType("boolean");
 
                     b.Property<long>("GrossMinor")
                         .HasColumnType("bigint");
@@ -544,6 +561,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<long>("PromotionDiscountMinor")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("PublicOrderNumber")
                         .HasColumnType("bigint");
@@ -795,6 +815,70 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("ProductVariantCopyPrices", "ordering");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.PromotionCopy", b =>
+                {
+                    b.Property<Guid>("PromotionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ActiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ActiveUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Combinable")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<long>("DiscountAmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("GrantsFreeShipping")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("MinimumAmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("MinimumQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("PercentOff")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("StorefrontId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("PromotionId");
+
+                    b.HasIndex("TenantId", "StorefrontId", "Active");
+
+                    b.ToTable("PromotionCopies", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.StorefrontTaxCopy", b =>

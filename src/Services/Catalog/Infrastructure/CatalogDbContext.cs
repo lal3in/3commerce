@@ -22,6 +22,7 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<ProductPublication> ProductPublications => Set<ProductPublication>();
     public DbSet<ProductPublicationVariant> ProductPublicationVariants => Set<ProductPublicationVariant>();
     public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<Promotion> Promotions => Set<Promotion>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
     public DbSet<StorefrontServiceReadiness> StorefrontServiceReadiness => Set<StorefrontServiceReadiness>();
@@ -70,6 +71,19 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             offer.HasMany(o => o.PriceTiers).WithOne().HasForeignKey(t => t.OfferId);
             offer.HasIndex(o => new { o.TenantId, o.ProductId, o.VariantId });
             offer.HasIndex(o => new { o.TenantId, o.SupplierId });
+        });
+
+        // Threshold promotions (ADR-0051). Enums persist as strings (readable in psql, stable across
+        // renumbering); the two composite indexes cover the admin list (tenant + storefront filter) and
+        // the product-scoped lookup.
+        modelBuilder.Entity<Promotion>(promotion =>
+        {
+            promotion.Property(p => p.Scope).HasConversion<string>().HasMaxLength(16);
+            promotion.Property(p => p.Status).HasConversion<string>().HasMaxLength(16);
+            promotion.Property(p => p.Currency).HasMaxLength(3);
+            promotion.Property(p => p.Name).HasMaxLength(120);
+            promotion.HasIndex(p => new { p.TenantId, p.StorefrontId });
+            promotion.HasIndex(p => new { p.TenantId, p.ProductId });
         });
 
         modelBuilder.Entity<Product>(product =>
