@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>Die Produkt-ID muss eine gültige GUID sein.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>Die Lieferanten-ID muss eine gültige GUID sein.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Aktionen</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Schwellenwert-Aktionen: kostenloser Versand und/oder Rabatt, sobald der Warenkorb (oder ein Produkt) einen Betrags- und/oder Mengenschwellenwert erreicht. Sind beide gesetzt, müssen BEIDE erfüllt sein.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Schwellenwert-Aktionen: kostenloser Versand und/oder Rabatt, sobald der Warenkorb (oder ein Produkt) einen Betrags- und/oder Mengenschwellenwert erreicht. Sind beide gesetzt, müssen BEIDE erfüllt sein. Mit einem Gutscheincode gilt die Aktion NUR, wenn der Kunde ihn an der Kasse eingibt — optional insgesamt und pro Kunde begrenzt.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>Der Mandant, dessen Aktionen angezeigt werden.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Shop</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Nur Aktionen dieses Shops anzeigen. Leer lassen für alle.</value></data>

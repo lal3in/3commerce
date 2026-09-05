@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>商品 ID 必须是有效的 GUID。</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>供应商 ID 必须是有效的 GUID。</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>促销</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>门槛促销：购物车（或某件商品）达到金额和/或数量门槛时，提供免运费和/或折扣。若两个门槛都设置，则必须同时满足。</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>门槛促销：购物车（或某件商品）达到金额和/或数量门槛时，提供免运费和/或折扣。若两个门槛都设置，则必须同时满足。 设置优惠码后，促销仅在顾客结账时输入该码才生效，并可分别限制总次数与每位顾客的次数。</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>显示哪个租户的促销。</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>店铺</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>仅显示属于该店铺的促销；留空则显示全部。</value></data>

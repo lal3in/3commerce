@@ -1862,7 +1862,7 @@
   <data name="Offers.Field.SupplierCost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
   <data name="Offers.Field.SupplierCost.Tip" xml:space="preserve"><value>What the supplier charges, in minor units. Edited only on the Suppliers page.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Threshold promotions: grant free shipping and/or a discount once the cart (or one product) clears a money and/or quantity threshold. Both thresholds set means BOTH must be met.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Threshold promotions: grant free shipping and/or a discount once the cart (or one product) clears a money and/or quantity threshold. Both thresholds set means BOTH must be met. Add a coupon code and the promotion applies ONLY when the shopper enters it at checkout — optionally capped in total and per customer.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>The tenant whose promotions are listed.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Storefront</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Show only promotions scoped to this storefront. Leave blank for all.</value></data>

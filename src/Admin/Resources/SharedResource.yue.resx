@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>產品 ID 必須係有效嘅 GUID。</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>供應商 ID 必須係有效嘅 GUID。</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>優惠</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>門檻優惠：購物車（或某件商品）達到金額及／或數量門檻時，提供免運費及／或折扣。若兩個門檻都設定，就必須同時符合。</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>門檻優惠：購物車（或某件商品）達到金額及／或數量門檻時，提供免運費及／或折扣。若兩個門檻都設定，就必須同時符合。 設咗優惠碼之後，促銷只會喺顧客結帳時輸入該碼先生效，仲可以分別限制總次數同每位顧客嘅次數。</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>顯示哪個租戶的優惠。</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>商店</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>只顯示屬於這間商店的優惠；留空則顯示全部。</value></data>

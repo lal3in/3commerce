@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>L'ID du produit doit être un GUID valide.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>L'ID du fournisseur doit être un GUID valide.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier (ou un produit) franchit un seuil de montant et/ou de quantité. Si les deux seuils sont définis, LES DEUX doivent être atteints.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier (ou un produit) franchit un seuil de montant et/ou de quantité. Si les deux seuils sont définis, LES DEUX doivent être atteints. Avec un code promo, la promotion s'applique UNIQUEMENT si le client le saisit au paiement, avec des limites facultatives au total et par client.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>Le locataire dont les promotions sont listées.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Boutique</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Afficher uniquement les promotions de cette boutique. Laisser vide pour toutes.</value></data>

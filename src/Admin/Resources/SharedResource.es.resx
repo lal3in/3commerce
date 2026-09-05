@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>El ID de producto debe ser un GUID válido.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>El ID de proveedor debe ser un GUID válido.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promociones</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito (o un producto) supera un umbral de importe o cantidad. Si defines ambos umbrales, deben cumplirse LOS DOS.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito (o un producto) supera un umbral de importe o cantidad. Si defines ambos umbrales, deben cumplirse LOS DOS. Con un código de cupón, la promoción se aplica SOLO cuando el comprador lo introduce al pagar, con límites opcionales en total y por cliente.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>El inquilino cuyas promociones se muestran.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Tienda</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Mostrar solo las promociones de esta tienda. Déjalo vacío para todas.</value></data>
