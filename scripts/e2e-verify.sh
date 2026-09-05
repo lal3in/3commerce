@@ -28,6 +28,10 @@
 #       Catalog Promotion aggregate invariants (ADR-0051): >=1 threshold (money and/or
 #       quantity), >=1 reward, percent XOR fixed amount, scope<->product binding,
 #       ordered inclusive active window, storefront match, activate/deactivate;
+#       Catalog COUPON invariants (ADR-0052): code normalized to trimmed UPPERCASE, unusable
+#       characters/over-length rejected, a code-gated promotion may carry NO threshold while an
+#       automatic one may not, clearing the code of a thresholdless coupon refused, usage limits
+#       null = unlimited and >= 1 when set;
 #       Ordering Pricing engine: supplier/selling price inputs, tax-mode seam,
 #       fixed/percent/product/category/storefront/bundle/free-shipping promotions,
 #       best-discount-wins, quantity-tier promotions, DiscountMinor snapshots,
@@ -37,6 +41,12 @@
 #       best-exclusive vs sum-of-combinables by customer benefit, tie to the combinable set,
 #       ascending-id tiebreak, no-FX currency guard, window bounds, fixed amount clamped to
 #       its scope base, and a largest-remainder per-line allocation that sums exactly;
+#       Ordering COUPON gate + refusal reasons (ADR-0052): a code-gated promotion applies only on a
+#       trimmed case-insensitive code match while an automatic one is untouched by any entered code,
+#       stacking is still just the Combinable flag, a coupon out-competed by a better promotion loses,
+#       and one fact per CouponStatus (unknown/inactive/not started/expired/wrong storefront-or-currency/
+#       usage limit before threshold/per-customer limit/applied) plus the customer-key rule that makes a
+#       guest checkout count (CouponTests);
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -80,6 +90,13 @@
 #       every case (no new ledger line);
 #       Catalog PromotionChanged → Ordering PromotionCopy projection: insert, idempotent
 #       re-consume (no duplicate row), deactivation (PromotionProjectionTests);
+#       coupon codes end-to-end (ADR-0052, CouponRedemptionTests): the code is REQUIRED for the
+#       discount and is actually charged; the cap holds under TEN CONCURRENT checkouts against
+#       MaxRedemptions=3 (exactly 3 win, the counter matches the redemption rows); the per-customer
+#       limit counts a guest by checkout email across a fresh browser/casing; a failed payment
+#       releases the hold so a single-use code is spendable again (and is genuinely blocked while
+#       held); redelivered CheckoutCompleted/OrderCancelled neither double-confirm nor double-release;
+#       every refusal reports its own reason on /cart/summary and at checkout — trial balance 0;
 #       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
@@ -137,8 +154,12 @@
 #       (catalog/offers/promotions/orders/commerce ops/payments/payouts/Xero/mission control),
 #       RMA action availability, supplier portal readiness/stock/change-request flows,
 #       operator RMA approve → refund → RefundIssued + ledger reversal, threshold-promotion
-#       authoring through the admin modal (round-tripped via the API, then deactivated), and
-#       the shopper seeing the promotion row + free shipping in the cart and checkout summary
+#       authoring through the admin modal (round-tripped via the API, then deactivated),
+#       the shopper seeing the promotion row + free shipping in the cart and checkout summary,
+#       COUPON authoring through the same modal (code round-tripped in canonical UPPERCASE, the
+#       Redemptions column, no threshold required, duplicate code refused) and the shopper applying
+#       a code at checkout — invisible until entered, an unknown code showing its OWN reason, the
+#       discount row appearing, and remove pricing the cart back at full price (ADR-0052)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -177,10 +198,10 @@ run_automated() {
   stage "A3  Backend unit + contract tests"
   if dotnet test "$ROOT/3commerce.sln" --no-build --filter 'Category!=Integration' 2>&1 | grep -q 'Failed: *0'; then pass "A3 unit/contract"; else fail "A3 unit/contract"; fi
 
-  stage "A3b Threshold promotions (ADR-0051) — Catalog domain + shared evaluator + engine"
+  stage "A3b Promotions + coupons (ADR-0051/0052) — Catalog domain, shared evaluator, engine, coupon gate"
   if dotnet test "$ROOT/3commerce.sln" --no-build \
-      --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PricingTests)' 2>&1 \
-      | grep -q 'Failed: *0'; then pass "A3b threshold promotions"; else fail "A3b threshold promotions"; fi
+      --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
