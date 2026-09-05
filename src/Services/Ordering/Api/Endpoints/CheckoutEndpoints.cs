@@ -33,6 +33,7 @@ public static class CheckoutEndpoints
         OrderingDbContext db,
         IRequestClient<AuthorizePayment> authorize,
         IPublishEndpoint publisher,
+        PromotionRedemptionService redemptions,
         TimeProvider time,
         IConfiguration config,
         CancellationToken ct)
@@ -258,8 +259,38 @@ public static class CheckoutEndpoints
         var promotionLines = cart.Items
             .Select(i => new PromotionLine(i.ProductId, i.UnitPriceMinor, i.Quantity))
             .ToList();
+
+        // Coupon code (ADR-0052). A coupon is a CODE-GATED promotion, so the only new work here is
+        // deciding whether the shopper's code unlocks one — the discount itself still comes from the same
+        // shared evaluator. The lookup is by (tenant, code) WITHOUT the storefront/active/window filters,
+        // so a real code aimed at another store reports "wrong storefront" instead of "unknown code".
+        // An entered code that does not apply is a hard 400: the shopper was shown a discounted total, and
+        // silently charging the undiscounted one would break "shown == charged" in the worst direction.
+        var enteredCode = CouponValidator.Normalize(request.CouponCode);
+        PromotionCopy? couponPromotion = null;
+        var customerKey = PromotionRedemption.CustomerKeyFor(userId, request.Email);
+        if (enteredCode is not null)
+        {
+            couponPromotion = await db.PromotionCopies.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.TenantId == checkoutTenantId && p.Code == enteredCode, ct);
+            var customerHeld = couponPromotion is null || customerKey is null
+                ? 0
+                : await db.PromotionRedemptions.CountAsync(
+                    r => r.PromotionId == couponPromotion.PromotionId
+                        && r.CustomerKey == customerKey
+                        && r.Status != PromotionRedemptionStatus.Released,
+                    ct);
+            var evaluation = CouponValidator.Evaluate(
+                enteredCode, couponPromotion, promotionLines, checkoutTenantId, storefrontId, currency, now,
+                couponPromotion?.RedeemedCount ?? 0, customerHeld);
+            if (!evaluation.IsApplied)
+            {
+                return TypedResults.BadRequest(CouponMessages.For(evaluation.Status, enteredCode));
+            }
+        }
+
         var promotionOutcome = PromotionEvaluator.Evaluate(
-            promotionLines, promotionCopies, checkoutTenantId, storefrontId, currency, shippingMinor, now);
+            promotionLines, promotionCopies, checkoutTenantId, storefrontId, currency, shippingMinor, now, enteredCode);
         if (promotionOutcome.FreeShippingApplied)
         {
             shippingMinor = 0;
@@ -333,6 +364,28 @@ public static class CheckoutEndpoints
 
         var orderId = Guid.CreateVersion7();
         var idempotencyKey = orderId.ToString();
+
+        // RESERVE the coupon here — before the payment is authorized (ADR-0052). The charged amount is
+        // fixed by this request, so the redemption has to be locked in now: reserving at confirmation
+        // instead would let two shoppers both be charged a "last one" price and only one be honoured.
+        // Only a coupon that actually WON is reserved; one that was out-competed by a better promotion
+        // discounted nothing, so it must not burn an allowance. The reservation is released below on the
+        // authorize failure path, and by the saga on cancellation / payment failure / checkout expiry.
+        var couponReserved = false;
+        if (couponPromotion is not null && customerKey is not null
+            && promotionOutcome.AppliedPromotionIds.Contains(couponPromotion.PromotionId))
+        {
+            var reservation = await redemptions.TryReserveAsync(
+                couponPromotion, checkoutTenantId, orderId, customerKey, now, ct);
+            if (reservation != CouponStatus.Applied)
+            {
+                // Lost the race for the last redemption between the preview and now. Refuse rather than
+                // charge a discount we cannot honour.
+                return TypedResults.BadRequest(CouponMessages.For(reservation, enteredCode));
+            }
+
+            couponReserved = true;
+        }
         // tenantId + storefrontId were resolved up front (they gate the offer price + shipping); the
         // storefront rides the AuthorizePayment request → Payment so the sale posts to the store's accounts.
 
@@ -369,6 +422,12 @@ public static class CheckoutEndpoints
         }
         catch (RequestTimeoutException)
         {
+            // No saga will ever start for this order, so nothing else would give the hold back.
+            if (couponReserved)
+            {
+                await redemptions.ReleaseAsync(orderId, now, ct);
+            }
+
             return TypedResults.BadRequest("Payment service unavailable; please retry.");
         }
 
@@ -392,6 +451,8 @@ public static class CheckoutEndpoints
                 ? null
                 : string.Join(',', promotionOutcome.AppliedPromotionIds),
             FreeShippingApplied = promotionOutcome.FreeShippingApplied,
+            // The code that was actually redeemed (ADR-0052) — null when it lost to a better promotion.
+            CouponCode = couponReserved ? couponPromotion?.Code : null,
             // Ordering owns storefront tax (ADR-0008 projection); Payments' flat-rate seam is unused here.
             TaxMinor = taxMinor,
             GrossMinor = intent.GrossMinor,
@@ -446,7 +507,8 @@ public static class CheckoutEndpoints
 
         return TypedResults.Created($"/orders/{orderId}", new CheckoutResponse(
             orderId, intent.ClientSecret, subtotal, discountMinor, shippingMinor, taxMinor, intent.GrossMinor, currency, null,
-            promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds));
+            promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds,
+            couponReserved ? couponPromotion?.Code : null));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -516,11 +578,17 @@ public record CheckoutRequest(
     // The active storefront (phase 2). The gateway derives the trusted X-3C-Storefront-Id from the host,
     // which can't distinguish path-based demo storefronts, so the first-party storefront app also sends
     // it here for per-storefront order/ledger attribution. Header wins when present.
-    Guid? StorefrontId = null);
+    Guid? StorefrontId = null,
+    // The coupon code the shopper entered (ADR-0052). Null/blank = no coupon. Matched case-insensitively
+    // against the tenant's code-gated promotions; a code that does not apply is a 400 naming the reason.
+    string? CouponCode = null);
 
 // Positional record: NEW FIELDS MUST BE APPENDED WITH DEFAULTS, or every call site and the storefront
 // client break. FreeShippingApplied / AppliedPromotionIds are the threshold-promotion outcome (ADR-0051).
 public record CheckoutResponse(
     Guid OrderId, string? ClientSecret, long NetMinor, long DiscountMinor, long ShippingMinor, long TaxMinor,
     long GrossMinor, string Currency, string? Message,
-    bool FreeShippingApplied = false, IReadOnlyList<Guid>? AppliedPromotionIds = null);
+    bool FreeShippingApplied = false, IReadOnlyList<Guid>? AppliedPromotionIds = null,
+    // The coupon code actually redeemed on this order (ADR-0052), or null when none was. Appended with a
+    // default like every other field here.
+    string? CouponCode = null);
