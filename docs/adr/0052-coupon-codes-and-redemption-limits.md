@@ -128,8 +128,8 @@ UPDATE ordering."PromotionCopies"
     genuinely cannot apply to an AUD cart, and from the shopper's seat that is the same complaint.
 
 14. **Shown == charged, extended to the coupon.** `GET /cart/summary` takes `couponCode`, runs the SAME
-    resolver checkout runs (decision 12) and prices the cart with it, returning the numeric status, the code and the
-    promotion's name. It **validates but never reserves** — a preview must not consume an allowance;
+    resolver checkout runs (decision 12) and prices the cart with it, returning the numeric status, the
+    code and the promotion's name. It **validates but never reserves** — a preview must not consume an allowance;
     checkout's atomic reservation stays the sole authority on the limits. `POST /checkout` takes
     `CouponCode` and a code that does not apply is a **400 naming the reason**, never a silent
     full-price charge: the shopper was shown a discounted total, and charging more than was shown is the
