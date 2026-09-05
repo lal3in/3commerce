@@ -78,7 +78,7 @@ public static class CartEndpoints
     /// </summary>
     private static async Task<Ok<CartSummaryResponse>> GetSummary(
         Guid? storefrontId, string? couponCode, HttpContext http, CartService carts, OrderingDbContext db,
-        TimeProvider time, CancellationToken ct)
+        PromotionRedemptionService redemptions, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(http.User);
         var cart = await carts.GetOrCreateAsync(userId, EnsureCartKey(http), ct);
@@ -123,23 +123,11 @@ public static class CartEndpoints
         // Redemption counts are read (not reserved) — a preview never consumes an allowance; checkout's
         // atomic reservation is what actually rations the code.
         var enteredCode = CouponValidator.Normalize(couponCode);
-        var couponEvaluation = CouponEvaluation.None;
-        if (enteredCode is not null)
-        {
-            var couponPromotion = await db.PromotionCopies.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Code == enteredCode, ct);
-            var customerKey = PromotionRedemption.CustomerKeyFor(userId, null);
-            var customerHeld = couponPromotion is null || customerKey is null
-                ? 0
-                : await db.PromotionRedemptions.CountAsync(
-                    r => r.PromotionId == couponPromotion.PromotionId
-                        && r.CustomerKey == customerKey
-                        && r.Status != PromotionRedemptionStatus.Released,
-                    ct);
-            couponEvaluation = CouponValidator.Evaluate(
-                enteredCode, couponPromotion, lines, tenantId, storeId, currency, now,
-                couponPromotion?.RedeemedCount ?? 0, customerHeld);
-        }
+        var (_, couponEvaluation) = await redemptions.ResolveCouponAsync(
+            enteredCode, tenantId, storeId, currency, lines,
+            // A guest has no identity yet (no email is typed at this point), so only a signed-in shopper's
+            // per-customer limit can be reported here; checkout, which HAS the email, refuses the rest.
+            PromotionRedemption.CustomerKeyFor(userId, null), now, ct);
 
         // Only a VALID code unlocks its promotion in the evaluation; an invalid one is reported as a reason
         // and otherwise ignored, so the preview shows the price the shopper would actually be charged.

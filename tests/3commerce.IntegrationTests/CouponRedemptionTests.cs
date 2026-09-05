@@ -229,6 +229,60 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task A_reservation_whose_checkout_attempt_never_committed_is_swept_and_the_cap_recovers()
+    {
+        // The one crash window the design leaves: the reservation commits in its own transaction, so a
+        // process death before the checkout attempt commits would strand a hold and burn a limited code
+        // for nobody. The second-chance sweep reclaims exactly that — a RESERVED row past the saga's
+        // expiry with NO checkout attempt and NO order — and only when a claim would otherwise be refused.
+        const string currency = "QK8";
+        var storefrontId = await LiveStorefrontAsync(currency);
+        var promotionId = await CouponAsync(storefrontId, currency, "STALE", percentOff: 10, maxRedemptions: 1);
+        var productId = await fixture.SeedProductAsync(10_000, currency);
+
+        // Simulate the crash: a hold that was taken two hours ago for an order that never materialized.
+        var orphanOrderId = Guid.CreateVersion7();
+        using (var scope = fixture.Ordering.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            db.PromotionRedemptions.Add(new PromotionRedemption
+            {
+                Id = Guid.CreateVersion7(),
+                PromotionId = promotionId,
+                TenantId = TenantId,
+                OrderId = orphanOrderId,
+                CustomerKey = "e:ghost@example.com",
+                Code = "STALE",
+                Status = PromotionRedemptionStatus.Reserved,
+                ReservedAt = DateTimeOffset.UtcNow.AddHours(-2),
+            });
+            var copy = await db.PromotionCopies.FirstAsync(p => p.PromotionId == promotionId);
+            copy.RedeemedCount = 1; // the counter the lost checkout incremented
+            await db.SaveChangesAsync();
+        }
+
+        // The cap now reads as exhausted, so this checkout is exactly the case that triggers the sweep.
+        using var shopper = NewShopper(storefrontId);
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = await CheckoutAsync(shopper, coupon: "STALE", email: "real.shopper@example.com");
+
+        Assert.Equal(1_000, order.DiscountMinor);
+        Assert.Equal("STALE", order.CouponCode);
+
+        // The orphan is released and the single allowance now belongs to the real order — not both.
+        using (var scope = fixture.Ordering.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            var orphan = await db.PromotionRedemptions.AsNoTracking().FirstAsync(r => r.OrderId == orphanOrderId);
+            Assert.Equal(PromotionRedemptionStatus.Released, orphan.Status);
+        }
+
+        Assert.Equal(1, await RedeemedCountAsync(promotionId));
+        Assert.Equal(1, await HeldRedemptionsAsync(promotionId));
+        Assert.Equal(PromotionRedemptionStatus.Reserved, await RedemptionStatusAsync(order.OrderId));
+    }
+
+    [Fact]
     public async Task Every_refusal_reports_its_own_reason_on_the_cart_preview_and_at_checkout()
     {
         // The shopper must be able to act on the answer, so a bad code is never a blanket "invalid".

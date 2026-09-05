@@ -40,6 +40,58 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
     private static readonly TimeSpan StaleReservation = TimeSpan.FromMinutes(45);
 
     /// <summary>
+    /// Resolves an entered coupon code to its promotion and says whether — and why not — it applies.
+    /// The single entry point BOTH the cart preview and checkout use, so the two can never disagree.
+    /// <para>
+    /// The lookup is by (tenant, code) WITHOUT the storefront/active/window filters, so a real code aimed
+    /// at another store reports <see cref="CouponStatus.WrongStorefront"/> rather than pretending it does
+    /// not exist. When the promotion LOOKS exhausted its stale holds are reclaimed first
+    /// (<see cref="ReleaseStaleAsync"/>) and the counter re-read: without that, a hold stranded by a crash
+    /// would refuse the coupon here forever and the claim path's own sweep could never be reached.
+    /// That corrective write is the reason a read-only preview may write — it is gated on the promotion
+    /// actually being at its cap, so the common path never touches it.
+    /// </para>
+    /// </summary>
+    public async Task<(PromotionCopy? Promotion, CouponEvaluation Evaluation)> ResolveCouponAsync(
+        string? enteredCode,
+        Guid tenantId,
+        Guid storefrontId,
+        string currency,
+        IReadOnlyList<PromotionLine> lines,
+        string? customerKey,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var code = CouponValidator.Normalize(enteredCode);
+        if (code is null)
+        {
+            return (null, CouponEvaluation.None);
+        }
+
+        var promotion = await db.PromotionCopies.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Code == code, ct);
+        if (promotion is { MaxRedemptions: { } max } && promotion.RedeemedCount >= max
+            && await ReleaseStaleAsync(promotion.PromotionId, now, ct) > 0)
+        {
+            promotion = await db.PromotionCopies.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.PromotionId == promotion.PromotionId, ct);
+        }
+
+        var customerHeld = promotion is null || customerKey is null
+            ? 0
+            : await db.PromotionRedemptions.AsNoTracking().CountAsync(
+                r => r.PromotionId == promotion.PromotionId
+                    && r.CustomerKey == customerKey
+                    && r.Status != PromotionRedemptionStatus.Released,
+                ct);
+
+        var evaluation = CouponValidator.Evaluate(
+            code, promotion, lines, tenantId, storefrontId, currency, now,
+            promotion?.RedeemedCount ?? 0, customerHeld);
+        return (promotion, evaluation);
+    }
+
+    /// <summary>
     /// Reserves one redemption of <paramref name="promotion"/> for this order, or reports which limit
     /// refused it. Returns <see cref="CouponStatus.Applied"/> when the hold is taken (including when this
     /// order already held one — reservation is idempotent per order).
@@ -91,14 +143,10 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
         var claimed = await ClaimAsync(promotionId, ct);
         if (claimed == 0 && promotion.MaxRedemptions is not null)
         {
-            // Second chance: reclaim reservations that were committed but whose checkout attempt never
-            // was (a crash in the window between the two commits). Only ever touches rows older than the
-            // saga's expiry that have no attempt AND no order — a live checkout is never disturbed.
-            var swept = await SweepStaleAsync(promotionId, now, ct);
-            if (swept > 0)
+            // Second chance, for a hold that went stale between validation and this claim: reclaim
+            // reservations that were committed but whose checkout attempt never was.
+            if (await ReleaseStaleAsync(promotionId, now, ct) > 0)
             {
-                logger.LogWarning(
-                    "Coupon {PromotionId}: released {Count} stale reservation(s) with no checkout attempt", promotionId, swept);
                 claimed = await ClaimAsync(promotionId, ct);
             }
         }
@@ -141,8 +189,27 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
 
     /// <summary>
     /// Releases reservations older than <see cref="StaleReservation"/> that never became a checkout
-    /// attempt or an order, and gives their holds back to the counter. Returns how many were reclaimed.
+    /// attempt or an order, and gives their holds back to the counter. Returns the number of promotion
+    /// rows whose counter was corrected (0 = nothing was stale).
+    /// <para>
+    /// This is the ONLY thing that can recover the crash window between the reservation's commit and the
+    /// checkout attempt's, so it must run BEFORE anything reads the counter to refuse a coupon — not only
+    /// on the claim path. Callers gate it on the promotion actually looking exhausted, so the common case
+    /// pays nothing: a live checkout, and a promotion with allowance left, never touch it.
+    /// </para>
     /// </summary>
+    public async Task<int> ReleaseStaleAsync(Guid promotionId, DateTimeOffset now, CancellationToken ct)
+    {
+        var swept = await SweepStaleAsync(promotionId, now, ct);
+        if (swept > 0)
+        {
+            logger.LogWarning(
+                "Coupon {PromotionId}: released stale reservation(s) with no checkout attempt or order", promotionId);
+        }
+
+        return swept;
+    }
+
     private Task<int> SweepStaleAsync(Guid promotionId, DateTimeOffset now, CancellationToken ct)
     {
         var cutoff = now - StaleReservation;

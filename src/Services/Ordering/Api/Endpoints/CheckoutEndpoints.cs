@@ -267,26 +267,12 @@ public static class CheckoutEndpoints
         // An entered code that does not apply is a hard 400: the shopper was shown a discounted total, and
         // silently charging the undiscounted one would break "shown == charged" in the worst direction.
         var enteredCode = CouponValidator.Normalize(request.CouponCode);
-        PromotionCopy? couponPromotion = null;
         var customerKey = PromotionRedemption.CustomerKeyFor(userId, request.Email);
-        if (enteredCode is not null)
+        var (couponPromotion, couponEvaluation) = await redemptions.ResolveCouponAsync(
+            enteredCode, checkoutTenantId, storefrontId, currency, promotionLines, customerKey, now, ct);
+        if (enteredCode is not null && !couponEvaluation.IsApplied)
         {
-            couponPromotion = await db.PromotionCopies.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.TenantId == checkoutTenantId && p.Code == enteredCode, ct);
-            var customerHeld = couponPromotion is null || customerKey is null
-                ? 0
-                : await db.PromotionRedemptions.CountAsync(
-                    r => r.PromotionId == couponPromotion.PromotionId
-                        && r.CustomerKey == customerKey
-                        && r.Status != PromotionRedemptionStatus.Released,
-                    ct);
-            var evaluation = CouponValidator.Evaluate(
-                enteredCode, couponPromotion, promotionLines, checkoutTenantId, storefrontId, currency, now,
-                couponPromotion?.RedeemedCount ?? 0, customerHeld);
-            if (!evaluation.IsApplied)
-            {
-                return TypedResults.BadRequest(CouponMessages.For(evaluation.Status, enteredCode));
-            }
+            return TypedResults.BadRequest(CouponMessages.For(couponEvaluation.Status, enteredCode));
         }
 
         var promotionOutcome = PromotionEvaluator.Evaluate(

@@ -103,12 +103,21 @@ UPDATE ordering."PromotionCopies"
     checkout still counts, and signing out (or opening a fresh browser) does not reset a per-customer
     limit. The prefix keeps the two namespaces from ever colliding.
 
-11. **A second-chance sweep keeps the cap self-healing.** A crash between the reservation's commit and the
-    checkout attempt's would otherwise strand a hold forever. When a claim is refused on a *capped*
-    promotion, reservations older than the saga's expiry window (45 min) that have **no** checkout attempt
-    and **no** order are released and the claim retried. A live checkout is never disturbed.
+11. **A stale-hold sweep keeps the cap self-healing.** A crash between the reservation's commit and the
+    checkout attempt's would otherwise strand a hold forever. Reservations older than the saga's expiry
+    window (45 min) that have **no** checkout attempt and **no** order are released and their holds given
+    back. It runs in `ResolveCouponAsync` — i.e. **before anything reads the counter to refuse a coupon**,
+    gated on the promotion actually being at its cap — and again on the claim path for a hold that goes
+    stale in between. Putting it only on the claim path would make it unreachable: validation refuses an
+    apparently-exhausted code before any reservation is attempted, so the stranded hold would block the
+    coupon forever. That is why the read-only cart preview may perform this one corrective write; a live
+    checkout is never disturbed, and a promotion with allowance left never touches it.
 
-12. **Distinct, localized refusal reasons.** `CouponStatus` (crossing HTTP as a **number**, per the
+12. **One resolver, two callers.** `PromotionRedemptionService.ResolveCouponAsync` performs the lookup, the
+    sweep, the redemption counts and the validation, and BOTH `GET /cart/summary` and `POST /checkout` go
+    through it — so the preview and the charge can never disagree about whether a code applies or why.
+
+13. **Distinct, localized refusal reasons.** `CouponStatus` (crossing HTTP as a **number**, per the
     platform invariant) reports exactly one of: `UnknownCode`, `Inactive`, `NotStarted`, `Expired`,
     `WrongStorefront`, `ThresholdNotMet`, `UsageLimitReached`, `CustomerLimitReached`, `Applied`. Two
     ordering decisions matter: the code is looked up by `(tenant, code)` **without** the
@@ -118,22 +127,22 @@ UPDATE ordering."PromotionCopies"
     currency mismatch reports `WrongStorefront` — under the no-FX posture (ADR-0041) a EUR coupon
     genuinely cannot apply to an AUD cart, and from the shopper's seat that is the same complaint.
 
-13. **Shown == charged, extended to the coupon.** `GET /cart/summary` takes `couponCode`, runs the SAME
-    validation checkout runs and prices the cart with it, returning the numeric status, the code and the
+14. **Shown == charged, extended to the coupon.** `GET /cart/summary` takes `couponCode`, runs the SAME
+    resolver checkout runs (decision 12) and prices the cart with it, returning the numeric status, the code and the
     promotion's name. It **validates but never reserves** — a preview must not consume an allowance;
     checkout's atomic reservation stays the sole authority on the limits. `POST /checkout` takes
     `CouponCode` and a code that does not apply is a **400 naming the reason**, never a silent
     full-price charge: the shopper was shown a discounted total, and charging more than was shown is the
     worst possible direction to break in.
 
-14. **The storefront submits only a validated code.** The checkout page carries the code in the URL
+15. **The storefront submits only a validated code.** The checkout page carries the code in the URL
     (`/checkout?coupon=…`) so the server can price with it, the state survives a refresh and "remove" is
     a link back to `/checkout`. Only a status of `Applied` rides the checkout POST as a hidden field; a
     refused code renders its own localized reason and is left out, so the charge always equals the total
     on screen. The 400 remains the guard for non-first-party clients and for a code that runs out between
     the preview and the POST.
 
-15. **Stacking is not a new concept.** Once unlocked, a coupon is a promotion, so the existing
+16. **Stacking is not a new concept.** Once unlocked, a coupon is a promotion, so the existing
     `Combinable` flag governs whether it stacks — and the ADR-0051 better-of(`best exclusive`,
     `Σ combinables`) selection is untouched.
 
