@@ -236,7 +236,25 @@
     "selectCountry": "Selecciona un país",
     "collectAtWarehouse": "Recoger en el almacén (gratis)",
     "collectAtWarehouseNote": "Recogerás este pedido en el almacén del proveedor. No se cobra envío.",
-    "collectFree": "Gratis (recoger en el almacén)"
+    "collectFree": "Gratis (recoger en el almacén)",
+    "coupon": {
+      "title": "Código de cupón",
+      "label": "Código de cupón",
+      "placeholder": "Introduce un código",
+      "apply": "Aplicar",
+      "remove": "Quitar",
+      "applied": "Cupón {code} aplicado: {name}",
+      "errors": {
+        "unknownCode": "No reconocemos el código {code}.",
+        "inactive": "El código {code} ya no está activo.",
+        "notStarted": "El código {code} aún no está disponible.",
+        "expired": "El código {code} ha caducado.",
+        "wrongStorefront": "El código {code} no se puede usar en esta tienda.",
+        "thresholdNotMet": "Tu carrito no cumple las condiciones de {code}.",
+        "usageLimitReached": "El código {code} ha alcanzado su límite de usos.",
+        "customerLimitReached": "Ya has usado el código {code}."
+      }
+    }
   },
   "confirmation": {
     "noOrder": "No se especificó ningún pedido.",
