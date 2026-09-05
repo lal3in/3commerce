@@ -15,12 +15,19 @@ GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screens
 # images land in docs/help/assets/screenshots/
 ```
 
-- **Storefront** (`:3000`): home, search, product detail, cart, checkout (with selectable payment
-  methods), sign in, register, account, privacy/consent settings.
+- **Storefront** (`:3000`): home, search, product detail, cart (with discount / promotion /
+  free-shipping rows), checkout (with selectable payment methods and the **coupon-code box**),
+  sign in, register, account, privacy/consent settings.
 - **Admin** (`:5200`): sign in, dashboard, orders, ledger (per-currency balances + a filterable
   Journal-entries feed — full date/time, Start/End date, Storefront, Currency), RMA queue, entities &
   suppliers, imports, Xero sync &amp; mappings, roles & permissions, operator users, mission control (live
   activity timeline, message-bus stats, and the **Scheduled jobs** manager — Run now / Pause / Edit),
-  commerce ops (storefront lifecycle + product publication via a catalog dropdown), catalog editor,
-  **currencies** (the managed registry with per-currency decimals), offers, payment accounts, supplier
+  commerce ops (storefront lifecycle + product publication via a catalog dropdown, and the
+  storefront-wide **Discount %** field/column), catalog editor,
+  **currencies** (the managed registry with per-currency decimals), offers, **promotions**
+  (threshold promotions and coupon codes — Code, Threshold, Reward, Combinable, Window and
+  Redemptions columns), payment accounts, supplier
   payouts, and **security** (MFA enrollment, tenant MFA policy, webhook signing secrets).
+
+Pricing-related screens are explained end-to-end in
+[Pricing & promotions](./pricing-and-promotions.md).

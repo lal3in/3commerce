@@ -1,7 +1,8 @@
 # 0052 — Coupon codes at checkout: a code-gated promotion with race-safe redemption limits
 
-Status: Accepted
+Status: Accepted — implemented
 Area: Catalog / Ordering / pricing
+Operator/handbook view: [`docs/help/pricing-and-promotions.md`](../help/pricing-and-promotions.md) — the whole money chain with a worked example, the refusal-reason table and the redemption lifecycle
 Extends: [0051](./0051-threshold-promotions-and-combinability.md) (the `Promotion` aggregate, the shared `PromotionEvaluator`, the combinability rule and the normative pricing order — all reused verbatim), [0047](./0047-storefront-scoped-active-window-offer-price.md) (the offer-resolved base a coupon discounts), [0041](./0041-per-store-order-costs-chargebacks-and-estimated-margin.md) (no FX — a coupon is currency-pinned), [0008](./0008-database-per-service-single-postgres.md) (read-copy projection; checkout never queries Catalog), [0045](./0045-mandatory-per-storefront-ledger-attribution.md) (no new ledger line — the charged gross simply drops), [0007](./0007-masstransit-rabbitmq-outbox-sagas.md) (the cancellation path that releases a hold)
 
 ## Context

@@ -13,7 +13,7 @@ The strongest message is not "another shop template". It is: **one governed comm
 | Audience | What they care about | 3commerce message |
 |---|---|---|
 | Clients / shoppers | Fast browsing, clear checkout, account history, support, refunds | SSR storefront, typo-tolerant search, variant-aware cart, shipping-rate selection, saved addresses/cards, order support and RMA flow. |
-| Tenants / merchants | Launching and operating one or more legal businesses/storefronts | Tenant-aware data model, storefront lifecycle, domains, RBAC, payment account readiness, pricing/promotions, Xero mapping, launch gates for live rails. |
+| Tenants / merchants | Launching and operating one or more legal businesses/storefronts | Tenant-aware data model, storefront lifecycle, domains, RBAC, payment account readiness, a full **pricing chain** (supplier cost → catalog price → storefront-scoped offer price → **threshold promotions and coupon codes** → a storefront-wide items discount → tax on the discounted base), Xero mapping, launch gates for live rails. |
 | Suppliers | Onboarding, readiness, stock feeds, dropship orders, change requests | Supplier Portal plus Entity-backed supplier onboarding, availability feeds, dropship forwarding, maker-checker change approval, supplier payout setup. |
 | Admins / operators | Control, traceability, exception handling | Admin console for orders, RMAs/refunds, ledger, imports, offers, payment accounts, payouts, Xero mappings, RBAC, mission control, and bus/health visibility. |
 | Technical evaluators | Architecture, correctness, deployment, testability | .NET microservices, YARP gateway, MassTransit/RabbitMQ, service-owned Postgres schemas, EF outbox/inbox, double-entry ledger, Testcontainers integration tests, Playwright E2E, compose and Helm paths. |
@@ -38,6 +38,7 @@ The strongest message is not "another shop template". It is: **one governed comm
 | Admin operations and operator surfaces | [Admin operations](./admin-operations.md), [UI screens](./screens.md) |
 | Supplier portal journey | [Getting started](./getting-started.md), [Testing](./testing.md) supplier E2E notes |
 | Service/API inventory | [Platform services](./services.md), `docs/api/api_contracts_index.md` |
+| Merchandising & pricing capability (offers, threshold promotions, coupon codes, storefront-wide discount) | [Pricing & promotions](./pricing-and-promotions.md), [UI screens](./screens.md) (`admin-promotions.png`) |
 | Security and RBAC model | [Users, roles & permissions](./roles-permissions.md) |
 | Deployment credibility | [Deployment](./deployment.md) |
 | Regression confidence | [Testing](./testing.md), `scripts/e2e-verify.sh --live` |

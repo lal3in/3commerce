@@ -45,6 +45,20 @@ tokens, message-contract equality, and the **Xero journal builder** (groups by
 account, nets to zero, skips empty days). In `e2e-verify.sh` this is check **A3**;
 in CI it is the **Unit tests** step.
 
+**Pricing, promotions and coupons** get their own focused stage, **A3b**, which re-runs
+`PromotionTests` · `PromotionEvaluatorTests` · `PricingTests` · `CouponTests` on their own so a
+money-path regression is named rather than buried in the full unit run
+([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md) /
+[ADR-0052](../adr/0052-coupon-codes-and-redemption-limits.md)):
+
+| Suite | Guards |
+|---|---|
+| `Catalog/tests/PromotionTests.cs` | Aggregate invariants — at least one threshold (automatic promotions only), at least one reward, percent XOR fixed amount, scope↔product binding, ordered inclusive window, activate/deactivate; **coupons**: code normalized to trimmed UPPERCASE, bad characters/over-length rejected, a code-gated promotion may carry no threshold while an automatic one may not, clearing the code of a thresholdless coupon refused, usage limits null = unlimited and ≥ 1 when set |
+| `Catalog/tests/StorefrontDiscountTests.cs` | `SetDiscount` range bounds, null leaves the current value, duplication carries the discount |
+| `Ordering/tests/PromotionEvaluatorTests.cs` | Threshold AND, storefront vs product scope bases, fixed amount clamped to its scope base, best-exclusive vs Σ-combinables by customer benefit, tie → combinable set, ascending-id tiebreak, no-FX currency guard, window bounds, largest-remainder per-line allocation summing exactly |
+| `Ordering/tests/PricingTests.cs` | Engine/checkout parity, storefront-wide discount (items only, stacking, subtotal cap), tax on the discounted base in both ADR-0038 regimes |
+| `Ordering/tests/CouponTests.cs` | The code gate (a code-gated promotion applies only on a trimmed, case-insensitive match; an automatic one is untouched by any entered code), a coupon out-competed by a better promotion loses, one fact per `CouponStatus`, and the `u:{userId}` / `e:{email}` customer-key rule that makes a guest checkout count |
+
 ## 2. Integration tests (Testcontainers)
 
 ```bash
@@ -65,6 +79,9 @@ business invariants end-to-end *in process* (no gateway/browser). From the
 | A6c | Money flow: guest checkout saga → confirmed + balanced sale, duplicate webhook = one entry, refund reverses + ledger balanced |
 | A6d | RMA saga: approve → refund → RefundIssued, double-approve no-op, deny path; Fulfillment shipments grouped by source, idempotent |
 | A6e | (unit) Xero journal builder |
+| A6c (promotions) | `MoneyFlowTests`: free shipping above the money threshold + the below-threshold control, a product-scoped discount touching only that product's lines, a threshold measured on the **offer-resolved** price rather than the catalog price, combinables out-scoring a bigger exclusive, and a promotion stacking with the storefront-wide discount with tax on the doubly-discounted base — **trial balance 0 in every case** |
+| A6c (projection) | `PromotionProjectionTests`: `PromotionChanged` → `PromotionCopy` insert, idempotent re-consume (no duplicate row), deactivation |
+| A6c (coupons) | `CouponRedemptionTests`: the code is required for the discount and is actually charged; the cap holds under **ten concurrent checkouts against `MaxRedemptions = 3`** (exactly 3 win, counter matches the redemption rows); the per-customer limit counts a guest by checkout email across a fresh browser/casing; a failed payment **releases** the hold so a single-use code is spendable again (and is genuinely blocked while held); redelivered `CheckoutCompleted`/`OrderCancelled` neither double-confirm nor double-release; every refusal reports its own reason on `/cart/summary` and at checkout; a reservation whose checkout attempt never committed is swept so the cap recovers |
 
 In CI this is the separate **integration** job.
 
@@ -114,6 +131,13 @@ npm run test:e2e:headed              # headed (debugging)
   end to end** (fill address → get/select shipping rate → authorize/place order →
   confirmation → **Complete test payment** → "Thank you / order confirmed");
   empty-cart state.
+- **`storefront-discount.spec.ts`** — the storefront-wide **Discount (n%)** row appears on the cart
+  and checkout summaries and reduces the items total (never shipping or tax).
+- **`storefront-promotions.spec.ts`** — a shopper crossing a threshold sees the `Promotion: {name}`
+  row and the **Free shipping** line in both summaries (ADR-0051).
+- **`storefront-coupons.spec.ts`** — the coupon box is invisible until a code is entered; an unknown
+  code shows **its own** reason; a valid code adds the discount row; **Remove** prices the cart back
+  at full price (ADR-0052).
 - **`auth.spec.ts`** — unauth `/account` redirects to login; register → log in →
   reach account; wrong password shows an error.
 
@@ -125,6 +149,12 @@ npm run test:e2e:headed              # headed (debugging)
 - **`operations.spec.ts`** — broad operator-surface render checks for Catalog,
   Offers, Orders, Commerce Ops, Payment Accounts, Supplier Payouts, Xero Mappings,
   Mission Control, plus RMA action availability for a requested RMA.
+- **`promotions-admin.spec.ts`** — authoring a threshold promotion through the admin modal
+  (round-tripped via the API, then deactivated), and **coupon** authoring through the same modal:
+  the code round-trips in canonical UPPERCASE, the **Redemptions** column renders, no threshold is
+  required for a code-gated promotion, and a duplicate code is refused.
+- **`commerce-ops-discount.spec.ts`** — setting the storefront-wide **Discount %** on Commerce ops
+  and seeing it in the table's Discount column.
 - **`helpers.ts`** — `loginAsAdmin` (real Blazor form + antiforgery),
   `seedPaidOrderWithRma` (seeds a paid order + open RMA via the gateway so the UI
   test can focus on approve → refund), and `rmaState`.
@@ -151,8 +181,9 @@ specs need a published storefront and a supplier). The seed is **idempotent** (c
 and offers are guarded on their unique keys), so a re-run doesn't pile up duplicate rows.
 
 **Automated group (A1–A8):** A1 build with 0 warnings · A2 `dotnet format`
-clean · A3 unit/contract · A4–A6 integration · A6b/c/d ledger/money/RMA/fulfillment ·
-A6e Xero builder · A7 storefront `tsc` + `next build` · A8 vulnerable-package scan.
+clean · A3 unit/contract · **A3b promotions + coupons** · A4–A6 integration ·
+A6b/c/d ledger/money/RMA/fulfillment · A6e Xero builder · A7 storefront `tsc` +
+`next build` · A8 vulnerable-package scan.
 
 **Live group (L1–L20, `--live`):** boots infra, applies migrations, builds, starts
 the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL, then:
@@ -164,7 +195,7 @@ the services + worker, the storefront (production build), the admin DLL, and the
 | L9–L13 | Catalog RBAC, import, exact + **typo** + filtered search, search p95 < 500 ms, logout, password reset |
 | L14 | Storefront SSR: home/search/product render; `/account` redirects (307) |
 | L15–L19 | Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal |
-| L20 | **Storefront + Admin + Supplier Playwright E2E** in a real browser (the specs above) |
+| L20 | **Storefront + Admin + Supplier Playwright E2E** in a real browser (the specs above) — including promotion + coupon authoring in admin and the shopper applying/removing a coupon at checkout |
 
 It prints a pass/fail summary and exits non-zero on any failure. The
 `mvp-walkthrough.md` runbook is the manual equivalent of the L-flows.

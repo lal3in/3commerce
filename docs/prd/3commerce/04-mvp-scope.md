@@ -20,8 +20,8 @@
 - ✅ Checkout saga: order → payment authorization → confirmation (MassTransit state machine)
 - ✅ Fulfillment source tracked **per line item** (dropship vs warehouse undecided)
 - ✅ Single configurable currency; flat/configurable shipping rates; worldwide shipping modeled as DAP
-- ❌ Multi-currency pricing/display
-- ❌ Discount codes / promotions engine
+- ❌ Multi-currency pricing/display *(out of MVP scope; **delivered post-MVP** — per-currency shelf prices [ADR-0038] and the currency registry [ADR-0046])*
+- ❌ Discount codes / promotions engine *(out of MVP scope; **delivered post-MVP** — storefront-wide items discount, threshold promotions [ADR-0051], coupon codes [ADR-0052])*
 - ❌ Real-time carrier rate quotes
 
 ### Accounts (custom-built Identity)

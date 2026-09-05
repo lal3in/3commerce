@@ -2115,6 +2115,17 @@
             "format": "int32",
             "default": 0
           },
+          "discountBasisPoints": {
+            "maximum": 10000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "null",
+              "string"
+            ],
+            "format": "int32"
+          },
           "defaultLanguage": {
             "maxLength": 16,
             "minLength": 2,
@@ -2176,6 +2187,15 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          "shipToCountries": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -3002,7 +3022,9 @@
           "taxRegime",
           "taxRateBasisPoints",
           "defaultLanguage",
-          "theme"
+          "theme",
+          "shipToCountries",
+          "discountBasisPoints"
         ],
         "type": "object",
         "properties": {
@@ -3045,6 +3067,20 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "shipToCountries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "discountBasisPoints": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -3232,6 +3268,7 @@
           "currency",
           "taxRegime",
           "taxRateBasisPoints",
+          "discountBasisPoints",
           "defaultLanguage",
           "receivableAccountCode",
           "revenueAccountCode",
@@ -3240,6 +3277,7 @@
           "theme",
           "costAssumptions",
           "domains",
+          "shipToCountries",
           "createdAt",
           "updatedAt",
           "activatedAt"
@@ -3273,6 +3311,14 @@
             "$ref": "#/components/schemas/StorefrontTaxRegime"
           },
           "taxRateBasisPoints": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "discountBasisPoints": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -3316,6 +3362,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StorefrontDomainResponse"
+            }
+          },
+          "shipToCountries": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "createdAt": {
@@ -3544,6 +3596,17 @@
             ],
             "format": "int32"
           },
+          "discountBasisPoints": {
+            "maximum": 10000,
+            "minimum": 0,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "null",
+              "string"
+            ],
+            "format": "int32"
+          },
           "defaultLanguage": {
             "maxLength": 16,
             "minLength": 2,
@@ -3605,6 +3668,15 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          "shipToCountries": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
             }
           }
         }
