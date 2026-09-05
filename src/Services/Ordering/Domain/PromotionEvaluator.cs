@@ -59,6 +59,12 @@ public static class PromotionEvaluator
     /// Evaluates the tenant's projected promotions against a cart. <paramref name="shippingMinor"/> must be
     /// the shipping the cart would OTHERWISE pay — pass 0 when the cart already ships free, so a
     /// free-shipping promotion scores no phantom benefit.
+    /// <para>
+    /// <paramref name="couponCode"/> is what the shopper typed (ADR-0052). A CODE-GATED promotion joins the
+    /// candidate set only when it matches; an AUTOMATIC promotion is unaffected either way. A coupon is
+    /// therefore just another promotion once it is unlocked — the existing Combinable flag governs whether
+    /// it stacks, and no separate stacking concept exists.
+    /// </para>
     /// </summary>
     public static PromotionOutcome Evaluate(
         IReadOnlyList<PromotionLine> lines,
@@ -67,7 +73,8 @@ public static class PromotionEvaluator
         Guid storefrontId,
         string currency,
         long shippingMinor,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? couponCode = null)
     {
         if (lines.Count == 0 || promotions.Count == 0)
         {
@@ -77,7 +84,7 @@ public static class PromotionEvaluator
         var candidates = new List<PromotionCandidate>();
         foreach (var promotion in promotions)
         {
-            if (!promotion.IsEffectiveFor(tenantId, storefrontId, currency, now))
+            if (!promotion.IsEffectiveFor(tenantId, storefrontId, currency, now) || !promotion.AcceptsCode(couponCode))
             {
                 continue;
             }

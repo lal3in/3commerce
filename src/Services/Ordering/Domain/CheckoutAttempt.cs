@@ -33,6 +33,11 @@ public class CheckoutAttempt
     /// <summary>Whether a promotion zeroed the shipping charge on this attempt.</summary>
     public bool FreeShippingApplied { get; init; }
 
+    /// <summary>The coupon code the shopper redeemed (canonical UPPERCASE), or null when none was used
+    /// (ADR-0052). Snapshotted so a past checkout can be explained — and supported — without re-running the
+    /// evaluator or joining the redemption table.</summary>
+    public string? CouponCode { get; init; }
+
     public long GrossMinor { get; init; }
     public required string Currency { get; init; }
     public required string PaymentIntentId { get; init; }
@@ -81,6 +86,7 @@ public class CheckoutAttempt
             PromotionDiscountMinor = PromotionDiscountMinor,
             AppliedPromotionIds = AppliedPromotionIds,
             FreeShippingApplied = FreeShippingApplied,
+            CouponCode = CouponCode,
             GrossMinor = GrossMinor,
             Currency = Currency,
             PaymentIntentId = PaymentIntentId,

@@ -37,6 +37,11 @@ public class Order
     /// <summary>Whether a promotion zeroed the shipping charge on this order.</summary>
     public bool FreeShippingApplied { get; set; }
 
+    /// <summary>The coupon code the shopper redeemed (canonical UPPERCASE), or null when none was used
+    /// (ADR-0052). Snapshotted so a past order can be explained — and supported — without re-running the
+    /// evaluator or joining the redemption table.</summary>
+    public string? CouponCode { get; set; }
+
     public long GrossMinor { get; set; }
     public required string Currency { get; set; }
     public string? PaymentIntentId { get; set; }

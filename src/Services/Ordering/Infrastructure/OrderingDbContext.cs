@@ -23,6 +23,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<CheckoutState> CheckoutStates => Set<CheckoutState>();
     public DbSet<OfferCopy> OfferCopies => Set<OfferCopy>();
     public DbSet<PromotionCopy> PromotionCopies => Set<PromotionCopy>();
+    public DbSet<PromotionRedemption> PromotionRedemptions => Set<PromotionRedemption>();
     public DbSet<ProductTypeShippingPolicyCopy> ProductTypeShippingPolicyCopies => Set<ProductTypeShippingPolicyCopy>();
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
     public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
@@ -53,7 +54,29 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             promotion.Property(p => p.Currency).HasMaxLength(3);
             promotion.Property(p => p.Name).HasMaxLength(120);
             promotion.Property(p => p.Scope).HasConversion<string>().HasMaxLength(16);
+            promotion.Property(p => p.Code).HasMaxLength(40);
             promotion.HasIndex(p => new { p.TenantId, p.StorefrontId, p.Active });
+            // Coupon lookup (ADR-0052): checkout and /cart/summary resolve the entered code to at most one
+            // promotion per tenant. Not unique here — a read model must accept whatever Catalog projects
+            // (Catalog owns the uniqueness rule), or a mis-projection would poison the consumer.
+            promotion.HasIndex(p => new { p.TenantId, p.Code });
+        });
+
+        // Coupon redemptions (ADR-0052): Ordering-owned, reserved at checkout and confirmed/released by
+        // the saga's terminal transitions.
+        modelBuilder.Entity<PromotionRedemption>(redemption =>
+        {
+            redemption.HasKey(r => r.Id);
+            redemption.Property(r => r.CustomerKey).HasMaxLength(340);
+            redemption.Property(r => r.Code).HasMaxLength(40);
+            redemption.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+            // Idempotency: one redemption per (promotion, order), whatever a retried checkout or a
+            // redelivered message tries. This unique index — not application logic — is the guarantee.
+            redemption.HasIndex(r => new { r.PromotionId, r.OrderId }).IsUnique();
+            // The per-customer limit's count query.
+            redemption.HasIndex(r => new { r.PromotionId, r.CustomerKey });
+            // Confirm/release address a redemption by the order alone (the saga knows nothing else).
+            redemption.HasIndex(r => r.OrderId);
         });
 
         modelBuilder.Entity<ProductTypeShippingPolicyCopy>(policy =>
@@ -128,6 +151,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             // Comma-joined promotion ids (ADR-0051): a handful of GUIDs at most, bounded so the column
             // can't grow unbounded on a pathological cart.
             o.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
+            o.Property(x => x.CouponCode).HasMaxLength(40);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
@@ -135,6 +159,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         modelBuilder.Entity<CheckoutAttempt>(attempt =>
         {
             attempt.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
+            attempt.Property(x => x.CouponCode).HasMaxLength(40);
             attempt.Property(x => x.Currency).HasMaxLength(3);
             attempt.Property(x => x.PaymentIntentId).HasMaxLength(200);
             attempt.Property(x => x.PaymentOption).HasMaxLength(40);
