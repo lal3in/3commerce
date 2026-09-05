@@ -33,13 +33,14 @@
 {
     <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
         <thead>
-            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Promotions.Col.Name"]</th><th>@L["Promotions.Col.Scope"]</th><th>@L["Promotions.Col.Product"]</th><th>@L["Promotions.Col.Storefront"]</th><th>@L["Promotions.Col.Threshold"]</th><th>@L["Promotions.Col.Reward"]</th><th>@L["Promotions.Col.Combinable"]</th><th>@L["Promotions.Col.Window"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
+            <tr style="text-align:left; border-bottom:2px solid #e5e7eb;"><th style="padding:.4rem;">@L["Promotions.Col.Name"]</th><th>@L["Promotions.Col.Code"]</th><th>@L["Promotions.Col.Scope"]</th><th>@L["Promotions.Col.Product"]</th><th>@L["Promotions.Col.Storefront"]</th><th>@L["Promotions.Col.Threshold"]</th><th>@L["Promotions.Col.Reward"]</th><th>@L["Promotions.Col.Combinable"]</th><th>@L["Promotions.Col.Window"]</th><th>@L["Promotions.Col.Redemptions"]</th><th>@L["Common.Status"]</th><th>@L["Common.Actions"]</th></tr>
         </thead>
         <tbody>
         @foreach (var promotion in _promotions)
         {
             <tr style="border-bottom:1px solid #f3f4f6;">
                 <td style="padding:.4rem;">@promotion.Name</td>
+                <td style="white-space:nowrap;">@(string.IsNullOrWhiteSpace(promotion.Code) ? L["Promotions.Code.Automatic"] : promotion.Code)</td>
                 <td>@ScopeLabel(promotion.Scope)</td>
                 <td>@(promotion.ProductId is null ? "—" : string.IsNullOrWhiteSpace(promotion.ProductTitle) ? Short(promotion.ProductId.Value) : promotion.ProductTitle)</td>
                 <td>@StorefrontLabel(promotion.StorefrontId)</td>
@@ -47,6 +48,7 @@
                 <td style="white-space:nowrap;">@RewardLabel(promotion)</td>
                 <td style="text-align:center;">@(promotion.Combinable ? L["Promotions.Combinable.Yes"] : L["Promotions.Combinable.No"])</td>
                 <td style="white-space:nowrap;">@WindowLabel(promotion)</td>
+                <td style="white-space:nowrap;">@RedemptionsLabel(promotion)</td>
                 <td>@promotion.Status</td>
                 <td style="white-space:nowrap;"><button @onclick="() => Edit(promotion)" title="@L["Promotions.Edit.Tip"]">@L["Common.Edit"]</button></td>
             </tr>
@@ -118,6 +120,20 @@
         </fieldset>
 
         <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
+            <legend>@L["Promotions.Coupon.Legend"]</legend>
+            <p style="margin:.1rem 0 .5rem; color:#6b7280; font-size:.85rem;">@L["Promotions.Coupon.Note"]</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
+                <label>@L["Promotions.Field.Code"] <input @bind="_form.Code" maxlength="40" placeholder="@L["Promotions.Field.Code.Placeholder"]" title="@L["Promotions.Field.Code.Tip"]" style="width:100%;" /></label>
+                <label>@L["Promotions.Field.MaxRedemptions"] <input type="number" min="1" @bind="_form.MaxRedemptions" placeholder="@L["Promotions.Field.Unlimited"]" title="@L["Promotions.Field.MaxRedemptions.Tip"]" style="width:100%;" /></label>
+                <label>@L["Promotions.Field.MaxPerCustomer"] <input type="number" min="1" @bind="_form.MaxRedemptionsPerCustomer" placeholder="@L["Promotions.Field.Unlimited"]" title="@L["Promotions.Field.MaxPerCustomer.Tip"]" style="width:100%;" /></label>
+                @if (_editingId is not null)
+                {
+                    <label>@L["Promotions.Field.Used"] <input value="@UsageDetail(_editingId.Value)" disabled title="@L["Promotions.Field.Used.Tip"]" style="width:100%;" /></label>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset style="border:1px solid #e5e7eb; padding:.6rem; margin-top:.8rem;">
             <legend>@L["Promotions.Scope.Legend"]</legend>
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:.6rem;">
                 <label>@L["Promotions.Field.Storefront"]
@@ -155,6 +171,7 @@
     private List<PromotionDto>? _promotions;
     private List<StorefrontDto>? _storefronts;
     private List<ProductListItem>? _products;
+    private Dictionary<Guid, RedemptionCountDto> _redemptions = [];
     private string _productSearch = string.Empty;
     private string? _status;
     private string? _error;
@@ -176,6 +193,9 @@
             _storefronts = await SafeStorefronts();
             // Products feed the product-scope picker; a failure here must not block the list/modal.
             _products = await SafeProducts();
+            // Coupon usage lives in Ordering (where a coupon is spent), not Catalog (where it is authored),
+            // so the two read APIs are joined HERE — never a cross-service DB query (ADR-0008).
+            _redemptions = await SafeRedemptions();
         }
         catch (Exception ex) { _error = ex.Message; }
     }
@@ -194,10 +214,15 @@
         DateTimeOffset? activeUntil = _form.ActiveUntil is { } until ? new DateTimeOffset(until, TimeSpan.Zero).AddDays(1).AddTicks(-1) : null;
         var minimumAmountMinor = ToMinor(_form.MinimumAmount);
         var discountAmountMinor = ToMinor(_form.DiscountAmount);
+        // Blank = no coupon (an automatic promotion). Catalog normalizes to trimmed UPPERCASE; sending the
+        // trimmed value keeps the admin table and the shopper's entry in the same form.
+        var code = string.IsNullOrWhiteSpace(_form.Code) ? null : _form.Code.Trim().ToUpperInvariant();
 
         object body = _editingId is null
-            ? new { tenantId = tenant, name = _form.Name.Trim(), currency = _form.Currency, scope = _form.Scope, productId, storefrontId, minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, activeFrom, activeUntil }
-            : new { name = _form.Name.Trim(), minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, active = _form.Active, applyScope = true, storefrontId, activeFrom, activeUntil };
+            ? new { tenantId = tenant, name = _form.Name.Trim(), currency = _form.Currency, scope = _form.Scope, productId, storefrontId, minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, activeFrom, activeUntil, code, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer }
+            // applyCode / applyUsageLimits opt the update in: null is MEANINGFUL on all three (no code =
+            // automatic, no limit = unlimited), so the API keeps the current values unless told otherwise.
+            : new { name = _form.Name.Trim(), minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, active = _form.Active, applyScope = true, storefrontId, activeFrom, activeUntil, applyCode = true, code, applyUsageLimits = true, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer };
         var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
         if (response.IsSuccessStatusCode) { ResetForm(); _showForm = false; await LoadAsync(); _status = L["Promotions.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
@@ -234,6 +259,9 @@
         _form.StorefrontId = promotion.StorefrontId?.ToString() ?? string.Empty;
         _form.ActiveFrom = promotion.ActiveFrom?.UtcDateTime.Date;
         _form.ActiveUntil = promotion.ActiveUntil?.UtcDateTime.Date;
+        _form.Code = promotion.Code ?? string.Empty;
+        _form.MaxRedemptions = promotion.MaxRedemptions;
+        _form.MaxRedemptionsPerCustomer = promotion.MaxRedemptionsPerCustomer;
     }
 
     private void ResetForm()
@@ -242,6 +270,7 @@
         _form.Name = string.Empty; _form.Currency = "EUR"; _form.Scope = 1; _form.ProductId = string.Empty; _form.ProductTitle = string.Empty;
         _form.MinimumAmount = 0; _form.MinimumQuantity = 0; _form.GrantsFreeShipping = false; _form.PercentOff = 0; _form.DiscountAmount = 0;
         _form.Combinable = false; _form.Active = true; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null;
+        _form.Code = string.Empty; _form.MaxRedemptions = null; _form.MaxRedemptionsPerCustomer = null;
         _productSearch = string.Empty;
     }
 
@@ -264,6 +293,17 @@
     {
         // ~200 products live; ask for the whole page so the picker lists them all (server clamps at 200).
         try { return await Gateway.GetListAsync<ProductListItem>("/api/catalog/admin/products?pageSize=200"); }
+        catch { return []; }
+    }
+
+    private async Task<Dictionary<Guid, RedemptionCountDto>> SafeRedemptions()
+    {
+        try
+        {
+            var counts = await Gateway.GetListAsync<RedemptionCountDto>(
+                $"/api/ordering/admin/promotion-redemptions?tenantId={Uri.EscapeDataString(_tenantId)}");
+            return counts.ToDictionary(c => c.PromotionId);
+        }
         catch { return []; }
     }
 
@@ -308,6 +348,25 @@
         return parts.Count == 0 ? "—" : string.Join(" + ", parts);
     }
 
+    // Used / remaining. "Used" counts RESERVED redemptions as well as confirmed ones: a reservation is
+    // already unavailable to anyone else, so counting only confirmed ones would overstate what is left.
+    private string RedemptionsLabel(PromotionDto promotion)
+    {
+        var used = _redemptions.GetValueOrDefault(promotion.Id)?.UsedCount ?? 0;
+        if (promotion.MaxRedemptions is not { } max)
+        {
+            return used == 0 ? L["Promotions.Redemptions.Unlimited"] : L["Promotions.Redemptions.UsedUnlimited", used];
+        }
+
+        return L["Promotions.Redemptions.UsedOfMax", used, max, Math.Max(0, max - used)];
+    }
+
+    private string UsageDetail(Guid promotionId)
+    {
+        var counts = _redemptions.GetValueOrDefault(promotionId);
+        return L["Promotions.Redemptions.Detail", counts?.UsedCount ?? 0, counts?.ConfirmedCount ?? 0];
+    }
+
     private string WindowLabel(PromotionDto promotion)
     {
         if (promotion.ActiveFrom is null && promotion.ActiveUntil is null) { return L["Promotions.Window.Always"]; }
@@ -337,13 +396,19 @@
         public string StorefrontId { get; set; } = string.Empty;
         public DateTime? ActiveFrom { get; set; }
         public DateTime? ActiveUntil { get; set; }
+        // Coupon (ADR-0052): blank Code = an automatic promotion; null limits = unlimited.
+        public string Code { get; set; } = string.Empty;
+        public int? MaxRedemptions { get; set; }
+        public int? MaxRedemptionsPerCustomer { get; set; }
     }
 
     private record PromotionDto(
         Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Currency, int Scope, string ScopeName,
         Guid? ProductId, long MinimumAmountMinor, int MinimumQuantity, bool GrantsFreeShipping, int PercentOff,
         long DiscountAmountMinor, bool Combinable, string Status, bool Active, string ProductTitle = "",
-        DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);
+        DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null,
+        string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null);
+    private sealed record RedemptionCountDto(Guid PromotionId, int UsedCount, int ConfirmedCount, int? MaxRedemptions);
     private record StorefrontDto(Guid Id, string Name, string Currency);
     private sealed record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);
 }

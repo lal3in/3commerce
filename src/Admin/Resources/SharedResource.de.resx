@@ -1782,4 +1782,23 @@
   <data name="Country.Tip" xml:space="preserve"><value>Land (ISO 3166). Aus der vollständigen Liste ausgewählt — nie frei eingegeben.</value></data>
   <data name="Country.Group.Common" xml:space="preserve"><value>Häufig</value></data>
   <data name="Country.Group.All" xml:space="preserve"><value>Alle Länder (ISO 3166)</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>Einlösungen</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>Automatisch</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>Gutscheincode &amp; Einlöselimits</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>Ohne Code gilt die Aktion automatisch für jeden passenden Warenkorb. Mit Code gilt sie NUR, wenn der Kunde ihn an der Kasse eingibt. Leere Limits = unbegrenzt; einmalig ist einfach 1. Eine Einlösung wird an der Kasse reserviert und bei fehlgeschlagener Zahlung freigegeben.</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>Gutscheincode</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>z. B. WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>Optional. Buchstaben, Ziffern, '-' und '_', bis zu 40 Zeichen; wird in GROSSBUCHSTABEN gespeichert und verglichen und ist pro Mandant eindeutig. Leer = die Aktion gilt automatisch, ohne Code.</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>Max. Einlösungen</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>Wie oft dieser Gutschein insgesamt über alle Kunden eingelöst werden darf. Leer = unbegrenzt. Wird an der Kasse geprüft, sodass ein begrenzter Code auch bei gleichzeitigen Bestellungen nie überschritten wird.</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>Max. pro Kunde</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>Wie oft EIN Kunde diesen Gutschein einlösen darf. Leer = unbegrenzt. Angemeldete Kunden zählen per Konto, Gäste per Bestell-E-Mail — Abmelden setzt das Limit nicht zurück.</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>Unbegrenzt</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>Eingelöst</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>Wie viele Einlösungen aktuell belegt sind (an der Kasse reserviert plus bestätigt) und wie viele davon bestätigte Bestellungen sind.</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>Unbegrenzt</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} eingelöst</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · {2} übrig</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} belegt · {1} bestätigt</value></data>
 </root>

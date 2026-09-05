@@ -1782,4 +1782,23 @@
   <data name="Country.Tip" xml:space="preserve"><value>国家/地区（ISO 3166）。从完整列表中选择，无需手动输入。</value></data>
   <data name="Country.Group.Common" xml:space="preserve"><value>常用</value></data>
   <data name="Country.Group.All" xml:space="preserve"><value>所有国家/地区（ISO 3166）</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>优惠码</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>已使用</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>自动</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>优惠码与使用限制</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>留空优惠码即为自动促销，适用于所有符合条件的购物车。填写后，仅当顾客在结账时输入该码才会生效。限制留空表示不限；一次性使用就填 1。结账时预留一次使用额度，付款失败则释放。</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>优惠码</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>例如 WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>可选。字母、数字、'-' 和 '_'，最多 40 个字符；以大写存储与比对，且在租户内唯一。留空 = 无需优惠码，促销自动生效。</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>最多使用次数</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>该优惠码在所有顾客中可被使用的总次数。留空 = 不限。在结账时校验，因此即使并发结账也绝不会超出限额。</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>每位顾客上限</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>单个顾客可使用该优惠码的次数。留空 = 不限。已登录顾客按账号计，访客按结账邮箱计，退出登录不会重置限额。</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>不限</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>已使用</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>当前占用的使用次数（结账预留加已确认）以及其中已确认订单的数量。</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>不限</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>已使用 {0} 次</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · 剩余 {2}</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>占用 {0} · 已确认 {1}</value></data>
 </root>
