@@ -171,6 +171,13 @@ UPDATE ordering."PromotionCopies"
   usage counts come from Ordering's `GET /admin/promotion-redemptions` and are joined in the UI — two
   read APIs, never a cross-service DB query. "Used" counts **reserved** redemptions as well as confirmed
   ones, because a reservation is already unavailable to anyone else.
+- **A guest's per-customer limit can only be reported at checkout, not on the preview.** `GET /cart/summary`
+  is rendered before the shopper has typed an email, so for an anonymous cart there is no `CustomerKey` to
+  count against and the preview reports the coupon as applied. Checkout — where the email exists — then
+  refuses with `CustomerLimitReached`. For a signed-in shopper the preview is exact, because the user id is
+  known. Closing the gap for guests would mean re-pricing on every keystroke of the email field; the
+  narrow case (a guest re-using a per-customer-limited code from a fresh browser) is accepted instead, and
+  the charge is still never wrong — only the warning is late.
 - **An unlimited coupon still records a redemption row.** Usage reporting works, and a limit tightened
   later starts from the truth rather than from zero.
 - **The reservation commits in its own transaction, before the checkout attempt's.** That is what makes
