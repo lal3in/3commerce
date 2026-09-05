@@ -365,27 +365,6 @@ public static class CheckoutEndpoints
         var orderId = Guid.CreateVersion7();
         var idempotencyKey = orderId.ToString();
 
-        // RESERVE the coupon here — before the payment is authorized (ADR-0052). The charged amount is
-        // fixed by this request, so the redemption has to be locked in now: reserving at confirmation
-        // instead would let two shoppers both be charged a "last one" price and only one be honoured.
-        // Only a coupon that actually WON is reserved; one that was out-competed by a better promotion
-        // discounted nothing, so it must not burn an allowance. The reservation is released below on the
-        // authorize failure path, and by the saga on cancellation / payment failure / checkout expiry.
-        var couponReserved = false;
-        if (couponPromotion is not null && customerKey is not null
-            && promotionOutcome.AppliedPromotionIds.Contains(couponPromotion.PromotionId))
-        {
-            var reservation = await redemptions.TryReserveAsync(
-                couponPromotion, checkoutTenantId, orderId, customerKey, now, ct);
-            if (reservation != CouponStatus.Applied)
-            {
-                // Lost the race for the last redemption between the preview and now. Refuse rather than
-                // charge a discount we cannot honour.
-                return TypedResults.BadRequest(CouponMessages.For(reservation, enteredCode));
-            }
-
-            couponReserved = true;
-        }
         // tenantId + storefrontId were resolved up front (they gate the offer price + shipping); the
         // storefront rides the AuthorizePayment request → Payment so the sale posts to the store's accounts.
 
@@ -411,6 +390,30 @@ public static class CheckoutEndpoints
             {
                 return TypedResults.BadRequest("A saved payment method or direct-debit mandate is required for a subscription.");
             }
+        }
+
+        // RESERVE the coupon LAST, immediately before the payment is authorized (ADR-0052). The charged
+        // amount is fixed by this request, so the redemption has to be locked in now: reserving at
+        // confirmation instead would let two shoppers both be charged a "last one" price and only one be
+        // honoured. It is deliberately placed AFTER every remaining 400 guard above (the recurring-line
+        // gates), so a rejected checkout can never strand a hold; the authorize-failure path below
+        // releases it, and the saga releases it on cancellation / payment failure / checkout expiry.
+        // Only a coupon that actually WON is reserved: one out-competed by a better promotion discounted
+        // nothing, so it must not burn an allowance.
+        var couponReserved = false;
+        if (couponPromotion is not null && customerKey is not null
+            && promotionOutcome.AppliedPromotionIds.Contains(couponPromotion.PromotionId))
+        {
+            var reservation = await redemptions.TryReserveAsync(
+                couponPromotion, checkoutTenantId, orderId, customerKey, now, ct);
+            if (reservation != CouponStatus.Applied)
+            {
+                // Lost the race for the last redemption between the preview and now. Refuse rather than
+                // charge a discount we cannot honour.
+                return TypedResults.BadRequest(CouponMessages.For(reservation, enteredCode));
+            }
+
+            couponReserved = true;
         }
 
         AuthorizePaymentResult intent;

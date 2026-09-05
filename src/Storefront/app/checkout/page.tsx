@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getAddresses, getCart, getCartSummary, getProfile, getSavedPaymentMethods, getStorefrontConfig } from "@/lib/gateway";
+import { CouponStatus, getAddresses, getCart, getCartSummary, getProfile, getSavedPaymentMethods, getStorefrontConfig } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { formatMoney } from "@/lib/money";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { CouponBox } from "@/components/checkout/CouponBox";
-import { CouponStatus } from "@/lib/gateway";
 
 export const metadata = { title: "Checkout" };
 
@@ -48,7 +47,10 @@ export default async function CheckoutPage({
   const promotionDiscountMinor = summary?.promotionDiscountMinor ?? 0;
   const appliedPromotions = summary?.appliedPromotions ?? [];
   const freeShippingApplied = summary?.freeShippingApplied ?? false;
-  const couponStatus = summary?.couponStatus ?? (enteredCoupon ? CouponStatus.UnknownCode : CouponStatus.None);
+  // No verdict when the summary itself is unavailable: the whole page has already fallen back to local
+  // math, and claiming "we don't recognise that code" would assert something we did not check. The box
+  // then simply shows the code still un-applied, which is the truth.
+  const couponStatus = summary?.couponStatus ?? CouponStatus.None;
   // ONLY a validated coupon is submitted with the checkout. A refused one is shown as its reason and left
   // out of the POST, so the charge always equals the total rendered above it.
   const appliedCouponCode = couponStatus === CouponStatus.Applied ? (summary?.couponCode ?? enteredCoupon) : null;
