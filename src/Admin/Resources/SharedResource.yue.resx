@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>產品 ID 必須係有效嘅 GUID。</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>供應商 ID 必須係有效嘅 GUID。</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>優惠</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>門檻優惠：購物車（或某件商品）達到金額及／或數量門檻時，提供免運費及／或折扣。若兩個門檻都設定，就必須同時符合。</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>門檻優惠：購物車（或某件商品）達到金額及／或數量門檻時，提供免運費及／或折扣。若兩個門檻都設定，就必須同時符合。 設咗優惠碼之後，促銷只會喺顧客結帳時輸入該碼先生效，仲可以分別限制總次數同每位顧客嘅次數。</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>顯示哪個租戶的優惠。</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>商店</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>只顯示屬於這間商店的優惠；留空則顯示全部。</value></data>
@@ -1782,4 +1782,23 @@
   <data name="Country.Tip" xml:space="preserve"><value>國家/地區（ISO 3166）。喺完整清單度揀，唔使自己打。</value></data>
   <data name="Country.Group.Common" xml:space="preserve"><value>常用</value></data>
   <data name="Country.Group.All" xml:space="preserve"><value>所有國家/地區（ISO 3166）</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>優惠碼</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>已使用</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>自動</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>優惠碼同使用限制</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>留空優惠碼即係自動促銷，任何符合條件嘅購物車都適用。填咗之後，只有顧客喺結帳時輸入先會生效。限制留空即係唔限；一次性就填 1。結帳時會預留一次額度，付款失敗就會釋放。</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>優惠碼</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>例如 WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>可選。字母、數字、'-' 同 '_'，最多 40 個字元；以大寫儲存同比對，喺租戶內唯一。留空 = 唔使優惠碼，促銷自動生效。</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>最多使用次數</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>呢個優惠碼喺所有顧客之間可以用嘅總次數。留空 = 唔限。喺結帳時檢查，所以就算同時結帳都唔會超額。</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>每位顧客上限</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>一位顧客可以用呢個優惠碼幾多次。留空 = 唔限。已登入顧客按帳戶計，訪客按結帳電郵計，登出唔會重設限額。</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>唔限</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>已使用</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>而家佔用咗幾多次使用額（結帳預留加已確認），同埋其中有幾多張已確認訂單。</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>唔限</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>已使用 {0} 次</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · 剩 {2}</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>佔用 {0} · 已確認 {1}</value></data>
 </root>

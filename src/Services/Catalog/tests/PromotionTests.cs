@@ -230,4 +230,85 @@ public class PromotionTests
         Assert.Equal("Autumn sale", promotion.Name);
         Assert.Throws<CatalogRuleException>(() => promotion.Rename("  ", Now));
     }
+
+    // ---- Coupon codes (ADR-0052) -------------------------------------------------------------------
+
+    [Fact]
+    public void SetCode_normalizes_to_trimmed_uppercase_and_gates_the_promotion()
+    {
+        var promotion = NewStorefrontPromotion();
+        Assert.Null(promotion.Code);
+        Assert.False(promotion.IsCouponGated);
+
+        promotion.SetCode("  welcome10 ", Now);
+
+        Assert.Equal("WELCOME10", promotion.Code);
+        Assert.True(promotion.IsCouponGated);
+    }
+
+    [Fact]
+    public void NormalizeCode_treats_blank_as_no_code_and_rejects_unusable_characters()
+    {
+        Assert.Null(Promotion.NormalizeCode(null));
+        Assert.Null(Promotion.NormalizeCode("   "));
+        Assert.Equal("SAVE-5_X", Promotion.NormalizeCode(" save-5_x "));
+
+        Assert.Throws<CatalogRuleException>(() => Promotion.NormalizeCode("has space"));
+        Assert.Throws<CatalogRuleException>(() => Promotion.NormalizeCode("bad!code"));
+        Assert.Throws<CatalogRuleException>(() => Promotion.NormalizeCode(new string('A', 41)));
+    }
+
+    [Fact]
+    public void A_code_gated_promotion_needs_no_threshold_but_an_automatic_one_does()
+    {
+        // The code IS the gate: "10% off, no minimum, with code WELCOME10" is the commonest coupon.
+        var coupon = NewStorefrontPromotion();
+        coupon.SetCode("WELCOME10", Now);
+        coupon.SetThreshold(0, 0, Now);
+        coupon.SetReward(grantsFreeShipping: false, percentOff: 10, discountAmountMinor: 0, Now);
+        Assert.Equal(0, coupon.MinimumAmountMinor);
+        Assert.Equal(0, coupon.MinimumQuantity);
+
+        var automatic = NewStorefrontPromotion();
+        Assert.Throws<CatalogRuleException>(() => automatic.SetThreshold(0, 0, Now));
+    }
+
+    [Fact]
+    public void Clearing_the_code_of_a_thresholdless_coupon_is_refused()
+    {
+        var coupon = NewStorefrontPromotion();
+        coupon.SetCode("WELCOME10", Now);
+        coupon.SetThreshold(0, 0, Now);
+        coupon.SetReward(grantsFreeShipping: false, percentOff: 10, discountAmountMinor: 0, Now);
+
+        // Dropping the code would make it automatic and apply to EVERY cart — refuse.
+        Assert.Throws<CatalogRuleException>(() => coupon.SetCode(null, Now));
+
+        // With a threshold it is a legitimate automatic promotion again.
+        coupon.SetThreshold(10_000, 0, Now);
+        coupon.SetCode("", Now);
+        Assert.Null(coupon.Code);
+        Assert.False(coupon.IsCouponGated);
+    }
+
+    [Fact]
+    public void SetUsageLimits_defaults_to_unlimited_and_requires_at_least_one_when_set()
+    {
+        var promotion = NewStorefrontPromotion();
+        Assert.Null(promotion.MaxRedemptions);
+        Assert.Null(promotion.MaxRedemptionsPerCustomer);
+
+        // Single-use is simply 1.
+        promotion.SetUsageLimits(1, 1, Now);
+        Assert.Equal(1, promotion.MaxRedemptions);
+        Assert.Equal(1, promotion.MaxRedemptionsPerCustomer);
+
+        promotion.SetUsageLimits(null, null, Now);
+        Assert.Null(promotion.MaxRedemptions);
+        Assert.Null(promotion.MaxRedemptionsPerCustomer);
+
+        Assert.Throws<CatalogRuleException>(() => promotion.SetUsageLimits(0, null, Now));
+        Assert.Throws<CatalogRuleException>(() => promotion.SetUsageLimits(-1, null, Now));
+        Assert.Throws<CatalogRuleException>(() => promotion.SetUsageLimits(null, 0, Now));
+    }
 }

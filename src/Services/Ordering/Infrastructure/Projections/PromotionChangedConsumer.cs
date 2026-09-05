@@ -36,6 +36,12 @@ public sealed class PromotionChangedConsumer(OrderingDbContext db) : IConsumer<P
         copy.Active = m.Active;
         copy.ActiveFrom = m.ActiveFrom;
         copy.ActiveUntil = m.ActiveUntil;
+        // Coupon fields (ADR-0052). RedeemedCount is deliberately NOT assigned: it is Ordering-owned state
+        // (how many times the coupon has actually been spent here), so a re-projection or a redelivery must
+        // never reset the cap — that would hand out a limited code all over again.
+        copy.Code = m.Code;
+        copy.MaxRedemptions = m.MaxRedemptions;
+        copy.MaxRedemptionsPerCustomer = m.MaxRedemptionsPerCustomer;
         await db.SaveChangesAsync(context.CancellationToken);
     }
 }

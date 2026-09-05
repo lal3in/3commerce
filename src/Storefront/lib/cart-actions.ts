@@ -119,6 +119,10 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     // Collect at warehouse (zero shipping, no carrier). The checkout endpoint validates eligibility
     // (a warehouse-fulfilled line) and rejects an ineligible cart.
     collectAtWarehouse: formData.get("collectAtWarehouse") === "true",
+    // The coupon Ordering already validated for this cart (ADR-0052). Checkout re-validates and RESERVES
+    // the redemption before authorizing payment, so a code that ran out in the meantime is refused
+    // rather than charged at a discount we cannot honour.
+    couponCode: String(formData.get("couponCode") || "") || null,
   };
   // Attribute the order to the active storefront (rev_5): Ordering reads these headers (and the body
   // storefrontId above) into CheckoutAttempt.TenantId/StorefrontId; else it falls back to the default.

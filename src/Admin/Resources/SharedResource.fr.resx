@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>L'ID du produit doit être un GUID valide.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>L'ID du fournisseur doit être un GUID valide.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier (ou un produit) franchit un seuil de montant et/ou de quantité. Si les deux seuils sont définis, LES DEUX doivent être atteints.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promotions à seuil : livraison offerte et/ou remise dès que le panier (ou un produit) franchit un seuil de montant et/ou de quantité. Si les deux seuils sont définis, LES DEUX doivent être atteints. Avec un code promo, la promotion s'applique UNIQUEMENT si le client le saisit au paiement, avec des limites facultatives au total et par client.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>Le locataire dont les promotions sont listées.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Boutique</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Afficher uniquement les promotions de cette boutique. Laisser vide pour toutes.</value></data>
@@ -1782,4 +1782,23 @@
   <data name="Country.Tip" xml:space="preserve"><value>Pays (ISO 3166). Choisi dans la liste complète — jamais saisi librement.</value></data>
   <data name="Country.Group.Common" xml:space="preserve"><value>Fréquents</value></data>
   <data name="Country.Group.All" xml:space="preserve"><value>Tous les pays (ISO 3166)</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>Utilisations</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>Automatique</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>Code promo et limites d'utilisation</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>Laissez le code vide pour une promotion automatique qui s'applique à tout panier éligible. Avec un code, la promotion s'applique UNIQUEMENT si le client le saisit au paiement. Limites vides = illimité ; usage unique = 1. L'utilisation est réservée au paiement et libérée si le paiement échoue.</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>Code promo</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>ex. WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>Facultatif. Lettres, chiffres, '-' et '_', jusqu'à 40 caractères ; stocké et comparé en MAJUSCULES et unique par locataire. Vide = la promotion s'applique automatiquement, sans code.</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>Utilisations max</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>Nombre total d'utilisations de ce code, tous clients confondus. Vide = illimité. Vérifié au paiement, si bien qu'un code limité ne peut jamais être dépassé, même par des paiements simultanés.</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>Max par client</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>Nombre d'utilisations par UN client. Vide = illimité. Un client connecté compte par compte, un invité par e-mail de commande : se déconnecter ne réinitialise pas la limite.</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>Illimité</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>Utilisé</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>Combien d'utilisations sont retenues actuellement (réservées au paiement plus confirmées) et combien correspondent à des commandes confirmées.</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>Illimité</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} utilisées</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · {2} restantes</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} retenues · {1} confirmées</value></data>
 </root>

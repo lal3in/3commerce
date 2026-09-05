@@ -34,6 +34,10 @@ interface CheckoutFormProps {
   appliedPromotions: AppliedPromotionDto[];
   // A promotion granted free shipping: the shipping line shows free and contributes nothing to the tax base.
   freeShippingApplied: boolean;
+  // The coupon code Ordering VALIDATED for this cart (ADR-0052), or null. Only a validated code is posted
+  // with the checkout: a refused one is shown as its reason on the coupon box and left out, so the charge
+  // always equals the total rendered here.
+  appliedCouponCode: string | null;
 }
 
 // Wire values are fixed; the visible label comes from the `checkout.methods.*` catalog (i18n_1).
@@ -45,7 +49,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, appliedCouponCode }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -111,6 +115,9 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
 
   return (
     <form action={action} className="space-y-6">
+      {/* Rides the POST so Ordering charges the same coupon it priced. The apply/remove UI is its own
+          GET form on the page (forms cannot nest), which is why this is a hidden field. */}
+      {appliedCouponCode && <input type="hidden" name="couponCode" value={appliedCouponCode} />}
       {state.error && (
         <p role="alert" className="rounded bg-red-50 text-red-700 px-3 py-2 text-sm">
           {state.error}
