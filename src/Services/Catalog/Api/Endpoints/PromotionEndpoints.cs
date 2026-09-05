@@ -76,8 +76,29 @@ public static class PromotionEndpoints
                     + "Update the existing promotion instead of creating a duplicate.");
             }
 
+            // Coupon codes (ADR-0052) are unique per tenant among the promotions that carry one, so a code
+            // always resolves to exactly ONE promotion. The database enforces it with a filtered unique
+            // index; this probe turns the race-free-but-opaque 23505 into an operator-readable 400.
+            var code = Promotion.NormalizeCode(request.Code);
+            if (code is not null
+                && await db.Promotions.AsNoTracking().AnyAsync(p => p.TenantId == tenantId && p.Code == code, ct))
+            {
+                return TypedResults.BadRequest(
+                    $"Coupon code '{code}' is already used by another promotion for this tenant. "
+                    + "Pick a different code, or edit the promotion that owns it.");
+            }
+
             var promotion = Promotion.Create(
                 tenantId, request.Name, request.Currency, ToScope(request.Scope), request.ProductId, now);
+            // Set the code BEFORE the threshold: a code-gated promotion is allowed to have no threshold
+            // (the code is the gate), and SetThreshold consults IsCouponGated. A create with no code
+            // never calls SetCode — clearing a code is an UPDATE concern with its own guard.
+            if (code is not null)
+            {
+                promotion.SetCode(code, now);
+            }
+
+            promotion.SetUsageLimits(request.MaxRedemptions, request.MaxRedemptionsPerCustomer, now);
             promotion.SetThreshold(request.MinimumAmountMinor, request.MinimumQuantity, now);
             promotion.SetReward(request.GrantsFreeShipping, request.PercentOff, request.DiscountAmountMinor, now);
             promotion.SetCombinable(request.Combinable, now);
@@ -116,6 +137,27 @@ public static class PromotionEndpoints
             if (request.Name is { } name)
             {
                 promotion.Rename(name, now);
+            }
+
+            // Coupon code + usage limits (ADR-0052) are each opt-in, because null is MEANINGFUL on both
+            // (no code = automatic; no limit = unlimited) and a partial update must not silently wipe them.
+            if (request.ApplyCode)
+            {
+                var newCode = Promotion.NormalizeCode(request.Code);
+                if (newCode is not null && newCode != promotion.Code
+                    && await db.Promotions.AsNoTracking().AnyAsync(
+                        p => p.TenantId == promotion.TenantId && p.Code == newCode && p.Id != promotion.Id, ct))
+                {
+                    return TypedResults.BadRequest(
+                        $"Coupon code '{newCode}' is already used by another promotion for this tenant.");
+                }
+
+                promotion.SetCode(request.Code, now);
+            }
+
+            if (request.ApplyUsageLimits)
+            {
+                promotion.SetUsageLimits(request.MaxRedemptions, request.MaxRedemptionsPerCustomer, now);
             }
 
             // Thresholds and rewards are each set as a UNIT (the domain enforces "at least one threshold"
@@ -184,7 +226,8 @@ public static class PromotionEndpoints
     private static PromotionChanged ToEvent(Promotion p) =>
         new(p.Id, p.TenantId, p.StorefrontId, p.Name, p.Currency, (PromotionScopeKind)(int)p.Scope, p.ProductId,
             p.MinimumAmountMinor, p.MinimumQuantity, p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor,
-            p.Combinable, p.IsActive, p.ActiveFrom, p.ActiveUntil);
+            p.Combinable, p.IsActive, p.ActiveFrom, p.ActiveUntil,
+            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
@@ -194,7 +237,8 @@ public static class PromotionEndpoints
     private static PromotionDto ToDto(Promotion p, string productTitle = "") =>
         new(p.Id, p.TenantId, p.StorefrontId, p.Name, p.Currency, (int)p.Scope, p.Scope.ToString(), p.ProductId,
             p.MinimumAmountMinor, p.MinimumQuantity, p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor,
-            p.Combinable, p.Status.ToString(), p.IsActive, productTitle, p.ActiveFrom, p.ActiveUntil);
+            p.Combinable, p.Status.ToString(), p.IsActive, productTitle, p.ActiveFrom, p.ActiveUntil,
+            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer);
 }
 
 public record CreatePromotionRequest(
@@ -212,7 +256,13 @@ public record CreatePromotionRequest(
     [property: Range(0, long.MaxValue)] long DiscountAmountMinor = 0,
     bool Combinable = false,
     DateTimeOffset? ActiveFrom = null,
-    DateTimeOffset? ActiveUntil = null);
+    DateTimeOffset? ActiveUntil = null,
+    // Coupon codes (ADR-0052). Code set => the promotion applies only when the shopper enters it;
+    // null/blank => automatic. Normalized to trimmed UPPERCASE and unique per tenant among non-null codes.
+    // The two limits are null = unlimited; single-use is simply MaxRedemptions = 1.
+    [property: StringLength(40)] string? Code = null,
+    [property: Range(1, int.MaxValue)] int? MaxRedemptions = null,
+    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null);
 
 public record UpdatePromotionRequest(
     string? Name = null,
@@ -228,10 +278,20 @@ public record UpdatePromotionRequest(
     bool ApplyScope = false,
     Guid? StorefrontId = null,
     DateTimeOffset? ActiveFrom = null,
-    DateTimeOffset? ActiveUntil = null);
+    DateTimeOffset? ActiveUntil = null,
+    // ApplyCode / ApplyUsageLimits opt the update in to setting the coupon code and the usage limits
+    // (ADR-0052) — null is MEANINGFUL on all three (no code = automatic, no limit = unlimited), so a
+    // partial update that omits the flag keeps the promotion's current values.
+    bool ApplyCode = false,
+    [property: StringLength(40)] string? Code = null,
+    bool ApplyUsageLimits = false,
+    [property: Range(1, int.MaxValue)] int? MaxRedemptions = null,
+    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null);
 
 public record PromotionDto(
     Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Currency, int Scope, string ScopeName,
     Guid? ProductId, long MinimumAmountMinor, int MinimumQuantity, bool GrantsFreeShipping, int PercentOff,
     long DiscountAmountMinor, bool Combinable, string Status, bool Active, string ProductTitle = "",
-    DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null);
+    DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null,
+    // Coupon fields (ADR-0052), appended with defaults so every existing positional construction compiles.
+    string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null);
