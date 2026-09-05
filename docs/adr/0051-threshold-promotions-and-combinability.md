@@ -1,7 +1,8 @@
 # 0051 — Threshold-based promotions (money and/or quantity) and promotion combinability
 
-Status: Accepted
+Status: Accepted — implemented (extended by [0052](./0052-coupon-codes-and-redemption-limits.md), which delivers the coupon-code gating and redemption caps listed as follow-ups below)
 Area: Catalog / Ordering / pricing
+Operator/handbook view: [`docs/help/pricing-and-promotions.md`](../help/pricing-and-promotions.md) — the whole money chain (supplier cost → catalog price → offer price → promotions/coupons → storefront-wide discount → tax → shipping) with a worked example
 Extends: [0047](./0047-storefront-scoped-active-window-offer-price.md) (the offer-resolved effective selling price — the comparison base), [0048](./0048-supplier-approval-gated-offer-availability.md) (an unapproved supplier's offer never sets a price, so it never feeds a threshold), [0038](./0038-per-currency-shelf-prices-and-tax-entry.md) (inclusive vs exclusive tax on the discounted base), [0050](./0050-per-country-ship-rules-and-ship-to-allowlist.md) (`chargeDestinationTax` / `shippingCovered`), [0008](./0008-database-per-service-single-postgres.md) (read-copy projections, no cross-service query), [0045](./0045-mandatory-per-storefront-ledger-attribution.md) (no new ledger line — the charged gross simply drops)
 
 ## Context
@@ -88,7 +89,10 @@ and the combinability flag introduced here does not govern it.
    combinability selection and the **per-line discount allocation**. Both `PricingEngine.Price` and
    `CheckoutEndpoints.Checkout` call it, so the promotion algorithm exists in exactly one place.
    `PricingEngine` keeps its own tax/shipping seam and checkout keeps its own (richer) one — only the
-   promotion decision is shared. The evaluator returns `LineDiscountsMinor`, parallel to the input lines,
+   promotion decision is shared. `GET /cart/summary` (decision 11) is the third caller, and ADR-0052's
+   `CouponValidator` delegates its "does this cart qualify?" question to the same
+   `PromotionEvaluator.CandidateFor`, so *whether* a promotion applies is decided by exactly the code
+   that computes its discount. The evaluator returns `LineDiscountsMinor`, parallel to the input lines,
    allocated by **largest remainder** so `Σ LineDiscountsMinor == DiscountMinor` exactly.
 
 10. **The normative pricing order** (implemented exactly as written):
@@ -97,7 +101,8 @@ and the combinability flag introduced here does not govern it.
 1.  per line: UnitPriceMinor = effective offer price (ResolvePricingOffer, approval-gated)
                              ?? current catalog price
 2.  subtotal        = Σ UnitPriceMinor × Quantity                        [the COMPARISON BASE — excl. tax/ship/fees]
-3.  promotions      = PromotionEvaluator.Evaluate(lines, subtotal, shippingMinor, copies, now)
+3.  promotions      = PromotionEvaluator.Evaluate(lines, copies, tenantId, storefrontId,
+                                                 currency, shippingMinor, now[, couponCode])
        3a. eligibility: tenant + storefront + currency + active + window + threshold met
        3b. per-promotion reward: discount on its own scope base, and/or free shipping
        3c. selection : better of [best single Exclusive] vs [Σ all Combinable]
@@ -166,5 +171,7 @@ and the combinability flag introduced here does not govern it.
   now sums only the allocations landing on destination-taxable lines (ADR-0050).
 - Checkout loads `PromotionCopies` once, on an index of `(TenantId, StorefrontId, Active)`, alongside the
   copies it already loads — no extra cross-service call.
-- Out of scope, tracked as follow-ups: coupon-code gating, per-shopper/global redemption caps, "you're $X
-  away from free shipping" nudges, category-scoped thresholds, and buy-X-get-Y rewards.
+- Out of scope here, tracked as follow-ups: coupon-code gating, per-shopper/global redemption caps
+  (**both delivered by [ADR-0052](./0052-coupon-codes-and-redemption-limits.md)** — a coupon is simply a
+  `Promotion` with a `Code`, so nothing in this ADR changed), "you're $X away from free shipping" nudges,
+  category-scoped thresholds, and buy-X-get-Y rewards (still open).

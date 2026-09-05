@@ -41,9 +41,14 @@ Identity service via the gateway.
 > surfaces remain under `/api/fulfillment/*`, `/api/catalog/admin/offers`, and
 > `/api/payments/admin/*`. Storefronts carry **per-currency shelf prices** and a
 > regime-aware tax convention (AU GST/EU VAT inclusive, US exclusive — ADR-0038),
-> resolved per request via storefront context routing (e.g. `/au`). Security adds
+> resolved per request via storefront context routing (e.g. `/au`). **Pricing now runs
+> a full chain** — supplier cost (COGS) → catalog price → storefront-scoped effective
+> **offer price** (ADR-0047/0048) → **threshold promotions and coupon codes**
+> (ADR-0051/0052, one shared `PromotionEvaluator` used by both the engine and checkout)
+> → a **storefront-wide items discount** → tax on the discounted base; see
+> [Pricing & promotions](./pricing-and-promotions.md). Security adds
 > **TOTP MFA** (Admin `/security`), a masked webhook signing-secret registry, and
-> expanded FORCE row-level security. See ADRs `0023`–`0039` and the phase plans
+> expanded FORCE row-level security. See ADRs `0023`–`0052` and the phase plans
 > under `.ai-shared/plans/`.
 
 ## Table of contents
@@ -61,6 +66,7 @@ Identity service via the gateway.
 | [Currencies](./currencies.md) | The managed currency registry: the Admin **Currencies** page (`/currencies`), where registered currencies show up (pickers, validation, financial screens), variable-decimal money (JPY 0 / most 2 / KWD 3), and why disable is forward-only. |
 | [Scheduled jobs](./scheduled-jobs.md) | The platform's cron jobs (daily journal, subscription auto-renew, usage-period close, scheduled publish): what each does, how they run and record history, and how to run/pause/reschedule, add, or remove them from **Mission Control**. |
 | [Supplier functionality & management](./supplier-functionality.md) | The supplier model end-to-end: Entity master-data lifecycle (Draft→…→Active), the Admin **Suppliers** console (details, **ABN/ACN** identifiers, contacts, addresses, lifecycle, change-requests, one-click **Approve**, per-variant **supplier cost**), Supplier Portal self-service under the **approval lock** (maker-checker change requests), **Offers** (cost vs storefront-scoped active-window price, charged == shown; unique on `(Tenant,Product,Variant,Supplier,Storefront)`), **approval-gated availability** (Decision A), and warehouse/collect-at-warehouse + supplier mark-delivered. ADRs 0027/0028/0047/0048/0049. |
+| [Pricing & promotions](./pricing-and-promotions.md) | **The whole money chain in one place**: supplier cost (COGS) → catalog price → **effective offer price** (ADR-0047/0048) → **threshold promotions + coupon codes** (ADR-0051/0052) → the **storefront-wide discount** → tax on the discounted base → shipping, with a worked money example, exactly which value each threshold compares against, the shared `PromotionEvaluator` and its largest-remainder per-line allocation, and the coupon redemption lifecycle (reserve / confirm / release). |
 | [Ship-to countries & per-country ship rules](./ship-to-country-rules.md) | Where a storefront ships (the **ship-to allowlist**) and how tax/shipping vary **per product per destination** (**per-country ship rules**: `chargeDestinationTax` / `shippingCovered`), the mandatory-rules tenant switch, and the country/region (State/Province) fields on checkout + address forms. ADR-0050. |
 | [Selling information](./selling-information.md) | Strategic product narrative for clients, suppliers, tenants, admins, technical evaluators, plus pros/cons and compliance-sensitive claims. |
 | **Project analysis** | [project-analysis.html](./project-analysis.html) — complete visual analysis: topology diagrams, capability heatmap, service-by-service assessment, flow maps, risks, launch gates, and verdict (open in a browser). |

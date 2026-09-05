@@ -86,7 +86,17 @@ antiforgery → authentication → authorization**.
   Product readiness / Publish / Unpublish act on it; the assigned-products table has a
   per-row Enable/Disable, and Publish is gated by product readiness (priced in the store
   currency, a visible variant, an image, a fulfillment source, and — for physical
-  products — weight + dimensions). The per-storefront **Manage** form closes and
+  products — weight + dimensions). The create form and the per-storefront **Manage**
+  form both carry a **Discount %** field (0–100, two decimals) — the **storefront-wide
+  items discount**: it is entered as a percentage, stored as basis points
+  (`discountBasisPoints`, 0–10000), and shown in the table's **Discount** column ("—"
+  when none). It is deducted from the **items' subtotal only** at checkout — never
+  shipping, never tax — on top of whatever offer or catalog price each line resolved to,
+  and it is **not** governed by a promotion's combinable flag (it always applies, and
+  stacks additively with any promotion, jointly capped at the subtotal). It rides
+  `StorefrontConfigChanged` into Ordering's `StorefrontTaxCopy` and is carried when a
+  storefront is duplicated. Full chain: [Pricing & promotions](./pricing-and-promotions.md).
+  The per-storefront **Manage** form closes and
   resets after a successful save (a failed save stays open for retry); a failed
   **Preview** or **Activate** fetches `/readiness` and renders the concrete blocker
   checklist under the error banner (e.g. "at least one domain", "one canonical
@@ -109,6 +119,42 @@ antiforgery → authentication → authorization**.
   duplicate is rejected 400. The offer's **supplier cost** (COGS) is shown
   **read-only** here — it is edited only on the **Suppliers** page. See
   [Supplier functionality & management](./supplier-functionality.md).
+- **Promotions** (`/promotions`, `Components/Pages/Promotions.razor`) — threshold
+  promotions and coupon codes ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md) /
+  [ADR-0052](../adr/0052-coupon-codes-and-redemption-limits.md)), backed by
+  `GET/POST /api/catalog/admin/promotions` and `PUT .../{id}`. Filter by **Tenant ID**
+  and optionally a **Storefront**; **New promotion** opens a modal with four groups:
+  - **Identity** — Name (the shopper-visible label on the cart/checkout summary),
+    Currency, **Scope** (*Whole cart* or *One product*, immutable after creation; the
+    product picker is a filterable search enabled only for product scope) and Active.
+  - **Threshold** — **Minimum amount** (major units in the promotion's own currency —
+    never converted) and/or **Minimum quantity**. Set both and **both must be met**
+    (AND). Measured on the **item value the shopper is charged** — the effective offer
+    price × qty — **excluding tax, shipping and fees**, and *before* the
+    storefront-wide discount.
+  - **Reward & combinability** — **Free shipping** and/or a discount that is a
+    **Percent off** *or* a **Fixed discount**, never both; at least one reward is
+    required. **Combinable** stacks with other combinable promotions; unchecked =
+    **Exclusive**. The engine keeps whichever branch gives the shopper more.
+  - **Coupon** — a **Code** (optional; blank = the promotion applies automatically),
+    **Max redemptions** and **Max per customer** (both blank = unlimited; single-use is
+    simply `1`). A code makes the promotion apply **only** when the shopper enters it;
+    it is stored trimmed **UPPERCASE**, is **unique per tenant** (a duplicate is a 400
+    naming the owning promotion), and a code-gated promotion needs **no threshold** —
+    the code is the gate. Removing the code from a thresholdless coupon is refused (it
+    would become a store-wide sale).
+
+  The table lists **Name · Code** ("Automatic" when none) **· Scope · Product ·
+  Storefront · Threshold · Reward · Combinable · Window · Redemptions · Status**. The
+  **Redemptions** column merges Ordering's
+  `GET /api/ordering/admin/promotion-redemptions` onto the Catalog list — two read
+  APIs joined in the UI, never a cross-service DB query — and counts **reserved** holds
+  as used, because a reservation is already unavailable to anyone else. Saving
+  republishes `PromotionChanged`, so the promotion applies at checkout as soon as
+  Ordering's `PromotionCopy` projection lands. Editing is partial and opt-in:
+  `applyScope`, `applyCode` and `applyUsageLimits` each guard a group, because `null`
+  is meaningful on all of them (no code = automatic, no limit = unlimited). Full
+  behaviour: [Pricing & promotions](./pricing-and-promotions.md).
 - **Payment accounts** (`/payment-accounts`, `Components/Pages/PaymentAccounts.razor`) —
   Payments-owned tenant/storefront payment accounts: create Draft accounts, submit,
   readiness-gated activate, suspend, and archive. Each row also offers **Edit** (an
@@ -311,10 +357,11 @@ local cookie, and returns to `/login`.
 File: `Components/Pages/Home.razor`. `[Authorize(Roles = "admin")]`. A landing page:
 "Welcome to the 3commerce operator console. Use the navigation to manage orders,
 RMAs, the ledger, and Xero sync." The left nav (`MainLayout.razor`) links to
-Dashboard, Catalog, Offers & pricing, Orders, RMA queue, Ledger, Xero sync,
-Xero mappings, Imports, Roles & permissions, Operator users, Entities & suppliers,
-Suppliers, Commerce ops, Payment accounts, Supplier payouts, Mission control, Security,
-plus **Log out**.
+Dashboard, Catalog, Offers & pricing, **Promotions**, Orders, RMA queue, Tickets,
+Reviews, Ledger, Financials, Currencies, Xero sync, Xero mappings, Imports,
+Roles & permissions, Operator users, Entities & suppliers, Suppliers, Commerce ops,
+Carriers, Product types, Payment accounts, Subscriptions, Supplier payouts,
+Notifications, Mission control, Security, plus **Log out**.
 
 ---
 
@@ -497,7 +544,8 @@ Steps:
 | RMA queue | `GET /api/support/admin/rmas` | `POST /api/support/admin/rmas` (open an RMA/refund — optional `lines` for a **per-line partial** refund, else the whole order) · `POST /api/support/admin/rmas/<id>/approve` (`{requireReturn:bool}`) · `.../deny` · `.../return-received` |
 | Ledger | `GET /api/payments/admin/ledger/entries` (filters: `?start&end&storefrontId&currency`) · `.../balances` | — |
 | Financials | `GET /api/payments/admin/ledger/balances` · `GET /api/catalog/admin/storefronts?tenantId=...` | — (read-only; dev: `POST /api/payments/dev/simulate-chargeback/{intentId}`) |
-| Commerce-ops | `GET /api/catalog/admin/storefronts?tenantId=...` | `POST .../{id}/duplicate` (`{name}`) · `PUT .../{id}` (theme + `costAssumptions` bps) |
+| Commerce-ops | `GET /api/catalog/admin/storefronts?tenantId=...` | `POST .../{id}/duplicate` (`{name}`) · `PUT .../{id}` (theme + `costAssumptions` bps + `discountBasisPoints` 0–10000, the storefront-wide items discount) |
+| Promotions | `GET /api/catalog/admin/promotions?tenantId=...[&storefrontId=...]` · `GET /api/ordering/admin/promotion-redemptions?tenantId=...` (usage merged into the Redemptions column) · `GET /api/catalog/admin/products?pageSize=200` (product picker) | `POST /api/catalog/admin/promotions` · `PUT .../{id}` (`applyScope` / `applyCode` / `applyUsageLimits` opt-ins) |
 | Reviews | `GET /api/catalog/admin/reviews` | `DELETE /api/catalog/admin/reviews/{id}` (removing a review/comment cascades its replies) |
 | Xero sync | `GET /api/payments/admin/xero/sync-runs` | `POST /api/payments/admin/xero/sync/<date>` |
 | Xero mappings | `GET /api/payments/admin/xero/mappings?tenantId=...` | `POST/PUT/DELETE /api/payments/admin/xero/mappings[/{id}]` (numeric `scope` 1–5) |

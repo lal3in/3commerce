@@ -17,4 +17,19 @@ per option, and the [API contracts index](../api/api_contracts_index.md).
 Marketing and Pricing are standalone domains; Audit and Workflow are event projections; Entitlement and
 Usage were extracted out of Fulfillment (which now ships only physical lines).
 
+> **Not in the Pricing service: threshold promotions and coupon codes.** Promotions
+> ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) and coupons
+> ([ADR-0052](../adr/0052-coupon-codes-and-redemption-limits.md)) are owned by **Catalog**
+> (`/api/catalog/admin/promotions`), because Catalog already owns the `Storefront` and `Offer` a
+> promotion references and already projects into Ordering — whereas the Pricing service has no bus
+> wiring and no path to checkout. Catalog publishes `PromotionChanged`; Ordering projects it into a
+> local `PromotionCopy` and evaluates promotions there, so checkout never queries Catalog
+> ([ADR-0008](../adr/0008-database-per-service-single-postgres.md)). Coupon **redemptions** are
+> Ordering-owned (reserved at checkout, confirmed on order confirmation, released by the saga's
+> cancellation path), surfaced to admin at `GET /api/ordering/admin/promotion-redemptions`. A
+> promotion lowers the charged gross — no new ledger line, trial balance unchanged. The full chain
+> (supplier cost → catalog price → offer price → promotions/coupons → storefront-wide discount → tax
+> → shipping) is [Pricing & promotions](./pricing-and-promotions.md); every endpoint is listed in
+> [services.html](./services.html) and the [API contracts index](../api/api_contracts_index.md).
+
 For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

@@ -62,9 +62,9 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | GET | `/categories` | anon | Category list |
 | POST | `/admin/import-runs` | admin | Trigger sample importer |
 | GET | `/admin/import-runs` | admin | Import monitoring |
-| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create (optional `defaultLanguage`, BCP-47; omit → `en`) |
-| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate, `defaultLanguage`, `shipToCountries`). `defaultLanguage` is optional and **independent of currency/tax** (i18n_0): omit it and the storefront keeps its current language. `shipToCountries` (ISO-2 allowlist, empty = worldwide) rides `StorefrontConfigChanged` into Ordering's `StorefrontTaxCopy`; checkout rejects an out-of-allowlist destination (ADR-0050) |
-| GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints, **defaultLanguage**) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this |
+| GET/POST | `/admin/storefronts` | admin | Storefront lifecycle list/create (optional `defaultLanguage`, BCP-47; omit → `en`; optional `discountBasisPoints` 0–10000, omit → no discount) |
+| PUT | `/admin/storefronts/{id}` | admin | Update storefront config (name, public URL, currency, tax regime/rate, `discountBasisPoints`, `defaultLanguage`, `shipToCountries`). `defaultLanguage` is optional and **independent of currency/tax** (i18n_0): omit it and the storefront keeps its current language. `discountBasisPoints` (0–10000; 0 = none) is the **storefront-wide items discount**: deducted at checkout from the ITEMS' subtotal only — never shipping, never tax — after the per-line offer/catalog price, stacking additively with any promotion and jointly capped at the subtotal (it is a store SETTING, so the promotion `combinable` flag does not govern it). Null → the storefront keeps its current discount, so an older client cannot wipe it. Both it and `shipToCountries` (ISO-2 allowlist, empty = worldwide) ride `StorefrontConfigChanged` into Ordering's `StorefrontTaxCopy`; checkout rejects an out-of-allowlist destination (ADR-0050) |
+| GET | `/storefronts/public?slug=\|host=\|currency=` | anon | Public config (id, tenantId, name, publicUrl, currency, taxRegime, taxRateBasisPoints, **defaultLanguage**, `theme`, `shipToCountries`, **`discountBasisPoints`**) of an Active/Preview storefront — resolved by canonical host, PublicUrl path slug, or currency; the storefront app + checkout read this. `discountBasisPoints` is what lets the cart/checkout summary render the storefront-wide `Discount (n%)` row, so shown == charged |
 | GET | `/storefronts/languages` | anon | Supported UI languages (`code` BCP-47 + endonym `label`, e.g. `zh`/`中文`) — the vocabulary a storefront's `defaultLanguage` and the storefront language switcher draw from (i18n_0) |
 | POST | `/admin/storefronts/{id}/domains` | admin | Assign storefront domain; one canonical |
 | GET | `/admin/storefronts/{id}/readiness` | admin | Check activation readiness |
@@ -318,6 +318,18 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > `StorefrontTaxCopy`, the ship-to allowlist) and `ProductUpserted.ShipRules`
 > (`{countryCode|*, chargeDestinationTax, shippingCovered}` → Ordering's `ProductCopy.ShipRules`) are both
 > **optional/back-compatible** (null = a publisher predating the field: no restriction / no overrides).
+>
+> Pricing bus contracts (ADR-0051/0052): `StorefrontConfigChanged.DiscountBps` carries the
+> **storefront-wide items discount** (→ `StorefrontTaxCopy.DiscountBasisPoints`; appended, default 0, so
+> an older publisher means "no discount"). Catalog publishes **`PromotionChanged`** (→ Ordering's
+> `PromotionCopy`) with the scope, thresholds, rewards, `combinable`, active window and — appended with
+> back-compatible defaults — `code`, `maxRedemptions`, `maxRedemptionsPerCustomer`. The consumer is an
+> idempotent upsert that assigns every field on both branches, with ONE deliberate exception:
+> `PromotionCopy.RedeemedCount` is **Ordering-owned and never projected**, or a re-published promotion
+> would reset its own redemption cap. Coupon redemptions ride no new contract — they are reserved
+> in-request at checkout and settled by the existing `CheckoutCompleted` (confirm) and `OrderCancelled`
+> (release) saga events, both status-guarded so a redelivery is a no-op. See
+> [`docs/help/pricing-and-promotions.md`](../help/pricing-and-promotions.md).
 
 ## Support (`/api/support`)
 

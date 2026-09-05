@@ -18,7 +18,7 @@ Deliberately deferred. Each item lists its trigger — the signal that it's time
 |---|---|
 | MFA (TOTP) and passkeys | Before live launch (admin accounts first), or first credential-stuffing signal |
 | Social login (Google/Apple) | Conversion data shows registration friction |
-| Discounts/promotions engine | First marketing campaign needs it |
+| ~~Discounts/promotions engine~~ — **delivered 2026-09** | Shipped as a storefront-wide items discount plus threshold promotions ([ADR-0051](../../adr/0051-threshold-promotions-and-combinability.md)) and coupon codes ([ADR-0052](../../adr/0052-coupon-codes-and-redemption-limits.md)). See [Pricing & promotions](../../help/pricing-and-promotions.md). Still open: category-scoped thresholds, buy-X-get-Y, bulk/generated code batches, gift cards, and "you're $X away" nudges |
 | Product reviews & ratings | Steady organic traffic exists |
 | Multi-currency display, then pricing | Meaningful non-home-currency traffic in analytics |
 | Live chat + knowledge base | Ticket volume exceeds solo-operator capacity |

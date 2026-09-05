@@ -139,6 +139,28 @@ File: `app/cart/page.tsx`. Dynamic, never cached. Reads the cart via
   quantity; a **Subtotal**; the note "Shipping and tax are calculated at checkout";
   and a **Checkout** button → `/checkout`.
 
+### Discounts and promotions on the cart
+
+The page also calls `getCartSummary()` → `GET /api/ordering/cart/summary?storefrontId=…`,
+the **money preview**. Ordering computes it with the **same `PromotionEvaluator` checkout
+charges with**, so the storefront never re-implements promotion maths (*shown ==
+charged*). When the summary is available the cart renders, under **Subtotal**:
+
+| Row | Source |
+|---|---|
+| `Discount (n%)` | the **storefront-wide items discount** (`Storefront.DiscountBasisPoints`) — items only, never shipping or tax; a store setting, not a promotion ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) |
+| `Promotion: {name}` (one row each) | every threshold promotion this cart won, with its own share of the discount ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) |
+| `Free shipping` | a winning promotion granted it — the shipping line is zeroed at checkout |
+| `Items total` | subtotal minus both discount kinds, jointly capped at the subtotal |
+
+Note that `GET /cart/summary` reports the **offer-resolved** price per line
+([ADR-0047](../adr/0047-storefront-scoped-active-window-offer-price.md)), while the
+plain `GET /cart` deliberately still returns the **add-time** catalog price — which is
+why the summary, not the cart, drives these rows. If the summary call fails the page
+falls back to computing only the storefront-wide discount locally and shows no
+promotion rows. **Coupon codes are entered at checkout**, not here. The full chain is
+[Pricing & promotions](./pricing-and-promotions.md).
+
 Carts are **single-currency**: items are priced in the storefront currency at
 add-to-cart time, and adding an item in a different currency is rejected (409).
 Logging in merges the anonymous cart into the user cart, re-pricing lines into the
@@ -161,8 +183,11 @@ cart is empty the page redirects to `/cart`.
 
 Steps:
 
-1. The page shows an order summary: **Subtotal**, **Shipping** (once a rate is
-   chosen), and a tax line that follows the storefront's regime (ADR-0038) —
+1. The page shows an order summary: **Subtotal**, the `Discount (n%)` and
+   `Promotion: {name}` / `Free shipping` rows described under
+   [Cart](#4-cart--cart) (same `GET /cart/summary` call, so the estimate matches the
+   charge), **Shipping** (once a rate is chosen), and a tax line that follows the
+   storefront's regime (ADR-0038) —
    **"Includes tax (10%)"** on tax-inclusive storefronts (AU GST / EU VAT: the tax
    is informational, already contained in the listed prices) or **"Tax (added)"**
    on exclusive ones (US style: tax is added to the total). The server charges by
@@ -188,11 +213,50 @@ Steps:
 6. Click **Authorize & place order** (button shows "Authorizing…" while pending).
 7. The `submitCheckout` Server Action (`lib/cart-actions.ts`) `POST`s to
    `/api/ordering/checkout` with the email, shipping address, selected shipping
-   quote, and payment option (cart cookie forwarded; storefront/tenant context
-   headers set). Ordering validates the selected amount/expiry and persists the
-   shipping amount into the order totals.
+   quote, payment option and — when one was validated — the `couponCode` (cart cookie
+   forwarded; storefront/tenant context headers set). Ordering validates the selected
+   amount/expiry and persists the shipping amount into the order totals.
 8. On success it redirects to `/checkout/confirmation?order=<orderId>`.
    On failure the form shows: "Checkout failed. Please review your cart and details."
+
+### Coupon codes (`components/checkout/CouponBox.tsx`)
+
+Above the form sits a **Coupon code** box ([ADR-0052](../adr/0052-coupon-codes-and-redemption-limits.md)).
+It is deliberately a plain **GET form to `/checkout?coupon=…`**, not client state: the
+code has to reach the **server** so Ordering can validate and price it, the resulting
+URL is shareable and refresh-safe, and **Remove** is simply a link back to `/checkout`.
+
+- **Apply** re-renders the page; `GET /cart/summary?couponCode=…` runs the *same*
+  validation checkout runs and returns a numeric `couponStatus`.
+- On success the box shows **"Coupon `{code}` applied: `{name}`"** with a **Remove**
+  link, and the discount appears as an ordinary `Promotion: {name}` row.
+- Only a status of **Applied** rides the checkout POST (as a hidden `couponCode`
+  field). A refused code is shown as its reason and left out — so the charge always
+  equals the total on screen. The API still refuses an inapplicable code with a **400
+  naming the reason**, which guards non-first-party clients and a code that runs out
+  between the preview and the POST.
+
+Each refusal has **its own message**, never a blanket "invalid coupon" (all six
+storefront locales carry them):
+
+| `couponStatus` | Message shown |
+|---|---|
+| 2 `UnknownCode` | We don't recognise the code `{code}`. |
+| 3 `Inactive` | The code `{code}` is no longer active. |
+| 4 `NotStarted` | The code `{code}` isn't available yet. |
+| 5 `Expired` | The code `{code}` has expired. |
+| 6 `WrongStorefront` | The code `{code}` can't be used on this store. |
+| 7 `ThresholdNotMet` | Your cart doesn't meet the conditions for `{code}`. |
+| 8 `UsageLimitReached` | The code `{code}` has reached its usage limit. |
+| 9 `CustomerLimitReached` | You've already used the code `{code}`. |
+
+A coupon is just a **code-gated promotion**, so once unlocked the usual combinability
+rules decide whether it stacks — and a coupon out-competed by a better automatic
+promotion is *not* redeemed. One caveat: a **guest's** per-customer limit cannot be
+checked in the preview (no email has been typed yet), so the box may report the code as
+applied and checkout then refuses it with "You've already used the code" — the charge
+is never wrong, only the warning is late. See
+[Pricing & promotions](./pricing-and-promotions.md).
 
 The backend creates the order, starts the checkout saga, and asks Payments to
 authorize. Which rail runs depends on the resolved **payment mode** (ADR-0039):
@@ -377,12 +441,13 @@ caps batches at 50 events.
 | `addToCart` (`cart-actions.ts`) | `POST /api/ordering/cart/items` | Relays `3c_cart` cookie; revalidates `/cart`. |
 | `removeFromCart` (`cart-actions.ts`) | `DELETE /api/ordering/cart/items/<id>` | Revalidates `/cart`. |
 | `quoteCheckoutShipping` (`cart-actions.ts`) | `POST /api/fulfillment/shipping/quote` | Fetches checkout shipping rates before authorization. |
-| `submitCheckout` (`cart-actions.ts`) | `POST /api/ordering/checkout` | Posts selected shipping quote + address; redirects to confirmation. |
+| `submitCheckout` (`cart-actions.ts`) | `POST /api/ordering/checkout` | Posts selected shipping quote + address + the validated `couponCode` (ADR-0052); redirects to confirmation. |
 | `login` (`auth-actions.ts`) | `POST /api/identity/login` (+ `POST /api/identity/mfa/challenge` when enrolled) | Forwards `3c_session` cookie; redirects to `/account`. |
 | `register` (`auth-actions.ts`) | `POST /api/identity/register` | Redirects to `/login?registered=1`. |
 | `logout` (`auth-actions.ts`) | `POST /api/identity/logout` | Deletes cookie; redirects to `/`. |
 | `openTicket` (`support-actions.ts`) | `POST /api/support/tickets` | Returns `{ ok }` / `{ error }`. |
 | `requestRefund` (`support-actions.ts`) | `POST /api/support/rma` | Posts selected order lines; server derives refund amount; redirects with `?submitted=1`. |
+| (read) `getCartSummary` (`gateway.ts`) | `GET /api/ordering/cart/summary?storefrontId=&couponCode=` | The money preview the cart + checkout summaries render: offer-resolved subtotal, storefront-wide discount, promotion discount, items total, free shipping, applied promotions, and the numeric `couponStatus`. Computed with the same `PromotionEvaluator` checkout charges with. Never cached; null on a non-OK response (the page falls back to local storefront-discount math). |
 | (read) `getCart`, `searchProducts`, `getProduct`, `listCategories`, `getProfile`, `getOrderStatus` (`gateway.ts`) | `GET /api/...` | Server-side reads, session/cart cookies forwarded. |
 | dev-pay route | `POST /api/payments/dev/simulate-payment/<intent>` | Dev-only mock payment (LocalMock mode). |
 | order-status route | `GET /api/ordering/orders/<id>/status` | Polling proxy. |

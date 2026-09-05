@@ -17,6 +17,23 @@
 > the Playwright E2E suites in CI. Remaining launch gates are unchanged and non-code: business
 > registration → live Stripe/Xero + carrier credentials, external pen test, managed cluster.
 > The matrix below is retained as the point-in-time 2026-06-15 record.
+>
+> **Refresh 2026-09 — the discounts/promotions ❌ is no longer accurate.** Section 2's
+> "out-of-scope items — none crept in" list below still reads *"discount/promotions engine … none
+> found in the codebase"*; that was true at the time and is now **superseded**. Three post-MVP PRs
+> shipped a full pricing chain: a **storefront-wide items discount** (`Storefront.DiscountBasisPoints`,
+> a store setting on Commerce ops, items only — never shipping or tax), **threshold promotions**
+> ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md) — money and/or quantity
+> thresholds, storefront or product scope, free shipping and/or a percent-or-fixed discount, an
+> explicit `Combinable`/exclusive flag) and **coupon codes**
+> ([ADR-0052](../adr/0052-coupon-codes-and-redemption-limits.md) — a code-gated promotion with
+> race-safe `MaxRedemptions` / `MaxRedemptionsPerCustomer` and a reserve/confirm/release redemption
+> lifecycle). The same work closed a standing correctness risk: `PricingEngine` and
+> `CheckoutEndpoints` had *duplicated* the money maths, and now share one
+> `PromotionEvaluator` with a largest-remainder per-line allocation, so the tax base is exact and
+> `Net + Ship + Tax = Gross` holds. No new ledger line; the trial balance stays 0. Multi-currency
+> pricing (ADR-0038/0046) likewise shipped. The operator-facing narrative is
+> [`docs/help/pricing-and-promotions.md`](../help/pricing-and-promotions.md).
 
 > **Update 2026-06-15 — FR-7 closed (BL-1).** Post-purchase guest→account conversion is now implemented: Identity publishes `EmailVerified` on verification; Ordering's `GuestOrderAttachConsumer` attaches prior guest orders by verified email; a `/convert-guest` endpoint and a storefront convert form complete the UX. Verified by 2 integration tests, a live cross-service run, and a storefront E2E assertion. Revised tally: **16 Met / 4 Partial / 0 Missing** (grade A− → A). The remaining Partials (FR-12 admin catalog CRUD, NFR-2/5/7 measurement) are backlog BL-2/6/7.
 **Reviewer:** Conformance Reviewer (evidence-based, code-verified)
