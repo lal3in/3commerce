@@ -42,7 +42,45 @@ public static class OrdersEndpoints
         // checkouts are in-flight (AwaitingPayment) vs. concluded (Confirmed/Cancelled).
         app.MapGet("/admin/checkouts", CheckoutStateCounts).WithTags("Admin")
             .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
+
+        // Coupon usage (ADR-0052). Catalog AUTHORS the promotion but Ordering is where a coupon is spent,
+        // so the redemption counts live here and the admin Promotions page merges them onto the Catalog
+        // list — it is not a cross-service DB query, it is two read APIs joined in the UI.
+        app.MapGet("/admin/promotion-redemptions", PromotionRedemptionCounts).WithTags("Admin")
+            .RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         return app;
+    }
+
+    /// <summary>
+    /// Per-promotion coupon usage for the tenant: how many redemptions are HELD (reserved or confirmed),
+    /// how many are already confirmed, and the promotion's cap. "Used" counts reservations too — a
+    /// reserved redemption is unavailable to anyone else, so showing only confirmed ones would overstate
+    /// what is left.
+    /// </summary>
+    private static async Task<Ok<List<PromotionRedemptionCountDto>>> PromotionRedemptionCounts(
+        Guid? tenantId, OrderingDbContext db, IConfiguration config, CancellationToken ct)
+    {
+        var tid = tenantId ?? (Guid.TryParse(config["Tenancy:DefaultTenantId"], out var configured)
+            ? configured
+            : new Guid("00000000-0000-0000-0000-000000000001"));
+        var counts = await db.PromotionRedemptions.AsNoTracking()
+            .Where(r => r.TenantId == tid && r.Status != PromotionRedemptionStatus.Released)
+            .GroupBy(r => r.PromotionId)
+            .Select(g => new
+            {
+                PromotionId = g.Key,
+                Held = g.Count(),
+                Confirmed = g.Count(r => r.Status == PromotionRedemptionStatus.Confirmed),
+            })
+            .ToListAsync(ct);
+        var promotionIds = counts.Select(c => c.PromotionId).ToList();
+        var caps = await db.PromotionCopies.AsNoTracking()
+            .Where(p => promotionIds.Contains(p.PromotionId))
+            .ToDictionaryAsync(p => p.PromotionId, p => p.MaxRedemptions, ct);
+        return TypedResults.Ok(counts
+            .Select(c => new PromotionRedemptionCountDto(
+                c.PromotionId, c.Held, c.Confirmed, caps.GetValueOrDefault(c.PromotionId)))
+            .ToList());
     }
 
     private static async Task<Ok<List<CheckoutStateCountDto>>> CheckoutStateCounts(OrderingDbContext db, CancellationToken ct)
@@ -270,3 +308,7 @@ public record SupplierOrderSummary(
     Guid Id, long PublicOrderNumber, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt,
     bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines);
 public record CheckoutStateCountDto(string State, int Count);
+
+/// <summary>Coupon usage for one promotion (ADR-0052): held (reserved + confirmed), confirmed, and the cap
+/// (null = unlimited). Remaining is Max - Used, and is unbounded when Max is null.</summary>
+public record PromotionRedemptionCountDto(Guid PromotionId, int UsedCount, int ConfirmedCount, int? MaxRedemptions);

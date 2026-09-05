@@ -341,7 +341,7 @@
   <data name="Offers.Error.ProductGuid" xml:space="preserve"><value>El ID de producto debe ser un GUID válido.</value></data>
   <data name="Offers.Error.SupplierGuid" xml:space="preserve"><value>El ID de proveedor debe ser un GUID válido.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promociones</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito (o un producto) supera un umbral de importe o cantidad. Si defines ambos umbrales, deben cumplirse LOS DOS.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Promociones por umbral: envío gratis o descuento cuando el carrito (o un producto) supera un umbral de importe o cantidad. Si defines ambos umbrales, deben cumplirse LOS DOS. Con un código de cupón, la promoción se aplica SOLO cuando el comprador lo introduce al pagar, con límites opcionales en total y por cliente.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>El inquilino cuyas promociones se muestran.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Tienda</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Mostrar solo las promociones de esta tienda. Déjalo vacío para todas.</value></data>
@@ -1782,4 +1782,23 @@
   <data name="Country.Tip" xml:space="preserve"><value>País (ISO 3166). Elegido de la lista completa, nunca escrito a mano.</value></data>
   <data name="Country.Group.Common" xml:space="preserve"><value>Frecuentes</value></data>
   <data name="Country.Group.All" xml:space="preserve"><value>Todos los países (ISO 3166)</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>Código</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>Canjes</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>Automática</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>Código de cupón y límites de uso</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>Deja el código vacío para una promoción automática que se aplica a cualquier carrito que cumpla las condiciones. Con código, la promoción se aplica SOLO cuando el comprador lo introduce al pagar. Límites vacíos = ilimitado; un solo uso es simplemente 1. El canje se reserva al pagar y se libera si el pago falla.</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>Código de cupón</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>p. ej. WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>Opcional. Letras, dígitos, '-' y '_', hasta 40 caracteres; se guarda y se compara en MAYÚSCULAS y es único por inquilino. Vacío = la promoción se aplica automáticamente, sin código.</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>Canjes máximos</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>Veces que este cupón puede canjearse en total entre todos los compradores. Vacío = ilimitado. Se comprueba al pagar, así que un código limitado nunca se sobrepasa aunque haya pagos simultáneos.</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>Máx. por cliente</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>Veces que UN cliente puede canjear este cupón. Vacío = ilimitado. Un comprador identificado cuenta por cuenta; un invitado, por correo de compra, así que cerrar sesión no reinicia el límite.</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>Ilimitado</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>Canjeado</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>Cuántos canjes están retenidos ahora (reservados al pagar más confirmados) y cuántos de ellos son pedidos confirmados.</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>Ilimitado</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} usados</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · quedan {2}</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} retenidos · {1} confirmados</value></data>
 </root>

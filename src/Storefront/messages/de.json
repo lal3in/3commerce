@@ -236,7 +236,25 @@
     "selectCountry": "Land auswählen",
     "collectAtWarehouse": "Abholung im Lager (kostenlos)",
     "collectAtWarehouseNote": "Sie holen diese Bestellung im Lager des Lieferanten ab. Es fallen keine Versandkosten an.",
-    "collectFree": "Kostenlos (Abholung im Lager)"
+    "collectFree": "Kostenlos (Abholung im Lager)",
+    "coupon": {
+      "title": "Gutscheincode",
+      "label": "Gutscheincode",
+      "placeholder": "Code eingeben",
+      "apply": "Einlösen",
+      "remove": "Entfernen",
+      "applied": "Gutschein {code} eingelöst: {name}",
+      "errors": {
+        "unknownCode": "Der Code {code} ist unbekannt.",
+        "inactive": "Der Code {code} ist nicht mehr aktiv.",
+        "notStarted": "Der Code {code} ist noch nicht verfügbar.",
+        "expired": "Der Code {code} ist abgelaufen.",
+        "wrongStorefront": "Der Code {code} gilt nicht in diesem Shop.",
+        "thresholdNotMet": "Ihr Warenkorb erfüllt die Bedingungen für {code} nicht.",
+        "usageLimitReached": "Der Code {code} hat sein Einlöselimit erreicht.",
+        "customerLimitReached": "Sie haben den Code {code} bereits eingelöst."
+      }
+    }
   },
   "confirmation": {
     "noOrder": "Keine Bestellung angegeben.",

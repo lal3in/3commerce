@@ -48,4 +48,12 @@ public record PromotionChanged(
     // Inclusive active window (UTC). Appended, back-compatible defaults — a copy from before these
     // fields carries an open-ended window (always started, never expires).
     DateTimeOffset? ActiveFrom = null,
-    DateTimeOffset? ActiveUntil = null);
+    DateTimeOffset? ActiveUntil = null,
+    // Coupon codes (ADR-0052), appended with back-compatible defaults — a message published before these
+    // fields existed carries Code = null (an AUTOMATIC promotion, exactly today's behaviour) and no usage
+    // limits (unlimited). Code is normalized to trimmed UPPERCASE by Catalog; Ordering matches it
+    // case-insensitively against what the shopper typed. MaxRedemptions / MaxRedemptionsPerCustomer are
+    // null = unlimited; single-use is simply 1. Ordering enforces both at RESERVE time (checkout).
+    string? Code = null,
+    int? MaxRedemptions = null,
+    int? MaxRedemptionsPerCustomer = null);

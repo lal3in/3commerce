@@ -1862,7 +1862,7 @@
   <data name="Offers.Field.SupplierCost" xml:space="preserve"><value>Supplier cost (minor)</value></data>
   <data name="Offers.Field.SupplierCost.Tip" xml:space="preserve"><value>What the supplier charges, in minor units. Edited only on the Suppliers page.</value></data>
   <data name="Promotions.Title" xml:space="preserve"><value>Promotions</value></data>
-  <data name="Promotions.Intro" xml:space="preserve"><value>Threshold promotions: grant free shipping and/or a discount once the cart (or one product) clears a money and/or quantity threshold. Both thresholds set means BOTH must be met.</value></data>
+  <data name="Promotions.Intro" xml:space="preserve"><value>Threshold promotions: grant free shipping and/or a discount once the cart (or one product) clears a money and/or quantity threshold. Both thresholds set means BOTH must be met. Add a coupon code and the promotion applies ONLY when the shopper enters it at checkout — optionally capped in total and per customer.</value></data>
   <data name="Promotions.TenantId.Tip" xml:space="preserve"><value>The tenant whose promotions are listed.</value></data>
   <data name="Promotions.Filter.Storefront" xml:space="preserve"><value>Storefront</value></data>
   <data name="Promotions.Filter.Storefront.Tip" xml:space="preserve"><value>Show only promotions scoped to this storefront. Leave blank for all.</value></data>
@@ -1934,4 +1934,23 @@
   <data name="Catalog.SupplierCost" xml:space="preserve"><value>Supplier cost</value></data>
   <data name="Catalog.SupplierCost.Product" xml:space="preserve"><value>Supplier cost (product-level offer)</value></data>
   <data name="Catalog.SupplierCost.Tip" xml:space="preserve"><value>Supplier cost from this product's offers, in minor units. Edited only on the Suppliers page.</value></data>
+  <data name="Promotions.Col.Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Promotions.Col.Redemptions" xml:space="preserve"><value>Redemptions</value></data>
+  <data name="Promotions.Code.Automatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="Promotions.Coupon.Legend" xml:space="preserve"><value>Coupon code &amp; usage limits</value></data>
+  <data name="Promotions.Coupon.Note" xml:space="preserve"><value>Leave the code blank for an automatic promotion that applies to every qualifying cart. With a code, the promotion applies ONLY when the shopper enters it at checkout. Limits are blank for unlimited; single-use is simply 1. A redemption is reserved at checkout and released if the payment fails.</value></data>
+  <data name="Promotions.Field.Code" xml:space="preserve"><value>Coupon code</value></data>
+  <data name="Promotions.Field.Code.Placeholder" xml:space="preserve"><value>e.g. WELCOME10</value></data>
+  <data name="Promotions.Field.Code.Tip" xml:space="preserve"><value>Optional. Letters, digits, '-' and '_', up to 40 characters; stored and matched in UPPERCASE and unique per tenant. Blank = the promotion applies automatically, with no code.</value></data>
+  <data name="Promotions.Field.MaxRedemptions" xml:space="preserve"><value>Max redemptions</value></data>
+  <data name="Promotions.Field.MaxRedemptions.Tip" xml:space="preserve"><value>Total times this coupon may be redeemed across all shoppers. Blank = unlimited. Enforced when the shopper checks out, so a limited code can never be over-redeemed by simultaneous checkouts.</value></data>
+  <data name="Promotions.Field.MaxPerCustomer" xml:space="preserve"><value>Max per customer</value></data>
+  <data name="Promotions.Field.MaxPerCustomer.Tip" xml:space="preserve"><value>Times ONE customer may redeem this coupon. Blank = unlimited. A signed-in shopper counts by account; a guest counts by checkout email, so signing out does not reset the limit.</value></data>
+  <data name="Promotions.Field.Unlimited" xml:space="preserve"><value>Unlimited</value></data>
+  <data name="Promotions.Field.Used" xml:space="preserve"><value>Redeemed</value></data>
+  <data name="Promotions.Field.Used.Tip" xml:space="preserve"><value>How many redemptions are currently held (reserved at checkout plus confirmed) and how many of those are confirmed orders.</value></data>
+  <data name="Promotions.Redemptions.Unlimited" xml:space="preserve"><value>Unlimited</value></data>
+  <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} used</value></data>
+  <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · {2} left</value></data>
+  <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} held · {1} confirmed</value></data>
 </root>

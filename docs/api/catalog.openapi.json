@@ -3989,6 +3989,26 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
           }
         }
       },
@@ -4072,6 +4092,26 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
           }
         }
       },
@@ -4132,6 +4172,34 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "applyCode": {
+            "type": "boolean",
+            "description": "Opt in to setting code (ADR-0052); false preserves the current code. Null is meaningful (no code = automatic)."
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "applyUsageLimits": {
+            "type": "boolean",
+            "description": "Opt in to setting both usage limits (ADR-0052); false preserves the current limits. Null is meaningful (no limit = unlimited)."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
           }
         }
       }

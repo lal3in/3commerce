@@ -236,7 +236,25 @@
     "selectCountry": "揀選國家/地區",
     "collectAtWarehouse": "喺倉庫自取（免費）",
     "collectAtWarehouseNote": "你會喺供應商倉庫自取呢張訂單，唔收運費。",
-    "collectFree": "免費（倉庫自取）"
+    "collectFree": "免費（倉庫自取）",
+    "coupon": {
+      "title": "優惠碼",
+      "label": "優惠碼",
+      "placeholder": "輸入優惠碼",
+      "apply": "使用",
+      "remove": "移除",
+      "applied": "已用優惠碼 {code}：{name}",
+      "errors": {
+        "unknownCode": "認唔到優惠碼 {code}。",
+        "inactive": "優惠碼 {code} 已經停用。",
+        "notStarted": "優惠碼 {code} 仲未開始。",
+        "expired": "優惠碼 {code} 已經過期。",
+        "wrongStorefront": "優惠碼 {code} 唔適用於呢間店。",
+        "thresholdNotMet": "你嘅購物車未符合優惠碼 {code} 嘅條件。",
+        "usageLimitReached": "優惠碼 {code} 已達使用上限。",
+        "customerLimitReached": "你已經用咗優惠碼 {code}。"
+      }
+    }
   },
   "confirmation": {
     "noOrder": "冇指定訂單。",

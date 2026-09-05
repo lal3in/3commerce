@@ -16,7 +16,8 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// the rich OrderConfirmed (with line items) — sourced from the aggregate, so downstream
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
-public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder audit, ILogger<OrderStatusConsumer> logger) :
+public sealed class OrderStatusConsumer(
+    OrderingDbContext db, IAuditRecorder audit, PromotionRedemptionService redemptions, ILogger<OrderStatusConsumer> logger) :
     IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>, IConsumer<PaymentChargedBack>
 {
     /// <summary>
@@ -117,6 +118,11 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
             db.Orders.Add(order);
             await db.SaveChangesAsync(context.CancellationToken);
         }
+
+        // CONFIRM the coupon redemption (ADR-0052): the hold taken at checkout is now spent for good.
+        // Status-guarded inside the service, so a redelivered CheckoutCompleted confirms nothing twice —
+        // and the early returns above already make this whole path idempotent.
+        await redemptions.ConfirmAsync(order.Id, DateTimeOffset.UtcNow, context.CancellationToken);
 
         // A purchase is timeline-worthy activity (mt6_1): without this, the Mission Control
         // "Activity timeline" only ever shows admin mutations and confirmed orders are invisible.
@@ -283,5 +289,12 @@ public sealed class OrderStatusConsumer(OrderingDbContext db, IAuditRecorder aud
         }
 
         await db.SaveChangesAsync(context.CancellationToken);
+
+        // RELEASE the coupon hold (ADR-0052). This is the single cancellation path the saga funnels
+        // AwaitingPayment -> Cancelled through — a failed payment, an explicit cancel and the 30-minute
+        // expiry timeout all publish OrderCancelled — so an abandoned checkout never burns a limited code.
+        // Status-guarded and idempotent: only a RESERVED redemption is released, a confirmed one stays
+        // spent, and a redelivered OrderCancelled gives the count back only once.
+        await redemptions.ReleaseAsync(context.Message.OrderId, DateTimeOffset.UtcNow, context.CancellationToken);
     }
 }

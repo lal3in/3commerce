@@ -236,7 +236,25 @@
     "selectCountry": "Select a country",
     "collectAtWarehouse": "Collect at warehouse (free)",
     "collectAtWarehouseNote": "You'll collect this order from the supplier's warehouse. No shipping is charged.",
-    "collectFree": "Free (collect at warehouse)"
+    "collectFree": "Free (collect at warehouse)",
+    "coupon": {
+      "title": "Coupon code",
+      "label": "Coupon code",
+      "placeholder": "Enter a code",
+      "apply": "Apply",
+      "remove": "Remove",
+      "applied": "Coupon {code} applied: {name}",
+      "errors": {
+        "unknownCode": "We don't recognise the code {code}.",
+        "inactive": "The code {code} is no longer active.",
+        "notStarted": "The code {code} isn't available yet.",
+        "expired": "The code {code} has expired.",
+        "wrongStorefront": "The code {code} can't be used on this store.",
+        "thresholdNotMet": "Your cart doesn't meet the conditions for {code}.",
+        "usageLimitReached": "The code {code} has reached its usage limit.",
+        "customerLimitReached": "You've already used the code {code}."
+      }
+    }
   },
   "confirmation": {
     "noOrder": "No order specified.",

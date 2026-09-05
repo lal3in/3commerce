@@ -82,8 +82,16 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             promotion.Property(p => p.Status).HasConversion<string>().HasMaxLength(16);
             promotion.Property(p => p.Currency).HasMaxLength(3);
             promotion.Property(p => p.Name).HasMaxLength(120);
+            promotion.Property(p => p.Code).HasMaxLength(40);
             promotion.HasIndex(p => new { p.TenantId, p.StorefrontId });
             promotion.HasIndex(p => new { p.TenantId, p.ProductId });
+            // Coupon codes (ADR-0052) are unique per tenant among the promotions that HAVE one. A plain
+            // unique index would let only a single automatic (code-less) promotion exist per tenant, so
+            // the index is FILTERED to non-null codes. Uniqueness is enforced in the database, not just by
+            // the endpoint's probe, so two concurrent creates can never both win the same code.
+            promotion.HasIndex(p => new { p.TenantId, p.Code })
+                .IsUnique()
+                .HasFilter("\"Code\" IS NOT NULL");
         });
 
         modelBuilder.Entity<Product>(product =>

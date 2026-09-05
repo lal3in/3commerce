@@ -70,11 +70,18 @@ public static class CartEndpoints
     /// promotion WINS in the rare case a free-shipping promotion ties on benefit — the discount figure
     /// shown for the goods is computed identically to the charge.
     /// </para>
+    /// <para>
+    /// <paramref name="couponCode"/> is what the shopper typed (ADR-0052). It is VALIDATED but never
+    /// reserved here: a preview must not consume an allowance, so the returned CouponStatus is advisory
+    /// and checkout's atomic reservation remains the authority on the usage limits.
+    /// </para>
     /// </summary>
     private static async Task<Ok<CartSummaryResponse>> GetSummary(
-        Guid? storefrontId, HttpContext http, CartService carts, OrderingDbContext db, TimeProvider time, CancellationToken ct)
+        Guid? storefrontId, string? couponCode, HttpContext http, CartService carts, OrderingDbContext db,
+        PromotionRedemptionService redemptions, TimeProvider time, CancellationToken ct)
     {
-        var cart = await carts.GetOrCreateAsync(UserId(http.User), EnsureCartKey(http), ct);
+        var userId = UserId(http.User);
+        var cart = await carts.GetOrCreateAsync(userId, EnsureCartKey(http), ct);
         var currency = cart.Items.FirstOrDefault()?.Currency ?? StoreCurrency;
         if (cart.Items.Count == 0)
         {
@@ -110,8 +117,23 @@ public static class CartEndpoints
             .Where(p => p.TenantId == tenantId && p.Active
                 && (p.StorefrontId == null || p.StorefrontId == storeId))
             .ToListAsync(ct);
+        // Coupon code (ADR-0052): the SAME validation checkout runs, so the shopper learns here — before
+        // paying — whether their code applies and, if not, exactly why. The lookup is by (tenant, code)
+        // only: a real code aimed at another store must report "wrong storefront", not "unknown code".
+        // Redemption counts are read (not reserved) — a preview never consumes an allowance; checkout's
+        // atomic reservation is what actually rations the code.
+        var enteredCode = CouponValidator.Normalize(couponCode);
+        var (_, couponEvaluation) = await redemptions.ResolveCouponAsync(
+            enteredCode, tenantId, storeId, currency, lines,
+            // A guest has no identity yet (no email is typed at this point), so only a signed-in shopper's
+            // per-customer limit can be reported here; checkout, which HAS the email, refuses the rest.
+            PromotionRedemption.CustomerKeyFor(userId, null), now, ct);
+
+        // Only a VALID code unlocks its promotion in the evaluation; an invalid one is reported as a reason
+        // and otherwise ignored, so the preview shows the price the shopper would actually be charged.
         var outcome = PromotionEvaluator.Evaluate(
-            lines, promotionCopies, tenantId, storeId, currency, CheckoutEndpoints.FlatShippingMinor, now);
+            lines, promotionCopies, tenantId, storeId, currency, CheckoutEndpoints.FlatShippingMinor, now,
+            couponEvaluation.IsApplied ? enteredCode : null);
 
         var discountBps = await db.StorefrontTaxCopies.AsNoTracking()
             .Where(t => t.StorefrontId == storeId)
@@ -136,7 +158,8 @@ public static class CartEndpoints
 
         return TypedResults.Ok(new CartSummaryResponse(
             subtotalMinor, storefrontDiscountMinor, outcome.DiscountMinor,
-            subtotalMinor - totalDiscount, outcome.FreeShippingApplied, applied, currency));
+            subtotalMinor - totalDiscount, outcome.FreeShippingApplied, applied, currency,
+            couponEvaluation.Status, enteredCode, couponEvaluation.Name));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -305,4 +328,10 @@ public record AppliedPromotionResponse(Guid PromotionId, string Name, long Disco
 public record CartSummaryResponse(
     long SubtotalMinor, long StorefrontDiscountMinor, long PromotionDiscountMinor,
     long ItemsTotalMinor, bool FreeShippingApplied,
-    List<AppliedPromotionResponse> AppliedPromotions, string Currency);
+    List<AppliedPromotionResponse> AppliedPromotions, string Currency,
+    // Coupon feedback (ADR-0052), appended with defaults. CouponStatus crosses HTTP as a NUMBER (platform
+    // invariant); the storefront maps each member onto its own localized message, so the shopper is told
+    // exactly which rule refused the code rather than a blanket "invalid coupon".
+    CouponStatus CouponStatus = CouponStatus.None,
+    string? CouponCode = null,
+    string CouponPromotionName = "");

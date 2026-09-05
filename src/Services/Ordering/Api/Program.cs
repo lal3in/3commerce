@@ -55,6 +55,9 @@ builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environmen
 builder.Services.AddAuditRecorder("ordering");
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CartService>();
+// Coupon redemption lifecycle (ADR-0052): reserve at checkout, confirm/release on the saga's terminal
+// transitions. Scoped so it shares the request/consumer DbContext (and therefore its transaction).
+builder.Services.AddScoped<PromotionRedemptionService>();
 
 ThreeCommerce.Ordering.Api.Endpoints.CartEndpoints.StoreCurrency = builder.Configuration["Store:Currency"] ?? "EUR";
 

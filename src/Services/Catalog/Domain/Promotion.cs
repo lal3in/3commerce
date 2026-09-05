@@ -46,6 +46,30 @@ public sealed class Promotion
     /// <summary>Shopper-visible label shown on the cart/checkout summary and in admin.</summary>
     public required string Name { get; set; }
 
+    /// <summary>
+    /// Optional coupon code (ADR-0052). Set ⇒ the promotion is CODE-GATED: it applies only when the
+    /// shopper enters this code at checkout. Null/empty ⇒ automatic (the ADR-0051 behaviour, unchanged).
+    /// Stored trimmed and UPPERCASE; matched case-insensitively. Unique per tenant among non-null codes
+    /// (a filtered unique index), so one code never resolves to two promotions.
+    /// </summary>
+    public string? Code { get; private set; }
+
+    /// <summary>
+    /// Total redemptions this promotion may ever grant across all shoppers; null = unlimited.
+    /// Single-use is simply 1. Enforced in Ordering at RESERVE time (checkout), because the charged
+    /// amount and the payment authorization are both fixed there (ADR-0052).
+    /// </summary>
+    public int? MaxRedemptions { get; private set; }
+
+    /// <summary>
+    /// Redemptions one customer may take; null = unlimited. The customer key is the authenticated user
+    /// id when present, else the normalized checkout email, so guest checkouts still count (ADR-0052).
+    /// </summary>
+    public int? MaxRedemptionsPerCustomer { get; private set; }
+
+    /// <summary>Whether this promotion only applies when the shopper enters <see cref="Code"/>.</summary>
+    public bool IsCouponGated => !string.IsNullOrEmpty(Code);
+
     /// <summary>ISO-4217 code. Thresholds and fixed amounts are denominated in THIS currency (no FX).</summary>
     public required string Currency { get; init; }
 
@@ -168,7 +192,10 @@ public sealed class Promotion
             throw new CatalogRuleException("Promotion minimum quantity cannot be negative.");
         }
 
-        if (minimumAmountMinor == 0 && minimumQuantity == 0)
+        // A CODE-GATED promotion (ADR-0052) may have no threshold at all — the coupon code IS the gate,
+        // and "10% off, no minimum spend, with code WELCOME10" is the commonest coupon there is. An
+        // AUTOMATIC promotion still needs one, or it would apply to every cart unconditionally.
+        if (minimumAmountMinor == 0 && minimumQuantity == 0 && !IsCouponGated)
         {
             throw new CatalogRuleException("A promotion requires a minimum amount or a minimum quantity.");
         }
@@ -207,6 +234,83 @@ public sealed class Promotion
         GrantsFreeShipping = grantsFreeShipping;
         PercentOff = percentOff;
         DiscountAmountMinor = discountAmountMinor;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Sets (or clears) the coupon code that gates this promotion (ADR-0052). Null/blank clears it and
+    /// the promotion goes back to applying automatically. The code is normalized to trimmed UPPERCASE so
+    /// storage, matching, the admin table and the shopper's entry all agree on one form; matching is
+    /// still case-insensitive at checkout because a legacy row may carry any casing.
+    /// <para>
+    /// Uniqueness per tenant is a DATABASE guarantee (a filtered unique index on non-null codes) checked
+    /// by the endpoint — the aggregate cannot see its siblings.
+    /// </para>
+    /// </summary>
+    public void SetCode(string? code, DateTimeOffset now)
+    {
+        var normalized = NormalizeCode(code);
+        // Dropping the code turns the promotion AUTOMATIC, and an automatic promotion with no threshold
+        // would silently apply to every cart. Refuse rather than surprise the tenant with a store-wide sale.
+        if (normalized is null && MinimumAmountMinor == 0 && MinimumQuantity == 0)
+        {
+            throw new CatalogRuleException(
+                "Removing the coupon code makes this promotion automatic, so it needs a minimum amount or a minimum quantity.");
+        }
+
+        Code = normalized;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Normalizes a coupon code to its canonical form: trimmed, UPPERCASE, or null when blank. Shared with
+    /// the endpoint's duplicate probe so the stored form and the probed form can never disagree.
+    /// Codes are 1-40 characters of letters, digits, '-' or '_' — anything else is a typo the shopper can
+    /// never type reliably (spaces, punctuation, smart quotes), so it is rejected rather than stored.
+    /// </summary>
+    public static string? NormalizeCode(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var normalized = code.Trim().ToUpperInvariant();
+        if (normalized.Length > 40)
+        {
+            throw new CatalogRuleException("Coupon code must be 40 characters or fewer.");
+        }
+
+        foreach (var c in normalized)
+        {
+            if (!char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_')
+            {
+                throw new CatalogRuleException("Coupon code may only contain letters, digits, '-' and '_'.");
+            }
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Sets the usage limits (ADR-0052): the total redemptions across all shoppers and the redemptions
+    /// per customer. Null = unlimited on either axis; a set limit must be at least 1 (a zero limit is a
+    /// promotion that can never apply — deactivate it instead, which is the honest expression of that).
+    /// </summary>
+    public void SetUsageLimits(int? maxRedemptions, int? maxRedemptionsPerCustomer, DateTimeOffset now)
+    {
+        if (maxRedemptions is { } max && max < 1)
+        {
+            throw new CatalogRuleException("Maximum redemptions must be at least 1 when set.");
+        }
+
+        if (maxRedemptionsPerCustomer is { } perCustomer && perCustomer < 1)
+        {
+            throw new CatalogRuleException("Maximum redemptions per customer must be at least 1 when set.");
+        }
+
+        MaxRedemptions = maxRedemptions;
+        MaxRedemptionsPerCustomer = maxRedemptionsPerCustomer;
         UpdatedAt = now;
     }
 

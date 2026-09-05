@@ -273,12 +273,37 @@ export type CartSummaryDto = {
   freeShippingApplied: boolean;
   appliedPromotions: AppliedPromotionDto[];
   currency: string;
+  // Coupon feedback (ADR-0052). Ordering runs the SAME validation checkout runs, so the shopper is told
+  // before paying whether their code applies and, when it does not, exactly which rule refused it.
+  couponStatus: CouponStatus;
+  couponCode: string | null;
+  couponPromotionName: string;
 };
 
-export async function getCartSummary(storefrontId?: string): Promise<CartSummaryDto | null> {
+// Mirrors Ordering's CouponStatus. Enums cross HTTP as NUMBERS (platform invariant), so these values are
+// the wire contract and are never renumbered; each maps to its own localized `checkout.coupon.*` message.
+export const CouponStatus = {
+  None: 0,
+  Applied: 1,
+  UnknownCode: 2,
+  Inactive: 3,
+  NotStarted: 4,
+  Expired: 5,
+  WrongStorefront: 6,
+  ThresholdNotMet: 7,
+  UsageLimitReached: 8,
+  CustomerLimitReached: 9,
+} as const;
+export type CouponStatus = (typeof CouponStatus)[keyof typeof CouponStatus];
+
+
+export async function getCartSummary(storefrontId?: string, couponCode?: string): Promise<CartSummaryDto | null> {
   // Cookie-keyed like getCart, and never cached. Null on any non-OK response so callers fall back to
   // the plain cart's local math (no promotion rows) instead of failing the page.
-  const query = storefrontId ? `?storefrontId=${encodeURIComponent(storefrontId)}` : "";
+  const params = new URLSearchParams();
+  if (storefrontId) params.set("storefrontId", storefrontId);
+  if (couponCode) params.set("couponCode", couponCode);
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await gatewayFetch(`/api/ordering/cart/summary${query}`, { cache: "no-store" });
   if (!response.ok) return null;
   return (await response.json()) as CartSummaryDto;

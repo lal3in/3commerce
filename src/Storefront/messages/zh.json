@@ -236,7 +236,25 @@
     "selectCountry": "选择国家/地区",
     "collectAtWarehouse": "到仓库自提（免费）",
     "collectAtWarehouseNote": "你将在供应商仓库自提此订单，不收取运费。",
-    "collectFree": "免费（仓库自提）"
+    "collectFree": "免费（仓库自提）",
+    "coupon": {
+      "title": "优惠码",
+      "label": "优惠码",
+      "placeholder": "输入优惠码",
+      "apply": "使用",
+      "remove": "移除",
+      "applied": "已使用优惠码 {code}：{name}",
+      "errors": {
+        "unknownCode": "无法识别优惠码 {code}。",
+        "inactive": "优惠码 {code} 已停用。",
+        "notStarted": "优惠码 {code} 尚未开始。",
+        "expired": "优惠码 {code} 已过期。",
+        "wrongStorefront": "优惠码 {code} 不适用于本店。",
+        "thresholdNotMet": "您的购物车不满足优惠码 {code} 的条件。",
+        "usageLimitReached": "优惠码 {code} 已达使用上限。",
+        "customerLimitReached": "您已使用过优惠码 {code}。"
+      }
+    }
   },
   "confirmation": {
     "noOrder": "未指定订单。",

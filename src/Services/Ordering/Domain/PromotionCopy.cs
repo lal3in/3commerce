@@ -59,6 +59,42 @@ public class PromotionCopy
     /// <summary>Inclusive end of the active window (UTC); null = open-ended (never expires).</summary>
     public DateTimeOffset? ActiveUntil { get; set; }
 
+    /// <summary>
+    /// The coupon code that gates this promotion (ADR-0052), projected from Catalog in its canonical
+    /// trimmed-UPPERCASE form. Null/empty = the promotion is AUTOMATIC and applies without a code
+    /// (the ADR-0051 behaviour). Matched case-insensitively against what the shopper typed.
+    /// </summary>
+    public string? Code { get; set; }
+
+    /// <summary>Total redemptions this promotion may grant; null = unlimited. Single-use is 1.</summary>
+    public int? MaxRedemptions { get; set; }
+
+    /// <summary>Redemptions one customer may take; null = unlimited.</summary>
+    public int? MaxRedemptionsPerCustomer { get; set; }
+
+    /// <summary>
+    /// How many redemptions are currently held (Reserved or Confirmed) against this promotion.
+    /// <para>
+    /// ORDERING-OWNED state, NOT projected: Catalog authors the promotion, Ordering is where a coupon is
+    /// actually spent, so the counter lives here and the PromotionChanged projection consumer
+    /// deliberately never assigns it (a re-projection must not reset the cap). It is incremented and
+    /// decremented ONLY through <c>PromotionRedemptionService</c>, whose conditional UPDATE is what makes
+    /// the cap race-safe under concurrent checkouts.
+    /// </para>
+    /// </summary>
+    public int RedeemedCount { get; set; }
+
+    /// <summary>Whether this promotion only applies when the shopper enters <see cref="Code"/>.</summary>
+    public bool IsCouponGated => !string.IsNullOrEmpty(Code);
+
+    /// <summary>
+    /// Whether <paramref name="enteredCode"/> unlocks this promotion. An AUTOMATIC promotion (no code)
+    /// always passes — it is not code-gated. A code-gated one passes only on a case-insensitive match, so
+    /// a shopper typing "welcome10" gets the promotion stored as "WELCOME10".
+    /// </summary>
+    public bool AcceptsCode(string? enteredCode) =>
+        !IsCouponGated || string.Equals(Code, enteredCode?.Trim(), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Whether this promotion can apply for <paramref name="storefrontId"/> in
     /// <paramref name="currency"/> at <paramref name="now"/>: Active, tenant-matching, storefront-matching
     /// (or all-storefront), currency-matching, and inside the [ActiveFrom, ActiveUntil] window (null bounds

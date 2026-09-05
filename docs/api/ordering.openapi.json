@@ -518,10 +518,49 @@
         "tags": [
           "Cart"
         ],
-        "summary": "The cart's money preview: offer-resolved subtotal, storefront-wide discount, threshold-promotion discount, items total, free shipping and the applied promotions (ADR-0051). Computed with the same evaluator checkout uses.",
+        "summary": "The cart's money preview: offer-resolved subtotal, storefront-wide discount, threshold-promotion discount, items total, free shipping and the applied promotions (ADR-0051). Computed with the same evaluator checkout uses. An optional couponCode unlocks its code-gated promotion and is reported back as a numeric couponStatus.",
         "parameters": [
           {
             "name": "storefrontId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "couponCode",
+            "in": "query",
+            "description": "The coupon code the shopper entered (ADR-0052). Validated with the SAME rules checkout applies, and priced into the preview when valid \u2014 but never RESERVED: a preview must not consume an allowance.",
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/promotion-redemptions": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Per-promotion coupon usage for the tenant (ADR-0052). Catalog authors a coupon; Ordering is where it is spent, so the counts live here and the admin Promotions page joins the two read APIs.",
+        "parameters": [
+          {
+            "name": "tenantId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -535,7 +574,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CartSummaryResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromotionRedemptionCountDto"
+                  }
                 }
               }
             }
@@ -792,6 +834,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "couponCode": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Unlocks its code-gated promotion and RESERVES one redemption before the payment is authorized. A code that does not apply is a 400 naming the reason, never a silent full-price charge."
           }
         }
       },
@@ -878,6 +926,11 @@
               "format": "uuid"
             },
             "nullable": true
+          },
+          "couponCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "The coupon code actually redeemed on this order, or null when none was (including when the coupon lost to a better promotion)."
           }
         }
       },
@@ -1249,6 +1302,56 @@
           },
           "currency": {
             "type": "string"
+          },
+          "couponStatus": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "description": "Coupon outcome (ADR-0052). Enums cross HTTP as NUMBERS: 0 None (no code entered), 1 Applied, 2 UnknownCode, 3 Inactive, 4 NotStarted, 5 Expired, 6 WrongStorefront (or another currency \u2014 no FX), 7 ThresholdNotMet, 8 UsageLimitReached, 9 CustomerLimitReached. The storefront maps each member onto its own localized message."
+          },
+          "couponCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "The normalized code that was evaluated, or null when none was entered."
+          },
+          "couponPromotionName": {
+            "type": "string",
+            "description": "The shopper-visible name of the promotion the code resolved to; empty when the code is unknown."
+          }
+        }
+      },
+      "PromotionRedemptionCountDto": {
+        "type": "object",
+        "properties": {
+          "promotionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usedCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Redemptions currently HELD: reserved plus confirmed. A reservation is already unavailable to anyone else, so counting only confirmed ones would overstate what is left."
+          },
+          "confirmedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "The promotion's cap; null = unlimited. Remaining = max - used."
           }
         }
       }
