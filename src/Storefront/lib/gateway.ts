@@ -278,7 +278,22 @@ export type CartSummaryDto = {
   couponStatus: CouponStatus;
   couponCode: string | null;
   couponPromotionName: string;
+  // How settled the promotion decision is (ADR-0051). Settled/Quoted = these figures are what checkout
+  // charges; Provisional = a shippable cart with no address yet where a free-shipping promotion is in
+  // genuine contention, so the figures are the guaranteed FLOOR and free shipping only *may* apply.
+  basis: PromotionBasis;
 };
+
+// Mirrors Ordering's PromotionBasis. Enums cross HTTP as NUMBERS (platform invariant).
+export const PromotionBasis = {
+  /** The same promotions win at every shipping amount — the preview cannot contradict the charge. */
+  Settled: 0,
+  /** Scored against a known shipping amount (a real carrier quote, or a cart that pays no shipping). */
+  Quoted: 1,
+  /** The winner depends on a rate nobody knows yet: floor figures, free shipping undecided. */
+  Provisional: 2,
+} as const;
+export type PromotionBasis = (typeof PromotionBasis)[keyof typeof PromotionBasis];
 
 // Mirrors Ordering's CouponStatus. Enums cross HTTP as NUMBERS (platform invariant), so these values are
 // the wire contract and are never renumbered; each maps to its own localized `checkout.coupon.*` message.
@@ -297,12 +312,21 @@ export const CouponStatus = {
 export type CouponStatus = (typeof CouponStatus)[keyof typeof CouponStatus];
 
 
-export async function getCartSummary(storefrontId?: string, couponCode?: string): Promise<CartSummaryDto | null> {
+export async function getCartSummary(
+  storefrontId?: string,
+  couponCode?: string,
+  // The shipping basis for the promotion contest (ADR-0051): the carrier rate quoted for the shopper's
+  // destination, and that destination's country. Omitted when no address is known yet — Ordering then
+  // returns a provisional verdict rather than scoring free shipping against a guess.
+  shipping?: { shippingMinor: number | null; shipToCountry: string | null },
+): Promise<CartSummaryDto | null> {
   // Cookie-keyed like getCart, and never cached. Null on any non-OK response so callers fall back to
   // the plain cart's local math (no promotion rows) instead of failing the page.
   const params = new URLSearchParams();
   if (storefrontId) params.set("storefrontId", storefrontId);
   if (couponCode) params.set("couponCode", couponCode);
+  if (shipping?.shippingMinor != null) params.set("shippingMinor", String(shipping.shippingMinor));
+  if (shipping?.shipToCountry) params.set("shipToCountry", shipping.shipToCountry);
   const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await gatewayFetch(`/api/ordering/cart/summary${query}`, { cache: "no-store" });
   if (!response.ok) return null;

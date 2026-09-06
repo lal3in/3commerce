@@ -3,8 +3,9 @@
 import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { quoteCheckoutShipping, submitCheckout, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
-import type { AddressDto, AppliedPromotionDto, CartDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
+import { quoteCheckoutShipping, submitCheckout, summaryForShippingRate, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
+import { PromotionBasis } from "@/lib/gateway";
+import type { AddressDto, AppliedPromotionDto, CartDto, CartSummaryDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
 
@@ -34,6 +35,9 @@ interface CheckoutFormProps {
   appliedPromotions: AppliedPromotionDto[];
   // A promotion granted free shipping: the shipping line shows free and contributes nothing to the tax base.
   freeShippingApplied: boolean;
+  // How settled that decision is when the page first renders (ADR-0051). Provisional = no address yet, so
+  // a free-shipping promotion is still racing a cash discount; picking a rate below resolves it.
+  promotionBasis: PromotionBasis;
   // The coupon code Ordering VALIDATED for this cart (ADR-0052), or null. Only a validated code is posted
   // with the checkout: a refused one is shown as its reason on the coupon box and left out, so the charge
   // always equals the total rendered here.
@@ -49,13 +53,27 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, appliedCouponCode }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, promotionBasis, appliedCouponCode }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  // The promotion verdict currently on screen. It starts as the server's (scored on whatever shipping
+  // basis was known when the page rendered) and is REPLACED every time the shipping amount changes,
+  // because a free-shipping promotion is worth exactly the rate it waives: choosing express can
+  // legitimately hand the contest to a different promotion, and this page must show the one checkout
+  // will apply — never the one that won at a rate the shopper has since changed (ADR-0051).
+  const [promotion, setPromotion] = useState({
+    discountMinor: promotionDiscountMinor,
+    applied: appliedPromotions,
+    freeShipping: freeShippingApplied,
+    basis: promotionBasis,
+  });
+  // Only the starter is needed: the re-price is a local server action and the previous verdict stays
+  // on screen until it returns, so there is no pending state to render.
+  const [, startReprice] = useTransition();
   // "Collect at warehouse": the shopper collects from the fulfilling supplier's warehouse instead of
   // carrier delivery — no carrier, zero shipping. Eligibility (a warehouse-fulfilled line) is enforced
   // server-side at checkout, which rejects an ineligible cart so the shopper falls back to a shipped rate.
@@ -80,7 +98,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
   // Collect-at-warehouse already yields 0; a free-shipping promotion zeroes whatever rate remains, so
   // the two never double-handle each other.
-  const shippingShownMinor = collect || freeShippingApplied ? 0 : (selectedRate?.amountMinor ?? 0);
+  const shippingShownMinor = collect || promotion.freeShipping ? 0 : (selectedRate?.amountMinor ?? 0);
   const shippingMinorForTax = shippingShownMinor;
   // Storefront-wide discount: deducted from the ITEMS' subtotal only (never shipping, never tax), applied
   // after the per-line offer/catalog price the shopper already sees. Capped at the subtotal. The tax base
@@ -90,7 +108,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
     : 0;
   // The promotion discount is subtracted BEFORE the tax base, exactly as Ordering charges it, so the
   // estimate shown here matches the charge. The pair is capped at the subtotal (goods never go negative).
-  const totalItemDiscountMinor = Math.min(storefrontDiscountMinor + promotionDiscountMinor, subtotalMinor);
+  const totalItemDiscountMinor = Math.min(storefrontDiscountMinor + promotion.discountMinor, subtotalMinor);
   const discountedSubtotalMinor = subtotalMinor - totalItemDiscountMinor;
   const taxBaseMinor = discountedSubtotalMinor + shippingMinorForTax;
   const estimatedTaxMinor = taxInclusive
@@ -110,7 +128,27 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       const rates = result.rates ?? [];
       setShippingRates(rates);
       setSelectedRate(rates[0] ?? null);
+      // The quote also re-prices the cart on the rate about to be preselected, so the promotion rows and
+      // the totals settle in the same round trip the address did.
+      adopt(result.summary ?? null);
     });
+  };
+
+  // Re-price on the newly chosen rate. A failed refresh leaves the previous verdict in place rather than
+  // blanking the totals; the charge is authoritative either way and checkout re-decides server-side.
+  const adopt = (summary: CartSummaryDto | null) => {
+    if (!summary) return;
+    setPromotion({
+      discountMinor: summary.promotionDiscountMinor,
+      applied: summary.appliedPromotions,
+      freeShipping: summary.freeShippingApplied,
+      basis: summary.basis,
+    });
+  };
+
+  const chooseRate = (rate: ShippingRate, country: string) => {
+    setSelectedRate(rate);
+    startReprice(async () => adopt(await summaryForShippingRate(rate.amountMinor, country, appliedCouponCode)));
   };
 
   return (
@@ -139,25 +177,28 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
               value={`−${formatMoney(storefrontDiscountMinor, cart.currency)}`}
             />
           )}
-          {appliedPromotions.map((promotion) => (
+          {promotion.applied.map((applied) => (
             <Row
-              key={promotion.promotionId}
-              label={t("promotion", { name: promotion.name })}
-              value={`−${formatMoney(promotion.discountMinor, cart.currency)}`}
+              key={applied.promotionId}
+              label={t("promotion", { name: applied.name })}
+              value={`−${formatMoney(applied.discountMinor, cart.currency)}`}
             />
           ))}
+          {promotion.basis === PromotionBasis.Provisional && (
+            <Row label={t("freeShippingMaybe")} value="?" muted />
+          )}
           <Row
             label={t("shipping")}
             value={
               collect
                 ? t("collectFree")
-                : freeShippingApplied
+                : promotion.freeShipping
                   ? t("freeShipping")
                   : selectedRate
                     ? formatMoney(selectedRate.amountMinor, selectedRate.currency)
                     : t("chooseRate")
             }
-            muted={!collect && !freeShippingApplied && !selectedRate}
+            muted={!collect && !promotion.freeShipping && !selectedRate}
           />
           <Row
             label={taxInclusive ? t("includesTax", { percent: formatRate(taxRateBasisPoints) }) : t("taxAdded")}
@@ -237,7 +278,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
                     name="shippingRateChoice"
                     title={t("tips.shippingRateChoice")}
                     checked={selectedRate?.service === rate.service && selectedRate.carrier === rate.carrier}
-                    onChange={() => setSelectedRate(rate)}
+                    onChange={(event) => chooseRate(rate, String(new FormData(event.currentTarget.form!).get("shippingCountry") || ""))}
                   />
                   <span>{t("rateOption", { service: rate.serviceName, days: rate.estimatedDays })}</span>
                 </span>
