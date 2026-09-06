@@ -261,6 +261,10 @@ export async function getCart(): Promise<CartDto> {
 
 export type AppliedPromotionDto = { promotionId: string; name: string; discountMinor: number };
 
+// Re-exported so server components can keep importing everything from one place; the values themselves
+// live in a client-safe module (this one pulls in next/headers).
+export { PromotionBasis } from "./promotion-basis";
+
 // The cart's money preview (ADR-0051). Ordering resolves the offer prices, the storefront-wide discount
 // and every threshold promotion with the SAME evaluator checkout uses, so what the cart shows is what the
 // shopper is charged. The storefront must never compute a promotion itself — GET /cart alone returns the
@@ -281,19 +285,8 @@ export type CartSummaryDto = {
   // How settled the promotion decision is (ADR-0051). Settled/Quoted = these figures are what checkout
   // charges; Provisional = a shippable cart with no address yet where a free-shipping promotion is in
   // genuine contention, so the figures are the guaranteed FLOOR and free shipping only *may* apply.
-  basis: PromotionBasis;
+  basis: import("./promotion-basis").PromotionBasis;
 };
-
-// Mirrors Ordering's PromotionBasis. Enums cross HTTP as NUMBERS (platform invariant).
-export const PromotionBasis = {
-  /** The same promotions win at every shipping amount — the preview cannot contradict the charge. */
-  Settled: 0,
-  /** Scored against a known shipping amount (a real carrier quote, or a cart that pays no shipping). */
-  Quoted: 1,
-  /** The winner depends on a rate nobody knows yet: floor figures, free shipping undecided. */
-  Provisional: 2,
-} as const;
-export type PromotionBasis = (typeof PromotionBasis)[keyof typeof PromotionBasis];
 
 // Mirrors Ordering's CouponStatus. Enums cross HTTP as NUMBERS (platform invariant), so these values are
 // the wire contract and are never renumbered; each maps to its own localized `checkout.coupon.*` message.

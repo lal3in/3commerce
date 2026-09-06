@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition, type ReactN
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { quoteCheckoutShipping, submitCheckout, summaryForShippingRate, updateCartQuantity, type CheckoutState, type ShippingRate } from "@/lib/cart-actions";
-import { PromotionBasis } from "@/lib/gateway";
+import { PromotionBasis } from "@/lib/promotion-basis";
 import type { AddressDto, AppliedPromotionDto, CartDto, CartSummaryDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
