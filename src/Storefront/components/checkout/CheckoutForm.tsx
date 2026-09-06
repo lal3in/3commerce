@@ -60,17 +60,32 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
-  // The promotion verdict currently on screen. It starts as the server's (scored on whatever shipping
-  // basis was known when the page rendered) and is REPLACED every time the shipping amount changes,
-  // because a free-shipping promotion is worth exactly the rate it waives: choosing express can
-  // legitimately hand the contest to a different promotion, and this page must show the one checkout
-  // will apply — never the one that won at a rate the shopper has since changed (ADR-0051).
-  const [promotion, setPromotion] = useState({
+  // The promotion verdict currently on screen (ADR-0054). The SERVER's verdict is the baseline; picking a
+  // different shipping option overrides it, because a free-shipping promotion is worth exactly the rate it
+  // waives and choosing express can legitimately hand the contest to a different promotion — this page
+  // must show the winner checkout will apply, not the one that won at a rate the shopper has since changed.
+  const serverVerdict = {
     discountMinor: promotionDiscountMinor,
     applied: appliedPromotions,
     freeShipping: freeShippingApplied,
     basis: promotionBasis,
-  });
+  };
+  const [override, setOverride] = useState<typeof serverVerdict | null>(null);
+  // Applying or removing a coupon re-renders this route with a NEW server verdict but does NOT remount
+  // the component (App Router reconciles it in place), so a stale override would survive and keep showing
+  // a promotion the server has just dropped. Reset it during render whenever the server's verdict changes
+  // — React's documented "adjusting state when a prop changes" pattern, cheaper than an effect.
+  const serverKey = [
+    promotionDiscountMinor, freeShippingApplied, promotionBasis, appliedCouponCode ?? "",
+    appliedPromotions.map((p) => p.promotionId).join(","),
+  ].join("|");
+  const [lastServerKey, setLastServerKey] = useState(serverKey);
+  if (serverKey !== lastServerKey) {
+    setLastServerKey(serverKey);
+    setOverride(null);
+  }
+
+  const promotion = override ?? serverVerdict;
   // Only the starter is needed: the re-price is a local server action and the previous verdict stays
   // on screen until it returns, so there is no pending state to render.
   const [, startReprice] = useTransition();
@@ -138,7 +153,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   // blanking the totals; the charge is authoritative either way and checkout re-decides server-side.
   const adopt = (summary: CartSummaryDto | null) => {
     if (!summary) return;
-    setPromotion({
+    setOverride({
       discountMinor: summary.promotionDiscountMinor,
       applied: summary.appliedPromotions,
       freeShipping: summary.freeShippingApplied,
