@@ -205,7 +205,7 @@ because telling someone to spend more on an exhausted code is a lie.
 > guests would mean re-pricing on every keystroke of the email field; **the charge is never wrong, only
 > the warning is late.**
 
-### 2.6 Storefront-wide discount (PR #256)
+### 2.6 Storefront-wide discount (ADR-0053)
 
 `Storefront.DiscountBasisPoints` (0–10000; 0 = none) is a **store setting, not a promotion**. Set on the
 Admin **Commerce ops** page as a percentage, stored as basis points, projected into Ordering's
