@@ -26,9 +26,10 @@ const ADMIN = { email: "admin@3commerce.local", password: "dev-admin-password-1"
 const BASIS = { settled: 0, quoted: 1, provisional: 2 } as const;
 
 /**
- * A cash discount deliberately between the two rates that matter: bigger than the old flat fallback
- * (499) so the guess would have picked IT, and smaller than the Fake carrier's cross-border rate
- * (500 + 150/500g + 1500 = 2150) so the real quote picks free shipping instead.
+ * A cash discount deliberately bigger than the old flat fallback (499), so the guess would have picked
+ * IT — while the real AU→DE carrier rate (2150 on the Fake seam) is bigger still, so the real quote picks
+ * free shipping instead. The rate is READ from the carrier at run time rather than assumed, and the
+ * second half of the spec skips if a deployment's carrier does not out-value the discount.
  */
 const CASH_DISCOUNT_MINOR = 1_000;
 
@@ -90,6 +91,14 @@ test.describe("Free-shipping preview parity (ADR-0051)", () => {
       expect(provisional.promotionDiscountMinor).toBe(0);
 
       // ---- 2. An address settles it on the real carrier rate ----------------------------------------
+      // Ask the carrier what this parcel costs to Berlin, with the SAME request the storefront makes, so
+      // the assertions below rest on the deployment's real rate rather than a hardcoded one.
+      const quotedMinor = await quoteRate(request, storefrontId);
+      test.skip(
+        quotedMinor <= CASH_DISCOUNT_MINOR,
+        `this deployment's carrier rate (${quotedMinor}) does not out-value the cash discount, so there is no contest to settle`,
+      );
+
       await page.goto("/checkout");
       await page.getByLabel("Email").fill(`parity-${stamp}@example.com`);
       const shipping = page.locator("section").filter({ has: page.getByRole("heading", { name: "Shipping address" }) });
@@ -111,7 +120,7 @@ test.describe("Free-shipping preview parity (ADR-0051)", () => {
 
       // Shown == charged: the same verdict comes back from /cart/summary scored on the quoted rate — the
       // endpoint the integration suite proves equals what POST /checkout charges.
-      const quoted = await summary(page, storefrontId, { shippingMinor: 2_150, shipToCountry: "DE" });
+      const quoted = await summary(page, storefrontId, { shippingMinor: quotedMinor, shipToCountry: "DE" });
       expect(quoted.basis).toBe(BASIS.quoted);
       expect(quoted.freeShippingApplied).toBe(true);
       expect(quoted.promotionDiscountMinor).toBe(0);
@@ -150,6 +159,22 @@ async function summary(
   const response = await page.request.get(`${GATEWAY}/api/ordering/cart/summary?${query.toString()}`);
   expect(response.ok(), `cart summary should succeed: ${await response.text()}`).toBeTruthy();
   return (await response.json()) as Summary;
+}
+
+/** The cheapest rate for the spec's destination — the same one the storefront's preview quotes. */
+async function quoteRate(request: APIRequestContext, storefrontId: string): Promise<number> {
+  const r = await request.post(`${GATEWAY}/api/fulfillment/shipping/quote`, {
+    data: {
+      storefrontId,
+      destination: { name: "Parity Shopper", line1: "1 Parity Street", city: "Berlin", postcode: "10115", country: "DE" },
+      origin: { name: "3commerce warehouse", line1: "1 Warehouse Way", city: "Sydney", postcode: "2000", country: "AU" },
+      parcel: { weightGrams: 500, lengthMm: 200, widthMm: 150, heightMm: 100 },
+    },
+  });
+  expect(r.ok(), `quoting shipping should succeed: ${await r.text()}`).toBeTruthy();
+  const body = (await r.json()) as { rates: { amountMinor: number }[] };
+  expect(body.rates.length, "the carrier seam always returns at least one rate (Fake fallback)").toBeGreaterThan(0);
+  return body.rates[0].amountMinor;
 }
 
 async function adminLogin(request: APIRequestContext): Promise<void> {
