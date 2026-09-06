@@ -503,23 +503,10 @@ public static class CheckoutEndpoints
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
 
-    // Does this cart line ship? The tenant's ProductType policy decides when we know the line's product
-    // type and a policy copy exists; otherwise we fall back to the fulfilment-type gate (the behaviour
-    // before the policy existed, and the answer for a line with no matching offer — default shippable).
-    private static bool LineRequiresShipping(OfferCopy? offer, ProductTypeShippingPolicyCopy? policy)
-    {
-        if (offer is null)
-        {
-            return FulfilmentType.Unassigned.RequiresShipping();
-        }
-
-        if (policy is not null && offer.ProductType != default)
-        {
-            return policy.RequiresShipping(offer.ProductType);
-        }
-
-        return offer.FulfilmentType.RequiresShipping();
-    }
+    // Shared with GET /cart/summary (CartShipping): the preview must answer "does this cart pay shipping?"
+    // exactly as the charge does, or a free-shipping promotion is worth a different amount in each.
+    private static bool LineRequiresShipping(OfferCopy? offer, ProductTypeShippingPolicyCopy? policy) =>
+        CartShipping.LineRequiresShipping(offer, policy);
 
     private static string NormalizePaymentOption(string? option)
     {
