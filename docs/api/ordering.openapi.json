@@ -531,10 +531,31 @@
           {
             "name": "couponCode",
             "in": "query",
-            "description": "The coupon code the shopper entered (ADR-0052). Validated with the SAME rules checkout applies, and priced into the preview when valid \u2014 but never RESERVED: a preview must not consume an allowance.",
+            "description": "The coupon code the shopper entered (ADR-0052). Validated with the SAME rules checkout applies, and priced into the preview when valid — but never RESERVED: a preview must not consume an allowance.",
             "schema": {
               "type": "string",
               "maxLength": 40
+            }
+          },
+          {
+            "name": "shippingMinor",
+            "in": "query",
+            "required": false,
+            "description": "ADR-0054: the carrier rate quoted for the shopper's destination, in minor units. A DISPLAY input only (checkout charges the quote it validates itself) and clamped; omit it when no shipping address is known and the response comes back Provisional.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            }
+          },
+          {
+            "name": "shipToCountry",
+            "in": "query",
+            "required": false,
+            "description": "ADR-0054: ISO 3166-1 alpha-2 destination, so per-country ship rules (ADR-0050) can waive shipping outright.",
+            "schema": {
+              "type": "string",
+              "nullable": true
             }
           }
         ],
@@ -1318,7 +1339,7 @@
               8,
               9
             ],
-            "description": "Coupon outcome (ADR-0052). Enums cross HTTP as NUMBERS: 0 None (no code entered), 1 Applied, 2 UnknownCode, 3 Inactive, 4 NotStarted, 5 Expired, 6 WrongStorefront (or another currency \u2014 no FX), 7 ThresholdNotMet, 8 UsageLimitReached, 9 CustomerLimitReached. The storefront maps each member onto its own localized message."
+            "description": "Coupon outcome (ADR-0052). Enums cross HTTP as NUMBERS: 0 None (no code entered), 1 Applied, 2 UnknownCode, 3 Inactive, 4 NotStarted, 5 Expired, 6 WrongStorefront (or another currency — no FX), 7 ThresholdNotMet, 8 UsageLimitReached, 9 CustomerLimitReached. The storefront maps each member onto its own localized message."
           },
           "couponCode": {
             "type": "string",
@@ -1328,6 +1349,16 @@
           "couponPromotionName": {
             "type": "string",
             "description": "The shopper-visible name of the promotion the code resolved to; empty when the code is unknown."
+          },
+          "basis": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How settled the promotion decision is (ADR-0054). 0 Settled = the same promotions win at every shipping amount; 1 Quoted = scored against a known shipping amount; 2 Provisional = a shippable cart with no address where free shipping is in genuine contention, so these figures are the guaranteed floor and freeShippingApplied is false.",
+            "enum": [
+              0,
+              1,
+              2
+            ]
           }
         }
       },
