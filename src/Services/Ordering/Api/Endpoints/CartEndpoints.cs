@@ -14,6 +14,13 @@ public static class CartEndpoints
     /// <summary>Store currency for empty-cart responses (real carts carry the product currency).</summary>
     public static string StoreCurrency { get; set; } = "EUR";
 
+    /// <summary>
+    /// Ceiling for the client-supplied preview shipping rate. It is a DISPLAY input only (checkout charges
+    /// the quote it validates itself), but it is still clamped so a nonsense value cannot overflow the
+    /// benefit arithmetic — 10,000.00 in minor units is far above any real parcel rate.
+    /// </summary>
+    private const long MaxPreviewShippingMinor = 1_000_000;
+
     public static IEndpointRouteBuilder MapCart(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/cart").WithTags("Cart");
@@ -65,10 +72,18 @@ public static class CartEndpoints
     /// <para>
     /// Every input is resolved the way checkout resolves it: the offer-resolved effective selling price
     /// per line (approval-gated, ADR-0047/0048), the storefront-wide discount from the projected config,
-    /// and the SAME shared PromotionEvaluator. The one difference is shipping: the preview has no carrier
-    /// quote yet, so it scores free shipping against the flat fallback rate. That only affects which
-    /// promotion WINS in the rare case a free-shipping promotion ties on benefit — the discount figure
-    /// shown for the goods is computed identically to the charge.
+    /// and the SAME shared PromotionEvaluator.
+    /// </para>
+    /// <para>
+    /// Shipping — the one input a preview may not know — is resolved in checkout's own order (ADR-0051):
+    /// a cart with no shippable line, or one whose ship rules already cover shipping, pays 0 and is
+    /// therefore never ambiguous; otherwise <paramref name="shippingMinor"/> carries the rate the client
+    /// quoted from Fulfillment for the shopper's shipping address — the SAME carrier quote whose amount
+    /// rides the checkout POST as <c>SelectedShippingAmountMinor</c>. Only a shippable cart with no
+    /// address yet leaves the rate unknown, and there the evaluator returns a PROVISIONAL verdict rather
+    /// than committing to a winner that could flip. It is never a charge input: shipping is charged from
+    /// the quote checkout itself validates, so a client that sends a nonsense rate only mis-informs
+    /// itself, and the value is clamped to a sane range before it is scored.
     /// </para>
     /// <para>
     /// <paramref name="couponCode"/> is what the shopper typed (ADR-0052). It is VALIDATED but never
@@ -77,7 +92,8 @@ public static class CartEndpoints
     /// </para>
     /// </summary>
     private static async Task<Ok<CartSummaryResponse>> GetSummary(
-        Guid? storefrontId, string? couponCode, HttpContext http, CartService carts, OrderingDbContext db,
+        Guid? storefrontId, string? couponCode, long? shippingMinor, string? shipToCountry,
+        HttpContext http, CartService carts, OrderingDbContext db,
         PromotionRedemptionService redemptions, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(http.User);
@@ -129,11 +145,43 @@ public static class CartEndpoints
             // per-customer limit can be reported here; checkout, which HAS the email, refuses the rest.
             PromotionRedemption.CustomerKeyFor(userId, null), now, ct);
 
+        // The shipping basis, resolved in checkout's own order so the two agree by construction:
+        //   1. no line requires shipping (all digital/service) → the cart pays 0, whatever a carrier says;
+        //   2. every line's ship rule for the destination already covers shipping → 0 as well;
+        //   3. otherwise the client's quoted rate for the shopper's address, when it has one;
+        //   4. otherwise unknown — the evaluator then returns a provisional verdict instead of guessing.
+        // Cases 1–2 make a free-shipping reward worth exactly 0, which settles the promotion contest
+        // deterministically; the old flat-fallback guess got them wrong in both directions.
+        var shippingPolicy = await db.ProductTypeShippingPolicyCopies.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
+        var anyShippable = cart.Items.Any(i => CartShipping.LineRequiresShipping(
+            OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds),
+            shippingPolicy));
+        var destination = string.IsNullOrWhiteSpace(shipToCountry)
+            ? null
+            : shipToCountry.Trim().ToUpperInvariant();
+        var allShippingCovered = false;
+        if (destination is not null)
+        {
+            // Load the copies as entities (not a .Select of the property) so EF applies the jsonb ShipRules
+            // value converter on materialization — a projected converted collection comes back empty.
+            var ruleCopies = await db.ProductCopies.AsNoTracking()
+                .Where(p => productIds.Contains(p.ProductId))
+                .ToListAsync(ct);
+            allShippingCovered = cart.Items.All(i =>
+                ruleCopies.FirstOrDefault(c => c.ProductId == i.ProductId)?.RuleFor(destination)?.ShippingCovered == true);
+        }
+
+        long? shippingBasis = !anyShippable || allShippingCovered
+            ? 0
+            : shippingMinor is { } quoted ? Math.Clamp(quoted, 0, MaxPreviewShippingMinor) : null;
+
         // Only a VALID code unlocks its promotion in the evaluation; an invalid one is reported as a reason
         // and otherwise ignored, so the preview shows the price the shopper would actually be charged.
-        var outcome = PromotionEvaluator.Evaluate(
-            lines, promotionCopies, tenantId, storeId, currency, CheckoutEndpoints.FlatShippingMinor, now,
+        var preview = PromotionEvaluator.Preview(
+            lines, promotionCopies, tenantId, storeId, currency, shippingBasis, now,
             couponEvaluation.IsApplied ? enteredCode : null);
+        var outcome = preview.Outcome;
 
         var discountBps = await db.StorefrontTaxCopies.AsNoTracking()
             .Where(t => t.StorefrontId == storeId)
@@ -158,8 +206,11 @@ public static class CartEndpoints
 
         return TypedResults.Ok(new CartSummaryResponse(
             subtotalMinor, storefrontDiscountMinor, outcome.DiscountMinor,
-            subtotalMinor - totalDiscount, outcome.FreeShippingApplied, applied, currency,
-            couponEvaluation.Status, enteredCode, couponEvaluation.Name));
+            subtotalMinor - totalDiscount,
+            // A provisional verdict must never render as a decided reward: free shipping is reported as
+            // POSSIBLE (via Basis) and the storefront says "may apply at checkout" instead of "free".
+            preview.Basis != PromotionBasis.Provisional && outcome.FreeShippingApplied, applied, currency,
+            couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -334,4 +385,10 @@ public record CartSummaryResponse(
     // exactly which rule refused the code rather than a blanket "invalid coupon".
     CouponStatus CouponStatus = CouponStatus.None,
     string? CouponCode = null,
-    string CouponPromotionName = "");
+    string CouponPromotionName = "",
+    // How settled the promotion decision is (ADR-0051). Settled = the same winner at every shipping
+    // amount; Quoted = scored against the rate the shopper's address quoted (what checkout will charge);
+    // Provisional = a shippable cart with no address yet, where a free-shipping promotion is in genuine
+    // contention — the figures above are then the GUARANTEED FLOOR and free shipping "may apply".
+    // Crosses HTTP as a NUMBER (platform invariant).
+    PromotionBasis Basis = PromotionBasis.Settled);

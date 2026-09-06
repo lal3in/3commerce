@@ -3,8 +3,9 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { GATEWAY_URL } from "./gateway";
+import { GATEWAY_URL, getCartSummary, type CartSummaryDto } from "./gateway";
 import { resolveStorefront } from "./storefront-context";
+import { isCompleteDestination, QUOTE_ORIGIN, QUOTE_PARCEL, rememberShipDestination } from "./shipping-basis";
 
 async function cartHeaders(): Promise<HeadersInit> {
   const store = await cookies();
@@ -60,7 +61,7 @@ export async function removeFromCart(productId: string, variantId?: string | nul
 export type CheckoutState = { error?: string };
 export type ShippingRate = { carrier: string; service: string; serviceName: string; amountMinor: number; currency: string; estimatedDays: number; expiresAt: string };
 
-export async function quoteCheckoutShipping(formData: FormData): Promise<{ rates?: ShippingRate[]; error?: string }> {
+export async function quoteCheckoutShipping(formData: FormData): Promise<{ rates?: ShippingRate[]; summary?: CartSummaryDto | null; error?: string }> {
   const destination = {
     name: String(formData.get("shippingName") || "Checkout"),
     line1: String(formData.get("shippingLine1") || ""),
@@ -68,23 +69,58 @@ export async function quoteCheckoutShipping(formData: FormData): Promise<{ rates
     postcode: String(formData.get("shippingPostcode") || ""),
     country: String(formData.get("shippingCountry") || ""),
   };
-  if (!destination.line1 || !destination.city || !destination.postcode || destination.country.length !== 2) {
+  if (!isCompleteDestination(destination)) {
     return { error: "Enter a complete shipping address before getting rates." };
   }
 
+  const storefront = await resolveStorefront();
   const response = await fetch(`${GATEWAY_URL}/api/fulfillment/shipping/quote`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
+      storefrontId: storefront?.id ?? null,
       destination,
-      origin: { name: "3commerce warehouse", line1: "1 Warehouse Way", city: "Sydney", postcode: "2000", country: "AU" },
-      parcel: { weightGrams: 500, lengthMm: 200, widthMm: 150, heightMm: 100 },
+      // Shared with the cart preview's quote (ADR-0051): the same origin and parcel, so the rate the
+      // preview scored free shipping against is the rate offered here.
+      origin: QUOTE_ORIGIN,
+      parcel: QUOTE_PARCEL,
     }),
     cache: "no-store",
   });
   if (!response.ok) return { error: "Could not retrieve shipping rates. Try again." };
   const body = (await response.json()) as { rates: Omit<ShippingRate, "expiresAt">[]; expiresAt: string };
-  return { rates: body.rates.map((rate) => ({ ...rate, expiresAt: body.expiresAt })) };
+  const rates = body.rates.map((rate) => ({ ...rate, expiresAt: body.expiresAt }));
+
+  // Remember where this order is going. A guest has no saved address, so this is the only way the CART
+  // preview learns the destination — and the shipping address is required for anything that ships, so it
+  // exists as soon as the shopper asks for rates.
+  await rememberShipDestination(destination);
+
+  // Re-price on the rate that is about to be preselected: the promotion contest is decided on the
+  // shipping amount (a free-shipping promotion is worth exactly that much), so the totals on this page
+  // must be the ones checkout will charge for the chosen rate — not the ones from before the address
+  // was known.
+  const summary = await summaryForShippingRate(
+    rates[0]?.amountMinor ?? null,
+    destination.country,
+    String(formData.get("couponCode") || "") || null,
+  );
+  return { rates, summary };
+}
+
+/**
+ * The cart summary re-priced against one selected carrier rate (ADR-0051). Called whenever the shopper
+ * changes the shipping option, because a free-shipping promotion is worth exactly the rate it waives:
+ * upgrading to express can legitimately change which promotion wins, and the page must show the winner
+ * checkout will apply rather than the one that won at the previous rate.
+ */
+export async function summaryForShippingRate(
+  shippingMinor: number | null,
+  shipToCountry: string | null,
+  couponCode: string | null,
+): Promise<CartSummaryDto | null> {
+  const storefront = await resolveStorefront();
+  return getCartSummary(storefront?.id, couponCode ?? undefined, { shippingMinor, shipToCountry });
 }
 
 export async function submitCheckout(_prev: CheckoutState, formData: FormData): Promise<CheckoutState> {

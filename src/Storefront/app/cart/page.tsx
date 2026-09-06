@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { getCart, getCartSummary } from "@/lib/gateway";
+import { getCart, getCartSummary, PromotionBasis } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
+import { resolveShippingBasis } from "@/lib/shipping-basis";
 import { formatMoney } from "@/lib/money";
 import { CartItemRow } from "@/components/cart/CartItemRow";
 
@@ -23,7 +24,14 @@ export default async function CartPage() {
   // Threshold promotions (ADR-0051) are decided by Ordering, never here: /cart/summary runs the same
   // evaluator checkout runs, so shown == charged. When it is unavailable (null) the page falls back to
   // today's local storefront-discount math and simply shows no promotion rows.
-  const summary = await getCartSummary(storefront?.id);
+  //
+  // A free-shipping promotion is worth exactly the shipping amount, so the winner can depend on it. The
+  // preview therefore ships Ordering the REAL carrier rate whenever a destination is known (a saved
+  // default address, or the one already entered at checkout — a guest counts), quoted from the same
+  // Fulfillment endpoint checkout's selected rate comes from. With no destination at all, Ordering
+  // answers PROVISIONAL and the rows below say "may apply" instead of asserting a reward.
+  const shippingBasis = await resolveShippingBasis(cart, storefront?.id ?? null);
+  const summary = await getCartSummary(storefront?.id, undefined, shippingBasis);
   // GET /cart carries the ADD-TIME catalog price; the summary carries the OFFER-RESOLVED price actually
   // charged (ADR-0047). Every row below must sit on the SAME basis, or the subtotal, the deductions and
   // the items total visibly fail to add up when an offer overrides a line's catalog price.
@@ -35,6 +43,10 @@ export default async function CartPage() {
       : 0;
   const promotions = summary?.appliedPromotions ?? [];
   const freeShippingApplied = summary?.freeShippingApplied ?? false;
+  // Provisional: a shippable cart with no address yet, where free shipping and a cash discount are in
+  // genuine contention. The figures above are the guaranteed floor — never more than the shopper is
+  // charged — and free shipping is shown as possible, not decided.
+  const provisional = summary?.basis === PromotionBasis.Provisional;
   const discountedSubtotalMinor = summary
     ? summary.itemsTotalMinor
     : subtotalMinor - storefrontDiscountMinor;
@@ -82,6 +94,12 @@ export default async function CartPage() {
             <span>−</span>
           </div>
         )}
+        {provisional && (
+          <div className="flex justify-between text-neutral-600" data-testid="free-shipping-provisional">
+            <span>{t("freeShippingMaybe")}</span>
+            <span>?</span>
+          </div>
+        )}
         {anyDeduction && (
           <div className="flex justify-between border-t border-neutral-100 pt-2">
             <span className="font-medium">{t("itemsTotal")}</span>
@@ -89,6 +107,7 @@ export default async function CartPage() {
           </div>
         )}
       </div>
+      {provisional && <p className="text-sm text-neutral-500">{t("provisionalNote")}</p>}
       <p className="text-sm text-neutral-500">{t("taxNote")}</p>
       <Link
         href="/checkout"

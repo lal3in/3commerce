@@ -41,6 +41,12 @@
 #       best-exclusive vs sum-of-combinables by customer benefit, tie to the combinable set,
 #       ascending-id tiebreak, no-FX currency guard, window bounds, fixed amount clamped to
 #       its scope base, and a largest-remainder per-line allocation that sums exactly;
+#       Ordering PREVIEW basis (ADR-0054, PromotionPreviewTests): the flat-499 divergence reproduced
+#       (free shipping vs a cash discount picking different winners at 499 and at a real rate), a
+#       KNOWN rate making the preview identical to the charge, an all-digital cart scoring free
+#       shipping at 0, Settled when no shipping amount can change the winner, Provisional reporting
+#       the GUARANTEED FLOOR with free shipping left undecided (and still allocating exactly), the
+#       coupon variant, and a 400-trial sweep proving the preview never contradicts the charge;
 #       Ordering COUPON gate + refusal reasons (ADR-0052): a code-gated promotion applies only on a
 #       trimmed case-insensitive code match while an automatic one is untouched by any entered code,
 #       stacking is still just the Combinable flag, a coupon out-competed by a better promotion loses,
@@ -88,6 +94,15 @@
 #       combinables stacking past a bigger exclusive, and a promotion stacking with the
 #       storefront-wide discount with tax on the doubly-discounted base — trial balance 0 in
 #       every case (no new ledger line);
+#       the promotion x discount x shipping MATRIX with the preview and the charge asserted on the
+#       SAME cart (ADR-0054, PromotionMatrixTests): the free-shipping-vs-cash-discount race at a real
+#       rate (plus the winner the old 499 guess picked), the provisional path for a shippable cart with
+#       no address, an all-digital cart scoring free shipping at 0, two exclusives never summing, an
+#       exclusive beating a smaller stack, a tie going to the combinable set, an unmet threshold,
+#       free shipping + store-wide discount, free shipping + a product-scoped threshold, coupon +
+#       free shipping + store-wide together, a coupon losing the contest without burning its
+#       allowance, and a stack capped at the subtotal — each asserting
+#       Net - Discount + Ship + Tax = Gross and trial balance 0;
 #       Catalog PromotionChanged → Ordering PromotionCopy projection: insert, idempotent
 #       re-consume (no duplicate row), deactivation (PromotionProjectionTests);
 #       coupon codes end-to-end (ADR-0052, CouponRedemptionTests): the code is REQUIRED for the
@@ -123,6 +138,10 @@
 #       traversal, upload allow-list, image variants) · MfaPolicy (platform-min/tenant-strengthen/step-up) ·
 #       Notifications (security-always/marketing-opt-in + minimal alert content) · Region (no region move,
 #       retention Retain/Redact/Purge). Plus Payments JobExecutor (scheduled-run success/failure).
+#   A6c Browser E2E (Playwright) · preview parity (ADR-0054, e2e/promotion-shipping-parity.spec.ts):
+#       a shippable cart with no address shows "free shipping may apply" and never the decided row,
+#       and entering an address at checkout quotes the real carrier rate, settles the contest on it,
+#       and the cart then renders the decided reward with no hedging
 #   A7  Storefront typecheck (tsc) + production build (next build), including
 #       auth-aware checkout prefill/review, checkout +/- recalculation, and
 #       authenticated confirmation hiding guest account conversion
@@ -199,9 +218,9 @@ run_automated() {
   stage "A3  Backend unit + contract tests"
   if dotnet test "$ROOT/3commerce.sln" --no-build --filter 'Category!=Integration' 2>&1 | grep -q 'Failed: *0'; then pass "A3 unit/contract"; else fail "A3 unit/contract"; fi
 
-  stage "A3b Promotions + coupons (ADR-0051/0052) — Catalog domain, shared evaluator, engine, coupon gate"
+  stage "A3b Promotions + coupons (ADR-0051/0052/0054) — Catalog domain, shared evaluator, preview basis, engine, coupon gate"
   if dotnet test "$ROOT/3commerce.sln" --no-build \
-      --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
+      --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PromotionPreviewTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"

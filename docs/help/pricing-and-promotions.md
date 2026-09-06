@@ -230,6 +230,38 @@ or **every** line's resolved per-country ship rule sets `shippingCovered`
 after the selected-quote validation (service + expiry, not expired) — can a winning free-shipping
 promotion zero the remaining rate.
 
+**The cart preview resolves shipping the same way** ([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)),
+because a free-shipping promotion is worth exactly the shipping amount and can therefore *win or lose on
+it*:
+
+| The preview sees | Shipping basis |
+|---|---|
+| No line requires shipping (all digital/service) | **0** — free shipping is worth nothing, the contest is unambiguous |
+| Every line's ship rule covers shipping for the destination | **0**, same reasoning |
+| A shipping address is known — saved default **or** one the shopper already entered (a guest counts) | the **real carrier rate**, quoted from the same `POST /api/fulfillment/shipping/quote` the checkout rate picker uses (cheapest rate, cached 5 minutes per cart + destination) |
+| A shippable cart and no address anywhere | **unknown** — see §2.7.1 |
+
+The quoted rate reaches Ordering as `GET /cart/summary?shippingMinor=&shipToCountry=`. It is a **display
+input only**: checkout still charges the quote it validates itself, so a client that sends a nonsense rate
+only mis-informs itself.
+
+#### 2.7.1 When the rate is not known yet: `basis`
+
+`/cart/summary` returns a `basis` saying how settled the promotion decision is. The evaluator probes the
+selection at shipping `0` and `subtotal + 1`, which provably straddles every point where the winner could
+change:
+
+| `basis` | Means | Shopper sees |
+|---|---|---|
+| `Settled` (0) | the same promotions win at **every** shipping amount | the normal rows — the preview cannot contradict the charge |
+| `Quoted` (1) | the winner depends on shipping, and the amount is known | the normal rows, decided on the amount that will be charged |
+| `Provisional` (2) | the winner depends on shipping, and the amount is unknown | the **guaranteed floor**, plus *"Free shipping may apply"* |
+
+A provisional preview never asserts free shipping and never shows a goods discount larger than the charge:
+it reports the smaller of the two possible discounts, so the shopper can only be charged the same or
+better. Picking a shipping option at checkout re-prices the page, so the last thing they see before paying
+is the verdict checkout applies.
+
 ### 2.8 Tax ([ADR-0038](../adr/0038-per-currency-shelf-prices-and-tax-entry.md) / [ADR-0050](../adr/0050-per-country-ship-rules-and-ship-to-allowlist.md))
 
 Tax is computed **last, on the discounted base**:
@@ -357,12 +389,25 @@ Because SAVE25 is in `AppliedPromotionIds`, **one redemption is reserved** immed
 (as in §3), the coupon would have discounted nothing and **no allowance would have been burned** —
 `CouponCode` would be null on the attempt and the response.
 
-> **Preview nuance worth knowing.** `GET /cart/summary` has no carrier quote yet, so it scores free
-> shipping against the **flat fallback rate (499)**. In the example above the selected rate happens to be
-> 499, so preview and charge agree exactly. When the shopper later picks a materially different rate, a
-> free-shipping promotion competing against a cash discount can win at checkout but not in the preview
-> (or vice-versa). The **goods discount** is computed identically either way, and the checkout page
-> re-prices with the real rate before the shopper submits.
+### 3.2 The same cart, previewed
+
+The preview runs the same evaluator on the same candidates — the only question is what it scores free
+shipping against ([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)).
+
+- **Address known** (saved, or entered at checkout): the real rate is quoted — 499 in §3 — so the preview
+  IS §3, down to the promotion ids. `basis = Quoted`.
+- **All-digital cart**: shipping is 0, P1's free shipping is worth nothing, and P3's $8 beats P2's $5.
+  `basis = Settled`; no hedging, because no rate could change it.
+- **Shippable cart, no address yet**: P1+P2 (`500 + S`) races P3 (`800`) — they cross at `S = 300`, so the
+  winner genuinely depends on the rate. The preview shows the **floor**: the combinable pair's `500` off
+  the goods, *without* claiming free shipping, plus "Free shipping may apply at checkout". Whatever rate
+  the shopper's address later produces, they are charged `500` off (plus free shipping) or `800` off —
+  never less than they were shown. `basis = Provisional`.
+
+> Before ADR-0054 this last case guessed a flat **499**, which is on the other side of that `S = 300`
+> crossing from a slow-mail or interstate rate — so the cart could show one reward and checkout charge
+> under another. That gap is closed: the preview either knows the rate, proves the rate cannot matter, or
+> says it is provisional.
 
 ---
 
@@ -438,7 +483,8 @@ out, so the charge always equals the total on screen. See [Storefront operations
 | `PUT` | `/api/catalog/admin/promotions/{id}` | Partial update (`applyScope` / `applyCode` / `applyUsageLimits` opt-ins) |
 | `POST`/`PUT` | `/api/catalog/admin/storefronts[/{id}]` | `discountBasisPoints` (0–10000) |
 | `GET` | `/api/catalog/storefronts/public` | Public config incl. `discountBasisPoints` |
-| `GET` | `/api/ordering/cart/summary?storefrontId=&couponCode=` | The money preview + `couponStatus` |
+| `GET` | `/api/ordering/cart/summary?storefrontId=&couponCode=&shippingMinor=&shipToCountry=` | The money preview + `couponStatus` + `basis` (ADR-0054) |
+| `POST` | `/api/fulfillment/shipping/quote` | Carrier rates; the preview and the checkout rate picker call it with the same origin/parcel |
 | `POST` | `/api/ordering/checkout` | Charges; accepts `couponCode`, reserves the redemption |
 | `GET` | `/api/ordering/admin/promotion-redemptions` | Per-promotion usage (held / confirmed / cap) |
 
@@ -453,11 +499,14 @@ Full request/response detail: [API contracts index](../api/api_contracts_index.m
 | `Catalog/tests/PromotionTests.cs` | Aggregate invariants: ≥1 threshold (automatic only), ≥1 reward, percent XOR fixed, scope↔product binding, ordered window; coupon normalization, character/length rules, thresholdless coupon allowed, clearing that code refused, usage-limit bounds |
 | `Catalog/tests/StorefrontDiscountTests.cs` | `SetDiscount` bounds, duplication carries it |
 | `Ordering/tests/PromotionEvaluatorTests.cs` | Threshold AND, scope bases, fixed-amount clamp, best-of selection, tie → combinable, ascending-id tiebreak, allocation sums exactly |
+| `Ordering/tests/PromotionPreviewTests.cs` | The preview contract (ADR-0054): the flat-fallback divergence reproduced, a known rate matching the charge exactly, an all-digital cart scoring free shipping at 0, `Settled` vs `Provisional`, the guaranteed floor, and a 400-trial sweep proving the preview never contradicts the charge |
 | `Ordering/tests/PricingTests.cs` | Engine parity, storefront-discount stacking + cap, tax on the discounted base (both regimes) |
 | `Ordering/tests/CouponTests.cs` | The code gate, one fact per `CouponStatus`, customer-key rule |
 | `IntegrationTests/MoneyFlowTests.cs` | End-to-end money with trial balance 0 for every discount shape |
+| `IntegrationTests/PromotionMatrixTests.cs` | The discount × promotion × shipping matrix, preview **and** charge on the same cart: the free-shipping/cash-discount race at a real rate, the provisional path, an all-digital cart, exclusives never summing, exclusive vs stack (both directions), a tie, an unmet threshold, free shipping + store-wide, free shipping + product-scoped, coupon + free shipping + store-wide, a coupon losing without burning its allowance, and a stack capped at the subtotal — each asserting `Net − Discount + Ship + Tax = Gross` and trial balance 0 |
 | `IntegrationTests/PromotionProjectionTests.cs` | `PromotionChanged` → `PromotionCopy` insert / idempotent re-consume / deactivate |
 | `IntegrationTests/CouponRedemptionTests.cs` | **Ten concurrent checkouts vs `MaxRedemptions = 3`** (exactly 3 win), guest per-customer limit by email, failed payment releases the hold, redelivered messages neither double-confirm nor double-release, stale-hold sweep |
+| `e2e/promotion-shipping-parity.spec.ts` | The provisional wording on a cart with no address, and the cart settling on the real carrier rate once one is entered |
 | `e2e/storefront-{discount,promotions,coupons}.spec.ts`, `e2e-admin/{commerce-ops-discount,promotions-admin}.spec.ts` | The browser flows: authoring in admin, the shopper seeing the rows, apply/remove |
 
 `scripts/e2e-verify.sh` runs the focused unit set as stage **A3b**; see [Testing](./testing.md).

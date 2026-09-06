@@ -3,6 +3,7 @@
 Status: Accepted — implemented (extended by [0052](./0052-coupon-codes-and-redemption-limits.md), which delivers the coupon-code gating and redemption caps listed as follow-ups below)
 Area: Catalog / Ordering / pricing
 Operator/handbook view: [`docs/help/pricing-and-promotions.md`](../help/pricing-and-promotions.md) — the whole money chain (supplier cost → catalog price → offer price → promotions/coupons → storefront-wide discount → tax → shipping) with a worked example
+Amended by: [0054](./0054-cart-preview-shipping-basis-and-promotion-parity.md) (the cart preview's shipping basis — the flat-fallback guess that could pick a different winner than checkout is replaced by a real quote / a proven-invariant outcome / an explicit provisional verdict)
 Extends: [0047](./0047-storefront-scoped-active-window-offer-price.md) (the offer-resolved effective selling price — the comparison base), [0048](./0048-supplier-approval-gated-offer-availability.md) (an unapproved supplier's offer never sets a price, so it never feeds a threshold), [0038](./0038-per-currency-shelf-prices-and-tax-entry.md) (inclusive vs exclusive tax on the discounted base), [0050](./0050-per-country-ship-rules-and-ship-to-allowlist.md) (`chargeDestinationTax` / `shippingCovered`), [0008](./0008-database-per-service-single-postgres.md) (read-copy projections, no cross-service query), [0045](./0045-mandatory-per-storefront-ledger-attribution.md) (no new ledger line — the charged gross simply drops)
 
 ## Context
@@ -135,6 +136,14 @@ and the combinability flag introduced here does not govern it.
     prices + the storefront discount + promotions with the **same evaluator** and returns the money
     preview the storefront cart and checkout summary render. `GET /cart` still returns the add-time
     catalog price and is unchanged. The promotion algorithm is never re-implemented in TypeScript.
+
+    > **Amended by [ADR-0054](./0054-cart-preview-shipping-basis-and-promotion-parity.md).** As shipped,
+    > the preview scored free shipping against a flat 499 fallback, so a free-shipping promotion racing a
+    > cash discount could win in the preview and lose at checkout (or the reverse). The preview now
+    > resolves shipping the way checkout does — 0 for a cart that pays none, the real quoted rate for a
+    > known destination — and, where the amount is genuinely unknown, returns a `PromotionBasis` of
+    > `Provisional` with the guaranteed floor instead of committing to a winner that can flip. Checkout's
+    > selection is unchanged.
 
 ## Alternatives considered
 
