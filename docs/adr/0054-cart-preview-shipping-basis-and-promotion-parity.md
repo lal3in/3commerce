@@ -138,6 +138,11 @@ Three facts shaped the fix.
 - **The known limitation recorded in ADR-0052's "known gap" style and in the handbook is retired.** The
   remaining honest gap is narrower and now explicit in the UI: a shippable cart with no address anywhere,
   where the preview says so rather than guessing.
+- **The checkout rate picker now quotes with the storefront id.** It previously sent none, so
+  `ShippingQuoteService` could never resolve the storefront's configured carrier (ADR-0028 mt4_3) and
+  always fell through to the keyless Fake. Sending it is required for consistency — the preview must ask
+  the same carrier the shopper will be offered — and is the behaviour the carrier seam was built for. On a
+  storefront with a real carrier configured, the rates offered at checkout are now that carrier's.
 - **No money invariant moved.** `Net − Discount + Ship + Tax = Gross`, the subtotal cap, the
   largest-remainder per-line allocation (`Σ LineDiscountsMinor == DiscountMinor`) and the trial balance of
   0 are all unchanged — the preview only ever chooses which genuine `Select` outcome to display.

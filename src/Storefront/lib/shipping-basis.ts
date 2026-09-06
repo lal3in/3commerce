@@ -174,10 +174,6 @@ export async function quoteCartShipping(
   return amountMinor;
 }
 
-/** Test seam: drops the process-wide quote cache. */
-export function resetQuoteCache(): void {
-  quoteCache.clear();
-}
 
 /**
  * The full resolution used by the cart and checkout pages: find a destination, quote it, and report both
