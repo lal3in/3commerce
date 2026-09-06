@@ -43,6 +43,40 @@ public sealed record PromotionOutcome(
 }
 
 /// <summary>
+/// How settled a PREVIEW's promotion decision is (ADR-0051). Checkout never carries one: it knows the
+/// real shipping amount, so its decision is always final. Crosses HTTP as a NUMBER (platform invariant).
+/// </summary>
+public enum PromotionBasis
+{
+    /// <summary>
+    /// The same promotions win for EVERY possible shipping amount, so the preview cannot contradict the
+    /// charge whatever the carrier later quotes. The common case.
+    /// </summary>
+    Settled = 0,
+
+    /// <summary>
+    /// The winner depends on the shipping amount, and the preview was scored against a KNOWN one — a real
+    /// carrier quote for the shopper's destination, or a cart that pays no shipping at all. Same input,
+    /// same evaluator, same answer as checkout.
+    /// </summary>
+    Quoted = 1,
+
+    /// <summary>
+    /// The winner depends on a shipping amount nobody knows yet (a cart with shippable lines and no
+    /// address). The reported discount is the GUARANTEED FLOOR — the least the shopper can be charged —
+    /// and free shipping is reported as POSSIBLE, never as decided.
+    /// </summary>
+    Provisional = 2,
+}
+
+/// <summary>
+/// A preview's decision plus how settled it is. In every basis the outcome is a genuine
+/// <see cref="PromotionEvaluator.Select"/> result, so the per-line vector still sums EXACTLY to
+/// <see cref="PromotionOutcome.DiscountMinor"/>.
+/// </summary>
+public sealed record PromotionPreview(PromotionOutcome Outcome, PromotionBasis Basis);
+
+/// <summary>
 /// The one place threshold promotions are decided (ADR-0051). Pure: no EF, no HTTP, no ambient clock —
 /// time is a parameter. Both <see cref="PricingEngine"/> and Ordering's checkout/cart-summary endpoints
 /// call it, so the promotion algorithm exists exactly once and the engine can never diverge from what is
@@ -81,6 +115,93 @@ public static class PromotionEvaluator
             return PromotionOutcome.None(lines.Count);
         }
 
+        return Select(lines, Candidates(lines, promotions, tenantId, storefrontId, currency, now, couponCode), shippingMinor);
+    }
+
+    /// <summary>
+    /// The PREVIEW's decision, for a caller that may not know the shipping amount yet
+    /// (<c>GET /cart/summary</c>). Checkout never calls this — it knows the real rate and uses
+    /// <see cref="Evaluate"/>.
+    /// <para>
+    /// The preview's problem is that benefit is <c>discount + (freeShipping ? S : 0)</c>, so a
+    /// free-shipping promotion racing a cash discount can win at one S and lose at another. Guessing an S
+    /// (which is what the flat fallback rate was) silently commits the preview to a winner that flips.
+    /// Instead the outcome is measured across the WHOLE range of shipping amounts the cart could pay:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>identical at both ends ⇒ <see cref="PromotionBasis.Settled"/> — the decision is
+    /// shipping-independent and the preview cannot contradict the charge;</item>
+    /// <item>otherwise, with <paramref name="shippingMinor"/> known ⇒ <see cref="PromotionBasis.Quoted"/>
+    /// — scored against that amount, which is the one checkout will charge;</item>
+    /// <item>otherwise ⇒ <see cref="PromotionBasis.Provisional"/> — the high-shipping outcome, which is
+    /// the LOWEST goods discount of the two and therefore a floor the charge can only beat. The caller
+    /// must present free shipping as possible, not decided.</item>
+    /// </list>
+    /// <para>
+    /// Two probes are enough to cover the range. Every benefit line has slope 0 (cash) or 1 (free
+    /// shipping), so the exclusive branch's upper envelope is convex and its argmax switches from cash to
+    /// free-shipping at most once; the combinable set is a single line, so the branch comparison
+    /// <c>C − E</c> is monotone in S and also flips at most once. Both switch points are crossings of
+    /// <c>d₁ + S = d₂</c> with <c>d₂ ≤ subtotal</c>, so every one of them lies inside
+    /// <c>[0, subtotal]</c> — probing 0 and <c>subtotal + 1</c> therefore straddles them all, and equal
+    /// probes prove the outcome is constant everywhere in between.
+    /// </para>
+    /// </summary>
+    public static PromotionPreview Preview(
+        IReadOnlyList<PromotionLine> lines,
+        IReadOnlyList<PromotionCopy> promotions,
+        Guid tenantId,
+        Guid storefrontId,
+        string currency,
+        long? shippingMinor,
+        DateTimeOffset now,
+        string? couponCode = null)
+    {
+        if (lines.Count == 0 || promotions.Count == 0)
+        {
+            return new PromotionPreview(PromotionOutcome.None(lines.Count), PromotionBasis.Settled);
+        }
+
+        var candidates = Candidates(lines, promotions, tenantId, storefrontId, currency, now, couponCode);
+        long subtotal = 0;
+        foreach (var line in lines)
+        {
+            subtotal = checked(subtotal + line.TotalMinor);
+        }
+
+        var atZero = Select(lines, candidates, 0);
+        var atCeiling = Select(lines, candidates, checked(subtotal + 1));
+        if (Same(atZero, atCeiling))
+        {
+            return new PromotionPreview(atZero, PromotionBasis.Settled);
+        }
+
+        return shippingMinor is { } known
+            ? new PromotionPreview(Select(lines, candidates, Math.Max(0, known)), PromotionBasis.Quoted)
+            : new PromotionPreview(atCeiling, PromotionBasis.Provisional);
+    }
+
+    /// <summary>Do two outcomes tell the shopper exactly the same thing? (Reward, winners, allocation.)</summary>
+    private static bool Same(PromotionOutcome a, PromotionOutcome b) =>
+        a.DiscountMinor == b.DiscountMinor
+        && a.FreeShippingApplied == b.FreeShippingApplied
+        && a.AppliedPromotionIds.SequenceEqual(b.AppliedPromotionIds)
+        && a.LineDiscountsMinor.SequenceEqual(b.LineDiscountsMinor);
+
+    /// <summary>
+    /// Eligibility + threshold measurement for every projected promotion: the S-INDEPENDENT half of the
+    /// decision. Shared by <see cref="Evaluate"/> and <see cref="Preview"/> so a preview probes the same
+    /// candidate set checkout will select from, and the two can only ever differ on the shipping amount.
+    /// </summary>
+    private static List<PromotionCandidate> Candidates(
+        IReadOnlyList<PromotionLine> lines,
+        IReadOnlyList<PromotionCopy> promotions,
+        Guid tenantId,
+        Guid storefrontId,
+        string currency,
+        DateTimeOffset now,
+        string? couponCode)
+    {
         var candidates = new List<PromotionCandidate>();
         foreach (var promotion in promotions)
         {
@@ -100,7 +221,7 @@ public static class PromotionEvaluator
             }
         }
 
-        return Select(lines, candidates, shippingMinor);
+        return candidates;
     }
 
     /// <summary>
