@@ -110,6 +110,8 @@ public class CartCurrencyTests(Phase3Fixture fixture)
 
         var productId = await fixture.SeedProductAsync(10_000, "AUD");
         using var shopper = fixture.Ordering.CreateClient();
+        // Tax comes from THIS storefront's config, never from a by-currency scan (rev_tax).
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", AudStorefrontId.ToString());
         (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
 
         var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
@@ -133,6 +135,7 @@ public class CartCurrencyTests(Phase3Fixture fixture)
 
         var productId = await fixture.SeedProductAsync(10_000, "USD");
         using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", UsdStorefrontId.ToString());
         (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
 
         var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
