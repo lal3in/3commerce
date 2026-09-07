@@ -53,6 +53,11 @@
 #       and one fact per CouponStatus (unknown/inactive/not started/expired/wrong storefront-or-currency/
 #       usage limit before threshold/per-customer limit/applied) plus the customer-key rule that makes a
 #       guest checkout count (CouponTests);
+#       Ordering per-line REFUND BASIS allocation (ADR-0055, OrderLineDiscountsTests): an order's whole
+#       discount split across its lines — a uniform storefront percentage spread by line value, a
+#       product-scoped promotion staying on the line it covers, the two stacked, rounding remainders
+#       distributed so the parts sum exactly, and the subtotal clamp never allocating more than the
+#       order actually discounted;
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -105,6 +110,12 @@
 #       Net - Discount + Ship + Tax = Gross and trial balance 0;
 #       Catalog PromotionChanged → Ordering PromotionCopy projection: insert, idempotent
 #       re-consume (no duplicate row), deactivation (PromotionProjectionTests);
+#       STOREFRONT-SCOPED TAX (ADR-0055, StorefrontTaxScopingTests): two live storefronts sharing ONE
+#       currency at 0% exclusive and 25% INCLUSIVE each charge their own rate and their own regime
+#       (the old by-currency lookup gave the 0% store the other's 2500 bps and inclusiveness), a
+#       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
+#       store in the same currency is not a tax source, and a storefront that is not live is refused
+#       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
 #       coupon codes end-to-end (ADR-0052, CouponRedemptionTests): the code is REQUIRED for the
 #       discount and is actually charged; the cap holds under TEN CONCURRENT checkouts against
 #       MaxRedemptions=3 (exactly 3 win, the counter matches the redemption rows); the per-customer
@@ -117,7 +128,16 @@
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
 #       per-line RMA derives the refund server-side from the order snapshot
-#       (BL-8); Fulfillment: shipments grouped by source, idempotent
+#       (BL-8);
+#       DISCOUNTED REFUND BASIS (ADR-0055, RmaRefundBasisTests): a full return of a discounted order
+#       is capped at the refundable gross and reaches RefundIssued instead of stranding in
+#       RefundPending forever, a partial return refunds the line's DISCOUNTED value (2800, not the
+#       4000 it was listed at) and the customer is shown that same number, a line's discount is
+#       pro-rated across a partially returned quantity, a pre-ADR-0055 snapshot still refunds but
+#       never above the captured gross, a second request can only claim what is left of the gross
+#       (nothing left ⇒ 400), and a refund Payments cannot cover ends the RMA in a terminal
+#       RefundFailed state instead of going quiet — trial balance 0 throughout;
+#       Fulfillment: shipments grouped by source, idempotent
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
 #       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/

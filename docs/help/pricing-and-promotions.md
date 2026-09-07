@@ -262,7 +262,18 @@ it reports the smaller of the two possible discounts, so the shopper can only be
 better. Picking a shipping option at checkout re-prices the page, so the last thing they see before paying
 is the verdict checkout applies.
 
-### 2.8 Tax ([ADR-0038](../adr/0038-per-currency-shelf-prices-and-tax-entry.md) / [ADR-0050](../adr/0050-per-country-ship-rules-and-ship-to-allowlist.md))
+### 2.8 Tax ([ADR-0038](../adr/0038-per-currency-shelf-prices-and-tax-entry.md) / [ADR-0050](../adr/0050-per-country-ship-rules-and-ship-to-allowlist.md) / [ADR-0055](../adr/0055-discounted-refund-basis-and-storefront-scoped-tax.md))
+
+**Whose tax?** The rate *and* the regime (inclusive vs exclusive) come from **the storefront being
+checked out** — its own projected `StorefrontTaxCopy` row, the same one the ship-to allowlist reads.
+They are never resolved by currency across storefronts: two live stores may share a currency and charge
+completely different tax, which is exactly what a 0% store did *wrong* before ADR-0055 (it picked up a
+same-currency neighbour's 25% inclusive regime). Two consequences an operator will notice:
+
+- A storefront that is **not live** (Draft / Paused / Archived) **cannot be checked out** — the request
+  is refused with a 400 before any payment intent exists, rather than quietly selling untaxed.
+- A session with **no storefront context at all** gets no tax estimate on the checkout page (and cannot
+  complete a checkout anyway — every order belongs to a real storefront).
 
 Tax is computed **last, on the discounted base**:
 
@@ -506,6 +517,9 @@ Full request/response detail: [API contracts index](../api/api_contracts_index.m
 | `IntegrationTests/PromotionMatrixTests.cs` | The discount × promotion × shipping matrix, preview **and** charge on the same cart: the free-shipping/cash-discount race at a real rate, the provisional path, an all-digital cart, exclusives never summing, exclusive vs stack (both directions), a tie, an unmet threshold, free shipping + store-wide, free shipping + product-scoped, coupon + free shipping + store-wide, a coupon losing without burning its allowance, and a stack capped at the subtotal — each asserting `Net − Discount + Ship + Tax = Gross` and trial balance 0 |
 | `IntegrationTests/PromotionProjectionTests.cs` | `PromotionChanged` → `PromotionCopy` insert / idempotent re-consume / deactivate |
 | `IntegrationTests/CouponRedemptionTests.cs` | **Ten concurrent checkouts vs `MaxRedemptions = 3`** (exactly 3 win), guest per-customer limit by email, failed payment releases the hold, redelivered messages neither double-confirm nor double-release, stale-hold sweep |
+| `Ordering/tests/OrderLineDiscountsTests.cs` | The per-line refund basis (ADR-0055): a uniform storefront percentage spread by line value, a product-scoped promotion staying on its line, the two stacked, rounding remainders summing exactly, and the subtotal clamp |
+| `IntegrationTests/StorefrontTaxScopingTests.cs` | Two live storefronts in **one currency** at 0% exclusive and 25% inclusive each charging their own rate and regime, a low-rate store next to a louder one, another tenant's store in the same currency, and the non-live refusal |
+| `IntegrationTests/RmaRefundBasisTests.cs` | A return refunds the **discounted** line value (2800, not the 4000 it was listed at), a full return of a discounted order is capped at the refundable gross and reaches `RefundIssued` instead of stranding, per-unit pro-rating on a partial return, the pre-ADR-0055 back-compat path, the second-request cap, and `RefundFailed` as a terminal state |
 | `e2e/promotion-shipping-parity.spec.ts` | The provisional wording on a cart with no address, and the cart settling on the real carrier rate once one is entered |
 | `e2e/storefront-{discount,promotions,coupons}.spec.ts`, `e2e-admin/{commerce-ops-discount,promotions-admin}.spec.ts` | The browser flows: authoring in admin, the shopper seeing the rows, apply/remove |
 
