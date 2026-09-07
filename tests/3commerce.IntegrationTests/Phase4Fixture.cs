@@ -145,10 +145,14 @@ public sealed class Phase4Fixture : IAsyncLifetime
     /// Seeds the Support order read-copy (BL-8) directly, the way OrderSnapshotConsumer would
     /// from OrderConfirmed. The RMA endpoint derives the refund amount from this snapshot.
     /// With no explicit lines, a single line priced at the gross is added.
+    /// <para>
+    /// Each line carries its allocated share of the order's discount (rma_disc): the listed
+    /// <c>UnitPriceMinor</c> is NOT the refund basis on a discounted order.
+    /// </para>
     /// </summary>
     public async Task SeedOrderSnapshotAsync(
         Guid orderId, long grossMinor, string email = "buyer@example.com",
-        params (Guid ProductId, string Title, long UnitPriceMinor, int Quantity)[] lines)
+        params (Guid ProductId, string Title, long UnitPriceMinor, int Quantity, long DiscountMinor)[] lines)
     {
         using var scope = Support.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
@@ -159,7 +163,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
 
         var effective = lines.Length > 0
             ? lines
-            : [(Guid.CreateVersion7(), "Item", grossMinor, 1)];
+            : [(Guid.CreateVersion7(), "Item", grossMinor, 1, 0L)];
 
         db.OrderSnapshots.Add(new OrderSnapshot
         {
@@ -174,6 +178,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
                 ProductId = l.ProductId,
                 Title = l.Title,
                 UnitPriceMinor = l.UnitPriceMinor,
+                DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
             }).ToList(),
         });

@@ -443,6 +443,7 @@
     "selectItems": "选择要退款的商品（全部不勾选则退整单）：",
     "refundQuantityFor": "{title} 的退款数量",
     "lineSummary": "{price} × {quantity}",
+    "lineRefundValue": "退款 {amount}",
     "reason": "原因",
     "submitRefund": "申请退款",
     "submitting": "提交中…",
@@ -549,7 +550,8 @@
       "awaitingReturn": "等待退货",
       "processing": "退款处理中",
       "denied": "已拒绝",
-      "refunded": "已退款"
+      "refunded": "已退款",
+      "refundFailed": "退款失败"
     }
   }
 }

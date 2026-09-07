@@ -29,6 +29,10 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
                 ProductId = l.ProductId,
                 Title = l.Title,
                 UnitPriceMinor = l.UnitPriceMinor,
+                // The line's allocated share of the order discount (rma_disc). An OrderConfirmed
+                // published before the contract carried it deserializes to 0 — the refund then falls
+                // back to the list price, capped by GrossMinor, exactly as it behaved before.
+                DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
             }).ToList(),
         });

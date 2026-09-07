@@ -451,6 +451,7 @@
     "selectItems": "Select the items to refund (leave all unchecked to refund the whole order):",
     "refundQuantityFor": "Quantity to refund for {title}",
     "lineSummary": "{price} × {quantity}",
+    "lineRefundValue": "refund {amount}",
     "reason": "Reason",
     "submitRefund": "Request refund",
     "submitting": "Submitting…",
@@ -557,7 +558,8 @@
       "awaitingReturn": "Awaiting return",
       "processing": "Processing refund",
       "denied": "Denied",
-      "refunded": "Refunded"
+      "refunded": "Refunded",
+      "refundFailed": "Refund failed"
     }
   }
 }

@@ -443,6 +443,7 @@
     "selectItems": "Seleccione los artículos que desea reembolsar (deje todo sin marcar para reembolsar el pedido completo):",
     "refundQuantityFor": "Cantidad a reembolsar de {title}",
     "lineSummary": "{price} × {quantity}",
+    "lineRefundValue": "reembolso {amount}",
     "reason": "Motivo",
     "submitRefund": "Solicitar reembolso",
     "submitting": "Enviando…",
@@ -549,7 +550,8 @@
       "awaitingReturn": "Esperando devolución",
       "processing": "Procesando reembolso",
       "denied": "Denegado",
-      "refunded": "Reembolsado"
+      "refunded": "Reembolsado",
+      "refundFailed": "Reembolso fallido"
     }
   }
 }

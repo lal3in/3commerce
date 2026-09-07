@@ -374,7 +374,9 @@ export async function getMyOrder(orderId: string): Promise<OrderDetail | null> {
   return response.ok ? ((await response.json()) as OrderDetail) : null;
 }
 
-export type RefundableLine = { productId: string; title: string; unitPriceMinor: number; quantity: number };
+// refundableAmountMinor is what those `quantity` units are actually worth back (list value less the
+// line's share of the order discount) — the number to SHOW, so shown == refunded (rma_disc).
+export type RefundableLine = { productId: string; title: string; unitPriceMinor: number; quantity: number; refundableAmountMinor: number };
 export type RefundableOrder = { orderId: string; grossMinor: number; currency: string; lines: RefundableLine[] };
 
 export async function getRefundableOrder(orderId: string): Promise<RefundableOrder | null> {
@@ -403,8 +405,9 @@ export async function getOrderTickets(orderId: string): Promise<OrderTicket[]> {
   return response.ok ? ((await response.json()) as OrderTicket[]) : [];
 }
 
-export type CustomerRmaLine = { productId: string; title: string; quantity: number; unitPriceMinor: number };
-// state is the RMA saga state: Requested | AwaitingReturn | RefundPending | Denied | RefundIssued.
+export type CustomerRmaLine = { productId: string; title: string; quantity: number; unitPriceMinor: number; refundAmountMinor: number };
+// state is the RMA saga state: Requested | AwaitingReturn | RefundPending | Denied | RefundIssued |
+// RefundFailed (Payments could not execute it — rma_disc).
 export type CustomerRma = {
   id: string;
   amountMinor: number;

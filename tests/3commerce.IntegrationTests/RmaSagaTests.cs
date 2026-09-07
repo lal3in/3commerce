@@ -74,8 +74,8 @@ public class RmaSagaTests(Phase4Fixture fixture)
         // Two lines: keyboard 2 × 5000, lamp 1 × 1900 => gross 11900.
         await fixture.SeedSucceededPaymentAsync(orderId, grossMinor: 11900, taxMinor: 0);
         await fixture.SeedOrderSnapshotAsync(orderId, 11900, "buyer@example.com",
-            (keyboard, "Keyboard", 5000, 2),
-            (lamp, "Lamp", 1900, 1));
+            (keyboard, "Keyboard", 5000, 2, 0),
+            (lamp, "Lamp", 1900, 1, 0));
 
         using var customer = Customer();
         // Refund one keyboard only. The client sends quantities, never an amount.

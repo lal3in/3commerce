@@ -45,7 +45,8 @@ public static class AdminRmaEndpoints
             dispositions.TryGetValue(r.CorrelationId, out var d);
             return new RmaDto(
                 r.CorrelationId, r.OrderId, r.Email, r.AmountMinor, r.Reason, r.CurrentState, r.CreatedAt,
-                r.ReturnReceivedAt, d?.Kind.ToString(), d?.StorageReason?.ToString(), d?.Comments);
+                r.ReturnReceivedAt, d?.Kind.ToString(), d?.StorageReason?.ToString(), d?.Comments,
+                r.RefundFailureReason);
         }).ToList());
     }
 
@@ -71,7 +72,8 @@ public static class AdminRmaEndpoints
         // Per-line partial refunds for admins (mirrors the customer flow): an empty selection means the
         // whole still-refundable order (the historical admin behaviour); otherwise the chosen lines, each
         // capped at the still-refundable quantity. The amount is server-derived from the snapshot's line
-        // prices; Payments prorates tax + shipping on it (ExecuteRefundConsumer). Recording the lines also
+        // prices NET OF THE ORDER DISCOUNT and capped at the order's remaining refundable gross (rma_disc);
+        // Payments prorates tax + shipping on it (ExecuteRefundConsumer). Recording the lines also
         // lets partial returns restock the right quantities and keeps the refundable-units math honest.
         var consumed = await TicketEndpoints.ConsumedQuantitiesAsync(db, request.OrderId, ct);
         int Remaining(OrderSnapshotLine l) => Math.Max(0, l.Quantity - consumed.GetValueOrDefault(l.ProductId));
@@ -96,7 +98,9 @@ public static class AdminRmaEndpoints
                 continue;
             }
 
-            amount += line.UnitPriceMinor * qty;
+            // The DISCOUNTED value of those units, not the shelf price (rma_disc): refunding the list
+            // price of a discounted line hands back money the shopper never paid.
+            amount += line.RefundableMinor(qty);
             recordLines.Add(new RmaRequestLine
             {
                 Id = Guid.CreateVersion7(),
@@ -105,9 +109,13 @@ public static class AdminRmaEndpoints
                 Title = line.Title,
                 Quantity = qty,
                 UnitPriceMinor = line.UnitPriceMinor,
+                DiscountMinor = (line.UnitPriceMinor * qty) - line.RefundableMinor(qty),
             });
         }
 
+        // Order-level ceiling: never more than what is left of the captured gross (see
+        // TicketEndpoints.CapAtRefundableGrossAsync).
+        amount = await TicketEndpoints.CapAtRefundableGrossAsync(db, snapshot, amount, ct);
         if (amount <= 0)
         {
             return TypedResults.BadRequest("Nothing left to refund on this order.");
@@ -298,7 +306,9 @@ public record AdminRefundRequest(Guid OrderId, string? Reason, bool AutoApprove 
 public record ApproveRequest(bool RequireReturn);
 public record RmaDto(
     Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,
-    DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null);
+    DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null,
+    // Why a RefundFailed RMA failed (rma_disc) — appended with a default, like every other field here.
+    string? RefundFailureReason = null);
 public record ReturnReceivedRequest(Guid? TenantId, List<RestockLineRequest>? Restock);
 public record RestockLineRequest(Guid ProductId, Guid? VariantId, Guid LocationId, int Quantity);
 public record DispositionRequest(string Kind, string? StorageReason, string? Comments, Guid? TenantId, List<RestockLineRequest>? Restock);
