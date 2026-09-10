@@ -40,6 +40,23 @@ public sealed record PromotionOutcome(
 {
     /// <summary>No promotion applied: zero discount, no free shipping, an all-zero line allocation.</summary>
     public static PromotionOutcome None(int lineCount) => new(0, false, [], new long[lineCount]);
+
+    /// <summary>
+    /// The winners that actually made the shopper better off — discount &gt; 0, or free shipping with a
+    /// shipping amount to waive (rev_zero). A subset of <see cref="AppliedPromotionIds"/>, which stays the
+    /// full winning set because that is what the shopper is SHOWN and what the order snapshots.
+    /// <para>
+    /// The two differ for a reward worth nothing here: a free-shipping promotion on a cart that pays no
+    /// shipping (all-digital, collect-at-warehouse, or shipping already covered) wins its comparison at a
+    /// benefit of 0. Displaying it is harmless; SPENDING a limited coupon allowance on it is not, so the
+    /// redemption path gates on this list instead.
+    /// </para>
+    /// <para>
+    /// Defaults to the full applied set, so an outcome built by any path other than
+    /// <see cref="PromotionEvaluator.Select"/> keeps the historical behaviour.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<Guid> ValuedPromotionIds { get; init; } = AppliedPromotionIds;
 }
 
 /// <summary>
@@ -375,8 +392,20 @@ public static class PromotionEvaluator
         }
 
         ClampToLineTotals(allocation, lineTotals);
+        // Which winners were actually WORTH something at this shipping amount (rev_zero). Measured per
+        // candidate on its own terms, before the subtotal cap: a promotion whose nominal discount the cap
+        // shaved to nothing still counts as valued, which errs toward spending an allowance on a reward
+        // the shopper was genuinely shown rather than silently withholding one.
+        var valued = winners
+            .Where(w => Benefit(w.DiscountMinor, w.FreeShippingApplied, shippingMinor) > 0)
+            .Select(w => w.PromotionId)
+            .ToArray();
+
         return new PromotionOutcome(
-            discountMinor, freeShipping, winners.Select(w => w.PromotionId).ToArray(), allocation);
+            discountMinor, freeShipping, winners.Select(w => w.PromotionId).ToArray(), allocation)
+        {
+            ValuedPromotionIds = valued,
+        };
     }
 
     /// <summary>

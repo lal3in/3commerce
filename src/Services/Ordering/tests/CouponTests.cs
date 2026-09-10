@@ -237,6 +237,56 @@ public class CouponTests
         CouponValidator.Evaluate(
             enteredCode, promotion, [Line(10_000, 1)], Tenant, Storefront, "AUD", Now, heldRedemptions, customerHeld);
 
+    // ---- What the reward is actually WORTH ------------------------------------------------------------
+
+    [Fact]
+    public void A_free_shipping_coupon_wins_but_is_worth_nothing_when_there_is_no_shipping_to_waive()
+    {
+        // rev_zero. Nothing competes with it, so it wins its comparison at a benefit of ZERO. It is still
+        // APPLIED — the shopper is shown it — but it must not be VALUED, or checkout would spend a
+        // single-use allowance on a saving of nothing (an all-digital cart, collect-at-warehouse, or a
+        // cart whose shipping is already covered).
+        var lines = new[] { Line(10_000, 1) };
+        var coupon = FreeShippingPromo(P1, "SHIPFREE");
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [coupon], Tenant, Storefront, "AUD", 0, Now, "SHIPFREE");
+
+        Assert.True(outcome.FreeShippingApplied);
+        Assert.Equal([P1], outcome.AppliedPromotionIds);
+        Assert.Empty(outcome.ValuedPromotionIds);
+    }
+
+    [Fact]
+    public void A_free_shipping_coupon_is_worth_something_the_moment_the_cart_pays_shipping()
+    {
+        var lines = new[] { Line(10_000, 1) };
+        var coupon = FreeShippingPromo(P1, "SHIPFREE");
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [coupon], Tenant, Storefront, "AUD", 499, Now, "SHIPFREE");
+
+        Assert.Equal([P1], outcome.AppliedPromotionIds);
+        Assert.Equal([P1], outcome.ValuedPromotionIds);
+    }
+
+    [Fact]
+    public void A_cash_discount_is_always_worth_what_it_takes_off()
+    {
+        var lines = new[] { Line(10_000, 1) };
+        var coupon = Promo(P1, code: "WELCOME10", percentOff: 10);
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [coupon], Tenant, Storefront, "AUD", 0, Now, "WELCOME10");
+
+        Assert.Equal(1_000, outcome.DiscountMinor);
+        Assert.Equal([P1], outcome.ValuedPromotionIds);
+    }
+
+    private static PromotionCopy FreeShippingPromo(Guid id, string code)
+    {
+        var promo = Promo(id, code: code);
+        promo.GrantsFreeShipping = true;
+        return promo;
+    }
+
     private static PromotionLine Line(long unitPriceMinor, int quantity) =>
         new(ProductA, unitPriceMinor, quantity);
 

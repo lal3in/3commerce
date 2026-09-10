@@ -395,11 +395,14 @@ public static class CheckoutEndpoints
         // honoured. It is deliberately placed AFTER every remaining 400 guard above (the recurring-line
         // gates), so a rejected checkout can never strand a hold; the authorize-failure path below
         // releases it, and the saga releases it on cancellation / payment failure / checkout expiry.
-        // Only a coupon that actually WON is reserved: one out-competed by a better promotion discounted
-        // nothing, so it must not burn an allowance.
+        // Only a coupon that actually WON *and was worth something* is reserved. Two ways to be worth
+        // nothing: out-competed by a better promotion (never in the winning set at all), or a winner whose
+        // reward is 0 here — a free-shipping code on a cart that pays no shipping, which wins its
+        // comparison at benefit 0 and would otherwise spend a single-use allowance on nothing (rev_zero).
+        // ValuedPromotionIds is the winning set minus exactly those.
         var couponReserved = false;
         if (couponPromotion is not null && customerKey is not null
-            && promotionOutcome.AppliedPromotionIds.Contains(couponPromotion.PromotionId))
+            && promotionOutcome.ValuedPromotionIds.Contains(couponPromotion.PromotionId))
         {
             var reservation = await redemptions.TryReserveAsync(
                 couponPromotion, checkoutTenantId, orderId, customerKey, now, ct);
