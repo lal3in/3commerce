@@ -116,6 +116,10 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       REFUND vs REDEMPTION (ADR-0056, CouponRefundPolicyTests): a confirmed redemption is spent for
+#       good — a full refund, a chargeback and a partial refund each leave it Confirmed with the
+#       counter untouched and the shopper refused the code a second time, while the release contrast
+#       (a checkout that never confirms) stays in CouponRedemptionTests;
 #       COUPON ALLOWANCE + PERSISTED ALLOCATION (CouponAllowanceTests): a per-customer hold stranded by
 #       a crash is reclaimed instead of locking that shopper out of the coupon forever (while a hold
 #       taken minutes ago still refuses the second try), a free-shipping code on an all-digital cart
