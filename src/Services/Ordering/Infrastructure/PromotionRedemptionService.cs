@@ -85,6 +85,15 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
                     && r.Status != PromotionRedemptionStatus.Released,
                 ct);
 
+        // Same recovery on the READ path: a stranded hold must not make the preview report a
+        // per-customer refusal that checkout would then have to stand behind.
+        if (promotion is { MaxRedemptionsPerCustomer: { } perCustomer } && customerKey is not null
+            && customerHeld >= perCustomer
+            && await ReleaseStaleAsync(promotion.PromotionId, now, ct, customerKey) > 0)
+        {
+            customerHeld = await CountHeldForCustomerAsync(promotion.PromotionId, customerKey, ct);
+        }
+
         var evaluation = CouponValidator.Evaluate(
             code, promotion, lines, tenantId, storefrontId, currency, now,
             promotion?.RedeemedCount ?? 0, customerHeld);
@@ -128,11 +137,20 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtext({promotionId.ToString()}), hashtext({customerKey}))", ct);
 
-            var heldForCustomer = await db.PromotionRedemptions.CountAsync(
-                r => r.PromotionId == promotionId
-                    && r.CustomerKey == customerKey
-                    && r.Status != PromotionRedemptionStatus.Released,
-                ct);
+            var heldForCustomer = await CountHeldForCustomerAsync(promotionId, customerKey, ct);
+
+            // A per-customer limit that LOOKS reached gets the same second chance the global cap has had
+            // all along (rev_lock). Without it a single hold stranded by a crash — committed reservation,
+            // no checkout attempt, no order — refuses THIS shopper forever: the global sweep only runs
+            // when the global counter is at its cap, and a promotion with no MaxRedemptions never sweeps
+            // at all, so nothing else in the system can ever give the hold back. Gated on the limit
+            // actually being reached, so a shopper with allowance left never pays for it.
+            if (heldForCustomer >= perCustomerLimit
+                && await ReleaseStaleAsync(promotionId, now, ct, customerKey) > 0)
+            {
+                heldForCustomer = await CountHeldForCustomerAsync(promotionId, customerKey, ct);
+            }
+
             if (heldForCustomer >= perCustomerLimit)
             {
                 await tx.RollbackAsync(ct);
@@ -174,6 +192,18 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
     }
 
     /// <summary>
+    /// Reservations this customer currently holds against this promotion — Reserved or Confirmed, never
+    /// Released. The per-customer equivalent of <c>PromotionCopy.RedeemedCount</c>; there is no counter
+    /// column for it, which is why the caller takes an advisory lock around read-then-write.
+    /// </summary>
+    private Task<int> CountHeldForCustomerAsync(Guid promotionId, string customerKey, CancellationToken ct) =>
+        db.PromotionRedemptions.CountAsync(
+            r => r.PromotionId == promotionId
+                && r.CustomerKey == customerKey
+                && r.Status != PromotionRedemptionStatus.Released,
+            ct);
+
+    /// <summary>
     /// THE race-safe step: one conditional UPDATE whose rows-affected says whether the cap allowed the
     /// claim. Never split into a SELECT and an UPDATE.
     /// </summary>
@@ -193,24 +223,33 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
     /// rows whose counter was corrected (0 = nothing was stale).
     /// <para>
     /// This is the ONLY thing that can recover the crash window between the reservation's commit and the
-    /// checkout attempt's, so it must run BEFORE anything reads the counter to refuse a coupon — not only
-    /// on the claim path. Callers gate it on the promotion actually looking exhausted, so the common case
-    /// pays nothing: a live checkout, and a promotion with allowance left, never touch it.
+    /// checkout attempt's, so it must run BEFORE anything reads EITHER counter to refuse a coupon — the
+    /// global cap and the per-customer limit alike, on both the claim and the resolve path. Callers gate
+    /// it on the limit in question actually looking reached, so the common case pays nothing: a live
+    /// checkout, and a shopper with allowance left, never touch it.
+    /// </para>
+    /// <para>
+    /// Pass <paramref name="customerKey"/> to sweep only THAT shopper's holds — what the per-customer
+    /// limit needs, since a global sweep would be doing unrelated work to answer a question about one
+    /// person. The promotion counter is corrected either way: those holds counted against it too.
     /// </para>
     /// </summary>
-    public async Task<int> ReleaseStaleAsync(Guid promotionId, DateTimeOffset now, CancellationToken ct)
+    public async Task<int> ReleaseStaleAsync(
+        Guid promotionId, DateTimeOffset now, CancellationToken ct, string? customerKey = null)
     {
-        var swept = await SweepStaleAsync(promotionId, now, ct);
+        var swept = await SweepStaleAsync(promotionId, now, customerKey, ct);
         if (swept > 0)
         {
             logger.LogWarning(
-                "Coupon {PromotionId}: released stale reservation(s) with no checkout attempt or order", promotionId);
+                "Coupon {PromotionId}: released stale reservation(s) with no checkout attempt or order (customer {CustomerKey})",
+                promotionId, customerKey ?? "<all>");
         }
 
         return swept;
     }
 
-    private Task<int> SweepStaleAsync(Guid promotionId, DateTimeOffset now, CancellationToken ct)
+    private Task<int> SweepStaleAsync(
+        Guid promotionId, DateTimeOffset now, string? customerKey, CancellationToken ct)
     {
         var cutoff = now - StaleReservation;
         return db.Database.ExecuteSqlInterpolatedAsync(
@@ -221,6 +260,7 @@ public sealed class PromotionRedemptionService(OrderingDbContext db, ILogger<Pro
                  WHERE r."PromotionId" = {promotionId}
                    AND r."Status" = 'Reserved'
                    AND r."ReservedAt" < {cutoff}
+                   AND ({customerKey}::text IS NULL OR r."CustomerKey" = {customerKey}::text)
                    AND NOT EXISTS (SELECT 1 FROM ordering."CheckoutAttempts" a WHERE a."Id" = r."OrderId")
                    AND NOT EXISTS (SELECT 1 FROM ordering."Orders" o WHERE o."Id" = r."OrderId")
                  RETURNING 1
