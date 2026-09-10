@@ -20,7 +20,15 @@ else
             <tr style="border-top:1px solid #e5e7eb;">
                 <td>@r.OrderId</td>
                 <td>@Money.Amount(r.AmountMinor, null)</td>
-                <td>@r.State</td>
+                <td>
+                    @r.State
+                    @if (r.RefundFailureReason is { Length: > 0 } failure)
+                    {
+                        @* A refund Payments refused used to be invisible (the RMA simply never left
+                           RefundPending), so the queue now shows the reason on the row. *@
+                        <div style="color:#b91c1c;font-size:.75rem;margin-top:.15rem;">@failure</div>
+                    }
+                </td>
                 <td>@r.Reason</td>
                 <td>
                     @if (_acted.ContainsKey(r.Id))
@@ -345,7 +353,10 @@ else
 
     public record RmaDto(
         Guid Id, Guid OrderId, string? Email, long AmountMinor, string? Reason, string State, DateTimeOffset CreatedAt,
-        DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null);
+        DateTimeOffset? ReturnReceivedAt = null, string? DispositionKind = null, string? StorageReason = null, string? DispositionComments = null,
+        // Why a RefundFailed RMA failed (rma_disc): the operator needs the reason to decide whether to
+        // retry with a corrected amount. Appended with a default, like the fields above it.
+        string? RefundFailureReason = null);
     private record OrderDetailDto(Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor, string Currency, DateTimeOffset CreatedAt, List<OrderLineDto> Lines);
     private record OrderLineDto(Guid ProductId, Guid? VariantId, string? VariantSku, string Title, long UnitPriceMinor, long DiscountMinor, int Quantity, string FulfilmentType, string BillingMode);
     private record LocationDto(Guid Id, Guid TenantId, Guid EntityId, Guid? AddressId, string Name, string Kind, string Status);

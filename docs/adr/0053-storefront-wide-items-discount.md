@@ -155,9 +155,12 @@ chargeBase          = subtotal − discountMinor + shippingMinor
   (`PromotionEvaluator.AllocateProportionally`, largest remainder) and sums only the allocations on
   destination-taxable lines. `HomeRegimeTaxStrategy` in `Pricing.cs` still uses the proportional ratio,
   which remains correct for its own (uniform) inputs.
-- **Checkout resolves the discount by storefront id, while the tax rate is still resolved by currency**
-  (`IsLive`, highest rate). Two different resolution rules read from the same table; the discount's is the
-  precise one. Aligning the tax lookup is a separate, pre-existing concern.
+- **Checkout resolved the discount by storefront id, while the tax rate was still resolved by currency**
+  (`IsLive`, highest rate). Two different resolution rules read from the same table; the discount's was the
+  precise one. Aligning the tax lookup was called out here as a separate, pre-existing concern — and it
+  was: a 0% store charged a same-currency neighbour's rate *and* its inclusiveness. **Fixed by
+  [ADR-0055](./0055-discounted-refund-basis-and-storefront-scoped-tax.md)**, which resolves tax from the
+  same storefront copy the discount already used.
 - **Rounding is `AwayFromZero`**, so a half-minor-unit tie rounds the discount *up* — in the shopper's
   favour, and consistently in the admin's percent→bps conversion, the engine, checkout, the cart preview
   and the TypeScript client.

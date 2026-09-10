@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { CouponStatus, getAddresses, getCart, getCartSummary, getProfile, getSavedPaymentMethods, getStorefrontConfig, PromotionBasis } from "@/lib/gateway";
+import { CouponStatus, getAddresses, getCart, getCartSummary, getProfile, getSavedPaymentMethods, PromotionBasis } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { resolveShippingBasis } from "@/lib/shipping-basis";
 import { formatMoney } from "@/lib/money";
@@ -20,12 +20,15 @@ export default async function CheckoutPage({
   const enteredCoupon = (await searchParams).coupon?.trim().toUpperCase() || null;
   const cart = await getCart();
   const profile = await getProfile();
-  // Tax context: the resolved storefront (cookie/host) wins; fall back to a by-currency lookup so a
-  // context-less session still shows the right rate for whatever currency its cart is in.
   const [addresses, paymentMethods, storefront] = profile
     ? await Promise.all([getAddresses(), getSavedPaymentMethods(), resolveStorefront()])
     : [[], [], await resolveStorefront()];
-  const taxSource = storefront ?? (await getStorefrontConfig({ currency: cart.currency }));
+  // Tax context is THIS storefront's, or nothing (rev_tax). There used to be a by-currency fallback
+  // here, mirroring the unscoped lookup Ordering did: it picked whichever live store happened to share
+  // the cart's currency and showed its rate and its inclusiveness. That is a rate for an order that
+  // cannot even be placed — the checkout POST carries `storefront?.id`, and Ordering refuses a checkout
+  // with no resolved store — so the only honest estimate with no storefront context is no tax at all.
+  const taxSource = storefront;
   if (cart.items.length === 0) {
     redirect("/cart");
   }

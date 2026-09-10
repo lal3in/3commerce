@@ -8,6 +8,12 @@ namespace ThreeCommerce.Support.Infrastructure.Sagas;
 /// RMA lifecycle (ADR-0018): Requested → Approved/Denied → (AwaitingReturn → ReturnReceived)
 /// → RefundIssued. Approval publishes the single Phase-3 RefundRequested contract — Support
 /// never touches Stripe or the ledger directly. RefundCompleted advances to RefundIssued.
+/// <para>
+/// RefundFailed is the other terminal outcome: Payments could not execute the refund (no captured
+/// payment, more than the remaining balance, or a provider decline). It used to be a silent return in
+/// Payments, so the RMA stayed in RefundPending forever; now it lands in RefundFailed and the shopper
+/// (and the RMA queue) are told, so an operator can retry with a corrected amount (rma_disc).
+/// </para>
 /// </summary>
 public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
 {
@@ -16,12 +22,14 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
     public State RefundPending { get; private set; } = null!;
     public State Denied { get; private set; } = null!;
     public State RefundIssued { get; private set; } = null!;
+    public State RefundFailed { get; private set; } = null!;
 
     public Event<RmaRequested> RmaRequestedEvent { get; private set; } = null!;
     public Event<RmaApproved> RmaApprovedEvent { get; private set; } = null!;
     public Event<RmaDenied> RmaDeniedEvent { get; private set; } = null!;
     public Event<ReturnReceived> ReturnReceivedEvent { get; private set; } = null!;
     public Event<RefundCompleted> RefundCompletedEvent { get; private set; } = null!;
+    public Event<RefundFailed> RefundFailedEvent { get; private set; } = null!;
 
     public RmaStateMachine()
     {
@@ -33,6 +41,9 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
         Event(() => ReturnReceivedEvent, e => e.CorrelateById(c => c.Message.RmaId));
         // RefundCompleted carries the RefundId we generated; match it back to the saga.
         Event(() => RefundCompletedEvent, e => e.CorrelateBy((saga, ctx) => saga.RefundId == ctx.Message.RefundId));
+        // ...and so does its failure twin. Not correlating it would put the refund's own failure on the
+        // error queue and leave the RMA exactly where the silent return left it.
+        Event(() => RefundFailedEvent, e => e.CorrelateBy((saga, ctx) => saga.RefundId == ctx.Message.RefundId));
 
         Initially(
             When(RmaRequestedEvent)
@@ -84,7 +95,13 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
         During(RefundPending,
             When(RefundCompletedEvent)
                 .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "RefundIssued"))
-                .TransitionTo(RefundIssued));
+                .TransitionTo(RefundIssued),
+            // Terminal, and retained as the admin read model (like Denied): the operator sees a
+            // RefundFailed row with the reason instead of a queue entry that never moves.
+            When(RefundFailedEvent)
+                .Then(c => c.Saga.RefundFailureReason = $"{c.Message.Reason}: {c.Message.Detail}")
+                .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "RefundFailed"))
+                .TransitionTo(RefundFailed));
 
     }
 }

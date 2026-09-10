@@ -14,6 +14,10 @@ public class RmaState : SagaStateMachineInstance
     public Guid RefundId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>Why Payments could not execute the refund, when the RMA ended in RefundFailed — the
+    /// reason an operator needs to decide whether to retry with a corrected amount (rma_disc).</summary>
+    public string? RefundFailureReason { get; set; }
+
     /// <summary>Set when the operator marks the return received — lets the admin queue offer the
     /// restock/storage disposition step afterwards, regardless of the refund state.</summary>
     public DateTimeOffset? ReturnReceivedAt { get; set; }

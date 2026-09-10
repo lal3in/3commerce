@@ -11,6 +11,11 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 /// <summary>
 /// The single refund execution path (ADR-0014): ledger reversal + provider refund +
 /// RefundCompleted. Idempotent on RefundId. Rejects refunds exceeding the remaining balance.
+/// <para>
+/// Every rejection is ANNOUNCED as <see cref="RefundFailed"/>, never just logged: a requester (the RMA
+/// saga) that hears nothing back has no terminal state to move to and strands in RefundPending forever
+/// — which is how a refund could silently never happen (rma_disc).
+/// </para>
 /// </summary>
 public sealed class ExecuteRefundConsumer(
     PaymentsDbContext db,
@@ -31,6 +36,9 @@ public sealed class ExecuteRefundConsumer(
         if (payment is null || payment.Status is PaymentStatus.Pending or PaymentStatus.Failed)
         {
             logger.LogWarning("Refund {RefundId}: order {OrderId} has no captured payment", msg.RefundId, msg.OrderId);
+            await context.Publish(new RefundFailed(
+                msg.RefundId, msg.OrderId, msg.AmountMinor, RefundFailureReason.NoCapturedPayment,
+                "The order has no captured payment to refund."));
             return;
         }
 
@@ -38,6 +46,9 @@ public sealed class ExecuteRefundConsumer(
         if (msg.AmountMinor <= 0 || msg.AmountMinor > remaining)
         {
             logger.LogWarning("Refund {RefundId}: amount {Amount} exceeds remaining {Remaining}", msg.RefundId, msg.AmountMinor, remaining);
+            await context.Publish(new RefundFailed(
+                msg.RefundId, msg.OrderId, msg.AmountMinor, RefundFailureReason.AmountExceedsRemaining,
+                $"Requested {msg.AmountMinor} but only {remaining} of the payment is still refundable."));
             return;
         }
 
@@ -49,6 +60,9 @@ public sealed class ExecuteRefundConsumer(
         if (!result.Succeeded)
         {
             logger.LogWarning("Refund {RefundId}: provider declined", msg.RefundId);
+            await context.Publish(new RefundFailed(
+                msg.RefundId, msg.OrderId, msg.AmountMinor, RefundFailureReason.ProviderDeclined,
+                "The payment provider declined the refund."));
             return;
         }
 

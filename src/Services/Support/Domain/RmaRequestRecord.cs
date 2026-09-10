@@ -26,4 +26,14 @@ public class RmaRequestLine
     public required string Title { get; init; }
     public int Quantity { get; init; }
     public long UnitPriceMinor { get; init; }
+
+    /// <summary>
+    /// The share of the order's discount carried by the returned units, so the recorded lines explain
+    /// the request's amount: <c>Σ (UnitPriceMinor × Quantity − DiscountMinor)</c> is what was asked for,
+    /// before the order-level gross cap (rma_disc). Zero on pre-rma_disc orders and on undiscounted ones.
+    /// </summary>
+    public long DiscountMinor { get; init; }
+
+    /// <summary>What these units are worth back to the shopper — the number the refund is built from.</summary>
+    public long RefundableMinor() => Math.Max(0, (UnitPriceMinor * Quantity) - DiscountMinor);
 }

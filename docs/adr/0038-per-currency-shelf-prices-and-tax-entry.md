@@ -37,7 +37,10 @@ shopper pays.
      checkout adds `round(amount × bps / 10000)` on goods + shipping, as before.
    - The regime lives on the **storefront**; the flag reaches Ordering as `TaxInclusive` on the
      `StorefrontConfigChanged` projection (ADR-0008 read copy — no cross-service query), resolved at
-     checkout by the cart's currency exactly like the rate.
+     checkout from **that storefront's own copy** exactly like the rate. (Checkout originally resolved
+     both by the cart's *currency*, across storefronts; **ADR-0055** scoped the lookup to the storefront
+     being checked out after a 0% store was found charging a same-currency neighbour's 25% inclusive
+     regime.)
 
 3. **Operator visibility is part of the contract**: every admin price-entry field carries a
    tooltip/note stating the convention (Catalog product editor base + per-currency price inputs;

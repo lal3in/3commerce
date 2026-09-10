@@ -161,6 +161,14 @@ export function SupportForms({ orderId, refundable, email }: { orderId: string; 
                         price: formatMoney(line.unitPriceMinor, refundable.currency),
                         quantity: line.quantity,
                       })}
+                      {/* A discounted line refunds less than its shelf price × quantity, so say what
+                          actually comes back rather than letting the shopper do the wrong arithmetic
+                          (rma_disc). Shown only when the two differ. */}
+                      {line.refundableAmountMinor !== line.unitPriceMinor * line.quantity && (
+                        <span className="ml-1 text-neutral-400">
+                          ({t("lineRefundValue", { amount: formatMoney(line.refundableAmountMinor, refundable.currency) })})
+                        </span>
+                      )}
                     </span>
                   </li>
                 ))}

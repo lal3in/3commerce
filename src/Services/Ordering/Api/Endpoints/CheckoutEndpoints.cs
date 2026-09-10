@@ -287,15 +287,26 @@ public static class CheckoutEndpoints
         // be discounted below zero. Same shape as PricingEngine.
         var discountMinor = Math.Clamp(promotionOutcome.DiscountMinor + storefrontDiscountMinor, 0, subtotal);
 
-        // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness resolved by
-        // the cart's currency. Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already
-        // CONTAIN the tax — the shopper pays exactly the listed amount and the contained portion is
-        // reported informationally. Exclusive regimes (US sales tax): tax is added on goods + shipping.
-        var taxConfig = await db.StorefrontTaxCopies
-            .Where(t => t.IsLive && t.Currency == currency)
-            .OrderByDescending(t => t.TaxRateBasisPoints)
-            .Select(t => new { t.TaxRateBasisPoints, t.TaxInclusive })
-            .FirstOrDefaultAsync(ct);
+        // Storefront tax (ADR-0008 projection, ADR-0038 semantics): rate + inclusiveness come from THIS
+        // storefront's projected config — storefrontCopy, already loaded above for the ship-to gate — and
+        // never from a by-currency scan, which happily returned an unrelated tenant's storefront (rev_tax:
+        // a 0% EUR store charged the 25% store's rate, and its inclusiveness with it).
+        // Inclusive regimes (AU GST / EU VAT): the tenant's shelf prices already CONTAIN the tax — the
+        // shopper pays exactly the listed amount and the contained portion is reported informationally.
+        // Exclusive regimes (US sales tax): tax is added on goods + shipping.
+        //
+        // NOT LIVE = NOT SELLING. A projected copy whose storefront is Draft/Paused/Archived (IsLive
+        // false — Catalog sets it from Active/Preview) is refused outright rather than silently charging
+        // zero tax: the old query filtered `IsLive`, so a paused store never contributed a rate, and
+        // quietly under-collecting tax on a sale nobody meant to make is the worse of the two failures.
+        // A storefront with NO projected copy at all keeps the historical no-tax fallback — that is the
+        // tenant-default context, not a store that was switched off.
+        if (storefrontCopy is { IsLive: false })
+        {
+            return TypedResults.BadRequest("This storefront is not currently open for orders.");
+        }
+
+        var taxConfig = storefrontCopy;
         var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
         // Tax base excludes ship-rule-exempt goods; the charge base always keeps the full subtotal so the
         // shopper still pays for exempt lines — only the tax portion shrinks (see ProductShipRule).

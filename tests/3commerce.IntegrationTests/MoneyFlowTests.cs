@@ -301,6 +301,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         var productId = await fixture.SeedProductAsync(10_000, currency);
         using var shopper = fixture.Ordering.CreateClient();
+        // Tax is resolved from THIS storefront's config, never by currency (rev_tax) — so the shopper
+        // has to be on the store whose rate is under test.
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
         await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
         var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
 
@@ -818,13 +821,14 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         // A live tax regime in a currency no other test uses, so this 10% rate never bleeds into
         // the shared EUR/AUD assertions elsewhere in the collection. (CHF — SGD is taken by the
         // exclusive-tax ledger test at 2000 bps; a second live SGD copy would collide on resolution.)
-        await SeedLiveTaxAsync("CHF", 1_000);
+        var storefrontId = await SeedLiveTaxAsync("CHF", 1_000);
         var exempt = await SeedProductWithRulesAsync(10_000, "CHF",
             new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: false, ShippingCovered: false));
         var taxed = await SeedProductWithRulesAsync(10_000, "CHF"); // no rule → taxed (control)
 
         // Control: no rule → full 10% destination tax (shipping forced to 0 to isolate goods tax).
         using var control = fixture.Ordering.CreateClient();
+        control.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
         (await control.PostAsJsonAsync("/cart/items", new { productId = taxed, quantity = 1 })).EnsureSuccessStatusCode();
         var controlOrder = (await (await control.PostAsJsonAsync("/checkout", CheckoutWithShipping(0))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
         Assert.Equal(1_000, controlOrder.TaxMinor);
@@ -832,6 +836,7 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         // Exempt product to DE: destination tax is skipped, but the shopper still pays for the goods.
         using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
         (await shopper.PostAsJsonAsync("/cart/items", new { productId = exempt, quantity = 1 })).EnsureSuccessStatusCode();
         var order = (await (await shopper.PostAsJsonAsync("/checkout", CheckoutWithShipping(0))).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
         Assert.Equal(0, order.TaxMinor);
@@ -867,11 +872,12 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     public async Task Checkout_does_not_tax_shipping_when_all_lines_are_destination_tax_exempt()
     {
         // A live 10% regime in a currency no other test uses, so it never bleeds into shared assertions.
-        await SeedLiveTaxAsync("PLN", 1_000);
+        var storefrontId = await SeedLiveTaxAsync("PLN", 1_000);
         var exempt = await SeedProductWithRulesAsync(10_000, "PLN",
             new ThreeCommerce.Ordering.Domain.ProductShipRule("DE", ChargeDestinationTax: false, ShippingCovered: false));
 
         using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
         (await shopper.PostAsJsonAsync("/cart/items", new { productId = exempt, quantity = 1 })).EnsureSuccessStatusCode();
 
         // Shipping is charged (500) but every line is destination-tax-exempt → tax must be 0. Shipping
@@ -905,13 +911,16 @@ public class MoneyFlowTests(Phase3Fixture fixture)
         return id;
     }
 
-    private async Task SeedLiveTaxAsync(string currency, int basisPoints)
+    /// <summary>A live storefront with a tax rate, returning its id — checkout resolves tax from the
+    /// storefront it is on, so the shopper client must carry this id (rev_tax).</summary>
+    private async Task<Guid> SeedLiveTaxAsync(string currency, int basisPoints)
     {
+        var storefrontId = Guid.CreateVersion7();
         using var scope = fixture.Ordering.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
         db.StorefrontTaxCopies.Add(new ThreeCommerce.Ordering.Domain.StorefrontTaxCopy
         {
-            StorefrontId = Guid.CreateVersion7(),
+            StorefrontId = storefrontId,
             TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
             Currency = currency,
             IsLive = true,
@@ -919,6 +928,7 @@ public class MoneyFlowTests(Phase3Fixture fixture)
             TaxInclusive = false,
         });
         await db.SaveChangesAsync();
+        return storefrontId;
     }
 
     [Fact]

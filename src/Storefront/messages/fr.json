@@ -443,6 +443,7 @@
     "selectItems": "Sélectionnez les articles à rembourser (laissez tout décoché pour rembourser toute la commande) :",
     "refundQuantityFor": "Quantité à rembourser pour {title}",
     "lineSummary": "{price} × {quantity}",
+    "lineRefundValue": "remboursement {amount}",
     "reason": "Motif",
     "submitRefund": "Demander le remboursement",
     "submitting": "Envoi…",
@@ -549,7 +550,8 @@
       "awaitingReturn": "En attente du retour",
       "processing": "Remboursement en cours",
       "denied": "Refusé",
-      "refunded": "Remboursé"
+      "refunded": "Remboursé",
+      "refundFailed": "Remboursement échoué"
     }
   }
 }

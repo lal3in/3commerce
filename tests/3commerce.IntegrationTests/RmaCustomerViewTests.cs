@@ -46,7 +46,7 @@ public class RmaCustomerViewTests(Phase4Fixture fixture)
         var orderId = Guid.CreateVersion7();
         var widget = Guid.CreateVersion7();
         // One line: 4 × 1000.
-        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4, 0));
         using var customer = Customer();
 
         Assert.Equal(4, await RefundableQtyAsync(customer, orderId, widget)); // all 4 refundable up front
@@ -80,7 +80,7 @@ public class RmaCustomerViewTests(Phase4Fixture fixture)
         var orderId = Guid.CreateVersion7();
         var widget = Guid.CreateVersion7();
         await fixture.SeedSucceededPaymentAsync(orderId, 4000, 0);
-        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4, 0));
         using var customer = Customer();
 
         var response = await customer.PostAsJsonAsync("/rma", new
@@ -110,7 +110,7 @@ public class RmaCustomerViewTests(Phase4Fixture fixture)
     {
         var orderId = Guid.CreateVersion7();
         var widget = Guid.CreateVersion7();
-        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4, 0));
         using var admin = Admin();
 
         // No line selection → the whole still-refundable order (historical admin behaviour): 4 × 1000.
@@ -124,7 +124,7 @@ public class RmaCustomerViewTests(Phase4Fixture fixture)
     {
         var orderId = Guid.CreateVersion7();
         var widget = Guid.CreateVersion7();
-        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4));
+        await fixture.SeedOrderSnapshotAsync(orderId, 4000, "buyer@example.com", (widget, "Widget", 1000, 4, 0));
         using var admin = Admin();
         using var customer = Customer();
 

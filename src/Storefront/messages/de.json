@@ -443,6 +443,7 @@
     "selectItems": "Wählen Sie die zu erstattenden Artikel aus (alle unmarkiert lassen, um die gesamte Bestellung zu erstatten):",
     "refundQuantityFor": "Zu erstattende Menge für {title}",
     "lineSummary": "{price} × {quantity}",
+    "lineRefundValue": "Erstattung {amount}",
     "reason": "Grund",
     "submitRefund": "Rückerstattung anfordern",
     "submitting": "Wird übermittelt…",
@@ -549,7 +550,8 @@
       "awaitingReturn": "Warten auf Rücksendung",
       "processing": "Rückerstattung in Bearbeitung",
       "denied": "Abgelehnt",
-      "refunded": "Erstattet"
+      "refunded": "Erstattet",
+      "refundFailed": "Rückerstattung fehlgeschlagen"
     }
   }
 }

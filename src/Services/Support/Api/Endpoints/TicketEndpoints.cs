@@ -132,6 +132,8 @@ public static class TicketEndpoints
 
         // Server-derived amount (BL-8): empty selection => whatever is left of the whole order; else
         // the chosen lines, each capped at the still-refundable quantity. The client never sends an amount.
+        // The per-line value is the DISCOUNTED one (rma_disc) — list price minus the line's allocated
+        // share of the order discount — because that is what the shopper was actually charged.
         long amount = 0;
         if (request.Lines is null || request.Lines.Count == 0)
         {
@@ -139,7 +141,7 @@ public static class TicketEndpoints
             {
                 var qty = Remaining(line);
                 if (qty <= 0) continue;
-                amount += line.UnitPriceMinor * qty;
+                amount += line.RefundableMinor(qty);
                 recordLines.Add(NewLine(rmaId, line, qty));
             }
         }
@@ -155,11 +157,12 @@ public static class TicketEndpoints
 
                 var qty = Math.Clamp(sel.Quantity, 0, Remaining(line));
                 if (qty <= 0) continue;
-                amount += line.UnitPriceMinor * qty;
+                amount += line.RefundableMinor(qty);
                 recordLines.Add(NewLine(rmaId, line, qty));
             }
         }
 
+        amount = await CapAtRefundableGrossAsync(db, snapshot, amount, ct);
         if (amount <= 0)
         {
             return TypedResults.BadRequest("Nothing left to refund on this order.");
@@ -188,7 +191,38 @@ public static class TicketEndpoints
             Title = l.Title,
             Quantity = qty,
             UnitPriceMinor = l.UnitPriceMinor,
+            DiscountMinor = (l.UnitPriceMinor * qty) - l.RefundableMinor(qty),
         };
+    }
+
+    /// <summary>
+    /// The order-level ceiling on a refund (rma_disc). Line values can only ever be an estimate of what
+    /// the shopper paid — the snapshot knows nothing of shipping, tax or an earlier partial refund — so
+    /// the request is finally capped at what is left of <see cref="OrderSnapshot.GrossMinor"/> after
+    /// every earlier non-denied request. Without this a discounted order's full return asked Payments
+    /// for more than the captured payment, which it declined; that used to be a SILENT decline, so the
+    /// RMA sat in RefundPending forever. Capping keeps the request payable, and Payments now reports a
+    /// decline as <c>RefundFailed</c> either way.
+    /// </summary>
+    internal static async Task<long> CapAtRefundableGrossAsync(
+        SupportDbContext db, OrderSnapshot snapshot, long amount, CancellationToken ct)
+    {
+        if (amount <= 0)
+        {
+            return 0;
+        }
+
+        var deniedIds = (await db.Rmas.AsNoTracking()
+            .Where(s => s.OrderId == snapshot.OrderId && s.CurrentState == "Denied")
+            .Select(s => s.CorrelationId).ToListAsync(ct)).ToHashSet();
+        var claimed = (await db.RmaRequests.AsNoTracking()
+            .Where(r => r.OrderId == snapshot.OrderId)
+            .Select(r => new { r.Id, r.AmountMinor }).ToListAsync(ct))
+            .Where(r => !deniedIds.Contains(r.Id))
+            .Sum(r => r.AmountMinor);
+
+        var remaining = Math.Max(0, snapshot.GrossMinor - claimed);
+        return Math.Min(amount, remaining);
     }
 
     // Units already claimed per product on an order by requests that haven't been denied — used both to
@@ -227,7 +261,14 @@ public static class TicketEndpoints
         return TypedResults.Ok(new RefundableOrderDto(
             snap.OrderId, snap.GrossMinor, snap.Currency,
             snap.Lines
-                .Select(l => new RefundableLineDto(l.ProductId, l.Title, l.UnitPriceMinor, Math.Max(0, l.Quantity - consumed.GetValueOrDefault(l.ProductId))))
+                .Select(l =>
+                {
+                    var remaining = Math.Max(0, l.Quantity - consumed.GetValueOrDefault(l.ProductId));
+                    // Shown == refunded (rma_disc): the money the shopper gets back for those units is
+                    // the DISCOUNTED value, so send it alongside the list price rather than letting the
+                    // UI multiply a shelf price the order never charged.
+                    return new RefundableLineDto(l.ProductId, l.Title, l.UnitPriceMinor, remaining, l.RefundableMinor(remaining));
+                })
                 .ToList()));
     }
 
@@ -242,7 +283,8 @@ public static class TicketEndpoints
         return TypedResults.Ok(records.Select(r => new CustomerRmaDto(
             r.Id, r.AmountMinor, r.Currency, r.Reason,
             states.GetValueOrDefault(r.Id, "Requested"), r.CreatedAt,
-            r.Lines.Select(l => new CustomerRmaLineDto(l.ProductId, l.Title, l.Quantity, l.UnitPriceMinor)).ToList())).ToList());
+            r.Lines.Select(l => new CustomerRmaLineDto(
+                l.ProductId, l.Title, l.Quantity, l.UnitPriceMinor, l.RefundableMinor())).ToList())).ToList());
     }
 
     private static TicketDto ToDto(Ticket t, ILookup<Guid, AttachmentDto>? attachments = null) => new(
@@ -255,9 +297,11 @@ public record OpenTicketRequest([property: Required] Guid OrderId, [property: Re
 public record MessageRequest([property: Required] string Body);
 public record RmaLineSelection([property: Required] Guid ProductId, [property: Range(1, 999)] int Quantity);
 public record RmaRequest([property: Required] Guid OrderId, [property: Required] string Reason, List<RmaLineSelection>? Lines);
-public record RefundableLineDto(Guid ProductId, string Title, long UnitPriceMinor, int Quantity);
+// RefundableAmountMinor / RefundAmountMinor are APPENDED with defaults (positional records): the
+// discounted value of the units, i.e. the money that actually comes back (rma_disc).
+public record RefundableLineDto(Guid ProductId, string Title, long UnitPriceMinor, int Quantity, long RefundableAmountMinor = 0);
 public record RefundableOrderDto(Guid OrderId, long GrossMinor, string Currency, List<RefundableLineDto> Lines);
-public record CustomerRmaLineDto(Guid ProductId, string Title, int Quantity, long UnitPriceMinor);
+public record CustomerRmaLineDto(Guid ProductId, string Title, int Quantity, long UnitPriceMinor, long RefundAmountMinor = 0);
 public record CustomerRmaDto(Guid Id, long AmountMinor, string Currency, string Reason, string State, DateTimeOffset CreatedAt, List<CustomerRmaLineDto> Lines);
 public record MessageDto(string Author, string Body, DateTimeOffset CreatedAt);
 public record TicketDto(Guid Id, Guid OrderId, string Email, string Reason, string Status, DateTimeOffset CreatedAt, List<MessageDto> Messages, List<AttachmentDto> Attachments);

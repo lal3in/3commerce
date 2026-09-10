@@ -14,6 +14,9 @@ const STATUS: Record<string, { key: string; cls: string }> = {
   RefundPending: { key: "status.processing", cls: "border-indigo-200 bg-indigo-50 text-indigo-700" },
   Denied: { key: "status.denied", cls: "border-red-200 bg-red-50 text-red-700" },
   RefundIssued: { key: "status.refunded", cls: "border-green-200 bg-green-50 text-green-700" },
+  // Terminal failure (rma_disc): Payments could not execute the refund. It used to be invisible — the
+  // request simply sat in "Processing refund" forever — so it gets its own, alarming, badge.
+  RefundFailed: { key: "status.refundFailed", cls: "border-red-200 bg-red-50 text-red-700" },
 };
 
 // The customer's refund/return requests for this order — a collapsed list; click a row's chevron to
@@ -83,7 +86,7 @@ export function RefundRequests({ orderId, refunds: initial }: { orderId: string;
                       <li key={l.productId} className="flex items-center gap-2 text-neutral-700">
                         <span className="tabular-nums text-neutral-500">{l.quantity}×</span>
                         <span className="flex-1">{l.title}</span>
-                        <span className="text-neutral-500">{formatMoney(l.unitPriceMinor, r.currency)}</span>
+                        <span className="text-neutral-500">{formatMoney(l.refundAmountMinor, r.currency)}</span>
                       </li>
                     ))}
                   </ul>
