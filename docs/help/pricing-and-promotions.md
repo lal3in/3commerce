@@ -180,6 +180,13 @@ a retried checkout idempotent.
   scoped to that one shopper's holds. Without it a single crash locked one shopper out of a coupon
   permanently: no other path could ever release the hold, and a promotion with no `MaxRedemptions` swept
   nothing at all.
+- **A refund never gives a redemption back** ([ADR-0056](../adr/0056-a-refunded-order-keeps-its-redemption.md)).
+  A confirmed redemption is spent for good: a full refund, partial refund, dispute or chargeback all
+  leave it `Confirmed` and the counter untouched, because the allowance rations the DISCOUNT (the offer
+  was taken up) and not the revenue. Releasing would let a shopper reset a one-shot code by returning the
+  order. Release stays correct only where no sale ever happened — failed payment, cancel, expiry, and the
+  stale sweep. The rule is enforced by the `Status = 'Reserved'` guard inside `ReleaseAsync`, so a refund
+  path that calls it changes nothing.
 - A reward **worth nothing here is never spent**: a free-shipping code on a cart that pays no shipping
   wins its comparison at a benefit of 0, is still shown as applied, but does not consume an allowance
   (`PromotionOutcome.ValuedPromotionIds` is the winning set minus those).
@@ -528,6 +535,7 @@ Full request/response detail: [API contracts index](../api/api_contracts_index.m
 | `IntegrationTests/MoneyFlowTests.cs` | End-to-end money with trial balance 0 for every discount shape |
 | `IntegrationTests/PromotionMatrixTests.cs` | The discount × promotion × shipping matrix, preview **and** charge on the same cart: the free-shipping/cash-discount race at a real rate, the provisional path, an all-digital cart, exclusives never summing, exclusive vs stack (both directions), a tie, an unmet threshold, free shipping + store-wide, free shipping + product-scoped, coupon + free shipping + store-wide, a coupon losing without burning its allowance, and a stack capped at the subtotal — each asserting `Net − Discount + Ship + Tax = Gross` and trial balance 0 |
 | `IntegrationTests/PromotionProjectionTests.cs` | `PromotionChanged` → `PromotionCopy` insert / idempotent re-consume / deactivate |
+| `IntegrationTests/CouponRefundPolicyTests.cs` | A confirmed redemption survives a **full refund**, a **chargeback** and a **partial refund** — status stays `Confirmed`, `RedeemedCount` stays put, and the shopper is refused the code a second time (ADR-0056). Confirmed to fail against a deliberately widened release guard |
 | `IntegrationTests/CouponAllowanceTests.cs` | What an allowance may be spent on, and what checkout WRITES DOWN: a hold stranded by a crash no longer locks that shopper out forever (and an in-flight hold still counts), a reward worth 0 does not burn a single-use code and the next shopper still gets it, and the PERSISTED per-line discount is read back out of the database — a product-scoped promotion lands wholly on its own line and the vector sums to `PromotionDiscountMinor` |
 | `IntegrationTests/CouponRedemptionTests.cs` | **Ten concurrent checkouts vs `MaxRedemptions = 3`** (exactly 3 win), guest per-customer limit by email, failed payment releases the hold, redelivered messages neither double-confirm nor double-release, stale-hold sweep |
 | `Ordering/tests/OrderLineDiscountsTests.cs` | The per-line refund basis (ADR-0055): a uniform storefront percentage spread by line value, a product-scoped promotion staying on its line, the two stacked, rounding remainders summing exactly, and the subtotal clamp |
