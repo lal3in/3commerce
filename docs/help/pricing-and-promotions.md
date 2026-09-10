@@ -35,7 +35,8 @@ a EUR promotion simply never applies to an AUD cart ([ADR-0041](../adr/0041-per-
  │ 7. shipping               0 if free shipping won / nothing shippable /       │
  │                           collect-at-warehouse / every line ships covered    │
  │ 8. tax                    on the DISCOUNTED taxable base (+ taxable shipping)│
- │ 9. Net + Ship + Tax = Gross   and the ledger trial balance stays 0           │
+ │ 9. Net − Discount + Ship + Tax = Gross   (NetMinor is PRE-discount)          │
+ │    and the ledger trial balance stays 0                                      │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -173,9 +174,15 @@ a retried checkout idempotent.
   checkout still counts and signing out does not reset a per-customer limit. The prefixes keep the two
   namespaces from colliding.
 - A **stale-hold sweep** (reservations older than 45 minutes with no checkout attempt and no order)
-  reclaims holds stranded by a crash between two commits. It runs before the counter is read to refuse a
-  coupon, gated on the promotion actually looking exhausted — so a live checkout and a promotion with
-  allowance left never touch it.
+  reclaims holds stranded by a crash between two commits. It runs before **either** counter is read to
+  refuse a coupon — the global cap and the **per-customer** limit — gated on that limit actually looking
+  reached, so a live checkout and a shopper with allowance left never touch it. The per-customer sweep is
+  scoped to that one shopper's holds. Without it a single crash locked one shopper out of a coupon
+  permanently: no other path could ever release the hold, and a promotion with no `MaxRedemptions` swept
+  nothing at all.
+- A reward **worth nothing here is never spent**: a free-shipping code on a cart that pays no shipping
+  wins its comparison at a benefit of 0, is still shown as applied, but does not consume an allowance
+  (`PromotionOutcome.ValuedPromotionIds` is the winning set minus those).
 
 **Refusal reasons are distinct, not one blanket "invalid coupon".** `CouponStatus` crosses HTTP as a
 **number** (platform invariant) and each member maps to its own localized storefront message:
@@ -296,7 +303,12 @@ per-line vector, and the storefront-wide part is spread by largest remainder —
 
 ### 2.9 The invariant
 
-`Net + Ship + Tax = Gross`, where `Net = subtotal − discountMinor`. Neither a promotion, a coupon nor the
+`NetMinor − DiscountMinor + ShippingMinor + TaxMinor = GrossMinor`, exactly as those fields appear on
+`CheckoutResponse` and on the order. **`NetMinor` is the PRE-discount subtotal** (`Order.NetMinor =
+subtotal`), so the discount term is not optional: the shorter `Net + Ship + Tax = Gross` — as written in
+[ADR-0051](../adr/0051-threshold-promotions-and-combinability.md) step 10 and repeated in several places
+since — is false against a real response the moment any discount applies, and
+[ADR-0053](../adr/0053-storefront-wide-items-discount.md) records the precise form. Neither a promotion, a coupon nor the
 storefront-wide discount creates a ledger line: the charged gross simply drops, so the sale posts less
 revenue and the **trial balance stays 0** ([ADR-0045](../adr/0045-mandatory-per-storefront-ledger-attribution.md)).
 Every promotion/coupon integration case asserts it.
@@ -439,7 +451,7 @@ allocation. Three callers share it:
 |---|---|
 | `PricingEngine.Price` | `CandidateFor` for `Threshold` promotions, then `Select`. Legacy engine-only kinds 1–8 (coupon/category/bundle/tier) keep their own eligibility vocabulary and hand over a ready-made candidate; they default to `Combinable = false`, so their selection reduces exactly to the historical "best single promotion wins" |
 | `CheckoutEndpoints.Checkout` | `Evaluate` over the projected `PromotionCopy` rows — the charge |
-| `GET /cart/summary` | `Evaluate` with the same inputs — the preview |
+| `GET /cart/summary` | `Preview` — the same candidate set, probed against the shipping amount rather than scored once, so the preview reports a `basis` and can say the reward is not decided yet ([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)) |
 
 `CouponValidator` also delegates its "does this cart qualify?" question to `CandidateFor`, so *whether a
 coupon applies* is decided by exactly the code that computes its discount.
@@ -516,6 +528,7 @@ Full request/response detail: [API contracts index](../api/api_contracts_index.m
 | `IntegrationTests/MoneyFlowTests.cs` | End-to-end money with trial balance 0 for every discount shape |
 | `IntegrationTests/PromotionMatrixTests.cs` | The discount × promotion × shipping matrix, preview **and** charge on the same cart: the free-shipping/cash-discount race at a real rate, the provisional path, an all-digital cart, exclusives never summing, exclusive vs stack (both directions), a tie, an unmet threshold, free shipping + store-wide, free shipping + product-scoped, coupon + free shipping + store-wide, a coupon losing without burning its allowance, and a stack capped at the subtotal — each asserting `Net − Discount + Ship + Tax = Gross` and trial balance 0 |
 | `IntegrationTests/PromotionProjectionTests.cs` | `PromotionChanged` → `PromotionCopy` insert / idempotent re-consume / deactivate |
+| `IntegrationTests/CouponAllowanceTests.cs` | What an allowance may be spent on, and what checkout WRITES DOWN: a hold stranded by a crash no longer locks that shopper out forever (and an in-flight hold still counts), a reward worth 0 does not burn a single-use code and the next shopper still gets it, and the PERSISTED per-line discount is read back out of the database — a product-scoped promotion lands wholly on its own line and the vector sums to `PromotionDiscountMinor` |
 | `IntegrationTests/CouponRedemptionTests.cs` | **Ten concurrent checkouts vs `MaxRedemptions = 3`** (exactly 3 win), guest per-customer limit by email, failed payment releases the hold, redelivered messages neither double-confirm nor double-release, stale-hold sweep |
 | `Ordering/tests/OrderLineDiscountsTests.cs` | The per-line refund basis (ADR-0055): a uniform storefront percentage spread by line value, a product-scoped promotion staying on its line, the two stacked, rounding remainders summing exactly, and the subtotal clamp |
 | `IntegrationTests/StorefrontTaxScopingTests.cs` | Two live storefronts in **one currency** at 0% exclusive and 25% inclusive each charging their own rate and regime, a low-rate store next to a louder one, another tenant's store in the same currency, and the non-live refusal |

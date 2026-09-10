@@ -116,6 +116,12 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       COUPON ALLOWANCE + PERSISTED ALLOCATION (CouponAllowanceTests): a per-customer hold stranded by
+#       a crash is reclaimed instead of locking that shopper out of the coupon forever (while a hold
+#       taken minutes ago still refuses the second try), a free-shipping code on an all-digital cart
+#       saves nothing so it burns no allowance and the next shopper still gets it, and the per-line
+#       discount checkout PERSISTS is read back from the database — a product-scoped promotion lands
+#       wholly on its own line and the vector sums to PromotionDiscountMinor exactly;
 #       coupon codes end-to-end (ADR-0052, CouponRedemptionTests): the code is REQUIRED for the
 #       discount and is actually charged; the cap holds under TEN CONCURRENT checkouts against
 #       MaxRedemptions=3 (exactly 3 win, the counter matches the redemption rows); the per-customer
