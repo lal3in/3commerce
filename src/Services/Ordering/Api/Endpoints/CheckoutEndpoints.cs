@@ -453,6 +453,13 @@ public static class CheckoutEndpoints
             AppliedPromotionIds = promotionOutcome.AppliedPromotionIds.Count == 0
                 ? null
                 : string.Join(',', promotionOutcome.AppliedPromotionIds),
+            // Snapshot the NAMES too (promo_names): the ids alone stop explaining a historical charge the
+            // moment a promotion is renamed or deleted, and "why was this order discounted?" is exactly the
+            // question support asks months later. Names are joined in the same order as the ids.
+            AppliedPromotionNames = promotionOutcome.AppliedPromotionIds.Count == 0
+                ? null
+                : string.Join(',', promotionOutcome.AppliedPromotionIds.Select(
+                    id => promotionCopies.FirstOrDefault(p => p.PromotionId == id)?.Name ?? "(deleted)")),
             FreeShippingApplied = promotionOutcome.FreeShippingApplied,
             // The code that was actually redeemed (ADR-0052) — null when it lost to a better promotion.
             CouponCode = couponReserved ? couponPromotion?.Code : null,

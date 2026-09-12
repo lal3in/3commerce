@@ -63,6 +63,29 @@ public class PricingTests
     }
 
     [Fact]
+    public void A_scoped_legacy_promotion_can_never_take_more_than_its_own_lines_are_worth()
+    {
+        // legacy_clamp. A fixed 2000-off aimed at ONE category whose eligible line is worth 500. The
+        // ADR-0051 path has always clamped a reward to its own scope base; the legacy kinds clamped at the
+        // whole CART subtotal instead, so this promotion claimed the full 2000 off a 500 line — and the
+        // per-line allocation then quietly clamped it back, leaving a reported discount that no longer
+        // matched what came off the lines. It takes the 500 it is entitled to and nothing more.
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = Guid.CreateVersion7();
+        var categoryId = Guid.CreateVersion7();
+        var promotion = new Promotion(
+            Guid.CreateVersion7(), tenantId, storefrontId, PromotionKind.AutomaticCategory,
+            AmountMinor: 2000, CategoryId: categoryId);
+
+        var result = _engine.Price(
+            NewInput(tenantId, storefrontId, lines: [Line(price: 500, categoryId: categoryId), Line(price: 9000)]),
+            [promotion]);
+
+        Assert.Equal(500, result.DiscountMinor);
+        Assert.Equal(500, result.LinePromotionDiscountsMinor.Sum()); // the vector agrees with the reported total
+    }
+
+    [Fact]
     public void Pricing_supports_free_shipping_promotion()
     {
         var tenantId = Guid.CreateVersion7();

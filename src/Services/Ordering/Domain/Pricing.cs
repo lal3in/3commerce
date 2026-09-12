@@ -344,7 +344,12 @@ public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
 
         var indexes = EligibleLineIndexes(promotion, input);
         var eligibleSubtotal = indexes.Sum(i => lines[i].TotalMinor);
-        var discount = Math.Min(LegacyDiscount(promotion, eligibleSubtotal, subtotal), subtotal);
+        // Clamp to the promotion's OWN scope base, not to the whole cart (legacy_clamp). The ADR-0051 path
+        // has always done this — a $20-off promotion on a $5 eligible line takes $5 — but the legacy kinds
+        // clamped at the cart subtotal, so a scoped legacy promotion could claim more than its eligible
+        // lines were worth and then have the per-line allocation silently clamp it back to something the
+        // reported total no longer matched.
+        var discount = Math.Clamp(LegacyDiscount(promotion, eligibleSubtotal, subtotal), 0, eligibleSubtotal);
         return new PromotionCandidate(
             promotion.Id, discount,
             promotion.Kind == PromotionKind.FreeShipping || promotion.GrantsFreeShipping,

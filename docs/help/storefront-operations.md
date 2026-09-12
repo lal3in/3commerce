@@ -144,13 +144,19 @@ File: `app/cart/page.tsx`. Dynamic, never cached. Reads the cart via
 The page also calls `getCartSummary()` → `GET /api/ordering/cart/summary?storefrontId=…`,
 the **money preview**. Ordering computes it with the **same `PromotionEvaluator` checkout
 charges with**, so the storefront never re-implements promotion maths (*shown ==
-charged*). When the summary is available the cart renders, under **Subtotal**:
+charged*). The preview scores free shipping against the **real carrier rate** quoted for the
+shopper's destination — never a flat guess — and says so via `basis`
+([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)); a guest counts,
+because a shippable product requires an address anyway. When the summary is available the cart
+renders, under **Subtotal**:
 
 | Row | Source |
 |---|---|
-| `Discount (n%)` | the **storefront-wide items discount** (`Storefront.DiscountBasisPoints`) — items only, never shipping or tax; a store setting, not a promotion ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) |
+| `Discount (n%)` | the **storefront-wide items discount** (`Storefront.DiscountBasisPoints`) — items only, never shipping or tax; a store setting, not a promotion ([ADR-0053](../adr/0053-storefront-wide-items-discount.md)) |
 | `Promotion: {name}` (one row each) | every threshold promotion this cart won, with its own share of the discount ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) |
 | `Free shipping` | a winning promotion granted it — the shipping line is zeroed at checkout |
+| `Free shipping may apply` | a shippable cart with **no address yet**, where free shipping is in genuine contention: the figures shown are the guaranteed FLOOR and the reward is not yet decided ([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)) |
+| `Renews monthly/yearly at` | for a **subscription** line, what the NEXT period costs — the line less only the discount that rides renewals, so an introductory offer cannot be mistaken for the ongoing price ([ADR-0057](../adr/0057-subscription-renewal-price-and-introductory-promotions.md)) |
 | `Items total` | subtotal minus both discount kinds, jointly capped at the subtotal |
 
 Note that `GET /cart/summary` reports the **offer-resolved** price per line
