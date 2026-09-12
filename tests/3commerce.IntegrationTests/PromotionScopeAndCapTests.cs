@@ -45,7 +45,13 @@ public class PromotionScopeAndCapTests(Phase3Fixture fixture)
         const string email = "sameperson@example.com";
         const int shoppers = 8;
         var storefrontId = await LiveStorefrontAsync(currency, discountBps: 0);
-        var promotionId = await CouponAsync(storefrontId, currency, "ONEEACH", maxRedemptionsPerCustomer: 1);
+        // The code carries the currency, because the per-test currency trick does NOT isolate coupon
+        // codes: the code namespace is per TENANT by design (a real code aimed at another store must
+        // report "wrong storefront", not "unknown code"), and these tests publish PromotionChanged
+        // straight into Ordering's projection, bypassing the Catalog index that keeps codes unique. Two
+        // copies sharing a code make the (tenant, code) lookup pick whichever row the database returns
+        // first — which is how a bare "ONEEACH" here broke a pre-existing test in another currency.
+        var promotionId = await CouponAsync(storefrontId, currency, $"ONEEACH{currency}", maxRedemptionsPerCustomer: 1);
         var productId = await fixture.SeedProductAsync(10_000, currency);
 
         var clients = new List<HttpClient>();
@@ -60,7 +66,7 @@ public class PromotionScopeAndCapTests(Phase3Fixture fixture)
 
             // The SAME email on every request, so only the per-customer limit can refuse them.
             var responses = await Task.WhenAll(clients.Select(c =>
-                c.PostAsJsonAsync("/checkout", CheckoutBody(email, "ONEEACH"))));
+                c.PostAsJsonAsync("/checkout", CheckoutBody(email, $"ONEEACH{currency}"))));
 
             var accepted = responses.Count(r => r.IsSuccessStatusCode);
             Assert.Equal(1, accepted);
