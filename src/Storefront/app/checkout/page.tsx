@@ -57,6 +57,9 @@ export default async function CheckoutPage({
   const appliedPromotions = summary?.appliedPromotions ?? [];
   const freeShippingApplied = summary?.freeShippingApplied ?? false;
   const promotionBasis = summary?.basis ?? PromotionBasis.Settled;
+  // What the recurring lines cost from the NEXT period on (ADR-0057) — shown at the moment of commitment,
+  // so an introductory price can never be mistaken for the ongoing one.
+  const renewals = summary?.renewals ?? [];
   // No verdict when the summary itself is unavailable: the whole page has already fallen back to local
   // math, and claiming "we don't recognise that code" would assert something we did not check. The box
   // then simply shows the code still un-applied, which is the truth.
@@ -76,7 +79,8 @@ export default async function CheckoutPage({
         <p className="mt-1 text-neutral-500">{t("taxNote")}</p>
       </div>
       <CouponBox code={enteredCoupon} status={couponStatus} promotionName={summary?.couponPromotionName ?? ""} />
-      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} subtotalMinor={subtotalMinor} promotionDiscountMinor={promotionDiscountMinor} appliedPromotions={appliedPromotions} freeShippingApplied={freeShippingApplied} promotionBasis={promotionBasis} appliedCouponCode={appliedCouponCode} />
+      <CheckoutForm cart={cart} profile={profile} addresses={addresses} paymentMethods={paymentMethods} taxRateBasisPoints={taxRateBasisPoints} taxInclusive={taxInclusive} shipToCountries={shipToCountries} discountBps={discountBps} subtotalMinor={subtotalMinor} promotionDiscountMinor={promotionDiscountMinor} appliedPromotions={appliedPromotions} freeShippingApplied={freeShippingApplied} promotionBasis={promotionBasis} appliedCouponCode={appliedCouponCode}
+      renewals={renewals} />
     </div>
   );
 }
