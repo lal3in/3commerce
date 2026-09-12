@@ -30,6 +30,14 @@ public class CheckoutAttempt
     /// for why this charge was what it was. Combinable promotions stack, so there may be several.</summary>
     public string? AppliedPromotionIds { get; init; }
 
+    /// <summary>
+    /// The NAMES of those promotions as they read at the moment of sale, comma-joined and index-aligned
+    /// with <see cref="AppliedPromotionIds"/>. An id alone stops explaining a historical charge the moment
+    /// the promotion is renamed, re-aimed or deleted — and a deleted promotion leaves an order nobody can
+    /// account for at all. Null for an order with no promotion.
+    /// </summary>
+    public string? AppliedPromotionNames { get; init; }
+
     /// <summary>Whether a promotion zeroed the shipping charge on this attempt.</summary>
     public bool FreeShippingApplied { get; init; }
 
@@ -85,6 +93,7 @@ public class CheckoutAttempt
             DiscountMinor = DiscountMinor,
             PromotionDiscountMinor = PromotionDiscountMinor,
             AppliedPromotionIds = AppliedPromotionIds,
+            AppliedPromotionNames = AppliedPromotionNames,
             FreeShippingApplied = FreeShippingApplied,
             CouponCode = CouponCode,
             GrossMinor = GrossMinor,

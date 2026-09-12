@@ -34,6 +34,13 @@ public class Order
     /// for why this order was charged what it was. Combinable promotions stack, so there may be several.</summary>
     public string? AppliedPromotionIds { get; set; }
 
+    /// <summary>
+    /// The NAMES of those promotions as they read at the moment of sale (ADR-0051), comma-joined and
+    /// index-aligned with <see cref="AppliedPromotionIds"/>. Snapshotted because an id stops explaining a
+    /// historical charge as soon as the promotion is renamed or deleted.
+    /// </summary>
+    public string? AppliedPromotionNames { get; set; }
+
     /// <summary>Whether a promotion zeroed the shipping charge on this order.</summary>
     public bool FreeShippingApplied { get; set; }
 
