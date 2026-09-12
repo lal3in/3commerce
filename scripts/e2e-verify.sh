@@ -116,6 +116,11 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       SUBSCRIPTION RENEWAL PRICE (ADR-0057, SubscriptionRenewalPriceTests + CouponTests): a promotion
+#       flagged AppliesToRenewals keeps its discount for the life of the subscription while an
+#       introductory one discounts the first period only and renewals go back to list, only the flagged
+#       half of a STACK rides, the renewal discount never exceeds the discount actually given, and the
+#       storefront-wide discount never rides a renewal (first period 1300, renewal 1500);
 #       REFUND vs REDEMPTION (ADR-0056, CouponRefundPolicyTests): a confirmed redemption is spent for
 #       good — a full refund, a chargeback and a partial refund each leave it Confirmed with the
 #       counter untouched and the shopper refused the code a second time, while the release contrast
