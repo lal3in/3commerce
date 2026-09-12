@@ -84,10 +84,14 @@ permanent one can win together, and the renewal keeps only the permanent one.
   renewals stay at list. No backfill, and no historical subscription silently repriced.
 * The admin promotion form gains one checkbox, localized in all six languages. It is meaningless on a
   one-time product, and deliberately not hidden — a promotion can cover both kinds of line.
-* **The storefront does not yet show the renewal price.** A shopper buying a discounted subscription sees
-  what they pay today, and the "then 2000/month" line is not rendered anywhere. That is a real gap in
-  "shown == charged" for the *second* period, and the follow-up worth doing next; this ADR deliberately
-  fixes the money before the display, because the money was already being charged.
+* **The storefront shows the renewal price** (closed by the immediate follow-up). `GET /cart/summary`
+  reports `renewals` — the recurring lines' cost per period from the next one on, grouped by billing
+  period — and the cart and checkout both render it ("Renews monthly at ..."). The figures exclude every
+  discount that does not ride renewals, so an introductory deal cannot be mistaken for the ongoing price.
+  This extends "shown == charged" to the SECOND invoice, which is where a subscription's real cost lives.
+  <br/>Note for anyone touching that code: billing mode is read with `OfferCopy.ResolveOffer` — the
+  resolver CHECKOUT uses — and not with `ResolvePricingOffer`, which ignores an offer carrying no price of
+  its own and would silently report no renewal at all for exactly the subscriptions that need one.
 * Reporting that reads `Subscription.PriceMinor` now reads the *renewal* price, which for an introductory
   offer is higher than the first invoice. That is correct, and worth knowing before someone reconciles the
   two and reports a discrepancy.
@@ -100,4 +104,6 @@ permanent one can win together, and the renewal keeps only the permanent one.
 * `SubscriptionRenewalPriceTests` (integration) — a real verified-member subscription checkout, end to end
   through the saga into Payments: introductory → `Subscription.PriceMinor` = 2000 (list) while the first
   period was charged 1500; flagged → 1500 forever; and **the store-wide discount never rides**, with the
-  first period at 1300 and the renewal at 1500.
+  first period at 1300 and the renewal at 1500. The same suite pins the PREVIEW: an introductory cart
+  showing 1300 today reports 2000 as the ongoing price, a permanent promotion reports its own 1500, and a
+  one-time cart reports no renewal at all.
