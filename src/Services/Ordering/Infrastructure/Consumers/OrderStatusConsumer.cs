@@ -151,8 +151,14 @@ public sealed class OrderStatusConsumer(
         // Recurring lines set up a subscription in Payments (mt7_3); the first period was paid with the order.
         foreach (var line in order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once))
         {
+            // The RENEWAL price, which is not always what the first period cost (ADR-0057). The first
+            // period was paid with the order at the fully discounted price; a renewal keeps only the
+            // discount of promotions flagged AppliesToRenewals. An introductory promotion and the
+            // storefront-wide percentage both drop off here, so renewals go back to list — which is
+            // what this line published unconditionally before the flag existed.
+            var renewalPriceMinor = Math.Max(0, line.UnitPriceMinor - line.RenewalDiscountMinor);
             await context.Publish(new SubscriptionRequested(
-                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.UnitPriceMinor, order.Currency,
+                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, renewalPriceMinor, order.Currency,
                 order.StorefrontId));
         }
     }

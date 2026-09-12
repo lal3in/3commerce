@@ -33,6 +33,7 @@ public sealed class PromotionChangedConsumer(OrderingDbContext db) : IConsumer<P
         copy.PercentOff = m.PercentOff;
         copy.DiscountAmountMinor = m.DiscountAmountMinor;
         copy.Combinable = m.Combinable;
+        copy.AppliesToRenewals = m.AppliesToRenewals;
         copy.Active = m.Active;
         copy.ActiveFrom = m.ActiveFrom;
         copy.ActiveUntil = m.ActiveUntil;

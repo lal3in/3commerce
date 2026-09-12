@@ -493,6 +493,11 @@ public static class CheckoutEndpoints
                     // The promotion allocation for THIS line (largest remainder; the vector sums to
                     // PromotionDiscountMinor exactly). The storefront-wide discount stays at the order level.
                     DiscountMinor = promotionOutcome.LineDiscountsMinor[index],
+                    // The slice of that which rides a subscription's RENEWALS (ADR-0057) — only promotions
+                    // flagged AppliesToRenewals. Recorded on every line (0 for one-time ones) so the price
+                    // of a renewal is fixed by the terms the shopper actually bought under, not re-derived
+                    // later from promotions that may since have changed or expired.
+                    RenewalDiscountMinor = promotionOutcome.RenewalLineDiscountsMinor[index],
                     Quantity = i.Quantity,
                     FulfilmentType = offer?.FulfilmentType ?? FulfilmentType.Unassigned,
                     SupplierId = offer?.SupplierId,
