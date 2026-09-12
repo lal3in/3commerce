@@ -116,6 +116,7 @@ public class CheckoutAttempt
                 Title = l.Title,
                 UnitPriceMinor = l.UnitPriceMinor,
                 DiscountMinor = l.DiscountMinor,
+                RenewalDiscountMinor = l.RenewalDiscountMinor,
                 Quantity = l.Quantity,
                 FulfilmentType = l.FulfilmentType,
                 SupplierId = l.SupplierId,
@@ -136,6 +137,14 @@ public class CheckoutAttemptLine
     public required string Title { get; init; }
     public long UnitPriceMinor { get; init; }
     public long DiscountMinor { get; init; }
+
+    /// <summary>
+    /// The part of <see cref="DiscountMinor"/> that rides this line's RENEWALS when it is a subscription
+    /// (ADR-0057) — 0 for an introductory promotion, for the storefront-wide discount, and for every
+    /// one-time line. A renewal is charged <c>UnitPriceMinor − this</c>.
+    /// </summary>
+    public long RenewalDiscountMinor { get; init; }
+
     public int Quantity { get; init; }
     public FulfilmentType FulfilmentType { get; init; } = FulfilmentType.Unassigned;
     public Guid? SupplierId { get; init; }

@@ -25,7 +25,10 @@ public sealed record PromotionCandidate(
     long DiscountMinor,
     bool FreeShippingApplied,
     bool Combinable,
-    IReadOnlyList<int> LineIndexes);
+    IReadOnlyList<int> LineIndexes,
+    // ADR-0057: this promotion's discount rides a SUBSCRIPTION line's renewals, not just its first
+    // period. Appended with a default so every existing construction keeps today's meaning.
+    bool AppliesToRenewals = false);
 
 /// <summary>
 /// What the engine decided. <see cref="LineDiscountsMinor"/> is parallel to the input lines and sums
@@ -57,6 +60,18 @@ public sealed record PromotionOutcome(
     /// </para>
     /// </summary>
     public IReadOnlyList<Guid> ValuedPromotionIds { get; init; } = AppliedPromotionIds;
+
+    /// <summary>
+    /// The part of <see cref="LineDiscountsMinor"/> that rides a SUBSCRIPTION line's RENEWALS (ADR-0057) —
+    /// the allocation of the winning promotions flagged <c>AppliesToRenewals</c>, and only those.
+    /// Element-wise never greater than <see cref="LineDiscountsMinor"/>.
+    /// <para>
+    /// A renewal is priced from this, not from the line's whole discount: an introductory promotion and
+    /// the storefront-wide percentage (ADR-0053, never a subscription term) both discount the first period
+    /// only, so they are absent here. All zeroes — the default — means every renewal charges list.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<long> RenewalLineDiscountsMinor { get; init; } = new long[LineDiscountsMinor.Count];
 }
 
 /// <summary>
@@ -231,7 +246,7 @@ public static class PromotionEvaluator
                 lines, promotion.PromotionId, promotion.Scope, promotion.ProductId,
                 promotion.MinimumAmountMinor, promotion.MinimumQuantity,
                 promotion.GrantsFreeShipping, promotion.PercentOff, promotion.DiscountAmountMinor,
-                promotion.Combinable);
+                promotion.Combinable, promotion.AppliesToRenewals);
             if (candidate is not null)
             {
                 candidates.Add(candidate);
@@ -257,7 +272,8 @@ public static class PromotionEvaluator
         bool grantsFreeShipping,
         int percentOff,
         long discountAmountMinor,
-        bool combinable)
+        bool combinable,
+        bool appliesToRenewals = false)
     {
         // The scope's contributing line indexes: the whole cart, or just the named product's lines
         // (a product may appear on several variant lines — they sum).
@@ -301,7 +317,8 @@ public static class PromotionEvaluator
             return null;
         }
 
-        return new PromotionCandidate(promotionId, discount, grantsFreeShipping, combinable, indexes);
+        return new PromotionCandidate(
+            promotionId, discount, grantsFreeShipping, combinable, indexes, appliesToRenewals);
     }
 
     /// <summary>
@@ -392,6 +409,34 @@ public static class PromotionEvaluator
         }
 
         ClampToLineTotals(allocation, lineTotals);
+
+        // The renewal-carrying slice of that same allocation (ADR-0057): the winners flagged
+        // AppliesToRenewals, allocated by the identical rule so a subscription line's renewal price is
+        // list − this. Clamped element-wise to the discount actually given, so the subtotal cap above can
+        // never leave a renewal discounted by more than the first period was.
+        var renewalAllocation = new long[lines.Count];
+        if (Array.Exists(winners, w => w.AppliesToRenewals))
+        {
+            foreach (var winner in winners)
+            {
+                if (!winner.AppliesToRenewals)
+                {
+                    continue;
+                }
+
+                var parts = AllocateByWeight(winner.DiscountMinor, winner.LineIndexes, lineTotals);
+                for (var k = 0; k < winner.LineIndexes.Count; k++)
+                {
+                    renewalAllocation[winner.LineIndexes[k]] += parts[k];
+                }
+            }
+
+            for (var i = 0; i < renewalAllocation.Length; i++)
+            {
+                renewalAllocation[i] = Math.Min(renewalAllocation[i], allocation[i]);
+            }
+        }
+
         // Which winners were actually WORTH something at this shipping amount (rev_zero). Measured per
         // candidate on its own terms, before the subtotal cap: a promotion whose nominal discount the cap
         // shaved to nothing still counts as valued, which errs toward spending an allowance on a reward
@@ -405,6 +450,7 @@ public static class PromotionEvaluator
             discountMinor, freeShipping, winners.Select(w => w.PromotionId).ToArray(), allocation)
         {
             ValuedPromotionIds = valued,
+            RenewalLineDiscountsMinor = renewalAllocation,
         };
     }
 

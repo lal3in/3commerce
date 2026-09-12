@@ -389,6 +389,8 @@
   <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Montant fixe de remise dans la devise de la promotion (unités majeures). Plafonné à la base et jamais converti. Exclusif avec le pourcentage.</value></data>
   <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Cumulable</value></data>
   <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Se cumule avec d’autres promotions cumulables. Décoché = exclusive (seule celle-ci s’applique). C’est le plus grand avantage client qui l’emporte.</value></data>
+  <data name="Promotions.Field.AppliesToRenewals" xml:space="preserve"><value>S'applique aux renouvellements</value></data>
+  <data name="Promotions.Field.AppliesToRenewals.Tip" xml:space="preserve"><value>Pour un abonnement : conserver cette remise à chaque renouvellement. Décoché = offre de lancement, seule la première période est remisée et les renouvellements sont au prix courant. La remise à l'échelle de la boutique ne s'applique jamais à un renouvellement.</value></data>
   <data name="Promotions.Field.Name" xml:space="preserve"><value>Nom</value></data>
   <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Libellé visible par l’acheteur dans le panier et le récapitulatif de paiement.</value></data>
   <data name="Promotions.Field.Currency" xml:space="preserve"><value>Devise</value></data>

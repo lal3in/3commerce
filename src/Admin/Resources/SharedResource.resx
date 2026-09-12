@@ -1910,6 +1910,8 @@
   <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Fixed amount off, in the promotion’s currency (major units). Clamped to the scope base, and never converted. Mutually exclusive with the percentage.</value></data>
   <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Combinable</value></data>
   <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Stacks with other combinable promotions. Unchecked = exclusive (only this one applies). The engine keeps whichever gives the shopper the greater benefit.</value></data>
+  <data name="Promotions.Field.AppliesToRenewals" xml:space="preserve"><value>Applies to renewals</value></data>
+  <data name="Promotions.Field.AppliesToRenewals.Tip" xml:space="preserve"><value>For a subscription: keep this discount on every renewal. Unchecked = introductory, the first period is discounted and renewals charge the list price. The storefront-wide discount never rides a renewal.</value></data>
   <data name="Promotions.Field.Name" xml:space="preserve"><value>Name</value></data>
   <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Shopper-visible label shown on the cart and checkout summary.</value></data>
   <data name="Promotions.Field.Currency" xml:space="preserve"><value>Currency</value></data>

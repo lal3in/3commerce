@@ -280,6 +280,70 @@ public class CouponTests
         Assert.Equal([P1], outcome.ValuedPromotionIds);
     }
 
+    // ---- What a RENEWAL is charged (ADR-0057) ---------------------------------------------------------
+
+    [Fact]
+    public void An_introductory_promotion_discounts_the_first_period_only()
+    {
+        // The default. The shopper's first period is discounted; the renewal vector stays zero, so
+        // renewals charge the list price — which is what the system did before the flag existed.
+        var lines = new[] { Line(2_000, 1) };
+        var promo = Promo(P1, percentOff: 25);
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [promo], Tenant, Storefront, "AUD", 0, Now);
+
+        Assert.Equal(500, outcome.DiscountMinor);
+        Assert.Equal([0L], outcome.RenewalLineDiscountsMinor);
+    }
+
+    [Fact]
+    public void A_promotion_flagged_for_renewals_carries_its_discount_forward()
+    {
+        var lines = new[] { Line(2_000, 1) };
+        var promo = Promo(P1, percentOff: 25);
+        promo.AppliesToRenewals = true;
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [promo], Tenant, Storefront, "AUD", 0, Now);
+
+        Assert.Equal(500, outcome.DiscountMinor);
+        Assert.Equal([500L], outcome.RenewalLineDiscountsMinor);
+    }
+
+    [Fact]
+    public void Only_the_flagged_half_of_a_stack_rides_the_renewal()
+    {
+        // Two combinable promotions win together; one is introductory, one is permanent. The first period
+        // gets both, the renewal keeps only the permanent one — the whole point of a per-promotion flag.
+        var lines = new[] { Line(2_000, 1) };
+        var permanent = Promo(P1, percentOff: 25, combinable: true);
+        permanent.AppliesToRenewals = true;
+        var introductory = Promo(P2, percentOff: 10, combinable: true);
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [permanent, introductory], Tenant, Storefront, "AUD", 0, Now);
+
+        Assert.Equal([P1, P2], outcome.AppliedPromotionIds);
+        Assert.Equal(700, outcome.DiscountMinor);            // 500 + 200 on the first period
+        Assert.Equal([500L], outcome.RenewalLineDiscountsMinor); // only the flagged one renews
+    }
+
+    [Fact]
+    public void The_renewal_discount_never_exceeds_the_discount_actually_given()
+    {
+        // The subtotal cap can shave the combined discount below the sum of its parts. Whatever it takes
+        // off, a renewal can never be discounted by more than the first period was.
+        var lines = new[] { Line(1_000, 1) };
+        var huge = Promo(P1, combinable: true);
+        huge.DiscountAmountMinor = 900;
+        huge.AppliesToRenewals = true;
+        var alsoHuge = Promo(P2, combinable: true);
+        alsoHuge.DiscountAmountMinor = 900;
+
+        var outcome = PromotionEvaluator.Evaluate(lines, [huge, alsoHuge], Tenant, Storefront, "AUD", 0, Now);
+
+        Assert.Equal(1_000, outcome.DiscountMinor); // capped at the line value
+        Assert.True(outcome.RenewalLineDiscountsMinor[0] <= outcome.LineDiscountsMinor[0]);
+    }
+
     private static PromotionCopy FreeShippingPromo(Guid id, string code)
     {
         var promo = Promo(id, code: code);

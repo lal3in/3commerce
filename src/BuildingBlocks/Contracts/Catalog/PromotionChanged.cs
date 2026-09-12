@@ -56,4 +56,10 @@ public record PromotionChanged(
     // null = unlimited; single-use is simply 1. Ordering enforces both at RESERVE time (checkout).
     string? Code = null,
     int? MaxRedemptions = null,
-    int? MaxRedemptionsPerCustomer = null);
+    int? MaxRedemptionsPerCustomer = null,
+    // Subscription renewals (ADR-0057), appended with a back-compatible default. false = the discount
+    // applies to the FIRST PERIOD only and renewals charge the list price — exactly the behaviour before
+    // this field existed, so an old copy needs no special case. true = the discount rides every renewal.
+    // The storefront-wide discount (ADR-0053) never rides a renewal whatever this says: it is a
+    // point-of-sale setting, not a term of the subscription.
+    bool AppliesToRenewals = false);

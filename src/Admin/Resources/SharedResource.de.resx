@@ -389,6 +389,8 @@
   <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Fester Rabattbetrag in der Währung der Aktion (Haupteinheiten). Auf die Basis begrenzt und nie umgerechnet. Schließt den Prozentsatz aus.</value></data>
   <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Kombinierbar</value></data>
   <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Stapelt mit anderen kombinierbaren Aktionen. Nicht aktiviert = exklusiv (nur diese greift). Es gewinnt der größere Kundenvorteil.</value></data>
+  <data name="Promotions.Field.AppliesToRenewals" xml:space="preserve"><value>Gilt für Verlängerungen</value></data>
+  <data name="Promotions.Field.AppliesToRenewals.Tip" xml:space="preserve"><value>Bei Abos: diesen Rabatt bei jeder Verlängerung beibehalten. Nicht aktiviert = Einführungsangebot, nur die erste Periode ist rabattiert, Verlängerungen kosten den Listenpreis. Der storeweite Rabatt gilt nie für Verlängerungen.</value></data>
   <data name="Promotions.Field.Name" xml:space="preserve"><value>Name</value></data>
   <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Für Käufer sichtbare Bezeichnung im Warenkorb und in der Kassenübersicht.</value></data>
   <data name="Promotions.Field.Currency" xml:space="preserve"><value>Währung</value></data>

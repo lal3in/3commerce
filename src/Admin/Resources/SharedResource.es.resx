@@ -389,6 +389,8 @@
   <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>Importe fijo de descuento en la moneda de la promoción (unidades mayores). Limitado a la base y nunca convertido. Excluyente con el porcentaje.</value></data>
   <data name="Promotions.Field.Combinable" xml:space="preserve"><value>Combinable</value></data>
   <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>Se acumula con otras promociones combinables. Sin marcar = exclusiva (solo se aplica esta). Gana la que dé mayor beneficio al comprador.</value></data>
+  <data name="Promotions.Field.AppliesToRenewals" xml:space="preserve"><value>Se aplica a las renovaciones</value></data>
+  <data name="Promotions.Field.AppliesToRenewals.Tip" xml:space="preserve"><value>Para suscripciones: mantener este descuento en cada renovación. Sin marcar = introductorio, solo el primer periodo se descuenta y las renovaciones cobran el precio de lista. El descuento de toda la tienda nunca se aplica a una renovación.</value></data>
   <data name="Promotions.Field.Name" xml:space="preserve"><value>Nombre</value></data>
   <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>Etiqueta visible para el comprador en el carrito y el resumen de pago.</value></data>
   <data name="Promotions.Field.Currency" xml:space="preserve"><value>Moneda</value></data>

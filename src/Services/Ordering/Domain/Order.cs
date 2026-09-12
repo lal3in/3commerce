@@ -81,6 +81,12 @@ public class OrderLine
     public required string Title { get; set; }
     public long UnitPriceMinor { get; init; }
     public long DiscountMinor { get; init; }
+
+    /// <summary>
+    /// The part of <see cref="DiscountMinor"/> that rides this line's RENEWALS when it is a subscription
+    /// (ADR-0057). Renewals are charged <c>UnitPriceMinor − this</c>; 0 means renewals charge list.
+    /// </summary>
+    public long RenewalDiscountMinor { get; init; }
     public int Quantity { get; init; }
 
     /// <summary>How this line is sourced/delivered (ADR-0028, shared vocabulary).</summary>

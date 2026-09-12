@@ -116,6 +116,7 @@
                 <label>@L["Promotions.Field.PercentOff"] <input type="number" @bind="_form.PercentOff" title="@L["Promotions.Field.PercentOff.Tip"]" style="width:100%;" /></label>
                 <label>@L["Promotions.Field.FixedDiscount"] <input type="number" step="0.01" @bind="_form.DiscountAmount" title="@L["Promotions.Field.FixedDiscount.Tip"]" style="width:100%;" /></label>
                 <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.Combinable" title="@L["Promotions.Field.Combinable.Tip"]" /> @L["Promotions.Field.Combinable"]</label>
+                <label style="display:flex; gap:.4rem; align-items:center;"><input type="checkbox" @bind="_form.AppliesToRenewals" title="@L["Promotions.Field.AppliesToRenewals.Tip"]" /> @L["Promotions.Field.AppliesToRenewals"]</label>
             </div>
         </fieldset>
 
@@ -219,10 +220,10 @@
         var code = string.IsNullOrWhiteSpace(_form.Code) ? null : _form.Code.Trim().ToUpperInvariant();
 
         object body = _editingId is null
-            ? new { tenantId = tenant, name = _form.Name.Trim(), currency = _form.Currency, scope = _form.Scope, productId, storefrontId, minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, activeFrom, activeUntil, code, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer }
+            ? new { tenantId = tenant, name = _form.Name.Trim(), currency = _form.Currency, scope = _form.Scope, productId, storefrontId, minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, activeFrom, activeUntil, code, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer, appliesToRenewals = _form.AppliesToRenewals }
             // applyCode / applyUsageLimits opt the update in: null is MEANINGFUL on all three (no code =
             // automatic, no limit = unlimited), so the API keeps the current values unless told otherwise.
-            : new { name = _form.Name.Trim(), minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, active = _form.Active, applyScope = true, storefrontId, activeFrom, activeUntil, applyCode = true, code, applyUsageLimits = true, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer };
+            : new { name = _form.Name.Trim(), minimumAmountMinor, minimumQuantity = _form.MinimumQuantity, grantsFreeShipping = _form.GrantsFreeShipping, percentOff = _form.PercentOff, discountAmountMinor, combinable = _form.Combinable, active = _form.Active, applyScope = true, storefrontId, activeFrom, activeUntil, applyCode = true, code, applyUsageLimits = true, maxRedemptions = _form.MaxRedemptions, maxRedemptionsPerCustomer = _form.MaxRedemptionsPerCustomer, appliesToRenewals = _form.AppliesToRenewals };
         var response = _editingId is null ? await Gateway.PostAsync(Base, body) : await Gateway.PutAsync($"{Base}/{_editingId}", body);
         if (response.IsSuccessStatusCode) { ResetForm(); _showForm = false; await LoadAsync(); _status = L["Promotions.Status.Saved"]; } // LoadAsync clears _status/_error, so set the confirmation AFTER the reload
         else { _error = await response.Content.ReadAsStringAsync(); }
@@ -255,6 +256,7 @@
         _form.PercentOff = promotion.PercentOff;
         _form.DiscountAmount = ToMajor(promotion.DiscountAmountMinor);
         _form.Combinable = promotion.Combinable;
+        _form.AppliesToRenewals = promotion.AppliesToRenewals;
         _form.Active = promotion.Active;
         _form.StorefrontId = promotion.StorefrontId?.ToString() ?? string.Empty;
         _form.ActiveFrom = promotion.ActiveFrom?.UtcDateTime.Date;
@@ -269,7 +271,7 @@
         _editingId = null;
         _form.Name = string.Empty; _form.Currency = "EUR"; _form.Scope = 1; _form.ProductId = string.Empty; _form.ProductTitle = string.Empty;
         _form.MinimumAmount = 0; _form.MinimumQuantity = 0; _form.GrantsFreeShipping = false; _form.PercentOff = 0; _form.DiscountAmount = 0;
-        _form.Combinable = false; _form.Active = true; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null;
+        _form.Combinable = false; _form.AppliesToRenewals = false; _form.Active = true; _form.StorefrontId = string.Empty; _form.ActiveFrom = null; _form.ActiveUntil = null;
         _form.Code = string.Empty; _form.MaxRedemptions = null; _form.MaxRedemptionsPerCustomer = null;
         _productSearch = string.Empty;
     }
@@ -392,6 +394,7 @@
         public int PercentOff { get; set; }
         public decimal DiscountAmount { get; set; }
         public bool Combinable { get; set; }
+        public bool AppliesToRenewals { get; set; }
         public bool Active { get; set; } = true;
         public string StorefrontId { get; set; } = string.Empty;
         public DateTime? ActiveFrom { get; set; }
@@ -407,7 +410,8 @@
         Guid? ProductId, long MinimumAmountMinor, int MinimumQuantity, bool GrantsFreeShipping, int PercentOff,
         long DiscountAmountMinor, bool Combinable, string Status, bool Active, string ProductTitle = "",
         DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null,
-        string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null);
+        string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null,
+        bool AppliesToRenewals = false);
     private sealed record RedemptionCountDto(Guid PromotionId, int UsedCount, int ConfirmedCount, int? MaxRedemptions);
     private record StorefrontDto(Guid Id, string Name, string Currency);
     private sealed record ProductListItem(Guid Id, string Slug, string Title, string Brand, int VariantCount, long MinPriceMinor, int TotalStock, string? ImageUrl, int ProductType);

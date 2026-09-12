@@ -50,6 +50,12 @@ public class PromotionCopy
     /// <summary>True = stacks with other combinable promotions; false = Exclusive (only this one applies).</summary>
     public bool Combinable { get; set; }
 
+    /// <summary>
+    /// For a SUBSCRIPTION line, whether this promotion's discount rides every renewal or only the first
+    /// period (ADR-0057). false = introductory: renewals charge the list price.
+    /// </summary>
+    public bool AppliesToRenewals { get; set; }
+
     /// <summary>Whether the source promotion is Active; an inactive copy never applies.</summary>
     public bool Active { get; set; }
 
