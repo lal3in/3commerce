@@ -286,6 +286,17 @@ export type CartSummaryDto = {
   // charges; Provisional = a shippable cart with no address yet where a free-shipping promotion is in
   // genuine contention, so the figures are the guaranteed FLOOR and free shipping only *may* apply.
   basis: import("./promotion-basis").PromotionBasis;
+  // What the cart's RECURRING lines cost per period from the NEXT one on (ADR-0057). Absent/empty for a
+  // cart with no subscription. These figures deliberately exclude any discount that does not ride
+  // renewals — an introductory promotion, and the storefront-wide percentage — so this is the price the
+  // shopper will actually be charged next period, not today's.
+  renewals?: CartRenewalDto[] | null;
+};
+
+// BillingPeriod crosses HTTP as a NUMBER (platform invariant), mirroring Contracts/Supply.BillingPeriod.
+export type CartRenewalDto = {
+  billingPeriod: number;
+  amountMinor: number;
 };
 
 // Mirrors Ordering's CouponStatus. Enums cross HTTP as NUMBERS (platform invariant), so these values are

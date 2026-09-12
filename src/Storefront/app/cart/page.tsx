@@ -51,6 +51,10 @@ export default async function CartPage() {
     ? summary.itemsTotalMinor
     : subtotalMinor - storefrontDiscountMinor;
   const anyDeduction = storefrontDiscountMinor > 0 || promotions.length > 0;
+  // What the shopper pays from the NEXT period on (ADR-0057). Shown whenever it differs from what they
+  // are paying now, so a first-period-only deal cannot be mistaken for the ongoing price — the whole
+  // point of "shown == charged" applied to the second invoice rather than only the first.
+  const renewals = summary?.renewals ?? [];
 
   if (cart.items.length === 0) {
     return (
@@ -106,6 +110,16 @@ export default async function CartPage() {
             <span className="font-semibold">{formatMoney(discountedSubtotalMinor, cart.currency)}</span>
           </div>
         )}
+        {renewals.map((renewal) => (
+          <div
+            key={renewal.billingPeriod}
+            className="flex justify-between text-neutral-600"
+            data-testid={`renewal-${renewal.billingPeriod}`}
+          >
+            <span>{t(renewal.billingPeriod === 3 ? "renewsYearly" : "renewsMonthly")}</span>
+            <span>{formatMoney(renewal.amountMinor, cart.currency)}</span>
+          </div>
+        ))}
       </div>
       {provisional && <p className="text-sm text-neutral-500">{t("provisionalNote")}</p>}
       <p className="text-sm text-neutral-500">{t("taxNote")}</p>

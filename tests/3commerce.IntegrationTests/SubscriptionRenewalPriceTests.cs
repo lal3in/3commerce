@@ -87,7 +87,79 @@ public class SubscriptionRenewalPriceTests(Phase3Fixture fixture)
         Assert.Equal(1_500, await SubscriptionPriceAsync(order.OrderId));
     }
 
+    [Fact]
+    public async Task The_cart_preview_shows_what_the_next_period_will_cost()
+    {
+        // "Shown == charged" applied to the SECOND invoice. A shopper on an introductory deal must be able
+        // to see the ongoing price before they commit, not discover it a month later — the preview reports
+        // the same figure Payments will be told to charge.
+        const string currency = "QS4";
+        var storefrontId = await LiveStorefrontAsync(currency, discountBps: 1_000);
+        var productId = await fixture.SeedRecurringProductAsync(2_000, currency);
+        await PromotionAsync(storefrontId, currency, productId, percentOff: 25, appliesToRenewals: false);
+
+        using var client = fixture.Ordering.CreateClient();
+        client.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await client.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        var summary = (await client.GetFromJsonAsync<CartSummaryDto>($"/cart/summary?storefrontId={storefrontId}"))!;
+
+        // Today: 2000 − 500 promotion − 200 store-wide = 1300.
+        Assert.Equal(700, summary.StorefrontDiscountMinor + summary.PromotionDiscountMinor);
+        Assert.Equal(1_300, summary.ItemsTotalMinor);
+
+        // From next month: the introductory promotion is gone and the store-wide never rode — so, list.
+        var renewal = Assert.Single(summary.Renewals ?? []);
+        Assert.Equal(2, renewal.BillingPeriod); // Monthly, crossing HTTP as a number
+        Assert.Equal(2_000, renewal.AmountMinor);
+    }
+
+    [Fact]
+    public async Task A_permanent_promotion_shows_its_own_price_as_the_ongoing_one()
+    {
+        const string currency = "QS5";
+        var storefrontId = await LiveStorefrontAsync(currency, discountBps: 0);
+        var productId = await fixture.SeedRecurringProductAsync(2_000, currency);
+        await PromotionAsync(storefrontId, currency, productId, percentOff: 25, appliesToRenewals: true);
+
+        using var client = fixture.Ordering.CreateClient();
+        client.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await client.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        var summary = (await client.GetFromJsonAsync<CartSummaryDto>($"/cart/summary?storefrontId={storefrontId}"))!;
+
+        Assert.Equal(1_500, summary.ItemsTotalMinor);
+        Assert.Equal(1_500, Assert.Single(summary.Renewals ?? []).AmountMinor);
+    }
+
+    [Fact]
+    public async Task A_one_time_cart_has_nothing_to_renew()
+    {
+        // The control: no subscription, no renewal row — the storefront must not invent a "then x/month"
+        // line for a cart that will never be charged again.
+        const string currency = "QS6";
+        var storefrontId = await LiveStorefrontAsync(currency, discountBps: 0);
+        var productId = await fixture.SeedProductAsync(2_000, currency);
+
+        using var client = fixture.Ordering.CreateClient();
+        client.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await client.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+
+        var summary = (await client.GetFromJsonAsync<CartSummaryDto>($"/cart/summary?storefrontId={storefrontId}"))!;
+
+        Assert.Empty(summary.Renewals ?? []);
+    }
+
     // ---- Fixtures ------------------------------------------------------------------------------------
+
+    private sealed record CartSummaryDto(
+        long SubtotalMinor, long StorefrontDiscountMinor, long PromotionDiscountMinor, long ItemsTotalMinor,
+        bool FreeShippingApplied, List<object> AppliedPromotions, string Currency,
+        int CouponStatus = 0, string? CouponCode = null, string CouponPromotionName = "", int Basis = 0,
+        List<CartRenewalDto>? Renewals = null);
+
+    private sealed record CartRenewalDto(int BillingPeriod, long AmountMinor);
+
 
     /// <summary>A verified member with a stored instrument — the only shopper allowed to buy a subscription.</summary>
     private async Task<CheckoutResponseDto> SubscribeAsync(Guid storefrontId, Guid productId, string email)

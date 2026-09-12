@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 
@@ -127,6 +128,13 @@ public static class CartEndpoints
                 offerCopies, tenantId, i.ProductId, i.VariantId, storeId, i.Currency, now, approvedSupplierIds)?.PriceMinor;
             return new PromotionLine(i.ProductId, offerPrice ?? i.UnitPriceMinor, i.Quantity);
         }).ToList();
+
+        // Whether a line is RECURRING comes from the same resolver CHECKOUT uses for billing mode
+        // (ResolveOffer), not from the PRICING resolver above: the pricing one ignores an offer with no
+        // price of its own, which is exactly the shape a subscription offer has when the catalog price
+        // stands. Reading billing mode off the priced offer would silently show no renewal at all.
+        var lineOffers = cart.Items.Select(i => OfferResolution.ResolveOffer(
+            offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds)).ToList();
         var subtotalMinor = lines.Sum(l => l.TotalMinor);
 
         var promotionCopies = await db.PromotionCopies.AsNoTracking()
@@ -204,13 +212,28 @@ public static class CartEndpoints
                     p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor, p.Combinable)?.DiscountMinor ?? 0))
             .ToList();
 
+        // What the recurring lines cost from the NEXT period on (ADR-0057): the line value less only the
+        // discount that rides renewals, which is what Payments will be told to charge. An introductory
+        // promotion and the storefront-wide discount are absent here by construction, so a shopper who is
+        // getting a first-period-only deal sees the real ongoing price instead of being surprised by it.
+        // Grouped by billing period, because a cart may hold a monthly and a yearly plan at once.
+        var renewals = lines
+            .Select((line, index) => (Line: line, Offer: lineOffers[index], Index: index))
+            .Where(x => x.Offer is { BillingMode: BillingMode.Recurring })
+            .GroupBy(x => x.Offer!.BillingPeriod)
+            .Select(g => new CartRenewalResponse(
+                g.Key,
+                g.Sum(x => Math.Max(0, x.Line.TotalMinor - outcome.RenewalLineDiscountsMinor[x.Index]))))
+            .OrderBy(r => r.BillingPeriod)
+            .ToList();
+
         return TypedResults.Ok(new CartSummaryResponse(
             subtotalMinor, storefrontDiscountMinor, outcome.DiscountMinor,
             subtotalMinor - totalDiscount,
             // A provisional verdict must never render as a decided reward: free shipping is reported as
             // POSSIBLE (via Basis) and the storefront says "may apply at checkout" instead of "free".
             preview.Basis != PromotionBasis.Provisional && outcome.FreeShippingApplied, applied, currency,
-            couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis));
+            couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis, renewals));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -391,4 +414,12 @@ public record CartSummaryResponse(
     // Provisional = a shippable cart with no address yet, where a free-shipping promotion is in genuine
     // contention — the figures above are then the GUARANTEED FLOOR and free shipping "may apply".
     // Crosses HTTP as a NUMBER (platform invariant).
-    PromotionBasis Basis = PromotionBasis.Settled);
+    PromotionBasis Basis = PromotionBasis.Settled,
+    // What the cart's RECURRING lines cost per period from the next one on (ADR-0057), grouped by billing
+    // period. Empty for a cart with no subscription. The figures deliberately exclude any discount that
+    // does NOT ride renewals — an introductory promotion, and the storefront-wide percentage — so
+    // "then x/month" is the price the shopper will actually be charged, not today's.
+    List<CartRenewalResponse>? Renewals = null);
+
+/// <summary>What the cart's recurring lines of one billing period cost per period after the first.</summary>
+public record CartRenewalResponse(BillingPeriod BillingPeriod, long AmountMinor);

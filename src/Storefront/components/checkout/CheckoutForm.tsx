@@ -32,6 +32,7 @@ interface CheckoutFormProps {
   // Threshold promotions (ADR-0051), decided server-side by Ordering's shared PromotionEvaluator — never
   // recomputed here. The discount is deducted from the items' subtotal alongside the storefront-wide one.
   promotionDiscountMinor: number;
+  renewals: { billingPeriod: number; amountMinor: number }[];
   appliedPromotions: AppliedPromotionDto[];
   // A promotion granted free shipping: the shipping line shows free and contributes nothing to the tax base.
   freeShippingApplied: boolean;
@@ -53,7 +54,7 @@ const PAYMENT_OPTIONS = [
   { value: "PayPal", labelKey: "payPal", icon: <PayPalIcon /> },
 ];
 
-export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, promotionBasis, appliedCouponCode }: CheckoutFormProps) {
+export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, promotionBasis, appliedCouponCode, renewals }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
@@ -220,6 +221,14 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
             value={formatMoney(estimatedTaxMinor, cart.currency)}
             muted={estimatedTaxMinor === 0 || taxInclusive}
           />
+          {renewals.map((renewal) => (
+            <Row
+              key={renewal.billingPeriod}
+              label={t(renewal.billingPeriod === 3 ? "renewsYearly" : "renewsMonthly")}
+              value={formatMoney(renewal.amountMinor, cart.currency)}
+              muted
+            />
+          ))}
         </div>
       </section>
 
