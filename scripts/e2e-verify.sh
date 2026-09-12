@@ -116,6 +116,16 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       PROMOTION SCOPE + CAPS (PromotionScopeAndCapTests): the per-customer limit under EIGHT
+#       concurrent checkouts (the only read-then-write window, held by an advisory lock — proven to
+#       fail without it), a storefront-scoped promotion discounting its own store and no other while
+#       an all-storefront one reaches every store of its currency, a store-wide discount plus a
+#       promotion jointly capped at the subtotal (goods free, never negative, shipping still charged,
+#       trial balance 0), and the promotion NAME snapshotted on the order beside its id;
+#       PROMOTION ADMIN GUARDS (PromotionAdminGuardTests): a promotion aimed at a storefront of
+#       another currency is refused at write time instead of silently never applying, and a coupon can
+#       be turned into an automatic promotion in ONE request (drop the code, supply the threshold)
+#       while dropping the code with no threshold is still refused;
 #       SUBSCRIPTION RENEWAL PRICE (ADR-0057, SubscriptionRenewalPriceTests + CouponTests): a promotion
 #       flagged AppliesToRenewals keeps its discount for the life of the subscription while an
 #       introductory one discounts the first period only and renewals go back to list, only the flagged

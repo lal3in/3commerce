@@ -193,6 +193,16 @@ a retried checkout idempotent.
   monthly at ..."). So `shown == charged` covers the second invoice, not only the first. Billing mode is
   resolved with `ResolveOffer` (checkout's resolver), never `ResolvePricingOffer`: the latter ignores an
   offer with no price of its own and would show no renewal for exactly the subscriptions that need one.
+- **A promotion must be able to apply.** A promotion is currency-pinned and nothing converts currency,
+  so one aimed at a storefront that sells in another currency could never discount a single cart. It is
+  now refused at write time rather than saved as a sale that silently never fires. An all-storefront
+  promotion needs no match — it applies to every store of its own currency by definition.
+- **Swapping a coupon for a threshold is one request.** Clearing a code makes a promotion automatic, which
+  requires a threshold; supplying that threshold in the same update is now applied first, so the promotion
+  is never momentarily an automatic one with no threshold. Dropping the code *without* a threshold is
+  still refused — that would discount every cart.
+- **The order remembers the promotion's NAME**, not just its id, so a historical charge still explains
+  itself after the promotion is renamed or deleted (a deleted one reads `(deleted)`).
 - **A refund never gives a redemption back** ([ADR-0056](../adr/0056-a-refunded-order-keeps-its-redemption.md)).
   A confirmed redemption is spent for good: a full refund, partial refund, dispute or chargeback all
   leave it `Confirmed` and the counter untouched, because the allowance rations the DISCOUNT (the offer
