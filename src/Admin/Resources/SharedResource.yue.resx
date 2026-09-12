@@ -389,6 +389,8 @@
   <data name="Promotions.Field.FixedDiscount.Tip" xml:space="preserve"><value>以優惠幣別計的固定折扣金額（主單位），上限為範圍金額，且不會換算；不能與百分比併用。</value></data>
   <data name="Promotions.Field.Combinable" xml:space="preserve"><value>可疊加</value></data>
   <data name="Promotions.Field.Combinable.Tip" xml:space="preserve"><value>可與其他可疊加優惠同時套用；未勾選＝獨佔（只套用這一個）。系統會選對顧客最有利的組合。</value></data>
+  <data name="Promotions.Field.AppliesToRenewals" xml:space="preserve"><value>適用於續訂</value></data>
+  <data name="Promotions.Field.AppliesToRenewals.Tip" xml:space="preserve"><value>訂閱適用：每次續訂都保留呢個折扣。唔剔＝introductory，淨係第一期有折，續訂收原價。全店折扣永遠唔會跟住續訂。</value></data>
   <data name="Promotions.Field.Name" xml:space="preserve"><value>名稱</value></data>
   <data name="Promotions.Field.Name.Tip" xml:space="preserve"><value>顯示於購物車與結帳摘要的名稱。</value></data>
   <data name="Promotions.Field.Currency" xml:space="preserve"><value>幣別</value></data>

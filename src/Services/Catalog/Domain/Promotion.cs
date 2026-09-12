@@ -97,6 +97,18 @@ public sealed class Promotion
     /// <summary>True = stacks with other combinable promotions; false = Exclusive (only this one applies).</summary>
     public bool Combinable { get; private set; }
 
+    /// <summary>
+    /// For a SUBSCRIPTION line, whether this promotion's discount rides every renewal or only the first
+    /// period (ADR-0057). Default false = the introductory reading: the shopper's first period is
+    /// discounted and renewals go back to the list price.
+    /// <para>
+    /// Only a promotion can carry — the storefront-wide percentage (ADR-0053) is a point-of-sale setting,
+    /// not a term of the subscription, so it never rides a renewal whatever this says. Meaningless on a
+    /// one-time line, where there is no renewal to price.
+    /// </para>
+    /// </summary>
+    public bool AppliesToRenewals { get; private set; }
+
     /// <summary>Inclusive start of the active window (UTC); null = open-ended (always started).</summary>
     public DateTimeOffset? ActiveFrom { get; private set; }
 
@@ -209,7 +221,9 @@ public sealed class Promotion
     /// Sets the reward: free shipping and/or a discount that is either a percentage (0–100) or a fixed
     /// minor-unit amount — never both. At least one reward must be granted.
     /// </summary>
-    public void SetReward(bool grantsFreeShipping, int percentOff, long discountAmountMinor, DateTimeOffset now)
+    public void SetReward(
+        bool grantsFreeShipping, int percentOff, long discountAmountMinor, DateTimeOffset now,
+        bool appliesToRenewals = false)
     {
         if (percentOff is < 0 or > 100)
         {
@@ -234,6 +248,7 @@ public sealed class Promotion
         GrantsFreeShipping = grantsFreeShipping;
         PercentOff = percentOff;
         DiscountAmountMinor = discountAmountMinor;
+        AppliesToRenewals = appliesToRenewals;
         UpdatedAt = now;
     }
 

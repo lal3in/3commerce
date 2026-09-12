@@ -100,7 +100,8 @@ public static class PromotionEndpoints
 
             promotion.SetUsageLimits(request.MaxRedemptions, request.MaxRedemptionsPerCustomer, now);
             promotion.SetThreshold(request.MinimumAmountMinor, request.MinimumQuantity, now);
-            promotion.SetReward(request.GrantsFreeShipping, request.PercentOff, request.DiscountAmountMinor, now);
+            promotion.SetReward(
+                request.GrantsFreeShipping, request.PercentOff, request.DiscountAmountMinor, now, request.AppliesToRenewals);
             promotion.SetCombinable(request.Combinable, now);
             promotion.SetStorefront(request.StorefrontId, now);
             promotion.SetActiveWindow(request.ActiveFrom, request.ActiveUntil, now);
@@ -171,13 +172,15 @@ public static class PromotionEndpoints
                     now);
             }
 
-            if (request.GrantsFreeShipping is not null || request.PercentOff is not null || request.DiscountAmountMinor is not null)
+            if (request.GrantsFreeShipping is not null || request.PercentOff is not null
+                || request.DiscountAmountMinor is not null || request.AppliesToRenewals is not null)
             {
                 promotion.SetReward(
                     request.GrantsFreeShipping ?? promotion.GrantsFreeShipping,
                     request.PercentOff ?? promotion.PercentOff,
                     request.DiscountAmountMinor ?? promotion.DiscountAmountMinor,
-                    now);
+                    now,
+                    request.AppliesToRenewals ?? promotion.AppliesToRenewals);
             }
 
             if (request.Combinable is { } combinable)
@@ -227,7 +230,7 @@ public static class PromotionEndpoints
         new(p.Id, p.TenantId, p.StorefrontId, p.Name, p.Currency, (PromotionScopeKind)(int)p.Scope, p.ProductId,
             p.MinimumAmountMinor, p.MinimumQuantity, p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor,
             p.Combinable, p.IsActive, p.ActiveFrom, p.ActiveUntil,
-            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer);
+            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer, p.AppliesToRenewals);
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)
@@ -238,7 +241,7 @@ public static class PromotionEndpoints
         new(p.Id, p.TenantId, p.StorefrontId, p.Name, p.Currency, (int)p.Scope, p.Scope.ToString(), p.ProductId,
             p.MinimumAmountMinor, p.MinimumQuantity, p.GrantsFreeShipping, p.PercentOff, p.DiscountAmountMinor,
             p.Combinable, p.Status.ToString(), p.IsActive, productTitle, p.ActiveFrom, p.ActiveUntil,
-            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer);
+            p.Code, p.MaxRedemptions, p.MaxRedemptionsPerCustomer, p.AppliesToRenewals);
 }
 
 public record CreatePromotionRequest(
@@ -262,7 +265,10 @@ public record CreatePromotionRequest(
     // The two limits are null = unlimited; single-use is simply MaxRedemptions = 1.
     [property: StringLength(40)] string? Code = null,
     [property: Range(1, int.MaxValue)] int? MaxRedemptions = null,
-    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null);
+    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null,
+    // Subscription renewals (ADR-0057): false = first period only (renewals charge list), true = the
+    // discount rides every renewal. Only meaningful for a recurring line.
+    bool AppliesToRenewals = false);
 
 public record UpdatePromotionRequest(
     string? Name = null,
@@ -286,7 +292,10 @@ public record UpdatePromotionRequest(
     [property: StringLength(40)] string? Code = null,
     bool ApplyUsageLimits = false,
     [property: Range(1, int.MaxValue)] int? MaxRedemptions = null,
-    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null);
+    [property: Range(1, int.MaxValue)] int? MaxRedemptionsPerCustomer = null,
+    // Subscription renewals (ADR-0057). Null keeps the promotion's current setting, so a partial update
+    // from an older client cannot silently turn an introductory offer into a permanent one.
+    bool? AppliesToRenewals = null);
 
 public record PromotionDto(
     Guid Id, Guid TenantId, Guid? StorefrontId, string Name, string Currency, int Scope, string ScopeName,
@@ -294,4 +303,5 @@ public record PromotionDto(
     long DiscountAmountMinor, bool Combinable, string Status, bool Active, string ProductTitle = "",
     DateTimeOffset? ActiveFrom = null, DateTimeOffset? ActiveUntil = null,
     // Coupon fields (ADR-0052), appended with defaults so every existing positional construction compiles.
-    string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null);
+    string? Code = null, int? MaxRedemptions = null, int? MaxRedemptionsPerCustomer = null,
+    bool AppliesToRenewals = false);
