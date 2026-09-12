@@ -88,6 +88,11 @@ public static class PromotionEndpoints
                     + "Pick a different code, or edit the promotion that owns it.");
             }
 
+            if (await CurrencyMismatchAsync(db, request.StorefrontId, tenantId, request.Currency.Trim().ToUpperInvariant(), ct) is { } mismatch)
+            {
+                return TypedResults.BadRequest(mismatch);
+            }
+
             var promotion = Promotion.Create(
                 tenantId, request.Name, request.Currency, ToScope(request.Scope), request.ProductId, now);
             // Set the code BEFORE the threshold: a code-gated promotion is allowed to have no threshold
@@ -140,6 +145,23 @@ public static class PromotionEndpoints
                 promotion.Rename(name, now);
             }
 
+            // ORDER MATTERS between the code and the threshold, and it is not the same order both ways.
+            // SetCode refuses to clear a code while the promotion has no threshold (that would make it an
+            // automatic store-wide sale), and SetThreshold refuses to clear a threshold unless the
+            // promotion is coupon-gated. So a single request that swaps one for the other has to apply the
+            // half being ADDED first: clearing a code while supplying a threshold used to be rejected even
+            // though the very same request made it valid.
+            var clearingCode = request.ApplyCode && Promotion.NormalizeCode(request.Code) is null;
+            var settingThreshold = request.MinimumAmountMinor is not null || request.MinimumQuantity is not null;
+            if (clearingCode && settingThreshold)
+            {
+                promotion.SetThreshold(
+                    request.MinimumAmountMinor ?? promotion.MinimumAmountMinor,
+                    request.MinimumQuantity ?? promotion.MinimumQuantity,
+                    now);
+                settingThreshold = false;
+            }
+
             // Coupon code + usage limits (ADR-0052) are each opt-in, because null is MEANINGFUL on both
             // (no code = automatic; no limit = unlimited) and a partial update must not silently wipe them.
             if (request.ApplyCode)
@@ -164,7 +186,7 @@ public static class PromotionEndpoints
             // Thresholds and rewards are each set as a UNIT (the domain enforces "at least one threshold"
             // and "at least one reward, percent XOR fixed" across the pair), so a partial update that sends
             // one half must send the other — the caller opts in by sending either field of the pair.
-            if (request.MinimumAmountMinor is not null || request.MinimumQuantity is not null)
+            if (settingThreshold)
             {
                 promotion.SetThreshold(
                     request.MinimumAmountMinor ?? promotion.MinimumAmountMinor,
@@ -205,6 +227,11 @@ public static class PromotionEndpoints
             // that omits them must not wipe them (mirrors the Offer update).
             if (request.ApplyScope)
             {
+                if (await CurrencyMismatchAsync(db, request.StorefrontId, promotion.TenantId, promotion.Currency, ct) is { } scopeMismatch)
+                {
+                    return TypedResults.BadRequest(scopeMismatch);
+                }
+
                 promotion.SetStorefront(request.StorefrontId, now);
                 promotion.SetActiveWindow(request.ActiveFrom, request.ActiveUntil, now);
             }
@@ -225,6 +252,32 @@ public static class PromotionEndpoints
     // Enums cross HTTP as numbers (platform invariant): the admin form posts 1/2, mapped onto the domain
     // enum here. An unknown value fails the domain's Enum.IsDefined guard as a 400, not a 500.
     private static PromotionScope ToScope(int scope) => (PromotionScope)scope;
+
+    /// <summary>
+    /// A promotion is currency-pinned and there is no FX anywhere (ADR-0041/0051), so one scoped to a
+    /// storefront of a DIFFERENT currency can never apply to a single cart — it is dead on arrival.
+    /// Refuse at write time rather than let an operator watch a sale do nothing.
+    /// </summary>
+    private static async Task<string?> CurrencyMismatchAsync(
+        CatalogDbContext db, Guid? storefrontId, Guid tenantId, string promotionCurrency, CancellationToken ct)
+    {
+        if (storefrontId is not { } id)
+        {
+            return null; // all-storefront: it applies to every store of its own currency by definition
+        }
+
+        var storefrontCurrency = await db.Storefronts.AsNoTracking()
+            .Where(x => x.Id == id && x.TenantId == tenantId)
+            .Select(x => x.Currency)
+            .FirstOrDefaultAsync(ct);
+        if (storefrontCurrency is null || string.Equals(storefrontCurrency, promotionCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return $"This promotion is in {promotionCurrency}, but that storefront sells in {storefrontCurrency}. "
+            + "A promotion never converts currency, so it would never apply. Create it in the storefront's currency.";
+    }
 
     private static PromotionChanged ToEvent(Promotion p) =>
         new(p.Id, p.TenantId, p.StorefrontId, p.Name, p.Currency, (PromotionScopeKind)(int)p.Scope, p.ProductId,
