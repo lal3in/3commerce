@@ -153,9 +153,16 @@ home/search pages will show products.
 
 ## One-command equivalent
 
-`scripts/e2e-verify.sh --live` automates steps 1–5 (infra, migrations, services,
-storefront, admin) and then runs the live smoke flows. Use it to confirm the whole
-stack boots and the core journeys work — see [Testing](./testing.md).
+`scripts/dev-up.sh --with-frontends --seed` does steps 1–7 in one go (add `--fresh` to start from an empty
+database, `--data full` for the broad demo data). It prints **`Up.`** only once every surface is genuinely
+**ready** — gateway, RabbitMQ, pgAdmin, Kafka UI (cluster *online*), Grafana, Loki, Tempo, Mimir and the
+frontends — because several keep warming up well after their containers start. Anything still not ready
+after its time budget is named, and the script exits **3** so a chained test run does not start on a
+half-ready stack. It also starts the storefront from a clean `.next/`, since the process it replaces may
+have died mid-compile.
+
+`scripts/e2e-verify.sh --live` then runs the live smoke flows — against that running stack as-is, or, on a
+clean machine, against one it boots and tears down itself. See [Testing](./testing.md).
 
 ## Or: containerized launch
 
