@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -28,7 +29,7 @@ test("commerce ops: set a storefront-wide discount percent and see it persist", 
   await expect(row).toBeVisible({ timeout: 10_000 });
   // Before saving a discount, the column reads "—" (no discount).
   await expect(row).toContainText("—");
-  await page.screenshot({ path: "test-results/discount-admin-before.png", fullPage: true });
+  await capture(page, "discount-admin-before");
 
   await row.getByRole("button", { name: "Manage", exact: true }).click();
 
@@ -46,7 +47,7 @@ test("commerce ops: set a storefront-wide discount percent and see it persist", 
   const savedRow = page.locator("tr", { hasText: name });
   await expect(savedRow).toBeVisible({ timeout: 10_000 });
   await expect(savedRow).toContainText("15%");
-  await page.screenshot({ path: "test-results/discount-admin-after.png", fullPage: true });
+  await capture(page, "discount-admin-after");
 
   // The API round-trips the basis points (15% = 1500 bps).
   const list = await request.get(`${GATEWAY}/api/catalog/admin/storefronts?tenantId=${TENANT_ID}`);

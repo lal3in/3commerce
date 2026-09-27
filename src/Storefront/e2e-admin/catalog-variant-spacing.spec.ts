@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 // FIX: in the Admin Catalog variants table the SKU input used to run full-bleed (width:100%) with no
 // cell padding, so the SKU column visually touched the Price (minor) column. The header/body cells now
 // carry horizontal padding and the SKU input is capped, so there is a clear gap between the columns.
-const OUT = process.env.SHOT_DIR ?? "/tmp";
 
 test("Catalog variants table: SKU and Price columns are visibly separated", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -45,6 +45,6 @@ test("Catalog variants table: SKU and Price columns are visibly separated", asyn
   const gap = priceBox!.x - (skuBox!.x + skuBox!.width);
   expect(gap).toBeGreaterThan(8);
 
-  await fieldset.screenshot({ path: `${OUT}/after-variants.png` });
-  await page.screenshot({ path: `${OUT}/after-fullform.png`, fullPage: true });
+  await capture(fieldset, "after-variants");
+  await capture(page, "after-fullform");
 });

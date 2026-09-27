@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 // Drives the SupplierPortal "Warehouse" approval lock end-to-end against the running stack
 // (supplier portal :5300, admin :5200, gateway :8080). A fresh supplier + login is provisioned per
@@ -10,7 +11,6 @@ const ADMIN_URL = process.env.ADMIN_URL ?? "http://localhost:5200";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";
-const SHOT_DIR = process.env.SHOT_DIR ?? "test-results";
 
 const run = Date.now();
 const supplier = { email: `pw.warehouse.${run}@example.test`, password: "Pw-warehouse-123", entityId: "" };
@@ -75,7 +75,7 @@ test.describe("Supplier portal — Warehouse approval lock", () => {
     }).toPass({ timeout: 25_000 });
 
     await expect(page.getByText(/10 Draft Way/i)).toBeVisible();
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-warehouse-editable.png`, fullPage: true });
+    await capture(page, "supplier-warehouse-editable");
   });
 
   test("once approved, the warehouse is read-only and changes go through an approved change request", async ({ page, playwright }) => {
@@ -108,7 +108,7 @@ test.describe("Supplier portal — Warehouse approval lock", () => {
       await page.getByRole("button", { name: /^submit change request$/i }).click();
       await expect(page.getByText(/change request submitted for review/i)).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 25_000 });
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-warehouse-locked.png`, fullPage: true });
+    await capture(page, "supplier-warehouse-locked");
 
     // Admin approves the pending change request in the Entities console.
     await page.goto(`${ADMIN_URL}/login`);

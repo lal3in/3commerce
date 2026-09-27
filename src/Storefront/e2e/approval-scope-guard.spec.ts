@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { pinStorefront } from "./fixtures";
+import { capture } from "../e2e-support/screenshots";
 
 // Scope guard for approval-gated availability (DECISION A): the seeded demo storefront must STILL list
 // products after a full seed. The demo supplier is activated by scripts/dev-dummy-data.sh, so every seeded
@@ -16,9 +17,6 @@ test("Demo storefront still lists products after seed (approval scope guard)", a
   const firstProduct = page.locator('a[href^="/products/"]').first();
   await expect(firstProduct).toBeVisible();
 
-  const dir = process.env.SCREENSHOT_DIR;
-  if (dir) {
-    await page.screenshot({ path: `${dir}/storefront-eu-listing.png`, fullPage: true });
-  }
+  await capture(page, "storefront-eu-listing");
   await testInfo.attach("storefront-eu-listing", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 });

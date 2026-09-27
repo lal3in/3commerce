@@ -1,4 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 /**
  * ADR-0051 preview parity: what the shopper is SHOWN can never contradict what checkout CHARGES, even
@@ -81,7 +82,7 @@ test.describe("Free-shipping preview parity (ADR-0051)", () => {
       await expect(page.getByText(/add your delivery address at checkout to confirm your offer/i)).toBeVisible();
       // …and never as a decided reward: the plain "Free shipping" row must NOT be there.
       await expect(page.getByText(/^Free shipping$/)).toHaveCount(0);
-      await page.screenshot({ path: "test-results/promotion-provisional-cart.png", fullPage: true });
+      await capture(page, "promotion-provisional-cart");
 
       // The API agrees with the pixels: provisional, free shipping undecided, and the goods discount is
       // the FLOOR (the free-shipping branch's 0), never the cash discount the shopper might not get.
@@ -116,7 +117,7 @@ test.describe("Free-shipping preview parity (ADR-0051)", () => {
       await expect(page.getByText(/free shipping may apply/i)).toHaveCount(0);
       await expect(page.getByText(new RegExp(`Promotion: ${escapeRegExp(cashName)}`))).toHaveCount(0);
       await expect(page.getByText(new RegExp(`Promotion: ${escapeRegExp(freeShipName)}`)).first()).toBeVisible();
-      await page.screenshot({ path: "test-results/promotion-quoted-checkout.png", fullPage: true });
+      await capture(page, "promotion-quoted-checkout");
 
       // Shown == charged: the same verdict comes back from /cart/summary scored on the quoted rate — the
       // endpoint the integration suite proves equals what POST /checkout charges.
@@ -136,7 +137,7 @@ test.describe("Free-shipping preview parity (ADR-0051)", () => {
       // (The raw endpoint is deliberately address-blind — the destination cookie is the SERVER page's
       // input to its quote, not something /cart/summary reads. Asserting it here would only re-test the
       // provisional path, which the first half already covers.)
-      await page.screenshot({ path: "test-results/promotion-settled-cart.png", fullPage: true });
+      await capture(page, "promotion-settled-cart");
     } finally {
       await deactivatePromotion(request, freeShipId);
       await deactivatePromotion(request, cashId);

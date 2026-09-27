@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 // Drives the SupplierPortal "My details" identifiers (ABN/ACN) end-to-end against the running stack
 // (supplier portal :5300, gateway :8080). A fresh supplier + login is provisioned per run via the
@@ -8,7 +9,6 @@ const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";
-const SHOT_DIR = process.env.SHOT_DIR ?? "test-results";
 
 const run = Date.now();
 const supplier = { email: `pw.ident.${run}@example.test`, password: "Pw-supplier-123", entityId: "" };
@@ -63,7 +63,7 @@ test.describe("Supplier portal — identifiers (ABN/ACN)", () => {
     const abnRow = identSection.locator("li").filter({ hasText: "51824753556" });
     await expect(abnRow).toBeVisible();
     await expect(abnRow).toContainText("ABN");
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-identifiers-editable.png`, fullPage: true });
+    await capture(page, "supplier-identifiers-editable");
   });
 
   test("once approved, identifiers are read-only (no add form)", async ({ page, playwright }) => {
@@ -89,7 +89,7 @@ test.describe("Supplier portal — identifiers (ABN/ACN)", () => {
     await expect(identSection.getByText("51824753556")).toBeVisible();
     await expect(page.getByRole("button", { name: /add identifier/i })).toHaveCount(0);
     await expect(identSection.getByText(/identifiers are read-only/i)).toBeVisible();
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-identifiers-locked.png`, fullPage: true });
+    await capture(page, "supplier-identifiers-locked");
 
     // Server-side lock: a direct POST to the self identifiers endpoint is refused once approved.
     const supApi = await playwright.request.newContext();

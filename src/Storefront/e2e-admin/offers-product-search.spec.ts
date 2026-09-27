@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 
@@ -63,7 +64,7 @@ test("Offers: product filter searches by title or id without 400ing", async ({ p
   const shortIds = await table.locator("tbody tr td:nth-child(1)").allInnerTexts();
   for (const s of shortIds) expect(s.trim()).toBe(shortId);
 
-  await page.screenshot({ path: `${process.env.SHOT_DIR ?? "."}/after-offers-guid-filter.png`, fullPage: true });
+  await capture(page, "after-offers-guid-filter");
 
   // 3) Clearing the filter shows every offer again (back to the full list).
   await productFilter.fill("");

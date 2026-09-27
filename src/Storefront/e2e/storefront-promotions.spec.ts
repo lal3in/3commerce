@@ -1,4 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 /**
  * ADR-0051: a threshold promotion on a demo storefront shows up in the cart as its own row with the
@@ -57,7 +58,7 @@ test.describe("Threshold promotions (ADR-0051)", () => {
       await expect(promotionRow).toContainText("−"); // shown as a deduction
       await expect(page.getByText(/^Items total$/)).toBeVisible();
       await expect(page.getByText(/^Free shipping$/)).toBeVisible();
-      await page.screenshot({ path: "test-results/promotion-cart.png", fullPage: true });
+      await capture(page, "promotion-cart");
 
       // The rows must ADD UP: subtotal − promotion = items total. GET /cart carries the ADD-TIME catalog
       // price while /cart/summary carries the OFFER-RESOLVED price actually charged, so mixing the two
@@ -75,7 +76,7 @@ test.describe("Threshold promotions (ADR-0051)", () => {
       // Shown == charged: the checkout summary carries the same promotion row and free shipping.
       await page.goto("/checkout");
       await expect(page.getByText(new RegExp(`Promotion: ${escapeRegExp(promotionName)}`)).first()).toBeVisible({ timeout: 10_000 });
-      await page.screenshot({ path: "test-results/promotion-checkout.png", fullPage: true });
+      await capture(page, "promotion-checkout");
     } finally {
       // Reset: deactivate the promotion so sibling specs see the demo store's baseline totals.
       await deactivatePromotion(request, promotionId);

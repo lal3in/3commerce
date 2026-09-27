@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext, type Page, type Locator } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -9,7 +10,6 @@ const DEMO_SUPPLIER = "Demo Supplier"; // seeded supplier that backs the demo of
 const ALL_VARIANTS = "(all variants)";
 // Where before/after cost-edit screenshots land. Overridable so a local run can drop them in the
 // scratchpad; defaults under test-results so CI keeps them with the run artifacts.
-const SHOT_DIR = process.env.SUPPLIER_SHOT_DIR ?? "test-results/suppliers-cost";
 
 // Locates the "Supplied products & variants" table by its distinctive Variant SKU header.
 function offersTable(page: Page): Locator {
@@ -85,7 +85,7 @@ test("Suppliers: product-level AND variant-level supplier costs are editable and
 
   // BEFORE screenshot: the supplied-products/cost table with both row kinds visible.
   await table.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: `${SHOT_DIR}/cost-edit-before.png`, fullPage: true });
+  await capture(page, "cost-edit-before");
 
   // Edit BOTH a product-level and a variant-level cost to fresh, distinct values and save each.
   const productCost = String(10000 + (Date.now() % 80000));
@@ -106,7 +106,7 @@ test("Suppliers: product-level AND variant-level supplier costs are editable and
 
   // AFTER screenshot: the reloaded table showing the persisted product-level and variant-level costs.
   await table2.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: `${SHOT_DIR}/cost-edit-after.png`, fullPage: true });
+  await capture(page, "cost-edit-after");
 });
 
 test("Suppliers: the demo supplier's cost table lists each product/variant exactly once", async ({ page }) => {
@@ -119,7 +119,7 @@ test("Suppliers: the demo supplier's cost table lists each product/variant exact
 
   const table = await openDemoSupplierOffers(page);
   await table.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: `${SHOT_DIR}/no-duplicate-rows.png`, fullPage: true });
+  await capture(page, "no-duplicate-rows");
 
   // Each row carries a stable "<product title>|<SKU>" key; collect them and assert none repeats.
   const keys = await table.locator("tbody tr[data-offer-row]").evaluateAll(

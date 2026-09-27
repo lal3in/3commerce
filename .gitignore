@@ -33,3 +33,6 @@ object-store/
 
 # CodeGraph local index artifacts (per-machine; never committed)
 .codegraph/
+
+# Screenshot history (scripts/screenshots/) — local, never pruned by tooling; see its INDEX.md
+/test-artifacts/

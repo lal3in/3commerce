@@ -1,14 +1,16 @@
 import { test } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
-// Captures Blazor admin screenshots for the Operations Wiki. Run against a live stack:
+// Captures Blazor admin screenshots for the Operations Wiki into the run archive (never straight into the
+// wiki). Run against a live stack, then promote the run once the images look right:
 //   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screenshots
-const OUT = "../../docs/help/assets/screenshots";
+//   node ../../scripts/screenshots/shots.cjs promote <runId>
 
 async function shot(page: import("@playwright/test").Page, name: string) {
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/admin-${name}.png`, fullPage: true });
+  await capture(page, name, { docName: `admin-${name}.png` });
 }
 
 // Data-backed pages (payment accounts, supplier payouts, offers, mission control, security)
@@ -17,7 +19,7 @@ async function shot(page: import("@playwright/test").Page, name: string) {
 async function shotInteractive(page: import("@playwright/test").Page, name: string) {
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.waitForTimeout(2000);
-  await page.screenshot({ path: `${OUT}/admin-${name}.png`, fullPage: true });
+  await capture(page, name, { docName: `admin-${name}.png` });
 }
 
 test("admin screenshots", async ({ page }) => {
