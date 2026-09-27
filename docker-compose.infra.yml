@@ -135,6 +135,14 @@ services:
   # service DBs appear under one server. Local-dev only — never deploy this (creds are the dev creds).
   # Runs as root + chmods the mounted passfile to 0600 (pgAdmin refuses a group/world-readable one),
   # which lets servers.json auto-import the saved password on first boot (no manual connect step).
+  #
+  # The passfile MUST live inside the login user's own storage directory, not at /pgpass. In SERVER_MODE
+  # pgAdmin resolves servers.json PassFile through get_complete_file_path(), which joins the value onto
+  # <STORAGE_DIR>/<user> and returns None when the result is not a file — so an absolute /pgpass silently
+  # resolved to nothing and every connect failed with "fe_sendauth: no password supplied", leaving the
+  # saved server showing as unreachable. Mounting it at the resolved path also pre-creates that directory,
+  # which incidentally fixes a second bug: get_storage_directory() does a check-then-makedirs that raced
+  # on first login (FileExistsError), aborting the master-password re-encryption of the saved password.
   pgadmin:
     # Pinned: the portal-verification e2e was validated against 9.13; `latest` drifts (tree/DOM changes).
     image: dpage/pgadmin4:9.13
@@ -153,11 +161,13 @@ services:
     ports:
       - "5480:80"
     user: root
-    entrypoint: ["/bin/sh", "-c", "chmod 600 /pgpass 2>/dev/null || true; exec /entrypoint.sh"]
+    entrypoint: ["/bin/sh", "-c", "chmod 600 /var/lib/pgadmin/storage/admin_3commerce.dev/pgpass 2>/dev/null || true; exec /entrypoint.sh"]
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
-      - ./infra/pgadmin/pgpass:/pgpass
+      # Path must match PGADMIN_DEFAULT_EMAIL with @ and . preprocessed to _ and . (admin@3commerce.dev
+      # -> admin_3commerce.dev); servers.json keeps PassFile "/pgpass", which resolves INTO this dir.
+      - ./infra/pgadmin/pgpass:/var/lib/pgadmin/storage/admin_3commerce.dev/pgpass
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:80/misc/ping >/dev/null 2>&1 || exit 1"]
       interval: 10s
