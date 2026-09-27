@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { execSync } from "node:child_process";
 import { driveCheckout, reachable } from "./portal-helpers";
+import { capture } from "../e2e-support/screenshots";
 
 /**
  * Dev-infra portal verification: the always-on local portals must be up AND showing real data.
@@ -17,10 +18,8 @@ const RABBIT = "http://localhost:15672";
 const KAFKA_UI = "http://localhost:8090";
 const PGADMIN = "http://localhost:5480";
 
-const SHOT_DIR = process.env.PORTAL_SHOT_DIR; // optional screenshot output for manual review
-
 async function shot(page: Page, name: string) {
-  if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/${name}.png`, fullPage: false });
+  await capture(page, name, { fullPage: false });
 }
 
 test.describe("Dev-infra portals show real data", () => {
@@ -46,6 +45,7 @@ test.describe("Dev-infra portals show real data", () => {
   });
 
   test("Kafka UI shows the cluster online and a message produced through the broker", async ({ page }) => {
+    test.setTimeout(240_000);
     test.skip(!(await reachable(KAFKA_UI)), "Kafka UI not running");
 
     // Round-trip a message through the broker itself; auto-create makes the topic.
@@ -58,6 +58,32 @@ test.describe("Dev-infra portals show real data", () => {
       produced = true;
     } catch {
       /* docker unavailable — dashboard checks below still prove the portal */
+    }
+
+    // Kafka UI learns the cluster's state on its own polling schedule, so right after bring-up it can still
+    // report the broker offline (and not yet list a just-created topic). Wait on its API — the source of
+    // truth the dashboard renders — before asserting the dashboard, instead of racing the first poll.
+    await expect
+      .poll(
+        async () => {
+          const res = await page.request.get(`${KAFKA_UI}/api/clusters`).catch(() => null);
+          const clusters = res?.ok() ? ((await res.json()) as { name: string; status: string }[]) : [];
+          return clusters.find((c) => c.name === "local")?.status ?? "unreachable";
+        },
+        { message: "Kafka UI should report the local cluster online", timeout: 90_000, intervals: [1_000, 2_000, 5_000] },
+      )
+      .toBe("online");
+    if (produced) {
+      await expect
+        .poll(
+          async () => {
+            const res = await page.request.get(`${KAFKA_UI}/api/clusters/local/topics?search=e2e-portal-check`).catch(() => null);
+            const body = res?.ok() ? ((await res.json()) as { topics?: { name: string }[] }) : {};
+            return (body.topics ?? []).some((t) => t.name === "e2e-portal-check");
+          },
+          { message: "Kafka UI should list the topic the broker just auto-created", timeout: 60_000, intervals: [1_000, 2_000, 5_000] },
+        )
+        .toBe(true);
     }
 
     await page.goto(`${KAFKA_UI}/`, { waitUntil: "domcontentloaded" });

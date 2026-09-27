@@ -39,6 +39,10 @@ ingester:
     kvstore:
       store: memberlist
     replication_factor: 1
+    # Mimir holds /ready back for this long AFTER it is internally ready (default 15s) so a Kubernetes
+    # rolling update gives the rest of a multi-instance ring time to see the change. There is no ring to
+    # wait for here — one instance — so it was pure delay, and the readiness a fresh stack reports late.
+    min_ready_duration: 0s
 
 store_gateway:
   sharding_ring:

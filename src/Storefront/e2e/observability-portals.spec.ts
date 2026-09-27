@@ -58,15 +58,24 @@ test.describe("Observability portals ingest real service telemetry", () => {
   });
 
   test("Loki, Tempo and Mimir all report ready", async () => {
+    test.setTimeout(300_000);
     // One reachable backend is proof the profile is up — then ALL three must be ready.
     const up = await Promise.all([reachable(`${LOKI}/ready`), reachable(`${TEMPO}/ready`), reachable(`${MIMIR}/ready`)]);
     test.skip(!up.some(Boolean), "LGTM stack not running");
 
+    // Readiness is an EVENTUAL state: these backends keep warming up after their containers start, so a
+    // single-shot 200 check failed whenever the suite began right after bring-up. Poll each (bounded) —
+    // a backend that never becomes ready still fails, with its last status in the message.
     const ctx = await pwRequest.newContext();
     try {
       for (const url of [`${LOKI}/ready`, `${TEMPO}/ready`, `${MIMIR}/ready`]) {
-        const res = await ctx.get(url);
-        expect(res.status(), `${url} should be ready`).toBe(200);
+        await expect
+          .poll(async () => (await ctx.get(url).catch(() => null))?.status() ?? 0, {
+            message: `${url} should become ready`,
+            timeout: 90_000,
+            intervals: [1_000, 2_000, 5_000],
+          })
+          .toBe(200);
       }
     } finally {
       await ctx.dispose();
