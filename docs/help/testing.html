@@ -143,13 +143,24 @@ npm run test:e2e:headed              <span class="cmt"># headed (debugging)</spa
           <li><strong><code>helpers.ts</code></strong> — <code>loginAsAdmin</code> (real Blazor form + antiforgery), <code>seedPaidOrderWithRma</code> (seeds a paid order + open RMA via the gateway so the UI test can focus on approve → refund), and <code>rmaState</code>.</li>
         </ul>
 
+        <h3 id="screenshot-history">Screenshots are a history, not a file you overwrite</h3>
+        <p>Every screenshot a spec takes goes through <strong><code>capture(page | locator, name, { docName? })</code></strong> (<code>src/Storefront/e2e-support/screenshots.ts</code>) — never <code>page.screenshot({ path })</code>. Each Playwright invocation gets its own run folder under <code>test-artifacts/screenshots/runs/&lt;runId&gt;/</code> (gitignored local history; no tooling ever deletes a run), and a reporter pairs every shot with its test's outcome. <strong>Start at <code>test-artifacts/screenshots/INDEX.md</code></strong>: runs, promotions, and every case's latest state; <code>index.json</code> holds each case's full history.</p>
+        <p>A <em>case</em> is one screenshot followed across runs (<code>docs/&lt;file&gt;</code> for wiki images, otherwise <code>project › spec › test › shot</code>). Runs are compared on <strong>decoded pixels, not file bytes</strong> — PNG encoding and invisible sub-pixel rendering make identical-looking captures differ in bytes on nearly every run. Each entry is <code>same</code>, <code>minor</code> (≤0.1% of pixels — rendering noise) or <code>changed</code>, with the share of pixels that moved.</p>
+        <pre><code>node scripts/screenshots/shots.cjs compare                              <span class="cmt"># previous run → latest</span>
+node scripts/screenshots/shots.cjs compare --from &lt;run&gt; --to &lt;run&gt; --diff   <span class="cmt"># + red-highlight diffs</span>
+node scripts/screenshots/shots.cjs history admin-entities               <span class="cmt"># one case across every run</span>
+node scripts/screenshots/shots.cjs promote &lt;run&gt;                        <span class="cmt"># the ONLY way the wiki images change</span>
+node scripts/screenshots/shots.cjs import --label &lt;l&gt; --dir &lt;d&gt; [--doc]  <span class="cmt"># archive existing PNGs as a run</span></code></pre>
+        <p><strong>The wiki images only change on purpose.</strong> The two <code>screenshots.spec.ts</code> files tag their shots with a <code>docName</code> but write only into the archive; <code>promote</code> copies them into <code>docs/help/assets/screenshots/</code>, refuses shots whose test did not pass (<code>--force</code> to override), and records the promotion. Promote from a <code>dev-up.sh --fresh</code> run where you can — a long-lived dev database accumulates E2E leftovers that end up in the pictures.</p>
+
         <h2 id="e2e-verify-regression">4. <code>scripts/e2e-verify.sh</code> — the regression command</h2>
         <p>This is the single "did anything break?" script.</p>
         <pre><code>scripts/e2e-verify.sh            <span class="cmt"># automated suites only (A1–A8)</span>
-scripts/e2e-verify.sh --live     <span class="cmt"># ALSO boot the stack and run live flows (L1–L20)</span>
+scripts/e2e-verify.sh --live     <span class="cmt"># ALSO run the live flows (L1–L20)</span>
 scripts/e2e-verify.sh --live-only</code></pre>
+        <p><strong>It never builds over, or tears down, a stack it did not start.</strong> If the gateway, storefront, admin and supplier portal are <em>all</em> up it runs the live checks against them — no build, migrations, restarts or teardown; if <em>nothing</em> is up it boots its own and afterwards stops only what it started, by port (never a <code>pkill</code> pattern); if only <em>part</em> is up it refuses and says why. The storefront production build goes to <strong><code>.next-verify/</code></strong>, never <code>.next/</code>: <code>next build</code> rewrites its output wholesale, and sharing it with a running <code>next dev</code> pulled chunks out from under the dev server (every page 500'd with <code>MODULE_NOT_FOUND</code>).</p>
         <p><strong>Automated group (A1–A8):</strong> A1 build with 0 warnings · A2 <code>dotnet format</code> clean · A3 unit/contract · A4–A6 integration · A6b/c/d ledger/money/RMA/fulfillment · A6e Xero builder · A7 storefront <code>tsc</code> + <code>next build</code> · A8 vulnerable-package scan.</p>
-        <p><strong>Live group (L1–L20, <code>--live</code>):</strong> boots infra, applies migrations, builds, starts the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL, then:</p>
+        <p><strong>Live group (L1–L20, <code>--live</code>):</strong> on a clean machine it boots infra, applies migrations, builds, starts the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL; on a fully running stack it reuses it as-is. Then:</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Checks</th><th>What</th></tr></thead>

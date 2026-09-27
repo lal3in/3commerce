@@ -282,7 +282,9 @@ run_automated() {
   stage "A7  Storefront typecheck + build"
   if [[ -d "$ROOT/src/Storefront/node_modules" ]]; then
     ( cd "$ROOT/src/Storefront" && npx tsc --noEmit >/dev/null 2>&1 ) && pass "A7a tsc clean" || fail "A7a tsc"
-    ( cd "$ROOT/src/Storefront" && npm run build >/dev/null 2>&1 ) && pass "A7b next build" || fail "A7b next build"
+    # Own build dir: `next build` rewrites its output wholesale, and sharing .next with a running
+    # `next dev` pulls chunks out from under it (every page 500s with MODULE_NOT_FOUND).
+    ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/dev/null 2>&1 ) && pass "A7b next build" || fail "A7b next build"
   else
     fail "A7 storefront deps missing (run: cd src/Storefront && npm install)"
   fi
@@ -306,7 +308,38 @@ wait_http() { # url (waits up to ~120s — covers the storefront production buil
   return 1
 }
 
+# Is a dev stack already up? full → run the live checks AGAINST it (never build over it, never tear it
+# down); none → boot our own and tear down only what we started; partial → refuse, because booting a second
+# copy over half a stack is how ports get stolen and a running dev storefront's .next gets rebuilt from under it.
+stack_state() {
+  local up=0 total=0 p
+  curl -fsS -o /dev/null -m 3 "$GATEWAY/health" 2>/dev/null && up=$((up+1)); total=$((total+1))
+  for p in 3000 5200 5300; do
+    total=$((total+1))
+    curl -s -o /dev/null -m 5 "http://localhost:$p/" 2>/dev/null && [[ -n "$(lsof -nP -iTCP:$p -sTCP:LISTEN -t 2>/dev/null)" ]] && up=$((up+1))
+  done
+  if (( up == total )); then echo full; elif (( up == 0 )); then echo none; else echo partial; fi
+}
+
 run_live() {
+  STACK_OWNED=1
+  case "$(stack_state)" in
+    full)
+      STACK_OWNED=0
+      stage "Reusing the running stack"
+      echo "  gateway + storefront + admin + supplier portal are already up — running the live checks AGAINST"
+      echo "  them: no build, no migrations, no restarts, and no teardown (the stack stays exactly as it was)."
+      ;;
+    partial)
+      stage "Refusing: a PARTIAL stack is running"
+      echo "  Some of gateway :8080 / storefront :3000 / admin :5200 / supplier :5300 are up and some are not."
+      echo "  Either bring it fully up (scripts/dev-up.sh --with-frontends) or down (scripts/dev-down.sh), then re-run."
+      fail "live: partial stack (refused rather than boot over it)"
+      return
+      ;;
+  esac
+
+  if (( STACK_OWNED )); then
   stage "L1  Infra (Postgres + RabbitMQ)"
   docker compose -f "$ROOT/docker-compose.infra.yml" up -d >/dev/null 2>&1
   # Wait up to ~180s for the init script to create all service databases (slow/loaded CI
@@ -342,7 +375,7 @@ run_live() {
   [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
   stage "Booting storefront + admin + supplier portal"
-  ( cd "$ROOT/src/Storefront" && npm run build >/tmp/3c-sf-build.log 2>&1 && GATEWAY_URL="$GATEWAY" npm run start:standalone >/tmp/3c-storefront.log 2>&1 & )
+  ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" npm run start:standalone >/tmp/3c-storefront.log 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
@@ -357,9 +390,19 @@ run_live() {
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
   fi
 
+  else
+    # Reusing: still PROVE the running services are healthy rather than assuming it.
+    local ok=1; for p in 5101 5102 5103 5104 5105 5106 5107; do wait_health "$p" || ok=0; done
+    [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || fail "L2 service health"
+  fi
+
   stage "L3–L4  Gateway routing"
+  # Only a PONG written AFTER this ping counts. On a reused stack the log already holds earlier PONGs (a stale
+  # match would pass instantly), and bare-run opens logs with '>' so truncating one under a live writer just
+  # leaves a NUL-filled gap — so remember the size now and search only what is appended after it.
+  local pong_from; pong_from=$(( $(wc -c < "$ROOT/.run/notifications.log" 2>/dev/null || echo 0) + 1 ))
   check "L3 ping-pong via gateway → worker" "PONG received" bash -c \
-    "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if grep -aq 'PONG received' '$ROOT/.run/notifications.log'; then grep -a 'PONG received' '$ROOT/.run/notifications.log' | tail -1; exit 0; fi; sleep 1; done; exit 1"
+    "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if tail -c +$pong_from '$ROOT/.run/notifications.log' 2>/dev/null | grep -aq 'PONG received'; then tail -c +$pong_from '$ROOT/.run/notifications.log' | grep -a 'PONG received' | tail -1; exit 0; fi; sleep 1; done; exit 1"
   check "L4 gateway blocks internal health" "404" bash -c \
     "curl -s -o /dev/null -w '%{http_code}' $GATEWAY/api/ordering/health/ready"
 
@@ -415,11 +458,19 @@ run_live() {
   # L1–L13 run clean, then a settle drains the burst before the storefront/money/L20 stages that DO need the
   # demo data (multi-currency storefronts, Demo Supplier, scenario products, attributed orders/ledger, and
   # .run/dev-dummy-data/fixtures.json). The background storefront build (started above) finishes during it.
-  rm -rf "$ROOT/.run/dev-dummy-data"   # never let a stale manifest from a prior run drive the specs
-  if GATEWAY="$GATEWAY" "$ROOT/scripts/dev-dummy-data.sh" --profile full --gateway "$GATEWAY" >/tmp/3c-seed.log 2>&1; then
-    pass "Seed full demo data ($(grep -oE 'step classifications:.*' /tmp/3c-seed.log | tail -1))"
+  if (( ! STACK_OWNED )) && [[ -s "$ROOT/.run/dev-dummy-data/fixtures.json" ]]; then
+    # A REUSED stack that is already seeded keeps its data and its manifest. Re-seeding it deleted the
+    # manifest the running stack was seeded with (and the demo logins in it) and piled a second full dataset
+    # on top, whose projections were still draining when L20 started: the admin money/ledger specs then
+    # raced it (5 failures that all passed on the settled stack). Specs read the existing, settled manifest.
+    pass "Seed full demo data (reused stack already seeded — kept its data and manifest)"
   else
-    fail "Seed full demo data"; tail -25 /tmp/3c-seed.log
+    rm -rf "$ROOT/.run/dev-dummy-data"   # never let a stale manifest from a prior run drive the specs
+    if GATEWAY="$GATEWAY" "$ROOT/scripts/dev-dummy-data.sh" --profile full --gateway "$GATEWAY" >/tmp/3c-seed.log 2>&1; then
+      pass "Seed full demo data ($(grep -oE 'step classifications:.*' /tmp/3c-seed.log | tail -1))"
+    else
+      fail "Seed full demo data"; tail -25 /tmp/3c-seed.log
+    fi
   fi
   # Settle: let the seed's outbox/projection burst drain and every service report ready again before the
   # storefront + money-flow stages read the just-seeded state (avoids a post-seed saturation false-negative).
@@ -518,10 +569,18 @@ run_live() {
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
   fi
 
-  stage "Tearing down"
-  "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1
-  pkill -f 'next-server|npm run start|3commerce.Admin' 2>/dev/null || true
-  echo "  services stopped (infra containers left running)"
+  if (( STACK_OWNED )); then
+    stage "Tearing down"
+    "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1
+    # By port, gracefully (TERM then KILL) — never `pkill -f <pattern>`, which also hit processes this run
+    # did not start (a developer's own storefront/admin), and is the hazard dev-down.sh documents.
+    source "$ROOT/scripts/lib/procs.sh"
+    reap_port 3000 storefront; reap_port 5200 admin; reap_port 5300 supplier-portal
+    echo "  services + frontends this run started are stopped (infra containers left running)"
+  else
+    stage "Leaving the reused stack running"
+    echo "  nothing started, so nothing stopped."
+  fi
 }
 
 # ── Run ──────────────────────────────────────────────────────────────────────

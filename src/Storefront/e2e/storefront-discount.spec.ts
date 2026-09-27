@@ -1,4 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 /**
  * rev_disc: a storefront-wide percentage discount, deducted from the ITEMS' subtotal only, is shown as its
@@ -38,7 +39,7 @@ test.describe("Storefront-wide discount (rev_disc)", () => {
       await page.goto(`/${slug}`);
       await addFirstInStockProduct(page); // lands on /cart
       await expect(page.getByText(/^Discount \(/)).toHaveCount(0);
-      await page.screenshot({ path: "test-results/discount-cart-before.png", fullPage: true });
+      await capture(page, "discount-cart-before");
 
       // Set a 10% storefront-wide discount and wait for the public config to reflect it.
       await putDiscount(request, original!, 1000);
@@ -50,7 +51,7 @@ test.describe("Storefront-wide discount (rev_disc)", () => {
       await expect(discountRow).toBeVisible();
       await expect(discountRow).toContainText("−"); // shown as a deduction
       await expect(page.getByText(/^Items total$/)).toBeVisible();
-      await page.screenshot({ path: "test-results/discount-cart-after.png", fullPage: true });
+      await capture(page, "discount-cart-after");
     } finally {
       // Reset the demo store's discount so sibling specs see the baseline (0 = none).
       await putDiscount(request, original!, 0);

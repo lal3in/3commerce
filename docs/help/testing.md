@@ -171,15 +171,62 @@ npm run test:e2e:headed              # headed (debugging)
 - **`supplier.spec.ts`** — unauthenticated redirect to supplier sign-in, login,
   readiness check, stock-feed request, and supplier change-request submission.
 
+### Screenshots are a history, not a file you overwrite
+
+Every screenshot a spec takes goes through **`capture(page | locator, name, { docName? })`**
+(`src/Storefront/e2e-support/screenshots.ts`) — never `page.screenshot({ path })`. Each Playwright
+invocation gets its own run folder, and a reporter pairs every shot with its test's outcome:
+
+```
+test-artifacts/screenshots/            (gitignored — local history; no tooling ever deletes a run)
+├── INDEX.md       ← start here: runs, promotions, and every case's latest state
+├── index.json     ← the same, machine-readable, with each case's full history
+└── runs/<2026-09-27T10-15-22Z_a1b2c3d>/
+    ├── run.json   ← commit, branch, dirty flag, test counts, and every shot with its test status
+    └── <project>/<spec>/<test>/<shot>.png  (+ .json sidecar: url, title path, retry, capture time)
+```
+
+A **case** is one screenshot followed across runs (`docs/<file>` for wiki images, otherwise
+`project › spec › test › shot`). Runs are compared on **decoded pixels, not file bytes** — PNG encoding and
+invisible sub-pixel rendering make identical-looking captures differ in bytes on nearly every run, which
+would mark everything "changed" and bury the real changes. Each entry is `same`, `minor` (≤0.1% of pixels —
+rendering noise), or `changed`, with the share of pixels that moved.
+
+```bash
+node scripts/screenshots/shots.cjs compare                 # previous run → latest run
+node scripts/screenshots/shots.cjs compare --from <run> --to <run> --diff   # + a red-highlight diff per change
+node scripts/screenshots/shots.cjs history admin-entities  # one case across every run
+node scripts/screenshots/shots.cjs promote <run>           # copy a run's wiki shots into docs/ (see below)
+node scripts/screenshots/shots.cjs import --label <l> --dir <d> [--doc]   # archive existing PNGs as a run
+```
+
+A run can be named by any unique fragment of its id (its label or commit sha); an ambiguous fragment is
+refused with the candidates rather than guessed.
+
+**The wiki images only change on purpose.** `e2e/screenshots.spec.ts` and `e2e-admin/screenshots.spec.ts`
+tag their shots with a `docName` but write only into the archive. `shots.cjs promote <run>` copies them into
+`docs/help/assets/screenshots/`, **refuses** shots whose test did not pass (override with `--force`), and
+records who/what/when in `promotions.json` + `INDEX.md`; the replaced image stays in git history. Promote from
+a `dev-up.sh --fresh` run where you can: a long-lived dev database accumulates E2E leftovers that end up in
+the pictures (the committed `admin-entities.png` showed ~45 stray test suppliers; a fresh capture shows 3).
+
 ## 4. `scripts/e2e-verify.sh` — the regression command
 
 This is the single "did anything break?" script.
 
 ```bash
 scripts/e2e-verify.sh            # automated suites only (A1–A8)
-scripts/e2e-verify.sh --live     # ALSO boot the stack and run live flows (L1–L20)
+scripts/e2e-verify.sh --live     # ALSO run the live flows (L1–L20)
 scripts/e2e-verify.sh --live-only  # ONLY the live group (skip A1–A8) — what CI's browser-e2e runs
 ```
+
+**It never builds over, or tears down, a stack it did not start.** Before the live group it checks what is
+running: if the gateway, storefront, admin and supplier portal are **all up** it runs the checks *against*
+them (no build, migrations, restarts or teardown); if **nothing** is up it boots its own and afterwards stops
+only what it started, by port (never a `pkill` pattern); if only **part** is up it refuses and says why.
+The storefront production build (A7b, and the live boot) goes to **`.next-verify/`**, never `.next/` —
+`next build` rewrites its output dir wholesale, and sharing it with a running `next dev` pulled chunks out
+from under the dev server (`Cannot find module './vendor-chunks/@formatjs.js'`, every page 500).
 
 The live group seeds the **full demo profile** (`scripts/dev-dummy-data.sh --profile full`) after the
 L5–L13 auth/catalog smoke — multi-currency storefronts, the Demo Supplier, scenario products, and
@@ -192,8 +239,9 @@ clean · A3 unit/contract · **A3b promotions + coupons** · A4–A6 integration
 A6b/c/d ledger/money/RMA/fulfillment · A6e Xero builder · A7 storefront `tsc` +
 `next build` · A8 vulnerable-package scan.
 
-**Live group (L1–L20, `--live`):** boots infra, applies migrations, builds, starts
-the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL, then:
+**Live group (L1–L20, `--live`):** on a clean machine it boots infra, applies migrations, builds, starts
+the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL; on a
+fully running stack it reuses it as-is (see above). Then:
 
 | Checks | What |
 |--------|------|

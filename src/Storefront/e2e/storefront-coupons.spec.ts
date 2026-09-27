@@ -1,4 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 /**
  * ADR-0052: entering a coupon code at checkout applies its promotion — the code-gated promotion is
@@ -59,7 +60,7 @@ test.describe("Coupon codes at checkout (ADR-0052)", () => {
       // Shown == charged: the coupon's promotion is now a discount row on the checkout summary.
       const promotionRow = page.getByText(new RegExp(`^Promotion: ${escapeRegExp(promotionName)}`)).first();
       await expect(promotionRow).toBeVisible({ timeout: 10_000 });
-      await page.screenshot({ path: "test-results/coupon-checkout.png", fullPage: true });
+      await capture(page, "coupon-checkout");
 
       // Removing it prices the cart back at full price and re-offers the input.
       await page.getByTestId("coupon-remove").click();

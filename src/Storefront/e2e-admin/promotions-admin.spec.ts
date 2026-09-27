@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -46,7 +47,7 @@ test("promotions: create a threshold promotion through the modal and see it pers
 
   await loginAsAdmin(page);
   await page.goto("/promotions");
-  await page.screenshot({ path: "test-results/promotions-admin-before.png", fullPage: true });
+  await capture(page, "promotions-admin-before");
 
   await page.getByRole("button", { name: "New promotion", exact: true }).click();
 
@@ -84,7 +85,7 @@ test("promotions: create a threshold promotion through the modal and see it pers
   await expect(row).toContainText("100 EUR");
   await expect(row).toContainText("15%");
   await expect(row).toContainText("Stacks");
-  await page.screenshot({ path: "test-results/promotions-admin-after.png", fullPage: true });
+  await capture(page, "promotions-admin-after");
 
   // The API round-trips the values in MINOR units (100.00 EUR = 10000).
   const list = await request.get(`${GATEWAY}/api/catalog/admin/promotions?tenantId=${TENANT_ID}`);
@@ -171,7 +172,7 @@ test("promotions: author a coupon code with usage limits through the modal", asy
   await expect(row).toBeVisible({ timeout: 10_000 });
   await expect(row).toContainText(canonicalCode);
   await expect(row).toContainText("0 / 1");
-  await page.screenshot({ path: "test-results/promotions-admin-coupon.png", fullPage: true });
+  await capture(page, "promotions-admin-coupon");
 
   const list = await request.get(`${GATEWAY}/api/catalog/admin/promotions?tenantId=${TENANT_ID}`);
   expect(list.ok()).toBeTruthy();

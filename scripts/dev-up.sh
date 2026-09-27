@@ -68,6 +68,10 @@ if (( WITH_FRONTENDS )); then
   # them: every restart left the previous generation alive and holding the port, invisible to all
   # the bookkeeping. Clear the port first, then record the pid like every other stack process.
   reap_port 3000 storefront
+  # Start from a clean dev build dir: the process just reaped may have died mid-compile, and a half-written
+  # .next leaves webpack-runtime pointing at chunks that were never emitted (every page 500s with
+  # MODULE_NOT_FOUND until it is cleared). Costs one cold compile; the regression build uses .next-verify.
+  rm -rf src/Storefront/.next
   reap_port 5200 admin
   reap_port 5300 supplier-portal
   # The pid redirection is set up by the parent shell, so `.run/...` still resolves after the cd.
@@ -113,4 +117,36 @@ case "$DATA_PROFILE" in
     exit 2
     ;;
 esac
+# Readiness gate. "Up." must mean usable, not merely "processes started": several portals keep warming up
+# long after their containers start (Mimir holds /ready back for its ring min-ready window; Kafka UI reports
+# the cluster offline until its first poll), and a browser suite started on the word "Up" failed on exactly
+# those. Wait for each (bounded), then say plainly what is and is not ready.
+echo "== readiness =="
+NOT_READY=()
+ready() { # label timeout_s command...
+  local label="$1" limit="$2"; shift 2
+  local start=$SECONDS
+  until "$@" >/dev/null 2>&1; do
+    if (( SECONDS - start >= limit )); then printf '  %-12s NOT READY after %ss\n' "$label" "$limit"; NOT_READY+=("$label"); return; fi
+    sleep 2
+  done
+  printf '  %-12s ready (%ss)\n' "$label" "$((SECONDS - start))"
+}
+ready gateway    60 curl -fsS -m 4 http://localhost:8080/health
+ready rabbitmq   60 curl -fsS -m 4 -u guest:guest http://localhost:15672/api/overview
+ready pgadmin    90 curl -fsS -m 4 http://localhost:5480/misc/ping
+ready kafka-ui  120 sh -c 'curl -fsS -m 4 http://localhost:8090/api/clusters | grep -q "\"status\":\"online\""'
+ready grafana    90 curl -fsS -m 4 http://localhost:3001/api/health
+ready loki      120 curl -fsS -m 4 http://localhost:3100/ready
+ready tempo     120 curl -fsS -m 4 http://localhost:3200/ready
+ready mimir     120 curl -fsS -m 4 http://localhost:9009/ready
+if (( WITH_FRONTENDS )); then
+  ready storefront 180 curl -fsS -m 20 -o /dev/null http://localhost:3000/
+  ready admin       90 curl -fsS -m 10 -o /dev/null http://localhost:5200/
+  ready supplier    90 curl -fsS -m 10 -o /dev/null http://localhost:5300/
+fi
+if (( ${#NOT_READY[@]} )); then
+  echo "Up, but NOT READY: ${NOT_READY[*]} — see scripts/doctor.sh. Exiting 3 so a chained test run does not start on a half-ready stack."
+  exit 3
+fi
 echo "Up. Stop with: scripts/dev-down.sh"

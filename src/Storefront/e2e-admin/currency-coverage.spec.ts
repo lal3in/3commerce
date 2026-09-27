@@ -63,16 +63,20 @@ async function feedRows(page: Page, columnHeader: RegExp): Promise<string[]> {
 // so an operator glancing at the dashboard sees the same top of the ledger as the Ledger page.
 test("Dashboard ledger feed matches the Ledger page order", async ({ page }) => {
   await loginAsAdmin(page);
-  await page.waitForTimeout(2500);
-  const dash = await feedRows(page, /^entry$/i); // dashboard feed columns: When | Entry | Amount
+  // Both tables fill asynchronously after the Blazor circuit connects. Fixed sleeps (2.5s / 1.5s) read an
+  // EMPTY ledger table whenever the machine was busy — e.g. inside the full live suite — so wait for the
+  // rows themselves (bounded) instead of guessing how long the render takes.
+  let dash: string[] = [];
+  await expect
+    .poll(async () => (dash = await feedRows(page, /^entry$/i)).length, { timeout: 30_000 }) // When | Entry | Amount
+    .toBeGreaterThan(0);
 
   await page.goto("/ledger");
   await expect(page.getByRole("heading", { name: /journal entries/i })).toBeVisible();
-  await page.waitForTimeout(1500);
-  const ledger = await feedRows(page, /reference/i); // ledger entries: When | Description | Reference | ...
-
-  expect(dash.length).toBeGreaterThan(0);
-  expect(ledger.length).toBeGreaterThanOrEqual(dash.length);
+  let ledger: string[] = [];
+  await expect
+    .poll(async () => (ledger = await feedRows(page, /reference/i)).length, { timeout: 30_000 }) // When | Description | Reference | ...
+    .toBeGreaterThanOrEqual(dash.length);
   // The dashboard shows the newest N; they must be exactly the first N of the Ledger page, in order.
   expect(ledger.slice(0, dash.length)).toEqual(dash);
 });

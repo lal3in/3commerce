@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers";
+import { capture } from "../e2e-support/screenshots";
 
 // The Admin Suppliers page as a COMPLETE supplier console: identifiers (view/add/verify), the warehouse
 // address, onboarding lifecycle actions, and change-request review — all without leaving to the generic
@@ -9,7 +10,6 @@ const TENANT = "00000000-0000-0000-0000-000000000001";
 const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";
 const DEMO_SUPPLIER = "Demo Supplier";
-const SHOT_DIR = process.env.SHOT_DIR ?? "test-results";
 
 /** Admin-authenticated: create a supplier entity with onboarding started (Draft). */
 async function newDraftSupplier(request: APIRequestContext, legalName: string): Promise<string> {
@@ -55,7 +55,7 @@ test("Suppliers console: add + verify an identifier, add a warehouse address, an
   const addrRow = addrSection.locator("li").filter({ hasText: "7 Console Way" });
   await expect(addrRow).toBeVisible({ timeout: 10_000 });
   await expect(addrRow).toContainText("Warehouse");
-  await page.screenshot({ path: `${SHOT_DIR}/admin-suppliers-console.png`, fullPage: true });
+  await capture(page, "admin-suppliers-console");
 
   // Lifecycle: suspending a Draft supplier is refused by design — the reason is surfaced, not swallowed.
   await page.getByRole("button", { name: "Suspend", exact: true }).click();

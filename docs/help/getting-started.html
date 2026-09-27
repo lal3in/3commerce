@@ -154,7 +154,8 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         </blockquote>
 
         <h2 id="one-command">One-command equivalent</h2>
-        <p><code>scripts/e2e-verify.sh --live</code> automates steps 1–5 (infra, migrations, services, storefront, admin) and then runs the live smoke flows. Use it to confirm the whole stack boots and the core journeys work — see <a class="inline" href="testing.html">Testing</a>.</p>
+        <p><code>scripts/dev-up.sh --with-frontends --seed</code> does steps 1–7 in one go (add <code>--fresh</code> to start from an empty database, <code>--data full</code> for the broad demo data). It prints <strong><code>Up.</code></strong> only once every surface is genuinely <strong>ready</strong> — gateway, RabbitMQ, pgAdmin, Kafka UI (cluster <em>online</em>), Grafana, Loki, Tempo, Mimir and the frontends — because several keep warming up well after their containers start. Anything still not ready after its time budget is named and the script exits <strong>3</strong>, so a chained test run never starts on a half-ready stack. It also starts the storefront from a clean <code>.next/</code>, since the process it replaces may have died mid-compile.</p>
+        <p><code>scripts/e2e-verify.sh --live</code> then runs the live smoke flows — against that running stack as-is, or, on a clean machine, against one it boots and tears down itself. See <a class="inline" href="testing.html">Testing</a>.</p>
 
         <h2 id="containerized-launch">Or: containerized launch</h2>
         <p>The steps above are the <strong>bare-run</strong> dev loop (ADR-0009). To run the whole stack in containers instead — as a repeatable, deployable launch — use:</p>

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "start:standalone": "cp -R public .next/standalone/ 2>/dev/null; cp -R .next/static .next/standalone/.next/ 2>/dev/null; PORT=${PORT:-3000} HOSTNAME=127.0.0.1 node .next/standalone/server.js"
+    "start:standalone": "D=${NEXT_DIST_DIR:-.next}; cp -R public $D/standalone/ 2>/dev/null; cp -R $D/static $D/standalone/$D/ 2>/dev/null; PORT=${PORT:-3000} HOSTNAME=127.0.0.1 node $D/standalone/server.js"
   },
   "dependencies": {
     "next": "15.5.19",

@@ -1,14 +1,16 @@
 import { test } from "./fixtures";
 import { pinStorefront } from "./fixtures";
+import { capture } from "../e2e-support/screenshots";
 
-// Captures storefront screenshots for the Operations Wiki. Run against a live stack:
+// Captures storefront screenshots for the Operations Wiki into the run archive (never straight into the
+// wiki). Run against a live stack, then promote the run once the images look right:
 //   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=storefront -g screenshots
-const OUT = "../../docs/help/assets/screenshots";
+//   node ../../scripts/screenshots/shots.cjs promote <runId>
 
 async function shot(page: import("@playwright/test").Page, name: string) {
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/storefront-${name}.png`, fullPage: true });
+  await capture(page, name, { docName: `storefront-${name}.png` });
 }
 
 test.describe("storefront screenshots", () => {

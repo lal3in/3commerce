@@ -71,7 +71,8 @@ When PRD is needed:
 
 ```bash
 # Development — bare-run, ADR-0009 (the light default; never builds images, so it can't OOM the Docker VM)
-scripts/dev-up.sh --with-frontends --seed          # ONE command: infra + migrate + all services + frontends + seed
+scripts/dev-up.sh --with-frontends --seed          # ONE command: infra + migrate + all services + frontends + seed;
+                                                    # prints "Up." only once every portal is ready (exit 3 + names if not)
 scripts/dev-down.sh                                 # stop everything
 # ...or piecemeal:
 docker compose -f docker-compose.infra.yml up -d   # Postgres 17 + RabbitMQ
@@ -110,7 +111,8 @@ dotnet test tests/ --filter Category=Integration
 
 # Full regression check (run after building new features)
 scripts/e2e-verify.sh          # automated suites (build, format, unit, integration, storefront, vuln)
-scripts/e2e-verify.sh --live   # also boots the stack and runs live user-journey smoke flows
+scripts/e2e-verify.sh --live   # also runs live user-journey flows: AGAINST the running stack if one is fully up
+                               # (no build/migrate/restart/teardown), else it boots its own and stops only that
 ```
 
 ---
@@ -133,6 +135,7 @@ Log locations:
 |---|---|
 | Bare-run services | `.run/<name>.log` (e.g. `.run/payments.log`) |
 | Storefront / admin | `/tmp/3c-storefront.log` · `/tmp/3c-admin.log` |
+| E2E screenshots (every run, never overwritten) | `test-artifacts/screenshots/INDEX.md` — per-case history, pixel-level change flags; `node scripts/screenshots/shots.cjs compare [--diff]` |
 | Containerized services | `docker compose logs <service>` |
 | CI job | `gh run view --job <id> --log` (or just `scripts/ci-logs.sh`) |
 | kind-deploy pod events | inside the **kind-deploy job log** (the "Diagnostics on failure" step) — NOT `docker logs` |
@@ -160,6 +163,8 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
 ├── deploy/pgbouncer/              # PgBouncer dev/local config + user list
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts
+│   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
+├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
 ├── 3commerce.sln                  # all 27 projects; Directory.Build.props / Directory.Packages.props (CPM)
 ├── src/
@@ -172,7 +177,8 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   │   ├── Payments/  ├── Fulfillment/  └── Support/
 │   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5107
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
-│   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ Playwright suites)
+│   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ e2e-supplier/ Playwright suites;
+│   │                              #   e2e-support/ = capture() + the screenshot-history reporter)
 │   ├── Admin/                     # Blazor Server operator console (:5200)
 │   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
 │   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)
@@ -226,7 +232,7 @@ The following repository rules must always be followed:
   | change a `/health` path or readiness convention | `scripts/doctor.sh` + `scripts/host-check.sh` |
   | a new CI failure keyword matters | `scripts/ci-logs.sh` `SIG` signatures |
   | move/rename a Dockerfile or change image naming | `scripts/build-images.sh` `image_name()` + the CI `docker` matrix |
-  | change the storefront/admin UI (pages, buttons, flows) | re-run `e2e/screenshots.spec.ts` + `e2e-admin/screenshots.spec.ts` → refreshes `docs/help/assets/screenshots/*` for `screens.html` |
+  | change the storefront/admin UI (pages, buttons, flows) | re-run `e2e/screenshots.spec.ts` + `e2e-admin/screenshots.spec.ts` (they archive a new run — they no longer write the wiki), review with `node scripts/screenshots/shots.cjs compare --diff`, then `shots.cjs promote <runId>` → refreshes `docs/help/assets/screenshots/*` for `screens.html` |
   | add/change a service's endpoints | `docs/api/api_contracts_index.md` + `docs/help/services.html` |
   | change `PermissionRegistry` roles/permissions | `docs/help/roles-permissions.html` |
   | change dev bring-up or logging defaults | `docs/help/getting-started.{md,html}` + `scripts/README.md` |
@@ -236,6 +242,8 @@ The following repository rules must always be followed:
 - Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
 
 - Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end.
+
+- Screenshots are records, never overwritten or deleted: every E2E screenshot goes through `capture()` (`src/Storefront/e2e-support/screenshots.ts`) — never `page.screenshot({ path })` — so each run lands in its own `test-artifacts/screenshots/runs/<runId>/` folder, paired with its test's outcome, and `INDEX.md` records the history (compare by decoded pixels: `same` / `minor` noise / `changed`). The wiki images (`docs/help/assets/screenshots/`) change ONLY via `node scripts/screenshots/shots.cjs promote <runId>`, which refuses shots from failing tests and records the promotion. Prefer promoting from a `dev-up.sh --fresh` run: long-lived dev databases accumulate E2E leftovers that end up in the images.
 
 - Regression test list: whenever a test is added, removed, or renamed — a unit/integration test (`*Tests.cs`), or a live end-to-end user-journey — update `scripts/e2e-verify.sh` so it stays the complete regression command: add/adjust the matching check **and** its line in the COVERAGE CHECKLIST header comment. Automated tests belong in the `A*` group, live full-stack flows in the `L*` group. The script must continue to pass (`scripts/e2e-verify.sh` and `--live`) after the change.
 

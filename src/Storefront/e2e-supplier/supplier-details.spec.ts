@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { capture } from "../e2e-support/screenshots";
 
 // Drives the SupplierPortal "My details" approval lock end-to-end against the running stack
 // (supplier portal :5300, admin :5200, gateway :8080). A fresh supplier + login is provisioned
@@ -8,7 +9,6 @@ const ADMIN_URL = process.env.ADMIN_URL ?? "http://localhost:5200";
 const TENANT = "00000000-0000-0000-0000-000000000001";
 const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";
-const SHOT_DIR = process.env.SHOT_DIR ?? "test-results";
 
 const run = Date.now();
 const supplier = { email: `pw.details.${run}@example.test`, password: "Pw-supplier-123", entityId: "" };
@@ -62,7 +62,7 @@ test.describe("Supplier portal — My details approval lock", () => {
       await expect(page.getByText(/your details were saved/i)).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 25_000 });
 
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-details-editable.png`, fullPage: true });
+    await capture(page, "supplier-details-editable");
   });
 
   test("once approved, details are read-only, a change request is raised, and an admin approves it", async ({ page, playwright }) => {
@@ -97,7 +97,7 @@ test.describe("Supplier portal — My details approval lock", () => {
       await page.getByRole("button", { name: /^request a change$/i }).click();
       await expect(page.getByText(/your change request was submitted/i)).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 25_000 });
-    await page.screenshot({ path: `${SHOT_DIR}/supplier-details-locked.png`, fullPage: true });
+    await capture(page, "supplier-details-locked");
 
     // Admin approves the pending change request in the Entities console.
     await page.goto(`${ADMIN_URL}/login`);
@@ -117,7 +117,7 @@ test.describe("Supplier portal — My details approval lock", () => {
     await page.getByRole("textbox", { name: /decision reason/i }).fill("Verified rebrand");
     await card.getByRole("button", { name: /^approve$/i }).click();
     await expect(page.getByText(/approved/i).first()).toBeVisible({ timeout: 10_000 });
-    await page.screenshot({ path: `${SHOT_DIR}/admin-approve-change-request.png`, fullPage: true });
+    await capture(page, "admin-approve-change-request");
 
     // The approved change is applied: the supplier's trading name now reflects the request.
     const verify = await playwright.request.newContext();

@@ -1,4 +1,5 @@
 import { test, expect, pinStorefront } from "./fixtures";
+import { capture } from "../e2e-support/screenshots";
 
 // "Collect at warehouse" in a real browser: a warehouse-fulfilled product can be collected from the
 // supplier's warehouse instead of shipped — the shipping row shows Free, no carrier rate is fetched,
@@ -34,6 +35,6 @@ test.describe("Collect at warehouse checkout", () => {
     await page.getByRole("button", { name: /complete test payment/i }).click();
     await expect(page.getByRole("heading", { name: /thank you/i })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/your order is confirmed/i)).toBeVisible();
-    await page.screenshot({ path: `${process.env.SHOT_DIR ?? "test-results"}/checkout-collect-warehouse.png`, fullPage: true });
+    await capture(page, "checkout-collect-warehouse");
   });
 });
