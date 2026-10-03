@@ -6,9 +6,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 **3commerce** is a from-scratch multi-tenant e-commerce platform for physical goods sourced from large third-party catalogs, built as C# microservices (Identity, Catalog, Entity, Ordering, Payments, Fulfillment, Support, plus the extracted Marketing, Pricing, Audit, Workflow, Entitlement, and Usage services — ADR-0030) communicating async-first over RabbitMQ via MassTransit, each owning its own PostgreSQL database. A YARP gateway is the single public origin; the storefront is Next.js (SSR), admin is Blazor Server. Money flows through a custom double-entry ledger (source of truth) with provider adapters behind a keyed registry (ADR-0039; Stripe sandbox-ready, mock for keyless dev) and nightly journal sync to Xero. The project is deliberately dual-purpose: a launchable real business **and** a hands-on distributed-systems learning vehicle — production quality is required, shortcuts are not. Full rationale lives in the PRD decision log (`docs/prd/3commerce/15-appendix.md`).
 
-> **Status:** MVP on dev/test rails (Phases 1–4), **conformance grade A−→A** (16 Met / 4 Partial / 0 Missing of 21 FR/NFR — see `docs/reviews/prd-vs-implementation.md`). All six services, gateway, Next.js storefront, and Blazor admin built and validated: custom auth, catalog + search, cart + checkout saga, append-only double-entry ledger, Stripe-abstracted payments (+ fake for keyless dev), refunds, Fulfillment shipments, Support + RMA saga (single refund path), and Xero summary journals (logging client; real OAuth a future swap). Tests: **11 unit + 27 integration + 13 Playwright browser E2E** (storefront + admin), green in CI; `scripts/e2e-verify.sh --live` covers **L1–L20**.
->
-> **Post-MVP work done (`.ai-shared/plans/plan_status_executions.md`):** backlog BL-1..BL-11 complete — FR-7 guest→account, FR-12 admin catalog CRUD, real admin Orders / storefront account screens, NFR-2/5/7 now asserted by tests, per-line server-derived RMA, configurable `Store:Currency`, app-tier Dockerfiles, and the BL-11 dev-secret launch gate. **Containerized launch (ADR-0021):** `scripts/launch.sh [--fresh|--reuse] [--env dev|prod]` runs the full stack via `docker-compose.yml` (EF-bundle migrator), and a Helm chart (`deploy/helm/3commerce`) is `kind`/CI-validated. Optional PgBouncer runtime pooling is available via `docker-compose.pgbouncer.yml` + `deploy/pgbouncer/` (ADR-0032). **Multi-tenant expansion (landed on `main`, 2026-07):** strict multi-tenancy + RLS, storefront lifecycle with per-storefront currency/tax (ADR-0038), per-currency shelf prices, product-status public gating, payment provider registry + fail-closed modes (ADR-0039) with payment accounts / supplier payouts / webhook-secret registry, MFA (TOTP + tenant policy, mt6_10), cross-service audit projection, and the extracted Marketing/Pricing/Audit/Workflow/Entitlement/Usage services (ADR-0030). **Still deferred (launch gates):** live Stripe/Xero + carrier creds, external pen test, a managed cloud cluster — `docs/prd/3commerce/15-appendix.md`. Frontend wiki (HTML — open `docs/help/index.html`); analysis: `docs/help/project-analysis.html`.
+> **Status:** what is built, what is still deferred, and where open work lives — `.ai-shared/PROJECT_STATE.md` (read on demand). Launch gates: live Stripe/Xero + carrier creds, external pen test, a managed cloud cluster.
 
 ---
 
@@ -113,6 +111,12 @@ dotnet test tests/ --filter Category=Integration
 scripts/e2e-verify.sh          # automated suites (build, format, unit, integration, storefront, vuln)
 scripts/e2e-verify.sh --live   # also runs live user-journey flows: AGAINST the running stack if one is fully up
                                # (no build/migrate/restart/teardown), else it boots its own and stops only that
+
+# Git hooks (once per clone): commit-msg rejects AI-authorship trailers; pre-push format-verifies changed projects
+git config core.hooksPath .githooks
+
+# Merge a PR once its required gates are green (run in the background; never switches your branch)
+scripts/pr-merge-on-green.sh <pr-number>
 ```
 
 ---
@@ -149,11 +153,15 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ```
 3commerce/
 ├── AGENTS.md                      # this file
+├── .ai-shared/                    # PROJECT_STATE.md (status) + plans/ (phase plans + plan_status_executions.md tracker)
+├── .claude/                       # settings.json (shared deny rules) + skills/; settings.local.json + worktrees/ are git-ignored
+├── .githooks/                     # commit-msg (no AI trailers) + pre-push (format-verify); enable: git config core.hooksPath .githooks
 ├── docs/
 │   ├── prd/                       # PRD index + section files (do not auto-load)
 │   ├── adr/                       # architecture decision records + adr_index.md
 │   ├── api/                       # API contract files + api_contracts_index.md
-│   ├── reference/                 # working guidelines: components.md, api.md
+│   ├── help/                      # HTML wiki (index.html) + screenshots promoted by shots.cjs
+│   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks
 ├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
@@ -161,8 +169,9 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
-├── deploy/pgbouncer/              # PgBouncer dev/local config + user list
-├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts
+├── deploy/                        # helm/ (chart), migrator/ (EF bundles), observability/, pgbouncer/
+├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + pr-merge-on-green.sh
+│   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
@@ -173,9 +182,9 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   │   └── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
 │   ├── Gateway/                   # YARP (port 8080); Dockerfile per runnable project
 │   ├── Services/
-│   │   ├── Identity/  ├── Catalog/  ├── Entity/  ├── Ordering/
-│   │   ├── Payments/  ├── Fulfillment/  └── Support/
-│   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5107
+│   │   ├── Identity/  ├── Catalog/  ├── Ordering/  ├── Payments/  ├── Fulfillment/  ├── Support/  ├── Entity/
+│   │   ├── Marketing/  ├── Pricing/  ├── Audit/  ├── Workflow/  ├── Entitlement/  └── Usage/
+│   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5113 (scripts/lib/services.sh)
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
 │   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ e2e-supplier/ Playwright suites;
 │   │                              #   e2e-support/ = capture() + the screenshot-history reporter)
@@ -241,7 +250,7 @@ The following repository rules must always be followed:
 
 - Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
 
-- Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end.
+- Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end. The file is large (~600 rows) — **never read it whole**: find open work with `grep -nE '\| (pending|in_progress|blocked) \|'`, and a row with `grep -n '^| <Task_ID> '`, then read or edit just that line. Keep each Comments cell to a few sentences (outcome, PR #, the one GOTCHA that matters); put longer execution detail in the owning phase plan and point to it.
 
 - Screenshots are records, never overwritten or deleted: every E2E screenshot goes through `capture()` (`src/Storefront/e2e-support/screenshots.ts`) — never `page.screenshot({ path })` — so each run lands in its own `test-artifacts/screenshots/runs/<runId>/` folder, paired with its test's outcome, and `INDEX.md` records the history (compare by decoded pixels: `same` / `minor` noise / `changed`). The wiki images (`docs/help/assets/screenshots/`) change ONLY via `node scripts/screenshots/shots.cjs promote <runId>`, which refuses shots from failing tests and records the promotion. Prefer promoting from a `dev-up.sh --fresh` run: long-lived dev databases accumulate E2E leftovers that end up in the images.
 
@@ -276,7 +285,10 @@ The following repository rules must always be followed:
 - **Admin mutations emit audit**: every admin-facing mutation records a local hash-chained audit entry AND publishes `AuditEntryRecorded` in the SAME unit of work as the mutation (bus outbox) — the Audit service is a read-only projection; the owning service's chain stays authoritative (mt6_1/mr_8).
 - **PaymentMode is fail-closed (ADR-0039)**: resolved mode = host `Payments:Mode` ceiling × account mode; a Production host refuses Test accounts, Sandbox refuses Live, and boot guards refuse `Mode=LocalMock`/`AllowMockEmail=true` outside Development. Never bypass `PaymentModeResolver`/`PaymentModeGuard`.
 - **Product status gates public visibility**: only `ProductStatus.Active` products appear in public search/detail (`Inactive` → filtered/404); a product missing a price in the requested currency is likewise hidden (ADR-0038). Admin surfaces see everything.
+- **Every order belongs to a real storefront**: checkout rejects the gateway's synthetic default storefront (`…0101`) with 400; any new order-creating path (seeds, E2E helpers, live flows) must attribute a real store or skip.
 - IDs are UUIDv7.
+
+Money changes: before shipping anything touching pricing, promotions, tax or subscriptions, trace the number into refunds, renewals and a second storefront sharing the currency — see the Money section of `docs/reference/engineering-gotchas.md`.
 
 ---
 
@@ -314,7 +326,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 | `docs/prd/3commerce/04-mvp-scope.md` | Authoritative in/out-of-scope checklist |
 | `docs/prd/3commerce/06-architecture.md` | Service boundaries, messaging rules, repo layout target |
 | `docs/prd/3commerce/15-appendix.md` | Decision log (what was rejected and why) + launch blockers |
-| `docker-compose.infra.yml` | Local Postgres + RabbitMQ (planned); add `docker-compose.infra.kafka.yml --profile kafka` for optional Kafka dev diagnostics |
+| `docker-compose.infra.yml` | Local Postgres + RabbitMQ; add `docker-compose.infra.kafka.yml --profile kafka` for optional Kafka dev diagnostics |
 | `src/BuildingBlocks/Contracts/` | Message contracts + stream envelope/fact contracts — version additively, never break consumers |
 | `scripts/e2e-verify.sh` | Full regression command (automated + `--live` user journeys); keep current per the test-list rule |
 | `.envrc` | direnv env vars (secrets stay in `.envrc.local`/user-secrets, git-ignored) |
@@ -325,6 +337,8 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 
 | Topic | File |
 |-------|------|
+| What's built / deferred / open | `.ai-shared/PROJECT_STATE.md` |
+| CI format/restore failures, integration-test flakes, E2E seeds, ledger postings, dev-stack hazards — read before pushing | `docs/reference/engineering-gotchas.md` |
 | Building front-end components | `docs/reference/components.md` |
 | Building API endpoints | `docs/reference/api.md` |
 | Feature scope questions | `docs/prd/3commerce/04-mvp-scope.md` |
@@ -347,19 +361,19 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 - Don’t hand-roll cryptography or session-token generation — vetted libraries only (Argon2id, CSPRNG)
 - Don’t let card data touch any server — Stripe Payment Element only (SAQ-A)
 - Don’t call Stripe/issue refunds outside the saga/ledger path — the ledger must never silently diverge
-- Don’t build out-of-scope features (MFA, Polar adapter, k8s, search engines, discounts) — they're deferred in PRD §13, not forgotten
+- Don’t build a feature still deferred in PRD §13 (e.g. a dedicated search engine, social login, marketplace/Stripe Connect) without asking — but §13 lags the code: MFA, the Polar adapter, Helm/k8s and promotions have shipped, so check `docs/adr/adr_index.md` before treating a §13 item as unbuilt
 - Don’t auto-load the full PRD — follow the PRD Loading Rule
 
 ---
 
 ## Notes
 
-- **Canonical ports:** Gateway 8080 · Identity 5101 · Catalog 5102 · Ordering 5103 · Payments 5104 · Fulfillment 5105 · Support 5106 · Entity 5107 · Storefront 3000 · Admin 5200 · SupplierPortal 5300 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
+- **Canonical ports:** services 5101–5113 + Notifications worker 5114 — the authoritative map is `scripts/lib/services.sh`, don't copy it here. Gateway 8080 · Storefront 3000 · Admin 5200 · SupplierPortal 5300 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
 - **Namespaces:** projects are `3commerce.*` but namespaces are `ThreeCommerce.*` (C# forbids digit-leading namespaces; mapped in `Directory.Build.props`).
 - **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
 - **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly.
 - Service health endpoints (`/health/live|ready`) are internal-only; the gateway returns 404 for any `/api/*/health*` path.
 - Stripe runs **test mode only** and Xero against a demo org until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
-- Currency is config (`STORE_CURRENCY`), tax is `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.
+- Currency and tax are per storefront (ADR-0038; currencies come from the Entity registry, ADR-0046), tax via `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.
 - Microservices were chosen knowingly for learning value (PRD decision #5); keep each service internally simple — complexity budget is spent on the seams.
-- `docs/adr/` exists with ADRs 0001–0020 (backfilled from the PRD decision log) + `adr_index.md`; new ADRs continue the numbering. `docs/api/` doesn't exist yet — create it (with its index file) on first use per the Rules section.
+- ADRs are numbered sequentially in `docs/adr/` — take the next number after the last entry in `adr_index.md`. API contracts live in `docs/api/` (OpenAPI JSON per service + `api_contracts_index.md`).

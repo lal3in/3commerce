@@ -7,13 +7,19 @@ description: Execute an implementation plan
 
 ## Plan to Execute
 
-Always read plan status file: `.ai-shared/plans/plan_status_executions.md`, identify next task record whether is the next task to work on, or simply resume work (record column status is differnt to 'DONE'). get the Plan Path.
+The plan status file `.ai-shared/plans/plan_status_executions.md` is large (hundreds of rows) — do NOT read it whole. Find the open rows with:
+
+```bash
+grep -nE '\| (pending|in_progress|blocked) \|' .ai-shared/plans/plan_status_executions.md
+```
+
+Pick the next task to work on (or the `in_progress` one to resume) and take its Plan Path column.
 
 ## Execution Instructions
 
 ### 1. Read and Understand
 
-- Read the plan-execution-status file, and maintain it updated in case and execution is for some reason halted, or interrupted .. so, next execution can resume on next run.
+- Keep the selected rows of the plan-execution-status file updated (edit the one line by its Task_ID — `grep -n '^| <Task_ID> '`) so an interrupted execution can resume on the next run. Keep each Comments cell to a few sentences; longer detail goes in the plan file.
 - Read the ENTIRE plan carefully plan path is in plan-execution-status selected record column Plan Path. 
 - Understand all tasks and their dependencies
 - Note the validation commands to run
