@@ -4,7 +4,7 @@ description: Create global rules (AGENTS.md) from codebase analysis
 
 # Create Global Rules
 
-Generate a AGENTS.md file by analyzing the codebase and extracting patterns.
+Create or update AGENTS.md by analyzing the codebase and extracting patterns. If AGENTS.md already exists, read it first and merge changes; preserve existing project-specific rules, harness pointers and custom sections. If existing guidance conflicts with the template, ask the user before replacing or removing it.
 
 ---
 
@@ -92,13 +92,13 @@ Identify files that are important to understand:
 
 ### Create AGENTS.md
 
-Use the template at `~/.pi/agent/resources/templates/Project-AGENTS-template.md` as the mandatory output structure.
+Use `templates/Project-AGENTS-template.md`, resolved relative to this SKILL.md file rather than the project working directory, as the mandatory output structure. If the template is missing, report the missing dependency instead of inventing a replacement.
 
 **Output path**: `AGENTS.md` in the project root.
 
 **Strict template rules:**
-- Preserve every top-level `##` section from the template.
-- Preserve the section order from the template.
+- For a new file, include every required top-level `##` section from the template. For an existing file, add missing required sections without deleting existing custom sections.
+- Use template section order for new files; preserve the organization of existing files unless the user requests restructuring.
 - Do not delete sections unless explicitly marked as optional below.
 - Replace placeholders with project-specific content.
 - If a section does not apply, keep the section and write `Not applicable for this project` with a short reason.
@@ -159,7 +159,7 @@ Use the template at `~/.pi/agent/resources/templates/Project-AGENTS-template.md`
 
 1. Review the generated `AGENTS.md`
 2. Add any project-specific notes
-3. Remove any sections that don't apply
+3. Omit only explicitly optional template sections when irrelevant; remove existing sections only with explicit user approval.
 4. Optionally create reference docs in `./docs/reference/`
 ```
 
