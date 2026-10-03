@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(docker volume prune*)",
+      "Bash(docker system prune*--volumes*)",
+      "Bash(pkill -f *)",
+      "Bash(gh pr merge *--admin*)",
+      "Bash(gh pr merge --admin*)",
+      "Bash(git push --force* origin main*)",
+      "Bash(git push -f* origin main*)"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Reject AI-authorship trailers: commits on this repo carry the author's identity only.
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+msg_file="$1"
+if grep -inE '^(Co-Authored-By:.*(claude|anthropic|noreply@anthropic\.com)|Claude-Session:)|Generated with \[?Claude Code' "$msg_file" >/dev/null; then
+  echo "commit-msg: AI-authorship trailer found — remove it (repo rule: no Co-Authored-By/Generated-with lines):" >&2
+  grep -inE '^(Co-Authored-By:.*(claude|anthropic|noreply@anthropic\.com)|Claude-Session:)|Generated with \[?Claude Code' "$msg_file" >&2
+  exit 1
+fi

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Format-verify every .NET project the pushed commits touch — the same check CI build-test runs
+# (analyzers included, so IDE0040/IDE0161 fail here instead of after a CI round-trip).
+# Skip once with: git push --no-verify   (or SKIP_FORMAT_HOOK=1 git push)
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+[[ "${SKIP_FORMAT_HOOK:-}" == "1" ]] && exit 0
+[[ -d "$HOME/.dotnet" ]] && export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
+command -v dotnet >/dev/null || { echo "pre-push: dotnet not on PATH — skipping format check" >&2; exit 0; }
+
+root="$(git rev-parse --show-toplevel)"
+zero=0000000000000000000000000000000000000000
+base_ref="$(git rev-parse --verify -q origin/main || true)"
+
+changed=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [[ "$local_sha" == "$zero" ]] && continue                     # branch deletion
+  if [[ "$remote_sha" != "$zero" ]] && git cat-file -e "$remote_sha" 2>/dev/null; then
+    range="$remote_sha..$local_sha"
+  elif [[ -n "$base_ref" ]]; then
+    range="$(git merge-base "$base_ref" "$local_sha")..$local_sha"
+  else
+    continue
+  fi
+  changed+="$(git diff --name-only --diff-filter=ACMR "$range" -- '*.cs' '*.csproj')"$'\n'
+done
+
+# Map each changed file to its nearest enclosing .csproj.
+projects="$(
+  printf '%s' "$changed" | sed '/^$/d' | sort -u | while read -r f; do
+    d="$(dirname "$f")"
+    while [[ "$d" != "." && "$d" != "/" ]]; do
+      p="$(ls "$root/$d"/*.csproj 2>/dev/null | head -1 || true)"
+      if [[ -n "$p" ]]; then echo "$p"; break; fi
+      d="$(dirname "$d")"
+    done
+  done | sort -u
+)"
+[[ -z "$projects" ]] && exit 0
+
+fail=0
+while read -r proj; do
+  echo "pre-push: dotnet format --verify-no-changes ${proj#$root/}" >&2
+  if ! dotnet format "$proj" --verify-no-changes >/dev/null 2>&1; then
+    echo "  ✗ needs formatting — run: dotnet format ${proj#$root/}" >&2
+    fail=1
+  fi
+done <<<"$projects"
+
+if [[ $fail -ne 0 ]]; then
+  echo "pre-push: format check failed (CI build-test would fail the same way). Fix, commit, push again." >&2
+  exit 1
+fi

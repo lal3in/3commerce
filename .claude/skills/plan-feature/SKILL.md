@@ -393,7 +393,7 @@ Whats below here is a template for you to fill/update for the plan status file:
 
 ```markdown
 
-Last Modified Date-Time: {last date this file was mofied}
+Last Modified Date-Time: {date only — no summary; the rows carry the detail}
 
 | Task_ID | Task_Name | Phase | Status | Plan Path | Comments |
 | --------|-----------|-------|--------|-----------|----------|
