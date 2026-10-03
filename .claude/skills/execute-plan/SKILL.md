@@ -20,6 +20,13 @@ Pick the next task to work on (or the `in_progress` one to resume) and take its 
 ### 1. Read and Understand
 
 - Keep the selected rows of the plan-execution-status file updated (edit the one line by its Task_ID — `grep -n '^| <Task_ID> '`) so an interrupted execution can resume on the next run. Keep each Comments cell to a few sentences; longer detail goes in the plan file.
+- Apply these status transitions explicitly:
+  - `pending → in_progress`: immediately before starting a task.
+  - `in_progress → completed`: only after that task's implementation and validation succeed.
+  - `in_progress → blocked`: when work cannot continue; record the blocker and the next action in Comments.
+  - `blocked → in_progress`: only after the blocker is resolved; record the resolution in Comments.
+  - On interruption, leave the active task `in_progress` and record the exact resume point in Comments.
+  - Update `Last Modified Date-Time` whenever any status row changes.
 - Read the ENTIRE plan carefully plan path is in plan-execution-status selected record column Plan Path. 
 - Understand all tasks and their dependencies
 - Note the validation commands to run

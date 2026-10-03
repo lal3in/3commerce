@@ -36,7 +36,7 @@ So that <benefit/value>
 
 ### Phase 2: Codebase Intelligence Gathering
 
-**Use specialized agents and parallel analysis:**
+**Analyze in the current session by default. Use specialized agents or parallel analysis only when explicitly requested and supported by the current platform; otherwise perform the same analysis sequentially. Respect any active orchestrator lock and tool permissions.**
 
 **1. Project Structure Analysis**
 
@@ -46,7 +46,7 @@ So that <benefit/value>
 - Locate configuration files (pyproject.toml, package.json, etc.)
 - Find environment setup and build processes
 
-**2. Pattern Recognition** (Use specialized subagents when beneficial)
+**2. Pattern Recognition** (Follow the delegation policy above.)
 
 - Search for similar implementations in codebase
 - Identify coding conventions:
@@ -56,7 +56,7 @@ So that <benefit/value>
   - Logging patterns and standards
 - Extract common patterns for the feature's domain
 - Document anti-patterns to avoid
-- Check CLAUDE.md for project-specific rules and conventions
+- Read applicable AGENTS.md instructions first, then platform-specific instructions such as CLAUDE.md when relevant; follow their references without assuming a particular AI CLI.
 
 **3. Dependency Analysis**
 
@@ -88,7 +88,7 @@ So that <benefit/value>
 
 ### Phase 3: External Research & Documentation
 
-**Use specialized subagents when beneficial for external research:**
+**Perform external research in the current session unless delegation is explicitly requested and supported; apply the same delegation policy as Phase 2.**
 
 **Documentation Gathering:**
 

@@ -10,7 +10,7 @@ Generate a comprehensive Product Requirements Document (PRD) based on the curren
 
 *Important change:* This command generates:
 1) A main PRD index file at `./docs/prd/PRD.md`
-2) One Markdown file per required section in /prd/
+2) One Markdown file per required section under project-relative docs/prd/<prd-slug>/
 3) The main PRD contains section headings that include the *path/link* to each section file.
 
 This keeps the PRD scannable while allowing each section to be edited independently.
@@ -24,8 +24,8 @@ Write the PRD index to: `./docs/prd/PRD.md`
 
 ### Section files (chapters)
 - Each section/chapter is considered a derived <prd-slug> where each section/chapter <prd-slug> will be: normalized to lowercase, have its spaces replaced with '-' and unsafe characters removed.
-- Write section files to: /docs/prd/<prd-slug>/... (recommended to avoid collisions)
-- If you cannot create a subfolder, fall back to /docs/prd/... with names prefixed by <prd-slug>-<filename>.md
+- Write section files to project-relative docs/prd/<prd-slug>/ (recommended to avoid collisions).
+- If you cannot create a subfolder, fall back to project-relative docs/prd/ with names prefixed by <prd-slug>-<filename>.md.
 
 *Example:*
 - PRD.md → <prd-slug> = prd
@@ -35,7 +35,7 @@ Write the PRD index to: `./docs/prd/PRD.md`
 
 ## Required Sections → One file each
 
-Create *one Markdown file* per section using the filenames below (inside /docs/prd/<prd-slug>/).
+Create *one Markdown file* per section using the filenames below, inside project-relative docs/prd/<prd-slug>/.
 
 0. TL;DR → 00-tldr.md  
 1. Executive Summary → 01-executive-summary.md  
@@ -74,7 +74,7 @@ It must include:
 
 ### 0. TL;DR
 When to read/load this file into context (keep it short, but b=very accurate.)
-Path: /docs/prds/<prd-slug>/00-tldr.md   
+Path: <prd-slug>/00-tldr.md (relative to the PRD index at docs/prd/PRD.md; use this relative target in the Markdown link).
 (Optionally: 1–2 bullet summary lines, but DO NOT inline the full content.)
 
 Repeat this pattern for all sections.
@@ -162,7 +162,7 @@ Write the content using the same structure as before, but in its own file:
 
 ### 11. Success Criteria (11-success-criteria.md)
 - MVP success definition
-- Functional `FR-` + Non-functional `NRF-` requirements (numbered, ✅ checkboxes)
+- Functional `FR-` + Non-functional `NFR-` requirements (numbered, ✅ checkboxes)
 - Quality indicators
 - UX goals
 
@@ -209,7 +209,7 @@ Write the content using the same structure as before, but in its own file:
 - Keep Executive Summary concise but comprehensive
 
 ### 5. Create Files
-- Ensure folder /docs/prd/<prd-slug>/ exists
+- Ensure the project-relative folder docs/prd/<prd-slug>/ exists.
 - Write the PRD index in `./docs/prd/PRD.md` linking to each section file
 - Write each section file with its full content
 - Use clear, professional language
@@ -243,7 +243,7 @@ Write the content using the same structure as before, but in its own file:
 
 After creating the PRD:
 1. Confirm the main PRD file path
-2. Confirm the /docs/prd/<prd-slug>/ folder path
+2. Confirm the project-relative docs/prd/<prd-slug>/ folder path.
 3. List all created section files
 4. Provide a brief summary of the contents
 5. Highlight any assumptions made due to missing information
