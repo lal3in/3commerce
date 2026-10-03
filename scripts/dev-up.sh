@@ -11,6 +11,7 @@ cd "$(dirname "$0")/.."
 source scripts/lib/preflight.sh
 source scripts/lib/services.sh
 source scripts/lib/procs.sh
+source scripts/lib/volumes.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -33,7 +34,8 @@ if (( FRESH )); then
   # empty (init-databases.sql reruns) — otherwise stale/mutated data survives across restarts because
   # `docker compose down` (without -v) keeps the named volume.
   echo "== 0/4 fresh: wiping local stack + DB volume =="
-  scripts/dev-down.sh --clean >/dev/null 2>&1 || true
+  # Only the orphaned-volume lines are worth showing from the teardown (see lib/volumes.sh).
+  scripts/dev-down.sh --clean 2>&1 | grep -E '^  removed orphaned volume' || true
 fi
 
 echo "== 1/4 infra (Postgres + RabbitMQ + Kafka + Kafka-UI + pgAdmin + LGTM observability) =="
@@ -45,7 +47,8 @@ for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >
 # `--profile observability up` would also build/start the 13 app containers (they carry no
 # profile), which is exactly what bare-run dev must not do.
 docker network inspect 3commerce-data >/dev/null 2>&1 || docker network create 3commerce-data >/dev/null
-docker compose up -d --no-deps otel-collector prometheus grafana loki tempo mimir
+docker compose up -d --no-deps "${DEV_BORROWED_SERVICES[@]}"
+(( FRESH )) || report_app_stack_orphans
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"
 echo "  Grafana (LGTM):       http://localhost:3001  (admin/admin)  ·  OTLP in: localhost:4317"

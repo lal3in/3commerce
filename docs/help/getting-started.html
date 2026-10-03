@@ -165,9 +165,10 @@ scripts/launch.sh --reuse --env dev     <span class="cmt"># relaunch, keep data<
         <p>This brings up all 18 app images + Postgres + RabbitMQ via <code>docker-compose.yml</code>, applies migrations with an EF-bundle migrator, and exposes the same ports (gateway <code>:8080</code>, storefront <code>:3000</code>, admin <code>:5200</code>, supplier portal <code>:5300</code>). The catalog comes up empty — seed it via the admin Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in <a class="inline" href="deployment.html">Deployment</a>.</p>
 
         <h2 id="teardown">Teardown</h2>
-        <pre><code>scripts/run-all.sh stop                                   <span class="cmt"># services + worker</span>
-pkill -f 'next-server|npm run start|3commerce.Admin|3commerce.SupplierPortal'      <span class="cmt"># storefront + admin + supplier portal</span>
-docker compose -f docker-compose.infra.yml down           <span class="cmt"># infra (omit to keep data)</span></code></pre>
+        <pre><code>scripts/dev-down.sh            <span class="cmt"># stop services, frontends and infra — keeps all data</span>
+scripts/dev-down.sh --clean    <span class="cmt"># also drops the dev data volumes (what dev-up.sh --fresh does first)</span></code></pre>
+        <p>It stops processes by recorded pid and by port, never with a <code>pkill -f</code> pattern (a pattern also kills processes this stack did not start).</p>
+        <p><strong>Unused volumes are cleaned up automatically.</strong> The containerised stack (<code>scripts/launch.sh</code>) keeps its own state in compose project <code>3commerce</code> — e.g. <code>3commerce_rabbitmq_data</code> — which bare-run dev never mounts, so after switching back to bare-run Docker shows it as <em>unused</em> indefinitely. <code>dev-down.sh --clean</code> (and so <code>dev-up.sh --fresh</code>) removes such volumes; a plain <code>dev-up.sh</code> / <code>dev-down.sh</code> only names them, because <code>launch.sh --reuse</code> would want them back. Never touched: the telemetry volumes bare-run dev borrows from that project (Loki/Tempo/Mimir/Prometheus) and <code>launch.sh</code>'s external Postgres (<code>3commerce-db_dbdata</code>). Rules live in <code>scripts/lib/volumes.sh</code>.</p>
 
         <footer class="page-nav">
           <a class="prev" href="index.html">

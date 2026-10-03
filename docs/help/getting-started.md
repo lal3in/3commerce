@@ -192,7 +192,17 @@ Imports screen. Full details (fresh/reuse, dev/prod, Helm/k8s) are in
 ## Teardown
 
 ```bash
-scripts/run-all.sh stop                                   # services + worker
-pkill -f 'next-server|npm run start|3commerce.Admin|3commerce.SupplierPortal'      # storefront + admin + supplier portal
-docker compose -f docker-compose.infra.yml down           # infra (omit to keep data)
+scripts/dev-down.sh            # stop services, frontends and infra — keeps all data
+scripts/dev-down.sh --clean    # also drops the dev data volumes (what dev-up.sh --fresh does first)
 ```
+
+It stops processes by recorded pid and by port, never with a `pkill -f` pattern (a pattern also kills
+processes this stack did not start).
+
+**Unused volumes are cleaned up automatically.** The containerised stack (`scripts/launch.sh`) keeps its own
+state in compose project `3commerce` — e.g. `3commerce_rabbitmq_data` — which bare-run dev never mounts, so
+after switching back to bare-run Docker shows it as *unused* indefinitely. `dev-down.sh --clean` (and so
+`dev-up.sh --fresh`) removes such volumes; a plain `dev-up.sh` / `dev-down.sh` only names them, because
+`launch.sh --reuse` would want them back. Never touched: the telemetry volumes bare-run dev borrows from that
+project (Loki/Tempo/Mimir/Prometheus) and `launch.sh`'s external Postgres (`3commerce-db_dbdata`). Rules live
+in `scripts/lib/volumes.sh`.
