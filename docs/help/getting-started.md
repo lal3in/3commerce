@@ -206,3 +206,9 @@ after switching back to bare-run Docker shows it as *unused* indefinitely. `dev-
 `launch.sh --reuse` would want them back. Never touched: the telemetry volumes bare-run dev borrows from that
 project (Loki/Tempo/Mimir/Prometheus) and `launch.sh`'s external Postgres (`3commerce-db_dbdata`). Rules live
 in `scripts/lib/volumes.sh`.
+
+Postgres no longer leaves **anonymous volumes** (64-character names, ~8 KB, holding only an empty `data`
+folder) behind. The `postgres:18` image declares `VOLUME /var/lib/postgresql`; the named volume used to be
+mounted one level lower, so Docker added an anonymous volume on every container create and each plain
+down→up orphaned one. It is now mounted at the declared path with `PGDATA=/var/lib/postgresql/pgdata` — the
+same `pgdata/` folder inside the volume, so existing data carries over untouched.

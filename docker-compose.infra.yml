@@ -13,13 +13,16 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev
-      # Postgres 18's image moved its default data dir; pin PGDATA to a subdir of our mounted volume so
-      # the layout is explicit and identical across major versions (avoids the "unused mount/volume" refusal).
-      PGDATA: /var/lib/postgresql/data/pgdata
+      # Postgres 18's image moved its default data dir AND its declared VOLUME (from /var/lib/postgresql/data
+      # to /var/lib/postgresql). The named volume is therefore mounted at /var/lib/postgresql — the declared
+      # path — and PGDATA pinned to a subdir of it. Mounting one level lower (the pre-18 convention) made
+      # Docker add an ANONYMOUS volume for the declared path on every container create; each plain down→up
+      # orphaned one. The data still sits at <volume>/pgdata, so existing volumes need no migration.
+      PGDATA: /var/lib/postgresql/pgdata
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
       - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-init-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
