@@ -375,17 +375,17 @@ run_live() {
   [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
   stage "Booting storefront + admin + supplier portal"
-  ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" npm run start:standalone >/tmp/3c-storefront.log 2>&1 & )
+  ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" npm run start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
-    ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >/tmp/3c-admin.log 2>&1 & )
+    ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >"$ROOT/.run/admin.log" 2>&1 & )
   else
     echo "  WARNING: admin DLL not found at $admin_dll — admin E2E will be skipped"
   fi
   local supplier_dll="$ROOT/src/SupplierPortal/bin/Debug/net10.0/3commerce.SupplierPortal.dll"
   if [[ -f "$supplier_dll" ]]; then
-    ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >/tmp/3c-supplier-portal.log 2>&1 & )
+    ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >"$ROOT/.run/supplier-portal.log" 2>&1 & )
   else
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
   fi
@@ -562,8 +562,9 @@ run_live() {
       pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
     else
       fail "L20 E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8
-      echo "--- admin log ---"; tail -25 /tmp/3c-admin.log 2>/dev/null
-      echo "--- storefront log ---"; tail -10 /tmp/3c-storefront.log 2>/dev/null
+      # .run/ in both modes: a reused stack's frontends were started by dev-up.sh, which logs there too.
+      echo "--- admin log ---"; tail -25 "$ROOT/.run/admin.log" 2>/dev/null
+      echo "--- storefront log ---"; tail -10 "$ROOT/.run/storefront.log" 2>/dev/null
     fi
   else
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
