@@ -112,5 +112,7 @@ while :; do
     && log "deleted remote branch $head_branch" || log "remote branch $head_branch not deleted (already gone?)"
   [[ -n "$red_optional" ]] && log "MERGED, but non-required checks are red: $red_optional — fix them as a follow-up"
   log "merged into develop. Your local checkout is untouched. When develop is green on every gate, promote: scripts/promote.sh test"
+  # The merged branch's subagent worktree (if any) is finished now — remove it and its leftover branches.
+  "$(dirname "$0")/clean-agent-worktrees.sh" 2>&1 | sed "s/^/[clean] /" || log "worktree cleanup failed (non-fatal) — run scripts/clean-agent-worktrees.sh"
   exit 0
 done

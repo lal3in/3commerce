@@ -1,5 +1,9 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(scripts/clean-agent-worktrees.sh*)",
+      "Bash(DRY_RUN=1 scripts/clean-agent-worktrees.sh*)"
+    ],
     "deny": [
       "Bash(docker volume prune*)",
       "Bash(docker system prune*--volumes*)",
@@ -8,6 +12,21 @@
       "Bash(gh pr merge --admin*)",
       "Bash(git push --force* origin main*)",
       "Bash(git push -f* origin main*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && QUIET=1 scripts/clean-agent-worktrees.sh 2>/dev/null || true",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
