@@ -27,7 +27,9 @@ test.describe("Dev-infra portals show real data", () => {
     test.skip(!(await reachable(RABBIT)), "RabbitMQ management not running");
     // Every order must belong to a storefront, so driveCheckout attributes to a demo store; without one
     // (import-only stack) there's no real checkout to drive, so this "after a real checkout" case skips.
-    test.skip(!(await driveCheckout()), "no demo storefront to drive a real checkout (needs --data full)");
+    // With a demo store, any checkout failure throws — it fails this test instead of hiding as a skip.
+    const drive = await driveCheckout();
+    if (!drive.ok) test.skip(true, `RabbitMQ queues after a real checkout: ${drive.skip}`);
 
     await page.goto(`${RABBIT}/`, { waitUntil: "domcontentloaded" });
     await page.fill('input[name="username"]', "guest");

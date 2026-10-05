@@ -42,14 +42,30 @@ test.describe("Admin actions give feedback", () => {
   });
 
   test("running the sample importer surfaces feedback (not a silent no-op)", async ({ page }) => {
+    test.setTimeout(150_000); // the import itself is synchronous and can take a while on a busy stack
     await loginAsAdmin(page);
     await page.goto("/imports");
     await expect(page.getByRole("heading", { name: /catalog imports/i })).toBeVisible();
 
+    // The import runs SYNCHRONOUSLY inside the POST (Catalog TriggerImport), and the Blazor handler only
+    // re-renders once the POST + the runs-list refresh both return — so the feedback can legitimately take
+    // many seconds on a busy stack (right after a seed, or mid-suite after bulk specs). The old
+    // `toPass { click; expect(3s) }` re-clicked whenever a run outlived 3 s: that click lands as soon as the
+    // button re-enables, which clears the status message and starts ANOTHER import, so the feedback was never
+    // observed. Click only while the page is idle with no feedback yet (absorbs a click lost before the
+    // circuit is live), prove the click registered (button busy, or feedback already shown), then wait for
+    // the real effect — the run finishing — on the feedback locator itself.
+    const runButton = page.getByRole("button", { name: /run sample importer/i });
+    const busyButton = page.getByRole("button", { name: /run sample importer/i, disabled: true });
+    const feedback = page.getByText(/import run started|import failed/i);
     await expect(async () => {
-      await page.getByRole("button", { name: /run sample importer/i }).click();
-      await expect(page.getByText(/import run started|import failed/i)).toBeVisible({ timeout: 3_000 });
+      // Order matters: enabled-then-no-feedback means truly idle (status and re-enable render together).
+      const idle = await runButton.isEnabled();
+      if (await feedback.isVisible()) return;
+      if (idle) await runButton.click();
+      await expect(feedback.or(busyButton).first()).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
+    await expect(feedback).toBeVisible({ timeout: 90_000 });
   });
 
   test("price-entry fields carry the ADR-0038 tax-convention note (per-currency editor)", async ({ page }) => {
