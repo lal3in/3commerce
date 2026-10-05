@@ -1,9 +1,10 @@
 # Local infrastructure ONLY (ADR-0009): services run bare via `dotnet run`.
 # Usage:
-#   docker compose -f docker-compose.infra.yml up -d                     # core: Postgres + RabbitMQ (CI uses this)
+#   docker compose -f docker-compose.infra.yml up -d                     # core: Postgres + RabbitMQ + Valkey
 #   docker compose -f docker-compose.infra.yml --profile portals up -d   # + Kafka, Kafka UI, pgAdmin (dev-up.sh default)
-# The `portals` profile keeps the dev portals out of CI runners (e2e-verify boots the plain core;
-# the extra JVMs starved the shared runner and flaked unrelated browser tests).
+# The `portals` profile keeps the dev portals out of the fast CI lane: PRs and develop run e2e-verify on the
+# plain core (on the old 2-vCPU private runners the extra JVMs flaked unrelated browser tests); pushes to the
+# release stages test/main run the full set (scripts/lib/infra.sh INFRA_SET=full, ci.yml browser-e2e, ADR-0058).
 name: 3commerce-infra
 
 services:

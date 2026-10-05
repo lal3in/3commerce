@@ -29,6 +29,13 @@ Four kinds of branch, one direction of travel:
 | `test` | the release candidate — one release away from production | **fast-forward** of `develop`'s tested tip (`scripts/promote.sh test`) | `changes`, `build-test`, `integration`, `browser-e2e`, `compose-smoke`, `kind-deploy` green on the commit; fast-forward only; linear history; no deletion |
 | `main` | **production** | **fast-forward** of `test`'s tip (`scripts/promote.sh main --user-approved`), **only after the owner approves that release** | same as `test` |
 
+`browser-e2e` runs on two infra sets (`INFRA_SET`, `scripts/lib/infra.sh`). PRs and `develop` pushes use
+the fast **`core`** set (postgres, rabbitmq, valkey). Pushes to **`test` and `main`** use the **`full`**
+set (13 containers: adds Kafka, Kafka UI, pgAdmin, redis-exporter and the LGTM observability stack), so the
+infra-portal and observability Playwright specs run there instead of skipping. On `core` they skip.
+`promote.sh` reads the latest check run per gate name. After `develop → test`, the latest `browser-e2e` on
+the release candidate is therefore the full-set run, and `test → main` is gated on it.
+
 1. **Feature/defect branches are cut from `develop`** (never from `test` or `main`) and each is tested on
    its own: its PR must pass the four `develop` gates — including the Playwright suite — before it merges.
 2. **Promotions are fast-forwards, never merges.** `test` and `main` only ever move to a commit that already
@@ -53,6 +60,18 @@ Four kinds of branch, one direction of travel:
   nothing locally.
 - The full Playwright and deploy-smoke suites now gate a release, not just a merge. A red smoke
   blocks promotion to `test` until fixed or genuinely re-run green.
+- The release stages run `browser-e2e` on the **full infra set**. The portal and observability specs
+  (Kafka UI, pgAdmin, Grafana, Loki/Tempo/Mimir, and logs and traces from a real checkout) block
+  `test → main`. On a PR they skip. The job takes about 1–3 minutes longer on that set. Trial (PR #278: two
+  runs of one commit on the public-repo runner, 4 vCPU / 16 GB):
+  - both runs green: 113 passed, 0 flaky, 0 skipped;
+  - all 7 portal specs ran;
+  - the job took 13m48s and 12m17s, against 10m23s–11m40s on `core`, with a 40-minute timeout;
+  - peak load came during service boot, before Playwright; available memory never fell below 6.2 GB.
+
+  A portal or observability regression introduced on a PR therefore surfaces at the `test` promotion, not
+  at merge. Run `CI=true INFRA_SET=full scripts/e2e-verify.sh --live-only` locally when a change touches
+  that infra.
 - A `develop` tip with a red gate cannot be promoted. Fix forward on `develop` with another PR — never
   force-push a stage.
 - **Hotfixes** follow the same path (fix branch → `develop` → `test` → `main`); there is no side door.

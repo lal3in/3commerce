@@ -15,8 +15,8 @@
 # Live mode leaves the machine EXACTLY as it found it. Infra (scripts/lib/infra.sh, all-or-nothing): fully up ->
 # used and left up; down -> the FULL set is brought up and taken fully down again at the end (also on Ctrl-C);
 # PARTIAL -> refused (heal with scripts/dev-up.sh or clear with scripts/dev-down.sh, then re-run). On CI (CI=true)
-# the set is the core one (Postgres + RabbitMQ + Valkey) — the portals + LGTM starve the 2-vCPU runner; override
-# with INFRA_SET=core|full. The app stack (gateway + frontends) follows the same rule: reused, or booted + stopped.
+# the default set is the core one (Postgres + RabbitMQ + Valkey); INFRA_SET=core|full overrides it, and CI's
+# browser-e2e sets `full` on pushes to test/main (ADR-0058) so the portal + observability specs run there. The app stack (gateway + frontends) follows the same rule: reused, or booted + stopped.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # COVERAGE CHECKLIST  (keep in sync — see the "test list" rule in AGENTS.md)
