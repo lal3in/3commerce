@@ -141,6 +141,8 @@ git config core.hooksPath .githooks
 scripts/pr-merge-on-green.sh <pr-number>           # PRs with base develop only
 scripts/promote.sh test                             # develop → test (fast-forward, all six gates green)
 scripts/promote.sh main --user-approved             # test → main = PRODUCTION — only after the user says yes
+scripts/promote.sh test --wait                      # same, but waits for running/queued gates first (WAIT_TIMEOUT_MIN=60,
+                                                    # WAIT_INTERVAL=30) — never hand-roll a wait loop; DRY_RUN=1 previews
 scripts/clean-agent-worktrees.sh                    # remove finished subagent worktrees + merged local branches (also automatic)
 ```
 
