@@ -12,7 +12,9 @@
     </label>
     @if (!string.IsNullOrWhiteSpace(Value))
     {
-        <img src="@Value" alt="preview" style="height:2.4rem; width:2.4rem; object-fit:cover; border:1px solid #e5e7eb; border-radius:4px;" />
+        @* onerror (plain HTML, passed through to the DOM): offline/unreachable remote hosts degrade to a
+           bundled placeholder instead of the browser's broken-link icon (fe_audit_4). *@
+        <img src="@Value" alt="preview" onerror="this.onerror=null;this.src='/img/image-placeholder.svg'" style="height:2.4rem; width:2.4rem; object-fit:cover; border:1px solid #e5e7eb; border-radius:4px;" />
     }
 </div>
 @if (_uploading)

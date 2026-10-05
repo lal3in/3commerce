@@ -226,7 +226,10 @@
 #       COUPON authoring through the same modal (code round-tripped in canonical UPPERCASE, the
 #       Redemptions column, no threshold required, duplicate code refused) and the shopper applying
 #       a code at checkout — invisible until entered, an unknown code showing its OWN reason, the
-#       discount row appearing, and remove pricing the cart back at full price (ADR-0052)
+#       discount row appearing, and remove pricing the cart back at full price (ADR-0052);
+#       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
+#       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
+#       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
