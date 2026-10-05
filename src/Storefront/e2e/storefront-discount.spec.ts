@@ -6,6 +6,11 @@ import { capture } from "../e2e-support/screenshots";
  * own line in the cart (shown == charged). Sets the discount on a demo storefront via the admin API, shops
  * it in the browser, and asserts the discount line + discounted items total appear. Resets the discount
  * afterwards so sibling specs see the baseline. Requires dev-up --data full (demo stores); skips otherwise.
+ *
+ * The cart's discount line is priced by ORDERING (/cart/summary reads its StorefrontDiscountCopy, projected
+ * from Catalog's StorefrontConfigChanged over the bus), not by Catalog's public config — so Catalog showing
+ * the new value says nothing about Ordering yet. Every wait on the discount therefore reloads the cart until
+ * Ordering's view matches (the E2E seed projection race, docs/reference/engineering-gotchas.md).
  */
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -32,29 +37,45 @@ test.describe("Storefront-wide discount (rev_disc)", () => {
     const original = await getAdminStore(request, id);
     test.skip(!original, "demo storefront not present in the admin list");
 
+    let cartFilled = false;
+    let bodyFailed = false;
     try {
       // Baseline: no discount. Shop the store and capture the cart with no discount line.
       await putDiscount(request, original!, 0);
       await expect.poll(async () => (await publicConfig(request, slug))?.discountBasisPoints, { timeout: 15_000 }).toBe(0);
       await page.goto(`/${slug}`);
       await addFirstInStockProduct(page); // lands on /cart
-      await expect(page.getByText(/^Discount \(/)).toHaveCount(0);
+      cartFilled = true;
+      // Ordering may still hold a discount from an earlier run — reload until its view is the baseline too.
+      await reloadCartUntilDiscount(page, false);
       await capture(page, "discount-cart-before");
 
       // Set a 10% storefront-wide discount and wait for the public config to reflect it.
       await putDiscount(request, original!, 1000);
       await expect.poll(async () => (await publicConfig(request, slug))?.discountBasisPoints, { timeout: 15_000 }).toBe(1000);
 
-      // Reload the cart (config is fetched no-store per request) → the discount line and items total appear.
-      await page.reload();
+      // Reload the cart (config + summary are fetched no-store per request) until Ordering has projected
+      // the discount → the discount line and items total appear.
+      await reloadCartUntilDiscount(page, true);
       const discountRow = page.locator("div", { hasText: /^Discount \(10%\)/ }).last();
       await expect(discountRow).toBeVisible();
       await expect(discountRow).toContainText("−"); // shown as a deduction
       await expect(page.getByText(/^Items total$/)).toBeVisible();
       await capture(page, "discount-cart-after");
+    } catch (error) {
+      bodyFailed = true;
+      throw error;
     } finally {
-      // Reset the demo store's discount so sibling specs see the baseline (0 = none).
+      // Reset the demo store's discount so sibling specs see the baseline (0 = none) — and wait until
+      // ORDERING has it too: storefront-promotions runs next on the same store and sums the cart's rows,
+      // so a lingering projected discount would break its arithmetic. A wait failure never masks the
+      // body's own error.
       await putDiscount(request, original!, 0);
+      if (cartFilled) {
+        await reloadCartUntilDiscount(page, false).catch((error: unknown) => {
+          if (!bodyFailed) throw error;
+        });
+      }
     }
   });
 });
@@ -100,6 +121,22 @@ async function putDiscount(request: APIRequestContext, store: AdminStore, discou
 async function publicConfig(request: APIRequestContext, slug: string): Promise<{ discountBasisPoints?: number } | null> {
   const r = await request.get(`${GATEWAY}/api/catalog/storefronts/public?slug=${slug}`);
   return r.ok() ? ((await r.json()) as { discountBasisPoints?: number }) : null;
+}
+
+/**
+ * Reloads the cart until Ordering's projected storefront discount shows (present) or is gone (absent).
+ * The reload loop IS the wait for the Catalog -> Ordering StorefrontConfigChanged projection: the cart
+ * page is server-rendered no-store, and its discount line only renders once /cart/summary prices one.
+ */
+async function reloadCartUntilDiscount(page: Page, present: boolean): Promise<void> {
+  await expect(async () => {
+    await page.reload();
+    if (present) {
+      await expect(page.locator("div", { hasText: /^Discount \(10%\)/ }).last()).toBeVisible({ timeout: 2_000 });
+    } else {
+      await expect(page.getByText(/^Discount \(/)).toHaveCount(0, { timeout: 2_000 });
+    }
+  }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 2_000, 3_000] });
 }
 
 async function addFirstInStockProduct(page: Page): Promise<void> {
