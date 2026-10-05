@@ -84,6 +84,8 @@ jobs:
       # storm starves the other processes). The full-scale import is asserted by the
       # CatalogSearchTests integration test, not here.
       Importer__TargetRows: "400"
+      # TRIAL (ci_full_infra_release_gate): every run of this branch uses the FULL infra set (13 containers).
+      INFRA_SET: full
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -105,8 +107,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Build solution
         run: dotnet build 3commerce.sln
+      - name: Runner size + background resource sampler
+        run: scripts/ci-resources.sh start
       - name: Full-stack browser E2E (boots the stack, runs L1–L20)
         run: scripts/e2e-verify.sh --live-only
+      - name: Runner resources + Playwright tally (peak load, lowest free memory, portal specs)
+        if: always()
+        run: scripts/ci-resources.sh report
       - name: Upload Playwright trace on failure
         if: failure()
         uses: actions/upload-artifact@v4

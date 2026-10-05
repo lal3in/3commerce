@@ -641,14 +641,27 @@ run_live() {
     skip "L15-L19 money flow — no demo storefront to attribute the order (needs --data full)"
   fi
 
+  # The list reporter's closing tally, e.g. "2 flaky, 4 skipped, 107 passed". Playwright counts a flaky
+  # test (failed, then passed on retry) as green, so report it instead of only "N passed".
+  pw_tally() {
+    local t
+    t=$(grep -E '^  [0-9]+ (passed|failed|flaky|skipped|interrupted|did not run)' /tmp/3c-playwright.log \
+      | sed -E 's/^ +//; s/ \(.*\)$//' | paste -sd, - | sed 's/,/, /g')
+    echo "${t:-no Playwright summary}"
+  }
+  pw_flaky_names() {
+    awk '/^  [0-9]+ flaky/ {f=1; next} f && /^    / {sub(/^ +/, ""); print "    flaky: " $0; next} {f=0}' /tmp/3c-playwright.log
+  }
   stage "L20  Storefront + Admin E2E (Playwright, real browser)"
   if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
     wait_http "http://localhost:5200/login" || true  # ensure admin is up
     wait_http "http://localhost:5300/login" || true  # ensure supplier portal is up
     if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" SUPPLIER_URL="http://localhost:5300" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
-      pass "L20 storefront + admin E2E ($(grep -oE '[0-9]+ passed' /tmp/3c-playwright.log | tail -1))"
+      pass "L20 storefront + admin E2E ($(pw_tally))"
+      # CI retries (playwright.config.ts) let a starved test pass on its 2nd try: name every flaky one.
+      pw_flaky_names
     else
-      fail "L20 E2E"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8
+      fail "L20 E2E ($(pw_tally))"; grep -E 'passed|failed|✘|›' /tmp/3c-playwright.log | tail -8
       # .run/ in both modes: a reused stack's frontends were started by dev-up.sh, which logs there too.
       echo "--- admin log ---"; tail -25 "$ROOT/.run/admin.log" 2>/dev/null
       echo "--- storefront log ---"; tail -10 "$ROOT/.run/storefront.log" 2>/dev/null
