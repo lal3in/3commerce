@@ -507,14 +507,22 @@ import json, os, sys
 HOME = {"AUD": "AU", "EUR": "DE", "USD": "US", "CAD": "CA", "GBP": "GB", "CNY": "CN", "JPY": "JP", "KWD": "KW"}
 LIVE = {2, 3}  # StorefrontState.Preview, StorefrontState.Active (enums cross HTTP as numbers)
 try:
-    rows = {str(s.get("id", "")).lower(): s for s in json.load(sys.stdin)}
+    stores = json.load(sys.stdin)
 except Exception:
-    rows = {}
+    stores = []
+wanted = {}
 for pair in filter(None, os.environ.get("DEMO_IDS", "").split(",")):
     key, sid = pair.split("=", 1)
-    s = rows.get(sid.lower())
-    if s is None:
+    wanted[sid.lower()] = key
+listed = {str(s.get("id", "")).lower() for s in stores}
+for sid, key in wanted.items():
+    if sid not in listed:
         print(f"  !! demo storefront {key} ({sid}) is missing from the storefront list - its orders are skipped", file=sys.stderr)
+# Keep the admin list order (by name): seed_storefront_publications gives each store the catalogue page
+# of its position, so the order decides WHICH products each demo store publishes — keep it stable.
+for s in stores:
+    key = wanted.get(str(s.get("id", "")).lower())
+    if key is None:
         continue
     state = s.get("state")
     if state not in LIVE:
@@ -928,8 +936,16 @@ seed_storefront_publications() {
       api "sf-pub-$cur-assign" POST "/api/catalog/admin/storefronts/$sid/products" "$ADMIN_JAR" \
         "{\"productId\":\"$pid\",\"fulfillmentSource\":2}" "allow_4xx" >/dev/null
       api "sf-pub-$cur-publish" POST "/api/catalog/admin/storefronts/$sid/products/$pid/publish" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    # Imported catalogue only: never the seed's own scenario fixtures (seed_scenario_publications places the
+    # physical ones on the EU store deliberately) nor products E2E specs create ("e2e" in slug/title). On a
+    # long-lived DB those leftovers push the scenario products into later pages, and publishing them made
+    # e.g. "E2E Scenario out-of-stock-hold" the EU store's first product (unbuyable) — failing the PDP/cart
+    # specs. On a fresh DB these pages hold no fixtures, so nothing changes there.
     done < <(printf '%s' "$hits" | python3 -c "import sys,json
-try: print('\n'.join(h['id'] for h in json.load(sys.stdin) if h.get('imageUrl')))
+try:
+  for h in json.load(sys.stdin):
+    tag = (h.get('slug','') + ' ' + h.get('title','')).lower()
+    if h.get('imageUrl') and 'e2e' not in tag: print(h['id'])
 except Exception: pass")
   done < <(demo_storefront_rows)
 }

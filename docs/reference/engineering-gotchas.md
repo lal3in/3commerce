@@ -127,6 +127,8 @@ Ledger postings (Payments):
   checkout of that user failed too), and bought subscriptions without a saved card — 30 of 49 checkouts
   400'd while the run looked green. `dev-dummy-data.sh` now orders only on its own live demo stores,
   for products sellable there, from an emptied cart, and a failed checkout prints its body and exits 4.
+  It also never publishes "e2e" fixtures to the demo stores: E2E leftovers shift the global catalogue
+  pages, and a scenario fixture as a store's first product breaks the PDP/cart/offer specs.
 - **A renamed query parameter is silently ignored, not rejected.** `GET /api/catalog/admin/offers`
   renamed `productId=` to `product=` (#255); the seed's dedupe kept sending `productId=`, got every offer
   of the supplier back, and skipped all but one per-store COGS offer for weeks. When a caller filters a
