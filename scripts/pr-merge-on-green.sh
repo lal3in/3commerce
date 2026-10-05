@@ -56,6 +56,12 @@ while :; do
     CLOSED) log "PR is closed — nothing to merge"; exit 1 ;;
   esac
 
+  # GitHub runs no pull_request checks while a PR conflicts with its base — waiting would only time out.
+  if [[ "$(gh pr view "$PR" --json mergeable -q .mergeable)" == "CONFLICTING" ]]; then
+    log "CONFLICTS with $base — CI will not run until it is rebased: git fetch && git rebase origin/$base, resolve, push --force-with-lease"
+    exit 1
+  fi
+
   # One line per check: <bucket>\t<name>\t<link>
   checks="$(gh pr checks "$PR" --json name,bucket,link -q '.[] | [.bucket, .name, .link] | @tsv' 2>/dev/null || true)"
   if [[ -z "$checks" ]]; then
@@ -112,5 +118,7 @@ while :; do
     && log "deleted remote branch $head_branch" || log "remote branch $head_branch not deleted (already gone?)"
   [[ -n "$red_optional" ]] && log "MERGED, but non-required checks are red: $red_optional — fix them as a follow-up"
   log "merged into develop. Your local checkout is untouched. When develop is green on every gate, promote: scripts/promote.sh test"
+  # The merged branch's subagent worktree (if any) is finished now — remove it and its leftover branches.
+  "$(dirname "$0")/clean-agent-worktrees.sh" 2>&1 | sed "s/^/[clean] /" || log "worktree cleanup failed (non-fatal) — run scripts/clean-agent-worktrees.sh"
   exit 0
 done

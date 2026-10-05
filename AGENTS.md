@@ -32,6 +32,7 @@ feature/* · fix/* · docs/* · chore/* · test/*  ──squash PR──▶  dev
 - **`test → main`** (production release): **stop and ask the user first, every time** — then `scripts/promote.sh main --user-approved`. Never automatic, never bundled with other work.
 - Promotions are **fast-forward pushes of the already-tested commit** — never a merge, squash, rebase or cherry-pick into `test`/`main`, never a PR against `test`/`main`, never a force-push. If a stage can't fast-forward, stop and investigate.
 - A red gate on `develop` blocks promotion: fix forward with another branch → PR → `develop`. Hotfixes take the same path.
+- **Subagent worktrees clean themselves up**: `scripts/clean-agent-worktrees.sh` runs after every merge (inside `pr-merge-on-green.sh`) and at session start (`.claude/settings.json` hook). It removes a `.claude/worktrees/agent-*` worktree only when it is clean AND its branch's PR merged at that exact commit (or it's already in `develop` and idle > 24 h), then deletes the leftover local branches. Don't remove worktrees by hand; never `--force` one that has uncommitted work.
 - GitHub rulesets enforce most of this (PR-only squash into `develop`; fast-forward-only, fully-green commits into `test`/`main`; no deletion). They can't check ancestry, so the order `develop → test → main` is on you.
 - **"load local up"** (or any request to bring the local stack up): first **ask the user which branch** — a specific `feature/…`/`fix/…` branch, `dev` = `develop`, `test` = `test`, or `prod` = `main`. Switch to it only if the working tree is clean (otherwise ask), then `scripts/dev-up.sh --with-frontends --seed`. Never assume the current branch.
 
@@ -137,6 +138,7 @@ git config core.hooksPath .githooks
 scripts/pr-merge-on-green.sh <pr-number>           # PRs with base develop only
 scripts/promote.sh test                             # develop → test (fast-forward, all six gates green)
 scripts/promote.sh main --user-approved             # test → main = PRODUCTION — only after the user says yes
+scripts/clean-agent-worktrees.sh                    # remove finished subagent worktrees + merged local branches (also automatic)
 ```
 
 ---
