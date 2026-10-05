@@ -20,6 +20,23 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ---
 
+## Branching & release flow (ADR-0058 — always, no exceptions)
+
+```
+feature/* · fix/* · docs/* · chore/* · test/*  ──squash PR──▶  develop  ──fast-forward──▶  test  ──fast-forward + owner's OK──▶  main (production)
+```
+
+- **Every change starts on its own branch cut from `develop`** (`git switch -c fix/<name> origin/develop`) — never from `test` or `main`, never committed straight to a stage branch. Name it `feature/…` (or `feat/…`) for features and `fix/…` for defects; `docs/…`, `chore/…`, `test/…` for the rest.
+- **Each branch is tested on its own** — locally per the Definition of Done, plus Playwright when it touches UI or a flow — then opened as a PR with **base `develop`** and squash-merged only when `changes`, `build-test`, `integration` **and `browser-e2e`** are green: `scripts/pr-merge-on-green.sh <pr>` (it refuses any other base).
+- **`develop → test`** (the release candidate — one release away from production): `scripts/promote.sh test`, only when `develop`'s tip is green on all six gates (+ `compose-smoke`, `kind-deploy`). Before promoting, run the live suite against `develop`: `scripts/e2e-verify.sh --live` — `test` must pass every e2e case, Playwright included.
+- **`test → main`** (production release): **stop and ask the user first, every time** — then `scripts/promote.sh main --user-approved`. Never automatic, never bundled with other work.
+- Promotions are **fast-forward pushes of the already-tested commit** — never a merge, squash, rebase or cherry-pick into `test`/`main`, never a PR against `test`/`main`, never a force-push. If a stage can't fast-forward, stop and investigate.
+- A red gate on `develop` blocks promotion: fix forward with another branch → PR → `develop`. Hotfixes take the same path.
+- GitHub rulesets enforce most of this (PR-only squash into `develop`; fast-forward-only, fully-green commits into `test`/`main`; no deletion). They can't check ancestry, so the order `develop → test → main` is on you.
+- **"load local up"** (or any request to bring the local stack up): first **ask the user which branch** — a specific `feature/…`/`fix/…` branch, `dev` = `develop`, `test` = `test`, or `prod` = `main`. Switch to it only if the working tree is clean (otherwise ask), then `scripts/dev-up.sh --with-frontends --seed`. Never assume the current branch.
+
+---
+
 ## Sources of truth (do NOT auto-load PRD)
 - Product requirements: ./docs/prd/PRD.md (load only if task depends on requirements)
 - Architecture decisions: ./docs/adr/
@@ -115,8 +132,11 @@ scripts/e2e-verify.sh --live   # also runs live user-journey flows: AGAINST the 
 # Git hooks (once per clone): commit-msg rejects AI-authorship trailers; pre-push format-verifies changed projects
 git config core.hooksPath .githooks
 
-# Merge a PR once its required gates are green (run in the background; never switches your branch)
-scripts/pr-merge-on-green.sh <pr-number>
+# Release flow (ADR-0058): merge a feature/defect PR into develop once its gates are green
+# (run in the background; never switches your branch), then promote stage by stage
+scripts/pr-merge-on-green.sh <pr-number>           # PRs with base develop only
+scripts/promote.sh test                             # develop → test (fast-forward, all six gates green)
+scripts/promote.sh main --user-approved             # test → main = PRODUCTION — only after the user says yes
 ```
 
 ---
@@ -170,7 +190,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
 ├── deploy/                        # helm/ (chart), migrator/ (EF bundles), observability/, pgbouncer/
-├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + pr-merge-on-green.sh
+├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
@@ -240,6 +260,7 @@ The following repository rules must always be followed:
   | add infra — a new port, container, log location, or observability endpoint | `scripts/host-check.sh` (the `probe`) + `scripts/doctor.sh` if it's a health surface |
   | change a `/health` path or readiness convention | `scripts/doctor.sh` + `scripts/host-check.sh` |
   | a new CI failure keyword matters | `scripts/ci-logs.sh` `SIG` signatures |
+  | add/rename a CI job that gates a stage, or change a stage's gates | the GitHub rulesets (`gh api repos/{owner}/{repo}/rulesets`), `REQUIRED` in `scripts/promote.sh` + `scripts/pr-merge-on-green.sh`, and ADR-0058's table |
   | move/rename a Dockerfile or change image naming | `scripts/build-images.sh` `image_name()` + the CI `docker` matrix |
   | change the storefront/admin UI (pages, buttons, flows) | re-run `e2e/screenshots.spec.ts` + `e2e-admin/screenshots.spec.ts` (they archive a new run — they no longer write the wiki), review with `node scripts/screenshots/shots.cjs compare --diff`, then `shots.cjs promote <runId>` → refreshes `docs/help/assets/screenshots/*` for `screens.html` |
   | add/change a service's endpoints | `docs/api/api_contracts_index.md` + `docs/help/services.html` |

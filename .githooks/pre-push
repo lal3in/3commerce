@@ -11,19 +11,16 @@ command -v dotnet >/dev/null || { echo "pre-push: dotnet not on PATH — skippin
 
 root="$(git rev-parse --show-toplevel)"
 zero=0000000000000000000000000000000000000000
-base_ref="$(git rev-parse --verify -q origin/main || true)"
 
+# Only commits the remote doesn't have yet are checked. A promotion (develop → test → main pushes a
+# commit already on origin) or a re-push checks nothing — those commits passed CI where they live.
 changed=""
-while read -r _local_ref local_sha _remote_ref remote_sha; do
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
   [[ "$local_sha" == "$zero" ]] && continue                     # branch deletion
-  if [[ "$remote_sha" != "$zero" ]] && git cat-file -e "$remote_sha" 2>/dev/null; then
-    range="$remote_sha..$local_sha"
-  elif [[ -n "$base_ref" ]]; then
-    range="$(git merge-base "$base_ref" "$local_sha")..$local_sha"
-  else
-    continue
-  fi
-  changed+="$(git diff --name-only --diff-filter=ACMR "$range" -- '*.cs' '*.csproj')"$'\n'
+  while read -r c; do
+    [[ -z "$c" ]] && continue
+    changed+="$(git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "$c" -- '*.cs' '*.csproj')"$'\n'
+  done <<<"$(git rev-list "$local_sha" --not --remotes=origin)"
 done
 
 # Map each changed file to its nearest enclosing .csproj.
