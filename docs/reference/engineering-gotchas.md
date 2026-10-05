@@ -94,6 +94,8 @@ Ledger postings (Payments):
   `PARTIAL (missing: …)` and exits 1 on PARTIAL; `dev-up.sh` heals PARTIAL to full; `e2e-verify.sh --live`
   refuses to run on it. A Colima/Docker restart is a classic source: only the borrowed observability services
   carry `restart: unless-stopped`, so they come back on their own and the rest do not.
+  Running dev-up from another checkout/worktree recreates postgres/pgadmin (their bind-mount source path
+  changes) — expected and harmless: the data lives in the named volumes.
 - **Never `pkill -f` a pattern that could match stack processes** — it has killed the running
   stack's own services mid-seed. Target explicit PIDs; ports are the source of truth
   (`lsof -nP -iTCP:<port> -sTCP:LISTEN`). `scripts/lib/procs.sh` (`reap_port`, `prune_stale_pids`)
