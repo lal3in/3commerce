@@ -89,9 +89,11 @@ When PRD is needed:
 # Development — bare-run, ADR-0009 (the light default; never builds images, so it can't OOM the Docker VM)
 scripts/dev-up.sh --with-frontends --seed          # ONE command: infra + migrate + all services + frontends + seed;
                                                     # prints "Up." only once every portal is ready (exit 3 + names if not)
-scripts/dev-down.sh                                 # stop everything
+scripts/dev-down.sh                                 # stop everything; proves NO infra container is left (exit 1 + names if not)
+# The infra is ALL-OR-NOTHING (one definition: scripts/lib/infra.sh — infra compose `portals` + borrowed LGTM).
+# dev-up heals a PARTIAL infra to full (exit 1 naming any member not healthy); never start/stop single infra containers.
 # ...or piecemeal:
-docker compose -f docker-compose.infra.yml up -d   # Postgres 17 + RabbitMQ
+bash -c 'source scripts/lib/infra.sh && infra_up'  # the WHOLE infra set, health-waited (dev-up's step 1)
 dotnet run --project src/Services/<Name>/Api        # per service; same for Gateway, Workers
 cd src/Storefront && npm run dev                    # Next.js storefront
 
@@ -128,7 +130,8 @@ dotnet test tests/ --filter Category=Integration
 # Full regression check (run after building new features)
 scripts/e2e-verify.sh          # automated suites (build, format, unit, integration, storefront, vuln)
 scripts/e2e-verify.sh --live   # also runs live user-journey flows: AGAINST the running stack if one is fully up
-                               # (no build/migrate/restart/teardown), else it boots its own and stops only that
+                               # (no build/migrate/restart/teardown), else it boots its own and stops only that —
+                               # incl. the FULL infra set, taken fully down again; a PARTIAL infra is refused
 
 # Git hooks (once per clone): commit-msg rejects AI-authorship trailers; pre-push format-verifies changed projects
 git config core.hooksPath .githooks
@@ -147,9 +150,10 @@ scripts/clean-agent-worktrees.sh                    # remove finished subagent w
 
 Run the tool first; hand-tail logs only when it points you somewhere.
 
-- `scripts/doctor.sh` — local env in one shot: infra containers, every service's `/health/ready`
-  (manifest-driven), the frontends, and the last error lines from `.run/<svc>.log` for anything down.
-- `scripts/host-check.sh [--deep] [--logs] [target]` — full sweep of a host (containers, health, **RabbitMQ bus state**, infra logs, observability, compose, resources, Colima OOM log). Runs over local / SSH VPS / GCP (`scripts/lib/hosts.sh`), so the same diagnosis works on Hostinger/EC2/GCE/Azure; `--logs` adds CloudWatch/GCP/Azure managed logs.
+- `scripts/doctor.sh` — local env in one shot: the infra set as `up` / `down` / `PARTIAL (missing: …)`
+  (per container; PARTIAL exits 1), every service's `/health/ready` (manifest-driven), the frontends, and the
+  last error lines from `.run/<svc>.log` for anything down.
+- `scripts/host-check.sh [--deep] [--logs] [target]` — full sweep of a host (containers, health, **RabbitMQ bus state**, infra logs, observability, compose, resources, Colima OOM log; on `local` also the dev infra `up`/`down`/`PARTIAL` state — PARTIAL exits 1). Runs over local / SSH VPS / GCP (`scripts/lib/hosts.sh`), so the same diagnosis works on Hostinger/EC2/GCE/Azure; `--logs` adds CloudWatch/GCP/Azure managed logs.
 - `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
   `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
 
@@ -186,7 +190,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks
-├── docker-compose.infra.yml       # Postgres 17 + RabbitMQ 4 only (ADR-0009)
+├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter)
 ├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
 ├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
@@ -194,6 +198,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ├── deploy/                        # helm/ (chart), migrator/ (EF bundles), observability/, pgbouncer/
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
+│   ├── lib/infra.sh               # THE local infra set (all-or-nothing): infra_up / infra_down / infra_state — dev-up, dev-down, e2e-verify, doctor, host-check
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
@@ -259,7 +264,7 @@ The following repository rules must always be followed:
   |---|---|
   | add/remove a DB-owning service | `scripts/lib/services.sh` (+ the non-derived lists in the rule above) — `doctor.sh`/`host-check.sh`/`dev-up.sh`/`run-all.sh` derive from it automatically |
   | add a deploy target (VPS / cloud VM) | `scripts/lib/hosts.sh` |
-  | add infra — a new port, container, log location, or observability endpoint | `scripts/host-check.sh` (the `probe`) + `scripts/doctor.sh` if it's a health surface |
+  | add infra — a new port, container, log location, or observability endpoint | `scripts/host-check.sh` (the `probe`) + `scripts/doctor.sh` if it's a health surface; a new infra container joins the all-or-nothing set automatically (derived from the compose files by `scripts/lib/infra.sh`) — add a readiness probe in `_infra_probe` if it has no healthcheck, and borrow observability services only via `DEV_BORROWED_SERVICES` there |
   | change a `/health` path or readiness convention | `scripts/doctor.sh` + `scripts/host-check.sh` |
   | a new CI failure keyword matters | `scripts/ci-logs.sh` `SIG` signatures |
   | add/rename a CI job that gates a stage, or change a stage's gates | the GitHub rulesets (`gh api repos/{owner}/{repo}/rulesets`), `REQUIRED` in `scripts/promote.sh` + `scripts/pr-merge-on-green.sh`, and ADR-0058's table |
@@ -349,7 +354,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 | `docs/prd/3commerce/04-mvp-scope.md` | Authoritative in/out-of-scope checklist |
 | `docs/prd/3commerce/06-architecture.md` | Service boundaries, messaging rules, repo layout target |
 | `docs/prd/3commerce/15-appendix.md` | Decision log (what was rejected and why) + launch blockers |
-| `docker-compose.infra.yml` | Local Postgres + RabbitMQ; add `docker-compose.infra.kafka.yml --profile kafka` for optional Kafka dev diagnostics |
+| `docker-compose.infra.yml` | Local bare-run infra (core + `portals`); with the borrowed LGTM services it forms the all-or-nothing set in `scripts/lib/infra.sh` |
 | `src/BuildingBlocks/Contracts/` | Message contracts + stream envelope/fact contracts — version additively, never break consumers |
 | `scripts/e2e-verify.sh` | Full regression command (automated + `--live` user journeys); keep current per the test-list rule |
 | `.envrc` | direnv env vars (secrets stay in `.envrc.local`/user-secrets, git-ignored) |

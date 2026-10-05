@@ -36,8 +36,8 @@ class ScriptInfo:
 
 
 SCRIPT_ORDER: list[ScriptInfo] = [
-    ScriptInfo("doctor.sh", "Check first", "Quick health check for local infra, services, gateway, and recent errors."),
-    ScriptInfo("dev-up.sh", "Start dev", "Starts local Postgres/RabbitMQ, migrates DBs, runs services, and optionally starts frontends or data profiles."),
+    ScriptInfo("doctor.sh", "Check first", "Quick health check: infra up/down/PARTIAL, services, gateway, and recent errors."),
+    ScriptInfo("dev-up.sh", "Start dev", "Starts the full local infra set (all-or-nothing, health-waited), migrates DBs, runs services, and optionally starts frontends or data profiles."),
     ScriptInfo("dev-dummy-data.sh", "Load demo data", "Seeds a running dev stack through gateway APIs with catalog, demo users, and optional operator data."),
     ScriptInfo("run-all.sh", "Services only", "Starts or stops the gateway, DB-owning services, and workers as local dotnet processes."),
     ScriptInfo("build-images.sh", "Build containers", "Builds all container images with bounded concurrency to avoid Docker VM OOMs."),
@@ -46,7 +46,7 @@ SCRIPT_ORDER: list[ScriptInfo] = [
     ScriptInfo("host-check.sh", "Deep diagnostics", "Checks containers, service health, RabbitMQ, logs, resources, and optional remote hosts."),
     ScriptInfo("ci-logs.sh", "CI triage", "Fetches the latest GitHub Actions failures and extracts useful error lines."),
     ScriptInfo("rotate-secrets.sh", "Secrets", "Generates fresh internal-auth keys and seed-admin password values for prod-like launch."),
-    ScriptInfo("dev-down.sh", "Stop dev", "Stops local services/frontends and tears down the bare-run dev environment."),
+    ScriptInfo("dev-down.sh", "Stop dev", "Stops local services/frontends and removes every infra container, verifying none remain."),
 ]
 
 

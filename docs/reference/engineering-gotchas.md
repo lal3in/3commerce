@@ -86,6 +86,16 @@ Ledger postings (Payments):
 
 ## Local dev stack
 
+- **The infra is all-or-nothing — never start/stop individual infra containers by hand; use
+  `scripts/dev-up.sh` / `scripts/dev-down.sh`.** The set (every `docker-compose.infra.yml` service under
+  `portals` + the observability services borrowed from `docker-compose.yml`) has ONE definition,
+  `scripts/lib/infra.sh`. A hand-started postgres + rabbitmq + valkey passes every port check while Kafka,
+  pgAdmin and the whole telemetry pipeline are gone. `scripts/doctor.sh` reports `up` / `down` /
+  `PARTIAL (missing: …)` and exits 1 on PARTIAL; `dev-up.sh` heals PARTIAL to full; `e2e-verify.sh --live`
+  refuses to run on it. A Colima/Docker restart is a classic source: only the borrowed observability services
+  carry `restart: unless-stopped`, so they come back on their own and the rest do not.
+  Running dev-up from another checkout/worktree recreates postgres/pgadmin (their bind-mount source path
+  changes) — expected and harmless: the data lives in the named volumes.
 - **Never `pkill -f` a pattern that could match stack processes** — it has killed the running
   stack's own services mid-seed. Target explicit PIDs; ports are the source of truth
   (`lsof -nP -iTCP:<port> -sTCP:LISTEN`). `scripts/lib/procs.sh` (`reap_port`, `prune_stale_pids`)

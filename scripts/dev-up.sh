@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# Bring up the FULL local env the light way (ADR-0009 bare-run): only Postgres + RabbitMQ in Docker,
-# everything else as host processes — so it never triggers the 13-image build that OOMs a small Docker VM.
+# Bring up the FULL local env the light way (ADR-0009 bare-run): only the infra set (lib/infra.sh — Postgres,
+# RabbitMQ, Valkey, Kafka, the portals and the LGTM observability stack) in Docker, every app process on the
+# host — so it never triggers the 13-image build that OOMs a small Docker VM.
+# The infra is all-or-nothing: step 1 brings EVERY member up (healing a partial state — missing/stopped members
+# start, unhealthy ones restart) and waits on every healthcheck + probe, or exits 1 naming what is not ready.
 # Usage: scripts/dev-up.sh [--fresh] [--with-frontends] [--seed] [--dummy-data|--data empty|catalog|smoke|dummy|full|exhaustive|mirror-prod]
 #   --fresh  Wipe the local DB volume first (dev-down --clean), so you always get a truly clean start:
 #            empty Postgres -> latest migrations -> fresh seed, on latest-built code. Use it whenever
 #            state has drifted (e.g. a demo run mutated data) or you just want a guaranteed-clean env.
-# Maintain: services + migrations derive from lib/services.sh (auto) — nothing per-service to edit here.
+# Maintain: services + migrations derive from lib/services.sh, the infra set from lib/infra.sh (auto) — nothing to edit here.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/preflight.sh
 source scripts/lib/services.sh
 source scripts/lib/procs.sh
-source scripts/lib/volumes.sh
+export INFRA_SET=full   # the dev stack is always the FULL infra set (lib/infra.sh); `core` is a CI-only trim
+source scripts/lib/volumes.sh   # also sources lib/infra.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -34,20 +38,14 @@ if (( FRESH )); then
   # empty (init-databases.sql reruns) — otherwise stale/mutated data survives across restarts because
   # `docker compose down` (without -v) keeps the named volume.
   echo "== 0/4 fresh: wiping local stack + DB volume =="
-  # Only the orphaned-volume lines are worth showing from the teardown (see lib/volumes.sh).
-  scripts/dev-down.sh --clean 2>&1 | grep -E '^  removed orphaned volume' || true
+  # Only the orphaned-volume lines are worth showing from a good teardown (see lib/volumes.sh) — but a teardown
+  # that could not prove the infra fully down must stop us: a "fresh" start on top of survivors is not fresh.
+  down_log="$(scripts/dev-down.sh --clean 2>&1)" || { echo "$down_log" >&2; echo "dev-down --clean failed — not starting on top of it." >&2; exit 1; }
+  grep -E '^  removed orphaned volume' <<<"$down_log" || true
 fi
 
-echo "== 1/4 infra (Postgres + RabbitMQ + Kafka + Kafka-UI + pgAdmin + LGTM observability) =="
-docker compose -f docker-compose.infra.yml --profile portals up -d
-for _ in $(seq 1 60); do docker exec 3commerce-postgres pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
-# The observability profile lives in the app compose file, whose default network is the EXTERNAL
-# 3commerce-data one (owned by docker-compose.db.yml) — bare-run dev never runs that file, so
-# create the network here or compose refuses to start. Named services only: a bare
-# `--profile observability up` would also build/start the 13 app containers (they carry no
-# profile), which is exactly what bare-run dev must not do.
-docker network inspect 3commerce-data >/dev/null 2>&1 || docker network create 3commerce-data >/dev/null
-docker compose up -d --no-deps "${DEV_BORROWED_SERVICES[@]}"
+echo "== 1/4 infra (all-or-nothing: Postgres + RabbitMQ + Valkey + Kafka + Kafka-UI + pgAdmin + LGTM observability) =="
+infra_up || { echo "Infra is NOT fully up (see above) — fix it, or clear it with scripts/dev-down.sh, then re-run." >&2; exit 1; }
 (( FRESH )) || report_app_stack_orphans
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"

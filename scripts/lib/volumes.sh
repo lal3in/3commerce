@@ -12,10 +12,10 @@
 #   3commerce-db     docker-compose.db.yml     → launch.sh's external Postgres, deliberately persisted across
 #                                                launches. NEVER pruned from here.
 
-# The observability services dev-up.sh borrows from docker-compose.yml — the single list both bring-up and
-# teardown use, and the source of the "keep" set below, so the three can never drift apart.
-DEV_BORROWED_SERVICES=(otel-collector prometheus grafana loki tempo mimir)
-APP_STACK_PROJECT="3commerce"
+# DEV_BORROWED_SERVICES (the observability services dev-up.sh borrows from docker-compose.yml) and
+# APP_STACK_PROJECT live in lib/infra.sh — the one definition of the infra set. Bring-up, teardown and the
+# "keep" set below all read that list, so the three can never drift apart.
+source "$(dirname "${BASH_SOURCE[0]}")/infra.sh"
 
 # Volume keys (e.g. "loki_data") mounted by the borrowed services, derived from the compose file itself.
 # Prints nothing if the compose config cannot be read — callers treat that as "keep everything".
