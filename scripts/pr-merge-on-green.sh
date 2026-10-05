@@ -56,6 +56,12 @@ while :; do
     CLOSED) log "PR is closed — nothing to merge"; exit 1 ;;
   esac
 
+  # GitHub runs no pull_request checks while a PR conflicts with its base — waiting would only time out.
+  if [[ "$(gh pr view "$PR" --json mergeable -q .mergeable)" == "CONFLICTING" ]]; then
+    log "CONFLICTS with $base — CI will not run until it is rebased: git fetch && git rebase origin/$base, resolve, push --force-with-lease"
+    exit 1
+  fi
+
   # One line per check: <bucket>\t<name>\t<link>
   checks="$(gh pr checks "$PR" --json name,bucket,link -q '.[] | [.bucket, .name, .link] | @tsv' 2>/dev/null || true)"
   if [[ -z "$checks" ]]; then
