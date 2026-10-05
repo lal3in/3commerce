@@ -84,8 +84,10 @@ test.describe("Observability portals ingest real service telemetry", () => {
 
   test("a real checkout lands real-service logs in Loki and traces in Tempo", async () => {
     test.skip(!(await reachable(`${LOKI}/ready`)) || !(await reachable(`${TEMPO}/ready`)), "LGTM stack not running");
-    const flowed = await driveCheckout();
-    test.skip(!flowed, "stack/seed not running — no gateway checkout possible");
+    // A demo-store checkout is the traffic under test; with no demo store (import-only stack) skip, but a
+    // failing checkout on a seeded stack throws and fails this test (it used to hide as a skip).
+    const drive = await driveCheckout();
+    if (!drive.ok) test.skip(true, `Loki/Tempo after a real checkout: ${drive.skip}`);
 
     const ctx = await pwRequest.newContext();
     try {
@@ -131,8 +133,8 @@ test.describe("Observability portals ingest real service telemetry", () => {
 
   test("every provisioned dashboard panel returns data", async () => {
     test.skip(!(await reachable(`${GRAFANA}/api/health`)), "Grafana not running");
-    const flowed = await driveCheckout();
-    test.skip(!flowed, "stack/seed not running — no gateway checkout possible");
+    const drive = await driveCheckout();
+    if (!drive.ok) test.skip(true, `dashboard panels after a real checkout: ${drive.skip}`);
 
     const ctx = await pwRequest.newContext({ extraHTTPHeaders: GRAFANA_AUTH });
     try {

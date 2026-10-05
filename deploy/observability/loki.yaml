@@ -5,6 +5,11 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  # The collector's default batch (8192 records) of verbose service logs is ~5–6 MB; the single-binary
+  # distributor forwards it to the ingester over gRPC, whose 4 MB default rejected it ("received message
+  # larger than max") and the push came back 503 — retried until dropped, so those logs never landed.
+  grpc_server_max_recv_msg_size: 67108864
+  grpc_server_max_send_msg_size: 67108864
 
 common:
   instance_addr: 127.0.0.1
@@ -32,3 +37,6 @@ limits_config:
   # OTLP-native ingest stores resource/log attributes (incl. trace_id) as structured
   # metadata — v13 schema + this flag are both required for the /otlp endpoint to accept data.
   allow_structured_metadata: true
+  # The ingest RATE limits stay at Loki's defaults on purpose: they are what keeps this single binary
+  # inside the dev Docker VM's memory. Raising them to 64 MB/s let a `--data full` seed land everything
+  # and Loki was OOM-killed (~3 GB RSS) in a 6 GB Colima VM.
