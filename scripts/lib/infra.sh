@@ -14,8 +14,9 @@
 #                   BORROWS from docker-compose.yml (DEV_BORROWED_SERVICES: OTel collector, Prometheus, Grafana,
 #                   Loki, Tempo, Mimir).
 #   core            only the profile-less services of docker-compose.infra.yml (Postgres, RabbitMQ, Valkey).
-#                   e2e-verify picks it on CI (CI=true): the portal JVMs + the LGTM stack starve the 2-vCPU
-#                   runner and flaked unrelated browser tests. Set INFRA_SET=core|full to override.
+#                   e2e-verify picks it on CI (CI=true) unless INFRA_SET says otherwise: ci.yml's browser-e2e
+#                   sets `full` for pushes to the release stages test/main and `core` for PRs/develop (fast lane;
+#                   the portal JVMs + LGTM stack flaked browser tests on the old 2-vCPU runners). ADR-0058.
 # Members, container names and which have a Docker healthcheck are read from the compose files themselves
 # (`docker compose config`), so adding a service to either file needs no edit here — only a readiness probe
 # in _infra_probe if it has no healthcheck and "running" is not proof enough.

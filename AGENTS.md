@@ -28,7 +28,7 @@ feature/* · fix/* · docs/* · chore/* · test/*  ──squash PR──▶  dev
 
 - **Every change starts on its own branch cut from `develop`** (`git switch -c fix/<name> origin/develop`) — never from `test` or `main`, never committed straight to a stage branch. Name it `feature/…` (or `feat/…`) for features and `fix/…` for defects; `docs/…`, `chore/…`, `test/…` for the rest.
 - **Each branch is tested on its own** — locally per the Definition of Done, plus Playwright when it touches UI or a flow — then opened as a PR with **base `develop`** and squash-merged only when `changes`, `build-test`, `integration` **and `browser-e2e`** are green: `scripts/pr-merge-on-green.sh <pr>` (it refuses any other base).
-- **`develop → test`** (the release candidate — one release away from production): `scripts/promote.sh test`, only when `develop`'s tip is green on all six gates (+ `compose-smoke`, `kind-deploy`). Before promoting, run the live suite against `develop`: `scripts/e2e-verify.sh --live` — `test` must pass every e2e case, Playwright included.
+- **`develop → test`** (the release candidate — one release away from production): `scripts/promote.sh test`, only when `develop`'s tip is green on all six gates (+ `compose-smoke`, `kind-deploy`). Before promoting, run the live suite against `develop`: `scripts/e2e-verify.sh --live` — `test` must pass every e2e case, Playwright included. CI's `browser-e2e` uses the **full** infra set (+ Kafka, pgAdmin, LGTM, so the portal/observability specs run) on pushes to `test`/`main` and the fast `core` set on PRs and `develop`. A portal/observability regression therefore first goes red at the `test` push and blocks `test → main`.
 - **`test → main`** (production release): **stop and ask the user first, every time** — then `scripts/promote.sh main --user-approved`. Never automatic, never bundled with other work.
 - Promotions are **fast-forward pushes of the already-tested commit** — never a merge, squash, rebase or cherry-pick into `test`/`main`, never a PR against `test`/`main`, never a force-push. If a stage can't fast-forward, stop and investigate.
 - A red gate on `develop` blocks promotion: fix forward with another branch → PR → `develop`. Hotfixes take the same path.
@@ -158,6 +158,9 @@ Run the tool first; hand-tail logs only when it points you somewhere.
 - `scripts/host-check.sh [--deep] [--logs] [target]` — full sweep of a host (containers, health, **RabbitMQ bus state**, infra logs, observability, compose, resources, Colima OOM log; on `local` also the dev infra `up`/`down`/`PARTIAL` state — PARTIAL exits 1). Runs over local / SSH VPS / GCP (`scripts/lib/hosts.sh`), so the same diagnosis works on Hostinger/EC2/GCE/Azure; `--logs` adds CloudWatch/GCP/Azure managed logs.
 - `scripts/ci-logs.sh [branch]` — the latest CI run's **failing jobs + their error lines** (automates
   `gh run view --job <id> --log | strip-ansi | grep <error-signatures> | tail`). Defaults to the current branch.
+- `browser-e2e` job log, last step "Runner resources + Playwright tally" (`scripts/ci-resources.sh report`):
+  runner size, peak load, lowest available memory, the Playwright tally **including flaky** (CI retries hide
+  starved tests), and which portal specs ran or skipped. Read it for a slow or flaky run.
 
 Bare-run + compose-dev logs are **verbose by default** (app `Debug` + EF SQL + MassTransit), so a failure usually carries its own diagnosis — no need to reproduce with more logging. Quieten bare-run with `LOG_LEVEL=Information scripts/run-all.sh start`; compose verbosity is in `deploy/.env.dev`.
 
