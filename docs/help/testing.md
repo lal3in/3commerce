@@ -206,7 +206,10 @@ refused with the candidates rather than guessed.
 **The wiki images only change on purpose.** `e2e/screenshots.spec.ts` and `e2e-admin/screenshots.spec.ts`
 tag their shots with a `docName` but write only into the archive. `shots.cjs promote <run>` copies them into
 `docs/help/assets/screenshots/`, **refuses** shots whose test did not pass (override with `--force`), and
-records who/what/when in `promotions.json` + `INDEX.md`; the replaced image stays in git history. Promote from
+records who/what/when in `promotions.json` + `INDEX.md`; the replaced image stays in git history. It copies
+only images that **look different** from the wiki's current one (by pixels; `--all` copies every one): a
+recapture of an unchanged page differs in bytes, so copying everything added a new git blob per image per
+promotion for no visible change — the first promotion skipped 12 of 26. Promote from
 a `dev-up.sh --fresh` run where you can: a long-lived dev database accumulates E2E leftovers that end up in
 the pictures (the committed `admin-entities.png` showed ~45 stray test suppliers; a fresh capture shows 3).
 

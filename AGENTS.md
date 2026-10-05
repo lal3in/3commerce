@@ -138,7 +138,7 @@ Log locations:
 | Where | How to read it |
 |---|---|
 | Bare-run services | `.run/<name>.log` (e.g. `.run/payments.log`) |
-| Storefront / admin | `/tmp/3c-storefront.log` · `/tmp/3c-admin.log` |
+| Storefront / admin / supplier portal | `.run/storefront.log` · `.run/admin.log` · `.run/supplier-portal.log` (not `/tmp` — macOS deletes files there after ~3 days untouched) |
 | E2E screenshots (every run, never overwritten) | `test-artifacts/screenshots/INDEX.md` — per-case history, pixel-level change flags; `node scripts/screenshots/shots.cjs compare [--diff]` |
 | Containerized services | `docker compose logs <service>` |
 | CI job | `gh run view --job <id> --log` (or just `scripts/ci-logs.sh`) |

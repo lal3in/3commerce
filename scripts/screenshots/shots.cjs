@@ -5,7 +5,8 @@
 //   compare [--from <runId>] [--to <runId>] changed / new / missing / same between two runs
 //                                           (defaults: the run before the latest → the latest)
 //   history <text>                          every run's image for cases whose key contains <text>
-//   promote <runId> [--force]               copy that run's wiki shots into docs/help/assets/screenshots
+//   promote <runId> [--force] [--all]       copy that run's wiki shots that LOOK different into
+//                                           docs/help/assets/screenshots (--all: copy every one)
 //   import --label <l> --dir <d> [--doc] [--sha <sha>] [--branch <b>] [--when <iso>] [--source-note <text>]
 //                                           archive an existing folder of PNGs as a run (nothing is moved)
 //
@@ -129,7 +130,7 @@ function cmdHistory(args) {
 
 function cmdPromote(args) {
   const id = args[0];
-  if (!id) die("usage: promote <runId> [--force]");
+  if (!id) die("usage: promote <runId> [--force] [--all]");
   const run = findRun(runsOrDie(), id);
   const root = lib.archiveRoot();
   const docShots = (run.shots || []).filter((s) => s.docName);
@@ -144,8 +145,32 @@ function cmdPromote(args) {
     );
   }
 
+  // Copy only images that LOOK different from what the wiki shows now. A recapture of an unchanged page
+  // differs in bytes (encoder, sub-pixel rendering), so copying everything adds a new binary blob to git
+  // history per image per promotion for no visible change — ~2.8 MB for 13 of 26 images the first time
+  // this ran. --all copies regardless.
+  const copyAll = args.includes("--all");
+  const copied = [];
+  const skipped = [];
   fs.mkdirSync(lib.DOCS_DIR, { recursive: true });
-  for (const s of docShots) fs.copyFileSync(path.join(root, s.file), path.join(lib.DOCS_DIR, s.docName));
+  for (const s of docShots) {
+    const src = path.join(root, s.file);
+    const dest = path.join(lib.DOCS_DIR, s.docName);
+    if (!copyAll && fs.existsSync(dest)) {
+      const d = lib.pixelDiff(dest, src);
+      if (!d.resized && lib.classify(d.ratio) !== "changed") {
+        skipped.push(`${s.docName} (${(d.ratio * 100).toFixed(2)}% of pixels — unchanged)`);
+        continue;
+      }
+    }
+    fs.copyFileSync(src, dest);
+    copied.push(s.docName);
+  }
+  if (!copied.length) {
+    console.log(`Nothing to promote: every wiki image in ${run.runId} looks the same as the wiki's current one.`);
+    return;
+  }
+
   const promotionsFile = path.join(root, "promotions.json");
   const promotions = lib.readJson(promotionsFile, []);
   promotions.push({
@@ -153,11 +178,14 @@ function cmdPromote(args) {
     promotedAt: new Date().toISOString(),
     git: lib.gitInfo(),
     forced: failing.length > 0,
-    files: docShots.map((s) => s.docName).sort(),
+    all: copyAll,
+    files: copied.sort(),
+    skippedUnchanged: skipped.length,
   });
   fs.writeFileSync(promotionsFile, JSON.stringify(promotions, null, 2));
   lib.buildIndex(root);
-  console.log(`Promoted ${docShots.length} image(s) from ${run.runId} into ${path.relative(lib.REPO_ROOT, lib.DOCS_DIR)}.`);
+  console.log(`Promoted ${copied.length} image(s) from ${run.runId} into ${path.relative(lib.REPO_ROOT, lib.DOCS_DIR)}.`);
+  if (skipped.length) console.log(`Skipped ${skipped.length} that look the same as the wiki already shows:\n  ${skipped.join("\n  ")}`);
   console.log("Review with `git diff --stat docs/help/assets/screenshots` and commit them like any doc change.");
 }
 

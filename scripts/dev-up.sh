@@ -77,11 +77,15 @@ if (( WITH_FRONTENDS )); then
   rm -rf src/Storefront/.next
   reap_port 5200 admin
   reap_port 5300 supplier-portal
-  # The pid redirection is set up by the parent shell, so `.run/...` still resolves after the cd.
-  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 nohup npm run dev >/tmp/3c-storefront.log 2>&1 & echo $! ) >.run/storefront.pid
-  nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >/tmp/3c-admin.log 2>&1 &
+  # Frontend logs live in .run/ beside every service log. They used to go to /tmp, which macOS empties of
+  # files untouched for ~3 days — a stack left running that long silently lost its frontend logs (the
+  # process kept writing to an unlinked file nobody could read). Absolute path: the storefront line runs
+  # after `cd`. The pid redirection is set up by the parent shell, so `.run/...` still resolves there.
+  local_run="$(pwd)/.run"
+  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
+  nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid
-  nohup env ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >/tmp/3c-supplier-portal.log 2>&1 &
+  nohup env ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
   echo $! >.run/supplier-portal.pid
   disown -a 2>/dev/null || true
   echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"

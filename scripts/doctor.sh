@@ -40,7 +40,7 @@ if ((${#down[@]})); then
       echo "  ▼ $name  (no $log — not started?)"
     fi
   done
-  echo "Tip: full log = .run/<name>.log · frontends = /tmp/3c-storefront.log, /tmp/3c-admin.log"
+  echo "Tip: full log = .run/<name>.log — services AND frontends (.run/storefront.log, .run/admin.log, .run/supplier-portal.log)"
 else
   echo "All services healthy."
 fi
