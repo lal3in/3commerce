@@ -54,6 +54,16 @@ you are touching before you push.
   raises `RateLimiting__AuthPermitLimit` for the bare-run dev/E2E gateway only. A 429, or a
   `beforeAll` user-create returning `undefined`, after adding specs means this budget — raise the
   dev/E2E lever, never weaken assertions or the production default.
+- **Never turn a broken precondition helper into a skip.** `driveCheckout()` once returned `false` on
+  ANY error, so the three "after a real checkout" portal cases skipped on every local run while the
+  real cause (global `products[0]` was an unapproved approval-gate fixture → checkout 400) stayed
+  hidden — and so did a Loki that 503'd every full-size collector batch (4 MB ingester gRPC limit, see
+  `deploy/observability/loki.yaml`). Skip only when the precondition is genuinely
+  absent (no demo store); once it exists, throw with the step, status and body.
+- **Don't re-click a synchronous action inside `toPass`.** The admin sample import runs inside the
+  POST (6–40 s on a busy stack); a `toPass { click; expect(3 s) }` re-clicked as soon as the button
+  re-enabled, which cleared the status and started another import. Click only while idle, then
+  wait on the feedback locator itself with a timeout sized to the real work.
 - **CI `browser-e2e` boots with the importer only.** Specs that need the `--data full` demo seed
   (AU/EU/US storefronts) must probe for it and `test.skip` when absent.
 
