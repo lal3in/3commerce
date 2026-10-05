@@ -19,7 +19,7 @@ source scripts/lib/volumes.sh   # also sources lib/infra.sh
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
-WITH_FRONTENDS=0; SEED=0; DATA_PROFILE="empty"; FRESH=0
+WITH_FRONTENDS=0; SEED=0; DATA_PROFILE="empty"; FRESH=0; SEED_RC=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --fresh) FRESH=1; shift ;;
@@ -105,14 +105,16 @@ case "$DATA_PROFILE" in
     curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
     curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
     ;;
+  # The demo seed exits non-zero when a required step (e.g. a checkout) failed: finish bringing the stack up
+  # anyway (the rest of the data is there), then say so and exit with its code — see SEED_RC below.
   smoke)
-    scripts/dev-dummy-data.sh --profile smoke
+    scripts/dev-dummy-data.sh --profile smoke || SEED_RC=$?
     ;;
   dummy|full)
-    scripts/dev-dummy-data.sh --profile full
+    scripts/dev-dummy-data.sh --profile full || SEED_RC=$?
     ;;
   exhaustive)
-    scripts/dev-dummy-data.sh --profile exhaustive
+    scripts/dev-dummy-data.sh --profile exhaustive || SEED_RC=$?
     ;;
   mirror-prod)
     scripts/dev-dummy-data.sh --profile mirror-prod
@@ -153,5 +155,9 @@ fi
 if (( ${#NOT_READY[@]} )); then
   echo "Up, but NOT READY: ${NOT_READY[*]} — see scripts/doctor.sh. Exiting 3 so a chained test run does not start on a half-ready stack."
   exit 3
+fi
+if (( SEED_RC != 0 )); then
+  echo "Up, but the demo seed FAILED (exit $SEED_RC): see the !! lines above and .run/dev-dummy-data/summary.jsonl. Stop with: scripts/dev-down.sh"
+  exit "$SEED_RC"
 fi
 echo "Up. Stop with: scripts/dev-down.sh"
