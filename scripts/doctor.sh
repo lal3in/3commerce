@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # One-shot local-env diagnosis: infra + per-service health (manifest-driven) + recent errors from whatever
 # is down. Run this FIRST when something misbehaves locally instead of hand-tailing logs.
-# Maintain: services/ports come from lib/services.sh (auto). Add a new health or log surface here when infra changes.
+# Maintain: services/ports come from lib/services.sh, the infra set from lib/infra.sh (auto). Add a new health or
+# log surface here when infra changes.
+# Exit 1 when the infra is PARTIAL (or its state is unknown): all-or-nothing means half an infra is an error.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh
+source scripts/lib/infra.sh
 SIG='error|exception|fatal|fail|refused|unable to|cannot |timed out|denied|panic'
 
-echo "── infra ──"
-docker ps --format '  {{.Names}}\t{{.Status}}' 2>/dev/null | grep -E 'postgres|rabbit' \
-  || echo "  (no infra running — start with: scripts/dev-up.sh)"
+echo "── infra (all-or-nothing: up / down / PARTIAL — scripts/lib/infra.sh, $INFRA_SET set) ──"
+infra_report; infra_rc=$?
 
 echo "── services ──"
 down=()
@@ -43,4 +45,8 @@ if ((${#down[@]})); then
   echo "Tip: full log = .run/<name>.log — services AND frontends (.run/storefront.log, .run/admin.log, .run/supplier-portal.log)"
 else
   echo "All services healthy."
+fi
+if (( infra_rc >= 2 )); then
+  echo "✗ infra is $( (( infra_rc == 2 )) && echo PARTIAL || echo 'in an unknown state') — never start/stop single infra containers by hand; run scripts/dev-up.sh (heals to full) or scripts/dev-down.sh."
+  exit 1
 fi

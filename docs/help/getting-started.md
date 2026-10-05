@@ -34,7 +34,7 @@ fake/sandbox rails and launch gates are described accurately.
 
 ## Step-by-step
 
-### 1. Start infrastructure (Postgres + RabbitMQ)
+### 1. Start infrastructure (the whole infra set — all-or-nothing)
 
 > **Quick start (bare-run, recommended).** One command brings up infra + migrations + every
 > service + the frontends, reusing the already-built solution — it never builds container images,
@@ -51,12 +51,23 @@ fake/sandbox rails and launch gates are described accurately.
 > `docker compose up --build` builds all 13 .NET images in parallel and will OOM a 6 GiB Colima.
 
 ```bash
-colima start                                       # if using colima
-docker compose -f docker-compose.infra.yml up -d
+colima start                                                # if using colima
+bash -c 'source scripts/lib/infra.sh && infra_up'           # the infra step of dev-up.sh, on its own
 ```
 
-This starts Postgres 17 and RabbitMQ 4. On first run, `infra/postgres/init-databases.sql`
-creates the **13 service databases**, roles, and extensions (FTS + `pg_trgm`).
+This starts the **whole infra set** defined in `scripts/lib/infra.sh`: every service of
+`docker-compose.infra.yml` under the `portals` profile (Postgres 18, RabbitMQ 4, Valkey, redis-exporter,
+Kafka, Kafka UI, pgAdmin) plus the observability services bare-run borrows from `docker-compose.yml`
+(OTel collector, Prometheus, Grafana, Loki, Tempo, Mimir). It waits on every healthcheck and readiness probe
+and fails, naming the container, if any member is not ready in time. On first run,
+`infra/postgres/init-databases.sql` creates the **service databases**, roles, and extensions (FTS + `pg_trgm`).
+
+> **The infra is all-or-nothing.** Up means every member running and healthy; down means none left at all.
+> Never start or stop single infra containers by hand (`docker compose … up -d postgres rabbitmq`,
+> `docker stop …`): a hand-started Postgres + RabbitMQ passes every port check while Kafka, pgAdmin and the
+> whole telemetry pipeline are missing. `scripts/doctor.sh` reports the infra as `up` / `down` /
+> `PARTIAL (missing: …)` and exits 1 on PARTIAL; `scripts/dev-up.sh` heals a partial infra to full, and
+> `scripts/dev-down.sh` clears it completely.
 
 ### 2. Apply database migrations (once, and after schema changes)
 
@@ -154,7 +165,10 @@ home/search pages will show products.
 ## One-command equivalent
 
 `scripts/dev-up.sh --with-frontends --seed` does steps 1–7 in one go (add `--fresh` to start from an empty
-database, `--data full` for the broad demo data). It prints **`Up.`** only once every surface is genuinely
+database, `--data full` for the broad demo data). Its infra step brings the whole set up (healing a partial
+one: missing or stopped members start, unhealthy ones restart, running ones are left alone) and exits **1**
+naming any container that is not running and healthy. It is idempotent — on a fully-up infra it changes
+nothing. It prints **`Up.`** only once every surface is genuinely
 **ready** — gateway, RabbitMQ, pgAdmin, Kafka UI (cluster *online*), Grafana, Loki, Tempo, Mimir and the
 frontends — because several keep warming up well after their containers start. Anything still not ready
 after its time budget is named, and the script exits **3** so a chained test run does not start on a
@@ -162,7 +176,9 @@ half-ready stack. It also starts the storefront from a clean `.next/`, since the
 have died mid-compile.
 
 `scripts/e2e-verify.sh --live` then runs the live smoke flows — against that running stack as-is, or, on a
-clean machine, against one it boots and tears down itself. See [Testing](./testing.md).
+clean machine, against one it boots and tears down itself. It leaves the machine exactly as it found it: an
+infra that was up stays up; one it had to bring up (the full set, as dev-up does) is taken fully down again;
+a PARTIAL infra is refused. See [Testing](./testing.md).
 
 ## Or: containerized launch
 
@@ -197,7 +213,11 @@ scripts/dev-down.sh --clean    # also drops the dev data volumes (what dev-up.sh
 ```
 
 It stops processes by recorded pid and by port, never with a `pkill -f` pattern (a pattern also kills
-processes this stack did not start).
+processes this stack did not start). Then it removes **every** infra container — all profiles, leftovers of
+the optional PgBouncer/Kafka overlays, the borrowed observability services, stopped/exited ones, and
+hand-made containers squatting an infra container name — and verifies none remain, exiting **1** and naming
+any survivor. Running it twice is harmless. The data volumes are kept (never `docker volume prune` — it
+takes the dev DB with it).
 
 **Unused volumes are cleaned up automatically.** The containerised stack (`scripts/launch.sh`) keeps its own
 state in compose project `3commerce` — e.g. `3commerce_rabbitmq_data` — which bare-run dev never mounts, so

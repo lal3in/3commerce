@@ -8,10 +8,14 @@
 #     --deep : also outbox backlog, migration drift, OOM-kill scan (slower).
 #     --logs : also pull provider-managed logs (CloudWatch/GCP/Azure) when configured in hosts.sh.
 # Maintain: add a new observable (port/container/log/endpoint) to probe(); register hosts in lib/hosts.sh.
+# The local target also reports the dev infra set as up / down / PARTIAL (lib/infra.sh); PARTIAL (or an unknown
+# state) is an error — the script then exits 1.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh
 source scripts/lib/hosts.sh
+source scripts/lib/infra.sh
+HC_RC=0
 
 DEEP=0; LOGS=0; want=()
 for a in "$@"; do case "$a" in
@@ -91,8 +95,10 @@ sweep() { # sweep "<name>" "<transport|detail>"
   if ! run_on "$spec" 'echo ok' >/dev/null 2>&1; then echo "  ✗ UNREACHABLE"; return; fi
   run_on "$spec" "$(probe)"
 
-  # local-only host extras (the Docker VM that OOMs)
+  # local-only host extras (the dev infra set, the Docker VM that OOMs)
   if [[ "${spec%%|*}" == local ]]; then
+    echo "── dev infra (all-or-nothing: up / down / PARTIAL — scripts/lib/infra.sh, $INFRA_SET set) ──"
+    infra_report; (( $? >= 2 )) && HC_RC=1
     echo "── colima/docker VM (the OOM source) ──"
     for f in ~/.colima/_lima/colima/ha.stderr.log ~/.colima/_lima/colima/serialv.log; do
       [[ -f "$f" ]] && { e=$(grep -iE 'oom|out of memory|cannot allocate|killed|qemu.*(exit|abort)|panic|fatal' "$f" 2>/dev/null | grep -v 'forwarding tcp port' | tail -3); [[ -n "$e" ]] && { echo "  [$f]"; echo "$e" | cut -c1-160 | sed 's/^/    /'; }; }
@@ -139,3 +145,5 @@ for name in "${want[@]}"; do
 done
 (( LOGS )) && provider_logs
 echo
+(( HC_RC == 0 )) || echo "✗ local dev infra is PARTIAL (or unknown) — run scripts/dev-up.sh (heals to full) or scripts/dev-down.sh."
+exit $HC_RC

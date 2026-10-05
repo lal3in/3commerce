@@ -12,6 +12,12 @@
 #
 # Exit code is non-zero if any check fails.
 #
+# Live mode leaves the machine EXACTLY as it found it. Infra (scripts/lib/infra.sh, all-or-nothing): fully up ->
+# used and left up; down -> the FULL set is brought up and taken fully down again at the end (also on Ctrl-C);
+# PARTIAL -> refused (heal with scripts/dev-up.sh or clear with scripts/dev-down.sh, then re-run). On CI (CI=true)
+# the set is the core one (Postgres + RabbitMQ + Valkey) — the portals + LGTM starve the 2-vCPU runner; override
+# with INFRA_SET=core|full. The app stack (gateway + frontends) follows the same rule: reused, or booted + stopped.
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # COVERAGE CHECKLIST  (keep in sync — see the "test list" rule in AGENTS.md)
 #
@@ -196,7 +202,8 @@
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
 # in-process integration tests do not):
-#   L1  Infra healthy: Postgres (all service DBs from init-databases.sql) + RabbitMQ
+#   L1  Infra healthy: the WHOLE infra set up (all-or-nothing, scripts/lib/infra.sh — every container running +
+#       healthy/probed; the core set on CI) + Postgres holds all service DBs from init-databases.sql
 #   L2  All six services report /health/ready
 #   L3  Ping-pong spine flows through the gateway to the Notifications worker
 #   L4  Gateway blocks internal health routes (/api/*/health* → 404)
@@ -244,6 +251,10 @@ STOREFRONT="http://localhost:3000"
 MODE="auto"
 [[ "${1:-}" == "--live" ]] && MODE="auto+live"
 [[ "${1:-}" == "--live-only" ]] && MODE="live"
+
+[[ "${CI:-}" == true ]] && export INFRA_SET="${INFRA_SET:-core}"
+source "$ROOT/scripts/lib/infra.sh"
+source "$ROOT/scripts/lib/procs.sh"
 
 PASS=0 FAIL=0
 declare -a FAILED=()
@@ -324,10 +335,69 @@ stack_state() {
   if (( up == total )); then echo full; elif (( up == 0 )); then echo none; else echo partial; fi
 }
 
+# Stops exactly what this run started — the app processes, then (if this run brought it up) the whole infra set —
+# and nothing else. Runs once: at the end of run_live, or from the INT/TERM trap.
+LIVE_TORN=0 APP_BOOTED=0
+live_teardown() {
+  (( LIVE_TORN )) && return 0; LIVE_TORN=1
+  if (( APP_BOOTED )); then
+    stage "Tearing down"
+    "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1
+    # By port, gracefully (TERM then KILL) — never `pkill -f <pattern>`, which also hit processes this run
+    # did not start (a developer's own storefront/admin), and is the hazard dev-down.sh documents.
+    reap_port 3000 storefront; reap_port 5200 admin; reap_port 5300 supplier-portal
+    echo "  services + frontends this run started are stopped"
+  elif (( STACK_OWNED )); then
+    stage "Tearing down"
+    echo "  app stack: never booted, so nothing to stop."
+  else
+    stage "Leaving the reused stack running"
+    echo "  app stack: nothing started, so nothing stopped."
+  fi
+  if (( INFRA_OWNED )); then
+    if infra_down >"$ROOT/.run/e2e-infra.log" 2>&1; then
+      echo "  infra: this run brought it up, so it is now fully down again (data volume kept)"
+    else
+      fail "teardown: infra NOT fully down (see .run/e2e-infra.log)"; tail -15 "$ROOT/.run/e2e-infra.log"
+    fi
+  else
+    echo "  infra: was already fully up — left running, exactly as found"
+  fi
+}
+
 run_live() {
-  STACK_OWNED=1
+  STACK_OWNED=1; INFRA_OWNED=0
+  mkdir -p "$ROOT/.run"
+  infra_load || { fail "live: cannot read the infra set (docker compose config failed)"; return; }
+  local infra irc
+  infra="$(infra_state)"; irc=$?
+  case $irc in
+    0) ;;
+    1) INFRA_OWNED=1 ;;
+    2)
+      stage "Refusing: the infra is PARTIAL"
+      echo "  $infra"
+      echo "  The infra is all-or-nothing (scripts/lib/infra.sh). Heal it to full with scripts/dev-up.sh, or take it"
+      echo "  fully down with scripts/dev-down.sh, then re-run — never run the suite on half an infra."
+      fail "live: partial infra (refused rather than run on it)"
+      return
+      ;;
+    *)
+      stage "Refusing: infra state unknown"
+      echo "  $infra"
+      fail "live: infra state unknown ($infra)"
+      return
+      ;;
+  esac
   case "$(stack_state)" in
     full)
+      if (( INFRA_OWNED )); then
+        stage "Refusing: the app stack is up but the infra is DOWN"
+        echo "  gateway + frontends answer while no infra container runs — bring the stack fully down"
+        echo "  (scripts/dev-down.sh) or fully up (scripts/dev-up.sh --with-frontends), then re-run."
+        fail "live: app stack up on a down infra (refused)"
+        return
+      fi
       STACK_OWNED=0
       stage "Reusing the running stack"
       echo "  gateway + storefront + admin + supplier portal are already up — running the live checks AGAINST"
@@ -341,10 +411,23 @@ run_live() {
       return
       ;;
   esac
+  trap 'live_teardown; exit 130' INT TERM
+
+  stage "L1  Infra (all-or-nothing — the $INFRA_SET set, scripts/lib/infra.sh)"
+  if (( INFRA_OWNED )); then
+    echo "  infra is DOWN — bringing the whole set up (and taking it fully down again at the end)"
+    if infra_up >"$ROOT/.run/e2e-infra.log" 2>&1; then
+      pass "L1a infra fully up ($(tail -1 "$ROOT/.run/e2e-infra.log" | sed 's/^ *infra: //'))"
+    else
+      fail "L1a infra NOT fully up (see .run/e2e-infra.log)"; tail -20 "$ROOT/.run/e2e-infra.log"
+      live_teardown; trap - INT TERM
+      return
+    fi
+  else
+    pass "L1a infra already fully up — using it, leaving it up"
+  fi
 
   if (( STACK_OWNED )); then
-  stage "L1  Infra (Postgres + RabbitMQ)"
-  docker compose -f "$ROOT/docker-compose.infra.yml" up -d >/dev/null 2>&1
   # Wait up to ~180s for the init script to create all service databases (slow/loaded CI
   # runners create them sequentially; use the loop's own count so a late-landing
   # database isn't missed by a single-shot re-count).
@@ -369,6 +452,7 @@ run_live() {
   done
 
   stage "Booting services"
+  APP_BOOTED=1
   mkdir -p "$ROOT/.run"
   dotnet build "$ROOT/3commerce.sln" >/dev/null 2>&1
   : > "$ROOT/.run/notifications.log" 2>/dev/null || true
@@ -573,18 +657,8 @@ run_live() {
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
   fi
 
-  if (( STACK_OWNED )); then
-    stage "Tearing down"
-    "$ROOT/scripts/run-all.sh" stop >/dev/null 2>&1
-    # By port, gracefully (TERM then KILL) — never `pkill -f <pattern>`, which also hit processes this run
-    # did not start (a developer's own storefront/admin), and is the hazard dev-down.sh documents.
-    source "$ROOT/scripts/lib/procs.sh"
-    reap_port 3000 storefront; reap_port 5200 admin; reap_port 5300 supplier-portal
-    echo "  services + frontends this run started are stopped (infra containers left running)"
-  else
-    stage "Leaving the reused stack running"
-    echo "  nothing started, so nothing stopped."
-  fi
+  live_teardown
+  trap - INT TERM
 }
 
 # ── Run ──────────────────────────────────────────────────────────────────────
