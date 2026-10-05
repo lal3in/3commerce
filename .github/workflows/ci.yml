@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, test]
   pull_request:
 
 jobs:
@@ -17,7 +17,9 @@ jobs:
       # Positive patterns only: dorny/paths-filter matches a file if it matches ANY
       # pattern, so a bare '**' + '!docs' negations would always be true — list the
       # code surface explicitly instead. A docs-only change matches none of these.
-      code: ${{ steps.filter.outputs.code }}
+      # Pushes to the release stages (test, main) always run the full suite (ADR-0058): a promotion is a
+      # fast-forward, so the path filter would see no diff against the default branch and skip it.
+      code: ${{ steps.filter.outputs.code == 'true' || (github.event_name == 'push' && (github.ref == 'refs/heads/test' || github.ref == 'refs/heads/main')) }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3

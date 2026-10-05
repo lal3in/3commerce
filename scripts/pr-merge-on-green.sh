@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# pr-merge-on-green.sh — squash-merge a PR as soon as its REQUIRED CI gates are green.
+# pr-merge-on-green.sh — squash-merge a feature/defect PR into `develop` as soon as its REQUIRED CI
+# gates are green (ADR-0058). PRs against `test`/`main` are refused: those stages move only by
+# fast-forward promotion (`scripts/promote.sh`).
 #
 #   scripts/pr-merge-on-green.sh <pr-number>
 #
@@ -16,10 +18,11 @@
 #     Only reruns GitHub accepted count toward $MAX_RERUNS. A required gate that keeps failing is
 #     a real failure until proven otherwise — the script stops and you read the log
 #     (`scripts/ci-logs.sh <branch>`);
-#   - non-required jobs (docker, compose-smoke, kind-deploy, browser-e2e) never block the merge,
-#     but any that are red at merge time are listed: red is still a follow-up to fix, not ignore.
+#   - non-required jobs (docker, compose-smoke, kind-deploy) don't block the merge into develop,
+#     but any that are red at merge time are listed — they DO block promotion to test, so fix them.
 #
-# Env: REQUIRED (default "changes build-test integration"), INTERVAL (60), MAX_RERUNS (3),
+# Env: REQUIRED (default "changes build-test integration browser-e2e" — the develop ruleset),
+#      INTERVAL (60), MAX_RERUNS (3),
 #      TIMEOUT_MIN (120).
 # Exit: 0 merged (or already merged) · 1 failed/closed/timed out · 2 usage.
 set -euo pipefail
@@ -27,12 +30,18 @@ set -euo pipefail
 PR="${1:-}"
 [[ "$PR" =~ ^[0-9]+$ ]] || { echo "usage: $0 <pr-number>" >&2; exit 2; }
 
-REQUIRED="${REQUIRED:-changes build-test integration}"
+REQUIRED="${REQUIRED:-changes build-test integration browser-e2e}"
 INTERVAL="${INTERVAL:-60}"
 MAX_RERUNS="${MAX_RERUNS:-3}"
 TIMEOUT_MIN="${TIMEOUT_MIN:-120}"
 
 log() { echo "[$(date +%H:%M:%S)] PR #$PR: $*"; }
+
+base="$(gh pr view "$PR" --json baseRefName -q .baseRefName)"
+if [[ "$base" != "develop" ]]; then
+  log "REFUSED — base is '$base'. Feature/defect PRs target develop; test and main move only by promotion (scripts/promote.sh, ADR-0058)."
+  exit 1
+fi
 
 deadline=$(( $(date +%s) + TIMEOUT_MIN * 60 ))
 reruns=0
@@ -102,6 +111,6 @@ while :; do
   gh api -X DELETE "repos/$repo/git/refs/heads/$head_branch" >/dev/null 2>&1 \
     && log "deleted remote branch $head_branch" || log "remote branch $head_branch not deleted (already gone?)"
   [[ -n "$red_optional" ]] && log "MERGED, but non-required checks are red: $red_optional — fix them as a follow-up"
-  log "merged. Local main is untouched — update it yourself when your working tree is clean (git fetch && git switch main && git pull)"
+  log "merged into develop. Your local checkout is untouched. When develop is green on every gate, promote: scripts/promote.sh test"
   exit 0
 done
