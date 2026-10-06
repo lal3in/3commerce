@@ -195,7 +195,7 @@ Data choices for bare-run dev:
 - no flag / `--data empty` — leave databases as they are after migrations.
 - `--seed` / `--data catalog` — current behavior: trigger the Catalog sample importer.
 - `--data smoke` — run `scripts/dev-dummy-data.sh --profile smoke` for the fast deterministic fixture manifest used by Playwright.
-- `--dummy-data` / `--data dummy` / `--data full` — run `scripts/dev-dummy-data.sh --profile full`, which uses gateway APIs to create broad demo data, scenario products/offers, and representative historical flows where public/admin APIs exist.
+- `--dummy-data` / `--data dummy` / `--data full` — run `scripts/dev-dummy-data.sh --profile full`, which uses gateway APIs to create broad demo data, scenario products/offers, and representative historical flows where public/admin APIs exist. Every seeded order is a real, sellable checkout on one of the seed's live demo storefronts; a checkout (or other required step) that still fails is printed with its response body, and `dev-up.sh` finishes bringing the stack up and then exits **4**.
 - `--data exhaustive` — run the slower state-rich hook for local/nightly validation as it grows.
 - `--data mirror-prod` — reserved for a future sanitized production mirror; it intentionally fails today rather than pulling production data.
 

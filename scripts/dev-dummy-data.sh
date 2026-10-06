@@ -14,6 +14,11 @@
 #
 # This script is intentionally API-first. It does not write service databases directly, so
 # invariants, RLS, outbox, audit, and validation stay in the owning services.
+#
+# Orders are placed only on the seed's own LIVE demo storefronts, for products sellable there (published,
+# priced in the store's currency, approved supply), shipped to a country the store serves, from an empty
+# cart. Exit status: 0 = seeded; 1 = a prerequisite failed (admin login, catalog import); 4 = everything was
+# seeded but a REQUIRED step (cart add, checkout, shopper login) failed — each is printed with its body.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -34,7 +39,7 @@ while [[ $# -gt 0 ]]; do
     --admin-password) ADMIN_PASSWORD="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --run-id) RUN_ID="$2"; shift 2 ;;
-    -h|--help) sed -n '1,36p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -158,6 +163,21 @@ except Exception:
 ' "$1"
 }
 
+# Step expectations (the 6th arg of api/record):
+#   allow_4xx  best-effort / idempotent step — a 4xx is normal on a re-run (already exists, no-op transition).
+#   must_2xx   the step MUST succeed (cart adds + checkouts). A failure is recorded as unexpected_4xx /
+#              server_error, printed loudly WITH the response body, and makes the whole seed exit 4 at the
+#              end (after every other step has still run) — never folded into allowed_4xx.
+#   expect_2xx a prerequisite (admin login, catalog import): a failure aborts the seed immediately.
+# Print a failed must_2xx step loudly, with the response body, so the cause is diagnosable from the log.
+report_unexpected() {
+  local name="$1" method="$2" path="$3" code="$4" body_file="$5"
+  {
+    echo "  !! UNEXPECTED: $name $method $path -> $code"
+    printf '  !! body: %s\n' "$(head -c 600 "$body_file" 2>/dev/null | tr '\n' ' ')"
+  } >&2
+}
+
 record() {
   local name="$1" method="$2" path="$3" code="$4" body_file="$5" expectation="${6:-allow_4xx}"
   python3 - "$name" "$method" "$path" "$code" "$body_file" "$expectation" >> "$SUMMARY" <<'PY'
@@ -194,6 +214,9 @@ api() {
   fi
   record "$name" "$method" "$path" "$code" "$body_file" "$expectation"
   printf '  %-40s %s %s -> %s\n' "$name" "$method" "$path" "$code" >&2
+  if [[ "$expectation" == "must_2xx" && ! "$code" =~ ^2|^3 ]]; then
+    report_unexpected "$name" "$method" "$path" "$code" "$body_file"
+  fi
   if [[ "$expectation" == "expect_2xx" && ! "$code" =~ ^2|^3 ]]; then
     echo "Required seed step failed: $name ($code)" >&2
     cat "$body_file" >&2 || true
@@ -215,19 +238,25 @@ api_noauth() {
 # key (e.g. multiple stores of one currency) — piled 83 offers onto 33 unique keys for the demo supplier.
 # Returns "yes" when an offer for the given key already exists (tenant is fixed to $TENANT_ID; variant
 # and storefront are matched null-aware, empty/"null" == unset). Callers skip the POST when it prints yes.
+# The list's product filter is `product=` (id OR title, #255). It used to be `productId=`; the stale name
+# was silently ignored, so EVERY offer of the supplier came back and the first all-store product-level offer
+# made every later product look "already offered" — only one per-store COGS offer was ever created, store
+# orders carried no supplier, and the supplier portal had no orders to deliver. The product id is matched
+# below as well, so an ignored filter can never collapse the key again.
 offer_key_exists() {
   local supplier_id="$1" product_id="$2" variant_id="${3:-}" storefront_id="${4:-}"
   local existing
   existing=$(api "offer-dedupe-${product_id:0:8}" GET \
-    "/api/catalog/admin/offers?tenantId=$TENANT_ID&supplierId=$supplier_id&productId=$product_id" \
+    "/api/catalog/admin/offers?tenantId=$TENANT_ID&supplierId=$supplier_id&product=$product_id" \
     "$ADMIN_JAR" "" "allow_4xx")
-  printf '%s' "$existing" | VARIANT_ID="$variant_id" STOREFRONT_ID="$storefront_id" python3 -c '
+  printf '%s' "$existing" | PRODUCT_ID="$product_id" VARIANT_ID="$variant_id" STOREFRONT_ID="$storefront_id" python3 -c '
 import json, os, sys
 
 def norm(v):
     v = (v or "").strip().lower()
     return None if v in ("", "null", "none") else v
 
+want_product = norm(os.environ.get("PRODUCT_ID"))
 want_variant = norm(os.environ.get("VARIANT_ID"))
 want_storefront = norm(os.environ.get("STOREFRONT_ID"))
 try:
@@ -235,6 +264,7 @@ try:
     rows = rows if isinstance(rows, list) else []
     hit = any(
         isinstance(r, dict)
+        and norm(r.get("productId")) == want_product
         and norm(r.get("variantId")) == want_variant
         and norm(r.get("storefrontId")) == want_storefront
         for r in rows
@@ -449,6 +479,168 @@ except Exception:
 PY
 }
 
+# ---- Sellable-checkout helpers -------------------------------------------------------------------------
+# Every seed checkout must be one the platform accepts from a real shopper: on a LIVE demo storefront this
+# seed manages (never every tenant store — a long-lived DB carries dozens of E2E leftover stores, mostly
+# Draft/Paused, which 400 "This storefront is not currently open for orders"), for a product published on
+# that store in its currency whose supply passes the approved-supplier gate (ADR-0048), shipped to a country
+# the store serves (ADR-0050), from an EMPTY cart. Carts belong to the signed-in user and survive a failed
+# checkout, so one failure used to poison every later add ("Cart is in EUR; empty it to shop in AUD") and
+# every later checkout of that user (the stale line rode along and failed it again).
+
+DEMO_STORE_KEYS=(demoAu demoEu demoUs demoCa demoUk demoCn demoJp demoKw)
+DEMO_PM_PROVIDER_ID="pm_fake_visa_4242_1229"
+
+# demo_storefront_rows: the seed's own demo storefronts that are LIVE (Preview/Active — what checkout
+# accepts), one per line as key|id|currency|shipCountry. shipCountry is the first allowlisted country, or a
+# home country for the currency when the store ships worldwide (empty allowlist). A demo store that is not
+# live is reported loudly and left out, rather than producing checkouts the platform must reject.
+demo_storefront_rows() {
+  local list ids="" key id
+  list=$(api "demo-sf-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
+  for key in "${DEMO_STORE_KEYS[@]}"; do
+    id=$(manifest_get "storefronts.$key.id")
+    [[ -n "$id" ]] && ids+="$key=$id,"
+  done
+  printf '%s' "$list" | DEMO_IDS="$ids" python3 -c '
+import json, os, sys
+HOME = {"AUD": "AU", "EUR": "DE", "USD": "US", "CAD": "CA", "GBP": "GB", "CNY": "CN", "JPY": "JP", "KWD": "KW"}
+LIVE = {2, 3}  # StorefrontState.Preview, StorefrontState.Active (enums cross HTTP as numbers)
+try:
+    stores = json.load(sys.stdin)
+except Exception:
+    stores = []
+wanted = {}
+for pair in filter(None, os.environ.get("DEMO_IDS", "").split(",")):
+    key, sid = pair.split("=", 1)
+    wanted[sid.lower()] = key
+listed = {str(s.get("id", "")).lower() for s in stores}
+for sid, key in wanted.items():
+    if sid not in listed:
+        print(f"  !! demo storefront {key} ({sid}) is missing from the storefront list - its orders are skipped", file=sys.stderr)
+# Keep the admin list order (by name): seed_storefront_publications gives each store the catalogue page
+# of its position, so the order decides WHICH products each demo store publishes — keep it stable.
+for s in stores:
+    key = wanted.get(str(s.get("id", "")).lower())
+    if key is None:
+        continue
+    state = s.get("state")
+    if state not in LIVE:
+        print(f"  !! demo storefront {key} is not live (state={state}) - its orders are skipped", file=sys.stderr)
+        continue
+    cur = s.get("currency") or "EUR"
+    ship = (s.get("shipToCountries") or [None])[0] or HOME.get(cur, "AU")
+    print("|".join([key, str(s.get("id")), cur, ship]))'
+}
+
+# demo_storefront_row <key>: the demo_storefront_rows line for one store (empty when it is not live).
+demo_storefront_row() {
+  demo_storefront_rows | awk -F'|' -v k="$1" '$1 == k'
+}
+
+# shipping_address_json <name> <line1> <country>: a shippingAddress object with a plausible city/postcode.
+shipping_address_json() {
+  python3 -c '
+import json, sys
+name, line1, country = sys.argv[1:]
+places = {"AU": ("Melbourne", "3000"), "DE": ("Berlin", "10115"), "US": ("New York", "10001"),
+          "CA": ("Toronto", "M5H 2N2"), "GB": ("London", "SW1A 1AA"), "CN": ("Shanghai", "200000"),
+          "JP": ("Tokyo", "100-0001"), "KW": ("Kuwait City", "13001"), "NZ": ("Auckland", "1010")}
+city, postcode = places.get(country, ("Capital", "1000"))
+print(json.dumps({"name": name, "line1": line1, "city": city, "postcode": postcode, "country": country}))' "$1" "$2" "$3"
+}
+
+# empty_cart <jar> <label>: remove every line from the cart the jar's session owns.
+empty_cart() {
+  local jar="$1" label="$2" cart line
+  cart=$(api "$label-cart-get" GET "/api/ordering/cart/" "$jar" "" "allow_4xx")
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    api "$label-cart-clear" DELETE "/api/ordering/cart/items/$line" "$jar" "" "allow_4xx" >/dev/null
+  done < <(printf '%s' "$cart" | python3 -c '
+import json, sys
+try:
+    for i in json.load(sys.stdin).get("items", []):
+        print(i["productId"] + ("/" + i["variantId"] if i.get("variantId") else ""))
+except Exception:
+    pass')
+}
+
+# pick_sellable_product <storefrontId> <currency> <nth> <label>: echo the nth (0-based, wrapping) product
+# SELLABLE on this store. The store-scoped listing gives products published there and priced in its
+# currency (it already hides products whose covering offers in that currency are all unapproved). Ordering's
+# checkout gate is wider — it refuses a line whose product has ANY active offer (any currency/store) but none
+# from an approved supplier — so a product also needs no active offer at all, or one from the approved demo
+# supplier. Echoes nothing when the store has no such product.
+pick_sellable_product() {
+  local sid="$1" cur="$2" nth="$3" label="$4" supplier_id hits pid offers
+  local -a sellable=()
+  supplier_id=$(manifest_get "entities.demoSupplier.id")
+  hits=$(api "$label-prods" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=20" "$ADMIN_JAR" "" "allow_4xx")
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] || continue
+    offers=$(api "$label-offers-${pid:0:8}" GET "/api/catalog/admin/offers?tenantId=$TENANT_ID&product=$pid" "$ADMIN_JAR" "" "allow_4xx")
+    if [[ "$(printf '%s' "$offers" | PRODUCT_ID="$pid" SUPPLIER_ID="$supplier_id" python3 -c '
+import json, os, sys
+pid, sup = os.environ["PRODUCT_ID"].lower(), os.environ["SUPPLIER_ID"].lower()
+try:
+    rows = json.load(sys.stdin)
+    active = [o for o in rows if str(o.get("productId", "")).lower() == pid and str(o.get("status", "")).lower() == "active"]
+    print("yes" if not active or any(str(o.get("supplierId", "")).lower() == sup for o in active) else "")
+except Exception:
+    print("")')" == yes ]]; then
+      sellable+=("$pid")
+      (( ${#sellable[@]} > nth )) && break
+    fi
+  done < <(printf '%s' "$hits" | python3 -c '
+import json, sys
+try:
+    print("\n".join(h["id"] for h in json.load(sys.stdin)))
+except Exception:
+    pass')
+  (( ${#sellable[@]} )) || return 0
+  echo "${sellable[$(( nth % ${#sellable[@]} ))]}"
+}
+
+# checkout_order <name> <jar> <json>: POST a checkout and echo the response body. A 400 is retried a few
+# times, 3 s apart: the read models it checks (offer, supplier-approval and storefront copies projected into
+# Ordering) can trail a change the seed made seconds earlier, and a 400 books nothing, so a retry cannot
+# double-order. ONE summary row records the final outcome as must_2xx — a checkout that still fails is
+# unexpected: printed with its body here and failing the seed at the end.
+checkout_order() {
+  local name="$1" jar="$2" data="$3" body_file code attempt
+  body_file="$OUT_DIR/${name//[^A-Za-z0-9_.-]/_}.json"
+  for attempt in 1 2 3 4; do
+    code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY/api/ordering/checkout" \
+      -H 'content-type: application/json' -d "$data" -o "$body_file" -w '%{http_code}' || true)
+    [[ "$code" == 400 && $attempt -lt 4 ]] || break
+    printf '  %-40s checkout got a 400 on attempt %s, retrying: %s\n' "$name" "$attempt" "$(head -c 200 "$body_file")" >&2
+    sleep 3
+  done
+  record "$name" POST "/api/ordering/checkout" "$code" "$body_file" "must_2xx"
+  printf '  %-40s %s %s -> %s\n' "$name" POST "/api/ordering/checkout" "$code" >&2
+  if [[ ! "$code" =~ ^2 ]]; then
+    report_unexpected "$name" POST "/api/ordering/checkout" "$code" "$body_file"
+  fi
+  cat "$body_file"
+}
+
+# ensure_demo_payment_method: echo the id of the demo customer's saved (mock) card, saving it once per run.
+# A recurring (subscription) line can only be bought by a verified member with a saved payment method or
+# direct-debit mandate; LocalMock resolves the card details from the pm_fake_{brand}_{last4}_{expiry} id.
+ensure_demo_payment_method() {
+  local pm_id pm_json email
+  pm_id=$(manifest_get "customers.demo.paymentMethodId")
+  if [[ -z "$pm_id" ]]; then
+    email=$(manifest_get "customers.demo.email")
+    pm_json=$(api "demo-customer-pm" POST "/api/payments/payment-methods/" "$CUSTOMER_JAR" \
+      "{\"email\":\"$email\",\"providerPaymentMethodId\":\"$DEMO_PM_PROVIDER_ID\",\"makeDefault\":true}" "must_2xx")
+    pm_id=$(printf '%s' "$pm_json" | json_get id)
+    if [[ -n "$pm_id" ]]; then manifest_set "customers.demo.paymentMethodId" "$(json_string "$pm_id")"; fi
+  fi
+  printf '%s' "$pm_id"
+}
+
 checkout_scenario() {
   local code="$1" quantity="${2:-1}" customer_email order_body order_id client_secret intent_id status_body status ticket_body ticket_id rma_body rma_id shipments shipment_id package_body package_id subs sub_id
   local product_id variant_id jar
@@ -460,15 +652,34 @@ checkout_scenario() {
     return
   fi
 
+  # Attribute these EUR demo orders to the EU storefront so revenue posts to its own account (never the
+  # shared revenue.sales) — otherwise every generic order shows up as "unassigned (no storefront)". The
+  # scenario products are EUR-priced and published to the EU store (seed_scenario_publications).
+  local eu_row eu_store ship_country
+  eu_row=$(demo_storefront_row demoEu)
+  if [[ -z "$eu_row" ]]; then
+    echo "  !! checkout_scenario $code skipped: the EU demo storefront is not live" >&2
+    manifest_append "warnings" "$(json_string "checkout_scenario $code skipped: EU demo storefront not live")"
+    return
+  fi
+  IFS='|' read -r _ eu_store _ ship_country <<<"$eu_row"
+
+  # A recurring (subscription) line is sold only to a verified member paying with a saved method (the
+  # recurring-purchase gate), so those scenarios check out with the demo customer's saved mock card.
+  local recurring=0 pm_id="" payment_json=""
+  case "$code" in subscription-*) recurring=1 ;; esac
+  if (( recurring )); then
+    pm_id=$(ensure_demo_payment_method)
+    [[ -n "$pm_id" ]] && payment_json=",\"paymentOption\":\"CreditCard\",\"savedPaymentMethodId\":\"$pm_id\""
+  fi
+
   jar="$OUT_DIR/checkout-$code.cookie"
   cp "$CUSTOMER_JAR" "$jar" 2>/dev/null || true
+  empty_cart "$jar" "history-$code"
   api "history-$code-cart-add" POST "/api/ordering/cart/items" "$jar" \
-    "{\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"quantity\":$quantity}" "allow_4xx" >/dev/null
-  # Attribute these EUR demo orders to the EU storefront so revenue posts to its own account (never the
-  # shared revenue.sales) — otherwise every generic order shows up as "unassigned (no storefront)".
-  local eu_store; eu_store=$(manifest_get "storefronts.demoEu.id")
-  order_body=$(api "history-$code-checkout" POST "/api/ordering/checkout" "$jar" \
-    "{\"email\":\"$customer_email\",\"storefrontId\":\"$eu_store\",\"shippingAddress\":{\"name\":\"Demo Customer\",\"line1\":\"42 Example Street\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"},\"selectedShippingService\":\"Fake Ground\",\"selectedShippingAmountMinor\":499,\"selectedShippingExpiresAt\":\"2999-01-01T00:00:00Z\"}" "allow_4xx")
+    "{\"productId\":\"$product_id\",\"variantId\":\"$variant_id\",\"quantity\":$quantity}" "must_2xx" >/dev/null
+  order_body=$(checkout_order "history-$code-checkout" "$jar" \
+    "{\"email\":\"$customer_email\",\"storefrontId\":\"$eu_store\",\"shippingAddress\":$(shipping_address_json "Demo Customer" "42 Example Street" "$ship_country"),\"selectedShippingService\":\"Fake Ground\",\"selectedShippingAmountMinor\":499,\"selectedShippingExpiresAt\":\"2999-01-01T00:00:00Z\"$payment_json}")
   order_id=$(printf '%s' "$order_body" | json_get orderId)
   client_secret=$(printf '%s' "$order_body" | json_get clientSecret)
   if [[ -z "$order_id" ]]; then
@@ -477,6 +688,9 @@ checkout_scenario() {
   fi
   intent_id="${client_secret%_secret_test}"
   [[ -z "$intent_id" || "$intent_id" == "$client_secret" ]] && intent_id="pi_fake_${order_id//-/}"
+  # Off-session (saved-method) charges: the mock intent carries the payment-method suffix
+  # (FakePaymentProvider: pi_fake_{order}_{providerPaymentMethodId}).
+  if [[ -n "$pm_id" ]]; then intent_id="pi_fake_${order_id//-/}_$DEMO_PM_PROVIDER_ID"; fi
   manifest_set "orders.$code.id" "$(json_string "$order_id")"
   manifest_set "payments.$code.intentId" "$(json_string "$intent_id")"
 
@@ -574,29 +788,34 @@ seed_subscription_examples() {
   # subscription purchase gate) — without one, checkout 400s "A saved payment method or direct-debit
   # mandate is required for a subscription". Save a mock card for the demo customer (LocalMock resolves
   # fake card details from the pm_fake_{brand}_{last4}_{expiry} id) and pass its id at checkout.
-  local pm_json pm_id
-  pm_json=$(api "sub-example-pm" POST "/api/payments/payment-methods/" "$CUSTOMER_JAR" \
-    "{\"email\":\"demo.customer.$RUN_ID@example.test\",\"providerPaymentMethodId\":\"pm_fake_visa_4242_1229\",\"makeDefault\":true}" "allow_4xx")
-  pm_id=$(printf '%s' "$pm_json" | json_get id)
+  local pm_id
+  pm_id=$(ensure_demo_payment_method)
   if [[ -z "$pm_id" ]]; then
     manifest_append "warnings" "$(json_string "subscription examples skipped: could not save a payment method")"
     return
   fi
 
-  # A few more active subscriptions, each its own guest order (subscription is keyed per order).
-  local eu_store; eu_store=$(manifest_get "storefronts.demoEu.id")
+  # A few more active subscriptions, each its own order (subscription is keyed per order).
+  local eu_row eu_store ship_country
+  eu_row=$(demo_storefront_row demoEu)
+  if [[ -z "$eu_row" ]]; then
+    manifest_append "warnings" "$(json_string "subscription examples skipped: EU demo storefront not live")"
+    return
+  fi
+  IFS='|' read -r _ eu_store _ ship_country <<<"$eu_row"
   for n in 1 2 3; do
     jar="$OUT_DIR/sub-example-$n.cookie"; cp "$CUSTOMER_JAR" "$jar" 2>/dev/null || true
+    empty_cart "$jar" "sub-example-$n"
     api "sub-example-$n-cart" POST "/api/ordering/cart/items" "$jar" \
-      "{\"productId\":\"$sub_pid\",\"variantId\":\"$sub_vid\",\"quantity\":1}" "allow_4xx" >/dev/null
-    ck=$(api "sub-example-$n-checkout" POST "/api/ordering/checkout" "$jar" \
-      "{\"email\":\"subscriber$n@example.test\",\"storefrontId\":\"$eu_store\",\"paymentOption\":\"CreditCard\",\"savedPaymentMethodId\":\"$pm_id\",\"shippingAddress\":{\"name\":\"Subscriber $n\",\"line1\":\"1 Recur St\",\"city\":\"Melbourne\",\"postcode\":\"3000\",\"country\":\"AU\"}}" "allow_4xx")
+      "{\"productId\":\"$sub_pid\",\"variantId\":\"$sub_vid\",\"quantity\":1}" "must_2xx" >/dev/null
+    ck=$(checkout_order "sub-example-$n-checkout" "$jar" \
+      "{\"email\":\"subscriber$n@example.test\",\"storefrontId\":\"$eu_store\",\"paymentOption\":\"CreditCard\",\"savedPaymentMethodId\":\"$pm_id\",\"shippingAddress\":$(shipping_address_json "Subscriber $n" "1 Recur St" "$ship_country")}")
     oid=$(printf '%s' "$ck" | json_get orderId)
     [[ -z "$oid" ]] && continue
     # Off-session (saved-method) charges: the mock intent id carries the payment-method suffix
     # (FakePaymentProvider: pi_fake_{order}_{providerPaymentMethodId}), so settle THAT intent — the bare
     # pi_fake_{order} would 404 and the order would never confirm (no subscription would be created).
-    intent="pi_fake_${oid//-/}_pm_fake_visa_4242_1229"
+    intent="pi_fake_${oid//-/}_$DEMO_PM_PROVIDER_ID"
     settle_payment "$intent" "" "$jar" "sub-example-$n-pay"
     for _ in $(seq 1 15); do sleep 1; st=$(printf '%s' "$(api "sub-example-$n-status" GET "/api/ordering/orders/$oid/status" "$jar" "" "allow_4xx")" | json_get status); [[ "$st" == "Confirmed" ]] && break; done
   done
@@ -652,6 +871,10 @@ provision_test_logins() {
   if [[ -n "$cust_id" ]]; then
     api "customer-verify-email" POST "/api/identity/admin/users/$cust_id/verify-email?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
     manifest_set "customers.demo.emailVerified" "true"
+    # Sign in again so the customer's session carries email_verified=true: the gateway caches session
+    # introspection (up to 60 s) per token, and the recurring-purchase gate refuses an unverified member.
+    api_noauth "login-customer-verified" POST "/api/identity/login" "$CUSTOMER_JAR" \
+      "{\"email\":\"$cust_email\",\"password\":\"$(manifest_get customers.demo.password)\"}" "must_2xx" >/dev/null
   fi
 
   # Supplier-portal login scoped to the demo supplier (role=supplier, no admin rights).
@@ -698,11 +921,12 @@ seed_smoke() {
 # Publish a distinct handful of image-having, currency-matching products to each storefront, so every
 # storefront shows ONLY its own published catalog (its merchandising scope) instead of the whole catalog.
 # Distinct page per storefront keeps the published sets non-overlapping, which makes isolation obvious.
+# Only the seed's own (live) demo stores: a long-lived DB also holds E2E leftover stores, and walking those
+# shifted every demo store onto a later, often empty, catalog page.
 seed_storefront_publications() {
   echo "== storefront product publications =="
-  local sfs page=0 sid cur pid hits
-  sfs=$(api "sf-pub-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
-  while IFS='|' read -r sid cur; do
+  local page=0 sid cur pid hits
+  while IFS='|' read -r _ sid cur _; do
     [[ -n "$sid" && -n "$cur" ]] || continue
     page=$((page + 1))
     hits=$(api "sf-pub-$cur-list" GET "/api/catalog/products?currency=$cur&pageSize=5&page=$page" "$ADMIN_JAR" "" "allow_4xx")
@@ -712,12 +936,18 @@ seed_storefront_publications() {
       api "sf-pub-$cur-assign" POST "/api/catalog/admin/storefronts/$sid/products" "$ADMIN_JAR" \
         "{\"productId\":\"$pid\",\"fulfillmentSource\":2}" "allow_4xx" >/dev/null
       api "sf-pub-$cur-publish" POST "/api/catalog/admin/storefronts/$sid/products/$pid/publish" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
+    # Imported catalogue only: never the seed's own scenario fixtures (seed_scenario_publications places the
+    # physical ones on the EU store deliberately) nor products E2E specs create ("e2e" in slug/title). On a
+    # long-lived DB those leftovers push the scenario products into later pages, and publishing them made
+    # e.g. "E2E Scenario out-of-stock-hold" the EU store's first product (unbuyable) — failing the PDP/cart
+    # specs. On a fresh DB these pages hold no fixtures, so nothing changes there.
     done < <(printf '%s' "$hits" | python3 -c "import sys,json
-try: print('\n'.join(h['id'] for h in json.load(sys.stdin) if h.get('imageUrl')))
+try:
+  for h in json.load(sys.stdin):
+    tag = (h.get('slug','') + ' ' + h.get('title','')).lower()
+    if h.get('imageUrl') and 'e2e' not in tag: print(h['id'])
 except Exception: pass")
-  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
-try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
-except Exception: pass")
+  done < <(demo_storefront_rows)
 }
 
 # Publish the EUR-priced demo SCENARIO products (created by seed_scenario_matrix) to the EU demo store, so
@@ -771,11 +1001,10 @@ settle_order_payment() {
 # the order steps so the OfferChanged→OfferCopy projection has time to land before checkout resolves it.
 seed_store_product_costs() {
   echo "== per-storefront costed offers (so every store accrues COGS) =="
-  local supplier_id sfs sid cur
+  local supplier_id sid cur
   supplier_id=$(manifest_get "entities.demoSupplier.id")
   [[ -n "$supplier_id" ]] || { manifest_append "warnings" "$(json_string "seed_store_product_costs: no demo supplier")"; return; }
-  sfs=$(api "cost-sf-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
-  while IFS='|' read -r sid cur; do
+  while IFS='|' read -r _ sid cur _; do
     [[ -n "$sid" && -n "$cur" ]] || continue
     # Each product this store sells, with a best-effort unit price → a supplier cost of ~half.
     api "cost-prods-$cur" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=20" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
@@ -793,44 +1022,42 @@ except Exception: pass" | while IFS='|' read -r pid price; do
       api "cost-offer-$cur-${pid:0:8}" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
         "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$pid\",\"variantId\":null,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":$price,\"supplierCostMinor\":$((price/2)),\"currency\":\"$cur\",\"priority\":5}" "allow_4xx" >/dev/null
     done
-  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
-try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
-except Exception: pass")
+  done < <(demo_storefront_rows)
 }
 
 # Place a couple of paid orders on EACH demo storefront in ITS OWN currency, rotating the PSP, so the
 # per-storefront dashboard/Financials show real revenue for every store — not just the tenant default.
-# (checkout_scenario's generic orders carry no storefront, so they land on the gateway default store.)
+# (checkout_scenario's orders are attributed to the EU demo store.)
 seed_storefront_orders() {
   echo "== per-storefront attributed orders =="
-  local sfs sid cur pid jar body oid gross opt idx=0
-  sfs=$(api "sf-ord-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
-  while IFS='|' read -r sid cur; do
+  local key sid cur ship pid jar body oid gross opt idx=0
+  while IFS='|' read -r key sid cur ship; do
     [[ -n "$sid" && -n "$cur" ]] || continue
     for n in 1 2; do
       idx=$((idx + 1))
       case $((idx % 3)) in 0) opt=CreditCard ;; 1) opt=PayPal ;; 2) opt=Polar ;; esac
-      pid=$(api "sf-ord-$cur-prod-$n" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=5&page=$n" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
-try:
-  d=json.load(sys.stdin); print(d[0]['id'] if d else '')
-except Exception: print('')")
-      [[ -n "$pid" ]] || continue
-      # Fresh session (no leftover cart) so each order's single-currency cart is clean; admin satisfies
+      # Two DIFFERENT sellable products of this store (the store's own catalogue, in its currency).
+      pid=$(pick_sellable_product "$sid" "$cur" "$((n - 1))" "sf-ord-$cur-prod-$n")
+      if [[ -z "$pid" ]]; then
+        echo "  !! sf-ord $key: no sellable product published on the store in $cur — order $n skipped" >&2
+        manifest_append "warnings" "$(json_string "seed_storefront_orders: $key has no sellable $cur product")"
+        continue
+      fi
+      # Fresh session with an EMPTY cart, so each order's single-currency cart is clean; admin satisfies
       # the customer policy for cart/checkout. StorefrontId in the body attributes the order to the store.
       jar="$OUT_DIR/sf-ord-$cur-$n.cookie"; : >"$jar"
       api_noauth "sf-ord-login-$cur-$n" POST "/api/identity/login" "$jar" \
-        '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' "allow_4xx" >/dev/null
+        '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' "must_2xx" >/dev/null
+      empty_cart "$jar" "sf-ord-$cur-$n"
       api "sf-ord-cart-$cur-$n" POST "/api/ordering/cart/items" "$jar" \
-        "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "allow_4xx" >/dev/null
-      body=$(api "sf-ord-checkout-$cur-$n" POST "/api/ordering/checkout" "$jar" \
-        "{\"email\":\"store-$cur@example.test\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Store Demo\",\"line1\":\"1 Demo St\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
+        "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "must_2xx" >/dev/null
+      body=$(checkout_order "sf-ord-checkout-$cur-$n" "$jar" \
+        "{\"email\":\"store-$cur@example.test\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":$(shipping_address_json "Store Demo" "1 Demo St" "$ship")}")
       oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
       [[ -n "$oid" ]] || continue
       settle_order_payment "$oid" "$gross" "$jar" "sf-ord-pay-$cur-$n"
     done
-  done < <(printf '%s' "$sfs" | python3 -c "import sys,json
-try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
-except Exception: pass")
+  done < <(demo_storefront_rows)
 }
 
 # Register THREE more real (verified) shopper accounts per storefront, each buying on its home store in
@@ -839,29 +1066,29 @@ except Exception: pass")
 # they also work for verified-only features (reviews). Best-effort: skips a store with no priced product.
 seed_extra_customers() {
   echo "== extra per-storefront customers + cross-storefront orders =="
-  local sfs
-  sfs=$(api "xc-sf-list" GET "/api/catalog/admin/storefronts?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx")
-  # storefront rows as id|currency, into an array so we can pick a DIFFERENT store for cross-store orders.
+  # The live demo stores as key|id|currency|shipCountry, in an array so we can pick a DIFFERENT store for
+  # cross-store orders.
   local -a rows=()
-  while IFS= read -r r; do [[ -n "$r" ]] && rows+=("$r"); done < <(printf '%s' "$sfs" | python3 -c "import sys,json
-try: print('\n'.join(f\"{s['id']}|{s.get('currency','EUR')}\" for s in json.load(sys.stdin)))
-except Exception: pass")
+  while IFS= read -r r; do [[ -n "$r" ]] && rows+=("$r"); done < <(demo_storefront_rows)
   local n=${#rows[@]}
-  [[ "$n" -ge 1 ]] || { manifest_append "warnings" "$(json_string "seed_extra_customers: no storefronts")"; return; }
+  [[ "$n" -ge 1 ]] || { manifest_append "warnings" "$(json_string "seed_extra_customers: no live demo storefronts")"; return; }
 
-  # Buy one unit of a product priced in $cur on store $sid, as the customer holding cookie $jar. Echoes
-  # nothing; best-effort. Reuses the storefront's own product listing so the cart currency always matches.
+  # Buy one unit of a SELLABLE product of store $sid (its own catalogue, in its currency $cur, shipped to
+  # $ship), as the customer holding cookie $jar, from an empty cart. Shoppers spread over the store's
+  # products ($nth). Echoes nothing.
   place_order_on() {
-    local sid="$1" cur="$2" jar="$3" email="$4" opt="$5" pid body oid gross
-    pid=$(api "xc-prod-$cur-$sid" GET "/api/catalog/products?storefrontId=$sid&currency=$cur&pageSize=5" "$ADMIN_JAR" "" "allow_4xx" | python3 -c "import sys,json
-try:
-  d=json.load(sys.stdin); print(d[0]['id'] if d else '')
-except Exception: print('')")
-    [[ -n "$pid" ]] || return 0
+    local sid="$1" cur="$2" ship="$3" jar="$4" email="$5" opt="$6" nth="$7" pid body oid gross
+    pid=$(pick_sellable_product "$sid" "$cur" "$nth" "xc-prod-$cur-$nth")
+    if [[ -z "$pid" ]]; then
+      echo "  !! xc $email: no sellable product published on store $sid in $cur — order skipped" >&2
+      manifest_append "warnings" "$(json_string "seed_extra_customers: store $sid has no sellable $cur product")"
+      return 0
+    fi
+    empty_cart "$jar" "xc-$cur-$email"
     api "xc-cart-$cur-$email" POST "/api/ordering/cart/items" "$jar" \
-      "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "allow_4xx" >/dev/null
-    body=$(api "xc-checkout-$cur-$email" POST "/api/ordering/checkout" "$jar" \
-      "{\"email\":\"$email\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":{\"name\":\"Shopper\",\"line1\":\"7 Buyer Rd\",\"city\":\"City\",\"postcode\":\"2000\",\"country\":\"AU\"}}" "allow_4xx")
+      "{\"productId\":\"$pid\",\"quantity\":1,\"currency\":\"$cur\"}" "must_2xx" >/dev/null
+    body=$(checkout_order "xc-checkout-$cur-$email" "$jar" \
+      "{\"email\":\"$email\",\"storefrontId\":\"$sid\",\"paymentOption\":\"$opt\",\"shippingAddress\":$(shipping_address_json "Shopper" "7 Buyer Rd" "$ship")}")
     oid=$(printf '%s' "$body" | json_get orderId); gross=$(printf '%s' "$body" | json_get grossMinor)
     [[ -n "$oid" ]] || return 0
     settle_order_payment "$oid" "$gross" "$jar" "xc-pay-$cur-$email"
@@ -874,10 +1101,11 @@ except Exception: print('')")
 
   local i idx=0
   for ((i = 0; i < n; i++)); do
-    local sid="${rows[$i]%%|*}" cur="${rows[$i]##*|}"
+    local sid cur ship
+    IFS='|' read -r _ sid cur ship <<<"${rows[$i]}"
     # The next store in the list (wraps) is where this store's first shopper also buys — cross-storefront.
-    local xi=$(((i + 1) % n)) xsid xcur
-    xsid="${rows[$xi]%%|*}"; xcur="${rows[$xi]##*|}"
+    local xi=$(((i + 1) % n)) xsid xcur xship
+    IFS='|' read -r _ xsid xcur xship <<<"${rows[$xi]}"
     local c
     for c in 1 2 3; do
       idx=$((idx + 1))
@@ -890,14 +1118,14 @@ except Exception: print('')")
       local cid; cid=$(user_id_by_email "$email")
       [[ -n "$cid" ]] && api "xc-verify-$cur-$c" POST "/api/identity/admin/users/$cid/verify-email?tenantId=$TENANT_ID" "$ADMIN_JAR" "" "allow_4xx" >/dev/null
       api_noauth "xc-login-$cur-$c" POST "/api/identity/login" "$jar" \
-        "{\"email\":\"$email\",\"password\":\"$password\"}" "allow_4xx" >/dev/null
+        "{\"email\":\"$email\",\"password\":\"$password\"}" "must_2xx" >/dev/null
       api "xc-addr-$cur-$c" POST "/api/identity/me/addresses" "$jar" \
         '{"purpose":3,"isDefault":true,"name":"Shopper Home","line1":"7 Buyer Rd","city":"City","postcode":"2000","country":"AU"}' "allow_4xx" >/dev/null
       # Home-store order in this store's currency.
-      place_order_on "$sid" "$cur" "$jar" "$email" "$opt"
+      place_order_on "$sid" "$cur" "$ship" "$jar" "$email" "$opt" "$((c - 1))"
       # Shopper #1 of each store ALSO buys on the next store (cross-storefront), when there's more than one.
       if [[ "$c" == "1" && "$n" -gt 1 ]]; then
-        place_order_on "$xsid" "$xcur" "$jar" "$email" "$opt"
+        place_order_on "$xsid" "$xcur" "$xship" "$jar" "$email" "$opt" 2
       fi
     done
   done
@@ -1096,18 +1324,16 @@ except Exception:
   seed_extra_customers
   seed_subscription_examples
 
-  product_json=$(api "catalog-products" GET "/api/catalog/admin/products?tenantId=$TENANT_ID&pageSize=1" "$ADMIN_JAR" "" "allow_4xx")
-  product_id=$(printf '%s' "$product_json" | json_get '0.id')
-  variant_id=$(printf '%s' "$product_json" | json_get '0.variants.0.id')
-  if [[ -n "$product_id" ]]; then
-    if [[ -n "$variant_id" ]]; then variant_json="\"$variant_id\""; else variant_json="null"; fi
-    # Idempotent on the full key so re-seeding this sample offer stays a no-op (StorefrontId=null).
-    if [[ -z "$(offer_key_exists "$supplier_id" "$product_id" "$variant_id" "")" ]]; then
-      api "catalog-offer" POST "/api/catalog/admin/offers" "$ADMIN_JAR" \
-        "{\"tenantId\":\"$TENANT_ID\",\"productId\":\"$product_id\",\"variantId\":$variant_json,\"supplierId\":\"$supplier_id\",\"supplyCategory\":1,\"fulfilmentType\":1,\"priceMinor\":2499,\"supplierCostMinor\":1250,\"currency\":\"EUR\",\"priority\":10}" "allow_4xx" >/dev/null
-    fi
-    manifest_set "products.importedSample.id" "$(json_string "$product_id")"
-    if [[ -n "$variant_id" ]]; then manifest_set "products.importedSample.variantId" "$(json_string "$variant_id")"; fi
+  # The imported-catalog sample: a sellable product published on the EU demo store. It already carries the
+  # demo supplier's costed EUR offer (seed_store_product_costs). This used to take the admin list's first
+  # product BY TITLE — on a long-lived DB an E2E leftover such as "Approval Gate E2E" — and attach a
+  # 24.99 EUR demo offer to it (re-pricing it and making an unapproved-supplier fixture sellable).
+  local eu_row eu_sid
+  eu_row=$(demo_storefront_row demoEu)
+  if [[ -n "$eu_row" ]]; then
+    IFS='|' read -r _ eu_sid _ _ <<<"$eu_row"
+    product_id=$(pick_sellable_product "$eu_sid" "EUR" 0 "imported-sample")
+    if [[ -n "$product_id" ]]; then manifest_set "products.importedSample.id" "$(json_string "$product_id")"; fi
   fi
 }
 
@@ -1155,3 +1381,29 @@ for line in open(sys.argv[1], encoding='utf-8'):
     counts[row.get('classification', 'unknown')] = counts.get(row.get('classification', 'unknown'), 0) + 1
 print('step classifications: ' + ', '.join(f'{k}={v}' for k, v in sorted(counts.items())))
 PY
+# Checkouts (and the other must_2xx steps) must all succeed. List every one that did not, with its body,
+# and fail the seed — after the whole dataset was still seeded — so a short dataset is never silent.
+set +e
+python3 - "$SUMMARY" <<'PY'
+import json, sys
+rows = [json.loads(line) for line in open(sys.argv[1], encoding='utf-8')]
+checkouts = [r for r in rows if r.get('path') == '/api/ordering/checkout']
+ok = sum(1 for r in checkouts if r.get('classification') == 'ok')
+print(f'checkouts: {ok}/{len(checkouts)} succeeded')
+bad = [r for r in rows if r.get('expectation') == 'must_2xx' and r.get('classification') != 'ok']
+for r in rows:
+    if r.get('classification') == 'server_error' and r.get('expectation') != 'must_2xx':
+        print(f"  warning: best-effort step {r['step']} {r['method']} {r['path']} -> {r['status']}")
+if bad:
+    print(f'UNEXPECTED failures in required steps: {len(bad)}')
+    for r in bad:
+        body = (r.get('bodyPreview') or '').replace('\n', ' ')[:300]
+        print(f"  !! {r['step']} {r['method']} {r['path']} -> {r['status']}: {body}")
+    sys.exit(4)
+PY
+rc=$?
+set -e
+if (( rc != 0 )); then
+  echo "Seed finished WITH UNEXPECTED FAILURES (exit $rc) — see above and $SUMMARY" >&2
+  exit "$rc"
+fi

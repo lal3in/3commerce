@@ -121,5 +121,17 @@ Ledger postings (Payments):
 - **The Docker VM clock drifts after macOS sleep.** Loki/Prometheus *instant* queries with relative
   windows (`[15m]`) then return empty while data exists (`[1h]` still works). In tests use
   `query_range` with client-supplied start/end.
+- **Seed orders the way a shopper would, and never file a failed checkout under `allowed_4xx`.** The
+  `--data full` seed once walked EVERY tenant storefront (dozens of Draft/Paused E2E leftovers → "not
+  currently open for orders"), reused per-user carts that a failed checkout left full (every later add/
+  checkout of that user failed too), and bought subscriptions without a saved card — 30 of 49 checkouts
+  400'd while the run looked green. `dev-dummy-data.sh` now orders only on its own live demo stores,
+  for products sellable there, from an emptied cart, and a failed checkout prints its body and exits 4.
+  It also never publishes "e2e" fixtures to the demo stores: E2E leftovers shift the global catalogue
+  pages, and a scenario fixture as a store's first product breaks the PDP/cart/offer specs.
+- **A renamed query parameter is silently ignored, not rejected.** `GET /api/catalog/admin/offers`
+  renamed `productId=` to `product=` (#255); the seed's dedupe kept sending `productId=`, got every offer
+  of the supplier back, and skipped all but one per-store COGS offer for weeks. When a caller filters a
+  list, also check the filtered field in the response.
 - **Don't edit a script while it runs** — bash reads incrementally, so editing `run-all.sh`
   mid-boot corrupts the running instance.
