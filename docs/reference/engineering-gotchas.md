@@ -92,7 +92,12 @@ Ledger postings (Payments):
 - **Every order belongs to a real storefront.** The gateway's synthetic default storefront
   `00000000-0000-0000-0000-000000000101` is not a store; `CheckoutEndpoints.Checkout` rejects it with
   400. Any new order-creating path (seeds, E2E helpers, `e2e-verify.sh` L-flows) must attribute a real
-  storefront or skip.
+  storefront or skip — **and check out in that storefront's currency** (ADR-0059: a cart in another
+  currency is a 400; the cart cookie is shared across stores on one host, so empty it between stores).
+- **Availability is decided per storefront AND currency, the same way in Catalog and Ordering** (ADR-0059):
+  an offer only "covers" a line on its own store (or all stores) in its own currency. Change the covering
+  rule in `ProductsEndpoints` and `OfferResolution.IsSupplyAvailable` together, or the listing and checkout
+  disagree again.
 
 ## Local dev stack
 

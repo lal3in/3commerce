@@ -64,6 +64,11 @@
 #       product-scoped promotion staying on the line it covers, the two stacked, rounding remainders
 #       distributed so the parts sum exactly, and the subtotal clamp never allocating more than the
 #       order actually discounted;
+#       Ordering CHECKOUT GATES (ADR-0059, CheckoutGateTests + OfferResolutionTests): a cart in another
+#       currency than its storefront's is refused (message names both currencies; no projected copy = not
+#       gated), and supply availability is Catalog's ADR-0048 rule per storefront AND currency — offerless
+#       = available, an approved offer only for another store/currency neither unlocks nor blocks, window
+#       ignored for coverage;
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -122,6 +127,15 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       CHECKOUT CURRENCY + OFFER GATE (ADR-0059): a EUR cart on an AUD storefront is a 400 naming both
+#       currencies, flagged first by /cart/summary (checkoutBlock=CurrencyMismatch, unpriced), nothing
+#       booked, and the same store sells once the cart is in AUD (CartCurrencyTests); a subscription
+#       bought under the gate still renews in its stored currency and books a balanced renewal entry
+#       (SubscriptionRenewalPriceTests); and Catalog's listing/detail and Ordering's checkout AGREE per
+#       storefront + currency on offers created through Catalog's real admin API — approved only for
+#       another store or only in another currency → hidden AND 400; an unapproved offer elsewhere no
+#       longer blocks a listed product → listed AND 201 at catalogue price; approved here → listed AND
+#       201 at the offer price; offerless → listed AND 201 (CheckoutOfferGateParityTests);
 #       PROMOTION SCOPE + CAPS (PromotionScopeAndCapTests): the per-customer limit under EIGHT
 #       concurrent checkouts (the only read-then-write window, held by an advisory lock — proven to
 #       fail without it), a storefront-scoped promotion discounting its own store and no other while
@@ -234,6 +248,8 @@
 #       Redemptions column, no threshold required, duplicate code refused) and the shopper applying
 #       a code at checkout — invisible until entered, an unknown code showing its OWN reason, the
 #       discount row appearing, and remove pricing the cart back at full price (ADR-0052);
+#       a cart filled on the EU store and opened on the AU store shows the checkout-blocked notice
+#       naming EUR and AUD before checkout (ADR-0059, e2e/currency-tax.spec.ts; needs --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg
@@ -283,6 +299,11 @@ run_automated() {
   if dotnet test "$ROOT/3commerce.sln" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PromotionPreviewTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
+
+  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability"
+  if dotnet test "$ROOT/3commerce.sln" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3c checkout gates"; else fail "A3c checkout gates"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
