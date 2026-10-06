@@ -144,6 +144,8 @@
     "renewsMonthly": "Verlängert sich monatlich zu",
     "renewsYearly": "Verlängert sich jährlich zu",
     "taxNote": "Versand und Steuern werden beim Checkout berechnet.",
+    "blockedCurrency": "Ihr Warenkorb ist in {cartCurrency}, dieser Shop verkauft jedoch in {storeCurrency}. Leeren Sie den Warenkorb, um hier einzukaufen.",
+    "blockedSupply": "Ein Artikel in Ihrem Warenkorb ist in diesem Shop derzeit nicht verfügbar. Entfernen Sie ihn, um zur Kasse zu gehen.",
     "checkout": "Zur Kasse",
     "remove": "Entfernen",
     "decreaseQuantity": "Menge verringern",

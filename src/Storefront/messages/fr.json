@@ -144,6 +144,8 @@
     "renewsMonthly": "Se renouvelle chaque mois à",
     "renewsYearly": "Se renouvelle chaque année à",
     "taxNote": "Les frais de livraison et la taxe sont calculés lors du paiement.",
+    "blockedCurrency": "Votre panier est en {cartCurrency}, mais cette boutique vend en {storeCurrency}. Videz le panier pour acheter ici.",
+    "blockedSupply": "Un article de votre panier n'est pas disponible dans cette boutique pour le moment. Retirez-le pour passer commande.",
     "checkout": "Valider la commande",
     "remove": "Retirer",
     "decreaseQuantity": "Diminuer la quantité",

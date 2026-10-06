@@ -144,6 +144,8 @@
     "renewsMonthly": "每月續訂價",
     "renewsYearly": "每年續訂價",
     "taxNote": "運費同稅項會喺結帳時計算。",
+    "blockedCurrency": "你嘅購物車係用 {cartCurrency}，但呢間店用 {storeCurrency} 售賣。請清空購物車再喺度購物。",
+    "blockedSupply": "你購物車入面有件貨品而家喺呢間店唔供應。請移除佢先可以結帳。",
     "checkout": "結帳",
     "remove": "移除",
     "decreaseQuantity": "減少數量",
