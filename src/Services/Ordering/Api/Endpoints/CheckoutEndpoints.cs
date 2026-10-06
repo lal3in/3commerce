@@ -70,6 +70,31 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
         }
 
+        var currency = cart.Items[0].Currency;
+        // Carts are single-currency (guarded at add + merge); reject legacy/mixed data instead of
+        // summing unlike units into a wrong charge.
+        if (cart.Items.Any(i => !string.Equals(i.Currency, currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
+        }
+
+        // THIS storefront's projected config (ADR-0008): its currency gates the cart here, and the same copy
+        // later drives the ship-to allowlist, the storefront-wide discount and tax. Fetch the entity (not a
+        // .Select of a property) so EF applies the ShipToCountries value converter on materialization — a
+        // projected converted collection comes back empty.
+        var storefrontCopy = await db.StorefrontTaxCopies.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.StorefrontId == storefrontId, ct);
+
+        // An order's currency IS its storefront's currency (ADR-0038 storefront ↔ currency 1:1; ADR-0045
+        // books the sale to that store's own ledger accounts). The cart cookie is shared by every store on a
+        // host, so a cart filled on the EUR store can reach the AUD store's checkout — that used to book a
+        // EUR order to an AUD store. Refuse it before anything is priced or authorized (ADR-0059). A
+        // storefront with no projected copy has no known currency and keeps the historical behaviour.
+        if (CheckoutGate.MismatchedCurrency(cart.Items.Select(i => i.Currency), storefrontCopy) is { } wrongCurrency)
+        {
+            return TypedResults.BadRequest(CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency));
+        }
+
         // offerCopies is reused for the shipping gate, the offer price override, and the per-line attempt build.
         var cartProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
         var offerCopies = await db.OfferCopies.AsNoTracking()
@@ -136,22 +161,10 @@ public static class CheckoutEndpoints
             }
         }
 
-        var currency = cart.Items[0].Currency;
-        // Carts are single-currency (guarded at add + merge); reject legacy/mixed data instead of
-        // summing unlike units into a wrong charge.
-        if (cart.Items.Any(i => !string.Equals(i.Currency, currency, StringComparison.OrdinalIgnoreCase)))
-        {
-            return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
-        }
-
         // Ship-to allowlist (cross-border guardrail): reject a destination the storefront doesn't serve
         // BEFORE authorizing any payment. Empty allowlist / no projected config = ships worldwide.
-        // storefrontId is resolved up front (above) for attribution — reuse it here.
+        // storefrontId + storefrontCopy are resolved up front (above) — reuse them here.
         var shipToCountry = request.ShippingAddress.Country.Trim().ToUpperInvariant();
-        // Fetch the copy entity (not a .Select of the property) so EF applies the ShipToCountries value
-        // converter on materialization — a projected converted collection comes back empty.
-        var storefrontCopy = await db.StorefrontTaxCopies.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.StorefrontId == storefrontId, ct);
         if (storefrontCopy is { ShipToCountries.Count: > 0 } && !storefrontCopy.ShipToCountries.Contains(shipToCountry))
         {
             return TypedResults.BadRequest($"This storefront does not ship to {shipToCountry}.");

@@ -150,6 +150,49 @@ public class SubscriptionRenewalPriceTests(Phase3Fixture fixture)
         Assert.Empty(summary.Renewals ?? []);
     }
 
+    [Fact]
+    public async Task A_subscription_bought_under_the_storefront_currency_gate_still_renews_and_posts_revenue()
+    {
+        // ADR-0059 money-seam check: checkout now refuses a cart whose currency is not its storefront's.
+        // Renewals never pass through checkout — Payments charges the subscription's STORED currency off
+        // session — so the gate must leave them untouched. Buy on a currency-matched store (the gate passes),
+        // then renew and prove the second period is charged and booked in that currency to that store.
+        const string currency = "QS7";
+        var storefrontId = await LiveStorefrontAsync(currency, discountBps: 0);
+        var productId = await fixture.SeedRecurringProductAsync(2_000, currency);
+
+        var order = await SubscribeAsync(storefrontId, productId, "renews@example.com");
+        Assert.Equal(currency, order.Currency);
+        Assert.Equal(2_000, await SubscriptionPriceAsync(order.OrderId));
+
+        Guid subscriptionId;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var subscription = await db.Subscriptions.AsNoTracking().SingleAsync(s => s.OrderId == order.OrderId);
+            Assert.Equal(currency, subscription.Currency);
+            Assert.Equal(storefrontId, subscription.StorefrontId);
+            subscriptionId = subscription.Id;
+
+            var renewed = await scope.ServiceProvider.GetRequiredService<SubscriptionService>()
+                .RenewAsync(subscription.TenantId, subscription.Id, default);
+            Assert.NotNull(renewed);
+            Assert.Equal(2, renewed!.Renewals.Max(r => r.Sequence));
+            Assert.NotEqual(ThreeCommerce.Payments.Domain.SubscriptionStatus.PastDue, renewed.Status);
+        }
+
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var entry = await db.JournalEntries.AsNoTracking().Include(e => e.Lines)
+                .SingleAsync(e => e.Reference == $"renew-{subscriptionId}-2");
+            Assert.All(entry.Lines, l => Assert.Equal(currency, l.Currency));
+            Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
+        }
+
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
     // ---- Fixtures ------------------------------------------------------------------------------------
 
     private sealed record CartSummaryDto(
