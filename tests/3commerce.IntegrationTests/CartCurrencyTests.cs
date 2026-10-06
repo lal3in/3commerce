@@ -170,6 +170,8 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         Assert.Equal(tenantId, attempt.TenantId);
     }
 
+    private sealed record ProblemDto(int Status, string? Title, string? Detail, int CheckoutBlock);
+
     private sealed record CartSummaryDto(
         long SubtotalMinor, long StorefrontDiscountMinor, long PromotionDiscountMinor, long ItemsTotalMinor,
         bool FreeShippingApplied, List<object> AppliedPromotions, string Currency,
@@ -202,10 +204,11 @@ public class CartCurrencyTests(Phase3Fixture fixture)
 
         var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
         Assert.Equal(HttpStatusCode.BadRequest, checkout.StatusCode);
-        var body = await checkout.Content.ReadAsStringAsync();
-        Assert.Contains("Cart is in EUR; this store sells in AUD", body, StringComparison.Ordinal);
-        Assert.Contains("empty the cart to shop here", body, StringComparison.Ordinal);
-        Assert.Contains(summary.CheckoutBlockedReason!, body, StringComparison.Ordinal);
+        Assert.Equal("application/problem+json", checkout.Content.Headers.ContentType?.MediaType);
+        var problem = (await checkout.Content.ReadFromJsonAsync<ProblemDto>())!;
+        Assert.Equal("Cart is in EUR; this store sells in AUD — empty the cart to shop here.", problem.Detail);
+        Assert.Equal(1, problem.CheckoutBlock);
+        Assert.Equal(summary.CheckoutBlockedReason, problem.Detail); // one rule, one wording
 
         // Nothing was booked for the refused cart.
         using (var scope = fixture.Ordering.Services.CreateScope())

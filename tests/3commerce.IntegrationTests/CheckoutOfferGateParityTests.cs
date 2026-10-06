@@ -46,6 +46,8 @@ public class CheckoutOfferGateParityTests(Phase3Fixture fixture) : IAsyncLifetim
     private sealed record CheckoutResponseDto(Guid OrderId, long NetMinor, long GrossMinor, string Currency, string? Message);
     private sealed record CartSummaryDto(long SubtotalMinor, string Currency, int CheckoutBlock = 0, string? CheckoutBlockedReason = null);
 
+    private sealed record ProblemDto(int Status, string? Title, string Detail, int CheckoutBlock);
+
     private sealed record Product(Guid Id, Guid VariantId, string Slug);
 
     public async Task InitializeAsync()
@@ -178,9 +180,11 @@ public class CheckoutOfferGateParityTests(Phase3Fixture fixture) : IAsyncLifetim
 
         var response = await shopper.PostAsJsonAsync("/checkout", CheckoutBody(storefrontId));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("supplier is not approved", body, StringComparison.Ordinal);
-        Assert.Contains(summary.CheckoutBlockedReason!, body, StringComparison.Ordinal);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = (await response.Content.ReadFromJsonAsync<ProblemDto>())!;
+        Assert.Contains("supplier is not approved", problem.Detail, StringComparison.Ordinal);
+        Assert.Equal(2, problem.CheckoutBlock);
+        Assert.Equal(summary.CheckoutBlockedReason, problem.Detail); // one rule, one wording
     }
 
     private async Task<CheckoutResponseDto> AssertSoldAsync(Guid storefrontId, Product product)

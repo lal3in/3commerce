@@ -26,7 +26,7 @@ public static class CheckoutEndpoints
     /// Returns 201 once the payment intent exists — never blocks on the saga (api.md §3).
     /// Requests the intent synchronously via RequestClient; the saga owns the async remainder.
     /// </summary>
-    private static async Task<Results<Created<CheckoutResponse>, BadRequest<string>, Conflict<CheckoutResponse>>> Checkout(
+    private static async Task<Results<Created<CheckoutResponse>, BadRequest<string>, Conflict<CheckoutResponse>, ProblemHttpResult>> Checkout(
         CheckoutRequest request,
         HttpContext http,
         CartService carts,
@@ -92,7 +92,7 @@ public static class CheckoutEndpoints
         // storefront with no projected copy has no known currency and keeps the historical behaviour.
         if (CheckoutGate.MismatchedCurrency(cart.Items.Select(i => i.Currency), storefrontCopy) is { } wrongCurrency)
         {
-            return TypedResults.BadRequest(CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency));
+            return GateRefused(CheckoutBlock.CurrencyMismatch, CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency));
         }
 
         // offerCopies is reused for the shipping gate, the offer price override, and the per-line attempt build.
@@ -129,7 +129,7 @@ public static class CheckoutEndpoints
             offerCopies, checkoutTenantId, i.ProductId, i.VariantId, storefrontId, i.Currency, approvedSupplierIds));
         if (unavailableLine is not null)
         {
-            return TypedResults.BadRequest(CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
+            return GateRefused(CheckoutBlock.SupplyUnavailable, CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
         }
 
         // The offer that SUPPLIES each line (fulfilment, supplier, billing mode) — resolved once and reused for
@@ -544,6 +544,16 @@ public static class CheckoutEndpoints
             promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds,
             couponReserved ? couponPromotion?.Code : null));
     }
+
+    // The ADR-0059 storefront gates answer as RFC 9457 problem+json (api.md §4): `detail` is the shopper-
+    // facing text (identical to GET /cart/summary's CheckoutBlockedReason) and the numeric `checkoutBlock`
+    // extension is the same CheckoutBlock the preview reports, so a client can localize without parsing text.
+    private static ProblemHttpResult GateRefused(CheckoutBlock block, string detail) =>
+        TypedResults.Problem(
+            detail: detail,
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "This cart cannot be checked out on this storefront.",
+            extensions: new Dictionary<string, object?> { ["checkoutBlock"] = (int)block });
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
