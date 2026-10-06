@@ -140,6 +140,11 @@ public static class CartEndpoints
             .Select(x => x.SupplierId)
             .ToListAsync(ct)).ToHashSet();
 
+        // Catalog's availability gate, per storefront + currency (ADR-0059) — the same predicate checkout
+        // enforces, so a line the preview prices is a line checkout will sell.
+        var unavailableLine = cart.Items.FirstOrDefault(i => !OfferResolution.IsSupplyAvailable(
+            offerCopies, tenantId, i.ProductId, i.VariantId, storeId, i.Currency, approvedSupplierIds));
+
         var lines = cart.Items.Select(i =>
         {
             var offerPrice = OfferResolution.ResolvePricingOffer(
@@ -247,7 +252,9 @@ public static class CartEndpoints
             // POSSIBLE (via Basis) and the storefront says "may apply at checkout" instead of "free".
             preview.Basis != PromotionBasis.Provisional && outcome.FreeShippingApplied, applied, currency,
             couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis, renewals,
-            CheckoutBlock.None, null, storefrontCopy?.Currency));
+            unavailableLine is null ? CheckoutBlock.None : CheckoutBlock.SupplyUnavailable,
+            unavailableLine is null ? null : CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title),
+            storefrontCopy?.Currency));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -437,8 +444,8 @@ public record CartSummaryResponse(
     // Why checkout would refuse this cart on this storefront (ADR-0059) — None when it would not. Crosses
     // HTTP as a NUMBER (platform invariant). CurrencyMismatch: the cart is in another currency than the
     // store sells in; the figures above are then the UNPRICED add-time subtotal (no promotion, discount or
-    // renewal is evaluated for a cart checkout will not take).
-    // CheckoutBlockedReason is checkout's own 400 text.
+    // renewal is evaluated for a cart checkout will not take). SupplyUnavailable: a line's only covering
+    // offers here are from unapproved suppliers. CheckoutBlockedReason is checkout's own 400 text.
     CheckoutBlock CheckoutBlock = CheckoutBlock.None,
     string? CheckoutBlockedReason = null,
     // The currency this storefront sells in (null when no storefront config is projected).

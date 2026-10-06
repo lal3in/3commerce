@@ -120,16 +120,26 @@ public static class CheckoutEndpoints
             .Select(s => s.SupplierId)
             .ToListAsync(ct)).ToHashSet();
 
-        // Block a line that HAS a covering offer but none from an approved supplier (its only supply is
-        // unapproved). A line with no offer at all resolves to null in both and keeps catalog behaviour.
-        var unavailableLine = cart.Items.FirstOrDefault(i =>
-            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId) is not null
-            && OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds) is null);
+        // The availability gate is CATALOG'S gate, per storefront AND currency (ADR-0059, matching the
+        // ADR-0048 listing/detail rule): a line is refused only when the offers covering it on THIS store in
+        // THIS currency are all from unapproved suppliers. An offer approved for another store or currency
+        // used to unlock it here (sold although the listing hid it), and an unapproved one there used to
+        // block it here (listed but refused) — shown == sellable == charged.
+        var unavailableLine = cart.Items.FirstOrDefault(i => !OfferResolution.IsSupplyAvailable(
+            offerCopies, checkoutTenantId, i.ProductId, i.VariantId, storefrontId, i.Currency, approvedSupplierIds));
         if (unavailableLine is not null)
         {
-            return TypedResults.BadRequest(
-                $"{unavailableLine.Title} is currently unavailable and was removed; its supplier is not approved.");
+            return TypedResults.BadRequest(CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
         }
+
+        // The offer that SUPPLIES each line (fulfilment, supplier, billing mode) — resolved once and reused for
+        // the shipping gate, collect-at-warehouse, the recurring gate and the attempt lines. Deliberately
+        // still ResolveOffer over the approved set (unchanged by ADR-0059): the COGS accrual
+        // (OrderStatusConsumer) and its RMA reversal re-derive the cost offer the same way, so the stamped
+        // supplier and the accrued cost stay one offer. Never ResolvePricingOffer — it skips price-less offers.
+        var lineOffers = cart.Items
+            .Select(i => OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds))
+            .ToList();
 
         // Re-validate prices against the current catalog copy (plan edge case: price drift → 409), then apply
         // the offer-as-price override: when an effective offer applies to a line's storefront, its price is the
@@ -207,8 +217,7 @@ public static class CheckoutEndpoints
         // or a line's product type is unknown, it falls back to the fulfilment-type gate.
         var shippingPolicy = await db.ProductTypeShippingPolicyCopies.AsNoTracking()
             .FirstOrDefaultAsync(p => p.TenantId == checkoutTenantId, ct);
-        var anyShippable = cart.Items.Any(i => LineRequiresShipping(
-            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds), shippingPolicy));
+        var anyShippable = lineOffers.Any(offer => LineRequiresShipping(offer, shippingPolicy));
 
         // "Collect at warehouse" (mt4 / ADR-0028): the shopper elects to collect the order from the fulfilling
         // supplier's warehouse instead of carrier delivery. Eligible only when the cart has at least one
@@ -219,9 +228,7 @@ public static class CheckoutEndpoints
         SupplierWarehouseCopy? collectWarehouse = null;
         if (request.CollectAtWarehouse)
         {
-            var warehouseOffer = cart.Items
-                .Select(i => OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds))
-                .FirstOrDefault(o => o is { FulfilmentType: FulfilmentType.Warehouse });
+            var warehouseOffer = lineOffers.FirstOrDefault(o => o is { FulfilmentType: FulfilmentType.Warehouse });
             if (warehouseOffer is null)
             {
                 return TypedResults.BadRequest("Collect at warehouse is only available for warehouse-fulfilled items.");
@@ -382,8 +389,7 @@ public static class CheckoutEndpoints
         // with a reusable payment instrument — never as a guest, and never with a one-off card, so renewals
         // can charge off-session (a stored card or a direct-debit mandate). Non-recurring carts are
         // unaffected. email_verified rides the gateway-minted internal claims (InternalClaimsMinter).
-        var hasRecurringLine = cart.Items.Any(i =>
-            OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds)?.BillingMode == BillingMode.Recurring);
+        var hasRecurringLine = lineOffers.Any(o => o?.BillingMode == BillingMode.Recurring);
         if (hasRecurringLine)
         {
             if (userId is null)
@@ -447,7 +453,7 @@ public static class CheckoutEndpoints
             return TypedResults.BadRequest("Payment service unavailable; please retry.");
         }
 
-        // Each line's fulfilment is resolved from offerCopies (loaded up front for the shipping gate):
+        // Each line's fulfilment is the lineOffers entry resolved up front (approved ResolveOffer):
         // the OfferCopy read model is fed by Catalog's OfferChanged events. No offer → Unassigned.
         var attempt = new CheckoutAttempt
         {
@@ -500,7 +506,7 @@ public static class CheckoutEndpoints
             CreatedAt = now,
             Lines = cart.Items.Select((i, index) =>
             {
-                var offer = OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds);
+                var offer = lineOffers[index];
                 return new CheckoutAttemptLine
                 {
                     Id = Guid.CreateVersion7(),

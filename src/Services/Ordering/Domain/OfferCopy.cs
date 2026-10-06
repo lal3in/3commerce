@@ -85,6 +85,53 @@ public static class OfferResolution
             .ThenBy(o => o.Priority)
             .FirstOrDefault();
 
+    /// <summary>
+    /// Whether <paramref name="offer"/> COVERS a line sold on <paramref name="storefrontId"/> in
+    /// <paramref name="currency"/> — Catalog's availability predicate (ADR-0048, <c>ProductsEndpoints</c>
+    /// listing/detail), duplicated here on purpose (no shared domain logic): an ACTIVE offer of the tenant
+    /// for this product at the line's grain (variant-specific or product-level), denominated in the line's
+    /// currency, scoped to this storefront or to all storefronts. The active WINDOW is deliberately not part
+    /// of coverage — Catalog does not apply it there either (it only gates the offer PRICE).
+    /// </summary>
+    public static bool Covers(
+        OfferCopy offer, Guid tenantId, Guid productId, Guid? variantId, Guid storefrontId, string currency) =>
+        offer.Active
+        && offer.TenantId == tenantId
+        && offer.ProductId == productId
+        && (offer.VariantId == variantId || offer.VariantId == null)
+        && string.Equals(offer.Currency, currency, StringComparison.OrdinalIgnoreCase)
+        && (offer.StorefrontId is null || offer.StorefrontId == storefrontId);
+
+    /// <summary>
+    /// Approval-gated availability, evaluated exactly as Catalog evaluates it (ADR-0048 + ADR-0059: shown ==
+    /// sellable == charged): a line is sellable on this storefront in this currency when NO offer covers it
+    /// (an offerless line is governed by the catalogue price — the scope guard) or when at least one covering
+    /// offer is from an approved supplier. An offer approved only for another storefront or another currency
+    /// therefore neither hides nor unlocks the line here.
+    /// </summary>
+    public static bool IsSupplyAvailable(
+        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
+        Guid storefrontId, string currency, IReadOnlySet<Guid> approvedSupplierIds)
+    {
+        var covered = false;
+        foreach (var offer in offers)
+        {
+            if (!Covers(offer, tenantId, productId, variantId, storefrontId, currency))
+            {
+                continue;
+            }
+
+            if (approvedSupplierIds.Contains(offer.SupplierId))
+            {
+                return true;
+            }
+
+            covered = true;
+        }
+
+        return !covered;
+    }
+
     public static FulfilmentType ResolveFulfilment(
         IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
         IReadOnlySet<Guid>? approvedSupplierIds = null) =>

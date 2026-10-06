@@ -12,6 +12,9 @@ public enum CheckoutBlock
 
     /// <summary>The cart's currency is not the storefront's (ADR-0038: storefront ↔ currency is 1:1).</summary>
     CurrencyMismatch = 1,
+
+    /// <summary>A line's only covering offers on this storefront + currency are from unapproved suppliers.</summary>
+    SupplyUnavailable = 2,
 }
 
 /// <summary>
@@ -38,4 +41,8 @@ public static class CheckoutGate
     /// <summary>The 400 checkout returns (and the preview reports) for a cart in another currency.</summary>
     public static string CurrencyMismatchMessage(string cartCurrency, string storefrontCurrency) =>
         $"Cart is in {cartCurrency.ToUpperInvariant()}; this store sells in {storefrontCurrency.ToUpperInvariant()} — empty the cart to shop here.";
+
+    /// <summary>The 400 checkout returns (and the preview reports) for a line with no approved supply here.</summary>
+    public static string SupplyUnavailableMessage(string title) =>
+        $"{title} is currently unavailable on this store; its supplier is not approved. Remove it to check out.";
 }
