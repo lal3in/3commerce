@@ -231,8 +231,9 @@
 #   L12 Search latency p95 < 500ms
 #   L13 Logout → 204; password reset → login with new password
 #   L14 Storefront SSR: home/search/product render catalog data; /account redirects
-#   L15 Cart: add product → cart reflects it
-#   L16 Checkout: returns order + clientSecret + correct tax/gross (returns at intent)
+#   L15 Cart: add a product SELLABLE on the demo store (its own listing, in its currency) → cart accepts it
+#   L16 Checkout on that store, shipped to a country it serves: order + clientSecret + gross (returns at
+#       intent); a refusal prints the HTTP status + problem+json body
 #   L17 Simulate payment → saga confirms the order
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
@@ -592,11 +593,20 @@ run_live() {
   # sets the 3c_storefront cookie; in prod by Host). Pin the first demo store the public config resolves,
   # then browse WITH that cookie against the store's OWN published catalog. When no demo storefront is
   # published (e.g. an import-only seed), skip the SSR product checks rather than fail on an empty root.
-  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug="" sfid=""
+  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug="" sfid="" sfcur="" sfship=""
   for s in au eu us; do
     local cfg; cfg="$(curl -fsS "$GATEWAY/api/catalog/storefronts/public?slug=$s" 2>/dev/null)" || continue
     if [[ -n "$cfg" ]]; then
       sfid="$(grep -oE '"id":"[^"]+"' <<<"$cfg" | head -1 | cut -d'"' -f4)"
+      # The store's currency and a destination it serves: the money flow (L15/L16) shops on THIS store like a
+      # real shopper, since checkout refuses a cart in another currency or not sellable there (ADR-0059).
+      # shipTo = the first allowlisted country, or the currency's home country when the store ships worldwide.
+      read -r sfcur sfship < <(python3 -c '
+import json, sys
+s = json.load(sys.stdin)
+cur = s.get("currency") or "EUR"
+home = {"AUD": "AU", "EUR": "DE", "USD": "US", "CAD": "CA", "GBP": "GB", "CNY": "CN", "JPY": "JP", "KWD": "KW"}
+print(cur, (s.get("shipToCountries") or [None])[0] or home.get(cur, "AU"))' <<<"$cfg" 2>/dev/null)
       curl -s -c "$sfjar" "$STOREFRONT/$s" >/dev/null; sfslug="$s"; break
     fi
   done
@@ -616,21 +626,39 @@ run_live() {
   # Tables live in each service's named schema (ADR-0022), and the service role's search_path
   # ("$user",public) does not include it — so every direct psql query must schema-qualify.
   local trialbal='SELECT COALESCE(sum("DebitMinor"),0)-COALESCE(sum("CreditMinor"),0) FROM payments."JournalLines"'
-  # Pick a product known to the Ordering projection (populated from the import via events).
-  local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM ordering."ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
+  # Shop like a real shopper on the demo store L14 pinned: a product SELLABLE there, taken from the store's
+  # own listing (its published catalogue in its currency, the same per-store/per-currency offer gate checkout
+  # applies, ADR-0059), added to the cart IN the store's currency and shipped to a country it serves. A
+  # product picked blind from Ordering's projection is arbitrary relative to the store, and checkout
+  # (correctly) refuses it: wrong currency (checkoutBlock=1) or not sellable there (checkoutBlock=2).
+  local prod=""
+  if [[ -n "$sfid" && -n "$sfcur" ]]; then
+    prod="$(curl -fsS "$GATEWAY/api/catalog/products?storefrontId=$sfid&currency=$sfcur&pageSize=1" 2>/dev/null \
+      | python3 -c 'import json, sys; h = json.load(sys.stdin); print(h[0]["id"] if h else "")' 2>/dev/null)"
+  fi
   local cartjar=/tmp/3c-e2e-cart.txt; rm -f "$cartjar"
   # Every order must belong to a storefront (checkout now rejects the synthetic default), so the money
-  # flow needs a real demo store to attribute to — skip when none is published (import-only stack).
+  # flow needs a real demo store to attribute to; skip when none is published (import-only stack).
   if [[ -n "$prod" && -n "$sfid" ]]; then
-    local addcode; addcode="$(curl -s -o /dev/null -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2}")"
-    [[ "$addcode" == "200" ]] && pass "L15 add to cart" || fail "L15 add to cart ($addcode)"
+    local addbody=/tmp/3c-e2e-cart-add.json addcode
+    addcode="$(curl -s -o "$addbody" -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2,\"currency\":\"$sfcur\"}")"
+    [[ "$addcode" == "200" ]] && pass "L15 add to cart ($sfslug store, $sfcur)" || fail "L15 add to cart (HTTP $addcode: $(head -c 300 "$addbody"))"
 
-    local co; co="$(curl -s -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d "{\"email\":\"e2e@example.com\",\"storefrontId\":\"$sfid\",\"shippingAddress\":{\"name\":\"E\",\"line1\":\"1 St\",\"city\":\"Berlin\",\"postcode\":\"10115\",\"country\":\"DE\"}}")"
+    local shipjson; shipjson="$(python3 -c '
+import json, sys
+c = sys.argv[1]
+city, pc = {"AU": ("Melbourne", "3000"), "DE": ("Berlin", "10115"), "US": ("New York", "10001")}.get(c, ("Capital", "1000"))
+print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "country": c}))' "$sfship")"
+    local cobody=/tmp/3c-e2e-checkout.json cocode co
+    cocode="$(curl -s -o "$cobody" -w '%{http_code}' -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d "{\"email\":\"e2e@example.com\",\"storefrontId\":\"$sfid\",\"shippingAddress\":$shipjson}")"
+    co="$(cat "$cobody" 2>/dev/null)"
     local oid gross secret
     oid="$(grep -oE '"orderId":"[^"]+"' <<<"$co" | cut -d'"' -f4)"
     gross="$(grep -oE '"grossMinor":[0-9]+' <<<"$co" | grep -oE '[0-9]+')"
     secret="$(grep -oE '"clientSecret":"pi_fake_[^"]+"' <<<"$co")"
-    { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross, intent returned)"; } || fail "L16 checkout"
+    # A refusal prints its HTTP status + problem+json body, so it is diagnosable from the log alone.
+    { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross $sfcur, ship to $sfship, intent returned)"; } \
+      || fail "L16 checkout on $sfslug ($sfcur, ship to $sfship) -> HTTP $cocode: $(head -c 400 <<<"$co")"
 
     # Wait for the saga to start, then simulate the payment.
     sleep 3
@@ -656,8 +684,8 @@ run_live() {
     done
     refTb="$(pay_scalar "$trialbal")"
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
-  elif [[ -z "$prod" ]]; then
-    fail "L15-L19 no product in Ordering projection (import may not have propagated)"
+  elif [[ -n "$sfid" ]]; then
+    fail "L15-L19 demo storefront '$sfslug' lists no sellable product in ${sfcur:-its currency}"
   else
     skip "L15-L19 money flow — no demo storefront to attribute the order (needs --data full)"
   fi
