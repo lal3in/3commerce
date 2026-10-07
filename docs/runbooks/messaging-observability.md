@@ -26,6 +26,23 @@ OpenTelemetry registers this meter in `AddServiceTelemetry`; metrics export thro
 | Stream DLQ | DLQ topic volume and error type | App metric + Kafka topic | Triage schema changes vs handler bug. Replay only after a code/data fix. |
 | Quartz | Misfire count, scheduler instance check-ins, failed job runs | Quartz tables + Workflow `/admin/workflow/runs` projection | Ensure only clustered schedulers are active and job idempotency key prevents duplicate effects. |
 
+## Queue ownership (one service per RabbitMQ queue — ADR-0060)
+
+A queue consumed by two DIFFERENT services is a silent bug: they compete, and each message reaches only one
+(this split every `OrderConfirmed` between Fulfillment and Notifications until ADR-0060). Check a broker:
+
+```bash
+# queue -> consuming connection, then connection -> client (3commerce.<Service>.Api / 3commerce.Workers.Notifications)
+curl -s -u guest:guest localhost:15672/api/consumers   | jq -r '.[] | "\(.queue.name)\t\(.channel_details.connection_name)"' | sort
+curl -s -u guest:guest localhost:15672/api/connections | jq -r '.[] | "\(.name)\t\(.client_properties.connection_name)"'
+```
+
+Every queue must map to a single client name (replicas of one service are fine). Deploying ADR-0060 needs no
+broker cleanup: `order-confirmed` / `storefront-duplicated` keep their original owner (Notifications /
+Payments) and Fulfillment creates `fulfillment-order-confirmed` / `fulfillment-storefront-duplicated` on start.
+If a queue ever loses its last consumer through a rename, delete it once drained
+(`rabbitmqadmin delete queue name=<queue>`) — an orphaned queue stays bound and keeps filling.
+
 ## Stream outbox SQL probes
 
 Run against the owning service database/schema:

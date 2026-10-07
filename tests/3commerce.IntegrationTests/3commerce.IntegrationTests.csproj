@@ -27,6 +27,9 @@
     <ProjectReference Include="../../src/Services/Entity/Api/3commerce.Entity.Api.csproj" />
     <ProjectReference Include="../../src/Services/Marketing/Api/3commerce.Marketing.Api.csproj" />
     <ProjectReference Include="../../src/Services/Audit/Api/3commerce.Audit.Api.csproj" />
+    <!-- Pricing + Workflow are referenced so ConsumerEndpointNameTests sees every bus host's consumers. -->
+    <ProjectReference Include="../../src/Services/Pricing/Api/3commerce.Pricing.Api.csproj" />
+    <ProjectReference Include="../../src/Services/Workflow/Api/3commerce.Workflow.Api.csproj" />
     <ProjectReference Include="../../src/Workers/Notifications/3commerce.Workers.Notifications.csproj" />
   </ItemGroup>
   <ItemGroup>

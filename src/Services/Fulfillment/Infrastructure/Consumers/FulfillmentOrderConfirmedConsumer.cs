@@ -8,7 +8,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Consumers;
 /// order has any active hold it is captured (payload stored) and deferred until released, otherwise
 /// it is fulfilled (shipments + warehouse stock + dropship). Idempotent by order.
 /// </summary>
-public sealed class OrderConfirmedConsumer(FulfilmentProcessor processor, OrderHoldService holds)
+public sealed class FulfillmentOrderConfirmedConsumer(FulfilmentProcessor processor, OrderHoldService holds)
     : IConsumer<OrderConfirmed>
 {
     public async Task Consume(ConsumeContext<OrderConfirmed> context)

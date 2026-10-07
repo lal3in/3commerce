@@ -8,7 +8,7 @@ namespace ThreeCommerce.Fulfillment.Infrastructure.Consumers;
 /// reference) onto the new storefront so the duplicate ships with the same carriers. Idempotent by
 /// (tenant, new storefront) — a redelivered message is a no-op.
 /// </summary>
-public sealed class StorefrontDuplicatedConsumer(CarrierService carriers)
+public sealed class FulfillmentStorefrontDuplicatedConsumer(CarrierService carriers)
     : IConsumer<StorefrontDuplicated>
 {
     public Task Consume(ConsumeContext<StorefrontDuplicated> context)
