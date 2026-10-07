@@ -2,51 +2,51 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
-using ThreeCommerce.Catalog.Domain;
 
 namespace ThreeCommerce.Catalog.Infrastructure.Consumers;
 
-/// <summary>
-/// Mirror the cross-service go-live signals onto Catalog's StorefrontServiceReadiness read model
-/// (ADR-0042). Each event carries the current truth, so applying it is idempotent.
-/// </summary>
+// Mirror the cross-service go-live signals onto Catalog's readiness read model (ADR-0042). Each event carries
+// the current truth for its signal, so applying it is idempotent: redelivery writes the same values.
+//
+// Concurrency: the carrier and payment signals for a new storefront usually arrive together, so each consumer
+// owns its own table (StorefrontCarrierReadiness / StorefrontPaymentReadiness) and writes it with one atomic
+// INSERT … ON CONFLICT DO UPDATE — never read-then-insert. A shared row can't be made safe here: the EF outbox
+// runs each consumer in a REPEATABLE READ transaction whose snapshot predates the write, so a concurrent first
+// insert of the same row fails with 23505 (read-then-insert) or 40001 (upsert/update) and costs a retry.
+// Raw SQL is schema-qualified (ADR-0022); Catalog has no RLS, so no tenant scope is needed.
+
+/// <summary>Projects <see cref="StorefrontCarrierReadinessChanged"/> onto <c>catalog."StorefrontCarrierReadiness"</c>.</summary>
 public sealed class StorefrontCarrierReadinessConsumer(CatalogDbContext db)
     : IConsumer<StorefrontCarrierReadinessChanged>
 {
     public async Task Consume(ConsumeContext<StorefrontCarrierReadinessChanged> context)
     {
         var m = context.Message;
-        var row = await Upsert(db, m.StorefrontId, m.TenantId, context.CancellationToken);
-        row.HasActiveCarrier = m.HasActiveCarrier;
-        await db.SaveChangesAsync(context.CancellationToken);
-    }
-
-    internal static async Task<StorefrontServiceReadiness> Upsert(
-        CatalogDbContext db, Guid storefrontId, Guid tenantId, CancellationToken ct)
-    {
-        var row = await db.StorefrontServiceReadiness.SingleOrDefaultAsync(r => r.StorefrontId == storefrontId, ct);
-        if (row is null)
-        {
-            row = new StorefrontServiceReadiness { StorefrontId = storefrontId, TenantId = tenantId };
-            db.StorefrontServiceReadiness.Add(row);
-        }
-        else
-        {
-            row.TenantId = tenantId;
-        }
-
-        return row;
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO catalog."StorefrontCarrierReadiness" ("StorefrontId", "TenantId", "HasActiveCarrier")
+            VALUES ({m.StorefrontId}, {m.TenantId}, {m.HasActiveCarrier})
+            ON CONFLICT ("StorefrontId") DO UPDATE
+            SET "TenantId" = EXCLUDED."TenantId", "HasActiveCarrier" = EXCLUDED."HasActiveCarrier"
+            """,
+            context.CancellationToken);
     }
 }
 
+/// <summary>Projects <see cref="StorefrontPaymentReadinessChanged"/> onto <c>catalog."StorefrontPaymentReadiness"</c>.</summary>
 public sealed class StorefrontPaymentReadinessConsumer(CatalogDbContext db)
     : IConsumer<StorefrontPaymentReadinessChanged>
 {
     public async Task Consume(ConsumeContext<StorefrontPaymentReadinessChanged> context)
     {
         var m = context.Message;
-        var row = await StorefrontCarrierReadinessConsumer.Upsert(db, m.StorefrontId, m.TenantId, context.CancellationToken);
-        row.HasActivePaymentAccount = m.HasActivePaymentAccount;
-        await db.SaveChangesAsync(context.CancellationToken);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO catalog."StorefrontPaymentReadiness" ("StorefrontId", "TenantId", "HasActivePaymentAccount")
+            VALUES ({m.StorefrontId}, {m.TenantId}, {m.HasActivePaymentAccount})
+            ON CONFLICT ("StorefrontId") DO UPDATE
+            SET "TenantId" = EXCLUDED."TenantId", "HasActivePaymentAccount" = EXCLUDED."HasActivePaymentAccount"
+            """,
+            context.CancellationToken);
     }
 }

@@ -25,7 +25,10 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
     public DbSet<Promotion> Promotions => Set<Promotion>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<ProductTypeShippingPolicy> ProductTypeShippingPolicies => Set<ProductTypeShippingPolicy>();
+    /// <summary>Read-only view composing the two per-signal readiness tables below.</summary>
     public DbSet<StorefrontServiceReadiness> StorefrontServiceReadiness => Set<StorefrontServiceReadiness>();
+    public DbSet<StorefrontCarrierReadiness> StorefrontCarrierReadiness => Set<StorefrontCarrierReadiness>();
+    public DbSet<StorefrontPaymentReadiness> StorefrontPaymentReadiness => Set<StorefrontPaymentReadiness>();
     public DbSet<SupportedCurrency> SupportedCurrencies => Set<SupportedCurrency>();
     public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
     public DbSet<TenantCatalogSettings> TenantCatalogSettings => Set<TenantCatalogSettings>();
@@ -42,8 +45,23 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             policy.HasIndex(x => x.TenantId).IsUnique();
         });
 
+        // Go-live signals (ADR-0042): one table per signal, each written by its own consumer with a single
+        // upsert, so concurrent first writes for one storefront never touch the same row. The combined
+        // StorefrontServiceReadiness is a view over both (created in the SplitStorefrontServiceReadiness
+        // migration); a ToView-mapped entity is never created or altered by migrations.
+        modelBuilder.Entity<StorefrontCarrierReadiness>(readiness =>
+        {
+            readiness.ToTable("StorefrontCarrierReadiness");
+            readiness.HasKey(x => x.StorefrontId);
+        });
+        modelBuilder.Entity<StorefrontPaymentReadiness>(readiness =>
+        {
+            readiness.ToTable("StorefrontPaymentReadiness");
+            readiness.HasKey(x => x.StorefrontId);
+        });
         modelBuilder.Entity<StorefrontServiceReadiness>(readiness =>
         {
+            readiness.ToView("StorefrontServiceReadiness");
             readiness.HasKey(x => x.StorefrontId);
         });
 

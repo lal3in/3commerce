@@ -31,6 +31,8 @@
 #       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
 #       Catalog Storefront lifecycle plus public URL/currency/tax config invariants;
 #       Catalog Publication readiness/SEO/fulfillment-source invariants;
+#       Catalog go-live readiness storage: one table per signal + a read-only combined view
+#       (StorefrontReadinessModelTests — the race-free shape of the readiness consumers);
 #       Catalog Promotion aggregate invariants (ADR-0051): >=1 threshold (money and/or
 #       quantity), >=1 reward, percent XOR fixed amount, scope<->product binding,
 #       ordered inclusive active window, storefront match, activate/deactivate;
@@ -100,6 +102,10 @@
 #       filters, search + product-detail p95 < 500ms (NFR-5), hostile-input safety;
 #       admin catalog editor CRUD — create/edit variants+stock+images+attrs, slug
 #       uniqueness, category-required, admin-only (FR-12/BL-2)
+#       Catalog go-live readiness projection under concurrency: carrier + payment events for 20
+#       new storefronts at once → every row has both flags, no 23505/40001, nothing in _error;
+#       redelivery/re-publish idempotent, one signal never clobbers the other
+#       (StorefrontReadinessConcurrencyTests)
 #   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
 #       append-only (UPDATE/DELETE blocked)
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,

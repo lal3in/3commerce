@@ -83,6 +83,19 @@ you are touching before you push.
      stops first: it stops MassTransit once, and both callers wait for that stop.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
+## Messaging / consumers
+
+- **Two consumers that write different columns of one row: give each its own row — never
+  read-then-insert, and don't rely on an upsert either.** Catalog's carrier and payment readiness
+  consumers shared `StorefrontServiceReadiness`. Both events for a new storefront arrive together, both
+  saw no row, both inserted, and one failed with `23505` (PK). Retry hid it, so the only symptom was an
+  error log per new storefront. An `INSERT … ON CONFLICT DO UPDATE` does NOT fix this here: the EF outbox
+  runs every consumer in a **REPEATABLE READ** transaction (MassTransit's default), and its snapshot is
+  taken at the inbox lock, before the consumer runs. A row that a concurrent transaction commits after
+  that point makes the upsert (or a plain `UPDATE` of a shared row) fail with `40001 could not serialize
+  access`. The fix: one table per signal, each written by its own consumer with a single schema-qualified
+  upsert, and a view that combines them for readers. Tables with one writer per row never contend.
+
 ## Browser E2E (Playwright)
 
 - **A seed POST gated by an async cross-service projection must retry until accepted.**
