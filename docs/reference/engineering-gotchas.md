@@ -39,6 +39,11 @@ you are touching before you push.
   none, so the consumer never runs and the test times out. Use
   `fixture.<Service>.Services.GetRequiredService<IBus>().Publish(msg)`, then poll the target DB
   (see `UsageChargeRevenueTests`, `DigitalFulfilmentTests.PollAsync`).
+- **A test-built consumer host must wait for its queue binding before anything publishes.**
+  MassTransit's hosted service `StartAsync` returns at once unless
+  `services.Configure<MassTransitHostOptions>(o => { o.WaitUntilStarted = true; o.StartTimeout = … })`;
+  a publish that beats the queue binding is silently dropped by RabbitMQ, so the wait times out no
+  matter how long it is (`MockEmailCaptureTests` failed this way at 30 s and at 120 s). `Bus.Factory…StartAsync()` already waits.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Browser E2E (Playwright)

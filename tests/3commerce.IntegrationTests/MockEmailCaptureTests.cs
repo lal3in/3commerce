@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using MassTransit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,16 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
         builder.Services.AddSingleton(new EmailTemplates("http://localhost:3000"));
         builder.Services.AddSingleton<IEmailSender>(recorder);
         builder.Services.AddServiceBus(builder.Configuration, bus => bus.AddConsumer<MockPaymentCapturedConsumer>());
+        // StartAsync must not return until the mock-payment-captured queue is declared AND bound to the
+        // MockPaymentCaptured exchange. MassTransit's hosted service otherwise returns immediately and starts
+        // the bus in the background; Payments publishes the event inside POST /checkout, and a publish that
+        // beats the binding is dropped by RabbitMQ (no queue bound) — the email never arrives, however long
+        // the wait. Bounded so a broker that never comes up fails loudly here instead.
+        builder.Services.Configure<MassTransitHostOptions>(o =>
+        {
+            o.WaitUntilStarted = true;
+            o.StartTimeout = TimeSpan.FromSeconds(60);
+        });
         using var notifications = builder.Build();
         await notifications.StartAsync();
         try
@@ -142,9 +153,9 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
     private static async Task<EmailMessage> WaitForEmailAsync(RecordingEmailSender recorder, Guid orderId)
     {
         // The email crosses the full async chain (checkout → outbox → RabbitMQ → this test's consumer host →
-        // recording sender) on the fixture's SHARED broker, which the whole integration suite hammers in
-        // parallel. 30s was occasionally too tight under that load (intermittent CI timeout) — 120s gives
-        // generous headroom without slowing the happy path (it returns as soon as the email lands).
+        // recording sender). The deadline is only an upper bound for a loaded CI runner — it returns as soon
+        // as the email lands. NOTE: raising it never fixed the old flake; that was a LOST message (the
+        // consumer's queue was not yet bound when Payments published), fixed by WaitUntilStarted above.
         var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -157,7 +168,8 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
             await Task.Delay(250);
         }
 
-        throw new TimeoutException($"No TEST-ONLY mock payment email arrived for order {orderId}.");
+        throw new TimeoutException(
+            $"No TEST-ONLY mock payment email arrived for order {orderId} ({recorder.Sent.Count} email(s) recorded, none for this order).");
     }
 
     private async Task SimulatePaymentAsync(Guid orderId, long gross)
