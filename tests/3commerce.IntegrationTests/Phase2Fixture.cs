@@ -104,6 +104,9 @@ public sealed class Phase2Fixture : IAsyncLifetime
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             // Disable the dev admin seeder during tests (each test owns its data).
             builder.UseSetting("Identity:SeedAdmin:Email", string.Empty);
+            // Host start waits for the bus, so a disposed factory can't leave a zombie consumer on the
+            // shared broker (TestBusHosting).
+            builder.ConfigureServices(services => services.WaitForBusStartup());
             if (settings is not null)
             {
                 foreach (var (key, value) in settings)

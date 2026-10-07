@@ -370,6 +370,9 @@ public sealed class Phase3Fixture : IAsyncLifetime
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             builder.UseSetting("Stripe:SecretKey", string.Empty); // force the fake provider
             builder.UseSetting("Scheduling:Enabled", "false");
+            // Host start waits for the bus, so a disposed factory can't leave a zombie consumer on the
+            // shared broker (TestBusHosting).
+            builder.ConfigureServices(services => services.WaitForBusStartup());
         });
 
         using var scope = factory.Services.CreateScope();
