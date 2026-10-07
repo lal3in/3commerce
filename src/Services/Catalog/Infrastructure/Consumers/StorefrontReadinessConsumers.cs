@@ -13,6 +13,8 @@ namespace ThreeCommerce.Catalog.Infrastructure.Consumers;
 // INSERT … ON CONFLICT DO UPDATE — never read-then-insert. A shared row can't be made safe here: the EF outbox
 // runs each consumer in a REPEATABLE READ transaction whose snapshot predates the write, so a concurrent first
 // insert of the same row fails with 23505 (read-then-insert) or 40001 (upsert/update) and costs a retry.
+// For the same reason two events of ONE signal for one storefront must not run in parallel; Program.cs sets
+// ConcurrentMessageLimit = 1 on both endpoints, which also applies them in queue (publish) order.
 // Raw SQL is schema-qualified (ADR-0022); Catalog has no RLS, so no tenant scope is needed.
 
 /// <summary>Projects <see cref="StorefrontCarrierReadinessChanged"/> onto <c>catalog."StorefrontCarrierReadiness"</c>.</summary>

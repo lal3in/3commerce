@@ -95,6 +95,9 @@ you are touching before you push.
   that point makes the upsert (or a plain `UPDATE` of a shared row) fail with `40001 could not serialize
   access`. The fix: one table per signal, each written by its own consumer with a single schema-qualified
   upsert, and a view that combines them for readers. Tables with one writer per row never contend.
+  The same holds for two events of ONE signal for one row (a carrier configured, then activated): run in
+  parallel they fail with 40001, and the retried, older value can land last. Give such an endpoint
+  `ConcurrentMessageLimit = 1` (Catalog `Program.cs`) so it applies them one at a time in queue order.
 
 ## Browser E2E (Playwright)
 

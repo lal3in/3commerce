@@ -104,7 +104,8 @@
 #       uniqueness, category-required, admin-only (FR-12/BL-2)
 #       Catalog go-live readiness projection under concurrency: carrier + payment events for 20
 #       new storefronts at once → every row has both flags, no 23505/40001, nothing in _error;
-#       redelivery/re-publish idempotent, one signal never clobbers the other
+#       redelivery/re-publish idempotent, one signal never clobbers the other; a burst of one
+#       signal for one storefront applies in order with no 40001 (serial endpoints)
 #       (StorefrontReadinessConcurrencyTests)
 #   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
 #       append-only (UPDATE/DELETE blocked)

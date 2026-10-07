@@ -87,6 +87,35 @@ public sealed class StorefrontReadinessConcurrencyTests(Phase2Fixture fixture) :
     }
 
     [Fact]
+    public async Task A_burst_of_one_signal_for_one_storefront_applies_in_order_without_conflicts()
+    {
+        // Several changes of the SAME signal for one storefront back to back (a carrier configured, activated,
+        // paused…): consumed in parallel they hit the same row under REPEATABLE READ (40001), and a retried
+        // stale value could land last. Serial consumption per readiness endpoint applies them in queue order.
+        var tenant = Guid.CreateVersion7();
+        var storefront = Guid.CreateVersion7();
+        bool[] carrier = [false, true, false, true, true, false, true];
+        bool[] payment = [true, false, true, false, false, true, false];
+        var ids = new List<Guid>();
+
+        for (var i = 0; i < carrier.Length; i++)
+        {
+            Guid carrierId = NewId.NextGuid(), paymentId = NewId.NextGuid();
+            ids.Add(carrierId);
+            ids.Add(paymentId);
+            await _bus.Publish(new StorefrontCarrierReadinessChanged(tenant, storefront, carrier[i]), c => c.MessageId = carrierId);
+            await _bus.Publish(new StorefrontPaymentReadinessChanged(tenant, storefront, payment[i]), c => c.MessageId = paymentId);
+        }
+
+        await WaitUntilAsync(() => ids.All(id => _observer.ReceivedCount(id) >= 1), "every burst message processed");
+        var row = (await ReadAsync([storefront]))[storefront];
+        Assert.Equal(carrier[^1], row.HasActiveCarrier);
+        Assert.Equal(payment[^1], row.HasActivePaymentAccount);
+
+        await AssertNoRaceAsync();
+    }
+
+    [Fact]
     public async Task Redelivered_and_repeated_events_are_idempotent_and_never_clobber_the_other_signal()
     {
         var tenant = Guid.CreateVersion7();

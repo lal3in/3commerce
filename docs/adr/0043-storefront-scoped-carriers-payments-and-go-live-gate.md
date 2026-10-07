@@ -77,7 +77,9 @@ Key dependencies:
   *Amended 2026-10-07:* it is now a view over `StorefrontCarrierReadiness` and
   `StorefrontPaymentReadiness`, one table per signal, each upserted by its own consumer. When both
   consumers wrote one row, concurrent first writes for a new storefront collided (`23505`), and under the
-  outbox's REPEATABLE READ transaction no upsert of a shared row avoids that (`40001`).
+  outbox's REPEATABLE READ transaction no upsert of a shared row avoids that (`40001`). Each readiness
+  endpoint also consumes one message at a time (`ConcurrentMessageLimit = 1`), so back-to-back events of one
+  signal apply in publish order instead of racing (40001) and landing a stale value last.
 - **The gate reads three things** at activation: the read model's two booleans, and — from Catalog's own
   data — whether any *published* product on the storefront is of a type the tenant policy marks shippable
   (that's what makes a carrier mandatory). The domain method keeps a back-compatible overload so callers
