@@ -39,11 +39,21 @@ you are touching before you push.
   none, so the consumer never runs and the test times out. Use
   `fixture.<Service>.Services.GetRequiredService<IBus>().Publish(msg)`, then poll the target DB
   (see `UsageChargeRevenueTests`, `DigitalFulfilmentTests.PollAsync`).
-- **A test-built consumer host must wait for its queue binding before anything publishes.**
-  MassTransit's hosted service `StartAsync` returns at once unless
-  `services.Configure<MassTransitHostOptions>(o => { o.WaitUntilStarted = true; o.StartTimeout = … })`;
-  a publish that beats the queue binding is silently dropped by RabbitMQ, so the wait times out no
-  matter how long it is (`MockEmailCaptureTests` failed this way at 30 s and at 120 s). `Bus.Factory…StartAsync()` already waits.
+- **A test-built host must wait for its bus to start, because both publishing and stopping depend on it.**
+  MassTransit's hosted service `StartAsync` returns at once and starts the bus in the background
+  unless `MassTransitHostOptions.WaitUntilStarted` is set. Every fixture's `CreateFactory` applies
+  `TestBusHosting.WaitForBusStartup()` (that option plus a bounded `StartTimeout`), and any new
+  ad-hoc host must call it too (`Bus.Factory…StartAsync()` already waits). Without it, two failures look like slow tests, and raising the
+  timeout fixes neither:
+  1. *Lost message.* A publish that reaches RabbitMQ before the queue is bound is silently dropped
+     (`MockEmailCaptureTests` failed this way at 30 s and at 120 s, PR #284).
+  2. *Zombie consumer.* A `WebApplicationFactory` disposed before its start finishes (a ~100 ms test,
+     or create-then-dispose to declare a queue) is never stopped. `MassTransitBus.StopAsync` logs
+     `Failed to stop bus … (Not Started)` and does nothing. The bus then finishes starting with an
+     already-disposed `IServiceProvider` and keeps competing for its service's durable queues on the
+     shared broker. Every message it takes faults (`ObjectDisposedException … 'IServiceProvider'`)
+     into `_error`, so a *later* test's projection never lands (`StorefrontGoLiveReadinessTests`,
+     PR #285). To check a test log, grep for `Failed to stop bus`.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Browser E2E (Playwright)

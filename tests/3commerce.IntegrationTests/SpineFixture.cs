@@ -84,6 +84,9 @@ public sealed class SpineFixture : IAsyncLifetime
         {
             builder.UseSetting("ConnectionStrings:Database", connectionString);
             builder.UseSetting("ConnectionStrings:RabbitMq", RabbitMqUri);
+            // Host start waits for the bus. SpineTests creates Ordering and disposes it right away to declare
+            // its durable queue, and without the wait that left a zombie consumer on the queue (TestBusHosting).
+            builder.ConfigureServices(services => services.WaitForBusStartup());
         });
 
         using var scope = factory.Services.CreateScope();
