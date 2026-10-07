@@ -29,8 +29,14 @@ builder.Services.AddDbContext<CatalogDbContext>((sp, options) =>
 builder.Services.AddServiceBus<CatalogDbContext>(builder.Configuration, bus =>
 {
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.InventoryAvailabilityConsumer>();
-    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontCarrierReadinessConsumer>(); // go-live gate (ADR-0042)
-    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontPaymentReadinessConsumer>();
+    // Go-live gate (ADR-0042). One message at a time per readiness endpoint: the consumer transaction is
+    // REPEATABLE READ, so two events for the same storefront and signal (e.g. a carrier configured then
+    // activated) consumed in parallel fail with 40001, and the retried one can land last with a stale value.
+    // Serial consumption keeps queue order. The two signals live in separate tables, so they still run in parallel.
+    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontCarrierReadinessConsumer>()
+        .Endpoint(e => e.ConcurrentMessageLimit = 1);
+    bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.StorefrontPaymentReadinessConsumer>()
+        .Endpoint(e => e.ConcurrentMessageLimit = 1);
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.CurrencyProjectionConsumer>(); // currency registry projection (currency_2)
     bus.AddConsumer<ThreeCommerce.Catalog.Infrastructure.Consumers.SupplierApprovalConsumer>(); // approval-gated availability (DECISION A)
 });
