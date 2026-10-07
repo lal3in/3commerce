@@ -24,6 +24,8 @@ public sealed class Phase2Fixture : IAsyncLifetime
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4").Build();
     private readonly ECDsa _ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly JsonWebTokenHandler _jwtHandler = new();
+    // Every host CreateFactory builds; teardown fails if a test left one running (TestHostTracker).
+    private readonly TestHostTracker _hosts = new();
 
     public string PublicKeyPem { get; private set; } = string.Empty;
     public string RabbitMqUri { get; private set; } = string.Empty;
@@ -43,8 +45,19 @@ public sealed class Phase2Fixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        _ecdsa.Dispose();
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
+        string? leaked;
+        try
+        {
+            // Phase2 owns no hosts: every one a test created must already be disposed.
+            leaked = await _hosts.DisposeLeakedAsync();
+        }
+        finally
+        {
+            _ecdsa.Dispose();
+            await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
+        }
+
+        TestHostTracker.ThrowIfLeaked(leaked);
     }
 
     public WebApplicationFactory<ThreeCommerce.Identity.Api.IApiMarker> CreateIdentityFactory(
@@ -97,6 +110,7 @@ public sealed class Phase2Fixture : IAsyncLifetime
             MinPoolSize = 0,
         }.ConnectionString;
 
+        var tracked = _hosts.Register<TMarker>();
         var factory = new WebApplicationFactory<TMarker>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:Database", connectionString);
@@ -106,7 +120,7 @@ public sealed class Phase2Fixture : IAsyncLifetime
             builder.UseSetting("Identity:SeedAdmin:Email", string.Empty);
             // Host start waits for the bus, so a disposed factory can't leave a zombie consumer on the
             // shared broker (TestBusHosting).
-            builder.ConfigureServices(services => services.WaitForBusStartup());
+            builder.ConfigureServices(services => services.AddTestBusHosting(tracked));
             if (settings is not null)
             {
                 foreach (var (key, value) in settings)
@@ -116,8 +130,17 @@ public sealed class Phase2Fixture : IAsyncLifetime
             }
         });
 
-        using var scope = factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        tracked.Factory = factory;
+        try
+        {
+            using var scope = factory.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        }
+        catch
+        {
+            factory.Dispose();
+            throw;
+        }
 
         return factory;
     }

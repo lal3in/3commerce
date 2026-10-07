@@ -86,6 +86,8 @@
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
+#       (every fixture's teardown also fails the run if a test left a service host running —
+#       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -308,11 +310,13 @@ run_automated() {
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
-  if grep -q 'Failed: *0' <<<"$out"; then
+  # A fixture teardown failure (e.g. TestHostTracker: a test left a service host running) still prints
+  # "Failed: 0" but exits non-zero, so check for it explicitly.
+  if grep -q 'Failed: *0' <<<"$out" && ! grep -q 'Cleanup Failure' <<<"$out"; then
     local n; n="$(grep -oE 'Passed: *[0-9]+' <<<"$out" | grep -oE '[0-9]+' | tail -1)"
     pass "A4–A6 integration ($n passed)"
   else
-    fail "A4–A6 integration"; grep -E 'Failed!|\[FAIL\]' <<<"$out" | head -5
+    fail "A4–A6 integration"; grep -E 'Failed!|\[FAIL\]|Cleanup Failure' <<<"$out" | head -5
   fi
 
   stage "A7  Storefront typecheck + build"

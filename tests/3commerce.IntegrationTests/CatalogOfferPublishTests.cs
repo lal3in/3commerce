@@ -22,8 +22,9 @@ public class CatalogOfferPublishTests(Phase2Fixture fixture)
     [Fact]
     public async Task Creating_a_subscription_offer_delivers_OfferChanged_to_the_broker()
     {
-        var catalog = fixture.CreateCatalogFactory();
-        var admin = catalog.CreateClient();
+        // Disposed at the end of the test: a leaked host keeps consuming from the shared broker's catalog queues.
+        await using var catalog = fixture.CreateCatalogFactory();
+        using var admin = catalog.CreateClient();
         admin.DefaultRequestHeaders.Add(
             InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.CreateVersion7(), Roles.Admin));
 
