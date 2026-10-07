@@ -27,6 +27,8 @@ public sealed class Phase4Fixture : IAsyncLifetime
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4").Build();
     private readonly ECDsa _ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly JsonWebTokenHandler _jwt = new();
+    // Every host CreateFactory builds; teardown fails if one is left running (TestHostTracker).
+    private readonly TestHostTracker _hosts = new();
     private IBusControl? _publishBus;
 
     public string RabbitMqUri { get; private set; } = string.Empty;
@@ -78,20 +80,31 @@ public sealed class Phase4Fixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_publishBus is not null)
+        string? leaked;
+        try
         {
-            await _publishBus.StopAsync();
+            if (_publishBus is not null)
+            {
+                await _publishBus.StopAsync();
+            }
+
+            await Support.DisposeAsync();
+            await Payments.DisposeAsync();
+            await Fulfillment.DisposeAsync();
+            await Entitlement.DisposeAsync();
+            await Usage.DisposeAsync();
+            await Marketing.DisposeAsync();
+            await Audit.DisposeAsync();
+            await Catalog.DisposeAsync();
+            leaked = await _hosts.DisposeLeakedAsync();
+        }
+        finally
+        {
+            _ecdsa.Dispose();
+            await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
         }
 
-        await Support.DisposeAsync();
-        await Payments.DisposeAsync();
-        await Fulfillment.DisposeAsync();
-        await Entitlement.DisposeAsync();
-        await Usage.DisposeAsync();
-        await Audit.DisposeAsync();
-        await Catalog.DisposeAsync();
-        _ecdsa.Dispose();
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
+        TestHostTracker.ThrowIfLeaked(leaked);
     }
 
     public string Claims(string role) => MintInternalClaims(Guid.CreateVersion7(), role);
@@ -205,6 +218,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
             MinPoolSize = 0,
         }.ConnectionString;
 
+        var tracked = _hosts.Register<TMarker>();
         var factory = new WebApplicationFactory<TMarker>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:Database", connectionString);
@@ -214,11 +228,21 @@ public sealed class Phase4Fixture : IAsyncLifetime
             builder.UseSetting("Scheduling:Enabled", "false");
             // Host start waits for the bus, so a disposed factory can't leave a zombie consumer on the
             // shared broker (TestBusHosting).
-            builder.ConfigureServices(services => services.WaitForBusStartup());
+            builder.ConfigureServices(services => services.AddTestBusHosting(tracked));
         });
 
-        using var scope = factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        tracked.Factory = factory;
+        try
+        {
+            using var scope = factory.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        }
+        catch
+        {
+            factory.Dispose();
+            throw;
+        }
+
         return factory;
     }
 

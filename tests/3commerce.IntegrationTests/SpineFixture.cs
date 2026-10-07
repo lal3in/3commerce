@@ -18,6 +18,8 @@ public sealed class SpineFixture : IAsyncLifetime
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
         .WithCommand("-c", "max_connections=400").Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder("rabbitmq:4").Build();
+    // Every host CreateFactory builds; teardown fails if a test left one running (TestHostTracker).
+    private readonly TestHostTracker _hosts = new();
     private IBusControl? _listenerBus;
 
     public ConcurrentBag<PongResponded> Pongs { get; } = [];
@@ -53,12 +55,22 @@ public sealed class SpineFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_listenerBus is not null)
+        string? leaked;
+        try
         {
-            await _listenerBus.StopAsync();
+            if (_listenerBus is not null)
+            {
+                await _listenerBus.StopAsync();
+            }
+
+            leaked = await _hosts.DisposeLeakedAsync();
+        }
+        finally
+        {
+            await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
         }
 
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
+        TestHostTracker.ThrowIfLeaked(leaked);
     }
 
     public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> CreateCatalogFactory() =>
@@ -80,17 +92,27 @@ public sealed class SpineFixture : IAsyncLifetime
             MinPoolSize = 0,
         }.ConnectionString;
 
+        var tracked = _hosts.Register<TMarker>();
         var factory = new WebApplicationFactory<TMarker>().WithWebHostBuilder(builder =>
         {
             builder.UseSetting("ConnectionStrings:Database", connectionString);
             builder.UseSetting("ConnectionStrings:RabbitMq", RabbitMqUri);
             // Host start waits for the bus. SpineTests creates Ordering and disposes it right away to declare
             // its durable queue, and without the wait that left a zombie consumer on the queue (TestBusHosting).
-            builder.ConfigureServices(services => services.WaitForBusStartup());
+            builder.ConfigureServices(services => services.AddTestBusHosting(tracked));
         });
 
-        using var scope = factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        tracked.Factory = factory;
+        try
+        {
+            using var scope = factory.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<TDbContext>().Database.Migrate();
+        }
+        catch
+        {
+            factory.Dispose();
+            throw;
+        }
 
         return factory;
     }

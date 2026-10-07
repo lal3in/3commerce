@@ -15,15 +15,26 @@ namespace ThreeCommerce.IntegrationTests;
 /// </summary>
 [Trait("Category", "Integration")]
 [Collection(Phase2Collection.Name)]
-public class CatalogOfferDuplicateGuardTests(Phase2Fixture fixture)
+public class CatalogOfferDuplicateGuardTests(Phase2Fixture fixture) : IAsyncLifetime
 {
-    private HttpClient AdminClient()
+    // The host is disposed after each test: a leaked one keeps consuming from the shared broker's catalog
+    // queues for the rest of the run (TestHostTracker fails the fixture teardown if it is).
+    private Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> _catalog = null!;
+    private HttpClient _admin = null!;
+
+    public Task InitializeAsync()
     {
-        var catalog = fixture.CreateCatalogFactory();
-        var admin = catalog.CreateClient();
-        admin.DefaultRequestHeaders.Add(
+        _catalog = fixture.CreateCatalogFactory();
+        _admin = _catalog.CreateClient();
+        _admin.DefaultRequestHeaders.Add(
             InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.CreateVersion7(), Roles.Admin));
-        return admin;
+        return Task.CompletedTask;
+    }
+
+    public async Task DisposeAsync()
+    {
+        _admin.Dispose();
+        await _catalog.DisposeAsync();
     }
 
     private static object OfferBody(Guid productId, Guid supplierId, Guid? variantId, Guid? storefrontId) => new
@@ -43,15 +54,14 @@ public class CatalogOfferDuplicateGuardTests(Phase2Fixture fixture)
     [Fact]
     public async Task Creating_an_offer_with_the_same_full_key_is_rejected()
     {
-        var admin = AdminClient();
         var productId = Guid.CreateVersion7();
         var supplierId = Guid.CreateVersion7();
         var variantId = Guid.CreateVersion7();
 
-        var first = await admin.PostAsJsonAsync("/admin/offers", OfferBody(productId, supplierId, variantId, null));
+        var first = await _admin.PostAsJsonAsync("/admin/offers", OfferBody(productId, supplierId, variantId, null));
         first.EnsureSuccessStatusCode();
 
-        var second = await admin.PostAsJsonAsync("/admin/offers", OfferBody(productId, supplierId, variantId, null));
+        var second = await _admin.PostAsJsonAsync("/admin/offers", OfferBody(productId, supplierId, variantId, null));
         Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
         Assert.Contains("already exists", await second.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
@@ -59,16 +69,15 @@ public class CatalogOfferDuplicateGuardTests(Phase2Fixture fixture)
     [Fact]
     public async Task A_different_supplier_on_the_same_product_still_creates()
     {
-        var admin = AdminClient();
         var productId = Guid.CreateVersion7();
         var variantId = Guid.CreateVersion7();
 
-        var first = await admin.PostAsJsonAsync(
+        var first = await _admin.PostAsJsonAsync(
             "/admin/offers", OfferBody(productId, Guid.CreateVersion7(), variantId, null));
         first.EnsureSuccessStatusCode();
 
         // Multi-supplier: another supplier covering the same product/variant is NOT a duplicate.
-        var second = await admin.PostAsJsonAsync(
+        var second = await _admin.PostAsJsonAsync(
             "/admin/offers", OfferBody(productId, Guid.CreateVersion7(), variantId, null));
         second.EnsureSuccessStatusCode();
     }
@@ -76,17 +85,16 @@ public class CatalogOfferDuplicateGuardTests(Phase2Fixture fixture)
     [Fact]
     public async Task The_same_supplier_with_a_different_storefront_still_creates()
     {
-        var admin = AdminClient();
         var productId = Guid.CreateVersion7();
         var supplierId = Guid.CreateVersion7();
         var variantId = Guid.CreateVersion7();
 
-        var first = await admin.PostAsJsonAsync(
+        var first = await _admin.PostAsJsonAsync(
             "/admin/offers", OfferBody(productId, supplierId, variantId, Guid.CreateVersion7()));
         first.EnsureSuccessStatusCode();
 
         // Per-storefront pricing: the same supplier with a DIFFERENT StorefrontId is a distinct offer.
-        var second = await admin.PostAsJsonAsync(
+        var second = await _admin.PostAsJsonAsync(
             "/admin/offers", OfferBody(productId, supplierId, variantId, Guid.CreateVersion7()));
         second.EnsureSuccessStatusCode();
     }

@@ -54,6 +54,33 @@ you are touching before you push.
      shared broker. Every message it takes faults (`ObjectDisposedException … 'IServiceProvider'`)
      into `_error`, so a *later* test's projection never lands (`StorefrontGoLiveReadinessTests`,
      PR #285). To check a test log, grep for `Failed to stop bus`.
+
+  A host a test creates and never disposes does the same harm without any race: its bus keeps
+  consuming from the shared broker's durable queues for the rest of the run (`CatalogOfferDuplicateGuardTests`
+  and `CatalogOfferPublishTests` leaked 4 Catalog hosts, and `Phase4Fixture` never disposed its Marketing
+  host). Dispose every factory a test creates (`await using`, or the test class's
+  `IAsyncLifetime.DisposeAsync`). Every fixture's `CreateFactory` registers its host with a
+  `TestHostTracker` (`TestBusHosting.cs`), whose bus observer counts the bus's starts and stops. At
+  teardown the fixture disposes any host whose bus is still running and then fails with
+  `[Test Collection Cleanup Failure (<collection>)]`, naming the service and the test that created the host. The summary
+  still reads `Failed: 0`, but `dotnet test` exits 1 (`e2e-verify.sh` A4–A6 checks for the line). To see
+  the names, rerun with `--logger "console;verbosity=detailed"`. That verbosity also prints the app logs:
+  expect 0 `Failed to stop bus` and 0 `Cannot access a disposed object`. Compare `Bus started` with
+  `Bus stopped` per broker port, but trust the tracker over that log count. MassTransit logs through an
+  `AsyncLocal` LogContext, and the stop runs on whichever thread calls `Host.StopAsync` first. When that is
+  a test thread that also built an ad-hoc `Bus.Factory` bus (`SpineTests.Duplicate_delivery_…`,
+  `CatalogOfferPublishTests`), the line goes to a context with no logger and is lost. So a run can read
+  68/67 on one port even though the tracker saw the bus stop (PR #286).
+  3. *Disposed while stopping.* A disposed factory is not always a stopped bus. Under
+     `WebApplicationFactory`, a minimal-hosting app's `Host.StopAsync` runs twice at once: once from the
+     factory's dispose and once from the app's own `app.Run()`, which wakes on ApplicationStopping.
+     `MassTransitHostedService.StopAsync` sets its stopped flag *before* it awaits the bus, so the second
+     caller returns immediately. If that caller is the factory, it disposes the `IServiceProvider` while
+     a busy bus is still draining. The bus never finishes stopping and keeps consuming, and every message it
+     takes faults with `ObjectDisposedException 'IServiceProvider'`. Because this only happens when the bus
+     is busy, it fails at random. The tracker caught it in `SpineTests` (the restarted Ordering) and in
+     Phase3's lazy Catalog host. `AddTestBusHosting` registers `BusStopsBeforeHostDisposal`, which the host
+     stops first: it stops MassTransit once, and both callers wait for that stop.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Browser E2E (Playwright)
