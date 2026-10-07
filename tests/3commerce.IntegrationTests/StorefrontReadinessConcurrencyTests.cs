@@ -35,16 +35,17 @@ public sealed class StorefrontReadinessConcurrencyTests(Phase2Fixture fixture) :
 
     private readonly LogCapture _logs = new();
     private readonly BusObserver _observer = new();
-    private WebApplicationFactory<CatalogApi> _base = null!;
     private WebApplicationFactory<CatalogApi> _catalog = null!;
     private IBus _bus = null!;
     private Dictionary<string, uint> _errorsBefore = null!;
 
     public async Task InitializeAsync()
     {
-        _base = fixture.CreateCatalogFactory();
-        _catalog = _base.WithWebHostBuilder(b => b.ConfigureServices(s => s.AddSingleton<ILoggerProvider>(_logs)));
-        _bus = _catalog.Services.GetRequiredService<IBus>(); // starts the host; the bus is up when this returns
+        // One host only: the fixture starts the factory it returns, and a second (derived) host would compete
+        // for the same queues, so messages it took would escape the observer below.
+        _catalog = fixture.CreateCatalogFactory();
+        _catalog.Services.GetRequiredService<ILoggerFactory>().AddProvider(_logs); // also rewires existing loggers
+        _bus = _catalog.Services.GetRequiredService<IBus>();
         _bus.ConnectReceiveObserver(_observer);
         _errorsBefore = await ErrorQueueDepthsAsync();
     }
@@ -52,7 +53,6 @@ public sealed class StorefrontReadinessConcurrencyTests(Phase2Fixture fixture) :
     public Task DisposeAsync()
     {
         _catalog.Dispose();
-        _base.Dispose();
         return Task.CompletedTask;
     }
 
