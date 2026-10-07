@@ -144,6 +144,8 @@
     "renewsMonthly": "每月续订价",
     "renewsYearly": "每年续订价",
     "taxNote": "运费和税费将在结账时计算。",
+    "blockedCurrency": "您的购物车使用 {cartCurrency}，但本店以 {storeCurrency} 销售。请清空购物车后在此购物。",
+    "blockedSupply": "您购物车中的某件商品目前在本店不可购买。请将其移除后结账。",
     "checkout": "结账",
     "remove": "移除",
     "decreaseQuantity": "减少数量",

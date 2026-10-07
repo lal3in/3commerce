@@ -68,7 +68,10 @@ export async function driveCheckout(): Promise<CheckoutDrive> {
     const products = (await list.json()) as Array<{ id: string }>;
     if (!products.length) throw new Error(`demo storefront '${store.slug}' publishes no sellable product in ${store.currency}`);
 
-    const add = await ctx.post(`${GATEWAY}/api/ordering/cart/items`, { data: { productId: products[0].id, quantity: 1 } });
+    const add = await ctx.post(`${GATEWAY}/api/ordering/cart/items`, {
+      // In the store's currency: checkout refuses a cart in any other currency (ADR-0059).
+      data: { productId: products[0].id, quantity: 1, currency: store.currency },
+    });
     if (!add.ok()) throw new Error(`add to cart → ${add.status()}: ${await add.text()}`);
 
     // Ship to a destination the store serves (empty allowlist = worldwide).

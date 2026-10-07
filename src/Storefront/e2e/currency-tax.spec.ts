@@ -27,6 +27,22 @@ test.describe("Storefront currency + tax (ADR-0038)", () => {
     await expect(page.getByText(/Includes tax \(10%\)/)).toBeVisible();
     await expect(page.getByText(/^Tax \(added\)$/)).toHaveCount(0);
   });
+
+  test("a cart filled on the EU store is flagged on the AU store before checkout (ADR-0059)", async ({ page }) => {
+    // The cart cookie is shared by every store on the host. An order's currency must be its storefront's,
+    // so checkout refuses a EUR cart on the AUD store (400) — and the cart page says so first, from the
+    // same rule (GET /cart/summary → checkoutBlock), instead of a generic "Checkout failed" later.
+    test.skip(!(await auStorefrontSeeded(page)), "AU demo storefront not seeded (needs --data full)");
+    await page.goto("/eu");
+    await addFirstInStockProduct(page);
+
+    await page.goto("/au");
+    await page.goto("/cart");
+    const blocked = page.getByTestId("checkout-blocked");
+    await expect(blocked).toBeVisible();
+    await expect(blocked).toContainText("EUR");
+    await expect(blocked).toContainText("AUD");
+  });
 });
 
 /** Lands on /au and reports whether the AU demo storefront (--data full seed) is configured. */

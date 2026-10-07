@@ -568,10 +568,11 @@ except Exception:
 
 # pick_sellable_product <storefrontId> <currency> <nth> <label>: echo the nth (0-based, wrapping) product
 # SELLABLE on this store. The store-scoped listing gives products published there and priced in its
-# currency (it already hides products whose covering offers in that currency are all unapproved). Ordering's
-# checkout gate is wider — it refuses a line whose product has ANY active offer (any currency/store) but none
-# from an approved supplier — so a product also needs no active offer at all, or one from the approved demo
-# supplier. Echoes nothing when the store has no such product.
+# currency (it already hides products whose covering offers in that currency are all unapproved). Since
+# ADR-0059 Ordering's checkout gate is the SAME per-store/per-currency rule, so the listing alone is enough;
+# the extra filter below (no active offer at all, or one from the approved demo supplier) is kept as a
+# belt-and-braces narrowing — it only ever picks a subset of what checkout accepts. Echoes nothing when
+# the store has no such product.
 pick_sellable_product() {
   local sid="$1" cur="$2" nth="$3" label="$4" supplier_id hits pid offers
   local -a sellable=()

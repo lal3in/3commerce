@@ -144,6 +144,8 @@
     "renewsMonthly": "Renews monthly at",
     "renewsYearly": "Renews yearly at",
     "taxNote": "Shipping and tax are calculated at checkout.",
+    "blockedCurrency": "Your cart is in {cartCurrency}, but this store sells in {storeCurrency}. Empty the cart to shop here.",
+    "blockedSupply": "An item in your cart isn't available on this store right now. Remove it to check out.",
     "checkout": "Checkout",
     "remove": "Remove",
     "decreaseQuantity": "Decrease quantity",

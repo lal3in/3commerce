@@ -59,7 +59,8 @@ export async function seedPaidOrder(request: APIRequestContext): Promise<{ order
   expect(Array.isArray(products) && products.length > 0, "the demo storefront must publish a sellable product").toBeTruthy();
   const productId = products[0].id as string;
 
-  await request.post(`${GATEWAY}/api/ordering/cart/items`, { data: { productId, quantity: 1 } });
+  // In the store's currency: checkout refuses a cart in any other currency (ADR-0059).
+  await request.post(`${GATEWAY}/api/ordering/cart/items`, { data: { productId, quantity: 1, currency } });
   const checkout = await request.post(`${GATEWAY}/api/ordering/checkout`, {
     data: {
       email: "buyer@example.com",

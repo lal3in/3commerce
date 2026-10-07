@@ -170,6 +170,67 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         Assert.Equal(tenantId, attempt.TenantId);
     }
 
+    private sealed record ProblemDto(int Status, string? Title, string? Detail, int CheckoutBlock);
+
+    private sealed record CartSummaryDto(
+        long SubtotalMinor, long StorefrontDiscountMinor, long PromotionDiscountMinor, long ItemsTotalMinor,
+        bool FreeShippingApplied, List<object> AppliedPromotions, string Currency,
+        int CouponStatus = 0, string? CouponCode = null, string CouponPromotionName = "", int Basis = 0,
+        List<object>? Renewals = null, int CheckoutBlock = 0, string? CheckoutBlockedReason = null,
+        string? StorefrontCurrency = null);
+
+    [Fact]
+    public async Task Checkout_rejects_a_cart_in_another_currency_than_the_storefront()
+    {
+        // ADR-0059: the demo-seed defect — a EUR cart checked out on the AUD store returned 201 and booked a
+        // EUR order to an AUD store. The cart cookie is shared by every store on the host, so this is how a
+        // shopper who browsed the EU store reaches the AU store's checkout.
+        var storefrontId = Guid.CreateVersion7();
+        await SeedTaxCopyAsync(storefrontId, "AUD", 1_000, inclusive: true);
+        var eurProduct = await fixture.SeedProductAsync(1_000, "EUR");
+
+        using var shopper = fixture.Ordering.CreateClient();
+        shopper.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = eurProduct, quantity = 1 })).EnsureSuccessStatusCode();
+
+        // The preview says so BEFORE the shopper pays, in checkout's own words, and does not price the cart
+        // as if it were valid (no discount, no promotion).
+        var summary = (await shopper.GetFromJsonAsync<CartSummaryDto>($"/cart/summary?storefrontId={storefrontId}"))!;
+        Assert.Equal(1, summary.CheckoutBlock); // CheckoutBlock.CurrencyMismatch, crossing HTTP as a number
+        Assert.Equal("AUD", summary.StorefrontCurrency);
+        Assert.Equal("EUR", summary.Currency);
+        Assert.Equal(1_000, summary.ItemsTotalMinor);
+        Assert.Empty(summary.AppliedPromotions);
+
+        var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        Assert.Equal(HttpStatusCode.BadRequest, checkout.StatusCode);
+        Assert.Equal("application/problem+json", checkout.Content.Headers.ContentType?.MediaType);
+        var problem = (await checkout.Content.ReadFromJsonAsync<ProblemDto>())!;
+        Assert.Equal("Cart is in EUR; this store sells in AUD — empty the cart to shop here.", problem.Detail);
+        Assert.Equal(1, problem.CheckoutBlock);
+        Assert.Equal(summary.CheckoutBlockedReason, problem.Detail); // one rule, one wording
+
+        // Nothing was booked for the refused cart.
+        using (var scope = fixture.Ordering.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            Assert.False(await db.CheckoutAttempts.AnyAsync(a => a.StorefrontId == storefrontId));
+        }
+
+        // The remedy works: empty the cart, shop in the store's currency, and the same store sells.
+        (await shopper.DeleteAsync($"/cart/items/{eurProduct}")).EnsureSuccessStatusCode();
+        var audProduct = await fixture.SeedProductAsync(2_000, "AUD");
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = audProduct, quantity = 1 })).EnsureSuccessStatusCode();
+        var matched = (await shopper.GetFromJsonAsync<CartSummaryDto>($"/cart/summary?storefrontId={storefrontId}"))!;
+        Assert.Equal(0, matched.CheckoutBlock);
+        Assert.Null(matched.CheckoutBlockedReason);
+
+        var accepted = await shopper.PostAsJsonAsync("/checkout", Checkout());
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+        var order = (await accepted.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal("AUD", order.Currency);
+    }
+
     private static readonly Guid AudStorefrontId = Guid.Parse("aaaaaaaa-0000-0000-0000-0000000000a1");
     private static readonly Guid UsdStorefrontId = Guid.Parse("aaaaaaaa-0000-0000-0000-0000000000b2");
 }

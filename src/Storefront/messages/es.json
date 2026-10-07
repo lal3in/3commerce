@@ -144,6 +144,8 @@
     "renewsMonthly": "Se renueva cada mes por",
     "renewsYearly": "Se renueva cada año por",
     "taxNote": "El envío y los impuestos se calculan al finalizar la compra.",
+    "blockedCurrency": "Tu carrito está en {cartCurrency}, pero esta tienda vende en {storeCurrency}. Vacía el carrito para comprar aquí.",
+    "blockedSupply": "Un artículo de tu carrito no está disponible en esta tienda en este momento. Elimínalo para finalizar la compra.",
     "checkout": "Finalizar compra",
     "remove": "Quitar",
     "decreaseQuantity": "Reducir cantidad",

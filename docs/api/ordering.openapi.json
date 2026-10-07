@@ -37,11 +37,16 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request. Most refusals are a JSON string; the ADR-0059 storefront gates (currency mismatch, unapproved supply on this storefront + currency) are application/problem+json with a numeric checkoutBlock extension.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "string"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutGateProblem"
                 }
               }
             }
@@ -1359,6 +1364,21 @@
               1,
               2
             ]
+          },
+          "checkoutBlock": {
+            "$ref": "#/components/schemas/CheckoutBlock"
+          },
+          "checkoutBlockedReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "storefrontCurrency": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1385,6 +1405,46 @@
             "description": "The promotion's cap; null = unlimited. Remaining = max - used."
           }
         }
+      },
+      "CheckoutGateProblem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Shopper-facing text; identical to GET /cart/summary's checkoutBlockedReason."
+          },
+          "checkoutBlock": {
+            "type": "integer",
+            "format": "int32",
+            "description": "CheckoutBlock: 1 CurrencyMismatch, 2 SupplyUnavailable (ADR-0059)."
+          }
+        }
+      },
+      "CheckoutBlock": {
+        "type": "integer",
+        "description": "0 None, 1 CurrencyMismatch, 2 SupplyUnavailable (ADR-0059). Crosses HTTP as a number."
       }
     }
   },

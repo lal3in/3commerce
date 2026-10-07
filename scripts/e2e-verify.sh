@@ -64,6 +64,11 @@
 #       product-scoped promotion staying on the line it covers, the two stacked, rounding remainders
 #       distributed so the parts sum exactly, and the subtotal clamp never allocating more than the
 #       order actually discounted;
+#       Ordering CHECKOUT GATES (ADR-0059, CheckoutGateTests + OfferResolutionTests): a cart in another
+#       currency than its storefront's is refused (message names both currencies; no projected copy = not
+#       gated), and supply availability is Catalog's ADR-0048 rule per storefront AND currency — offerless
+#       = available, an approved offer only for another store/currency neither unlocks nor blocks, window
+#       ignored for coverage;
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -122,6 +127,15 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       CHECKOUT CURRENCY + OFFER GATE (ADR-0059): a EUR cart on an AUD storefront is a 400 naming both
+#       currencies, flagged first by /cart/summary (checkoutBlock=CurrencyMismatch, unpriced), nothing
+#       booked, and the same store sells once the cart is in AUD (CartCurrencyTests); a subscription
+#       bought under the gate still renews in its stored currency and books a balanced renewal entry
+#       (SubscriptionRenewalPriceTests); and Catalog's listing/detail and Ordering's checkout AGREE per
+#       storefront + currency on offers created through Catalog's real admin API — approved only for
+#       another store or only in another currency → hidden AND 400; an unapproved offer elsewhere no
+#       longer blocks a listed product → listed AND 201 at catalogue price; approved here → listed AND
+#       201 at the offer price; offerless → listed AND 201 (CheckoutOfferGateParityTests);
 #       PROMOTION SCOPE + CAPS (PromotionScopeAndCapTests): the per-customer limit under EIGHT
 #       concurrent checkouts (the only read-then-write window, held by an advisory lock — proven to
 #       fail without it), a storefront-scoped promotion discounting its own store and no other while
@@ -217,8 +231,9 @@
 #   L12 Search latency p95 < 500ms
 #   L13 Logout → 204; password reset → login with new password
 #   L14 Storefront SSR: home/search/product render catalog data; /account redirects
-#   L15 Cart: add product → cart reflects it
-#   L16 Checkout: returns order + clientSecret + correct tax/gross (returns at intent)
+#   L15 Cart: add a product SELLABLE on the demo store (its own listing, in its currency) → cart accepts it
+#   L16 Checkout on that store, shipped to a country it serves: order + clientSecret + gross (returns at
+#       intent); a refusal prints the HTTP status + problem+json body
 #   L17 Simulate payment → saga confirms the order
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
@@ -234,6 +249,8 @@
 #       Redemptions column, no threshold required, duplicate code refused) and the shopper applying
 #       a code at checkout — invisible until entered, an unknown code showing its OWN reason, the
 #       discount row appearing, and remove pricing the cart back at full price (ADR-0052);
+#       a cart filled on the EU store and opened on the AU store shows the checkout-blocked notice
+#       naming EUR and AUD before checkout (ADR-0059, e2e/currency-tax.spec.ts; needs --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg
@@ -283,6 +300,11 @@ run_automated() {
   if dotnet test "$ROOT/3commerce.sln" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PromotionPreviewTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
+
+  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability"
+  if dotnet test "$ROOT/3commerce.sln" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3c checkout gates"; else fail "A3c checkout gates"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -571,11 +593,20 @@ run_live() {
   # sets the 3c_storefront cookie; in prod by Host). Pin the first demo store the public config resolves,
   # then browse WITH that cookie against the store's OWN published catalog. When no demo storefront is
   # published (e.g. an import-only seed), skip the SSR product checks rather than fail on an empty root.
-  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug="" sfid=""
+  local sfjar=/tmp/3c-e2e-sf.txt; rm -f "$sfjar"; local sfslug="" sfid="" sfcur="" sfship=""
   for s in au eu us; do
     local cfg; cfg="$(curl -fsS "$GATEWAY/api/catalog/storefronts/public?slug=$s" 2>/dev/null)" || continue
     if [[ -n "$cfg" ]]; then
       sfid="$(grep -oE '"id":"[^"]+"' <<<"$cfg" | head -1 | cut -d'"' -f4)"
+      # The store's currency and a destination it serves: the money flow (L15/L16) shops on THIS store like a
+      # real shopper, since checkout refuses a cart in another currency or not sellable there (ADR-0059).
+      # shipTo = the first allowlisted country, or the currency's home country when the store ships worldwide.
+      read -r sfcur sfship < <(python3 -c '
+import json, sys
+s = json.load(sys.stdin)
+cur = s.get("currency") or "EUR"
+home = {"AUD": "AU", "EUR": "DE", "USD": "US", "CAD": "CA", "GBP": "GB", "CNY": "CN", "JPY": "JP", "KWD": "KW"}
+print(cur, (s.get("shipToCountries") or [None])[0] or home.get(cur, "AU"))' <<<"$cfg" 2>/dev/null)
       curl -s -c "$sfjar" "$STOREFRONT/$s" >/dev/null; sfslug="$s"; break
     fi
   done
@@ -595,21 +626,39 @@ run_live() {
   # Tables live in each service's named schema (ADR-0022), and the service role's search_path
   # ("$user",public) does not include it — so every direct psql query must schema-qualify.
   local trialbal='SELECT COALESCE(sum("DebitMinor"),0)-COALESCE(sum("CreditMinor"),0) FROM payments."JournalLines"'
-  # Pick a product known to the Ordering projection (populated from the import via events).
-  local prod; prod="$(docker exec 3commerce-postgres psql -U ordering_svc -d ordering_db -tAc 'SELECT "ProductId" FROM ordering."ProductCopies" LIMIT 1' 2>/dev/null | tr -d '[:space:]')"
+  # Shop like a real shopper on the demo store L14 pinned: a product SELLABLE there, taken from the store's
+  # own listing (its published catalogue in its currency, the same per-store/per-currency offer gate checkout
+  # applies, ADR-0059), added to the cart IN the store's currency and shipped to a country it serves. A
+  # product picked blind from Ordering's projection is arbitrary relative to the store, and checkout
+  # (correctly) refuses it: wrong currency (checkoutBlock=1) or not sellable there (checkoutBlock=2).
+  local prod=""
+  if [[ -n "$sfid" && -n "$sfcur" ]]; then
+    prod="$(curl -fsS "$GATEWAY/api/catalog/products?storefrontId=$sfid&currency=$sfcur&pageSize=1" 2>/dev/null \
+      | python3 -c 'import json, sys; h = json.load(sys.stdin); print(h[0]["id"] if h else "")' 2>/dev/null)"
+  fi
   local cartjar=/tmp/3c-e2e-cart.txt; rm -f "$cartjar"
   # Every order must belong to a storefront (checkout now rejects the synthetic default), so the money
-  # flow needs a real demo store to attribute to — skip when none is published (import-only stack).
+  # flow needs a real demo store to attribute to; skip when none is published (import-only stack).
   if [[ -n "$prod" && -n "$sfid" ]]; then
-    local addcode; addcode="$(curl -s -o /dev/null -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2}")"
-    [[ "$addcode" == "200" ]] && pass "L15 add to cart" || fail "L15 add to cart ($addcode)"
+    local addbody=/tmp/3c-e2e-cart-add.json addcode
+    addcode="$(curl -s -o "$addbody" -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2,\"currency\":\"$sfcur\"}")"
+    [[ "$addcode" == "200" ]] && pass "L15 add to cart ($sfslug store, $sfcur)" || fail "L15 add to cart (HTTP $addcode: $(head -c 300 "$addbody"))"
 
-    local co; co="$(curl -s -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d "{\"email\":\"e2e@example.com\",\"storefrontId\":\"$sfid\",\"shippingAddress\":{\"name\":\"E\",\"line1\":\"1 St\",\"city\":\"Berlin\",\"postcode\":\"10115\",\"country\":\"DE\"}}")"
+    local shipjson; shipjson="$(python3 -c '
+import json, sys
+c = sys.argv[1]
+city, pc = {"AU": ("Melbourne", "3000"), "DE": ("Berlin", "10115"), "US": ("New York", "10001")}.get(c, ("Capital", "1000"))
+print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "country": c}))' "$sfship")"
+    local cobody=/tmp/3c-e2e-checkout.json cocode co
+    cocode="$(curl -s -o "$cobody" -w '%{http_code}' -b "$cartjar" -X POST $GATEWAY/api/ordering/checkout -H 'content-type: application/json' -d "{\"email\":\"e2e@example.com\",\"storefrontId\":\"$sfid\",\"shippingAddress\":$shipjson}")"
+    co="$(cat "$cobody" 2>/dev/null)"
     local oid gross secret
     oid="$(grep -oE '"orderId":"[^"]+"' <<<"$co" | cut -d'"' -f4)"
     gross="$(grep -oE '"grossMinor":[0-9]+' <<<"$co" | grep -oE '[0-9]+')"
     secret="$(grep -oE '"clientSecret":"pi_fake_[^"]+"' <<<"$co")"
-    { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross, intent returned)"; } || fail "L16 checkout"
+    # A refusal prints its HTTP status + problem+json body, so it is diagnosable from the log alone.
+    { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross $sfcur, ship to $sfship, intent returned)"; } \
+      || fail "L16 checkout on $sfslug ($sfcur, ship to $sfship) -> HTTP $cocode: $(head -c 400 <<<"$co")"
 
     # Wait for the saga to start, then simulate the payment.
     sleep 3
@@ -635,8 +684,8 @@ run_live() {
     done
     refTb="$(pay_scalar "$trialbal")"
     { [[ "$refTb" == "0" && "${refunded:-0}" -ge 1 ]] && pass "L19 refund reverses, ledger balanced"; } || fail "L19 refund (tb=$refTb refunds=$refunded)"
-  elif [[ -z "$prod" ]]; then
-    fail "L15-L19 no product in Ordering projection (import may not have propagated)"
+  elif [[ -n "$sfid" ]]; then
+    fail "L15-L19 demo storefront '$sfslug' lists no sellable product in ${sfcur:-its currency}"
   else
     skip "L15-L19 money flow — no demo storefront to attribute the order (needs --data full)"
   fi

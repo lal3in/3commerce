@@ -291,7 +291,21 @@ export type CartSummaryDto = {
   // renewals — an introductory promotion, and the storefront-wide percentage — so this is the price the
   // shopper will actually be charged next period, not today's.
   renewals?: CartRenewalDto[] | null;
+  // Why checkout would refuse this cart on this storefront (ADR-0059); absent/None when it would not.
+  // Crosses HTTP as a NUMBER (platform invariant). On CurrencyMismatch the figures above are the UNPRICED
+  // add-time subtotal in the cart's own currency — no promotion or discount was evaluated.
+  checkoutBlock?: CheckoutBlock;
+  checkoutBlockedReason?: string | null;
+  storefrontCurrency?: string | null;
 };
+
+// Mirrors Ordering's CheckoutBlock (ADR-0059). Wire values — never renumbered.
+export const CheckoutBlock = {
+  None: 0,
+  CurrencyMismatch: 1,
+  SupplyUnavailable: 2,
+} as const;
+export type CheckoutBlock = (typeof CheckoutBlock)[keyof typeof CheckoutBlock];
 
 // BillingPeriod crosses HTTP as a NUMBER (platform invariant), mirroring Contracts/Supply.BillingPeriod.
 export type CartRenewalDto = {

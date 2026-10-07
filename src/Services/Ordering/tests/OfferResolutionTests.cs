@@ -202,4 +202,82 @@ public class OfferResolutionTests
         var offers = new[] { Offer(Variant, FulfilmentType.Warehouse, 1) };
         Assert.Equal(FulfilmentType.Warehouse, OfferResolution.ResolveFulfilment(offers, Tenant, Product, Variant));
     }
+
+    // --- Supply availability (IsSupplyAvailable): Catalog's ADR-0048 gate, per storefront + currency (ADR-0059) ---
+
+    private static readonly Guid OtherSupplier = Guid.NewGuid();
+
+    private static bool Available(IEnumerable<OfferCopy> offers, IReadOnlySet<Guid> approved, string currency = "EUR") =>
+        OfferResolution.IsSupplyAvailable(offers, Tenant, Product, Variant, Store, currency, approved);
+
+    [Fact]
+    public void An_offerless_line_is_available_the_catalogue_price_governs_it() =>
+        Assert.True(Available([], new HashSet<Guid>()));
+
+    [Fact]
+    public void A_line_whose_only_covering_offer_is_unapproved_is_unavailable() =>
+        Assert.False(Available([PricingOffer(null, 0, supplierId: Supplier)], new HashSet<Guid>()));
+
+    [Fact]
+    public void One_approved_covering_offer_makes_the_line_available()
+    {
+        var offers = new[] { PricingOffer(null, 0, supplierId: Supplier), PricingOffer(Variant, 0, supplierId: OtherSupplier) };
+        Assert.True(Available(offers, new HashSet<Guid> { OtherSupplier }));
+    }
+
+    [Fact]
+    public void An_offer_approved_only_for_another_storefront_does_not_unlock_this_one()
+    {
+        // The pre-ADR-0059 defect: checkout accepted the line because SOME active approved offer existed.
+        var offers = new[]
+        {
+            PricingOffer(null, 0, supplierId: Supplier, storefrontId: Guid.NewGuid()), // approved, elsewhere
+            PricingOffer(null, 0, supplierId: OtherSupplier, storefrontId: Store),     // unapproved, here
+        };
+        Assert.False(Available(offers, new HashSet<Guid> { Supplier }));
+    }
+
+    [Fact]
+    public void An_offer_approved_only_in_another_currency_does_not_unlock_this_one()
+    {
+        var offers = new[]
+        {
+            PricingOffer(null, 0, supplierId: Supplier, currency: "USD"),      // approved, other currency
+            PricingOffer(null, 0, supplierId: OtherSupplier, currency: "EUR"), // unapproved, this currency
+        };
+        Assert.False(Available(offers, new HashSet<Guid> { Supplier }));
+    }
+
+    [Fact]
+    public void An_unapproved_offer_for_another_storefront_or_currency_does_not_block_this_one()
+    {
+        // The other half: Catalog lists such a product (nothing covers it here), so checkout must sell it.
+        var offers = new[]
+        {
+            PricingOffer(null, 0, supplierId: Supplier, storefrontId: Guid.NewGuid()),
+            PricingOffer(null, 0, supplierId: Supplier, currency: "USD"),
+        };
+        Assert.True(Available(offers, new HashSet<Guid>()));
+    }
+
+    [Fact]
+    public void Coverage_matches_currency_case_insensitively_and_ignores_the_active_window()
+    {
+        // Catalog does not apply the window to coverage (only to the offer price) — neither does checkout.
+        var expired = PricingOffer(null, 0, supplierId: Supplier, currency: "eur", until: Now.AddDays(-1));
+        Assert.False(Available([expired], new HashSet<Guid>()));
+        Assert.True(Available([expired], new HashSet<Guid> { Supplier }));
+    }
+
+    [Fact]
+    public void Inactive_other_tenant_and_other_variant_offers_never_cover()
+    {
+        var offers = new[]
+        {
+            PricingOffer(null, 0, supplierId: Supplier, active: false),
+            PricingOffer(Guid.NewGuid(), 0, supplierId: Supplier),
+            new OfferCopy { OfferId = Guid.NewGuid(), TenantId = Guid.NewGuid(), ProductId = Product, SupplierId = Supplier, Active = true, Currency = "EUR" },
+        };
+        Assert.True(Available(offers, new HashSet<Guid>()));
+    }
 }

@@ -110,6 +110,24 @@ public static class CartEndpoints
         var storeId = storefrontId ?? HeaderGuid(http, "X-3C-Storefront-Id") ?? tenantId;
         var now = time.GetUtcNow();
 
+        // The storefront's projected config — its currency gates the cart (ADR-0059) and its discount is
+        // applied below. Same copy, same rule, same wording as checkout.
+        var storefrontCopy = await db.StorefrontTaxCopies.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.StorefrontId == storeId, ct);
+
+        // A cart in another currency than this store's is NOT priced as if it were valid: checkout refuses it
+        // (400), so promotions, the storefront-wide discount and renewals are meaningless here. Report the
+        // block and the store's currency, and the plain add-time subtotal in the cart's own currency.
+        if (CheckoutGate.MismatchedCurrency(cart.Items.Select(i => i.Currency), storefrontCopy) is { } wrongCurrency)
+        {
+            var unpriced = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
+            return TypedResults.Ok(new CartSummaryResponse(
+                unpriced, 0, 0, unpriced, false, [], currency,
+                CheckoutBlock: CheckoutBlock.CurrencyMismatch,
+                CheckoutBlockedReason: CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency),
+                StorefrontCurrency: storefrontCopy.Currency));
+        }
+
         var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
         var offerCopies = await db.OfferCopies.AsNoTracking()
             .Where(o => o.TenantId == tenantId && productIds.Contains(o.ProductId))
@@ -121,6 +139,11 @@ public static class CartEndpoints
             .Where(x => x.Approved && offerSupplierIds.Contains(x.SupplierId))
             .Select(x => x.SupplierId)
             .ToListAsync(ct)).ToHashSet();
+
+        // Catalog's availability gate, per storefront + currency (ADR-0059) — the same predicate checkout
+        // enforces, so a line the preview prices is a line checkout will sell.
+        var unavailableLine = cart.Items.FirstOrDefault(i => !OfferResolution.IsSupplyAvailable(
+            offerCopies, tenantId, i.ProductId, i.VariantId, storeId, i.Currency, approvedSupplierIds));
 
         var lines = cart.Items.Select(i =>
         {
@@ -162,9 +185,7 @@ public static class CartEndpoints
         // deterministically; the old flat-fallback guess got them wrong in both directions.
         var shippingPolicy = await db.ProductTypeShippingPolicyCopies.AsNoTracking()
             .FirstOrDefaultAsync(p => p.TenantId == tenantId, ct);
-        var anyShippable = cart.Items.Any(i => CartShipping.LineRequiresShipping(
-            OfferResolution.ResolveOffer(offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds),
-            shippingPolicy));
+        var anyShippable = lineOffers.Any(offer => CartShipping.LineRequiresShipping(offer, shippingPolicy));
         var destination = string.IsNullOrWhiteSpace(shipToCountry)
             ? null
             : shipToCountry.Trim().ToUpperInvariant();
@@ -191,10 +212,7 @@ public static class CartEndpoints
             couponEvaluation.IsApplied ? enteredCode : null);
         var outcome = preview.Outcome;
 
-        var discountBps = await db.StorefrontTaxCopies.AsNoTracking()
-            .Where(t => t.StorefrontId == storeId)
-            .Select(t => (int?)t.DiscountBasisPoints)
-            .FirstOrDefaultAsync(ct) ?? 0;
+        var discountBps = storefrontCopy?.DiscountBasisPoints ?? 0;
         var storefrontDiscountMinor = discountBps > 0
             ? (long)Math.Round(subtotalMinor * discountBps / 10000.0, MidpointRounding.AwayFromZero)
             : 0L;
@@ -233,7 +251,10 @@ public static class CartEndpoints
             // A provisional verdict must never render as a decided reward: free shipping is reported as
             // POSSIBLE (via Basis) and the storefront says "may apply at checkout" instead of "free".
             preview.Basis != PromotionBasis.Provisional && outcome.FreeShippingApplied, applied, currency,
-            couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis, renewals));
+            couponEvaluation.Status, enteredCode, couponEvaluation.Name, preview.Basis, renewals,
+            unavailableLine is null ? CheckoutBlock.None : CheckoutBlock.SupplyUnavailable,
+            unavailableLine is null ? null : CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title),
+            storefrontCopy?.Currency));
     }
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
@@ -419,7 +440,16 @@ public record CartSummaryResponse(
     // period. Empty for a cart with no subscription. The figures deliberately exclude any discount that
     // does NOT ride renewals — an introductory promotion, and the storefront-wide percentage — so
     // "then x/month" is the price the shopper will actually be charged, not today's.
-    List<CartRenewalResponse>? Renewals = null);
+    List<CartRenewalResponse>? Renewals = null,
+    // Why checkout would refuse this cart on this storefront (ADR-0059) — None when it would not. Crosses
+    // HTTP as a NUMBER (platform invariant). CurrencyMismatch: the cart is in another currency than the
+    // store sells in; the figures above are then the UNPRICED add-time subtotal (no promotion, discount or
+    // renewal is evaluated for a cart checkout will not take). SupplyUnavailable: a line's only covering
+    // offers here are from unapproved suppliers. CheckoutBlockedReason is checkout's own 400 text.
+    CheckoutBlock CheckoutBlock = CheckoutBlock.None,
+    string? CheckoutBlockedReason = null,
+    // The currency this storefront sells in (null when no storefront config is projected).
+    string? StorefrontCurrency = null);
 
 /// <summary>What the cart's recurring lines of one billing period cost per period after the first.</summary>
 public record CartRenewalResponse(BillingPeriod BillingPeriod, long AmountMinor);

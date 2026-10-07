@@ -114,12 +114,32 @@ public sealed class Phase3Fixture : IAsyncLifetime
     public WebApplicationFactory<ThreeCommerce.Ordering.Api.IApiMarker> Ordering { get; private set; } = null!;
     public WebApplicationFactory<ThreeCommerce.Payments.Api.IApiMarker> Payments { get; private set; } = null!;
 
+    private WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker>? _catalog;
+
+    /// <summary>
+    /// A Catalog host on the SAME broker as Ordering, created on first use: its admin endpoints publish
+    /// ProductUpserted / OfferChanged through the real EF outbox into Ordering's projections, and it consumes
+    /// SupplierApprovalChanged itself — so a test can ask Catalog's storefront listing and Ordering's
+    /// checkout the same question about the same offers (ADR-0059). Pool-capped like every factory here.
+    /// </summary>
+    public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> Catalog =>
+        _catalog ??= CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
         RabbitMqUri = _rabbitMq.GetConnectionString();
         await _postgres.ExecScriptAsync("CREATE DATABASE ordering_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE payments_db;");
+        // Catalog is started LAZILY (see Catalog) — only the suites that compare checkout with the
+        // storefront listing pay for it. Its migrations need citext + pg_trgm (product search).
+        await _postgres.ExecScriptAsync("CREATE DATABASE catalog_db;");
+        var ext = await _postgres.ExecAsync(["psql", "-U", "postgres", "-d", "catalog_db", "-c",
+            "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;"]);
+        if (ext.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Setup SQL failed on catalog_db: {ext.Stderr}");
+        }
 
         Ordering = CreateFactory<ThreeCommerce.Ordering.Api.IApiMarker, OrderingDbContext>("ordering_db");
         Payments = CreateFactory<ThreeCommerce.Payments.Api.IApiMarker, PaymentsDbContext>("payments_db");
@@ -236,6 +256,11 @@ public sealed class Phase3Fixture : IAsyncLifetime
 
         await Ordering.DisposeAsync();
         await Payments.DisposeAsync();
+        if (_catalog is not null)
+        {
+            await _catalog.DisposeAsync();
+        }
+
         _ecdsa.Dispose();
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _rabbitMq.DisposeAsync().AsTask());
     }

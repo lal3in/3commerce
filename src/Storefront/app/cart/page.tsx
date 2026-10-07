@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { getCart, getCartSummary, PromotionBasis } from "@/lib/gateway";
+import { CheckoutBlock, getCart, getCartSummary, PromotionBasis } from "@/lib/gateway";
 import { resolveStorefront } from "@/lib/storefront-context";
 import { resolveShippingBasis } from "@/lib/shipping-basis";
 import { formatMoney } from "@/lib/money";
@@ -55,6 +55,10 @@ export default async function CartPage() {
   // are paying now, so a first-period-only deal cannot be mistaken for the ongoing price — the whole
   // point of "shown == charged" applied to the second invoice rather than only the first.
   const renewals = summary?.renewals ?? [];
+  // Checkout would refuse this cart on THIS storefront (ADR-0059): say so before the shopper tries to pay,
+  // with checkout's own rule. The cart cookie is shared by every store on the host, so a cart filled on
+  // one store can be opened on another that sells in a different currency.
+  const checkoutBlock = summary?.checkoutBlock ?? CheckoutBlock.None;
 
   if (cart.items.length === 0) {
     return (
@@ -70,6 +74,20 @@ export default async function CartPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-xl font-semibold">{t("title")}</h1>
+      {checkoutBlock !== CheckoutBlock.None && (
+        <p
+          role="alert"
+          data-testid="checkout-blocked"
+          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          {checkoutBlock === CheckoutBlock.CurrencyMismatch
+            ? t("blockedCurrency", {
+                cartCurrency: cart.currency,
+                storeCurrency: summary?.storefrontCurrency ?? "",
+              })
+            : t("blockedSupply")}
+        </p>
+      )}
       <ul className="divide-y divide-neutral-200">
         {cart.items.map((item) => (
           <CartItemRow key={`${item.productId}:${item.variantId ?? "default"}`} item={item} />
