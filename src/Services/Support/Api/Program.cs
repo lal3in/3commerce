@@ -21,7 +21,10 @@ builder.Services.AddDbContext<SupportDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 builder.Services.AddServiceBus<SupportDbContext>(builder.Configuration, bus =>
 {
-    bus.AddConsumer<ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer>();
+    // Partitioned by order id: messages for one order are consumed one at a time (see PartitionByOrder).
+    bus.AddConsumer<ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer>()
+        .Endpoint(e => e.AddConfigureEndpointCallback(
+            ThreeCommerce.Support.Infrastructure.Consumers.OrderSnapshotConsumer.PartitionByOrder));
     bus.AddSagaStateMachine<RmaStateMachine, RmaState>()
         .EntityFrameworkRepository(r =>
         {

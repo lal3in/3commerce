@@ -115,6 +115,18 @@ you are touching before you push.
   The same holds for two events of ONE signal for one row (a carrier configured, then activated): run in
   parallel they fail with 40001, and the retried, older value can land last. Give such an endpoint
   `ConcurrentMessageLimit = 1` (Catalog `Program.cs`) so it applies them one at a time in queue order.
+- **One writer, several messages for one key: partition the endpoint by that key.** Support's
+  `OrderSnapshotConsumer` is the only writer of `OrderSnapshot`, yet two `OrderConfirmed` for one order
+  with different message ids (the inbox only dedupes a repeated id) consumed in parallel both saw no row
+  and one failed with `23505`. `INSERT … ON CONFLICT DO NOTHING` does not fix it either: under REPEATABLE
+  READ a conflicting row committed after the snapshot raises `40001 could not serialize access` instead of
+  being skipped (checked on Postgres 17; READ COMMITTED skips it silently). Use
+  `endpoint.UsePartitioner<T>(endpoint.CreatePartitioner(n), m => m.Message.Key)` from
+  `.Endpoint(e => e.AddConfigureEndpointCallback(…))` (`OrderSnapshotConsumer.PartitionByOrder`; not a
+  `ConsumerDefinition`, which `ConsumerEndpointNameTests` rejects). That overload sits on the endpoint's message
+  pipe, outside the per-consumer outbox filter, so the second message for a key opens its transaction only
+  after the first has committed. Unlike `ConcurrentMessageLimit = 1`, other keys still run in parallel. The
+  partitioner is per process, so replicas competing for the queue can still race; retries cover that.
 
 ## Browser E2E (Playwright)
 

@@ -189,6 +189,10 @@
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
 #       per-line RMA derives the refund server-side from the order snapshot
 #       (BL-8);
+#       Support order snapshot under concurrency: 3 OrderConfirmed copies (distinct message ids) for
+#       each of 20 orders at once → one snapshot per order with its lines, no 23505/40001, nothing in
+#       order-snapshot_error (endpoint partitioned by order id); a redelivery / re-publish is a no-op
+#       (SupportOrderSnapshotConcurrencyTests);
 #       DISCOUNTED REFUND BASIS (ADR-0055, RmaRefundBasisTests): a full return of a discounted order
 #       is capped at the refundable gross and reaches RefundIssued instead of stranding in
 #       RefundPending forever, a partial return refunds the line's DISCOUNTED value (2800, not the
