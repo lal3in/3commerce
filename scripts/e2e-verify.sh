@@ -313,7 +313,10 @@
 #       naming EUR and AUD before checkout (ADR-0059, e2e/currency-tax.spec.ts; needs --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
-#       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg
+#       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;
+#       Commerce ops duplicate → Manage on the copy shows "Duplicated from: <source>" whose link opens
+#       the source (which shows none), the admin API returning the same read-only id
+#       (e2e-admin/commerce-ops-duplicated-from.spec.ts)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
