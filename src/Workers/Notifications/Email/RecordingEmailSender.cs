@@ -41,6 +41,7 @@ public sealed class RecordingEmailSender(
                 Channel = "email",
                 Recipient = message.To,
                 Subject = message.Subject,
+                Reference = message.Reference,
                 Status = status,
                 Error = Trim(error, 1000),
                 OccurredAt = clock.GetUtcNow(),

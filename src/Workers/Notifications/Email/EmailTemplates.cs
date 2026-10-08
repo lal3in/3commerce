@@ -23,7 +23,8 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
         to,
         "Your order is confirmed",
         $"Thanks for your purchase. Order {orderId} for {Money.Amount(amountMinor, currency)} {currency} is confirmed. "
-            + $"Track it at {storefrontBaseUrl}/orders/{orderId}.");
+            + $"Track it at {storefrontBaseUrl}/orders/{orderId}.",
+        NotificationReferences.OrderConfirmed(orderId));
 
     public EmailMessage TrackingAssigned(string to, Guid orderId, string carrier, string trackingNumber) => new(
         to,
