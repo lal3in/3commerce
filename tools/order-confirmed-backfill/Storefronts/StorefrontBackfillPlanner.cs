@@ -21,8 +21,9 @@ namespace ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 /// siblings, what gets copied is the same. If none had rows, nothing was lost (<see cref="SideOutcome.SourceEmpty"/>);
 /// anything else is <see cref="SideOutcome.Undetermined"/> and reported, never sent.</item>
 /// </list>
-/// <para>Duplicates are decided oldest first, and a sibling that is itself about to be backfilled counts as holding
-/// what it will receive — so a chain of split copies of one source resolves in one run.</para>
+/// <para>Duplicates are decided oldest first, and a sibling that is itself about to be backfilled — or was, by an
+/// earlier (canary) run, i.e. holds exactly what the agreeing sources hold — counts as holding it since it was made.
+/// So a chain of split copies of one source resolves in one run, and a partial run never stalls the rest.</para>
 /// <para>A side on which the duplicate holds ANY row is <see cref="SideOutcome.Present"/> and never sent: nothing the
 /// owner configured is overwritten (and both consumers no-op on a target that has rows anyway).</para>
 /// </summary>
@@ -93,10 +94,6 @@ public static class StorefrontBackfillPlanner
 
             var t0 = target.CreatedAt;
             var present = Sides.ToDictionary(side => side, side => rows[side][target.Id].Any());
-            if (present.Values.All(p => p))
-            {
-                return Verdict("-", 0, SideVerdict.Present, SideVerdict.Present);
-            }
 
             var copiedPairs = publications[target.Id]
                 .Where(p => p.ProductPublishedAt < t0 && (p.CreatedAt - t0).Duration() <= PublicationSlack)
@@ -161,10 +158,27 @@ public static class StorefrontBackfillPlanner
             var verdict = new Dictionary<StorefrontBackfillTarget, SideVerdict>();
             foreach (var side in Sides)
             {
-                verdict[side] = present[side] ? SideVerdict.Present : DecideMissingSide(side, candidates, t0);
-                if (verdict[side] is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } source })
+                if (!present[side])
                 {
-                    planned[(side, target.Id)] = source;
+                    verdict[side] = DecideMissingSide(side, candidates, t0);
+                    if (verdict[side] is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } source })
+                    {
+                        planned[(side, target.Id)] = source;
+                    }
+
+                    continue;
+                }
+
+                verdict[side] = SideVerdict.Present;
+
+                // A side filled AFTER the copy window (by an earlier, e.g. canary, backfill run — or by hand) with exactly
+                // what the agreeing sources hold counts, for later duplicates, as held since creation. Otherwise a
+                // partial run would make a backfilled sibling look like a candidate that "had nothing" and stall the rest.
+                if (!rows[side][target.Id].Any(r => r.CreatedAt <= t0 + cloneWindow)
+                    && DecideMissingSide(side, candidates, t0) is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } src }
+                    && Multiset(rows[side][target.Id].Select(r => r.CopyKey)) == Multiset(rows[side][src].Select(r => r.CopyKey)))
+                {
+                    planned[(side, target.Id)] = src;
                 }
             }
 
@@ -173,6 +187,7 @@ public static class StorefrontBackfillPlanner
             DuplicationVerdict Verdict(string ev, int count, SideVerdict payments, SideVerdict fulfillment) =>
                 new(snapshot.TenantId, target.Id, name, target.CreatedAt, ev, count, payments, fulfillment);
 
+            // A duplicate with rows on both sides has nothing to send, whatever the evidence says.
             DuplicationVerdict Unresolved(UndeterminedReason reason, string ev, int count) => Verdict(ev, count,
                 present[StorefrontBackfillTarget.Payments] ? SideVerdict.Present : SideVerdict.Undetermined(reason),
                 present[StorefrontBackfillTarget.Fulfillment] ? SideVerdict.Present : SideVerdict.Undetermined(reason));

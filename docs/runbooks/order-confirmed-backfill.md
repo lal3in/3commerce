@@ -152,4 +152,25 @@ Verify afterwards: every duplicate selected now has rows on both sides, with the
 mode, state, default, external ref / carrier, credential ref, status, default) as its source, and no duplicate rows;
 rows that existed before the run are unchanged (compare `Id`/`UpdatedAt` before and after).
 
-<!-- DEV-RUN-STOREFRONTS -->
+### Dev run, 2026-10-08 (owner's DB)
+
+12 duplicated storefronts (audit), all copies of "Demo AU Store": the 6 `queuefix-pre-*` made before #288 had split
+3 / 3 (carriers only / payment accounts only), the 6 `queuefix-post-*` were complete.
+
+| | Dry run | Sent | After |
+|---|---|---|---|
+| Duplicates complete / missing payments / missing carriers / undetermined | 6 / 3 / 3 / 0 | canary 1 + 1, then 2 + 2 | 12 / 0 / 0 / 0 |
+| Payment accounts (rows) | 428 | | 500 (+72 = 3 × 24) |
+| Carrier integrations (rows) | 258 | | 327 (+69 = 3 × 23) |
+| Pre-existing rows changed / new rows outside the 6 targets / `_error` messages | | | 0 / 0 / 0 |
+
+Every link was by copied publications (+ the copied half), one candidate for the oldest copy and up to 3 (the source +
+earlier identical copies, all agreeing) for later ones. The source had gained 2 payment accounts and 2 carriers since
+the duplications (dev seed re-runs), so backfilled copies hold the source's CURRENT 24 / 23 rows while the copies whose
+own copy ran hold 22 / 21 — the consumers always copy the source as it is when they run.
+
+**Gotcha found on the canary:** a copy backfilled by an earlier run holds rows created long after its siblings were
+made, so it first looked like a candidate that "had nothing" and the next run reported the rest as
+`CandidatesDisagree` (refused, nothing sent). The planner now counts a side filled after the copy window with exactly
+what the agreeing sources hold as held since creation (unit test
+`A_canary_run_does_not_stall_the_rest_and_the_source_gaining_rows_later_is_copied_as_it_is_now`).

@@ -76,6 +76,48 @@ public class StorefrontBackfillPlannerTests
     }
 
     [Fact]
+    public void A_canary_run_does_not_stall_the_rest_and_the_source_gaining_rows_later_is_copied_as_it_is_now()
+    {
+        var (w, s) = FullSource();
+        var copies = Enumerable.Range(1, 6).Select(i =>
+        {
+            var t = w.Duplicate(s, $"Copy {i}", T0.AddHours(1).AddMilliseconds(30 * i));
+            if (i % 2 == 1)
+            {
+                w.FulfillmentConsumer(s.Id, t.Id, t.CreatedAt + Lag);   // 1, 3, 5 lost their payment accounts
+            }
+            else
+            {
+                w.PaymentsConsumer(s.Id, t.Id, t.CreatedAt + Lag);      // 2, 4, 6 lost their carriers
+            }
+
+            return t;
+        }).ToList();
+        w.Account(s, "Added later", T0.AddHours(5));                    // the source changes after the duplications
+
+        var canary = StorefrontBackfillPlan.From(w.Plan(), limit: 1);
+        Assert.Equal([copies[0].Id], canary.Payments.Select(v => v.TargetId));
+        Assert.Equal([copies[1].Id], canary.Fulfillment.Select(v => v.TargetId));
+        w.Deliver(canary, T0.AddDays(30));
+
+        // The backfilled siblings are now candidates for the later copies too — they must not look like sources that
+        // "had nothing" at the time.
+        var rest = StorefrontBackfillPlan.From(w.Plan(), null);
+        Assert.Equal([copies[2].Id, copies[4].Id], rest.Payments.Select(v => v.TargetId));
+        Assert.Equal([copies[3].Id, copies[5].Id], rest.Fulfillment.Select(v => v.TargetId));
+        Assert.All(rest.Verdicts, v => Assert.NotEqual(SideOutcome.Undetermined, v.Payments.Outcome));
+        Assert.All(rest.Verdicts, v => Assert.NotEqual(SideOutcome.Undetermined, v.Fulfillment.Outcome));
+
+        w.Deliver(rest, T0.AddDays(31));
+        var rerun = StorefrontBackfillPlan.From(w.Plan(), null);
+        Assert.Empty(rerun.Payments);
+        Assert.Empty(rerun.Fulfillment);
+        // Backfilled copies carry the source as it is NOW (the consumer copies current rows), incl. the later account.
+        Assert.Equal(3, w.Accounts.Count(a => a.StorefrontId == copies[0].Id));
+        Assert.Equal(2, w.Accounts.Count(a => a.StorefrontId == copies[1].Id));
+    }
+
+    [Fact]
     public void Complete_copies_and_sources_that_had_nothing_to_copy_select_nothing()
     {
         var (w, s) = FullSource();

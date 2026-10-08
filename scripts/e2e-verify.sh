@@ -103,8 +103,9 @@
 #       an "X (copy)" name, the copied half and agreement of all candidates; complete copies, sources with nothing
 #       to copy, owner-configured sides, lookalikes outside the lineage, archived/vanished targets never selected;
 #       disagreeing candidates / no lineage / no candidate → undetermined; chains of split copies resolve in one
-#       run; --limit oldest first; copy keys = the services' own CloneForStorefront; a re-run after delivery
-#       selects 0; safe CLI, derived queue names, deterministic message ids
+#       run and a canary (partial) delivery never stalls the rest; --limit oldest first; copy keys = the
+#       services' own CloneForStorefront; a re-run after delivery selects 0; safe CLI, derived queue names,
+#       deterministic message ids
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)

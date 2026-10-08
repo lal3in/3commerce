@@ -224,7 +224,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
 │   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)
 ├── tools/script-console/          # Python/Tkinter local GUI for scripts + host/service status
-├── tools/order-confirmed-backfill/ # .NET operator tool: re-Send OrderConfirmed to the consumer that missed it (ADR-0060)
+├── tools/order-confirmed-backfill/ # .NET operator tool (ADR-0060): re-Send OrderConfirmed / StorefrontDuplicated (`storefront-duplicated` command) to the consumer that missed it
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
 ```
 

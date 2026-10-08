@@ -138,7 +138,9 @@ public static class StorefrontBackfillProgram
     private static ServiceProvider BuildServices(Func<string, string> connection)
     {
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddSimpleConsole(o => o.SingleLine = true).SetMinimumLevel(LogLevel.Warning));
+        // EF model-validation warnings of the services' own models (e.g. Payments' sentinel notice) are not the tool's.
+        services.AddLogging(b => b.AddSimpleConsole(o => o.SingleLine = true).SetMinimumLevel(LogLevel.Warning)
+            .AddFilter("Microsoft.EntityFrameworkCore.Model.Validation", LogLevel.Error));
         services.AddDbContext<CatalogDbContext>(o => o.UseNpgsql(connection("Catalog")));
         services.AddDbContext<AuditDbContext>(o => o.UseNpgsql(connection("Audit")));
         services.AddDbContext<PaymentsDbContext>(o => o.UseNpgsql(connection("Payments")));
