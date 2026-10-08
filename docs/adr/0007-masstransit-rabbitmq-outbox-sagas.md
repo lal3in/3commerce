@@ -26,3 +26,23 @@ Multi-service flows (checkout: order → payment → fulfillment) need coordinat
 
 - Message contracts live in `BuildingBlocks.Contracts`, versioned additively only.
 - Chaos test required: killing a service mid-saga must recover to a correct terminal state (NFR-2).
+
+## Amendment 2026-10-08 — consumers that race on one key
+
+The EF outbox runs every consumer in a REPEATABLE READ transaction whose snapshot is taken at the inbox
+lock, before the consumer's own reads. Two messages that write the same row therefore collide (`23505` on
+an insert, `40001` on an update or an `ON CONFLICT` clause) whenever they are consumed in parallel, and the
+inbox does not help unless they share a message id. Retries restore the end state, but each collision costs
+a retry and an error log, and under load a message can exhaust its retries and fault to `_error`. Rules:
+
+- **Different writers of one row** get a row (or table) each, with a view for readers (ADR-0043, PR #287).
+- **One writer, several messages per key** (e.g. two `OrderConfirmed` for one order): partition the
+  consumer's endpoint by the key with the endpoint-level `UsePartitioner<T>(IPartitioner, key)`, added through
+  `.Endpoint(e => e.AddConfigureEndpointCallback(…))` so the endpoint name stays derived (ADR-0060). It runs
+  before the outbox transaction opens, so the messages of one key run one at a time while other keys stay
+  parallel (Support `OrderSnapshotConsumer.PartitionByOrder`).
+- **Ordered events of one signal** where the last value must win: `ConcurrentMessageLimit = 1` (or a
+  partitioner) so they apply in queue order.
+
+The partitioner is per process. Replicas that compete for one queue can still collide on a key; the retry
+policy covers that case with the same end state.
