@@ -127,6 +127,17 @@ you are touching before you push.
   pipe, outside the per-consumer outbox filter, so the second message for a key opens its transaction only
   after the first has committed. Unlike `ConcurrentMessageLimit = 1`, other keys still run in parallel. The
   partitioner is per process, so replicas competing for the queue can still race; retries cover that.
+- **Several event TYPES that update one row: share ONE partitioner across them.** Ordering's
+  `OrderStatusConsumer` applies CheckoutCompleted, OrderCancelled, RefundCompleted, PaymentDisputed and
+  PaymentChargedBack to the same `Orders` row, and they arrive together (a dispute lost at once publishes
+  Disputed + ChargedBack back to back; refunds follow each other). In parallel, all but one update failed
+  with 40001, and the retried event could land after a later one: a partial refund retried after the full
+  refund is skipped (the order is no longer Confirmed), losing `PartiallyRefunded` (a negative-control run
+  reproduced it). `OrderStatusConsumer.PartitionByOrder` creates one `IPartitioner` and passes it to
+  `UsePartitioner<T>` for every message type, keyed by order id, from
+  `.Endpoint(e => e.AddConfigureEndpointCallback(…))` (a `ConsumerDefinition` fails `ConsumerEndpointNameTests`).
+  An order's events then apply one at a time in queue order; other orders stay parallel. Per-type
+  partitioners would still let two different event types of one order overlap.
 
 ## Browser E2E (Playwright)
 
