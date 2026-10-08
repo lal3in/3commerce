@@ -1692,6 +1692,9 @@
   <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>建立複製</value></data>
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>即刻建立新店面。</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>副本以私密草稿開始，冇任何網域——上線前請先加網域。</value></data>
+  <data name="Ops.DuplicatedFrom" xml:space="preserve"><value>複製自：</value></data>
+  <data name="Ops.DuplicatedFrom.Tip" xml:space="preserve"><value>呢個店面係由邊個店面複製出嚟（複製時記錄；唯讀）。</value></data>
+  <data name="Ops.DuplicatedFrom.Unlisted" xml:space="preserve"><value>（已封存——唔喺清單入面）</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>店面已複製。</value></data>
   <data name="Nav.Carriers" xml:space="preserve"><value>物流商</value></data>
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>管理送貨物流商同各店面嘅物流商帳戶。</value></data>

@@ -834,7 +834,8 @@
               }
             }
           }
-        }
+        },
+        "summary": "Duplicate a storefront into a fresh private Draft; the copy records the source as duplicatedFromStorefrontId."
       }
     },
     "/admin/storefronts/{id}": {
@@ -3384,6 +3385,14 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "duplicatedFromStorefrontId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid",
+            "description": "Read-only: the storefront this one was duplicated from (set by POST /admin/storefronts/{id}/duplicate); null for storefronts created any other way and for copies made before the link was recorded. No request can set or change it."
           }
         }
       },

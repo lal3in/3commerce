@@ -20,7 +20,7 @@ namespace ThreeCommerce.IntegrationTests;
 /// ADR-0060 storefront backfill, end to end on real Postgres + RabbitMQ: a real duplication through Catalog's endpoint
 /// PUBLISHES <see cref="StorefrontDuplicated"/> (and its <c>catalog.storefront.duplicate</c> audit entry). The tool reads
 /// the storefronts and publications back from Catalog's database (its own loader, inside the RLS tenant scope), links
-/// the duplicate to its source by the copied publications, and rebuilds the event — it must equal what was published.
+/// the duplicate to its source by the link Catalog recorded on it, and rebuilds the event — it must equal what was published.
 /// Then it SENDS it to Payments' <c>queue:storefront-duplicated</c> only: that queue receives it with the deterministic
 /// backfill message id, Fulfillment's queue gets nothing, and a subscriber of the published event gets no second copy.
 /// The Phase 2 fixture runs neither Payments nor Fulfillment, so nothing else consumes those queue names here; their
@@ -116,6 +116,7 @@ public class StorefrontDuplicatedBackfillTests(Phase2Fixture fixture) : IAsyncLi
             // service projects it, and the services' rows as facts — the source has a payment account and a carrier;
             // the copy that DID run reached Fulfillment (the duplicate holds a clone of the carrier), Payments' did not.
             StorefrontTenantSnapshot snapshot;
+            Guid? cloneLink;
             using (var scope = _catalog.Services.CreateScope())
             {
                 var catalog = new StorefrontCatalogSource(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), new RlsTenantScope());
@@ -123,11 +124,13 @@ public class StorefrontDuplicatedBackfillTests(Phase2Fixture fixture) : IAsyncLi
                 var publications = await catalog.PublicationsAsync(TenantId, default);
                 var sourceFact = storefronts.Single(s => s.Id == source);
                 var cloneFact = storefronts.Single(s => s.Id == clone);
+                cloneLink = cloneFact.DuplicatedFromStorefrontId;
                 var carrier = CarrierIntegration.Configure(TenantId, source, CarrierCode.Fake, null, sourceFact.CreatedAt);
                 snapshot = new StorefrontTenantSnapshot(
                     TenantId,
                     storefronts,
                     [new DuplicationFact(entry.TenantId, Guid.Parse(entry.ResourceId), entry.Summary),
+                     .. StorefrontBackfillPlanner.ProvenByLink(TenantId, storefronts),
                      .. StorefrontBackfillPlanner.ProvenByPublications(TenantId, storefronts, publications)],
                     publications,
                     [ConfigRowFact.From(PaymentAccount.Create(TenantId, source, "Card", "mock", PaymentProviderMode.Test, true, null, sourceFact.CreatedAt))],
@@ -137,7 +140,19 @@ public class StorefrontDuplicatedBackfillTests(Phase2Fixture fixture) : IAsyncLi
             var verdict = StorefrontBackfillPlanner.Plan(snapshot, StorefrontBackfillPlanner.DefaultCloneWindow).Single(v => v.TargetId == clone);
             Assert.Equal(new SideVerdict(SideOutcome.Missing, source), verdict.Payments);
             Assert.Equal(SideVerdict.Present, verdict.Fulfillment);
-            Assert.StartsWith("publications", verdict.Evidence, StringComparison.Ordinal);
+            // The real endpoint records the source on the copy and the tool's loader reads it: the exact link, not inference.
+            Assert.Equal(source, cloneLink);
+            Assert.Equal("link", verdict.Evidence);
+
+            // A copy made before the link existed (null) still resolves to the same source by inference from the real rows.
+            var unlinked = snapshot with
+            {
+                Storefronts = [.. snapshot.Storefronts.Select(s => s with { DuplicatedFromStorefrontId = null })],
+                Duplications = [.. snapshot.Duplications.Where(d => d.NameAtDuplication is not null)],
+            };
+            var inferred = StorefrontBackfillPlanner.Plan(unlinked, StorefrontBackfillPlanner.DefaultCloneWindow).Single(v => v.TargetId == clone);
+            Assert.StartsWith("publications", inferred.Evidence, StringComparison.Ordinal);
+            Assert.Equal((verdict.Payments, verdict.Fulfillment), (inferred.Payments, inferred.Fulfillment));
 
             var rebuilt = StorefrontBackfillQueues.Rebuild(verdict, StorefrontBackfillTarget.Payments);
             Assert.Equal(live, rebuilt);

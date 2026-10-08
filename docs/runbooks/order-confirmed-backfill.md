@@ -121,9 +121,22 @@ payment accounts OR its carrier integrations, never both. The same tool repairs 
 `queue:fulfillment-storefront-duplicated` (Fulfillment). Both consumers copy the source's CURRENT rows and no-op when
 the duplicate already has any row on their side, so nothing on a duplicate is ever overwritten.
 
-**There is no durable source↔copy record.** Catalog stores no "duplicated from", and the `catalog.storefront.duplicate`
-audit entry (Audit service, `audit."AuditEntries"`) names only the copy and the name it was given. The tool therefore
-links a duplicate to its source from what the duplication left behind, and sends only when that is unambiguous:
+**Copies made since 2026-10-08 record their source.** Catalog's duplicate endpoint stores it on the copy
+(`catalog."Storefronts"."DuplicatedFromStorefrontId"`, shown in Admin → Commerce ops → Manage as "Duplicated from").
+For those the tool uses the link and nothing else (`evidence=link`, one candidate); a link to a storefront the tenant
+does not have is `Undetermined (NoCandidate)`, never a guess.
+
+```sql
+-- which copies carry the link (null = not a copy, or a copy made before the link existed)
+SELECT "Id", "Name", "DuplicatedFromStorefrontId", "CreatedAt" FROM catalog."Storefronts"
+WHERE "DuplicatedFromStorefrontId" IS NOT NULL ORDER BY "CreatedAt";
+```
+
+**Older copies have no durable source↔copy record** — the column is null for them and is deliberately NOT backfilled
+(the evidence below is all anyone has; writing an inferred value into a column that otherwise means "certain" would
+blur the two). The `catalog.storefront.duplicate` audit entry (Audit service, `audit."AuditEntries"`) names only the
+copy and the name it was given. For these the tool links a duplicate to its source from what the duplication left
+behind, and sends only when that is unambiguous:
 
 * **Lineage** — `ProductPublication.PublishedAt` is set once and copied verbatim; the clone's publications are created
   at the clone's own `CreatedAt`. The source's (product, published-at) pairs as of that instant EQUAL the clone's

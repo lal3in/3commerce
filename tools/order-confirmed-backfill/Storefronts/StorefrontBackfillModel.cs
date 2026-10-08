@@ -14,8 +14,12 @@ public enum StorefrontBackfillTarget
     Fulfillment = 2,
 }
 
-/// <summary>A storefront as Catalog has it now.</summary>
-public sealed record StorefrontFact(Guid Id, Guid TenantId, string Name, DateTimeOffset CreatedAt, bool Archived);
+/// <summary>
+/// A storefront as Catalog has it now. <see cref="DuplicatedFromStorefrontId"/> is Catalog's durable link from a copy to
+/// its source, recorded by the duplicate endpoint — null for storefronts that are not copies AND for copies made before
+/// the link existed (whose source the planner infers instead).
+/// </summary>
+public sealed record StorefrontFact(Guid Id, Guid TenantId, string Name, DateTimeOffset CreatedAt, bool Archived, Guid? DuplicatedFromStorefrontId = null);
 
 /// <summary>
 /// A storefront that was made by duplication. <see cref="NameAtDuplication"/> is the audit summary of the
@@ -91,7 +95,8 @@ public enum UndeterminedReason
     /// <summary>No published publication was copied and the duplicate's name does not name its source.</summary>
     NoLineage = 1,
 
-    /// <summary>No older storefront matches the duplicate's lineage and copied half.</summary>
+    /// <summary>No older storefront matches the duplicate's lineage and copied half — or the storefront its recorded
+    /// link names is not one of the tenant's.</summary>
     NoCandidate = 2,
 
     /// <summary>Several storefronts could be the source and they would copy different things.</summary>

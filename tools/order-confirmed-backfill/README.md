@@ -101,8 +101,17 @@ Options: `--target payments|fulfillment|both`, `--dry-run|--execute` (one requir
 connections: `Catalog`, `Audit`, `Payments` (plus the existing `Fulfillment`, `RabbitMq`).
 
 Duplicated storefronts are the `catalog.storefront.duplicate` entries of the Audit service plus any storefront Catalog
-proves is a copy (it holds a publication first published before the storefront existed). **Nothing records the
-source**, so it is inferred conservatively (`Storefronts/StorefrontBackfillPlanner.cs`):
+proves is a copy (it carries a `DuplicatedFromStorefrontId`, or holds a publication first published before the
+storefront existed).
+
+**The recorded link, when present.** Since `storefront_duplicated_from_2026_10_08` Catalog stores the source on every
+copy its duplicate endpoint makes (`Storefront.DuplicatedFromStorefrontId`). A duplicate carrying it has exactly that
+one candidate (evidence `link`); the inference below is skipped and only the agreement rule's "did the source hold rows
+when the copy was made" applies. A link naming a storefront the tenant does not have is `Undetermined (NoCandidate)` —
+never a fallback guess.
+
+**Older copies have it null** — they were NOT backfilled with a link (Catalog cannot know their source either), so for
+them the source is inferred conservatively (`Storefronts/StorefrontBackfillPlanner.cs`):
 
 1. **Lineage** — candidates are older storefronts of the tenant whose (product, `PublishedAt`) pairs at the duplicate's
    creation equal the duplicate's copied publications (`PublishedAt` is set once and copied verbatim, so only a

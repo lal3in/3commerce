@@ -60,6 +60,14 @@ public sealed class Storefront
     /// </summary>
     public string CostAssumptionsJson { get; private set; } = "";
 
+    /// <summary>
+    /// The storefront this one was copied from by <see cref="DuplicateFrom"/> (the admin duplicate endpoint), or null
+    /// for a storefront created any other way — and for copies made before the link was recorded (the ADR-0060
+    /// backfill tool infers their source instead). Set once at duplication and never changed afterwards: no update
+    /// path takes it, so support, audit and repairs can rely on it as the exact source of a copy.
+    /// </summary>
+    public Guid? DuplicatedFromStorefrontId { get; private set; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
@@ -380,10 +388,12 @@ public sealed class Storefront
     /// clone's books never share the source's). Deliberately NOT copied: PublicUrl, domains, visibility
     /// (stays Private), state (stays Draft), access password, account-code strings. Product publications and
     /// navigation are copied by the caller (they live in other aggregates). Never copy account-code strings.
+    /// The clone records <paramref name="source"/> as <see cref="DuplicatedFromStorefrontId"/> — its durable link back.
     /// </summary>
     public static Storefront DuplicateFrom(Storefront source, string name, DateTimeOffset now)
     {
         var clone = Create(source.TenantId, name, now);
+        clone.DuplicatedFromStorefrontId = source.Id;
         clone.ConfigureCommerce(string.Empty, source.Currency, source.TaxRegime, source.TaxRateBasisPoints, now);
         clone.SetDiscount(source.DiscountBasisPoints, now);
         clone.SetDefaultLanguage(source.DefaultLanguage, now);

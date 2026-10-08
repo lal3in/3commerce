@@ -30,6 +30,8 @@
 #       committed dev key outside Development — BL-11; Entity domain skeleton invariants;
 #       Catalog tenant-scoped ProductModel identifiers/bundles/taxonomy invariants;
 #       Catalog Storefront lifecycle plus public URL/currency/tax config invariants;
+#       Catalog storefront duplication records its IMMEDIATE source (DuplicatedFromStorefrontId), Create
+#       never sets it and no later change clears it (StorefrontDuplicateTests);
 #       Catalog Publication readiness/SEO/fulfillment-source invariants;
 #       Catalog go-live readiness storage: one table per signal + a read-only combined view
 #       (StorefrontReadinessModelTests — the race-free shape of the readiness consumers);
@@ -105,7 +107,10 @@
 #       disagreeing candidates / no lineage / no candidate → undetermined; chains of split copies resolve in one
 #       run and a canary (partial) delivery never stalls the rest; --limit oldest first; copy keys = the
 #       services' own CloneForStorefront; a re-run after delivery selects 0; safe CLI, derived queue names,
-#       deterministic message ids
+#       deterministic message ids; Catalog's recorded link (DuplicatedFromStorefrontId) is exact when present —
+#       evidence "link", one candidate, found without publications/name/audit, settles disagreeing candidates,
+#       not second-guessed by a hand-configured half, a dangling link is undetermined (never inferred) — and
+#       linked + older unlinked copies resolve in one run with a re-run selecting 0
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -231,9 +236,13 @@
 #       published OrderConfirmed; a Send reaches only queue:fulfillment-order-confirmed with the deterministic
 #       backfill message id + header, and no subscriber of the event gets a copy (OrderConfirmedBackfillTests)
 #       Storefront-duplicated backfill (ADR-0060): a real duplication through Catalog, read back by the tool's
-#       Catalog loader + its audit entry, links to its source and rebuilds exactly the published
+#       Catalog loader + its audit entry, links to its source by the link Catalog recorded (and, with the link
+#       nulled, by inference to the same verdict) and rebuilds exactly the published
 #       StorefrontDuplicated; a Send reaches only queue:storefront-duplicated (not fulfillment-storefront-duplicated)
 #       with the deterministic backfill id + header, no subscriber gets a copy (StorefrontDuplicatedBackfillTests)
+#       Storefront duplicated-from link: the real duplicate endpoint stores the source on the copy (POST response
+#       + list read back from the DB), a plain create stores null, an admin PUT carrying the field can't set,
+#       repoint or clear it; admin responses only — never the public config (StorefrontDuplicatedFromTests)
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
 #       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/

@@ -134,6 +134,23 @@
 {
     <section style="border:1px solid #e5e7eb; border-radius:8px; padding:1rem; margin:1rem 0; background:white;">
         <h2>@L["Ops.ManageHeading", _selectedStorefront.Name]</h2>
+        @if (_selectedStorefront.DuplicatedFromStorefrontId is { } duplicatedFromId)
+        {
+            @* Read-only lineage (set by Catalog's duplicate endpoint, never editable). The source may be archived and
+               so absent from the list — then show its id rather than a link. *@
+            var duplicatedFrom = _storefronts?.FirstOrDefault(x => x.Id == duplicatedFromId);
+            <p data-testid="duplicated-from" style="color:#4b5563; font-size:.85rem; margin:.1rem 0 .6rem;" title="@L["Ops.DuplicatedFrom.Tip"]">
+                @L["Ops.DuplicatedFrom"]
+                @if (duplicatedFrom is not null)
+                {
+                    <a href="javascript:void(0)" @onclick="() => SelectStorefront(duplicatedFrom)" @onclick:preventDefault="true">@duplicatedFrom.Name</a>
+                }
+                else
+                {
+                    <code style="font-size:.78rem;">@duplicatedFromId</code> <span>@L["Ops.DuplicatedFrom.Unlisted"]</span>
+                }
+            </p>
+        }
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.5rem; align-items:end; margin-bottom:1rem;">
             <label>@L["Ops.Field.Name"]<br /><input @bind="_editName" style="padding:.4rem;" title="@L["Ops.Field.Name.Tip"]" /></label>
             <label>@L["Ops.Field.PublicUrl"]<br /><input @bind="_editPublicUrl" style="padding:.4rem;" title="@L["Ops.Field.PublicUrl.Tip"]" /></label>
@@ -657,7 +674,7 @@
     // A percent entered in the UI (e.g. 8.25) → basis points (825), clamped to the domain's 0–100% range.
     private static int PercentToBps(decimal percent) => (int)Math.Round(Math.Clamp(percent, 0m, 100m) * 100m, MidpointRounding.AwayFromZero);
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null, int DiscountBasisPoints = 0);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null, int DiscountBasisPoints = 0, Guid? DuplicatedFromStorefrontId = null);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

@@ -204,6 +204,9 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
                         v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode(StringComparison.Ordinal))),
                         v => v.ToList()))
                 .HasMaxLength(1000);
+            // The storefront this one was duplicated from (null = not a copy, or a copy made before the link existed).
+            // A plain id, no FK: a source is archived, never deleted, and the link must survive whatever happens to it.
+            storefront.Property(s => s.DuplicatedFromStorefrontId);
             storefront.HasIndex(s => new { s.TenantId, s.Name }).IsUnique();
             storefront.HasIndex(s => new { s.TenantId, s.State });
             storefront.HasMany(s => s.Domains).WithOne().HasForeignKey(d => d.StorefrontId);

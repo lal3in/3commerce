@@ -23,7 +23,8 @@ public static class StorefrontEndpoints
 
         group.MapGet("/", List);
         group.MapPost("/", Create);
-        group.MapPost("/{id:guid}/duplicate", Duplicate);
+        group.MapPost("/{id:guid}/duplicate", Duplicate)
+            .WithSummary("Duplicate a storefront into a fresh private Draft; the copy records the source as duplicatedFromStorefrontId.");
         group.MapPut("/{id:guid}", Update);
         group.MapPost("/{id:guid}/domains", AddDomain);
         group.MapGet("/{id:guid}/readiness", Readiness);
@@ -701,7 +702,8 @@ public static class StorefrontEndpoints
         storefront.ShipToCountries.ToList(),
         storefront.CreatedAt,
         storefront.UpdatedAt,
-        storefront.ActivatedAt);
+        storefront.ActivatedAt,
+        storefront.DuplicatedFromStorefrontId);
 }
 
 public sealed record CreateStorefrontRequest(
@@ -783,7 +785,10 @@ public sealed record StorefrontResponse(
     IReadOnlyList<string> ShipToCountries,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? ActivatedAt);
+    DateTimeOffset? ActivatedAt,
+    // Read-only: the storefront this one was duplicated from (set by POST /{id}/duplicate), null otherwise. No
+    // create/update request carries it, so it can't be set or changed through the admin API.
+    Guid? DuplicatedFromStorefrontId = null);
 
 public sealed record StorefrontDomainResponse(Guid Id, string Host, bool Canonical);
 

@@ -4,9 +4,14 @@ namespace ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 /// Decides, for every duplicated storefront of one tenant, whether its payment-account copy and its carrier copy
 /// happened — and when one is missing, which storefront to copy it from. Pure: no I/O.
 ///
-/// <para><b>No durable record links a copy to its source.</b> Catalog does not store it and the
-/// <c>catalog.storefront.duplicate</c> audit entry carries only the clone's id and name. The source is therefore
-/// established from evidence the duplication left behind, conservatively:</para>
+/// <para><b>The recorded link, when there is one.</b> Catalog records the source of every copy its duplicate endpoint
+/// makes (<c>Storefront.DuplicatedFromStorefrontId</c>). A duplicate carrying it has exactly that one candidate —
+/// evidence <c>link</c> — and none of the inference below applies (the agreement rule then reduces to "did the source
+/// hold rows when the copy was made"). A link naming a storefront the tenant does not have is
+/// <see cref="UndeterminedReason.NoCandidate"/>, never a guess.</para>
+/// <para><b>Copies made before the link existed have it null</b> (they are not backfilled — Catalog cannot know their
+/// source either; the <c>catalog.storefront.duplicate</c> audit entry carries only the clone's id and name). For them
+/// the source is established from evidence the duplication left behind, conservatively:</para>
 /// <list type="number">
 /// <item><b>Lineage.</b> A publication's <c>PublishedAt</c> is set once and copied verbatim; the clone's publications
 /// are created at the clone's own <c>CreatedAt</c>. So the source's (product, published-at) pairs as of that instant
@@ -49,6 +54,12 @@ public static class StorefrontBackfillPlanner
             .Where(s => byStorefront[s.Id].Any(p => p.ProductPublishedAt < s.CreatedAt))
             .Select(s => new DuplicationFact(tenantId, s.Id, null));
     }
+
+    /// <summary>Duplicates Catalog recorded as such: every storefront carrying a link to the storefront it was copied from.</summary>
+    public static IEnumerable<DuplicationFact> ProvenByLink(Guid tenantId, IReadOnlyList<StorefrontFact> storefronts) =>
+        storefronts
+            .Where(s => s.DuplicatedFromStorefrontId is not null)
+            .Select(s => new DuplicationFact(tenantId, s.Id, null));
 
     public static IReadOnlyList<DuplicationVerdict> Plan(StorefrontTenantSnapshot snapshot, TimeSpan cloneWindow)
     {
@@ -106,6 +117,17 @@ public static class StorefrontBackfillPlanner
             var older = snapshot.Storefronts.Where(s => s.Id != target.Id && s.CreatedAt < t0).ToList();
             List<StorefrontFact> candidates;
             var evidence = new List<string>();
+            if (target.DuplicatedFromStorefrontId is { } linked)
+            {
+                // Catalog recorded the source: exactly that storefront, whatever the circumstantial evidence says.
+                if (!storefronts.ContainsKey(linked) || linked == target.Id)
+                {
+                    return Unresolved(UndeterminedReason.NoCandidate, "link", 0);
+                }
+
+                return Resolve([storefronts[linked]], "link");
+            }
+
             if (copiedPairs.Count > 0)
             {
                 candidates = older.Where(c => PairsAt(c.Id, t0).SetEquals(copiedPairs)).ToList();
@@ -155,34 +177,40 @@ public static class StorefrontBackfillPlanner
                 return Unresolved(UndeterminedReason.NoCandidate, evidenceText, 0);
             }
 
-            var verdict = new Dictionary<StorefrontBackfillTarget, SideVerdict>();
-            foreach (var side in Sides)
+            return Resolve(candidates, evidenceText);
+
+            // Decide each side of a duplicate whose possible sources are known (one when Catalog recorded the link).
+            DuplicationVerdict Resolve(List<StorefrontFact> sources, string sourceEvidence)
             {
-                if (!present[side])
+                var verdict = new Dictionary<StorefrontBackfillTarget, SideVerdict>();
+                foreach (var side in Sides)
                 {
-                    verdict[side] = DecideMissingSide(side, candidates, t0);
-                    if (verdict[side] is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } source })
+                    if (!present[side])
                     {
-                        planned[(side, target.Id)] = source;
+                        verdict[side] = DecideMissingSide(side, sources, t0);
+                        if (verdict[side] is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } source })
+                        {
+                            planned[(side, target.Id)] = source;
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    verdict[side] = SideVerdict.Present;
+
+                    // A side filled AFTER the copy window (by an earlier, e.g. canary, backfill run — or by hand) with exactly
+                    // what the agreeing sources hold counts, for later duplicates, as held since creation. Otherwise a
+                    // partial run would make a backfilled sibling look like a candidate that "had nothing" and stall the rest.
+                    if (!rows[side][target.Id].Any(r => r.CreatedAt <= t0 + cloneWindow)
+                        && DecideMissingSide(side, sources, t0) is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } src }
+                        && Multiset(rows[side][target.Id].Select(r => r.CopyKey)) == Multiset(rows[side][src].Select(r => r.CopyKey)))
+                    {
+                        planned[(side, target.Id)] = src;
+                    }
                 }
 
-                verdict[side] = SideVerdict.Present;
-
-                // A side filled AFTER the copy window (by an earlier, e.g. canary, backfill run — or by hand) with exactly
-                // what the agreeing sources hold counts, for later duplicates, as held since creation. Otherwise a
-                // partial run would make a backfilled sibling look like a candidate that "had nothing" and stall the rest.
-                if (!rows[side][target.Id].Any(r => r.CreatedAt <= t0 + cloneWindow)
-                    && DecideMissingSide(side, candidates, t0) is { Outcome: SideOutcome.Missing, SourceStorefrontId: { } src }
-                    && Multiset(rows[side][target.Id].Select(r => r.CopyKey)) == Multiset(rows[side][src].Select(r => r.CopyKey)))
-                {
-                    planned[(side, target.Id)] = src;
-                }
+                return Verdict(sourceEvidence, sources.Count, verdict[StorefrontBackfillTarget.Payments], verdict[StorefrontBackfillTarget.Fulfillment]);
             }
-
-            return Verdict(evidenceText, candidates.Count, verdict[StorefrontBackfillTarget.Payments], verdict[StorefrontBackfillTarget.Fulfillment]);
 
             DuplicationVerdict Verdict(string ev, int count, SideVerdict payments, SideVerdict fulfillment) =>
                 new(snapshot.TenantId, target.Id, name, target.CreatedAt, ev, count, payments, fulfillment);

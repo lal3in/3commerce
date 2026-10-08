@@ -89,6 +89,7 @@
           <li>Filter to denied/sensitive actions for a compliance review.</li>
           <li>Trace a resource’s history by id.</li>
         </ul>
+        <p><b>Which storefront was a copy made from?</b> The <code>catalog.storefront.duplicate</code> entry records only the copy’s id and name. The source lives on the copy itself: Catalog’s admin storefront responses (<code>GET/POST /api/catalog/admin/storefronts</code>, <code>POST …/{id}/duplicate</code>, <code>PUT …/{id}</code>) carry a read-only <code>duplicatedFromStorefrontId</code> — set by the duplicate endpoint, <code>null</code> for storefronts created any other way and for copies made before the link existed, never settable or changeable through the API, and never on the public storefront config. Admin <b>Commerce ops → Manage</b> shows it as “Duplicated from: &lt;name&gt;”.</p>
         <h2 id="workflow">Workflow <span style="opacity:.6">(<code>/api/workflow</code> · <code>:5111</code>)</span></h2>
         <p>Central scheduled-job run history (mt6_3). Read-only projection of <code>JobRunRecorded</code>.</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
