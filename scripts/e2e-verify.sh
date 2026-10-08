@@ -201,7 +201,12 @@
 #       never above the captured gross, a second request can only claim what is left of the gross
 #       (nothing left ⇒ 400), and a refund Payments cannot cover ends the RMA in a terminal
 #       RefundFailed state instead of going quiet — trial balance 0 throughout;
-#       Fulfillment: shipments grouped by source, idempotent
+#       Fulfillment: shipments grouped by source, idempotent;
+#       Fulfillment order intake under concurrency: 3 OrderConfirmed copies (distinct message ids) for each
+#       of 20 orders at once → exactly one shipment per order+source, and for 10 out-of-stock orders exactly
+#       one HeldOrder + one active inventory hold; no 23505/40001, nothing in fulfillment-order-confirmed_error
+#       (endpoint partitioned by order id); a redelivery / re-publish is a no-op
+#       (FulfillmentShipmentConcurrencyTests)
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
 #       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/

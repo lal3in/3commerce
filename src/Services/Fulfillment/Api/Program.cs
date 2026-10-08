@@ -21,7 +21,10 @@ builder.Services.AddDbContext<FulfillmentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus =>
 {
-    bus.AddConsumer<FulfillmentOrderConfirmedConsumer>(); // queue fulfillment-order-confirmed — Notifications owns order-confirmed (ADR-0060)
+    // queue fulfillment-order-confirmed — Notifications owns order-confirmed (ADR-0060). Partitioned by order id:
+    // messages for one order are fulfilled one at a time (see PartitionByOrder).
+    bus.AddConsumer<FulfillmentOrderConfirmedConsumer>()
+        .Endpoint(e => e.AddConfigureEndpointCallback(FulfillmentOrderConfirmedConsumer.PartitionByOrder));
     bus.AddConsumer<OrderDeliveredConsumer>();
     bus.AddConsumer<RestockRequestedConsumer>();
     bus.AddConsumer<FulfillmentStorefrontDuplicatedConsumer>(); // queue fulfillment-storefront-duplicated — Payments owns storefront-duplicated (ADR-0060)
