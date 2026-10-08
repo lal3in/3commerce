@@ -1,5 +1,7 @@
 # order-confirmed-backfill
 
+> Two commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`.
+
 Operator tool for [ADR-0060](../../docs/adr/0060-unique-receive-endpoint-per-service.md). Until #288, Fulfillment's
 and Notifications' `OrderConfirmedConsumer`s shared the `order-confirmed` queue, so every `OrderConfirmed` reached
 only one of them. This tool finds the confirmed orders each side missed and **sends** (never publishes) a rebuilt
@@ -75,3 +77,45 @@ event is merely in flight). For `notifications`, the worker must have applied `D
 start) — otherwise the tool refuses, because without references a re-run could not see what it already sent.
 
 Each send carries a deterministic message id per (target, order) and a `3c-backfill` header.
+
+## `storefront-duplicated` — the split storefront copies
+
+The same tool repairs the other half of ADR-0060: until #288 Payments (`StorefrontDuplicatedConsumer`, copies payment
+accounts) and Fulfillment (`FulfillmentStorefrontDuplicatedConsumer`, copies carrier integrations) shared the
+`storefront-duplicated` queue, so each duplicated storefront got only one of the two copies.
+
+```bash
+dotnet $BIN storefront-duplicated --target both --dry-run --list     # verdict per duplicated storefront
+dotnet $BIN storefront-duplicated --target both --execute --limit 2  # canary
+dotnet $BIN storefront-duplicated --target both --execute
+dotnet $BIN storefront-duplicated --target both --dry-run             # after the queues drain: 0 MISSING
+```
+
+| Target | Queue | Selected when (per duplicated storefront) |
+|---|---|---|
+| `payments` | `queue:storefront-duplicated` | the duplicate has **no** payment account, and every candidate source had accounts when the duplicate was made and would copy the same ones |
+| `fulfillment` | `queue:fulfillment-storefront-duplicated` | the same for carrier integrations |
+
+Options: `--target payments|fulfillment|both`, `--dry-run|--execute` (one required), `--tenant <guid>` (repeatable),
+`--limit <n>` (per target, oldest first), `--list`, `--clone-window <s>` (default 600), `--skip-preflight`. Extra
+connections: `Catalog`, `Audit`, `Payments` (plus the existing `Fulfillment`, `RabbitMq`).
+
+Duplicated storefronts are the `catalog.storefront.duplicate` entries of the Audit service plus any storefront Catalog
+proves is a copy (it holds a publication first published before the storefront existed). **Nothing records the
+source**, so it is inferred conservatively (`Storefronts/StorefrontBackfillPlanner.cs`):
+
+1. **Lineage** — candidates are older storefronts of the tenant whose (product, `PublishedAt`) pairs at the duplicate's
+   creation equal the duplicate's copied publications (`PublishedAt` is set once and copied verbatim, so only a
+   duplication can share a pair). Nothing published → only a duplicate named `"X (copy)"` links to the storefront X.
+2. **Copied half** — rows on the duplicate created within the clone window are the copy that ran; a candidate must have
+   held the same providers / carriers just before.
+3. **Name** — several candidates and a `"X (copy)"` name → the one named X.
+4. **Agreement** — a side is `Missing` (sent) only if every candidate held rows on it at the time and all would copy the
+   same rows; none held any → `SourceEmpty`; otherwise `Undetermined` (reported, never sent). A side on which the
+   duplicate has ANY row is `Present` and never sent — owner edits are never overwritten (the consumers no-op there
+   anyway). Archived or vanished duplicates are skipped.
+
+The rebuilt event carries the audit summary as `Name` (what the live event carried) and the oldest agreeing candidate
+that holds the rows as `SourceStorefrontId` — the consumers only read the rows to copy from it, so any agreeing
+candidate yields the same copy. Same broker preflight (expected consumers `3commerce.Payments.Api` /
+`3commerce.Fulfillment.Api`), deterministic message id per (target, duplicate), `3c-backfill` header.

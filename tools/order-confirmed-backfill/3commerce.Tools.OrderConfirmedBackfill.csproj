@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Operator tool (ADR-0060): re-delivers OrderConfirmed to the consumer that missed it while Fulfillment and
-    Notifications competed on one queue. References the services' own DbContexts, the Ordering event mapping and
+    Notifications competed on one queue, and (command `storefront-duplicated`) StorefrontDuplicated to whichever of
+    Payments / Fulfillment lost its copy. References the services' own DbContexts, the Ordering event mapping and
     the consumer types (queue names are derived from them) so it cannot drift from the live code.
   -->
   <PropertyGroup>
@@ -13,6 +14,10 @@
     <ProjectReference Include="../../src/Services/Ordering/Infrastructure/3commerce.Ordering.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Services/Fulfillment/Infrastructure/3commerce.Fulfillment.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Workers/Notifications/3commerce.Workers.Notifications.csproj" />
+    <!-- storefront-duplicated command: Catalog (storefronts/publications), Audit (duplication entries), Payments. -->
+    <ProjectReference Include="../../src/Services/Catalog/Infrastructure/3commerce.Catalog.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Services/Audit/Infrastructure/3commerce.Audit.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Services/Payments/Infrastructure/3commerce.Payments.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="backfill.settings.json" CopyToOutputDirectory="PreserveNewest" />

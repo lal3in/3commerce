@@ -100,5 +100,12 @@ only the colliding side changes two queue names, both NEW, and leaves no stale q
   (`Missing`) is emailed by default; where the log cannot tell which of an address's orders an email was for
   (`Ambiguous`) or the order predates the log, the tool reports instead of guessing. A broker preflight refuses to
   send unless every consumer of the target queue is the target's own process and the queue is empty.
+* **Storefront duplications made before the fix** got their payment accounts OR their carriers. The same tool's
+  `storefront-duplicated` command re-Sends `StorefrontDuplicated` to `queue:storefront-duplicated` (Payments) or
+  `queue:fulfillment-storefront-duplicated` (Fulfillment) for the side that is missing. No durable record links a
+  copy to its source (Catalog keeps none; the audit entry names only the copy), so the source is established from
+  the copied publications (`PublishedAt` is set once and copied verbatim), the half that did copy, the admin
+  `"X (copy)"` name, and agreement of every candidate; anything else is reported as undetermined and not sent. See
+  the [runbook](../runbooks/order-confirmed-backfill.md#storefront-duplications-storefront-duplicated-command).
 * A new consumer of an already-consumed event must carry a service-specific name. The guard says so in its
   failure message.

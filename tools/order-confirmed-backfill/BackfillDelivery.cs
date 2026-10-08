@@ -81,10 +81,12 @@ public sealed class BackfillSender(ISendEndpointProvider endpoints)
 /// </summary>
 public sealed class BrokerPreflight(HttpClient management)
 {
-    public async Task<IReadOnlyList<string>> CheckAsync(BackfillTarget target, CancellationToken ct)
+    public Task<IReadOnlyList<string>> CheckAsync(BackfillTarget target, CancellationToken ct) =>
+        CheckAsync(BackfillQueues.QueueName(target), BackfillQueues.ExpectedConnectionName(target), ct);
+
+    /// <summary>The same checks for any queue and the one process that must be its only consumer.</summary>
+    public async Task<IReadOnlyList<string>> CheckAsync(string queue, string expected, CancellationToken ct)
     {
-        var queue = BackfillQueues.QueueName(target);
-        var expected = BackfillQueues.ExpectedConnectionName(target);
         var problems = new List<string>();
 
         using var response = await management.GetAsync($"api/queues/%2F/{Uri.EscapeDataString(queue)}", ct);
