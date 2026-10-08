@@ -140,7 +140,7 @@
                so absent from the list — then show its id rather than a link. *@
             var duplicatedFrom = _storefronts?.FirstOrDefault(x => x.Id == duplicatedFromId);
             <p data-testid="duplicated-from" style="color:#4b5563; font-size:.85rem; margin:.1rem 0 .6rem;" title="@L["Ops.DuplicatedFrom.Tip"]">
-                @L["Ops.DuplicatedFrom"]
+                <span style="margin-right:.3rem;">@L["Ops.DuplicatedFrom"]</span>
                 @if (duplicatedFrom is not null)
                 {
                     <button type="button" @onclick="() => SelectStorefront(duplicatedFrom)" title="@L["Ops.Manage.Tip"]" style="background:none; border:0; padding:0; color:#2563eb; text-decoration:underline; cursor:pointer; font:inherit;">@duplicatedFrom.Name</button>
