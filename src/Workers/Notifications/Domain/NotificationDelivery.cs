@@ -18,6 +18,12 @@ public sealed class NotificationDelivery
     public required string Recipient { get; init; }
     public required string Subject { get; init; }
     public NotificationStatus Status { get; set; }
+
+    /// <summary>
+    /// What the email was about (<c>EmailMessage.Reference</c>, e.g. <c>order-confirmed:{orderId}</c>). Null on rows
+    /// written before the column existed and for emails without a subject entity.
+    /// </summary>
+    public string? Reference { get; init; }
     public string? Error { get; set; }
     public DateTimeOffset OccurredAt { get; init; }
 }

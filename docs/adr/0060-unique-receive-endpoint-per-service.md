@@ -76,8 +76,29 @@ only the colliding side changes two queue names, both NEW, and leaves no stale q
   Measured after the fix on the same dev broker: 12 fresh orders → **12/12** with a shipment AND an email;
   6 storefront duplications → **6/6** with both payment accounts and carriers.
 * **Orders confirmed before the fix that Fulfillment never saw stay unfulfilled** (and the other half never
-  got their email). Fulfillment's processing is idempotent by order, so a backfill can re-deliver
-  `OrderConfirmed` for the affected orders straight to `queue:fulfillment-order-confirmed` (a `Send`, not a
-  `Publish`, so customers are not emailed twice). That backfill is a separate, operator-run follow-up.
+  got their email). The backfill is an operator-run tool, `tools/order-confirmed-backfill`
+  ([README](../../tools/order-confirmed-backfill/README.md), [runbook](../runbooks/order-confirmed-backfill.md)):
+  it rebuilds each affected order's `OrderConfirmed` from Ordering with `OrderConfirmedFactory` — the same mapping
+  `OrderStatusConsumer` publishes with — and **Sends** it (not Publishes) to the one queue that missed it, so no
+  customer is emailed twice and nothing is fulfilled twice:
+
+  ```bash
+  dotnet build tools/order-confirmed-backfill
+  BIN=tools/order-confirmed-backfill/bin/Debug/net10.0/3commerce.Tools.OrderConfirmedBackfill.dll
+  dotnet $BIN --target both --dry-run                  # counts; sends nothing
+  dotnet $BIN --target fulfillment --execute           # → queue:fulfillment-order-confirmed
+  dotnet $BIN --target notifications --execute         # → queue:order-confirmed
+  dotnet $BIN --target both --dry-run                  # after the queues drain: 0 to send
+  ```
+
+  *Fulfillment-missing* = a `Confirmed`, undisputed order with a line Fulfillment ships (`RequiresShipping()`) and
+  no `Shipment` and no `HeldOrder` — the two records the consumer itself checks. *Email-missing* needed a durable
+  record the worker did not keep: its delivery log had recipient + subject + time but no order. The worker now
+  records `Reference = order-confirmed:{orderId}` on each delivery (migration `DeliveryReference`), which makes
+  every email the backfill causes — and every future one — exactly attributable, so a re-run selects only what is
+  still missing. Pre-change rows are matched by recipient + time and only a provably un-emailed order
+  (`Missing`) is emailed by default; where the log cannot tell which of an address's orders an email was for
+  (`Ambiguous`) or the order predates the log, the tool reports instead of guessing. A broker preflight refuses to
+  send unless every consumer of the target queue is the target's own process and the queue is empty.
 * A new consumer of an already-consumed event must carry a service-specific name. The guard says so in its
   failure message.

@@ -162,16 +162,9 @@ public sealed class OrderStatusConsumer(
         // Guarded by the idempotency checks above: a redelivered CheckoutCompleted returns early.
         await audit.RecordAsync(PurchaseAudit(order), context.CancellationToken);
 
-        // The refund basis (rma_disc): every consumer that has to value a line — Support's RMA snapshot
-        // above all — needs the line's DISCOUNTED worth, not its shelf price. OrderLine.DiscountMinor
-        // holds only the promotion share, so the storefront-wide remainder is apportioned here.
-        var lineDiscounts = LineDiscountsMinor(order);
-        await context.Publish(new OrderConfirmed(
-            order.Id, order.TenantId, order.Email, order.GrossMinor, order.Currency,
-            new ShipToInfo(order.ShipName, order.ShipLine1, order.ShipCity, order.ShipPostcode, order.ShipCountry, order.ShipRegion),
-            order.Lines.Select((l, i) => new OrderLineInfo(
-                l.ProductId, l.VariantId, l.SupplierId, l.Title, l.Quantity, l.FulfilmentType, l.BillingMode, l.UnitPriceMinor,
-                lineDiscounts[i])).ToList()));
+        // The rich event, built by the one mapping the operator backfill reuses (ADR-0060) — the per-line
+        // refund basis (rma_disc) included. Never inline it here again: a backfilled event must equal this one.
+        await context.Publish(OrderConfirmedFactory.From(order));
 
         // COGS accrual (phase 1): wires the previously-dormant SupplierPayable path. Order lines carry the
         // resolved SupplierId but not its cost — cost lives on the line's resolved Offer (projected into
@@ -193,13 +186,6 @@ public sealed class OrderStatusConsumer(
                 order.StorefrontId));
         }
     }
-
-    /// <summary>
-    /// This order's whole discount split per line (promotion allocation + the storefront-wide share),
-    /// index-aligned with <see cref="Order.Lines"/>. Support projects it onto the RMA snapshot so a
-    /// refund is valued at what the line was SOLD for, not at its shelf price (rma_disc).
-    /// </summary>
-    private static long[] LineDiscountsMinor(Order order) => OrderLineDiscounts.For(order);
 
     /// <summary>
     /// Aggregates per-supplier gross cost of goods over the order's lines and publishes

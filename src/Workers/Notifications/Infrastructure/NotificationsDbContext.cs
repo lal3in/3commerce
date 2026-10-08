@@ -19,7 +19,9 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
         delivery.Property(x => x.Recipient).HasMaxLength(320);
         delivery.Property(x => x.Subject).HasMaxLength(400);
         delivery.Property(x => x.Error).HasMaxLength(1000);
+        delivery.Property(x => x.Reference).HasMaxLength(200);
         delivery.HasIndex(x => x.OccurredAt);
         delivery.HasIndex(x => x.Status);
+        delivery.HasIndex(x => x.Reference);
     }
 }
