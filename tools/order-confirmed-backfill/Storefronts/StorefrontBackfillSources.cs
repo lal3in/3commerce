@@ -11,7 +11,8 @@ namespace ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 /// <summary>
 /// The central audit timeline (Audit service, no RLS — it is the platform's projection). Catalog's audit is
 /// publish-only, so this is where <c>catalog.storefront.duplicate</c> entries live: the duplicate's id and the name it
-/// was given (= the <c>Name</c> the live <c>StorefrontDuplicated</c> carried). They do NOT record the source.
+/// was given (= the <c>Name</c> the live <c>StorefrontDuplicated</c> carried). They do NOT record the source — Catalog's
+/// <c>Storefront.DuplicatedFromStorefrontId</c> does, for copies made since it existed.
 /// </summary>
 public sealed class DuplicationAuditSource(AuditDbContext db)
 {
@@ -41,7 +42,7 @@ public sealed class StorefrontCatalogSource(CatalogDbContext db, ITenantScope sc
     public Task<List<StorefrontFact>> StorefrontsAsync(Guid tenantId, CancellationToken ct) =>
         scope.RunAsync(db, TenantContext.ForTenant(tenantId), () => db.Storefronts.AsNoTracking()
             .Where(s => s.TenantId == tenantId)
-            .Select(s => new StorefrontFact(s.Id, s.TenantId, s.Name, s.CreatedAt, s.State == StorefrontState.Archived))
+            .Select(s => new StorefrontFact(s.Id, s.TenantId, s.Name, s.CreatedAt, s.State == StorefrontState.Archived, s.DuplicatedFromStorefrontId))
             .ToListAsync(ct), ct);
 
     /// <summary>

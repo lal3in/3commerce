@@ -36,6 +36,35 @@ public class StorefrontDuplicateTests
     }
 
     [Fact]
+    public void DuplicateFrom_records_the_source_as_the_clones_duplicated_from_link()
+    {
+        var source = ConfiguredSource();
+
+        var clone = Storefront.DuplicateFrom(source, "EU store copy", DateTimeOffset.UtcNow);
+        var copyOfCopy = Storefront.DuplicateFrom(clone, "EU store copy 2", DateTimeOffset.UtcNow);
+
+        Assert.Equal(source.Id, clone.DuplicatedFromStorefrontId);
+        Assert.Equal(clone.Id, copyOfCopy.DuplicatedFromStorefrontId); // the IMMEDIATE source, not the chain's root
+        Assert.Null(source.DuplicatedFromStorefrontId);                // Create never sets it
+    }
+
+    [Fact]
+    public void DuplicatedFrom_link_survives_every_later_change()
+    {
+        var source = ConfiguredSource();
+        var clone = Storefront.DuplicateFrom(source, "EU store copy", DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+
+        clone.Rename("Renamed copy", now);
+        clone.ConfigureCommerce("http://localhost:3000/x", "AUD", StorefrontTaxRegime.AuGst, 1000, now);
+        clone.SetLedgerAccounts(null, null, null, now);
+        clone.SetVisibility(StorefrontVisibility.Public, null, now);
+        clone.Archive(now);
+
+        Assert.Equal(source.Id, clone.DuplicatedFromStorefrontId);
+    }
+
+    [Fact]
     public void DuplicateFrom_copies_currency_tax_language_and_theme()
     {
         var source = ConfiguredSource();

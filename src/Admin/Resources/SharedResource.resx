@@ -1723,6 +1723,9 @@
   <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Create duplicate</value></data>
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Create the new storefront now.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>The copy starts as a private Draft with no domains — add a domain before going live.</value></data>
+  <data name="Ops.DuplicatedFrom" xml:space="preserve"><value>Duplicated from:</value></data>
+  <data name="Ops.DuplicatedFrom.Tip" xml:space="preserve"><value>The storefront this one was copied from (recorded when it was duplicated; read-only).</value></data>
+  <data name="Ops.DuplicatedFrom.Unlisted" xml:space="preserve"><value>(archived — not in the list)</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Storefront duplicated.</value></data>
   <data name="Nav.Carriers" xml:space="preserve"><value>Carriers</value></data>
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Manage shipping carriers and per-storefront carrier accounts.</value></data>

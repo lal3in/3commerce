@@ -20,6 +20,7 @@ public sealed class StorefrontBackfillRunner(
             var storefronts = await catalog.StorefrontsAsync(tenant, ct);
             var publications = await catalog.PublicationsAsync(tenant, ct);
             var duplications = audited[tenant]
+                .Concat(StorefrontBackfillPlanner.ProvenByLink(tenant, storefronts))
                 .Concat(StorefrontBackfillPlanner.ProvenByPublications(tenant, storefronts, publications))
                 .ToList();
             if (duplications.Count == 0)

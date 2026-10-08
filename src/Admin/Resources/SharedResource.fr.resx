@@ -1692,6 +1692,9 @@
   <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Créer le duplicata</value></data>
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Créer la nouvelle boutique maintenant.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>La copie démarre comme un brouillon privé sans domaine – ajoutez un domaine avant la mise en ligne.</value></data>
+  <data name="Ops.DuplicatedFrom" xml:space="preserve"><value>Dupliquée depuis :</value></data>
+  <data name="Ops.DuplicatedFrom.Tip" xml:space="preserve"><value>La boutique dont celle-ci a été copiée (enregistrée lors de la duplication ; lecture seule).</value></data>
+  <data name="Ops.DuplicatedFrom.Unlisted" xml:space="preserve"><value>(archivée – absente de la liste)</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Boutique dupliquée.</value></data>
   <data name="Nav.Carriers" xml:space="preserve"><value>Transporteurs</value></data>
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Gérer les transporteurs et les comptes transporteur par boutique.</value></data>

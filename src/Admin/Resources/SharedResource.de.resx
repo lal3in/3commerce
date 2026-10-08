@@ -1692,6 +1692,9 @@
   <data name="Ops.Duplicate.Confirm" xml:space="preserve"><value>Duplikat erstellen</value></data>
   <data name="Ops.Duplicate.Confirm.Tip" xml:space="preserve"><value>Den neuen Shop jetzt erstellen.</value></data>
   <data name="Ops.Duplicate.Hint" xml:space="preserve"><value>Die Kopie beginnt als privater Entwurf ohne Domains – fügen Sie vor der Aktivierung eine Domain hinzu.</value></data>
+  <data name="Ops.DuplicatedFrom" xml:space="preserve"><value>Dupliziert von:</value></data>
+  <data name="Ops.DuplicatedFrom.Tip" xml:space="preserve"><value>Der Shop, von dem dieser kopiert wurde (beim Duplizieren erfasst; schreibgeschützt).</value></data>
+  <data name="Ops.DuplicatedFrom.Unlisted" xml:space="preserve"><value>(archiviert – nicht in der Liste)</value></data>
   <data name="Ops.Status.StorefrontDuplicated" xml:space="preserve"><value>Shop dupliziert.</value></data>
   <data name="Nav.Carriers" xml:space="preserve"><value>Spediteure</value></data>
   <data name="Nav.Carriers.Tip" xml:space="preserve"><value>Versanddienstleister und storefrontspezifische Spediteurkonten verwalten.</value></data>

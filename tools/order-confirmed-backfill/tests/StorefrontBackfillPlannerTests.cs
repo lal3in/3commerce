@@ -324,5 +324,96 @@ public class StorefrontBackfillPlannerTests
         Assert.Equal(before.MatchKey, ConfigRowFact.From(carrier).MatchKey);
     }
 
+    // --- Catalog's recorded link (Storefront.DuplicatedFromStorefrontId): exact when present, inference when null ---
+
+    [Fact]
+    public void A_recorded_link_names_the_source_even_without_publications_name_or_audit_entry()
+    {
+        var w = new StorefrontWorld();
+        var s = w.Store("Bare", T0);                                  // nothing published: no lineage to infer from
+        w.Account(s, "Card", T0.AddMinutes(1));
+        w.Carrier(s, CarrierCode.Fake, T0.AddMinutes(1));
+        var t = w.Duplicate(s, "Whatever", T0.AddHours(1), audited: false, linked: true);
+        w.PaymentsConsumer(s.Id, t.Id, t.CreatedAt + Lag);
+
+        var v = w.Verdict(t);                                         // found by its link alone
+        Assert.Equal("link", v.Evidence);
+        Assert.Equal(1, v.Candidates);
+        Assert.Equal(SideVerdict.Present, v.Payments);
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, s.Id), v.Fulfillment);
+        Assert.Equal(new BuildingBlocks.Contracts.Catalog.StorefrontDuplicated(w.Tenant, s.Id, t.Id, "Whatever"),
+            StorefrontBackfillQueues.Rebuild(v, StorefrontBackfillTarget.Fulfillment));
+    }
+
+    [Fact]
+    public void A_recorded_link_settles_candidates_that_would_copy_different_things()
+    {
+        var (w, s) = FullSource();
+        var sibling = w.Duplicate(s, "Sibling", T0.AddHours(1));
+        w.PaymentsConsumer(s.Id, sibling.Id, sibling.CreatedAt + Lag);
+        w.FulfillmentConsumer(s.Id, sibling.Id, sibling.CreatedAt + Lag);
+        w.Carrier(sibling, CarrierCode.Dhl, T0.AddHours(2));          // the sibling's carriers now differ from the source's
+
+        var fromSource = w.Duplicate(s, "Spring sale", T0.AddHours(3), linked: true);
+        w.PaymentsConsumer(s.Id, fromSource.Id, fromSource.CreatedAt + Lag);
+        var fromSibling = w.Duplicate(sibling, "Autumn sale", T0.AddHours(4), linked: true);
+        w.PaymentsConsumer(sibling.Id, fromSibling.Id, fromSibling.CreatedAt + Lag);
+
+        // Inferred, both would be CandidatesDisagree (same publications, same copied payments); linked, each is exact.
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, s.Id), w.Verdict(fromSource).Fulfillment);
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, sibling.Id), w.Verdict(fromSibling).Fulfillment);
+        Assert.All(new[] { fromSource, fromSibling }, t => Assert.Equal(1, w.Verdict(t).Candidates));
+    }
+
+    [Fact]
+    public void A_recorded_link_is_not_second_guessed_by_a_half_configured_by_hand()
+    {
+        var (w, s) = FullSource();
+        var t = w.Duplicate(s, "Copy", T0.AddHours(1), linked: true);
+        // A carrier on the duplicate within the clone window that the source never had: inferred, this left the lost
+        // payment side NoCandidate. With the link the source is known, so the lost side is sent from it.
+        w.Carrier(t, CarrierCode.Ups, t.CreatedAt.AddMinutes(1));
+
+        var v = w.Verdict(t);
+        Assert.Equal(SideVerdict.Present, v.Fulfillment);
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, s.Id), v.Payments);
+    }
+
+    [Fact]
+    public void A_link_to_a_storefront_the_tenant_does_not_have_is_undetermined_and_never_falls_back_to_inference()
+    {
+        var (w, s) = FullSource();
+        var t = w.Duplicate(s, "Main (copy)", T0.AddHours(1));        // publications + name would infer s …
+        w.PaymentsConsumer(s.Id, t.Id, t.CreatedAt + Lag);
+        w.Relink(t, Guid.CreateVersion7());                           // … but the recorded link names another storefront
+
+        var v = w.Verdict(t);
+        Assert.Equal("link", v.Evidence);
+        Assert.Equal(SideVerdict.Present, v.Payments);
+        Assert.Equal(SideVerdict.Undetermined(UndeterminedReason.NoCandidate), v.Fulfillment);
+    }
+
+    [Fact]
+    public void Linked_and_older_unlinked_copies_resolve_in_one_run_and_a_rerun_selects_nothing()
+    {
+        var (w, s) = FullSource();
+        var old = w.Duplicate(s, "Old copy", T0.AddHours(1));         // before the link existed: inferred
+        w.PaymentsConsumer(s.Id, old.Id, old.CreatedAt + Lag);
+        var linked = w.Duplicate(s, "New copy", T0.AddHours(2), linked: true);
+        w.FulfillmentConsumer(s.Id, linked.Id, linked.CreatedAt + Lag);
+        var empty = w.Store("Empty", T0.AddHours(3));
+        var ofEmpty = w.Duplicate(empty, "Empty copy", T0.AddHours(4), linked: true);
+
+        Assert.StartsWith("publications", w.Verdict(old).Evidence, StringComparison.Ordinal);
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, s.Id), w.Verdict(old).Fulfillment);
+        Assert.Equal(new SideVerdict(SideOutcome.Missing, s.Id), w.Verdict(linked).Payments);
+        Assert.Equal((SideVerdict.SourceEmpty, SideVerdict.SourceEmpty), (w.Verdict(ofEmpty).Payments, w.Verdict(ofEmpty).Fulfillment));
+
+        w.Deliver(StorefrontBackfillPlan.From(w.Plan(), null), T0.AddDays(30));
+        var rerun = StorefrontBackfillPlan.From(w.Plan(), null);
+        Assert.Empty(rerun.Payments);
+        Assert.Empty(rerun.Fulfillment);
+    }
+
     private static List<string> Keys(IEnumerable<ConfigRowFact> rows) => rows.Select(r => r.CopyKey).Order(StringComparer.Ordinal).ToList();
 }
