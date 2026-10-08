@@ -20,6 +20,37 @@ public sealed class OrderStatusConsumer(
     OrderingDbContext db, IAuditRecorder audit, PromotionRedemptionService redemptions, ILogger<OrderStatusConsumer> logger) :
     IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>, IConsumer<PaymentChargedBack>
 {
+    /// <summary>How many orders the endpoint updates in parallel (one partition each).</summary>
+    public const int Partitions = 16;
+
+    /// <summary>
+    /// Applies an order's events one at a time, in queue order, while different orders still run in parallel.
+    /// Wire it with <c>.Endpoint(e => e.AddConfigureEndpointCallback(PartitionByOrder))</c>.
+    /// <para>
+    /// Every event this consumer handles updates the same <c>ordering."Orders"</c> row, and several arrive together:
+    /// a dispute that goes straight to lost publishes <see cref="PaymentDisputed"/> and <see cref="PaymentChargedBack"/>
+    /// back to back, and refunds follow each other. Consumed in parallel, each ran in the EF outbox's REPEATABLE READ
+    /// transaction, whose snapshot is taken at the inbox lock, so every update but the first failed with 40001 until a
+    /// retry rescued it, and a retried event could land after a later one (a partial refund retried after the full
+    /// refund is skipped, losing <see cref="Order.PartiallyRefunded"/>).
+    /// </para>
+    /// <para>
+    /// ONE partitioner is shared by all five message types, so two different events of one order never overlap
+    /// either. It sits on the endpoint's message pipe, OUTSIDE the per-consumer outbox filter, so the next event's
+    /// transaction only opens after the previous one has committed. It is per process: replicas competing on the
+    /// queue can still collide, and the retry policy covers that rarer case.
+    /// </para>
+    /// </summary>
+    public static void PartitionByOrder(IReceiveEndpointConfigurator endpoint)
+    {
+        var partitioner = endpoint.CreatePartitioner(Partitions);
+        endpoint.UsePartitioner<CheckoutCompleted>(partitioner, m => m.Message.OrderId);
+        endpoint.UsePartitioner<OrderCancelled>(partitioner, m => m.Message.OrderId);
+        endpoint.UsePartitioner<RefundCompleted>(partitioner, m => m.Message.OrderId);
+        endpoint.UsePartitioner<PaymentDisputed>(partitioner, m => m.Message.OrderId);
+        endpoint.UsePartitioner<PaymentChargedBack>(partitioner, m => m.Message.OrderId);
+    }
+
     /// <summary>
     /// A chargeback opened against the order's payment (phase 2): flag it Disputed so the admin and the
     /// shopper see the state. The order stays in its current status (the money already moved via the

@@ -184,7 +184,12 @@
 #       held); redelivered CheckoutCompleted/OrderCancelled neither double-confirm nor double-release;
 #       every refusal reports its own reason on /cart/summary and at checkout; and a reservation whose
 #       checkout attempt never committed is swept so the cap recovers — trial balance 0;
-#       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7)
+#       one distributed trace spans the HTTP + MassTransit hops (NFR-7/BL-7);
+#       Ordering order-status under concurrency: PaymentDisputed + PaymentChargedBack + two partial refunds
+#       for each of 20 orders at once → every order Disputed + PartiallyRefunded, no 40001/23505, nothing in
+#       order-status_error; partial-then-full refunds for 10 orders land Refunded AND PartiallyRefunded (queue
+#       order kept per order); a redelivered refund is a no-op (endpoint partitioned by order id across all
+#       five event types) (OrderStatusConcurrencyTests)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
 #       per-line RMA derives the refund server-side from the order snapshot

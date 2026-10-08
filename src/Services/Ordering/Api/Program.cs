@@ -35,7 +35,9 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<SupplierApprovalChangedConsumer>(); // approval-gated availability (DECISION A)
         bus.AddConsumer<SupplierWarehouseChangedConsumer>(); // warehouse address read model (Collect at warehouse)
         bus.AddConsumer<ProductTypeShippingPolicyChangedConsumer>();
-        bus.AddConsumer<OrderStatusConsumer>();
+        // Partitioned by order id: an order's status events apply one at a time, in order (see PartitionByOrder).
+        bus.AddConsumer<OrderStatusConsumer>()
+            .Endpoint(e => e.AddConfigureEndpointCallback(OrderStatusConsumer.PartitionByOrder));
         bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddConsumer<RmaDispositionSetConsumer>(); // values RMA returned goods → ReturnedGoodsValued (phase 1)
         bus.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()
