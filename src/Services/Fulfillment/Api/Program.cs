@@ -21,10 +21,10 @@ builder.Services.AddDbContext<FulfillmentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
 builder.Services.AddServiceBus<FulfillmentDbContext>(builder.Configuration, bus =>
 {
-    bus.AddConsumer<OrderConfirmedConsumer>();
+    bus.AddConsumer<FulfillmentOrderConfirmedConsumer>(); // queue fulfillment-order-confirmed — Notifications owns order-confirmed (ADR-0060)
     bus.AddConsumer<OrderDeliveredConsumer>();
     bus.AddConsumer<RestockRequestedConsumer>();
-    bus.AddConsumer<StorefrontDuplicatedConsumer>();
+    bus.AddConsumer<FulfillmentStorefrontDuplicatedConsumer>(); // queue fulfillment-storefront-duplicated — Payments owns storefront-duplicated (ADR-0060)
 });
 builder.Services.AddServiceHealth<FulfillmentDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

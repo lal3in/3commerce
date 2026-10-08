@@ -85,6 +85,23 @@ you are touching before you push.
 
 ## Messaging / consumers
 
+- **A consumer's class name IS its queue name — and the broker is shared, so it must be unique across
+  services (ADR-0060).** Every bus uses `MassTransitExtensions.EndpointNameFormatter` (kebab-case, no
+  prefix, one vhost), so `OrderConfirmedConsumer` → queue `order-confirmed` in whichever service declares
+  it. Fulfillment and Notifications both did: they became COMPETING consumers of one queue, so each
+  `OrderConfirmed` reached only one of them — on the dev broker 633 of 1,264 confirmed physical orders had
+  no shipment and only 676 of 1,354 got a confirmation email. Fulfillment and Payments did the same with
+  `StorefrontDuplicatedConsumer` (a duplicated store got its carriers OR its payment accounts). Nothing
+  errors; per-fixture brokers in the integration tests hide it. Name a consumer for its service when the
+  message is shared (`FulfillmentOrderConfirmedConsumer`, `EntitlementIssuingConsumer`);
+  `ConsumerEndpointNameTests` (unit lane) fails on any queue two services would share, and
+  `e2e-verify --live` L17b asserts the paid order reached Fulfillment AND Notifications. To check a live
+  broker, map each queue's consumers to the client that opened their connection — every queue must be
+  consumed by ONE service (several replicas of it are fine):
+  `curl -s -u guest:guest localhost:15672/api/consumers | jq -r '.[] | "\(.queue.name) \(.channel_details.connection_name)"'`
+  then `curl -s -u guest:guest localhost:15672/api/connections | jq -r '.[] | "\(.name) \(.client_properties.connection_name)"'`
+  (the second column is `3commerce.<Service>.Api` / `3commerce.Workers.Notifications`).
+
 - **Two consumers that write different columns of one row: give each its own row — never
   read-then-insert, and don't rely on an upsert either.** Catalog's carrier and payment readiness
   consumers shared `StorefrontServiceReadiness`. Both events for a new storefront arrive together, both

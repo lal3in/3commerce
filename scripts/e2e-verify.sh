@@ -87,6 +87,10 @@
 #       Quartz persistent scheduler config guards (ContractTests, msg_11);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
 #       cart lines key by product+variant, and checkout/order lines snapshot variants)
+#   A3d Unit · one receive endpoint per service (ADR-0060, ConsumerEndpointNameTests): every consumer/saga
+#       queue name the shared kebab formatter derives — across all services.sh services + Notifications —
+#       belongs to ONE service (a shared name = competing consumers); BuildingBlocks defines no consumers;
+#       no explicit endpoint names / AddMassTransit outside AddServiceBus
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -244,6 +248,8 @@
 #   L16 Checkout on that store, shipped to a country it serves: order + clientSecret + gross (returns at
 #       intent); a refusal prints the HTTP status + problem+json body
 #   L17 Simulate payment → saga confirms the order
+#   L17b The confirmed order reached EVERY OrderConfirmed subscriber: a Fulfillment shipment (or hold) AND the
+#       Notifications confirmation email (ADR-0060 — a queue shared by two services splits them)
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
 #   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
@@ -314,6 +320,11 @@ run_automated() {
   if dotnet test "$ROOT/3commerce.sln" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3c checkout gates"; else fail "A3c checkout gates"; fi
+
+  stage "A3d One receive endpoint per service (ADR-0060) — no queue shared across services"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ConsumerEndpointNameTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3d unique receive endpoints"; else fail "A3d unique receive endpoints"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -680,6 +691,18 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
       [[ "$(curl -s $GATEWAY/api/ordering/orders/$oid/status | grep -oE '"status":"[^"]+"' | cut -d'"' -f4)" == "Confirmed" ]] && { confirmed=1; break; }; sleep 2
     done
     [[ $confirmed == 1 ]] && pass "L17 saga confirms order" || fail "L17 saga confirm"
+
+    # L17b: OrderConfirmed reached EVERY subscriber — Fulfillment recorded the order (a shipment, or a hold that
+    # defers it) AND Notifications emailed the confirmation. Two services whose consumers share a queue name
+    # (same consumer class name, ADR-0060) become competing consumers and each order reaches only ONE of them.
+    local fulfilled=0 emailed=0
+    for _ in $(seq 1 15); do
+      [[ $fulfilled == 1 ]] || { [[ "$(curl -s -b "$admin" "$GATEWAY/api/fulfillment/admin/shipments?orderId=$oid")$(curl -s -b "$admin" "$GATEWAY/api/fulfillment/admin/orders/$oid/holds")" == *'"id"'* ]] && fulfilled=1; }
+      [[ $emailed == 1 ]] || { grep -aq "Order $oid for" "$ROOT/.run/notifications.log" 2>/dev/null && emailed=1; }
+      [[ $fulfilled == 1 && $emailed == 1 ]] && break; sleep 2
+    done
+    { [[ $fulfilled == 1 && $emailed == 1 ]] && pass "L17b confirmed order reached Fulfillment AND Notifications"; } \
+      || fail "L17b OrderConfirmed fan-out (fulfillment=$fulfilled email=$emailed) — a queue shared by two services? ADR-0060"
 
     local saleTb; saleTb="$(pay_scalar "$trialbal")"
     { [[ "$saleTb" == "0" ]] && pass "L18 ledger balanced after sale"; } || fail "L18 trial balance=$saleTb"

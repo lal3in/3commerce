@@ -3,7 +3,7 @@ using EntitlementRecord = ThreeCommerce.Entitlement.Domain.Entitlement;
 
 namespace ThreeCommerce.Entitlement.Infrastructure;
 
-/// <summary>Reads customer entitlements (mt7_2). Issuance happens in OrderConfirmedConsumer on confirm.</summary>
+/// <summary>Reads customer entitlements (mt7_2). Issuance happens in EntitlementIssuingConsumer on confirm.</summary>
 public sealed class EntitlementService(EntitlementDbContext db)
 {
     public Task<List<EntitlementRecord>> ListAsync(Guid tenantId, Guid? orderId, string? email, CancellationToken ct)

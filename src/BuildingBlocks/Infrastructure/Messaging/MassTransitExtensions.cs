@@ -9,6 +9,15 @@ namespace ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 public static class MassTransitExtensions
 {
     /// <summary>
+    /// The one endpoint-name formatter every bus uses (ADR-0060). Kebab-case, no prefix: a receive endpoint (queue)
+    /// is named from the consumer / saga type name ALONE, and every service shares the broker vhost — so two
+    /// services with a same-named consumer bind one queue and COMPETE for its messages instead of each getting a
+    /// copy. Consumer class names must therefore be unique across services (prefix a duplicate with its service,
+    /// e.g. <c>FulfillmentOrderConfirmedConsumer</c>); <c>ConsumerEndpointNameTests</c> enforces it.
+    /// </summary>
+    public static IEndpointNameFormatter EndpointNameFormatter { get; } = KebabCaseEndpointNameFormatter.Instance;
+
+    /// <summary>
     /// Service bus for services that own a database: EF transactional outbox (writes and
     /// publishes commit atomically) plus inbox-based consumer idempotency on every endpoint.
     /// </summary>
@@ -21,7 +30,7 @@ public static class MassTransitExtensions
     {
         services.AddMassTransit(bus =>
         {
-            bus.SetKebabCaseEndpointNameFormatter();
+            bus.SetEndpointNameFormatter(EndpointNameFormatter);
 
             bus.AddEntityFrameworkOutbox<TDbContext>(outbox =>
             {
@@ -64,7 +73,7 @@ public static class MassTransitExtensions
     {
         services.AddMassTransit(bus =>
         {
-            bus.SetKebabCaseEndpointNameFormatter();
+            bus.SetEndpointNameFormatter(EndpointNameFormatter);
 
             configure?.Invoke(bus);
 
