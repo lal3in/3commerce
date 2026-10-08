@@ -10,6 +10,7 @@ using Npgsql;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.Fulfillment.Infrastructure;
 using ThreeCommerce.Ordering.Infrastructure;
+using ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 using ThreeCommerce.Workers.Notifications.Infrastructure;
 
 namespace ThreeCommerce.Tools.OrderConfirmedBackfill;
@@ -24,6 +25,11 @@ public static class BackfillProgram
 {
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == StorefrontBackfillOptions.Command)
+        {
+            return await StorefrontBackfillProgram.RunAsync(args[1..]);
+        }
+
         BackfillOptions options;
         try
         {
@@ -42,14 +48,8 @@ public static class BackfillProgram
             cts.Cancel();
         };
 
-        var config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("backfill.settings.json", optional: false)
-            .AddEnvironmentVariables("BACKFILL_")
-            .Build();
-
-        string Connection(string name) => config.GetConnectionString(name)
-            ?? throw new BackfillPreconditionException($"ConnectionStrings:{name} is not configured");
+        var config = LoadConfiguration();
+        string Connection(string name) => ConnectionString(config, name);
 
         try
         {
@@ -119,12 +119,7 @@ public static class BackfillProgram
             Console.WriteLine("\nbroker preflight ok.");
         }
 
-        var busServices = new ServiceCollection();
-        busServices.AddLogging(b => b.AddSimpleConsole(o => o.SingleLine = true).SetMinimumLevel(LogLevel.Warning));
-        busServices.AddServiceBus(new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:RabbitMq"] = rabbitMq })
-            .Build());
-        await using var busProvider = busServices.BuildServiceProvider();
+        await using var busProvider = SendBus(rabbitMq);
         var bus = busProvider.GetRequiredService<IBusControl>();
         await bus.StartAsync(ct);
         try
@@ -171,7 +166,28 @@ public static class BackfillProgram
         return services.BuildServiceProvider();
     }
 
-    private static HttpClient ManagementClient(IConfiguration config)
+    /// <summary><c>backfill.settings.json</c> next to the binary, overridden by <c>BACKFILL_</c>-prefixed environment variables.</summary>
+    internal static IConfiguration LoadConfiguration() => new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("backfill.settings.json", optional: false)
+        .AddEnvironmentVariables("BACKFILL_")
+        .Build();
+
+    internal static string ConnectionString(IConfiguration config, string name) => config.GetConnectionString(name)
+        ?? throw new BackfillPreconditionException($"ConnectionStrings:{name} is not configured");
+
+    /// <summary>A bus that only sends (the shared <c>AddServiceBus</c> with no consumers — it binds no queue).</summary>
+    internal static ServiceProvider SendBus(string rabbitMq)
+    {
+        var busServices = new ServiceCollection();
+        busServices.AddLogging(b => b.AddSimpleConsole(o => o.SingleLine = true).SetMinimumLevel(LogLevel.Warning));
+        busServices.AddServiceBus(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:RabbitMq"] = rabbitMq })
+            .Build());
+        return busServices.BuildServiceProvider();
+    }
+
+    internal static HttpClient ManagementClient(IConfiguration config)
     {
         var url = config["RabbitMqManagement:Url"] ?? "http://localhost:15672/";
         var user = config["RabbitMqManagement:Username"] ?? "guest";
@@ -183,7 +199,7 @@ public static class BackfillProgram
     }
 
     /// <summary>host:port/database as user — never the password.</summary>
-    private static string Describe(string connectionString)
+    internal static string Describe(string connectionString)
     {
         var b = new NpgsqlConnectionStringBuilder(connectionString);
         return string.Create(CultureInfo.InvariantCulture, $"{b.Host}:{b.Port}/{b.Database} as {b.Username}");

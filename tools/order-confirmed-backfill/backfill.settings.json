@@ -3,6 +3,9 @@
     "Ordering": "Host=localhost;Port=5432;Database=ordering_db;Username=ordering_svc;Password=ordering_dev",
     "Fulfillment": "Host=localhost;Port=5432;Database=fulfillment_db;Username=fulfillment_svc;Password=fulfillment_dev",
     "Notifications": "Host=localhost;Port=5432;Database=notifications_db;Username=notifications_svc;Password=notifications_dev",
+    "Catalog": "Host=localhost;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev",
+    "Audit": "Host=localhost;Port=5432;Database=audit_db;Username=audit_svc;Password=audit_dev",
+    "Payments": "Host=localhost;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev",
     "RabbitMq": "amqp://guest:guest@localhost:5672"
   },
   "RabbitMqManagement": {

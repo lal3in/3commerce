@@ -112,8 +112,44 @@ Safe at any time: Fulfillment is selected from its own Shipment / HeldOrder reco
 delivery log, whose new rows name their order. The preflight refuses while either queue still holds messages, so an
 event in flight is never re-selected. Each send has a deterministic message id per (target, order).
 
-## Not covered
+## Storefront duplications (`storefront-duplicated` command)
 
-`StorefrontDuplicated` had the same split (Payments vs Fulfillment): storefront copies made before #288 may lack
-their carrier integrations or payment accounts. Re-run the duplication or copy them by hand; this tool only
-backfills orders.
+`StorefrontDuplicated` had the same split: until #288 Payments' `StorefrontDuplicatedConsumer` (copies the source's
+payment accounts) and Fulfillment's carrier-copy consumer shared `storefront-duplicated`, so a duplicate got its
+payment accounts OR its carrier integrations, never both. The same tool repairs it with a second command that
+**Sends** a rebuilt event only to the queue whose copy is missing — `queue:storefront-duplicated` (Payments) or
+`queue:fulfillment-storefront-duplicated` (Fulfillment). Both consumers copy the source's CURRENT rows and no-op when
+the duplicate already has any row on their side, so nothing on a duplicate is ever overwritten.
+
+**There is no durable source↔copy record.** Catalog stores no "duplicated from", and the `catalog.storefront.duplicate`
+audit entry (Audit service, `audit."AuditEntries"`) names only the copy and the name it was given. The tool therefore
+links a duplicate to its source from what the duplication left behind, and sends only when that is unambiguous:
+
+* **Lineage** — `ProductPublication.PublishedAt` is set once and copied verbatim; the clone's publications are created
+  at the clone's own `CreatedAt`. The source's (product, published-at) pairs as of that instant EQUAL the clone's
+  copied pairs, and no other storefront can share such a pair. With nothing published to go by, only the admin default
+  name `"X (copy)"` (the audit summary) links to the storefront named X.
+* **The half that did copy** — rows on the duplicate created within `--clone-window` (default 600 s) of it are the copy
+  that ran; a candidate source must have held the same providers / carriers just before.
+* **Agreement** — a side is sent only when every remaining candidate (e.g. the source and earlier identical copies)
+  held rows on it when the duplicate was made AND would copy the same rows. None held any → `SourceEmpty` (nothing was
+  lost). Otherwise `Undetermined` — reported, never sent. Copies are decided oldest first and a copy being backfilled
+  in the same run counts as holding what it receives, so a chain of split copies resolves in one run.
+
+```bash
+dotnet $BIN storefront-duplicated --target both --dry-run --list   # verdict per duplicate: complete / missing / undetermined
+dotnet $BIN storefront-duplicated --target both --execute --limit 2 # canary (≤2 per target, oldest first)
+dotnet $BIN storefront-duplicated --target both --execute
+dotnet $BIN storefront-duplicated --target both --dry-run           # after the queues drain: 0 MISSING on both
+```
+
+Same preflight as the order backfill (queue exists, only `3commerce.Payments.Api` / `3commerce.Fulfillment.Api`
+consumes it, queue empty), deterministic message id per (target, duplicate) and the `3c-backfill` header. The event's
+`Name` is the audit summary (the name the live event carried); its `SourceStorefrontId` is the oldest agreeing
+candidate that holds the rows — the consumers only read rows from it. Archived duplicates are skipped.
+
+Verify afterwards: every duplicate selected now has rows on both sides, with the same copy fields (name, provider,
+mode, state, default, external ref / carrier, credential ref, status, default) as its source, and no duplicate rows;
+rows that existed before the run are unchanged (compare `Id`/`UpdatedAt` before and after).
+
+<!-- DEV-RUN-STOREFRONTS -->

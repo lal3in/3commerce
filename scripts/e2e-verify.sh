@@ -97,7 +97,14 @@
 #       pre-log orders never Missing), selection per target (eligible Confirmed ∧ ¬Disputed; shippable line with
 #       no Shipment/HeldOrder; Missing email), tenant filter matched over ALL tenants, --limit, safe CLI
 #       (--dry-run|--execute required), derived queue names + deterministic message ids, the rebuilt event
-#       equals the live one, the worker now records order-confirmed:{id}, and a re-run after delivery selects 0
+#       equals the live one, the worker now records order-confirmed:{id}, and a re-run after delivery selects 0;
+#       storefront-duplicated command (StorefrontBackfill*Tests): each split copy selected for exactly the side it
+#       lost (payment accounts / carriers) from its source, linked by copied publications (PublishedAt verbatim) or
+#       an "X (copy)" name, the copied half and agreement of all candidates; complete copies, sources with nothing
+#       to copy, owner-configured sides, lookalikes outside the lineage, archived/vanished targets never selected;
+#       disagreeing candidates / no lineage / no candidate → undetermined; chains of split copies resolve in one
+#       run; --limit oldest first; copy keys = the services' own CloneForStorefront; a re-run after delivery
+#       selects 0; safe CLI, derived queue names, deterministic message ids
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -222,6 +229,10 @@
 #       Order-confirmed backfill (ADR-0060): a real confirmed order reloaded by the tool rebuilds exactly the
 #       published OrderConfirmed; a Send reaches only queue:fulfillment-order-confirmed with the deterministic
 #       backfill message id + header, and no subscriber of the event gets a copy (OrderConfirmedBackfillTests)
+#       Storefront-duplicated backfill (ADR-0060): a real duplication through Catalog, read back by the tool's
+#       Catalog loader + its audit entry, links to its source and rebuilds exactly the published
+#       StorefrontDuplicated; a Send reaches only queue:storefront-duplicated (not fulfillment-storefront-duplicated)
+#       with the deterministic backfill id + header, no subscriber gets a copy (StorefrontDuplicatedBackfillTests)
 #   A6e Unit · Xero journal builder: groups by account, nets to zero, skips empty days
 #   A6f Integration · Phase 4 shipping/inventory/fulfilment: reservations + inventory-movement
 #       ledger, confirm-on-order stock consumption, carrier quotes (Fake/AusPost/DHL/FedEx/UPS/
@@ -350,7 +361,7 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~ConsumerEndpointNameTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3d unique receive endpoints"; else fail "A3d unique receive endpoints"; fi
 
-  stage "A3e Order-confirmed backfill tool (ADR-0060) — evidence, selection, re-run safety"
+  stage "A3e Order-confirmed + storefront-duplicated backfill tool (ADR-0060) — evidence, selection, re-run safety"
   if dotnet test "$ROOT/tools/order-confirmed-backfill/tests" --no-build 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3e order-confirmed backfill"; else fail "A3e order-confirmed backfill"; fi
 
