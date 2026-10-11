@@ -48,17 +48,11 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
         builder.Configuration["Payments:MockEmailTo"] = "qa-payments@test.local";
         builder.Services.AddSingleton(new EmailTemplates("http://localhost:3000"));
         builder.Services.AddSingleton<IEmailSender>(recorder);
+        // AddServiceBus makes StartAsync wait until the mock-payment-captured queue is declared AND bound to the
+        // MockPaymentCaptured exchange (WaitUntilStarted, bounded). Payments publishes the event inside
+        // POST /checkout, and a publish that beats the binding is dropped by RabbitMQ — the email would never
+        // arrive, however long the wait (PR #284).
         builder.Services.AddServiceBus(builder.Configuration, bus => bus.AddConsumer<MockPaymentCapturedConsumer>());
-        // StartAsync must not return until the mock-payment-captured queue is declared AND bound to the
-        // MockPaymentCaptured exchange. MassTransit's hosted service otherwise returns immediately and starts
-        // the bus in the background; Payments publishes the event inside POST /checkout, and a publish that
-        // beats the binding is dropped by RabbitMQ (no queue bound) — the email never arrives, however long
-        // the wait. Bounded so a broker that never comes up fails loudly here instead.
-        builder.Services.Configure<MassTransitHostOptions>(o =>
-        {
-            o.WaitUntilStarted = true;
-            o.StartTimeout = TimeSpan.FromSeconds(60);
-        });
         using var notifications = builder.Build();
         await notifications.StartAsync();
         try

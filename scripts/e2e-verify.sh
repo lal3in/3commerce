@@ -115,9 +115,16 @@
 #       evidence "link", one candidate, found without publications/name/audit, settles disagreeing candidates,
 #       not second-guessed by a hand-configured half, a dangling link is undetermined (never inferred) — and
 #       linked + older unlinked copies resolve in one run with a re-run selecting 0
+#   A3f Unit · services wait for their bus (BusStartupTests): both AddServiceBus overloads set
+#       MassTransitHostOptions.WaitUntilStarted with a bounded StartTimeout (Messaging:StartTimeoutSeconds, default
+#       120; non-positive refused); a host whose broker is unreachable fails its start at the bound with
+#       "Broker unreachable" instead of hanging or serving without a bus
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
+#   A4a Integration · bus startup (BusStartupIntegrationTests, own broker each): a publish right after host start
+#       on a FRESH broker reaches the consumer (queue bound before StartAsync returns; bus health already
+#       Healthy); a host started before its broker keeps retrying, then starts and consumes once the broker is up
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -407,6 +414,11 @@ run_automated() {
   stage "A3e Order-confirmed + storefront-duplicated backfill tool (ADR-0060) — evidence, selection, re-run safety"
   if dotnet test "$ROOT/tools/order-confirmed-backfill/tests" --no-build 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3e order-confirmed backfill"; else fail "A3e order-confirmed backfill"; fi
+
+  stage "A3f Services wait for their bus — bounded WaitUntilStarted, unreachable broker fails the start"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~BusStartupTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3f services wait for their bus"; else fail "A3f services wait for their bus"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

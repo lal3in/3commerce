@@ -41,10 +41,11 @@ you are touching before you push.
   (see `UsageChargeRevenueTests`, `DigitalFulfilmentTests.PollAsync`).
 - **A test-built host must wait for its bus to start, because both publishing and stopping depend on it.**
   MassTransit's hosted service `StartAsync` returns at once and starts the bus in the background
-  unless `MassTransitHostOptions.WaitUntilStarted` is set. Every fixture's `CreateFactory` applies
-  `TestBusHosting.WaitForBusStartup()` (that option plus a bounded `StartTimeout`), and any new
-  ad-hoc host must call it too (`Bus.Factory…StartAsync()` already waits). Without it, two failures look like slow tests, and raising the
-  timeout fixes neither:
+  unless `MassTransitHostOptions.WaitUntilStarted` is set. `AddServiceBus` now sets it (with a bounded
+  `StartTimeout`) for every service, so every fixture host and any ad-hoc host built on `AddServiceBus`
+  waits; `TestBusHosting.WaitForBusStartup()` (PR #284/#285) was folded into it. A host that builds its bus
+  any other way must set the option itself (`Bus.Factory…StartAsync()` already waits). Without it, two
+  failures look like slow tests, and raising the timeout fixes neither:
   1. *Lost message.* A publish that reaches RabbitMQ before the queue is bound is silently dropped
      (`MockEmailCaptureTests` failed this way at 30 s and at 120 s, PR #284).
   2. *Zombie consumer.* A `WebApplicationFactory` disposed before its start finishes (a ~100 ms test,
@@ -84,6 +85,20 @@ you are touching before you push.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Messaging / consumers
+
+- **A service starts serving only once its bus is up — and a broker that stays unreachable crashes it.**
+  `AddServiceBus` sets `MassTransitHostOptions.WaitUntilStarted` (both overloads), so `Host.StartAsync`
+  waits until every receive endpoint's queue is declared, bound and consuming. Kestrel starts after every
+  other hosted service (`WebApplicationBuilder` registers it last), so until then the port does not even
+  accept connections: `doctor.sh` shows `000`, not `503`. Before, the bus started in the background: a
+  service answered requests and published (outbox) before its own queues existed, and on a FRESH broker
+  RabbitMQ drops a message published to an exchange with no queue bound yet (first deploy, a wiped broker).
+  The start is bounded by `Messaging:StartTimeoutSeconds` (default 120, env `Messaging__StartTimeoutSeconds`):
+  MassTransit retries the connection until then, and then the start throws `RabbitMqConnectionException:
+  Broker unreachable` and the process exits non-zero. Compose (`restart: unless-stopped`) and Kubernetes
+  restart it; bare-run does not, but `dev-up.sh` starts no service before RabbitMQ is healthy. A bare-run
+  service that is down with `Broker unreachable` in `.run/<svc>.log` just needs RabbitMQ up and a restart.
+  `BusStartupTests` pins the wait, the bound and the slow-broker case.
 
 - **A consumer's class name IS its queue name — and the broker is shared, so it must be unique across
   services (ADR-0060).** Every bus uses `MassTransitExtensions.EndpointNameFormatter` (kebab-case, no
