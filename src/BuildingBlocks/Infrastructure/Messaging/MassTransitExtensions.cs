@@ -18,6 +18,17 @@ public static class MassTransitExtensions
     public static IEndpointNameFormatter EndpointNameFormatter { get; } = KebabCaseEndpointNameFormatter.Instance;
 
     /// <summary>
+    /// Setting that bounds how long a host waits for its bus to start (env <c>Messaging__StartTimeoutSeconds</c>).
+    /// </summary>
+    public const string StartTimeoutSetting = "Messaging:StartTimeoutSeconds";
+
+    /// <summary>
+    /// Default bus start bound. Long enough to ride out a RabbitMQ that is still booting (a fresh Kubernetes pod, a
+    /// cold container), short enough that a broker that is really gone fails the host instead of hanging it.
+    /// </summary>
+    public const int DefaultStartTimeoutSeconds = 120;
+
+    /// <summary>
     /// Service bus for services that own a database: EF transactional outbox (writes and
     /// publishes commit atomically) plus inbox-based consumer idempotency on every endpoint.
     /// </summary>
@@ -28,6 +39,7 @@ public static class MassTransitExtensions
         Action<IBusRegistrationContext, IRabbitMqBusFactoryConfigurator>? configureTransport = null)
         where TDbContext : DbContext
     {
+        services.WaitForBusStartup(configuration);
         services.AddMassTransit(bus =>
         {
             bus.SetEndpointNameFormatter(EndpointNameFormatter);
@@ -71,6 +83,7 @@ public static class MassTransitExtensions
         IConfiguration configuration,
         Action<IBusRegistrationConfigurator>? configure = null)
     {
+        services.WaitForBusStartup(configuration);
         services.AddMassTransit(bus =>
         {
             bus.SetEndpointNameFormatter(EndpointNameFormatter);
@@ -86,6 +99,38 @@ public static class MassTransitExtensions
         });
 
         return services;
+    }
+
+    /// <summary>
+    /// Makes the host's start wait until the bus is started: every receive endpoint's queue declared, bound to its
+    /// message exchanges and consuming. MassTransit's hosted service otherwise returns from <c>StartAsync</c> at once
+    /// and starts the bus in the background, so a service would listen for HTTP, report ready and publish (outbox)
+    /// before its own queues exist, and on a fresh broker a message published to an exchange with no queue bound yet
+    /// is dropped. Kestrel starts after every other hosted service (WebApplicationBuilder registers it last), so a
+    /// service now accepts no request until its bus is up. A stop requested mid-start (SIGTERM during boot) cancels
+    /// the start and stops the bus, instead of the bus finishing its start in the background as a zombie consumer.
+    /// <para>
+    /// Failure behaviour: the start is bounded by <see cref="StartTimeoutSetting"/> (default
+    /// <see cref="DefaultStartTimeoutSeconds"/>). Until then MassTransit keeps retrying the broker connection; when
+    /// the bound elapses MassTransit stops the half-started bus and the host's start throws, so the process exits
+    /// non-zero with "Bus start canceled" in its log. Compose (<c>restart: unless-stopped</c>) and Kubernetes
+    /// restart it; bare-run (<c>dev-up.sh</c>) starts no service before RabbitMQ is healthy. No <c>StopTimeout</c>
+    /// is set: the host's shutdown token already bounds the stop.
+    /// </para>
+    /// </summary>
+    private static void WaitForBusStartup(this IServiceCollection services, IConfiguration configuration) =>
+        services.AddOptions<MassTransitHostOptions>().Configure(options =>
+        {
+            options.WaitUntilStarted = true;
+            options.StartTimeout = TimeSpan.FromSeconds(GetStartTimeoutSeconds(configuration));
+        });
+
+    private static int GetStartTimeoutSeconds(IConfiguration configuration)
+    {
+        var seconds = configuration.GetValue(StartTimeoutSetting, DefaultStartTimeoutSeconds);
+        return seconds > 0
+            ? seconds
+            : throw new InvalidOperationException($"{StartTimeoutSetting} must be a positive number of seconds, got {seconds}.");
     }
 
     private static string GetRabbitMqConnectionString(IConfiguration configuration) =>

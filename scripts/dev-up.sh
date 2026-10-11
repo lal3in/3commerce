@@ -90,12 +90,27 @@ if (( WITH_FRONTENDS )); then
 fi
 
 echo "== 4/4 health =="
-sleep 12
-for entry in "${SERVICES[@]}"; do
-  name="${entry%%:*}"; port="${entry##*:}"
-  printf '  %-12s %s\n' "$name" "$(curl -s -o /dev/null -w '%{http_code}' -m 4 "http://localhost:$port/health/ready" 2>/dev/null)"
+# A service listens only once its MassTransit bus is up (AddServiceBus waits for its queues, bounded by
+# Messaging:StartTimeoutSeconds = 120 s, then the process exits) — so poll every /health/ready until all answer
+# 200, bounded, instead of a fixed sleep. Not listening yet = 000. Any still not 200 is reported NOT READY below.
+NOT_READY=()
+svc_code() { curl -s -o /dev/null -w '%{http_code}' -m 4 "http://localhost:$1/health/ready" 2>/dev/null || true; }
+HEALTHED=( "${SERVICES[@]}" )
+for entry in "${EDGE[@]}"; do [[ "${entry%%:*}" == gateway ]] || HEALTHED+=( "$entry" ); done
+svc_start=$SECONDS
+until (( SECONDS - svc_start >= ${DEV_UP_SERVICE_WAIT:-150} )); do
+  all=1
+  for entry in "${HEALTHED[@]}"; do [[ "$(svc_code "${entry##*:}")" == 200 ]] || { all=0; break; }; done
+  (( all )) && break
+  sleep 2
 done
-echo "  gateway      $(curl -s -o /dev/null -w '%{http_code}' -m 4 http://localhost:8080/health 2>/dev/null)"
+echo "  (waited $((SECONDS - svc_start))s for every service's /health/ready)"
+for entry in "${HEALTHED[@]}"; do
+  name="${entry%%:*}"; code="$(svc_code "${entry##*:}")"
+  printf '  %-13s %s\n' "$name" "$code"
+  [[ "$code" == 200 ]] || NOT_READY+=( "$name" )
+done
+echo "  gateway       $(curl -s -o /dev/null -w '%{http_code}' -m 4 http://localhost:8080/health 2>/dev/null)"
 
 case "$DATA_PROFILE" in
   empty)
@@ -129,7 +144,6 @@ esac
 # the cluster offline until its first poll), and a browser suite started on the word "Up" failed on exactly
 # those. Wait for each (bounded), then say plainly what is and is not ready.
 echo "== readiness =="
-NOT_READY=()
 ready() { # label timeout_s command...
   local label="$1" limit="$2"; shift 2
   local start=$SECONDS

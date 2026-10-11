@@ -99,6 +99,11 @@ the gateway):
 for p in {5101..5113}; do curl -fsS localhost:$p/health/ready; done
 ```
 
+A service binds its port only once its MassTransit bus is up (queues declared and bound), so "connection
+refused" (`000`) right after start means it is still waiting for RabbitMQ. It waits up to
+`Messaging:StartTimeoutSeconds` (120 s), then exits with `Broker unreachable` in its log — start RabbitMQ
+and run the service again.
+
 ### 4. Start the storefront (`:3000`)
 
 Dev mode (hot reload):
@@ -168,9 +173,9 @@ home/search pages will show products.
 database, `--data full` for the broad demo data). Its infra step brings the whole set up (healing a partial
 one: missing or stopped members start, unhealthy ones restart, running ones are left alone) and exits **1**
 naming any container that is not running and healthy. It is idempotent — on a fully-up infra it changes
-nothing. It prints **`Up.`** only once every surface is genuinely
-**ready** — gateway, RabbitMQ, pgAdmin, Kafka UI (cluster *online*), Grafana, Loki, Tempo, Mimir and the
-frontends — because several keep warming up well after their containers start. Anything still not ready
+nothing. It waits (bounded) for every service's `/health/ready` before seeding, and prints **`Up.`** only
+once every surface is genuinely **ready** — every service, gateway, RabbitMQ, pgAdmin, Kafka UI (cluster
+*online*), Grafana, Loki, Tempo, Mimir and the frontends — because several keep warming up well after their containers start. Anything still not ready
 after its time budget is named, and the script exits **3** so a chained test run does not start on a
 half-ready stack. It also starts the storefront from a clean `.next/`, since the process it replaces may
 have died mid-compile.

@@ -21,7 +21,10 @@ for entry in "${EDGE[@]}" "${SERVICES[@]}"; do
   path=health/ready; [[ "$name" == gateway ]] && path=health
   code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://localhost:$port/$path" 2>/dev/null)
   mark=' '; [[ "$code" != 200 ]] && { mark='✗'; down+=("$name"); }
-  printf '  %s %-12s :%-5s %s\n' "$mark" "$name" "$port" "${code:-DOWN}"
+  # A service listens only once its bus is up (AddServiceBus waits, ≤ Messaging:StartTimeoutSeconds = 120 s, then
+  # exits): 000 = still starting (waiting for RabbitMQ) or exited; 503 = listening but its DB or bus is unhealthy.
+  note=''; [[ "$code" == 000 || -z "$code" ]] && note='  not listening — starting (waiting for its bus) or exited'
+  printf '  %s %-12s :%-5s %s%s\n' "$mark" "$name" "$port" "${code:-DOWN}" "$note"
 done
 
 echo "── frontends ──"

@@ -307,6 +307,9 @@ The following repository rules must always be followed:
 ### Messaging endpoint naming (ADR-0060)
 - Queue name = kebab-case of the consumer/saga type name, unprefixed, one shared vhost (`MassTransitExtensions.EndpointNameFormatter` — the only formatter; buses are built only by `AddServiceBus`). So a consumer class name must be unique across ALL services: two services with the same name become competing consumers and each message reaches only one. Name a consumer of a shared event for its service (`FulfillmentOrderConfirmedConsumer`, `EntitlementIssuingConsumer`). Enforced by `ConsumerEndpointNameTests` (unit lane, e2e-verify A3d) and live by L17b.
 
+### Bus startup (ADR-0061)
+- A service binds its port only once its bus is up: `AddServiceBus` sets `MassTransitHostOptions.WaitUntilStarted`, bounded by `Messaging:StartTimeoutSeconds` (default 120 s) — after that the start throws `Broker unreachable` and the process exits (compose/k8s restart it). So `000` from `/health/ready` = still starting or exited, `503` = listening but DB/bus unhealthy. Never build a bus outside `AddServiceBus`, and don't re-add `WaitUntilStarted` in test fixtures. Pinned by `BusStartupTests` (A3f) + `BusStartupIntegrationTests` (A4a).
+
 ### Error Handling
 - HTTP: RFC 7807 `application/problem+json` for all error responses.
 - Messaging: MassTransit retry policy + error queues; consumers must be safe to redeliver (idempotent), never swallow poison messages silently.

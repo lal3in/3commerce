@@ -50,6 +50,7 @@ echo "── service health (bare-run host ports; containerized shows above as (
 for p in $PORTS; do
   c=\$(curl -s -o /dev/null -w '%{http_code}' -m3 "http://localhost:\$p/health/ready" 2>/dev/null)
   [ "\$p" = 8080 ] && c=\$(curl -s -o /dev/null -w '%{http_code}' -m3 "http://localhost:8080/health" 2>/dev/null)
+  [ "\$c" = 000 ] && c='000 (not listening: a service binds its port only once its bus is up — starting, or exited on "Broker unreachable")'
   [ "\$c" != 200 ] && printf '  :%s %s\n' "\$p" "\${c:-down}"
 done | grep . || echo "  all reporting 200 (or not bare-run on this host)"
 
