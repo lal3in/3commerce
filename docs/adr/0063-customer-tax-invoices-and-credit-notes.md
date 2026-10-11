@@ -505,6 +505,31 @@ JurisdictionProfile { Code ("EU-DE", "EU-FR", "AU", "NZ", "GB", "CA", "CH", "US"
 | P4 | **Renewal and usage charges compute and post tax** (today: tax 0 — an output-tax under-report in inclusive regimes, independent of invoicing) and publish the settled events. **Status: in progress on a separate branch/PR (owner, 2026-10-11)**; the settled-event half follows in P4b (§ 9.1). | Payments | Correct VAT; renewal and usage invoices |
 | P5 | Additive contract changes (§ 6.2) and `LineId` on `OrderLineInfo` | Contracts | Credit-note line attribution |
 
+### 9.1 Phase-0 task breakdown (dependency order — each is its own branch and PR)
+
+Each task follows ADR-0058: it is cut from `develop`, tested on its own, squash-merged on green gates, and
+tracked as its own row in `.ai-shared/plans/plan_status_executions.md` (`tax_p*`). Tasks on the same row
+of the graph can run in parallel. **No task issues a tax document.** Every task is behaviour-preserving
+for existing orders, and trial balance stays 0.
+
+```
+P2 seller identity ─┐
+                    ├─► P3 buyer identity ─┐
+P1 per-line tax ────┘                      ├─► P5 contract facts ─► (phase 1: Invoicing service)
+P4 renewal/usage tax (in progress) ─► P4b settled-charge events ─┘
+P1 + P2 ─► P1b EU OSS tax strategy   (needed for EU cross-border B2C only; not on the AU/phase-1 path)
+```
+
+| Order | Task (branch) | Scope | Depends on | Acceptance criteria |
+|---|---|---|---|---|
+| 1a | **P2 — `feature/tax-seller-identity`** | Entity: tax-ID schemes `EuVat`, `GbVrn`, `NzGst`, `CaBn`, `ChUid`, `UsStateSalesTaxId` (beside `Abn`/`Acn`/`Gst`/`OtherTaxRegistration`) and seller **establishments** (address + jurisdiction) on the `TenantOwner` entity; publish `LegalEntityChanged`. Catalog: `Storefront.TaxJurisdiction` (ISO-2 + optional region) and `SellerEstablishmentKey`, cloned on duplication, appended to `StorefrontConfigChanged` (defaults), and projected to Ordering. Admin forms (localized; tooltips). Audit on every mutation. | — | Identifiers validate per scheme (format; ABN checksum kept); FORCE RLS non-superuser test; `StorefrontConfigChanged` replay without the new fields still projects (defaults); duplication copies jurisdiction; audit entry + `AuditEntryRecorded` per mutation; API contracts + `docs/help` updated. |
+| 1b | **P1 — `feature/tax-per-line-breakdown`** | `ITaxStrategy` returns `TaxBreakdown` (per-line category, rate, base, tax, exemption; shipping line; per-rate summary; scheme; inclusive). Today's logic moves to `StorefrontRateTaxStrategy` (**behaviour-preserving**). `CheckoutEndpoints` calls the strategy instead of computing tax inline. New columns on `OrderLine`/`CheckoutAttemptLine` (`TaxCategory`, `TaxRateBps`, `TaxableBaseMinor`, `TaxMinor`, `ExemptionReason`) and `Order` (shipping tax, `TaxScheme`). The per-line category comes from product taxability (`TaxMode`, ship rules). | — (jurisdiction input optional until P2) | `Σ line tax + shipping tax == Order.TaxMinor` on **every** checkout path (inclusive and exclusive storefronts, promotions, store-wide discount, coupons, ship-rule exemptions, collect-at-warehouse, zero-value) — property test plus the existing `StorefrontTaxScopingTests`/`MoneyFlowTests`/`RmaRefundBasisTests` unchanged and green; the charged gross is byte-identical to before for every existing test; largest-remainder rounding with ISO exponents 0/2/3; migrations with defaults and `dotnet format` on Infrastructure. |
+| 2 | **P3 — `feature/checkout-bill-to-and-buyer-tax-id`** | Checkout accepts an optional **bill-to** address (defaults to ship-to) and an optional **business purchase** block (company name + tax ID + scheme); persisted on `CheckoutAttempt`/`Order`; storefront checkout UI (localized, accessible); the account profile can store a default business identity. **No reverse charge** and no change to the amount charged (phase 2). Format validation only (VIES in phase 2). | P1 (input shape), P2 (scheme vocabulary) | A guest and a member can check out with and without a business block; the amount charged is unchanged with a buyer tax ID present; invalid formats → 400 problem+json naming the field; bill-to defaults to ship-to when absent; Playwright checkout spec covers both; screenshots via `capture()`. |
+| 3a | **P4 — renewal/usage tax** *(in progress — separate branch/PR, owner 2026-10-11)* | Renewals and usage overage/auto-load compute tax from the subscription's or storefront's terms and post it to `tax.store-{id}`. Today they post tax 0. | — | Owned by that PR. For this ADR: the renewal/usage ledger tax equals the tax a checkout would have charged on the same amount in the same storefront; trial balance 0. |
+| 3b | **P4b — `feature/settled-charge-events`** | Payments publishes `SubscriptionRenewalSettled` and `UsageChargeSettled`, carrying the P1-shaped tax facts and period/meter data, through the outbox in the same unit of work as the ledger posting. | P4, P1 | Exactly one event per settled renewal or charge (redelivery-safe; keyed `renew-{id}-{seq}` / usage reference); no event for Failed/RequiresAction; contract tests; consumer-name uniqueness test (ADR-0060) still green. |
+| 4 | **P5 — `feature/invoicing-contract-facts`** | **Append** to `OrderConfirmed` (`StorefrontId`, `PublicOrderNumber`, Net/Discount/Shipping/Tax, `TaxInclusive`, `TaxJurisdiction`, `TaxScheme`, `BillTo`, `Buyer`, shipping tax, `CapturedAt`) and to `OrderLineInfo` (`LineId`, `TaxCategory`, `TaxRateBps`, `TaxMinor`, `ExemptionReason`). Append `Lines`/`ShippingMinor`/`Kind` to `RefundRequested`/`RefundCompleted`; the Support RMA path and the admin refund endpoint populate them. | P1, P3 (the facts exist to publish) | Every new field has a default; a pre-change message deserializes with defaults (back-compat test, on the ADR-0055 pattern); existing consumers (Fulfillment, Notifications, Support, Entitlement) unchanged and green; an RMA refund carries its lines and an admin amount refund carries none; `e2e-verify.sh` A-group updated. |
+| 5 | **P1b — `feature/eu-oss-tax-strategy`** | An EU strategy with destination rates per country and category; the home rate below the €10,000 EU-wide threshold (tracked per tenant); scheme = OSS above it. The rate table is versioned with effective dates. **Not on the phase-1 AU path; required before EU cross-border B2C goes live.** | P1, P2 | A known-rates fixture for every EU-27 standard rate; a below-threshold sale charges the home rate; an above-threshold sale charges the destination rate with scheme OSS; a rate change takes effect on its date; inclusive storefronts charge the shelf price unchanged (ADR-0038), with tax extracted at the destination rate. |
+
 ---
 
 ## 10. Alternatives considered
@@ -548,7 +573,11 @@ with no live customers — § 12 D18); and paper invoices.
 
 ---
 
-## 12. Decisions the owner must make
+## 12. Owner decisions
+
+> **Recorded 2026-10-11.** The owner **accepted every recommendation below (D1–D18 and D-Xero) as
+> written**, with one amendment to **D2**: the home EU Member State is not decided yet and stays
+> configuration (see D2 and D13). The *Options* column is kept as the record of what was considered.
 
 | # | Decision | Options | Recommendation |
 |---|---|---|---|
@@ -641,7 +670,10 @@ orders.
 
 ---
 
-## 14. Proposed PRD diff (NOT applied — requires owner approval)
+## 14. Proposed PRD diff (NOT applied — PRD update pending the owner's separate approval)
+
+> Accepting this ADR does **not** apply the scope change. Per the PRD rule, the PRD is edited only once
+> the owner approves this diff separately; until then the PRD stays as is.
 
 ```diff
 --- docs/prd/3commerce/04-mvp-scope.md
@@ -649,7 +681,7 @@ orders.
 +- ✅ Customer tax invoices (full / simplified per jurisdiction) issued at payment capture, for orders, renewals and usage charges
 +- ✅ Credit notes for refunds / RMA referencing the original invoice; issued documents immutable
 +- ✅ Gapless, chronological numbering per series (seller × establishment × document type × year) — distinct from the gap-tolerant order number
-+- ✅ Jurisdiction profiles: launch Member State (EU VAT Directive) + Australia + generic; readiness gate per storefront
++- ✅ Jurisdiction profiles: EU-BASE (VAT Directive common rule set) + Australia + generic; home Member State profile configured after company registration; readiness gate per storefront
 +- ✅ PDF delivery via account page / signed link; 10-year WORM retention
 +- ❌ Structured e-invoicing / clearance (Peppol, SdI, KSeF, FR PA, VeriFactu) — phase 3
 +- ❌ Reverse charge / VIES B2B — phase 2;  ❌ marketplace / deemed-supplier model
