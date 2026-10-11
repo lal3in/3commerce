@@ -201,7 +201,7 @@ refunds, to renewals, and to multi-storefront?** Every critical in the Sep 2026 
 where promotion-aware money crossed into code written before promotions — correct arithmetic fed from
 the wrong source (refunds on list price, tax resolved by currency instead of storefront, renewals at
 the undiscounted price, a resolver that ignores price-less offers). Two resolvers that look
-interchangeable at a call site (`ResolvePricingOffer` vs `ResolveOffer`) are not. Trace the number
+interchangeable at a call site (`ResolvePricingOffer` vs `ResolveSupplyOffer`/`ResolveLineOffer`, formerly `ResolveOffer`) are not. Trace the number
 into Support/RMA, Payments renewals, and a second live storefront sharing the currency.
 
 Ledger postings (Payments):
@@ -219,7 +219,8 @@ Ledger postings (Payments):
   `TaxExempt`). Exclusive regimes still charge the bare price and post no tax — an owner decision, not an oversight.
   Renewals/usage have no `Payment` row, so the refund saga and the dispute webhook cannot reach them.
 - **No-FX relabel posture (ADR-0041):** with no rate feed, a cost in another currency is relabelled
-  into the order currency (with a once-per-order warning) rather than skipped. Reconciliation identity,
+  into the order currency (with a once-per-order warning) rather than skipped — today only the carrier
+  cost; COGS can no longer cross currencies (the supply offer is in the order's currency). Reconciliation identity,
   asserted in `MoneyFlowTests`: per currency C, Σ(each store's account in C) + shared/unattributed =
   the per-currency P&L value in C.
 - **Every order belongs to a real storefront.** The gateway's synthetic default storefront
@@ -231,6 +232,15 @@ Ledger postings (Payments):
   an offer only "covers" a line on its own store (or all stores) in its own currency. Change the covering
   rule in `ProductsEndpoints` and `OfferResolution.IsSupplyAvailable` together, or the listing and checkout
   disagree again.
+- **One offer decides price, supply and cost; reversals reverse what was BOOKED** (ADR-0059 Amendment 2).
+  `ResolveLineOffer` = the price-setting offer (`ResolvePricingOffer`) or, when the catalogue price stands,
+  `ResolveSupplyOffer` (covering this store/all in the order's currency ∧ approved); both rank variant →
+  store-scoped → `Priority`. It shares `Covers` with the gate, so change them together, and never take the
+  supply from `ResolvePricingOffer` alone (it drops price-less and out-of-window offers) nor from
+  `ResolveSupplyOffer` alone (a price-less offer could then ship a line another offer priced). Checkout
+  snapshots the offer's unit cost on the line (`SupplierUnitCostMinor`); confirmation accrues that and records
+  `BookedSupplierCostMinor`; RMA values returns from the booked figure. Never re-resolve offers for an existing
+  order (an edited/re-scoped offer would book one cost and reverse another).
 
 ## Local dev stack
 

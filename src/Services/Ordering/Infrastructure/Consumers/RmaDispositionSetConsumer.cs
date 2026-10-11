@@ -10,9 +10,11 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// <summary>
 /// Values an RMA's returned goods so Payments can correct the COGS accrual (phase 1). Support knows the
 /// whole-order RMA (order id + refunded gross) but not per-line supplier costs; Ordering owns cost
-/// knowledge, so it resolves the order's supplier lines exactly as <see cref="OrderStatusConsumer"/>
-/// accrued them (unit <see cref="OfferCopy.SupplierCostMinor"/> × quantity, via <see cref="OfferResolution"/>,
-/// relabelled into the order's currency with no FX feed) and republishes <see cref="ReturnedGoodsValued"/>.
+/// knowledge, so it values the order's goods at exactly what <see cref="OrderStatusConsumer"/> ACCRUED for
+/// them — each line's <see cref="OrderLine.BookedSupplierCostMinor"/>, recorded with the accrual — and
+/// republishes <see cref="ReturnedGoodsValued"/>. Offers are never re-resolved here: an offer edited,
+/// re-prioritised, re-scoped or deactivated since the sale must not change what this order's return
+/// reverses (ADR-0059), so a booking and its reversal can never diverge.
 /// <para>
 /// The RMA reports a refunded gross, not returned line quantities, so — as the plan allows for an
 /// amount-only return — the returned goods are scaled proportionally by the refunded share of the order
@@ -35,30 +37,9 @@ public sealed class RmaDispositionSetConsumer(
             return;
         }
 
-        var supplierLines = order.Lines.Where(l => l.SupplierId is { } sid && sid != Guid.Empty).ToList();
-        if (supplierLines.Count == 0)
-        {
-            return; // no supplier cost on this order → nothing accrued, nothing to correct
-        }
-
-        var productIds = supplierLines.Select(l => l.ProductId).Distinct().ToList();
-        var offerCopies = await db.OfferCopies.AsNoTracking()
-            .Where(o => o.TenantId == order.TenantId && productIds.Contains(o.ProductId))
-            .ToListAsync(context.CancellationToken);
-
-        // Total GROSS supplier cost of the order's goods (same resolution that fed the COGS accrual). The
-        // no-FX relabel already happened at accrual time; we just re-derive the order-currency total here.
-        long totalGross = 0;
-        foreach (var line in supplierLines)
-        {
-            var offer = OfferResolution.ResolveOffer(offerCopies, order.TenantId, line.ProductId, line.VariantId);
-            var lineCost = offer is null ? 0 : offer.SupplierCostMinor * line.Quantity;
-            if (lineCost > 0)
-            {
-                totalGross += lineCost;
-            }
-        }
-
+        // Total GROSS supplier cost ACCRUED for the order's goods (order currency), as booked at confirmation.
+        // No supplier cost accrued → nothing to correct.
+        var totalGross = order.Lines.Sum(l => Math.Max(0, l.BookedSupplierCostMinor));
         if (totalGross <= 0)
         {
             return;

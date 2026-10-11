@@ -302,8 +302,8 @@ public sealed class Phase3Fixture : IAsyncLifetime
     /// read copy is seeded (cart/checkout price against it, and its own SupplierCostMinor is left 0 —
     /// dormant legacy), while the supplier + cost arrive via a published <see cref="OfferChanged"/> that
     /// Ordering's OfferChangedConsumer projects into an OfferCopy — no direct EF write to OfferCopy.
-    /// <paramref name="offerCurrency"/> defaults to the order currency; pass a different value to exercise
-    /// the no-FX relabel (a foreign-denominated cost carried into the order currency without conversion).
+    /// <paramref name="offerCurrency"/> defaults to the order currency; pass a different value to prove an
+    /// offer in another currency never supplies (nor costs) the line (ADR-0059 supply rule).
     /// </summary>
     public async Task<(Guid ProductId, Guid SupplierId)> SeedSuppliedProductAsync(
         long priceMinor, long supplierCostMinor, string currency = "EUR", string? offerCurrency = null,
@@ -351,6 +351,53 @@ public sealed class Phase3Fixture : IAsyncLifetime
         }
 
         throw new TimeoutException($"OfferCopy for product {productId} did not project.");
+    }
+
+    /// <summary>
+    /// Publishes (or re-publishes, with the same <paramref name="offerId"/>) one offer for an existing product,
+    /// as Catalog would, and waits for Ordering's OfferCopy to carry exactly this version (cost, priority,
+    /// scope, currency, offer price). The supplier's approval is left to the caller (<see cref="ApproveSupplierAsync"/>).
+    /// </summary>
+    public async Task<Guid> PublishOfferAsync(
+        Guid productId, Guid supplierId, string currency, long supplierCostMinor, int priority,
+        Guid? storefrontId = null, FulfilmentType fulfilmentType = FulfilmentType.Dropship,
+        PricingModel pricingModel = PricingModel.OneTime, BillingPeriod billingPeriod = BillingPeriod.Once,
+        Guid? offerId = null, bool active = true, long priceMinor = 0)
+    {
+        var id = offerId ?? Guid.CreateVersion7();
+        await PublishAsync(new OfferChanged(
+            OfferId: id,
+            TenantId: new Guid("00000000-0000-0000-0000-000000000001"),
+            ProductId: productId,
+            VariantId: null,
+            SupplierId: supplierId,
+            SupplyCategory: fulfilmentType.RequiresShipping() ? SupplyCategory.Physical : SupplyCategory.Digital,
+            FulfilmentType: fulfilmentType,
+            PricingModel: pricingModel,
+            BillingPeriod: billingPeriod,
+            Priority: priority,
+            Active: active,
+            SupplierCostMinor: supplierCostMinor,
+            Currency: currency,
+            PriceMinor: priceMinor,
+            StorefrontId: storefrontId));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = Ordering.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+            if (await db.OfferCopies.AnyAsync(o => o.OfferId == id && o.SupplierCostMinor == supplierCostMinor
+                    && o.Priority == priority && o.Active == active && o.StorefrontId == storefrontId && o.Currency == currency
+                    && o.PriceMinor == priceMinor))
+            {
+                return id;
+            }
+
+            await Task.Delay(200);
+        }
+
+        throw new TimeoutException($"OfferCopy {id} for product {productId} did not project.");
     }
 
     public async Task<long> TrialBalanceAsync()

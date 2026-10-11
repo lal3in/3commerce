@@ -89,7 +89,7 @@ permanent one can win together, and the renewal keeps only the permanent one.
   period — and the cart and checkout both render it ("Renews monthly at ..."). The figures exclude every
   discount that does not ride renewals, so an introductory deal cannot be mistaken for the ongoing price.
   This extends "shown == charged" to the SECOND invoice, which is where a subscription's real cost lives.
-  <br/>Note for anyone touching that code: billing mode is read with `OfferCopy.ResolveOffer` — the
+  <br/>Note for anyone touching that code: billing mode is read with `OfferCopy.ResolveOffer` (since ADR-0059 Amendment 2: `ResolveLineOffer`) — the
   resolver CHECKOUT uses — and not with `ResolvePricingOffer`, which ignores an offer carrying no price of
   its own and would silently report no renewal at all for exactly the subscriptions that need one.
 * Reporting that reads `Subscription.PriceMinor` now reads the *renewal* price, which for an introductory

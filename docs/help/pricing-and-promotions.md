@@ -191,7 +191,7 @@ a retried checkout idempotent.
   <br/>**The shopper is shown it.** `GET /cart/summary` returns `renewals` — the recurring lines' cost per
   period from the next one on, grouped by billing period — and the cart and checkout render it ("Renews
   monthly at ..."). So `shown == charged` covers the second invoice, not only the first. Billing mode is
-  resolved with `ResolveOffer` (checkout's resolver), never `ResolvePricingOffer`: the latter ignores an
+  resolved with `ResolveLineOffer` (checkout's line-offer resolver), never `ResolvePricingOffer`: the latter ignores an
   offer with no price of its own and would show no renewal for exactly the subscriptions that need one.
 - **A promotion must be able to apply.** A promotion is currency-pinned and nothing converts currency,
   so one aimed at a storefront that sells in another currency could never discount a single cart. It is

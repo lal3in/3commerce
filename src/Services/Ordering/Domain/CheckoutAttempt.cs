@@ -131,6 +131,7 @@ public class CheckoutAttempt
                 SupplierId = l.SupplierId,
                 BillingMode = l.BillingMode,
                 BillingPeriod = l.BillingPeriod,
+                SupplierUnitCostMinor = l.SupplierUnitCostMinor,
             }).ToList(),
         };
     }
@@ -159,6 +160,14 @@ public class CheckoutAttemptLine
     public Guid? SupplierId { get; init; }
     public BillingMode BillingMode { get; init; } = BillingMode.OneTime;
     public BillingPeriod BillingPeriod { get; init; } = BillingPeriod.Once;
+
+    /// <summary>
+    /// Per-unit supplier cost (COGS) of the SAME offer that set <see cref="SupplierId"/>,
+    /// <see cref="FulfilmentType"/>, <see cref="BillingMode"/> and — when an offer set it — the line's price
+    /// (<c>OfferResolution.ResolveLineOffer</c>), in the order's currency by construction. Snapshotted here so the cost accrued at confirmation can
+    /// never come from a different offer than the supplier the line was sold with. 0 = no supply offer / unknown.
+    /// </summary>
+    public long SupplierUnitCostMinor { get; init; }
 }
 
 /// <summary>
