@@ -9,6 +9,15 @@ public class Order
     public Guid Id { get; init; }
     public long PublicOrderNumber { get; set; }
 
+    /// <summary>
+    /// Optimistic-concurrency token: Postgres's <c>xmin</c> system column, which changes on every update of the
+    /// row (no column of our own, no trigger). An HTTP write (supplier/operator "mark delivered") runs outside the
+    /// order's event partition, so EF adds <c>AND xmin = @loaded</c> to its UPDATE; a concurrent change makes it
+    /// match no row and the request answers 409 instead of overwriting the newer state. Clients echo the value
+    /// they loaded so a decision made on a stale screen is refused too.
+    /// </summary>
+    public uint Version { get; set; }
+
     /// <summary>The owning tenant (carried from the checkout attempt) — Fulfillment scopes inventory by it.</summary>
     public Guid TenantId { get; set; }
     public Guid? StorefrontId { get; set; }
@@ -107,4 +116,30 @@ public class OrderLine
 
     /// <summary>Charge cadence for recurring lines (Phase 7): Once / Monthly / Yearly.</summary>
     public BillingPeriod BillingPeriod { get; set; } = BillingPeriod.Once;
+}
+
+/// <summary>
+/// Why an order mutation over HTTP (admin cancel, supplier/operator mark-delivered) was refused. Every such
+/// refusal is RFC 9457 problem+json carrying its member as the numeric <c>orderRefusal</c> extension — the same
+/// shape as checkout's <see cref="CheckoutBlock"/> and the cart's <see cref="CartRefusal"/>. All are 409.
+/// Crosses HTTP as a NUMBER — append new members, never renumber.
+/// </summary>
+public enum OrderRefusal
+{
+    None = 0,
+
+    /// <summary>Cancel: the order is already cancelled.</summary>
+    AlreadyCancelled = 1,
+
+    /// <summary>Cancel: the order is paid (Confirmed) — it must be refunded instead.</summary>
+    PaidOrderNotCancellable = 2,
+
+    /// <summary>Mark delivered: only a Confirmed order can be marked delivered.</summary>
+    NotConfirmed = 3,
+
+    /// <summary>
+    /// The order changed after the caller loaded it — its <c>Version</c> (xmin) no longer matches, either the one
+    /// the client sent or the one read just before the save. Refresh and try again.
+    /// </summary>
+    ChangedConcurrently = 4,
 }

@@ -1089,7 +1089,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         using var admin = AdminOrderingClient();
         var response = await admin.PostAsJsonAsync($"/admin/orders/{order.OrderId}/cancel", new { reason = "test" });
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        await ProblemAssert.OrderRefusedAsync(
+            response, 2, // PaidOrderNotCancellable
+            "Confirmed (paid) orders can't be cancelled — issue a refund instead.");
     }
 
     [Fact]

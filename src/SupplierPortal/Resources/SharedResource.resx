@@ -634,4 +634,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>The supplier portal could not complete the request. Try again or contact platform support.</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>This order was just updated — refresh and try again.</value>
+  </data>
 </root>

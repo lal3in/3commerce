@@ -626,6 +626,12 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<string>("WarehouseCity")
                         .HasColumnType("text");
 

@@ -273,4 +273,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>El portal de proveedores no pudo completar la solicitud. Inténtelo de nuevo o póngase en contacto con el soporte de la plataforma.</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>Este pedido se acaba de actualizar: actualice la página e inténtelo de nuevo.</value>
+  </data>
 </root>

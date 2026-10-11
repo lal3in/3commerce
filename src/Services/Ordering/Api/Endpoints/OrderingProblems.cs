@@ -81,4 +81,33 @@ public static class OrderingProblems
         CartRefusal.LineNotFound => "The item is not in the cart.",
         _ => "The cart change was refused.",
     };
+
+    /// <summary>
+    /// A refused order mutation (admin cancel, mark-delivered) — always 409, with the numeric
+    /// <c>orderRefusal</c> extension (<see cref="OrderRefusal"/>). <paramref name="currentVersion"/>, when known,
+    /// is the order's current <c>Version</c> so a client can retry against it after showing the fresh state.
+    /// </summary>
+    public static ProblemHttpResult OrderRefused(OrderRefusal refusal, string detail, uint? currentVersion = null)
+    {
+        var extensions = new Dictionary<string, object?> { ["orderRefusal"] = (int)refusal };
+        if (currentVersion is { } version)
+        {
+            extensions["currentVersion"] = version;
+        }
+
+        return TypedResults.Problem(
+            detail: detail, statusCode: StatusCodes.Status409Conflict, title: TitleFor(refusal), extensions: extensions);
+    }
+
+    public static string TitleFor(OrderRefusal refusal) => refusal switch
+    {
+        OrderRefusal.AlreadyCancelled => "The order is already cancelled.",
+        OrderRefusal.PaidOrderNotCancellable => "A paid order cannot be cancelled.",
+        OrderRefusal.NotConfirmed => "The order is not confirmed.",
+        OrderRefusal.ChangedConcurrently => "The order was changed concurrently.",
+        _ => "The order change was refused.",
+    };
+
+    /// <summary>The <c>detail</c> of <see cref="OrderRefusal.ChangedConcurrently"/> — what the UI shows the operator.</summary>
+    public const string OrderChangedConcurrentlyDetail = "This order was just updated — refresh and try again.";
 }

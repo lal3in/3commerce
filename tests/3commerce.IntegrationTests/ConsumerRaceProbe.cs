@@ -67,7 +67,16 @@ public sealed class ConsumerRaceProbe : IAsyncDisposable
             .ToList();
         Assert.True(raceLogs.Count == 0, $"concurrent consumers collided:{Environment.NewLine}{string.Join(Environment.NewLine, raceLogs)}");
         Assert.True(_observer.Faults.IsEmpty, $"consumer faults:{Environment.NewLine}{string.Join(Environment.NewLine, _observer.Faults)}");
+        await AssertErrorQueuesUnchangedAsync();
+    }
 
+    /// <summary>
+    /// Only the end-state half of <see cref="AssertNoRaceAsync"/>: no message faulted to an <c>_error</c> queue. For a
+    /// race whose losing side is EXPECTED to retry (an HTTP write committing inside a consumer's REPEATABLE READ
+    /// window), where a 40001 log line and a retried attempt are the designed outcome, not a defect.
+    /// </summary>
+    public async Task AssertErrorQueuesUnchangedAsync()
+    {
         var errorsAfter = await ErrorQueueDepthsAsync();
         foreach (var queue in _errorQueues)
         {

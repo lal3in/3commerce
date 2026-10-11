@@ -17,8 +17,10 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// services (Fulfillment, Notifications) never query Ordering directly (ADR-0008).
 /// </summary>
 public sealed class OrderStatusConsumer(
-    OrderingDbContext db, IAuditRecorder audit, PromotionRedemptionService redemptions, ILogger<OrderStatusConsumer> logger) :
-    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>, IConsumer<PaymentChargedBack>
+    OrderingDbContext db, IAuditRecorder audit, PromotionRedemptionService redemptions, OrderNumberAllocator orderNumbers,
+    ILogger<OrderStatusConsumer> logger) :
+    IConsumer<CheckoutCompleted>, IConsumer<OrderCancelled>, IConsumer<RefundCompleted>, IConsumer<PaymentDisputed>, IConsumer<PaymentChargedBack>,
+    IConsumer<GuestOrderOwnerVerified>
 {
     /// <summary>How many orders the endpoint updates in parallel (one partition each).</summary>
     public const int Partitions = 16;
@@ -35,9 +37,12 @@ public sealed class OrderStatusConsumer(
     /// refund is skipped, losing <see cref="Order.PartiallyRefunded"/>).
     /// </para>
     /// <para>
-    /// ONE partitioner is shared by all five message types, so two different events of one order never overlap
-    /// either. It sits on the endpoint's message pipe, OUTSIDE the per-consumer outbox filter, so the next event's
-    /// transaction only opens after the previous one has committed. It is per process: replicas competing on the
+    /// ONE partitioner is shared by all six message types, so two different events of one order never overlap
+    /// either. That includes <see cref="GuestOrderOwnerVerified"/>: the EmailVerified sweep
+    /// (<see cref="GuestOrderAttachConsumer"/>) used to update the matching guest orders itself, outside this
+    /// partition, and collided with their status events the same way; it now publishes one of these per order.
+    /// The partitioner sits on the endpoint's message pipe, OUTSIDE the per-consumer outbox filter, so the next
+    /// event's transaction only opens after the previous one has committed. It is per process: replicas competing on the
     /// queue can still collide, and the retry policy covers that rarer case.
     /// </para>
     /// </summary>
@@ -49,6 +54,25 @@ public sealed class OrderStatusConsumer(
         endpoint.UsePartitioner<RefundCompleted>(partitioner, m => m.Message.OrderId);
         endpoint.UsePartitioner<PaymentDisputed>(partitioner, m => m.Message.OrderId);
         endpoint.UsePartitioner<PaymentChargedBack>(partitioner, m => m.Message.OrderId);
+        endpoint.UsePartitioner<GuestOrderOwnerVerified>(partitioner, m => m.Message.OrderId);
+    }
+
+    /// <summary>
+    /// FR-7: the guest order's email was verified, so the order joins that account's history. Only fills a
+    /// missing owner (never overwrites an authenticated checkout's or an earlier attach's UserId). Idempotent.
+    /// An order that has not materialized yet is skipped: it attaches at creation from the
+    /// <see cref="VerifiedCustomerCopy"/> the sweep recorded (<see cref="AttachVerifiedOwnerAsync"/>).
+    /// </summary>
+    public async Task Consume(ConsumeContext<GuestOrderOwnerVerified> context)
+    {
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
+        if (order is null || order.UserId is not null)
+        {
+            return; // idempotent
+        }
+
+        order.UserId = context.Message.UserId;
+        await db.SaveChangesAsync(context.CancellationToken);
     }
 
     /// <summary>
@@ -136,14 +160,12 @@ public sealed class OrderStatusConsumer(
                 return;
             }
 
-            var sequence = await db.OrderNumberSequences.SingleOrDefaultAsync(s => s.StorefrontId == attempt.StorefrontId, context.CancellationToken);
-            if (sequence is null)
-            {
-                sequence = new OrderNumberSequence { StorefrontId = attempt.StorefrontId };
-                db.OrderNumberSequences.Add(sequence);
-            }
-
-            order = attempt.ToOrder(sequence.ReserveNext(), DateTimeOffset.UtcNow);
+            // Allocated and committed OUTSIDE this REPEATABLE READ transaction (see OrderNumberAllocator): the
+            // counter row is shared by every order of the storefront, so a read-then-increment here collided
+            // (40001/23505) whenever two orders of one storefront confirmed together. A rollback below burns
+            // the number — gaps are accepted; uniqueness is the (StorefrontId, PublicOrderNumber) index.
+            var orderNumber = await orderNumbers.NextAsync(attempt.StorefrontId, context.CancellationToken);
+            order = attempt.ToOrder(orderNumber, DateTimeOffset.UtcNow);
             attempt.Status = CheckoutAttemptStatus.Confirmed;
             await AttachVerifiedOwnerAsync(order, context.CancellationToken);
             db.Orders.Add(order);

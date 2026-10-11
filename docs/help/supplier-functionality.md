@@ -268,7 +268,10 @@ enforces it:
   200) and **authorized to the fulfilling supplier only** (a line's `SupplierId` matching the caller's
   self-scoped `supplier_entity`) or an operator. Fulfillment consumes `OrderDelivered` and closes the
   order's shipments (`ShipmentStatus.Delivered`), including a collect order's warehouse shipment;
-  Notifications sends the confirmation.
+  Notifications sends the confirmation. **Concurrent changes (2026-10-11):** the page sends the order
+  `version` it displayed; if the order changed in the meantime (a refund or dispute landed) the request is
+  refused with 409 problem+json (`orderRefusal` 4) and the page shows *"This order was just updated —
+  refresh and try again."* and reloads the list, instead of acting on a stale view (ADR-0007 amendment).
 
 Built on the portal + approval lock and approval-gated availability.
 

@@ -58,7 +58,7 @@ else
                     <td style="padding:.5rem;">
                         @if (o.Status == "Confirmed")
                         {
-                            <button @onclick="() => MarkDeliveredAsync(o.Id)" disabled="@(marking == o.Id)"
+                            <button @onclick="() => MarkDeliveredAsync(o)" disabled="@(marking == o.Id)"
                                     title="@L["Orders_MarkDelivered_Tooltip"]"
                                     style="background:#047857;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">
                                 @(marking == o.Id ? L["Orders_Marking"] : L["Orders_MarkDelivered"])
@@ -87,16 +87,26 @@ else
         loading = false;
     }
 
-    private async Task MarkDeliveredAsync(Guid id)
+    private async Task MarkDeliveredAsync(SupplierOrder order)
     {
         error = info = null;
-        marking = id;
+        marking = order.Id;
         try
         {
-            var response = await Gateway.PostAsync($"/api/ordering/orders/supplier/{id}/mark-delivered");
+            // Echo the order Version this screen shows: if the order changed since (a refund or dispute landed),
+            // Ordering refuses with 409 instead of acting on a stale view.
+            var response = await Gateway.PostAsync(
+                $"/api/ordering/orders/supplier/{order.Id}/mark-delivered", new { version = order.Version });
             if (response.IsSuccessStatusCode)
             {
                 info = L["Orders_MarkedDelivered"];
+                await LoadAsync();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict
+                && await IsConcurrencyConflictAsync(response))
+            {
+                // Someone else changed the order between our load and the click: show the current state.
+                error = L["Orders_ChangedConcurrently"];
                 await LoadAsync();
             }
             else
@@ -107,6 +117,25 @@ else
         finally
         {
             marking = null;
+        }
+    }
+
+    // Ordering's 409 problem+json carries the numeric orderRefusal code; 4 = ChangedConcurrently (the order's
+    // Version moved). Other 409s (e.g. 3 = not confirmed) keep the generic failure message.
+    private const int OrderChangedConcurrently = 4;
+
+    private static async Task<bool> IsConcurrencyConflictAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            return problem.TryGetProperty("orderRefusal", out var code)
+                && code.ValueKind == System.Text.Json.JsonValueKind.Number
+                && code.GetInt32() == OrderChangedConcurrently;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
         }
     }
 
@@ -128,6 +157,6 @@ else
 
     private sealed record SupplierOrder(
         Guid Id, long PublicOrderNumber, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt,
-        bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines);
+        bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines, uint Version = 0);
     private sealed record SupplierOrderLine(string Title, int Quantity, string FulfilmentType);
 }

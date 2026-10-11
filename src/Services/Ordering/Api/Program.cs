@@ -35,7 +35,8 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
         bus.AddConsumer<SupplierApprovalChangedConsumer>(); // approval-gated availability (DECISION A)
         bus.AddConsumer<SupplierWarehouseChangedConsumer>(); // warehouse address read model (Collect at warehouse)
         bus.AddConsumer<ProductTypeShippingPolicyChangedConsumer>();
-        // Partitioned by order id: an order's status events apply one at a time, in order (see PartitionByOrder).
+        // Partitioned by order id: an order's status events — and the guest-owner attach the EmailVerified
+        // sweep fans out — apply one at a time, in order (see PartitionByOrder).
         bus.AddConsumer<OrderStatusConsumer>()
             .Endpoint(e => e.AddConfigureEndpointCallback(OrderStatusConsumer.PartitionByOrder));
         bus.AddConsumer<GuestOrderAttachConsumer>();
@@ -60,6 +61,8 @@ builder.Services.AddScoped<CartService>();
 // Coupon redemption lifecycle (ADR-0052): reserve at checkout, confirm/release on the saga's terminal
 // transitions. Scoped so it shares the request/consumer DbContext (and therefore its transaction).
 builder.Services.AddScoped<PromotionRedemptionService>();
+// Per-storefront order numbers, allocated atomically outside the confirming consumer's transaction (gaps allowed).
+builder.Services.AddScoped<OrderNumberAllocator>();
 
 ThreeCommerce.Ordering.Api.Endpoints.CartEndpoints.StoreCurrency = builder.Configuration["Store:Currency"] ?? "EUR";
 

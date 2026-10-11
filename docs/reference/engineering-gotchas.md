@@ -153,6 +153,20 @@ you are touching before you push.
   `.Endpoint(e => e.AddConfigureEndpointCallback(…))` (a `ConsumerDefinition` fails `ConsumerEndpointNameTests`).
   An order's events then apply one at a time in queue order; other orders stay parallel. Per-type
   partitioners would still let two different event types of one order overlap.
+- **A row shared by MANY keys (a counter), or written from outside the partition, needs more than a
+  partitioner (ADR-0007 amendment 2026-10-11).** Per-storefront order numbers came from one
+  `OrderNumberSequences` row read-then-incremented inside the confirming consumer; the endpoint is
+  partitioned by ORDER id, so two orders of one storefront confirmed in parallel and collided (`40001`, or
+  `23505` on the store's first order). Allocate such a value OUTSIDE the outbox snapshot: one
+  `INSERT … ON CONFLICT DO UPDATE SET n = n + 1 RETURNING …` in its own READ COMMITTED transaction on its own
+  connection (`OrderNumberAllocator`) — it queues on the row lock and never fails; a rolled-back consumer
+  burns its value (gaps). Give that connection its own Npgsql pool (distinct `Application Name`): consumers
+  that already hold every main-pool connection would otherwise wait on themselves. An HTTP endpoint that
+  updates a row consumers also write (`mark-delivered` → `Orders`) gets an EF concurrency token — Npgsql maps
+  a `uint` `IsRowVersion()` property to `xmin`, no column or DDL — and turns `DbUpdateConcurrencyException`
+  into a 409 problem. A consumer keyed by something else (EmailVerified → every guest order with that email)
+  must not update the rows itself: publish one per-key message (`GuestOrderOwnerVerified`) and consume it on
+  the keyed endpoint through the SAME partitioner instance.
 
 ## Browser E2E (Playwright)
 

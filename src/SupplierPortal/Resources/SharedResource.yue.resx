@@ -273,4 +273,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>供應商入口網站無法完成呢個申請。請再試一次，或者聯絡平台支援。</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>呢張訂單啱啱更新咗 — 請重新整理再試。</value>
+  </data>
 </root>

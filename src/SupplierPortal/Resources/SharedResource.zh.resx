@@ -273,4 +273,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>供应商门户无法完成此请求。请重试或联系平台支持团队。</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>此订单刚刚已更新 — 请刷新后重试。</value>
+  </data>
 </root>
