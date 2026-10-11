@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { GATEWAY_URL, getCartSummary, type CartSummaryDto } from "./gateway";
+import { GATEWAY_URL, getCartSummary, readProblem, type CartSummaryDto } from "./gateway";
 import { resolveStorefront } from "./storefront-context";
 import { isCompleteDestination, QUOTE_ORIGIN, QUOTE_PARCEL, rememberShipDestination } from "./shipping-basis";
 
@@ -174,7 +174,11 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    return { error: "Checkout failed. Please review your cart and details." };
+    // Every checkout refusal is problem+json (Ordering); show its `detail` — the reason in the shopper's
+    // terms (components.md §5: errors render ProblemDetails messages) — else the generic fallback.
+    const problem = await readProblem(response);
+    const detail = typeof problem?.detail === "string" ? problem.detail.trim() : "";
+    return { error: detail || "Checkout failed. Please review your cart and details." };
   }
   const result = (await response.json()) as { orderId: string };
   // Remember only guest email so the confirmation page can offer account creation (FR-7).

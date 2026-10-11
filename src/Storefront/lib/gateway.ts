@@ -299,13 +299,64 @@ export type CartSummaryDto = {
   storefrontCurrency?: string | null;
 };
 
-// Mirrors Ordering's CheckoutBlock (ADR-0059). Wire values — never renumbered.
+// Mirrors Ordering's CheckoutBlock (ADR-0059). Wire values — never renumbered. GET /cart/summary only ever
+// reports 0–2; every POST /checkout refusal is problem+json carrying one of these as `checkoutBlock`.
 export const CheckoutBlock = {
   None: 0,
   CurrencyMismatch: 1,
   SupplyUnavailable: 2,
+  CartEmpty: 3,
+  StorefrontRequired: 4,
+  MixedCurrencyCart: 5,
+  ShipToNotServed: 6,
+  CollectNotEligible: 7,
+  InvalidShippingSelection: 8,
+  ShippingQuoteExpired: 9,
+  CouponRefused: 10,
+  StorefrontNotOpen: 11,
+  SubscriptionRequiresMember: 12,
+  SubscriptionRequiresVerifiedEmail: 13,
+  SubscriptionRequiresSavedPaymentMethod: 14,
+  PricesChanged: 15, // 409
+  PaymentUnavailable: 16, // 503 — nothing was booked; retry
 } as const;
 export type CheckoutBlock = (typeof CheckoutBlock)[keyof typeof CheckoutBlock];
+
+// Mirrors Ordering's CartRefusal: the `cartRefusal` code on a refused POST/PUT /cart/items. Never renumbered.
+export const CartRefusal = {
+  None: 0,
+  UnknownProduct: 1,
+  UnknownVariant: 2,
+  NotPricedInCurrency: 3,
+  CurrencyConflict: 4, // 409
+  LineNotFound: 5,
+} as const;
+export type CartRefusal = (typeof CartRefusal)[keyof typeof CartRefusal];
+
+// RFC 9457 problem+json — the shape of every service error (AGENTS.md "Error Handling"). `detail` is the
+// human sentence for this occurrence; the numeric codes are what a caller branches on, never the text.
+export type ProblemDetails = {
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  traceId?: string;
+  checkoutBlock?: CheckoutBlock;
+  cartRefusal?: CartRefusal;
+  couponStatus?: CouponStatus;
+  [extension: string]: unknown;
+};
+
+/** The problem+json body of a failed response, or null when it carries none (or is not JSON). */
+export async function readProblem(response: Response): Promise<ProblemDetails | null> {
+  if (!(response.headers.get("content-type") ?? "").includes("json")) return null;
+  try {
+    const body: unknown = await response.json();
+    return body !== null && typeof body === "object" && !Array.isArray(body) ? (body as ProblemDetails) : null;
+  } catch {
+    return null;
+  }
+}
 
 // BillingPeriod crosses HTTP as a NUMBER (platform invariant), mirroring Contracts/Supply.BillingPeriod.
 export type CartRenewalDto = {

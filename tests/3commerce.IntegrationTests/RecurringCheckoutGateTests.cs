@@ -40,8 +40,9 @@ public class RecurringCheckoutGateTests(Phase3Fixture fixture)
 
         var response = await guest.PostAsJsonAsync("/checkout", Checkout());
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Sign in", await response.Content.ReadAsStringAsync());
+        await ProblemAssert.CheckoutRefusedAsync(
+            response, HttpStatusCode.BadRequest, 12, // SubscriptionRequiresMember
+            "Sign in as a member to purchase a subscription.");
     }
 
     [Fact]
@@ -53,8 +54,9 @@ public class RecurringCheckoutGateTests(Phase3Fixture fixture)
 
         var response = await member.PostAsJsonAsync("/checkout", Checkout(savedPaymentMethodId: Guid.NewGuid()));
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Verify", await response.Content.ReadAsStringAsync());
+        await ProblemAssert.CheckoutRefusedAsync(
+            response, HttpStatusCode.BadRequest, 13, // SubscriptionRequiresVerifiedEmail
+            "Verify your email address to purchase a subscription.");
     }
 
     [Fact]
@@ -66,8 +68,9 @@ public class RecurringCheckoutGateTests(Phase3Fixture fixture)
 
         var response = await member.PostAsJsonAsync("/checkout", Checkout()); // no saved method
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("saved payment method", await response.Content.ReadAsStringAsync());
+        await ProblemAssert.CheckoutRefusedAsync(
+            response, HttpStatusCode.BadRequest, 14, // SubscriptionRequiresSavedPaymentMethod
+            "A saved payment method or direct-debit mandate is required for a subscription.");
     }
 
     [Fact]

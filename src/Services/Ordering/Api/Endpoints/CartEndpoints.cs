@@ -260,19 +260,19 @@ public static class CartEndpoints
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
 
-    private static async Task<Results<Ok<CartResponse>, NotFound<string>, Conflict<string>>> AddItem(
+    private static async Task<Results<Ok<CartResponse>, ProblemHttpResult>> AddItem(
         AddItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
         var product = await db.ProductCopies.Include(p => p.Variants).ThenInclude(v => v.Prices).SingleOrDefaultAsync(p => p.ProductId == request.ProductId, ct);
         if (product is null)
         {
-            return TypedResults.NotFound("Unknown product.");
+            return OrderingProblems.CartRefused(CartRefusal.UnknownProduct, "Unknown product.");
         }
 
         var selected = SelectVariant(product, request.VariantId);
         if (selected is null)
         {
-            return TypedResults.NotFound("Unknown variant.");
+            return OrderingProblems.CartRefused(CartRefusal.UnknownVariant, "Unknown variant.");
         }
 
         // Price in the storefront's currency (tenant-authored per-currency price); if the tenant set
@@ -281,7 +281,7 @@ public static class CartEndpoints
         var unitPrice = selected.PriceInCurrency(currency);
         if (unitPrice is null)
         {
-            return TypedResults.NotFound($"This product is not available in {currency}.");
+            return OrderingProblems.CartRefused(CartRefusal.NotPricedInCurrency, $"This product is not available in {currency}.");
         }
 
         var key = EnsureCartKey(http);
@@ -292,7 +292,7 @@ public static class CartEndpoints
         var cartCurrency = cart.Items.FirstOrDefault()?.Currency;
         if (cartCurrency is not null && !string.Equals(cartCurrency, currency, StringComparison.OrdinalIgnoreCase))
         {
-            return TypedResults.Conflict($"Cart is in {cartCurrency}; empty it to shop in {currency}.");
+            return OrderingProblems.CartRefused(CartRefusal.CurrencyConflict, $"Cart is in {cartCurrency}; empty it to shop in {currency}.");
         }
 
         var item = cart.Items.FirstOrDefault(i => i.ProductId == request.ProductId && i.VariantId == selected.VariantId);
@@ -324,22 +324,22 @@ public static class CartEndpoints
         return TypedResults.Ok(ToResponse(cart));
     }
 
-    private static Task<Results<Ok<CartResponse>, NotFound>> UpdateItem(
+    private static Task<Results<Ok<CartResponse>, ProblemHttpResult>> UpdateItem(
         Guid productId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
         UpdateLine(productId, null, request, http, carts, db, ct);
 
-    private static Task<Results<Ok<CartResponse>, NotFound>> UpdateVariantItem(
+    private static Task<Results<Ok<CartResponse>, ProblemHttpResult>> UpdateVariantItem(
         Guid productId, Guid variantId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct) =>
         UpdateLine(productId, variantId, request, http, carts, db, ct);
 
-    private static async Task<Results<Ok<CartResponse>, NotFound>> UpdateLine(
+    private static async Task<Results<Ok<CartResponse>, ProblemHttpResult>> UpdateLine(
         Guid productId, Guid? variantId, UpdateItemRequest request, HttpContext http, CartService carts, OrderingDbContext db, CancellationToken ct)
     {
         var cart = await carts.GetOrCreateAsync(UserId(http.User), EnsureCartKey(http), ct);
         var item = FindLine(cart, productId, variantId);
         if (item is null)
         {
-            return TypedResults.NotFound();
+            return OrderingProblems.CartRefused(CartRefusal.LineNotFound, "This item is not in the cart.");
         }
 
         if (request.Quantity <= 0)

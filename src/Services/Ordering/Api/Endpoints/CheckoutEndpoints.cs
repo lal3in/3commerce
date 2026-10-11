@@ -25,8 +25,10 @@ public static class CheckoutEndpoints
     /// <summary>
     /// Returns 201 once the payment intent exists — never blocks on the saga (api.md §3).
     /// Requests the intent synchronously via RequestClient; the saga owns the async remainder.
+    /// Every refusal is problem+json with a numeric <c>checkoutBlock</c> (see <see cref="OrderingProblems"/>):
+    /// 400 for a cart/request the shopper must change, 409 on catalog price drift, 503 when Payments times out.
     /// </summary>
-    private static async Task<Results<Created<CheckoutResponse>, BadRequest<string>, Conflict<CheckoutResponse>, ProblemHttpResult>> Checkout(
+    private static async Task<Results<Created<CheckoutResponse>, ProblemHttpResult>> Checkout(
         CheckoutRequest request,
         HttpContext http,
         CartService carts,
@@ -44,7 +46,7 @@ public static class CheckoutEndpoints
 
         if (cart.Items.Count == 0)
         {
-            return TypedResults.BadRequest("Cart is empty.");
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.CartEmpty, "Cart is empty.");
         }
 
         // Resolve tenant + storefront + the offer read model UP FRONT: an active, in-window offer for this
@@ -67,7 +69,8 @@ public static class CheckoutEndpoints
             : Guid.Parse("00000000-0000-0000-0000-000000000101");
         if (storefrontId == defaultStorefrontId)
         {
-            return TypedResults.BadRequest("A storefront is required to check out — no store context was resolved.");
+            return OrderingProblems.CheckoutRefused(
+                CheckoutBlock.StorefrontRequired, "A storefront is required to check out — no store context was resolved.");
         }
 
         var currency = cart.Items[0].Currency;
@@ -75,7 +78,8 @@ public static class CheckoutEndpoints
         // summing unlike units into a wrong charge.
         if (cart.Items.Any(i => !string.Equals(i.Currency, currency, StringComparison.OrdinalIgnoreCase)))
         {
-            return TypedResults.BadRequest("Cart contains items in different currencies; empty it and re-add items.");
+            return OrderingProblems.CheckoutRefused(
+                CheckoutBlock.MixedCurrencyCart, "Cart contains items in different currencies; empty it and re-add items.");
         }
 
         // THIS storefront's projected config (ADR-0008): its currency gates the cart here, and the same copy
@@ -92,7 +96,7 @@ public static class CheckoutEndpoints
         // storefront with no projected copy has no known currency and keeps the historical behaviour.
         if (CheckoutGate.MismatchedCurrency(cart.Items.Select(i => i.Currency), storefrontCopy) is { } wrongCurrency)
         {
-            return GateRefused(CheckoutBlock.CurrencyMismatch, CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency));
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.CurrencyMismatch, CheckoutGate.CurrencyMismatchMessage(wrongCurrency, storefrontCopy!.Currency));
         }
 
         // offerCopies is reused for the shipping gate, the offer price override, and the per-line attempt build.
@@ -129,7 +133,7 @@ public static class CheckoutEndpoints
             offerCopies, checkoutTenantId, i.ProductId, i.VariantId, storefrontId, i.Currency, approvedSupplierIds));
         if (unavailableLine is not null)
         {
-            return GateRefused(CheckoutBlock.SupplyUnavailable, CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.SupplyUnavailable, CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
         }
 
         // The offer that SUPPLIES each line (fulfilment, supplier, billing mode) — resolved once and reused for
@@ -177,7 +181,9 @@ public static class CheckoutEndpoints
         var shipToCountry = request.ShippingAddress.Country.Trim().ToUpperInvariant();
         if (storefrontCopy is { ShipToCountries.Count: > 0 } && !storefrontCopy.ShipToCountries.Contains(shipToCountry))
         {
-            return TypedResults.BadRequest($"This storefront does not ship to {shipToCountry}.");
+            return OrderingProblems.CheckoutRefused(
+                CheckoutBlock.ShipToNotServed, $"This storefront does not ship to {shipToCountry}.",
+                new Dictionary<string, object?> { ["shipToCountry"] = shipToCountry });
         }
 
         // Per-product, per-country ship rules (projected from Catalog via ProductUpserted, ADR-0008).
@@ -231,7 +237,8 @@ public static class CheckoutEndpoints
             var warehouseOffer = lineOffers.FirstOrDefault(o => o is { FulfilmentType: FulfilmentType.Warehouse });
             if (warehouseOffer is null)
             {
-                return TypedResults.BadRequest("Collect at warehouse is only available for warehouse-fulfilled items.");
+                return OrderingProblems.CheckoutRefused(
+                    CheckoutBlock.CollectNotEligible, "Collect at warehouse is only available for warehouse-fulfilled items.");
             }
 
             collectWarehouse = await db.SupplierWarehouseCopies.AsNoTracking()
@@ -241,7 +248,7 @@ public static class CheckoutEndpoints
         var requestedShippingMinor = request.SelectedShippingAmountMinor ?? FlatShippingMinor;
         if (requestedShippingMinor < 0)
         {
-            return TypedResults.BadRequest("Selected shipping amount cannot be negative.");
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.InvalidShippingSelection, "Selected shipping amount cannot be negative.");
         }
 
         // Nothing shippable, or collect-at-warehouse → no carrier and no shipping charge, whatever the client sent.
@@ -253,12 +260,13 @@ public static class CheckoutEndpoints
             if (request.SelectedShippingAmountMinor is not null &&
                 (string.IsNullOrWhiteSpace(request.SelectedShippingService) || request.SelectedShippingExpiresAt is null))
             {
-                return TypedResults.BadRequest("Selected shipping requires a service and expiry.");
+                return OrderingProblems.CheckoutRefused(CheckoutBlock.InvalidShippingSelection, "Selected shipping requires a service and expiry.");
             }
 
             if (request.SelectedShippingExpiresAt is { } expiresAt && expiresAt <= time.GetUtcNow())
             {
-                return TypedResults.BadRequest("Selected shipping quote has expired; refresh shipping options.");
+                return OrderingProblems.CheckoutRefused(
+                    CheckoutBlock.ShippingQuoteExpired, "Selected shipping quote has expired; refresh shipping options.");
             }
         }
 
@@ -292,7 +300,7 @@ public static class CheckoutEndpoints
             enteredCode, checkoutTenantId, storefrontId, currency, promotionLines, customerKey, now, ct);
         if (enteredCode is not null && !couponEvaluation.IsApplied)
         {
-            return TypedResults.BadRequest(CouponMessages.For(couponEvaluation.Status, enteredCode));
+            return CouponRefused(couponEvaluation.Status, enteredCode);
         }
 
         var promotionOutcome = PromotionEvaluator.Evaluate(
@@ -323,7 +331,7 @@ public static class CheckoutEndpoints
         // tenant-default context, not a store that was switched off.
         if (storefrontCopy is { IsLive: false })
         {
-            return TypedResults.BadRequest("This storefront is not currently open for orders.");
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.StorefrontNotOpen, "This storefront is not currently open for orders.");
         }
 
         var taxConfig = storefrontCopy;
@@ -371,9 +379,21 @@ public static class CheckoutEndpoints
         if (priceChanged)
         {
             await db.SaveChangesAsync(ct);
-            return TypedResults.Conflict(new CheckoutResponse(
-                Guid.Empty, null, subtotal, discountMinor, shippingMinor, taxMinor, netMinor, currency, "Prices changed; review your cart.",
-                promotionOutcome.FreeShippingApplied, promotionOutcome.AppliedPromotionIds));
+            // 409 problem+json whose extensions carry the RE-PRICED totals under CheckoutResponse's own field
+            // names (and its legacy "message"), so a client that read the old 409 body still finds them.
+            const string pricesChanged = "Prices changed; review your cart.";
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.PricesChanged, pricesChanged, new Dictionary<string, object?>
+            {
+                ["netMinor"] = subtotal,
+                ["discountMinor"] = discountMinor,
+                ["shippingMinor"] = shippingMinor,
+                ["taxMinor"] = taxMinor,
+                ["grossMinor"] = netMinor,
+                ["currency"] = currency,
+                ["message"] = pricesChanged,
+                ["freeShippingApplied"] = promotionOutcome.FreeShippingApplied,
+                ["appliedPromotionIds"] = promotionOutcome.AppliedPromotionIds,
+            });
         }
 
         var paymentOption = NormalizePaymentOption(request.PaymentOption);
@@ -394,17 +414,21 @@ public static class CheckoutEndpoints
         {
             if (userId is null)
             {
-                return TypedResults.BadRequest("Sign in as a member to purchase a subscription.");
+                return OrderingProblems.CheckoutRefused(
+                    CheckoutBlock.SubscriptionRequiresMember, "Sign in as a member to purchase a subscription.");
             }
 
             if (!string.Equals(http.User.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase))
             {
-                return TypedResults.BadRequest("Verify your email address to purchase a subscription.");
+                return OrderingProblems.CheckoutRefused(
+                    CheckoutBlock.SubscriptionRequiresVerifiedEmail, "Verify your email address to purchase a subscription.");
             }
 
             if (request.SavedPaymentMethodId is null)
             {
-                return TypedResults.BadRequest("A saved payment method or direct-debit mandate is required for a subscription.");
+                return OrderingProblems.CheckoutRefused(
+                    CheckoutBlock.SubscriptionRequiresSavedPaymentMethod,
+                    "A saved payment method or direct-debit mandate is required for a subscription.");
             }
         }
 
@@ -429,7 +453,7 @@ public static class CheckoutEndpoints
             {
                 // Lost the race for the last redemption between the preview and now. Refuse rather than
                 // charge a discount we cannot honour.
-                return TypedResults.BadRequest(CouponMessages.For(reservation, enteredCode));
+                return CouponRefused(reservation, enteredCode);
             }
 
             couponReserved = true;
@@ -450,7 +474,9 @@ public static class CheckoutEndpoints
                 await redemptions.ReleaseAsync(orderId, now, ct);
             }
 
-            return TypedResults.BadRequest("Payment service unavailable; please retry.");
+            // 503, not 400: the shopper's request was fine — Payments did not answer in time. Nothing was
+            // booked (no attempt row, the coupon hold released above), so the client may simply retry.
+            return OrderingProblems.CheckoutRefused(CheckoutBlock.PaymentUnavailable, "Payment service unavailable; please retry.");
         }
 
         // Each line's fulfilment is the lineOffers entry resolved up front (approved ResolveOffer):
@@ -545,15 +571,17 @@ public static class CheckoutEndpoints
             couponReserved ? couponPromotion?.Code : null));
     }
 
-    // The ADR-0059 storefront gates answer as RFC 9457 problem+json (api.md §4): `detail` is the shopper-
-    // facing text (identical to GET /cart/summary's CheckoutBlockedReason) and the numeric `checkoutBlock`
-    // extension is the same CheckoutBlock the preview reports, so a client can localize without parsing text.
-    private static ProblemHttpResult GateRefused(CheckoutBlock block, string detail) =>
-        TypedResults.Problem(
-            detail: detail,
-            statusCode: StatusCodes.Status400BadRequest,
-            title: "This cart cannot be checked out on this storefront.",
-            extensions: new Dictionary<string, object?> { ["checkoutBlock"] = (int)block });
+    // Every refusal above answers as RFC 9457 problem+json via OrderingProblems (api.md §4): `detail` is the
+    // shopper-facing text (for the ADR-0059 gates identical to GET /cart/summary's CheckoutBlockedReason) and
+    // the numeric `checkoutBlock` extension says which refusal it is, so a client never parses text. A coupon
+    // refusal also carries the numeric CouponStatus — the same one the preview returns, which the storefront
+    // maps to its localized checkout.coupon.* message — and the code the shopper typed.
+    private static ProblemHttpResult CouponRefused(CouponStatus status, string? code) =>
+        OrderingProblems.CheckoutRefused(CheckoutBlock.CouponRefused, CouponMessages.For(status, code), new Dictionary<string, object?>
+        {
+            ["couponStatus"] = (int)status,
+            ["couponCode"] = code,
+        });
 
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;

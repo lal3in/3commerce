@@ -68,6 +68,8 @@ export async function seedPaidOrder(request: APIRequestContext): Promise<{ order
       shippingAddress: { name: "B", line1: "1 St", city: "Berlin", postcode: "10115", country: "DE" },
     },
   });
+  // A refusal is problem+json (title/detail/checkoutBlock): surface it instead of failing later on orderId.
+  expect(checkout.ok(), `checkout → ${checkout.status()}: ${await checkout.text()}`).toBeTruthy();
   const order = await checkout.json();
   const orderId = order.orderId as string;
   const gross = order.grossMinor as number;

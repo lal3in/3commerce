@@ -73,6 +73,10 @@
 #       gated), and supply availability is Catalog's ADR-0048 rule per storefront AND currency — offerless
 #       = available, an approved offer only for another store/currency neither unlocks nor blocks, window
 #       ignored for coverage;
+#       Ordering REFUSAL CODES (OrderingProblemsTests): the numeric checkoutBlock 0–16 / cartRefusal 0–5 wire
+#       values never renumber, the status per code (409 price drift, 503 payment unavailable, 409 cart
+#       currency conflict, else 400/404), one stable title per code (ADR-0059's two gates keep #282's shared
+#       title), and the problem result carries code + detail + extra extensions;
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
 #       order-number sequence, and campaign/storefront checkout snapshot seam;
@@ -169,6 +173,14 @@
 #       another store or only in another currency → hidden AND 400; an unapproved offer elsewhere no
 #       longer blocks a listed product → listed AND 201 at catalogue price; approved here → listed AND
 #       201 at the offer price; offerless → listed AND 201 (CheckoutOfferGateParityTests);
+#       EVERY CART/CHECKOUT REFUSAL IS problem+json (CheckoutProblemDetailsTests + ProblemAssert): empty cart,
+#       no real storefront, negative / incomplete / expired selected shipping, an unknown coupon (with its
+#       couponStatus + couponCode), a catalog price drift (409 carrying the re-priced totals, and the retry
+#       then sells), unknown product / variant, a currency the product is not priced in, a missing cart
+#       line — each application/problem+json with the old sentence as detail, a title, a traceId and its
+#       numeric checkoutBlock / cartRefusal; the gate-specific refusals assert the same shape in their own
+#       suites (ship-to, storefront not open, subscription x3, collect, mixed currency, cart currency
+#       conflict, coupon per-customer / wrong storefront);
 #       PROMOTION SCOPE + CAPS (PromotionScopeAndCapTests): the per-customer limit under EIGHT
 #       concurrent checkouts (the only read-then-write window, held by an advisory lock — proven to
 #       fail without it), a storefront-scoped promotion discounting its own store and no other while
@@ -291,7 +303,8 @@
 #   L14 Storefront SSR: home/search/product render catalog data; /account redirects
 #   L15 Cart: add a product SELLABLE on the demo store (its own listing, in its currency) → cart accepts it
 #   L16 Checkout on that store, shipped to a country it serves: order + clientSecret + gross (returns at
-#       intent); a refusal prints the HTTP status + problem+json body
+#       intent); a refusal prints the HTTP status + its problem+json title/detail/checkoutBlock (raw body
+#       if it is not problem+json)
 #   L17 Simulate payment → saga confirms the order
 #   L17b The confirmed order reached EVERY OrderConfirmed subscriber: a Fulfillment shipment (or hold) AND the
 #       Notifications confirmation email (ADR-0060 — a queue shared by two services splits them)
@@ -299,7 +312,8 @@
 #   L19 Admin refund → ledger reversal, trial balance stays zero
 #   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
 #       fixture-manifest catalog scenario products (when seeded), cart + full guest checkout
-#       (test payment), account flows; admin login, broad operations page rendering
+#       (test payment), a refused checkout showing the service's problem+json detail ("Cart is empty.")
+#       in the form instead of a generic failure (e2e/cart-checkout.spec.ts), account flows; admin login, broad operations page rendering
 #       (catalog/offers/promotions/orders/commerce ops/payments/payouts/Xero/mission control),
 #       RMA action availability, supplier portal readiness/stock/change-request flows,
 #       operator RMA approve → refund → RefundIssued + ledger reversal, threshold-promotion
@@ -350,6 +364,22 @@ check() {
   if [[ "$out" == *"$want"* ]]; then pass "$label"; else fail "$label (wanted '$want')"; fi
 }
 
+# problem_summary <file>: one line for an error body — "title — detail [checkoutBlock=N …]" when it is RFC 9457
+# problem+json (every Ordering cart/checkout refusal is), else its first 400 bytes verbatim.
+problem_summary() {
+  python3 - "$1" <<'PY' 2>/dev/null || head -c 400 "$1" 2>/dev/null
+import json, sys
+raw = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+try:
+    p = json.loads(raw)
+    assert isinstance(p, dict) and ("title" in p or "detail" in p)
+except Exception:
+    print(raw[:400]); sys.exit(0)
+codes = " ".join(f"{k}={p[k]}" for k in ("checkoutBlock", "cartRefusal", "couponStatus", "errorCode") if k in p)
+print(f"{p.get('title', '')} — {p.get('detail', '')}" + (f" [{codes}]" if codes else ""))
+PY
+}
+
 # ── Automated suites ─────────────────────────────────────────────────────────
 run_automated() {
   stage "A1–A2  Build + format"
@@ -364,10 +394,10 @@ run_automated() {
       --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PromotionPreviewTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
 
-  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability"
+  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability + refusal codes"
   if dotnet test "$ROOT/3commerce.sln" --no-build \
-      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests)' 2>&1 \
-      | grep -q 'Failed: *0'; then pass "A3c checkout gates"; else fail "A3c checkout gates"; fi
+      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests|FullyQualifiedName~OrderingProblemsTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3c checkout gates + refusal codes"; else fail "A3c checkout gates + refusal codes"; fi
 
   stage "A3d One receive endpoint per service (ADR-0060) — no queue shared across services"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
@@ -716,7 +746,7 @@ print(cur, (s.get("shipToCountries") or [None])[0] or home.get(cur, "AU"))' <<<"
   if [[ -n "$prod" && -n "$sfid" ]]; then
     local addbody=/tmp/3c-e2e-cart-add.json addcode
     addcode="$(curl -s -o "$addbody" -w '%{http_code}' -c "$cartjar" -X POST $GATEWAY/api/ordering/cart/items -H 'content-type: application/json' -d "{\"productId\":\"$prod\",\"quantity\":2,\"currency\":\"$sfcur\"}")"
-    [[ "$addcode" == "200" ]] && pass "L15 add to cart ($sfslug store, $sfcur)" || fail "L15 add to cart (HTTP $addcode: $(head -c 300 "$addbody"))"
+    [[ "$addcode" == "200" ]] && pass "L15 add to cart ($sfslug store, $sfcur)" || fail "L15 add to cart (HTTP $addcode: $(problem_summary "$addbody"))"
 
     local shipjson; shipjson="$(python3 -c '
 import json, sys
@@ -730,9 +760,9 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
     oid="$(grep -oE '"orderId":"[^"]+"' <<<"$co" | cut -d'"' -f4)"
     gross="$(grep -oE '"grossMinor":[0-9]+' <<<"$co" | grep -oE '[0-9]+')"
     secret="$(grep -oE '"clientSecret":"pi_fake_[^"]+"' <<<"$co")"
-    # A refusal prints its HTTP status + problem+json body, so it is diagnosable from the log alone.
+    # A refusal prints its HTTP status + problem+json title/detail/code, so it is diagnosable from the log alone.
     { [[ -n "$oid" && -n "$secret" && "${gross:-0}" -gt 0 ]] && pass "L16 checkout (gross=$gross $sfcur, ship to $sfship, intent returned)"; } \
-      || fail "L16 checkout on $sfslug ($sfcur, ship to $sfship) -> HTTP $cocode: $(head -c 400 <<<"$co")"
+      || fail "L16 checkout on $sfslug ($sfcur, ship to $sfship) -> HTTP $cocode: $(problem_summary "$cobody")"
 
     # Wait for the saga to start, then simulate the payment.
     sleep 3

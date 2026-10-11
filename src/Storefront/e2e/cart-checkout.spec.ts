@@ -1,5 +1,7 @@
 import { test, expect, pinStorefront } from "./fixtures";
 
+const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
+
 // The money journey in a real browser: add to cart → checkout → confirmation.
 // A storefront must be pinned first (rev_5): the root lists a store's PUBLISHED catalog, so we browse
 // from the home grid rather than searching for terms that may not be published to the demo store.
@@ -94,6 +96,42 @@ test.describe("Cart & checkout", () => {
     await expect(page).toHaveURL(/\/checkout\/confirmation/);
     await page.getByRole("button", { name: /complete test payment/i }).click();
     await expect(page.getByRole("heading", { name: /thank you/i })).toBeVisible({ timeout: 25_000 });
+  });
+
+  // Every checkout refusal is problem+json (Ordering); the form must show its `detail` — the service's own
+  // reason — rather than a generic failure. The cart is emptied behind the form's back (as another tab
+  // would), so the POST is refused with checkoutBlock=CartEmpty, deterministically and with nothing booked.
+  test("a refused checkout shows the service's reason (problem+json detail)", async ({ page }) => {
+    test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
+    await page.locator('a[href*="physical-warehouse"]').first().click();
+    await page.getByRole("button", { name: /add to cart/i }).click();
+    await expect(page).toHaveURL(/\/cart/);
+
+    await page.getByRole("link", { name: /checkout/i }).click();
+    await expect(page).toHaveURL(/\/checkout/);
+    await page.getByLabel("Email").fill(`refused-${Date.now()}@example.com`);
+    const shipping = page.locator("section").filter({ has: page.getByRole("heading", { name: "Shipping address" }) });
+    await shipping.getByLabel("Full name").fill("Refused Shopper");
+    await shipping.getByLabel("Address").fill("3 Refusal Road");
+    await shipping.getByLabel("City").fill("Berlin");
+    await shipping.getByLabel("Postcode").fill("10115");
+    await shipping.getByLabel(/country/i).selectOption("DE");
+    await page.getByRole("button", { name: /get shipping rates/i }).click();
+    await expect(page.getByText(/standard/i)).toBeVisible();
+
+    // The cart cookie is host-wide (cookies ignore the port), so the page's request context owns this cart.
+    const cart = await page.request.get(`${GATEWAY}/api/ordering/cart/`);
+    expect(cart.ok()).toBeTruthy();
+    const { items } = (await cart.json()) as { items: Array<{ productId: string; variantId?: string | null }> };
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      const suffix = item.variantId ? `${item.productId}/${item.variantId}` : item.productId;
+      expect((await page.request.delete(`${GATEWAY}/api/ordering/cart/items/${suffix}`)).ok()).toBeTruthy();
+    }
+
+    await page.getByRole("button", { name: /authorize & place order/i }).click();
+    await expect(page.locator('form p[role="alert"]')).toHaveText("Cart is empty.");
+    await expect(page).not.toHaveURL(/\/checkout\/confirmation/);
   });
 
   test("empty cart shows the empty state", async ({ page, context }) => {
