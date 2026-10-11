@@ -37,7 +37,8 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         first.EnsureSuccessStatusCode();
 
         var second = await shopper.PostAsJsonAsync("/cart/items", new { productId = eurProduct, quantity = 1 });
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        await ProblemAssert.CartRefusedAsync(
+            second, HttpStatusCode.Conflict, 4, "Cart is in AUD; empty it to shop in EUR."); // CurrencyConflict
 
         // Same currency still adds fine.
         var again = await shopper.PostAsJsonAsync("/cart/items", new { productId = audProduct, quantity = 1 });
@@ -72,7 +73,9 @@ public class CartCurrencyTests(Phase3Fixture fixture)
         }
 
         var checkout = await shopper.PostAsJsonAsync("/checkout", Checkout());
-        Assert.Equal(HttpStatusCode.BadRequest, checkout.StatusCode);
+        await ProblemAssert.CheckoutRefusedAsync(
+            checkout, HttpStatusCode.BadRequest, 5, // MixedCurrencyCart
+            "Cart contains items in different currencies; empty it and re-add items.");
     }
 
     private async Task SeedTaxCopyAsync(Guid storefrontId, string currency, int bps, bool inclusive)

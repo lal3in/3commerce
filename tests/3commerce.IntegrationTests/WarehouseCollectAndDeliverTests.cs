@@ -82,7 +82,9 @@ public class WarehouseCollectAndDeliverTests(Phase3Fixture fixture)
         await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 });
 
         var rejected = await shopper.PostAsJsonAsync("/checkout", Collect());
-        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        await ProblemAssert.CheckoutRefusedAsync(
+            rejected, HttpStatusCode.BadRequest, 7, // CollectNotEligible
+            "Collect at warehouse is only available for warehouse-fulfilled items.");
 
         // The same cart still checks out normally (shipped) and is charged shipping.
         var shipped = (await (await shopper.PostAsJsonAsync("/checkout", Shipped())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;

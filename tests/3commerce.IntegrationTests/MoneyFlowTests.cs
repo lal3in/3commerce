@@ -789,8 +789,9 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
         // DE is outside the allowlist → 400 before any payment intent is created.
         var rejected = await shopper.PostAsJsonAsync("/checkout", Checkout()); // country = DE
-        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
-        Assert.Contains("does not ship to DE", await rejected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        var problem = await ProblemAssert.CheckoutRefusedAsync(
+            rejected, HttpStatusCode.BadRequest, 6, "This storefront does not ship to DE."); // ShipToNotServed
+        Assert.Equal("DE", problem.GetProperty("shipToCountry").GetString());
 
         // AU is in the allowlist → checkout proceeds to a payment intent.
         var allowed = await shopper.PostAsJsonAsync("/checkout", new

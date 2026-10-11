@@ -37,26 +37,31 @@
             }
           },
           "400": {
-            "description": "Bad Request. Most refusals are a JSON string; the ADR-0059 storefront gates (currency mismatch, unapproved supply on this storefront + currency) are application/problem+json with a numeric checkoutBlock extension.",
+            "description": "Bad Request — the cart/request must change (checkoutBlock 1-14). application/problem+json; detail is the shopper-facing reason.",
             "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CheckoutGateProblem"
+                  "$ref": "#/components/schemas/CheckoutProblem"
                 }
               }
             }
           },
           "409": {
-            "description": "Conflict",
+            "description": "Conflict — a catalog price drifted since the cart was priced (checkoutBlock 15). The cart has been re-priced; the extensions carry the re-priced totals under CheckoutResponse's field names (plus the legacy message). Review and resubmit.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CheckoutResponse"
+                  "$ref": "#/components/schemas/CheckoutProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable — Payments did not answer in time (checkoutBlock 16). Nothing was booked and any coupon hold was released; retry.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutProblem"
                 }
               }
             }
@@ -165,21 +170,21 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found — unknown product (cartRefusal 1) or variant (2), or the product has no price in the requested currency (3).",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/CartProblem"
                 }
               }
             }
           },
           "409": {
-            "description": "Conflict",
+            "description": "Conflict — the cart already holds another currency (cartRefusal 4); empty it to shop in this one.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/CartProblem"
                 }
               }
             }
@@ -225,7 +230,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found — the line is not in the cart (cartRefusal 5).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartProblem"
+                }
+              }
+            }
           }
         }
       },
@@ -305,7 +317,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found — the line is not in the cart (cartRefusal 5).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartProblem"
+                }
+              }
+            }
           }
         }
       },
@@ -1406,8 +1425,17 @@
           }
         }
       },
-      "CheckoutGateProblem": {
+      "CheckoutBlock": {
+        "type": "integer",
+        "description": "Numeric checkout refusal code (crosses HTTP as a number; append-only, never renumbered). 0 None, 1 CurrencyMismatch, 2 SupplyUnavailable (the ADR-0059 storefront gates; GET /cart/summary only ever reports 0-2), 3 CartEmpty, 4 StorefrontRequired, 5 MixedCurrencyCart, 6 ShipToNotServed, 7 CollectNotEligible, 8 InvalidShippingSelection, 9 ShippingQuoteExpired, 10 CouponRefused, 11 StorefrontNotOpen, 12 SubscriptionRequiresMember, 13 SubscriptionRequiresVerifiedEmail, 14 SubscriptionRequiresSavedPaymentMethod, 15 PricesChanged (409), 16 PaymentUnavailable (503)."
+      },
+      "CartRefusal": {
+        "type": "integer",
+        "description": "Numeric cart refusal code (append-only). 0 None, 1 UnknownProduct (404), 2 UnknownVariant (404), 3 NotPricedInCurrency (404), 4 CurrencyConflict (409), 5 LineNotFound (404)."
+      },
+      "CheckoutProblem": {
         "type": "object",
+        "description": "Every POST /checkout refusal (application/problem+json). Branch on checkoutBlock; show detail. For checkoutBlock 1-2 detail is identical to GET /cart/summary's checkoutBlockedReason.",
         "properties": {
           "type": {
             "type": [
@@ -1419,7 +1447,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Stable per code (RFC 9457: the same for every occurrence of a problem type)."
           },
           "status": {
             "type": [
@@ -1433,18 +1462,141 @@
               "null",
               "string"
             ],
-            "description": "Shopper-facing text; identical to GET /cart/summary's checkoutBlockedReason."
+            "description": "The shopper-facing sentence for this occurrence — show it; never branch on it."
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Correlates with the distributed trace (added by AddApiProblemDetails)."
           },
           "checkoutBlock": {
+            "$ref": "#/components/schemas/CheckoutBlock"
+          },
+          "couponStatus": {
             "type": "integer",
             "format": "int32",
-            "description": "CheckoutBlock: 1 CurrencyMismatch, 2 SupplyUnavailable (ADR-0059)."
+            "description": "CouponRefused only: the numeric CouponStatus (same values as GET /cart/summary's couponStatus)."
+          },
+          "couponCode": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "CouponRefused only: the normalized code the shopper entered."
+          },
+          "shipToCountry": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ShipToNotServed only: the ISO 3166-1 alpha-2 destination refused."
+          },
+          "netMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "PricesChanged (409) only: the re-priced pre-discount subtotal."
+          },
+          "discountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "PricesChanged only."
+          },
+          "shippingMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "PricesChanged only."
+          },
+          "taxMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "PricesChanged only."
+          },
+          "grossMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "PricesChanged only: what the re-priced cart would be charged."
+          },
+          "currency": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "PricesChanged only."
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "PricesChanged only: legacy field of the pre-problem 409 body, equal to detail."
+          },
+          "freeShippingApplied": {
+            "type": "boolean",
+            "description": "PricesChanged only."
+          },
+          "appliedPromotionIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "PricesChanged only."
           }
-        }
+        },
+        "required": [
+          "checkoutBlock"
+        ]
       },
-      "CheckoutBlock": {
-        "type": "integer",
-        "description": "0 None, 1 CurrencyMismatch, 2 SupplyUnavailable (ADR-0059). Crosses HTTP as a number."
+      "CartProblem": {
+        "type": "object",
+        "description": "Every POST /cart/items and PUT /cart/items/... refusal (application/problem+json). Branch on cartRefusal; show detail.",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Stable per code (RFC 9457: the same for every occurrence of a problem type)."
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The shopper-facing sentence for this occurrence — show it; never branch on it."
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Correlates with the distributed trace (added by AddApiProblemDetails)."
+          },
+          "cartRefusal": {
+            "$ref": "#/components/schemas/CartRefusal"
+          }
+        },
+        "required": [
+          "cartRefusal"
+        ]
       }
     }
   },

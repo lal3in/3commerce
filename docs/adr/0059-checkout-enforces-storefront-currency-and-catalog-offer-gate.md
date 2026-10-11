@@ -79,3 +79,22 @@ carries the same number as a `checkoutBlock` extension. The storefront cart page
 remedy → 201), `SubscriptionRenewalPriceTests` (renewal under the gate), `CheckoutOfferGateParityTests`
 (Catalog listing/detail and Ordering checkout agree, on offers created through Catalog's admin API), and the
 storefront `e2e/currency-tax.spec.ts` EU-cart-on-AU-store case.
+
+## Amendment (2026-10-11) — every checkout refusal is problem+json
+
+When this ADR landed only its two gates answered as `application/problem+json`; the older checkout refusals
+were still plain JSON strings, contrary to the platform rule that **every** error is problem+json (AGENTS.md
+"Error Handling", api.md §4). They now all are, shaped in one place (`OrderingProblems`): a stable `title` per
+code, the unchanged sentence as `detail`, and the numeric `checkoutBlock` — `CheckoutBlock` extended
+**additively** (1–2 unchanged and still the only values `GET /cart/summary` reports): 3 CartEmpty,
+4 StorefrontRequired, 5 MixedCurrencyCart, 6 ShipToNotServed (+ `shipToCountry`), 7 CollectNotEligible,
+8 InvalidShippingSelection, 9 ShippingQuoteExpired, 10 CouponRefused (+ the numeric `couponStatus` and
+`couponCode`), 11 StorefrontNotOpen, 12–14 the subscription member / verified-email / saved-instrument gates,
+15 PricesChanged and 16 PaymentUnavailable. Statuses are unchanged except one: a Payments request timeout is
+now **503** (it was a 400, yet the shopper's request was fine and nothing was booked). The 409 price-drift
+body is problem+json whose extensions keep the re-priced totals under `CheckoutResponse`'s field names (and
+the legacy `message`). Cart mutations follow the same shape with a numeric `cartRefusal` (`CartRefusal`:
+1 UnknownProduct, 2 UnknownVariant, 3 NotPricedInCurrency → 404; 4 CurrencyConflict → 409; 5 LineNotFound →
+404). The storefront shows the problem's `detail` on a refused checkout instead of a generic failure.
+Pinned by `OrderingProblemsTests` (wire values, statuses, titles) and `CheckoutProblemDetailsTests` + the
+gate suites through `ProblemAssert` (content type, title, detail, traceId, code).

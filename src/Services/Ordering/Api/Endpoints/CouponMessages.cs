@@ -3,8 +3,8 @@ using ThreeCommerce.Ordering.Domain;
 namespace ThreeCommerce.Ordering.Api.Endpoints;
 
 /// <summary>
-/// Turns a <see cref="CouponStatus"/> into the plain-English sentence a refused checkout returns
-/// (ADR-0052), matching every other checkout 400 in this service.
+/// Turns a <see cref="CouponStatus"/> into the plain-English sentence a refused checkout returns as its
+/// problem+json <c>detail</c> (ADR-0052), next to the numeric <c>couponStatus</c> extension.
 /// <para>
 /// The SHOPPER-facing localized wording lives in the storefront, keyed off the numeric status that
 /// <c>GET /cart/summary</c> returns — the storefront speaks six languages and this service speaks none.

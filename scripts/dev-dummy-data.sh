@@ -169,12 +169,29 @@ except Exception:
 #              server_error, printed loudly WITH the response body, and makes the whole seed exit 4 at the
 #              end (after every other step has still run) — never folded into allowed_4xx.
 #   expect_2xx a prerequisite (admin login, catalog import): a failure aborts the seed immediately.
+# problem_summary <file>: one line for an error body — "title — detail [checkoutBlock=N …]" when it is RFC 9457
+# problem+json (every Ordering cart/checkout refusal is, with a numeric checkoutBlock / cartRefusal code),
+# else its first 600 bytes verbatim. The detail is the reason; a raw problem body buries it behind "type".
+problem_summary() {
+  python3 - "$1" <<'PY' 2>/dev/null || head -c 600 "$1" 2>/dev/null | tr '\n' ' '
+import json, sys
+raw = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+try:
+    p = json.loads(raw)
+    assert isinstance(p, dict) and ("title" in p or "detail" in p)
+except Exception:
+    print(raw[:600].replace("\n", " ")); sys.exit(0)
+codes = " ".join(f"{k}={p[k]}" for k in ("checkoutBlock", "cartRefusal", "couponStatus", "errorCode") if k in p)
+print(f"{p.get('title', '')} — {p.get('detail', '')}" + (f" [{codes}]" if codes else ""))
+PY
+}
+
 # Print a failed must_2xx step loudly, with the response body, so the cause is diagnosable from the log.
 report_unexpected() {
   local name="$1" method="$2" path="$3" code="$4" body_file="$5"
   {
     echo "  !! UNEXPECTED: $name $method $path -> $code"
-    printf '  !! body: %s\n' "$(head -c 600 "$body_file" 2>/dev/null | tr '\n' ' ')"
+    printf '  !! body: %s\n' "$(problem_summary "$body_file")"
   } >&2
 }
 
@@ -606,16 +623,19 @@ except Exception:
 # checkout_order <name> <jar> <json>: POST a checkout and echo the response body. A 400 is retried a few
 # times, 3 s apart: the read models it checks (offer, supplier-approval and storefront copies projected into
 # Ordering) can trail a change the seed made seconds earlier, and a 400 books nothing, so a retry cannot
-# double-order. ONE summary row records the final outcome as must_2xx — a checkout that still fails is
-# unexpected: printed with its body here and failing the seed at the end.
+# double-order. A 503 (checkoutBlock=16, Payments did not answer in time — a 400 before checkout refusals
+# became problem+json) also booked nothing and is retried the same way. Every refusal is problem+json, so
+# the retry line and the failure report print its title/detail/checkoutBlock. ONE summary row records the
+# final outcome as must_2xx — a checkout that still fails is unexpected: printed with its reason here and
+# failing the seed at the end.
 checkout_order() {
   local name="$1" jar="$2" data="$3" body_file code attempt
   body_file="$OUT_DIR/${name//[^A-Za-z0-9_.-]/_}.json"
   for attempt in 1 2 3 4; do
     code=$(curl -sS -k -b "$jar" -c "$jar" -X POST "$GATEWAY/api/ordering/checkout" \
       -H 'content-type: application/json' -d "$data" -o "$body_file" -w '%{http_code}' || true)
-    [[ "$code" == 400 && $attempt -lt 4 ]] || break
-    printf '  %-40s checkout got a 400 on attempt %s, retrying: %s\n' "$name" "$attempt" "$(head -c 200 "$body_file")" >&2
+    [[ ( "$code" == 400 || "$code" == 503 ) && $attempt -lt 4 ]] || break
+    printf '  %-40s checkout got a %s on attempt %s, retrying: %s\n' "$name" "$code" "$attempt" "$(problem_summary "$body_file")" >&2
     sleep 3
   done
   record "$name" POST "/api/ordering/checkout" "$code" "$body_file" "must_2xx"
@@ -1398,8 +1418,14 @@ for r in rows:
 if bad:
     print(f'UNEXPECTED failures in required steps: {len(bad)}')
     for r in bad:
-        body = (r.get('bodyPreview') or '').replace('\n', ' ')[:300]
-        print(f"  !! {r['step']} {r['method']} {r['path']} -> {r['status']}: {body}")
+        body = (r.get('bodyPreview') or '').replace('\n', ' ')
+        try:  # problem+json (every cart/checkout refusal): show the reason, not the "type" URL
+            p = json.loads(r.get('bodyPreview') or '')
+            codes = ' '.join(f"{k}={p[k]}" for k in ('checkoutBlock', 'cartRefusal', 'couponStatus', 'errorCode') if k in p)
+            body = f"{p.get('title', '')} — {p.get('detail', '')}" + (f" [{codes}]" if codes else '')
+        except Exception:
+            pass
+        print(f"  !! {r['step']} {r['method']} {r['path']} -> {r['status']}: {body[:300]}")
     sys.exit(4)
 PY
 rc=$?

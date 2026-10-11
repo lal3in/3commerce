@@ -131,8 +131,8 @@ public class StorefrontTaxScopingTests(Phase3Fixture fixture)
         using var later = Shopper(storefrontId);
         (await later.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
         var refused = await later.PostAsJsonAsync("/checkout", CheckoutBody());
-        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-        Assert.Contains("not currently open for orders", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await ProblemAssert.CheckoutRefusedAsync(
+            refused, HttpStatusCode.BadRequest, 11, "This storefront is not currently open for orders."); // StorefrontNotOpen
     }
 
     /// <summary>

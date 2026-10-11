@@ -151,8 +151,9 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
         (await second.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
         var refused = await second.PostAsJsonAsync("/checkout", CheckoutBody("Repeat@Example.com", "ONEEACH"));
 
-        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-        Assert.Contains("already used", await refused.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        var problem = await ProblemAssert.CheckoutRefusedAsync(
+            refused, HttpStatusCode.BadRequest, 10, "You have already used coupon code 'ONEEACH'."); // CouponRefused
+        Assert.Equal(9, problem.GetProperty("couponStatus").GetInt32()); // CouponStatus.CustomerLimitReached
 
         // A DIFFERENT customer is unaffected — the limit is per customer, not per coupon.
         using var third = NewShopper(storefrontId);
@@ -336,8 +337,9 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
 
         Assert.Equal(6, (await SummaryAsync(shopper, mine, "THEIRS")).CouponStatus); // WrongStorefront
         var refused = await shopper.PostAsJsonAsync("/checkout", CheckoutBody("wrong@example.com", "THEIRS"));
-        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-        Assert.Contains("this store", await refused.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        var problem = await ProblemAssert.CheckoutRefusedAsync(
+            refused, HttpStatusCode.BadRequest, 10, "Coupon code 'THEIRS' cannot be used on this store.");
+        Assert.Equal(6, problem.GetProperty("couponStatus").GetInt32()); // CouponStatus.WrongStorefront
     }
 
     // ---- Fixtures ------------------------------------------------------------------------------------
