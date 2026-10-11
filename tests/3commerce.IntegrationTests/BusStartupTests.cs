@@ -111,23 +111,32 @@ public sealed class BusStartupIntegrationTests
         await using var broker = Broker();
         await broker.StartAsync();
 
+        // Another service's bus, already running — the publisher in the #284 flake (Payments publishing while the
+        // Notifications host starts). Its publish goes straight to the exchange, whether or not a queue is bound.
+        var publisher = Bus.Factory.CreateUsingRabbitMq(cfg => cfg.Host(new Uri(broker.GetConnectionString())));
+        await publisher.StartAsync();
+        // Warm the publisher (exchange declared, channel open) so the real publish below leaves at once. No queue
+        // is bound yet, so RabbitMQ drops this one — exactly what happens to any publish that beats the binding.
+        await publisher.Publish(new BusStartupProbe(Guid.NewGuid()));
         using var host = ServiceHost(broker.GetConnectionString(), startTimeoutSeconds: 60);
-        await host.StartAsync();
         try
         {
+            await host.StartAsync();
+
+            var id = Guid.NewGuid();
+            await publisher.Publish(new BusStartupProbe(id));
+
             // Started means ready: the bus health MassTransit adds to /health/ready is already Healthy.
             var health = await host.Services.GetRequiredService<HealthCheckService>()
                 .CheckHealthAsync(r => r.Tags.Contains("masstransit"));
             Assert.Equal(HealthStatus.Healthy, health.Status);
-
-            var id = Guid.NewGuid();
-            await host.Services.GetRequiredService<IBus>().Publish(new BusStartupProbe(id));
 
             await host.Services.GetRequiredService<BusStartupProbes>().WaitForAsync(id, TimeSpan.FromSeconds(20));
         }
         finally
         {
             await host.StopAsync();
+            await publisher.StopAsync();
         }
     }
 
