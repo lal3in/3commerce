@@ -192,7 +192,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── adr/                       # architecture decision records + adr_index.md
 │   ├── api/                       # API contract files + api_contracts_index.md
 │   ├── help/                      # HTML wiki (index.html) + screenshots promoted by shots.cjs
-│   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md
+│   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md; tax-invoicing-research.md (ADR-0063 jurisdiction research)
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks
 ├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter)
