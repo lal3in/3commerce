@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Catalog.Infrastructure;
@@ -13,14 +14,15 @@ namespace ThreeCommerce.IntegrationTests;
 
 /// <summary>
 /// End to end through the REAL Payments outbox, with the outbox busy: each round stages a 30-message batch, then
-/// submits ("not active") and activates ("active") a payment account. Two guarantees, two bugs:
+/// submits ("not active") and activates ("active") a payment account. After a busy pass MassTransit delivers up to six
+/// outbox batches in parallel, so the two readiness events can reach Catalog inverted (1–5 of 20 storefronts per run).
+/// Two guarantees, two bugs:
 /// <list type="number">
-/// <item>One host delivers its outbox batches one transaction at a time, in publish order
-/// (<c>MassTransitExtensions.OutboxDeliveryQueryLimit</c>). At MassTransit's default the delivery service ran up to six
-/// transactions in parallel after a busy pass: batches reached Catalog inverted (1–5 of 20 storefronts per run), and
-/// the parallel transactions collided on the outbox lock (40001), stalling every pending message 3–30 s.</item>
-/// <item>Catalog ends on "active" even when the events do arrive inverted (replicas still deliver in parallel): the
-/// readiness events carry AsOf and Catalog keeps the newer copy (ADR-0043 amendment 2026-10-16).</item>
+/// <item>Catalog ends on "active" whatever the arrival order: the events carry AsOf and Catalog keeps the newer copy
+/// (ADR-0043 amendment 2026-10-16). Without the guard 3 of 5 runs left a storefront stuck on "not active".</item>
+/// <item>The parallel delivery transactions never fail: they run READ COMMITTED
+/// (<c>MassTransitExtensions.OutboxDeliveryIsolation</c>). Under REPEATABLE READ they collided on the outbox lock with
+/// 40001 and the delivery backed off 3–30 s, which is how projections ended up 20–30 s late.</item>
 /// </list>
 /// </summary>
 [Trait("Category", "Integration")]
@@ -33,12 +35,14 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
     private sealed record AccountDto(Guid Id);
 
     private readonly ArrivalObserver _arrivals = new();
+    private readonly ErrorLogCapture _paymentsErrors = new();
     private ConnectHandle? _handle;
 
     [Fact]
-    public async Task A_busy_outbox_delivers_submit_then_activate_in_order_and_catalog_ends_active()
+    public async Task A_busy_outbox_delivers_without_serialization_failures_and_catalog_ends_active_whatever_the_order()
     {
         _handle = fixture.Catalog.Services.GetRequiredService<IBus>().ConnectConsumeObserver(_arrivals);
+        fixture.Payments.Services.GetRequiredService<ILoggerFactory>().AddProvider(_paymentsErrors);
         using var admin = fixture.Payments.CreateClient();
         admin.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.CreateVersion7(), "admin"));
 
@@ -69,12 +73,17 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
         Assert.True(stuck.Count == 0,
             $"{stuck.Count}/{Rounds} storefronts stuck on 'not active' in Catalog ({inverted} saw the events inverted):"
             + string.Concat(await Task.WhenAll(stuck.Select(DescribeAsync))));
-        Assert.True(inverted == 0,
-            $"{inverted}/{Rounds} storefronts received 'active' before 'not active': one host's outbox delivered out of publish order"
-            + string.Concat(await Task.WhenAll(storefronts.Where(_arrivals.ArrivedOutOfOrder).Select(DescribeAsync))));
+        var serializationFailures = _paymentsErrors.Matching("40001");
+        Assert.True(serializationFailures.Count == 0,
+            $"Payments logged {serializationFailures.Count} serialization failure(s) while delivering its outbox:"
+            + Environment.NewLine + string.Join(Environment.NewLine, serializationFailures.Take(3)));
     }
 
-    public void Dispose() => _handle?.Disconnect();
+    public void Dispose()
+    {
+        _handle?.Disconnect();
+        _paymentsErrors.Stop(); // a logger provider cannot be removed from the shared host; stop it recording
+    }
 
     // Stages Burst readiness events for throw-away storefronts in ONE Payments outbox batch: the next delivery pass
     // sends 10+ messages, which is what made MassTransit's default go parallel for the passes that follow.
@@ -149,6 +158,39 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
                     ? "consume"
                     : $"{what} (active={m.HasActivePaymentAccount} asOf={m.AsOf:O} id={context.MessageId} retry={context.GetRetryAttempt()})";
                 _arrivals.GetOrAdd(m.StorefrontId, _ => new()).Enqueue((m.HasActivePaymentAccount, detail));
+            }
+        }
+    }
+
+    /// <summary>Error-or-worse log lines (message + exception) of the host it is added to, while recording.</summary>
+    private sealed class ErrorLogCapture : ILoggerProvider
+    {
+        private readonly ConcurrentQueue<string> _entries = new();
+        private volatile bool _recording = true;
+
+        public List<string> Matching(string signature) =>
+            _entries.Where(e => e.Contains(signature, StringComparison.Ordinal)).ToList();
+
+        public void Stop() => _recording = false;
+
+        public ILogger CreateLogger(string categoryName) => new Logger(categoryName, this);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Logger(string category, ErrorLogCapture owner) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => owner._recording && logLevel >= LogLevel.Error;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                if (IsEnabled(logLevel))
+                {
+                    owner._entries.Enqueue($"[{logLevel}] {category}: {formatter(state, exception)} {exception}");
+                }
             }
         }
     }

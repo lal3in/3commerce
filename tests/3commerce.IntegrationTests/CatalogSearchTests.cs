@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
+using MassTransit.EntityFrameworkCoreIntegration;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.Catalog.Infrastructure;
 using ThreeCommerce.Identity.Domain;
 
 namespace ThreeCommerce.IntegrationTests;
@@ -43,6 +47,11 @@ public class CatalogSearchTests(Phase2Fixture fixture) : IAsyncLifetime
                         $"Import failed {import.StatusCode}: {await import.Content.ReadAsStringAsync()}");
                 }
 
+                // The import stages ~10.5k ProductUpserted in this host's bus outbox. Let THIS host deliver them
+                // (a few seconds) before the class goes on: whatever is left when the host is disposed stays in the
+                // shared catalog_db, and the next Catalog host delivers that backlog, oldest first, before its own
+                // messages (CatalogOfferPublishTests waited 30 s behind it while delivery was single-threaded).
+                await WaitForOutboxDrainedAsync();
                 _imported = true;
             }
         }
@@ -50,6 +59,22 @@ public class CatalogSearchTests(Phase2Fixture fixture) : IAsyncLifetime
         {
             ImportGate.Release();
         }
+    }
+
+    private async Task WaitForOutboxDrainedAsync()
+    {
+        var left = 0;
+        await Eventually.UntilAsync(
+            async () =>
+            {
+                using var scope = _catalog.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+                left = await db.Set<OutboxMessage>().CountAsync();
+                return left == 0;
+            },
+            () => new TimeoutException($"The import's bus outbox still holds {left} messages."),
+            TimeSpan.FromSeconds(180),
+            TimeSpan.FromMilliseconds(500));
     }
 
     public Task DisposeAsync()

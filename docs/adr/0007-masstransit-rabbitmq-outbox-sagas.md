@@ -85,30 +85,41 @@ The 2026-10-08 rules cover consumers that race on one key. Three Ordering writes
   order through the outbox; `OrderStatusConsumer` consumes it on the same endpoint, through the SAME
   `IPartitioner` instance as the order's other events, so nothing writes one order row concurrently.
 
-## Amendment 2026-10-16 — one bus-outbox delivery transaction per host
+## Amendment 2026-10-16 — the bus-outbox delivery transaction runs READ COMMITTED
 
-MassTransit 8's `BusOutboxDeliveryService` drives its delivery passes through a `RequestRateAlgorithm` whose
-parallelism is `ceil(QueryMessageLimit / 10)`. At the default `QueryMessageLimit` of 100, any pass that delivers 10+
-messages raises it to six concurrent delivery transactions. Each one locks the oldest unlocked batch with
+MassTransit 8's `BusOutboxDeliveryService` drives its delivery passes through a `RequestRateAlgorithm`. After any pass
+that delivers 10 or more messages, it runs up to six delivery transactions at once (at the default `QueryMessageLimit`
+of 100), and every replica runs its own. Each transaction locks the oldest unlocked batch with
 `SELECT … FROM "<svc>"."OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED` inside the outbox's
-REPEATABLE READ transaction. When a row it meets was just updated by a sibling transaction, Postgres raises
-`40001 could not serialize access due to concurrent update` (SKIP LOCKED skips locked rows, not rows changed after
-the snapshot). The delivery service's retry backs off exponentially (3 s, then up to 30 s), and every pending message
-of that service waits. Batches delivered in parallel also reach consumers out of publish order.
+REPEATABLE READ transaction.
 
-Detailed integration logs showed the 40001 on Payments' outbox in 13 of 15 runs of the readiness classes. It surfaced
-as cross-service projections arriving 20–30 s late: `StorefrontReadinessCrossServiceTests` and
+When the row it meets was updated or deleted by a sibling delivery after its snapshot, Postgres raises
+`40001 could not serialize access due to concurrent update`. SKIP LOCKED skips locked rows, not changed ones. The
+delivery service's retry then backs off exponentially (3 s, then up to 30 s), and every pending message of the
+service waits.
+
+Detailed integration logs showed this 40001 on Payments' outbox in 13 of 15 runs of the readiness classes. It
+surfaced as cross-service projections arriving 20–30 s late: `StorefrontReadinessCrossServiceTests` and
 `AuditTimelineProjectionTests` (Payments → Audit) both timed out (integration_projection_timeouts_2026_10_15).
 
-- **Decision:** `AddServiceBus<TDbContext>` sets `QueryMessageLimit = MassTransitExtensions.OutboxDeliveryQueryLimit`
-  (10). The request limit becomes 1: one delivery transaction per host, which takes batches in `Created` order. Each pass
-  still sends whole batches (`MessageDeliveryLimit` 100). The inbox cleanup, which the same setting sizes, loops until
-  it finds nothing left to delete. Pinned by `OutboxDeliveryTests` (unit lane; the default 100 is the control and does
-  go parallel) and `ReadinessOutboxOrderingTests`.
-  - With the limit set back to 100, that test failed in 2 of 3 runs and logged 40001s.
-  - At 10 it saw no inversion and no 40001 in 5 runs.
-- **Not covered:** replicas of one service still deliver in parallel against the same outbox table. That costs an
-  occasional 40001 backoff and possible reordering across replicas. Events whose order matters carry their own
-  version and their projection keeps the newer copy (ADR-0043 amendment 2026-10-16).
-- **Rejected for now:** a READ COMMITTED outbox (`EntityFrameworkOutboxOptions.IsolationLevel`). In MassTransit 8 it
-  also changes every consumer's transaction, which the 2026-10-08 rules are written against. Tracked as a follow-up.
+- **Decision:** `AddServiceBus<TDbContext>` re-registers MassTransit's `BusOutboxDeliveryService<TDbContext>` with its
+  own copy of `EntityFrameworkOutboxOptions` whose isolation is `MassTransitExtensions.OutboxDeliveryIsolation`
+  (READ COMMITTED).
+  - Under READ COMMITTED the same lock statement re-checks a changed row's latest version and skips it, so
+    deliveries stay parallel and never fail.
+  - The delivery transaction locks one batch, reads its messages, sends them and deletes them. Nothing in it
+    depends on a snapshot.
+  - Consumer transactions (`EntityFrameworkOutboxContextFactory`) keep the shared options at REPEATABLE READ, which
+    the 2026-10-08 rules are written against.
+- **Pinned by:**
+  - `OutboxDeliveryTests` (unit lane): exactly one delivery service, READ COMMITTED; consumers stay REPEATABLE READ.
+  - `OutboxDeliveryIsolationIntegrationTests`: on a real Postgres, REPEATABLE READ gets the 40001 and READ COMMITTED
+    takes the next batch.
+  - `ReadinessOutboxOrderingTests`: zero serialization failures logged by Payments under a busy outbox. With the
+    delivery back on REPEATABLE READ it failed 3 of 3 runs.
+- **Rejected: one delivery transaction per host** (`QueryMessageLimit = 10`). It removed the collisions and kept one
+  host's publish order, but delivered about 70 messages/s. The 10.5k-product test import took 2.5 minutes to
+  deliver, and the next Catalog host waited behind it, so `CatalogOfferPublishTests` failed 3 of 3 runs.
+- **Consequence:** parallel delivery does not keep publish order across batches, in one host or across replicas.
+  An event whose order matters carries its own version, and its projection keeps the newer copy (ADR-0043
+  amendment 2026-10-16).

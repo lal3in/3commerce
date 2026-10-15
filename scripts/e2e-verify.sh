@@ -141,9 +141,9 @@
 #       the gross unchanged (AUD/EUR/JPY, every line Currency, one side each), and a full refund nets it to 0
 #   A3i Unit · projection waits + outbox delivery (EventuallyTests, OutboxDeliveryTests): the shared Eventually
 #       helper polls on Stopwatch (awake) time, not the wall clock a sleeping Mac jumps, and looks once more after
-#       its budget; a condition that never holds throws the caller's error. AddServiceBus sizes the bus-outbox
-#       delivery (QueryMessageLimit = 10) so MassTransit's RequestRateAlgorithm never runs two delivery
-#       transactions at once (the default 100 does — the control — and they collided with 40001 and reordered)
+#       its budget; a condition that never holds throws the caller's error. AddServiceBus runs the bus-outbox
+#       DELIVERY transaction READ COMMITTED (one delivery service, replacing MassTransit's) while consumer
+#       transactions stay REPEATABLE READ — MassTransit's parallel REPEATABLE READ deliveries collided with 40001
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -175,8 +175,10 @@
 #       (AsOf) delivered after a newer one never overwrites it, a tie or newer applies
 #       (StorefrontReadinessConcurrencyTests); the real Payments/Fulfillment admin paths land readiness in
 #       Catalog through their outbox (StorefrontReadinessCrossServiceTests), and 20 payment accounts
-#       submitted then activated right after a 30-message outbox burst arrive in publish order (one delivery
-#       transaction per host) and all end ACTIVE in Catalog (ReadinessOutboxOrderingTests)
+#       submitted then activated right after a 30-message outbox burst (parallel delivery, events may arrive
+#       inverted) all end ACTIVE in Catalog with no 40001 logged by Payments (ReadinessOutboxOrderingTests);
+#       outbox delivery isolation on a real Postgres: REPEATABLE READ meets a changed batch with 40001, READ
+#       COMMITTED takes the next one (OutboxDeliveryIsolationIntegrationTests)
 #   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
 #       append-only (UPDATE/DELETE blocked)
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
@@ -496,7 +498,7 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeTaxTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3h renewal + usage tax"; else fail "A3h renewal + usage tax"; fi
 
-  stage "A3i Projection waits + outbox delivery — awake-time budget + final poll; one delivery transaction per host"
+  stage "A3i Projection waits + outbox delivery — awake-time budget + final poll; READ COMMITTED delivery"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~EventuallyTests|FullyQualifiedName~OutboxDeliveryTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3i projection waits + outbox delivery"; else fail "A3i projection waits + outbox delivery"; fi

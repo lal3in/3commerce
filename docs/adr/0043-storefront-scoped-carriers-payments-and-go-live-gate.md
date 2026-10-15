@@ -102,9 +102,8 @@ intermittently (integration_projection_timeouts_2026_10_15). `ReadinessOutboxOrd
 real Payments outbox: with the guard removed, 3 of 5 runs left a storefront stuck on `false` after Catalog received the
 two events inverted.
 
-ADR-0007's amendment of the same date removes the parallelism within one host (one delivery transaction at a time).
-That makes one host deliver in order, but replicas still deliver in parallel, so the projection itself must be
-order-safe:
+ADR-0007's amendment of the same date keeps the parallel delivery (it only stops the parallel transactions failing),
+so the projection itself must be order-safe:
 
 - `StorefrontPaymentReadinessChanged` and `StorefrontCarrierReadinessChanged` gain an additive, nullable
   `AsOf`: the time the publisher read the truth, taken just before the read, so a later `AsOf` never carries an

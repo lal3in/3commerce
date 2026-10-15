@@ -141,20 +141,24 @@ you are touching before you push.
   The same holds for two events of ONE signal for one row (a carrier configured, then activated): run in
   parallel they fail with 40001, and the retried, older value can land last. Give such an endpoint
   `ConcurrentMessageLimit = 1` (Catalog `Program.cs`) so it applies them one at a time in queue order.
-- **A projection 20–30 s late after a busy moment: the bus outbox was delivering in parallel (ADR-0007 amendment
-  2026-10-16).** MassTransit 8's `BusOutboxDeliveryService` sizes its parallelism from `QueryMessageLimit`
-  (`ceil(n / 10)`). At the default of 100, any pass of 10+ messages lets it run up to SIX delivery transactions at
-  once. Each locks the oldest batch with `… "OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED` under
-  REPEATABLE READ, so two of them collide with `40001 could not serialize access due to concurrent update`. The
-  delivery then backs off 3 s, then up to 30 s, and EVERY pending message of the service waits. The parallel batches
-  also reach consumers out of publish order. Symptoms: `StorefrontReadinessCrossServiceTests` (30 s) and
-  `AuditTimelineProjectionTests` (20 s) timed out on roughly one full run in four, always passed alone, and
-  resources were fine. To confirm, run with `--logger "console;verbosity=detailed"` and grep
-  `could not serialize access due to concurrent update` next to `OutboxState`. `AddServiceBus` now sets
-  `QueryMessageLimit = 10` (`OutboxDeliveryQueryLimit`), which allows one delivery transaction per host
-  (`OutboxDeliveryTests`). Don't raise it.
-- **…but replicas still deliver in parallel, so a "current truth" event needs `AsOf` (ADR-0043 amendment
-  2026-10-16).** Each request or consumer that publishes is its own outbox batch. When Payments' "submitted"
+- **A projection 20–30 s late after a busy moment: the bus-outbox deliveries collided (ADR-0007 amendment
+  2026-10-16).** After any pass of 10+ messages, MassTransit 8's `BusOutboxDeliveryService` runs up to SIX delivery
+  transactions at once (more with replicas). Each locks the oldest batch with
+  `… "OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED`. Under the outbox's REPEATABLE READ, a batch a
+  sibling had just changed raised `40001 could not serialize access due to concurrent update`. The delivery then
+  backed off 3 s, then up to 30 s, and EVERY pending message of the service waited.
+  - Symptoms: `StorefrontReadinessCrossServiceTests` (30 s) and `AuditTimelineProjectionTests` (20 s) timed out on
+    roughly one full run in four. They always passed alone, and resources were fine.
+  - To confirm, run with `--logger "console;verbosity=detailed"` and grep
+    `could not serialize access due to concurrent update` next to `OutboxState`.
+  - Fix: `AddServiceBus` runs the DELIVERY transaction READ COMMITTED (`OutboxDeliveryIsolation`), which skips a
+    changed row instead of failing. Consumers stay REPEATABLE READ.
+  - Don't "fix" it with one delivery at a time (`QueryMessageLimit = 10`). That delivered about 70 msg/s, a 10.5k
+    import took 2.5 min, and the next host's messages waited behind the backlog.
+  - A test whose host stages a big outbox backlog lets it drain before disposing the host (`CatalogSearchTests`).
+    Otherwise the next host on the shared DB delivers the backlog first.
+- **…and parallel delivery does not keep publish order, so a "current truth" event needs `AsOf` (ADR-0043
+  amendment 2026-10-16).** Each request or consumer that publishes is its own outbox batch. When Payments' "submitted"
   (readiness `false`) and "activated" (`true`) reached Catalog inverted, its blind upsert stuck on `false`.
   `ConcurrentMessageLimit = 1` only keeps QUEUE order. Fix: the event carries `AsOf` (the time the publisher read
   the state) and the projection keeps the newer copy (`… DO UPDATE … WHERE r."AsOf" <= EXCLUDED."AsOf"`). A null
