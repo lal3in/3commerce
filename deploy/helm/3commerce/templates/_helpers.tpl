@@ -13,3 +13,9 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{- define "3commerce.conn" -}}
 Host=postgres;Port=5432;Database={{ . }}_db;Username={{ . }}_svc;Password={{ . }}_dev
 {{- end -}}
+
+{{- /* Release identity (ADR-0064): the deployment environment on every OTel resource. Takes the root context. */ -}}
+{{- define "3commerce.otelResourceEnv" -}}
+- name: OTEL_RESOURCE_ATTRIBUTES
+  value: {{ printf "deployment.environment.name=%s" .Values.deploymentEnvironment | quote }}
+{{- end -}}

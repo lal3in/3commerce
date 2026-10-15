@@ -16,6 +16,7 @@ source scripts/lib/services.sh
 source scripts/lib/procs.sh
 export INFRA_SET=full   # the dev stack is always the FULL infra set (lib/infra.sh); `core` is a CI-only trim
 source scripts/lib/volumes.sh   # also sources lib/infra.sh
+source scripts/lib/release.sh   # release_revision: what the build stamps (ADR-0064)
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -53,7 +54,10 @@ echo "  Grafana (LGTM):       http://localhost:3001  (admin/admin)  ·  OTLP in:
 echo "  Loki: http://localhost:3100 · Tempo: http://localhost:3200 · Mimir: http://localhost:9009"
 
 echo "== 2/4 build + migrate =="
-dotnet build 3commerce.sln >/dev/null
+# Stamp the build with this commit (+ "-dirty" for uncommitted tracked changes): every service then reports it as
+# vcs.ref.head.revision / service.version on its telemetry and in its "Release identity:" startup log (ADR-0064).
+GIT_SHA="$(release_revision)" dotnet build 3commerce.sln >/dev/null
+echo "  release: $(release_version)+$(release_revision)"
 for s in $(ef_projects); do
   dotnet ef database update -p "src/Services/$s/Infrastructure" -s "src/Services/$s/Api" --no-build >/dev/null 2>&1 \
     && echo "  migrated $s" || echo "  WARN migrate $s failed (see logs)"

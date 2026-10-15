@@ -5,6 +5,12 @@ on:
     branches: [main, develop, test]
   pull_request:
 
+# Release identity (ADR-0064): every service process a CI job starts (browser-e2e's bare-run stack, in-process
+# test hosts) tags its telemetry deployment.environment.name=ci. Containers don't inherit it (compose/Helm set
+# their own).
+env:
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=ci
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -158,6 +164,9 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: false
+          # Release identity (ADR-0064): the commit these sources are (on a push to develop/test/main, the release SHA).
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.dockerfile }}
           cache-to: type=gha,mode=max,scope=${{ matrix.dockerfile }}
 
@@ -225,8 +234,9 @@ jobs:
             [fulfillment]=src/Services/Fulfillment/Api/Dockerfile [support]=src/Services/Support/Api/Dockerfile \
             [entity]=src/Services/Entity/Api/Dockerfile \
             [supplier-portal]=src/SupplierPortal/Dockerfile )
-          for n in "${!df[@]}"; do docker build -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; docker image rm 3commerce/$n:local || true; done
-          docker build -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
+          # Release identity (ADR-0064): stamp each image with the commit under test.
+          for n in "${!df[@]}"; do docker build --build-arg GIT_SHA=${{ github.sha }} -f "${df[$n]}" -t 3commerce/$n:local . ; kind load docker-image 3commerce/$n:local --name 3c; docker image rm 3commerce/$n:local || true; done
+          docker build --build-arg GIT_SHA=${{ github.sha }} -f deploy/migrator/Dockerfile -t 3commerce/migrator:local .
           kind load docker-image 3commerce/migrator:local --name 3c
       - name: helm install (dev) + wait
         run: helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --wait --timeout 18m

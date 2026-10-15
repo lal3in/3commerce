@@ -26,6 +26,13 @@ x-svc-deps: &svc-deps
     rabbitmq: { condition: service_healthy }
     migrate: { condition: service_completed_successfully }
 
+# Release identity (ADR-0064): every image is built with the commit it came from. scripts/launch.sh exports
+# GIT_SHA (HEAD, "-dirty" for uncommitted tracked changes) + VERSION; a bare `docker compose build` leaves them
+# empty (unstamped image, no revision on its telemetry).
+x-release-args: &release-args
+  GIT_SHA: ${GIT_SHA:-}
+  VERSION: ${VERSION:-}
+
 x-limits: &limits
   deploy:
     resources:
@@ -51,6 +58,7 @@ services:
     build:
       context: .
       dockerfile: deploy/migrator/Dockerfile
+      args: *release-args
     environment:
       CONN_IDENTITY: Host=postgres;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev
       CONN_CATALOG: Host=postgres;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev
@@ -69,53 +77,53 @@ services:
 
   identity:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Identity/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Identity/Api/Dockerfile, args: *release-args }
   catalog:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Catalog/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Catalog/Api/Dockerfile, args: *release-args }
   entity:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Entity/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Entity/Api/Dockerfile, args: *release-args }
   ordering:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Ordering/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Ordering/Api/Dockerfile, args: *release-args }
   payments:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Payments/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Payments/Api/Dockerfile, args: *release-args }
   fulfillment:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Fulfillment/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Fulfillment/Api/Dockerfile, args: *release-args }
   support:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Support/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Support/Api/Dockerfile, args: *release-args }
   marketing:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Marketing/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Marketing/Api/Dockerfile, args: *release-args }
   pricing:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Pricing/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Pricing/Api/Dockerfile, args: *release-args }
   audit:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Audit/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Audit/Api/Dockerfile, args: *release-args }
   workflow:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Workflow/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Workflow/Api/Dockerfile, args: *release-args }
   entitlement:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Entitlement/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Entitlement/Api/Dockerfile, args: *release-args }
   usage:
     <<: [*app, *svc-deps, *svc-health, *limits]
-    build: { context: ., dockerfile: src/Services/Usage/Api/Dockerfile }
+    build: { context: ., dockerfile: src/Services/Usage/Api/Dockerfile, args: *release-args }
 
   notifications:
     <<: [*app, *limits]
-    build: { context: ., dockerfile: src/Workers/Notifications/Dockerfile }
+    build: { context: ., dockerfile: src/Workers/Notifications/Dockerfile, args: *release-args }
     depends_on:
       rabbitmq: { condition: service_healthy }
 
   gateway:
     <<: [*app, *limits]
-    build: { context: ., dockerfile: src/Gateway/Dockerfile }
+    build: { context: ., dockerfile: src/Gateway/Dockerfile, args: *release-args }
     ports:
       - "8080:8080"
     depends_on:
@@ -135,7 +143,7 @@ services:
 
   admin:
     <<: [*app, *limits]
-    build: { context: ., dockerfile: src/Admin/Dockerfile }
+    build: { context: ., dockerfile: src/Admin/Dockerfile, args: *release-args }
     ports:
       - "5200:8080"
     depends_on:
@@ -149,7 +157,7 @@ services:
 
   supplier-portal:
     <<: [*app, *limits]
-    build: { context: ., dockerfile: src/SupplierPortal/Dockerfile }
+    build: { context: ., dockerfile: src/SupplierPortal/Dockerfile, args: *release-args }
     ports:
       - "5300:8080"
     depends_on:
@@ -162,7 +170,7 @@ services:
       start_period: 15s
 
   storefront:
-    build: { context: ., dockerfile: src/Storefront/Dockerfile }
+    build: { context: ., dockerfile: src/Storefront/Dockerfile, args: *release-args }
     environment:
       NODE_ENV: production
       GATEWAY_URL: http://gateway:8080

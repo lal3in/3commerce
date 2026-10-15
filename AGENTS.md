@@ -101,7 +101,8 @@ cd src/Storefront && npm run dev                    # Next.js storefront
 # Building all 13 .NET images needs a Docker VM with ~8+ GiB RAM. `docker compose up --build` builds them in
 # PARALLEL and WILL OOM a small VM (default 6 GiB Colima) and crash the daemon. Use the bounded builder below,
 # or bump the VM first: `colima stop && colima start --cpu 4 --memory 12`.
-scripts/build-images.sh                             # builds every image PARALLEL=2 at a time, with a memory preflight
+scripts/build-images.sh [name …]                    # builds every (or the named) image PARALLEL=2 at a time, with a memory
+                                                    # preflight; stamps GIT_SHA/VERSION build args + OCI labels (ADR-0064)
 scripts/launch.sh --fresh --env dev                 # brand-new deployment (down -v + build + up)
 scripts/launch.sh --reuse --env dev                 # relaunch, keep data
 scripts/launch.sh --fresh --env prod                # rotated keys, BL-11 gate enforced
@@ -204,6 +205,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   ├── lib/infra.sh               # THE local infra set (all-or-nothing): infra_up / infra_down / infra_state — dev-up, dev-down, e2e-verify, doctor, host-check
+│   ├── lib/release.sh             # release identity (ADR-0064): release_revision (HEAD SHA + -dirty) / release_version — what builds + images are stamped with
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix

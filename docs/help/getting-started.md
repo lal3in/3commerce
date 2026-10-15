@@ -186,7 +186,10 @@ once every surface is genuinely **ready** — every service, gateway, RabbitMQ, 
 *online*), Grafana, Loki, Tempo, Mimir and the frontends — because several keep warming up well after their containers start. Anything still not ready
 after its time budget is named, and the script exits **3** so a chained test run does not start on a
 half-ready stack. It also starts the storefront from a clean `.next/`, since the process it replaces may
-have died mid-compile.
+have died mid-compile. Its build is stamped with HEAD's SHA (`-dirty` when tracked files are uncommitted) and
+it prints `release: <version>+<sha>`: every service tags its telemetry with that commit and
+`deployment.environment.name=dev`, and logs a `Release identity:` line at startup (ADR-0064, see
+[Deployment](deployment.md#release-identity-on-telemetry-adr-0064)).
 
 `scripts/e2e-verify.sh --live` then runs the live smoke flows — against that running stack as-is, or, on a
 clean machine, against one it boots and tears down itself. It leaves the machine exactly as it found it: an

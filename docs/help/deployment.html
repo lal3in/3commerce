@@ -139,6 +139,27 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-pro
         <p>The .NET images are a two-stage build (<code>sdk:10.0</code> → <code>aspnet:10.0</code>, with <code>curl</code> for healthchecks). <strong>The build context must be the repo root</strong> (central package management):</p>
         <pre><code>docker build -f src/Gateway/Dockerfile .</code></pre>
 
+        <h2 id="release-identity">Release identity on telemetry (ADR-0064)</h2>
+        <p>Every span, metric and log of every .NET process (13 services, gateway, Notifications worker) carries <strong>which release produced it</strong>. Promotions (ADR-0058) fast-forward one tested commit, so the commit SHA <em>is</em> the release.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Resource attribute</th><th>Example</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td><code>service.version</code></td><td><code>1.0.0+c1a1c2e</code> (<code>-dirty</code> for an uncommitted bare-run build)</td><td>assembly <code>InformationalVersion</code> = <code>$(Version)+$(SourceRevisionId)</code></td></tr>
+              <tr><td><code>vcs.ref.head.revision</code></td><td>full 40-char SHA (omitted when the build carries none)</td><td>same; <code>GIT_SHA</code> → <code>SourceRevisionId</code> in <code>Directory.Build.props</code>, else the SDK's SourceLink reads <code>.git</code></td></tr>
+              <tr><td><code>deployment.environment.name</code></td><td><code>dev</code> · <code>test</code> · <code>prod</code> · <code>ci</code></td><td>host environment (Development → dev, Staging/Test → test, Production → prod)</td></tr>
+              <tr><td><code>service.instance.id</code></td><td>UUIDv7</td><td>one per process, shared by traces, metrics and logs</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>An explicit <code>OTEL_RESOURCE_ATTRIBUTES</code> entry always wins. Who sets what:</p>
+        <ul>
+          <li><strong>Bare-run</strong> (<code>dev-up.sh</code>, <code>e2e-verify.sh</code>'s own boot): builds with <code>GIT_SHA=$(release_revision)</code> (<code>scripts/lib/release.sh</code>: HEAD, plus <code>-dirty</code> when tracked files differ); environment <code>dev</code>.</li>
+          <li><strong>Images</strong>: every Dockerfile takes <code>ARG GIT_SHA</code> / <code>ARG VERSION</code> and sets OCI labels <code>org.opencontainers.image.revision</code>, <code>.version</code>, <code>.source</code>. <code>scripts/build-images.sh [name …]</code>, <code>scripts/launch.sh</code> (compose <code>x-release-args</code>) and CI pass them. Check one with <code>docker inspect --format '{{json .Config.Labels}}' 3commerce/catalog:local</code>.</li>
+          <li><strong>Compose</strong>: <code>deploy/.env.dev</code> → <code>dev</code>; <code>launch.sh --env prod</code> writes <code>prod</code>. <strong>Helm</strong>: <code>deploymentEnvironment</code> (<code>values-dev</code> dev, <code>values-prod</code> prod; a release-candidate install uses <code>--set deploymentEnvironment=test</code>). <strong>CI</strong>: <code>ci</code> for every process a job starts.</li>
+        </ul>
+        <p>Each process also logs one <code>Release identity: service.name=… service.version=… vcs.ref.head.revision=… deployment.environment.name=…</code> line at startup (<code>.run/&lt;svc&gt;.log</code>; e2e-verify L2b checks it). In Grafana, the <strong>Services (RED)</strong> dashboard's <em>Running releases by service</em> table lists each service's version, commit and environment; every metric carries <code>service_version</code> / <code>vcs_ref_head_revision</code> / <code>deployment_environment_name</code> labels, so any RED panel can be split by release. Admin, Supplier Portal and the storefront have no OTel pipeline yet (audit P1-2/P1-4); their images carry the OCI labels.</p>
+
         <h2 id="bare-run-dev">Bare-run dev (ADR-0009)</h2>
         <p>The fast inner loop is unchanged — see <a class="inline" href="getting-started.html">Getting started</a>:</p>
         <ol>
