@@ -30,6 +30,9 @@ public sealed class StorefrontCarrierReadiness
     public Guid StorefrontId { get; init; }
     public Guid TenantId { get; set; }
     public bool HasActiveCarrier { get; set; }
+
+    /// <summary>When the publisher read this truth (<c>AsOf</c> on the event); an older event never overwrites it.</summary>
+    public DateTimeOffset? AsOf { get; set; }
 }
 
 /// <summary>
@@ -41,4 +44,7 @@ public sealed class StorefrontPaymentReadiness
     public Guid StorefrontId { get; init; }
     public Guid TenantId { get; set; }
     public bool HasActivePaymentAccount { get; set; }
+
+    /// <summary>When the publisher read this truth (<c>AsOf</c> on the event); an older event never overwrites it.</summary>
+    public DateTimeOffset? AsOf { get; set; }
 }

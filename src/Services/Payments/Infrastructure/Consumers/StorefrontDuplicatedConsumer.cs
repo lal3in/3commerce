@@ -45,6 +45,6 @@ public sealed class StorefrontDuplicatedConsumer(PaymentsDbContext db, TimeProvi
         // The clone can carry Active accounts → the new storefront may now be payment-ready; tell Catalog.
         var hasActive = sources.Any(a => a.State == PaymentAccountState.Active);
         await context.Publish(new ThreeCommerce.BuildingBlocks.Contracts.Payments.StorefrontPaymentReadinessChanged(
-            m.TenantId, m.NewStorefrontId, hasActive));
+            m.TenantId, m.NewStorefrontId, hasActive, AsOf: now));
     }
 }

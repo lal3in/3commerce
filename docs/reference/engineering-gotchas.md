@@ -82,6 +82,17 @@ you are touching before you push.
      is busy, it fails at random. The tracker caught it in `SpineTests` (the restarted Ordering) and in
      Phase3's lazy Catalog host. `AddTestBusHosting` registers `BusStopsBeforeHostDisposal`, which the host
      stops first: it stops MassTransit once, and both callers wait for that stop.
+- **A Mac that sleeps mid-run fails whichever test is waiting, and the log looks like a lost message.** Agents
+  run suites while the display is off. The Mac then runs in dark-wake windows and goes back to sleep at the end
+  of one (`pmset -g log | grep -E 'Sleep|DarkWake'`), pausing the test process, the Docker VM and the broker. A
+  wait loop on `DateTimeOffset.UtcNow` finds its deadline gone on wake and throws without looking again:
+  `CheckoutOfferGateParityTests` failed with "Ordering approval … did not project", the test timed at `[1 s]`
+  (xUnit's Stopwatch stops during sleep) and the run took 9m25s instead of ~4m (5 m asleep, 2026-10-15). Tell a
+  sleep from a real timeout by that pair: a short test duration with a 30 s wait, and a long run.
+  `scripts/e2e-verify.sh` re-runs itself under `caffeinate -is` on macOS; wrap ad-hoc long runs the same way
+  (`caffeinate -is dotnet test …`). Write new waits with `Eventually.PollAsync` / `UntilAsync`
+  (`tests/3commerce.IntegrationTests/Eventually.cs`): its budget is Stopwatch time, which pauses while the host
+  sleeps, and it polls once more after the budget.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Messaging / consumers
@@ -130,6 +141,31 @@ you are touching before you push.
   The same holds for two events of ONE signal for one row (a carrier configured, then activated): run in
   parallel they fail with 40001, and the retried, older value can land last. Give such an endpoint
   `ConcurrentMessageLimit = 1` (Catalog `Program.cs`) so it applies them one at a time in queue order.
+- **A projection 20–30 s late after a busy moment: the bus-outbox deliveries collided (ADR-0007 amendment
+  2026-10-16).** After any pass of 10+ messages, MassTransit 8's `BusOutboxDeliveryService` runs up to SIX delivery
+  transactions at once (more with replicas). Each locks the oldest batch with
+  `… "OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED`. Under the outbox's REPEATABLE READ, a batch a
+  sibling had just changed raised `40001 could not serialize access due to concurrent update`. The delivery then
+  backed off 3 s, then up to 30 s, and EVERY pending message of the service waited.
+  - Symptoms: `StorefrontReadinessCrossServiceTests` (30 s) and `AuditTimelineProjectionTests` (20 s) timed out on
+    roughly one full run in four. They always passed alone, and resources were fine.
+  - To confirm, run with `--logger "console;verbosity=detailed"` and grep
+    `could not serialize access due to concurrent update` next to `OutboxState`.
+  - Fix: `AddServiceBus` runs the DELIVERY transaction READ COMMITTED (`OutboxDeliveryIsolation`), which skips a
+    changed row instead of failing. Consumers stay REPEATABLE READ.
+  - Don't "fix" it with one delivery at a time (`QueryMessageLimit = 10`). That delivered about 70 msg/s, a 10.5k
+    import took 2.5 min, and the next host's messages waited behind the backlog.
+  - A test whose host stages a big outbox backlog lets it drain before disposing the host (`CatalogSearchTests`).
+    Otherwise the next host on the shared DB delivers the backlog first.
+- **…and parallel delivery does not keep publish order, so a "current truth" event needs `AsOf` (ADR-0043
+  amendment 2026-10-16).** Each request or consumer that publishes is its own outbox batch. When Payments' "submitted"
+  (readiness `false`) and "activated" (`true`) reached Catalog inverted, its blind upsert stuck on `false`.
+  `ConcurrentMessageLimit = 1` only keeps QUEUE order. Fix: the event carries `AsOf` (the time the publisher read
+  the state) and the projection keeps the newer copy (`… DO UPDATE … WHERE r."AsOf" <= EXCLUDED."AsOf"`). A null
+  `AsOf` comes from a legacy publisher and still applies. `ReadinessOutboxOrderingTests` bursts the outbox and then
+  makes the two transitions. On failure it prints each delivery (value, AsOf, message id, retry, fault) and the
+  stored row. The readiness test's own failure message also tells the cases apart: "no row" means the event never
+  arrived, a row with a stale flag means an inversion.
 - **One writer, several messages for one key: partition the endpoint by that key.** Support's
   `OrderSnapshotConsumer` is the only writer of `OrderSnapshot`, yet two `OrderConfirmed` for one order
   with different message ids (the inbox only dedupes a repeated id) consumed in parallel both saw no row

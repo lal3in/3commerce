@@ -58,24 +58,25 @@ public class StorefrontReadinessCrossServiceTests(Phase4Fixture fixture)
         await WaitForReadinessAsync(storefront, r => r.HasActivePaymentAccount);
     }
 
-    // Polls Catalog's read model until the cross-service event has been consumed (or times out).
+    // Polls Catalog's read model until the cross-service event has been consumed (or times out). The failure names
+    // the last row seen: "no row" = the event never landed; a row with the flag still false = an older event
+    // landed after the newer one (the ordering bug AsOf guards against) or the newer one never arrived.
     private async Task WaitForReadinessAsync(Guid storefrontId, Func<Catalog.Domain.StorefrontServiceReadiness, bool> ready)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Catalog.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-            var row = await db.StorefrontServiceReadiness.AsNoTracking().SingleOrDefaultAsync(r => r.StorefrontId == storefrontId);
-            if (row is not null && ready(row))
+        Catalog.Domain.StorefrontServiceReadiness? last = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new Xunit.Sdk.XunitException(
-            $"StorefrontServiceReadiness for {storefrontId} never reached the expected state — the readiness event was not delivered to Catalog (outbox likely not flushed).");
+                using var scope = fixture.Catalog.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+                last = await db.StorefrontServiceReadiness.AsNoTracking().SingleOrDefaultAsync(r => r.StorefrontId == storefrontId);
+                return last is not null && ready(last);
+            },
+            () => new Xunit.Sdk.XunitException(
+                $"StorefrontServiceReadiness for {storefrontId} never reached the expected state — last seen: " +
+                (last is null
+                    ? "no row (the readiness event never reached Catalog)."
+                    : $"carrier={last.HasActiveCarrier} payment={last.HasActivePaymentAccount}.")),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 }

@@ -285,20 +285,16 @@ public class CheckoutOfferGateParityTests(Phase3Fixture fixture) : IAsyncLifetim
         await WaitAsync(async db => await db.SupplierApprovalCopies.AsNoTracking()
             .AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved), $"Ordering approval {supplierId}");
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Catalog.Services.CreateScope();
-            var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-            if (await catalog.SupplierApprovalCopies.AsNoTracking().AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return supplierId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Catalog approval {supplierId} did not project.");
+                using var scope = fixture.Catalog.Services.CreateScope();
+                var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+                return await catalog.SupplierApprovalCopies.AsNoTracking().AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved);
+            },
+            () => new TimeoutException($"Catalog approval {supplierId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return supplierId;
     }
 
     /// <summary>An active, product-level offer created through Catalog's admin API, then awaited in Ordering.</summary>
@@ -322,20 +318,12 @@ public class CheckoutOfferGateParityTests(Phase3Fixture fixture) : IAsyncLifetim
         await WaitAsync(async db => await db.OfferCopies.AsNoTracking().AnyAsync(o => o.OfferId == offerId), $"OfferCopy {offerId}");
     }
 
-    private async Task WaitAsync(Func<OrderingDbContext, Task<bool>> settled, string what)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            if (await settled(scope.ServiceProvider.GetRequiredService<OrderingDbContext>()))
+    private Task WaitAsync(Func<OrderingDbContext, Task<bool>> settled, string what) =>
+        Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"{what} did not project into Ordering.");
-    }
+                using var scope = fixture.Ordering.Services.CreateScope();
+                return await settled(scope.ServiceProvider.GetRequiredService<OrderingDbContext>());
+            },
+            () => new TimeoutException($"{what} did not project into Ordering."));
 }

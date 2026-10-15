@@ -1,8 +1,12 @@
 using MassTransit;
 using MassTransit.EntityFrameworkCoreIntegration;
+using MassTransit.Middleware.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 
@@ -27,6 +31,22 @@ public static class MassTransitExtensions
     /// cold container), short enough that a broker that is really gone fails the host instead of hanging it.
     /// </summary>
     public const int DefaultStartTimeoutSeconds = 120;
+
+    /// <summary>
+    /// Isolation of the bus-outbox DELIVERY transaction (consumer transactions keep MassTransit's REPEATABLE READ).
+    /// MassTransit's <c>BusOutboxDeliveryService</c> runs up to six delivery transactions at once after any pass of
+    /// 10+ messages (<c>RequestRateAlgorithm</c>, from QueryMessageLimit 100), and every replica runs its own. Each locks
+    /// the oldest unlocked batch with <c>… "OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED</c>. Under
+    /// REPEATABLE READ, a row another delivery updated after this transaction's snapshot raises <c>40001 could not
+    /// serialize access due to concurrent update</c> (SKIP LOCKED skips locked rows, not changed ones); the delivery
+    /// service then backs off 3 s, then up to 30 s, and every pending message of the service waits — projections
+    /// 20–30 s late. Under READ COMMITTED the same statement re-checks the row's latest version and skips it, so the
+    /// deliveries stay parallel and never fail. The transaction only locks one batch, reads its messages, sends and
+    /// deletes them; nothing in it relies on a snapshot. (One delivery at a time would also fix it, but at ~70
+    /// messages/s it took 2.5 min to deliver a 10.5k-product import.) Parallel delivery does not keep publish order
+    /// across batches, so events whose order matters carry their own version (ADR-0043 amendment 2026-10-16).
+    /// </summary>
+    public const System.Data.IsolationLevel OutboxDeliveryIsolation = System.Data.IsolationLevel.ReadCommitted;
 
     /// <summary>
     /// Service bus for services that own a database: EF transactional outbox (writes and
@@ -71,7 +91,34 @@ public static class MassTransitExtensions
             });
         });
 
+        services.UseReadCommittedOutboxDelivery<TDbContext>();
         return services;
+    }
+
+    // Re-registers MassTransit's BusOutboxDeliveryService with its own options copy whose isolation is
+    // OutboxDeliveryIsolation; the consumer outbox (EntityFrameworkOutboxContextFactory) keeps the shared options.
+    private static void UseReadCommittedOutboxDelivery<TDbContext>(this IServiceCollection services)
+        where TDbContext : DbContext
+    {
+        var registered = services.Single(d => d.ServiceType == typeof(IHostedService)
+            && d.ImplementationType == typeof(BusOutboxDeliveryService<TDbContext>));
+        services.Remove(registered);
+        services.AddHostedService(sp =>
+        {
+            var shared = sp.GetRequiredService<IOptions<EntityFrameworkOutboxOptions<TDbContext>>>().Value;
+            var delivery = new EntityFrameworkOutboxOptions<TDbContext>
+            {
+                IsolationLevel = OutboxDeliveryIsolation,
+                LockStatementProvider = shared.LockStatementProvider,
+            };
+            return new BusOutboxDeliveryService<TDbContext>(
+                sp.GetRequiredService<IBusControl>(),
+                sp.GetRequiredService<IOptions<OutboxDeliveryServiceOptions>>(),
+                Options.Create(delivery),
+                sp.GetRequiredService<IBusOutboxNotification>(),
+                sp.GetRequiredService<ILogger<BusOutboxDeliveryService<TDbContext>>>(),
+                sp);
+        });
     }
 
     /// <summary>

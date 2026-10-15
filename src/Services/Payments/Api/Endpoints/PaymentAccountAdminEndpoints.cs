@@ -175,12 +175,15 @@ public static class PaymentAccountAdminEndpoints
     // Storefront payment-account readiness — an idempotent boolean Catalog's go-live gate reads (ADR-0042).
     // Compute the post-change truth, then publish AND SaveChanges again to flush the bus-outbox
     // (UseBusOutbox stages the message on Publish; without a following SaveChanges it is stranded).
+    // AsOf is taken just before the read, so a later AsOf never carries an older truth: the outbox may deliver
+    // two transitions' events out of order, and Catalog keeps the newer one.
     private static async Task PublishReadinessAsync(
         PaymentsDbContext db, IPublishEndpoint publisher, Guid tenantId, Guid storefrontId, CancellationToken ct)
     {
+        var asOf = DateTimeOffset.UtcNow;
         var hasActive = await db.PaymentAccounts.AsNoTracking()
             .AnyAsync(a => a.TenantId == tenantId && a.StorefrontId == storefrontId && a.State == PaymentAccountState.Active, ct);
-        await publisher.Publish(new StorefrontPaymentReadinessChanged(tenantId, storefrontId, hasActive), ct);
+        await publisher.Publish(new StorefrontPaymentReadinessChanged(tenantId, storefrontId, hasActive, asOf), ct);
         await db.SaveChangesAsync(ct);
     }
 
