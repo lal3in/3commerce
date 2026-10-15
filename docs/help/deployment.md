@@ -167,6 +167,37 @@ healthchecks). **The build context must be the repo root** (central package mana
 docker build -f src/Gateway/Dockerfile .
 ```
 
+## Release identity on telemetry (ADR-0064)
+
+Every span, metric and log of every .NET process (13 services, gateway, Notifications worker) carries **which
+release produced it**. Promotions (ADR-0058) fast-forward one tested commit, so the commit SHA *is* the release.
+
+| Resource attribute | Example | Source |
+|---|---|---|
+| `service.version` | `1.0.0+c1a1c2e` (`-dirty` for an uncommitted bare-run build) | assembly `InformationalVersion` = `$(Version)+$(SourceRevisionId)` |
+| `vcs.ref.head.revision` | full 40-char SHA (omitted when the build carries none) | same; `GIT_SHA` → `SourceRevisionId` in `Directory.Build.props`, else the SDK's SourceLink reads `.git` |
+| `deployment.environment.name` | `dev` · `test` · `prod` · `ci` | host environment (Development → dev, Staging/Test → test, Production → prod) |
+| `service.instance.id` | UUIDv7 | one per process, shared by traces, metrics and logs |
+
+An explicit `OTEL_RESOURCE_ATTRIBUTES` entry always wins. Who sets what:
+
+- **Bare-run** (`dev-up.sh`, `e2e-verify.sh`'s own boot): builds with `GIT_SHA=$(release_revision)`
+  (`scripts/lib/release.sh`: HEAD, plus `-dirty` when tracked files differ); environment `dev`.
+- **Images**: every Dockerfile takes `ARG GIT_SHA` / `ARG VERSION` and sets the OCI labels
+  `org.opencontainers.image.revision`, `.version`, `.source`. `scripts/build-images.sh [name …]`,
+  `scripts/launch.sh` (compose `x-release-args`) and CI pass them. Check one with
+  `docker inspect --format '{{json .Config.Labels}}' 3commerce/catalog:local`.
+- **Compose**: `deploy/.env.dev` → `dev`; `launch.sh --env prod` writes `prod`. **Helm**: `deploymentEnvironment`
+  (`values-dev` dev, `values-prod` prod; a release-candidate install uses `--set deploymentEnvironment=test`).
+  **CI**: `ci` for every process a job starts.
+
+Each process also logs one `Release identity: service.name=… service.version=… vcs.ref.head.revision=…
+deployment.environment.name=…` line at startup (`.run/<svc>.log`; e2e-verify L2b checks it). In Grafana, the
+**Services (RED)** dashboard's *Running releases by service* table lists each service's version, commit and
+environment; every metric carries `service_version` / `vcs_ref_head_revision` / `deployment_environment_name`
+labels, so any RED panel can be split by release. Admin, Supplier Portal and the storefront have no OTel pipeline
+yet (audit P1-2/P1-4); their images carry the OCI labels.
+
 ## Bare-run dev (ADR-0009)
 
 The fast inner loop is unchanged — see [Getting started](./getting-started.md):
