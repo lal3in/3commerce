@@ -50,6 +50,9 @@ store_gateway:
     replication_factor: 1
 
 limits:
+  # Explicit retention (observability audit P0-2 / Q2): the compactor deletes metric blocks older than this.
+  # Dev keeps 30 days; production keeps 13 months (Helm values-prod.yaml observability.retention.metrics).
+  compactor_blocks_retention_period: 30d
   # Exemplar storage is off by default — enable it so the trace_id exemplars the Tempo metrics
   # generator sends (send_exemplars) are retained and Grafana can link metric → trace.
   max_global_exemplars_per_user: 100000

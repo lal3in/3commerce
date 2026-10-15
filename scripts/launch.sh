@@ -9,6 +9,8 @@
 #   --reuse   keep existing data; just (re)launch (default).
 #   --env dev committed dev ES256 keys, admin auto-seeded (default).
 #   --env prod a freshly minted keypair is injected and the BL-11 secret gate is enforced.
+#             Notifications refuses to boot on its logging-only email sender unless you opt in to a
+#             sandbox: NOTIFICATIONS_ALLOW_LOGGING_SENDER=true scripts/launch.sh --env prod
 #
 # The catalog is NOT auto-seeded: after a fresh launch, log into the admin Imports screen
 # (or POST /api/catalog/admin/import-runs) to load the sample SKUs.

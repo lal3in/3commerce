@@ -25,6 +25,11 @@ spec:
               value: "true"
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.environment | quote }}
+            {{- if .Values.notifications.allowLoggingEmailSender }}
+            # Sandbox acknowledgement (EmailSenderGuard): boots outside Development, logs metadata only.
+            - name: Notifications__Email__AllowLoggingSender
+              value: "true"
+            {{- end }}
             {{- if .Values.observability.enabled }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector:4317

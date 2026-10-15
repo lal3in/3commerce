@@ -9,9 +9,18 @@
 # resolves to Production, and PaymentModeGuard refuses LocalMock / AllowMockEmail=true at
 # boot (ADR-0039). Real provider credentials (Stripe__SecretKey etc.) are injected per-deploy
 # as env vars — see docs/ops/secrets.md — never committed.
+#
+# Notifications fails closed here too: its only sender logs instead of delivering, so a non-Development
+# host refuses to boot unless Notifications:Email:AllowLoggingSender=true acknowledges a sandbox (P0-2,
+# EmailSenderGuard). For a prod-mode rehearsal without an email provider, opt in explicitly:
+#   NOTIFICATIONS_ALLOW_LOGGING_SENDER=true scripts/launch.sh --env prod
+# Even then only email metadata is logged (subject, reference, recipient hash) — never bodies or links.
 name: 3commerce
 
 services:
+  notifications:
+    environment:
+      Notifications__Email__AllowLoggingSender: ${NOTIFICATIONS_ALLOW_LOGGING_SENDER:-false}
   gateway:
     environment:
       InternalAuth__PrivateKey: ${INTERNAL_AUTH_PRIVATE_KEY:?run scripts/launch.sh --env prod}

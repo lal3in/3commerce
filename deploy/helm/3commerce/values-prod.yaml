@@ -8,3 +8,13 @@ kafka:
   enabled: false
   deploy: false
   externalBootstrapServers: ""
+# Notifications fails closed: no real email provider yet, so the worker refuses to boot here unless an
+# operator explicitly acknowledges a sandbox (--set notifications.allowLoggingEmailSender=true).
+notifications:
+  allowLoggingEmailSender: false
+# Retention for the optional in-chart LGTM stack (observability.enabled=true): metrics kept 13 months.
+observability:
+  retention:
+    logs: 720h          # 30 days
+    traces: 336h        # 14 days
+    metrics: 395d       # ~13 months

@@ -305,6 +305,14 @@ services:
     image: prom/prometheus:v2.54.1
     container_name: 3commerce-prometheus
     profiles: ["observability"]
+    # The image's default command plus an explicit retention (observability audit P0-2): this scrape view is
+    # a local debugging aid, 15 days (Prometheus' default, now stated). Long-term metrics live in Mimir.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
     volumes:
       - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Same anonymous-volume leak as rabbitmq (the image declares VOLUME /prometheus), and without

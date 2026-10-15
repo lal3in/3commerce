@@ -24,7 +24,8 @@ storage:
 
 compactor:
   compaction:
-    # Keep dev traces short-lived so the named volume can't grow unbounded.
+    # Explicit retention: dev keeps traces 48 h so the named volume can't grow unbounded on a laptop's
+    # Docker VM. The policy for shared/production backends is 14 days (Helm observability.retention.traces).
     block_retention: 48h
 
 # Metrics generator: derive RED span-metrics + the service-graph from incoming spans and remote-write

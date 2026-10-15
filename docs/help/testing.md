@@ -318,7 +318,9 @@ gone to the provider (never PAN/CVV/wallet tokens). Set it up with:
 
 In the bare-run dev stack the email lands in the Notifications worker log
 (`.run/notifications.log`) since dev has no SMTP; swap `MockEmailTo` for your
-real address once SMTP is wired.
+real address once SMTP is wired. Full emails are logged in `Development` only;
+any other environment logs subject, reference and a recipient hash
+(`LoggingEmailSender`, `EmailSenderGuard`).
 
 **Safety.** `PaymentModeGuard` refuses to boot with `LocalMock` or
 `AllowMockEmail=true` outside `Development`, and Production has no capture path
