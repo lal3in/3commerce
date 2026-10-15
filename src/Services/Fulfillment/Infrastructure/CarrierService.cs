@@ -24,11 +24,13 @@ public sealed class CarrierService(FulfillmentDbContext db, TimeProvider clock, 
 
     // Readiness is an idempotent boolean the go-live gate reads: compute the post-change truth, then
     // publish AND SaveChanges again to flush the bus-outbox (UseBusOutbox stages the message on Publish;
-    // without a following SaveChanges it would be stranded and never delivered).
+    // without a following SaveChanges it would be stranded and never delivered). AsOf is taken just before the
+    // read: the outbox may deliver two mutations' events out of order, and Catalog keeps the newer one.
     private async Task PublishReadinessAsync(Guid tenantId, Guid storefrontId, CancellationToken ct)
     {
+        var asOf = clock.GetUtcNow();
         var hasActive = await HasActiveCarrierAsync(tenantId, storefrontId, ct);
-        await publisher.Publish(new StorefrontCarrierReadinessChanged(tenantId, storefrontId, hasActive), ct);
+        await publisher.Publish(new StorefrontCarrierReadinessChanged(tenantId, storefrontId, hasActive, asOf), ct);
         await db.SaveChangesAsync(ct);
     }
 

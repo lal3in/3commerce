@@ -82,6 +82,17 @@ you are touching before you push.
      is busy, it fails at random. The tracker caught it in `SpineTests` (the restarted Ordering) and in
      Phase3's lazy Catalog host. `AddTestBusHosting` registers `BusStopsBeforeHostDisposal`, which the host
      stops first: it stops MassTransit once, and both callers wait for that stop.
+- **A Mac that sleeps mid-run fails whichever test is waiting, and the log looks like a lost message.** Agents
+  run suites while the display is off. The Mac then runs in dark-wake windows and goes back to sleep at the end
+  of one (`pmset -g log | grep -E 'Sleep|DarkWake'`), pausing the test process, the Docker VM and the broker. A
+  wait loop on `DateTimeOffset.UtcNow` finds its deadline gone on wake and throws without looking again:
+  `CheckoutOfferGateParityTests` failed with "Ordering approval … did not project", the test timed at `[1 s]`
+  (xUnit's Stopwatch stops during sleep) and the run took 9m25s instead of ~4m (5 m asleep, 2026-10-15). Tell a
+  sleep from a real timeout by that pair: a short test duration with a 30 s wait, and a long run.
+  `scripts/e2e-verify.sh` re-runs itself under `caffeinate -is` on macOS; wrap ad-hoc long runs the same way
+  (`caffeinate -is dotnet test …`). Write new waits with `Eventually.PollAsync` / `UntilAsync`
+  (`tests/3commerce.IntegrationTests/Eventually.cs`): its budget is Stopwatch time, which pauses while the host
+  sleeps, and it polls once more after the budget.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Messaging / consumers

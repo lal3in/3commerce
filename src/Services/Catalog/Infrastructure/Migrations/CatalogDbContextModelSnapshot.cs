@@ -877,6 +877,9 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("AsOf")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("HasActiveCarrier")
                         .HasColumnType("boolean");
 
@@ -953,6 +956,9 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                     b.Property<Guid>("StorefrontId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AsOf")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("HasActivePaymentAccount")
                         .HasColumnType("boolean");

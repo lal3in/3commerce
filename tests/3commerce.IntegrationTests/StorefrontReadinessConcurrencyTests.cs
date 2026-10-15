@@ -145,6 +145,36 @@ public sealed class StorefrontReadinessConcurrencyTests(Phase2Fixture fixture) :
         await AssertNoRaceAsync();
     }
 
+    [Fact]
+    public async Task An_older_event_that_arrives_after_a_newer_one_never_overwrites_it()
+    {
+        // The bus outbox does not keep publish order: a payment account submitted ("not active") and then activated
+        // ("active") are two outbox batches, and after a burst the delivery service sends batches in parallel, so the
+        // older event can reach Catalog last. Before AsOf, the blind upsert left the storefront stuck on "not active"
+        // (StorefrontReadinessCrossServiceTests timed out this way, 2026-10-15). Delivered here newest-first on purpose.
+        var tenant = Guid.CreateVersion7();
+        var storefront = Guid.CreateVersion7();
+        var older = DateTimeOffset.UtcNow;
+        var newer = older.AddMilliseconds(5);
+        Guid[] ids = [NewId.NextGuid(), NewId.NextGuid(), NewId.NextGuid(), NewId.NextGuid()];
+
+        await _bus.Publish(new StorefrontCarrierReadinessChanged(tenant, storefront, true, newer), c => c.MessageId = ids[0]);
+        await _bus.Publish(new StorefrontPaymentReadinessChanged(tenant, storefront, true, newer), c => c.MessageId = ids[1]);
+        await WaitForRowAsync(storefront, carrier: true, payment: true);
+        await _bus.Publish(new StorefrontCarrierReadinessChanged(tenant, storefront, false, older), c => c.MessageId = ids[2]);
+        await _bus.Publish(new StorefrontPaymentReadinessChanged(tenant, storefront, false, older), c => c.MessageId = ids[3]);
+        await WaitUntilAsync(() => ids.All(id => _observer.ReceivedCount(id) >= 1), "the stale events processed");
+        await WaitForRowAsync(storefront, carrier: true, payment: true);
+
+        // The same instant applies (ties go to the event that arrives last), and so does anything newer.
+        await _bus.Publish(new StorefrontCarrierReadinessChanged(tenant, storefront, false, newer));
+        await WaitForRowAsync(storefront, carrier: false, payment: true);
+        await _bus.Publish(new StorefrontPaymentReadinessChanged(tenant, storefront, false, newer.AddMilliseconds(1)));
+        await WaitForRowAsync(storefront, carrier: false, payment: false);
+
+        await AssertNoRaceAsync();
+    }
+
     private async Task AssertNoRaceAsync()
     {
         var raceLogs = _logs.Entries
@@ -180,21 +210,9 @@ public sealed class StorefrontReadinessConcurrencyTests(Phase2Fixture fixture) :
     private static Task WaitUntilAsync(Func<bool> condition, string what) =>
         WaitUntilAsync(() => Task.FromResult(condition()), what);
 
-    private static async Task WaitUntilAsync(Func<Task<bool>> condition, string what)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await condition())
-            {
-                return;
-            }
-
-            await Task.Delay(100);
-        }
-
-        throw new Xunit.Sdk.XunitException($"Timed out waiting for: {what}.");
-    }
+    private static Task WaitUntilAsync(Func<Task<bool>> condition, string what) =>
+        Eventually.UntilAsync(condition, () => new Xunit.Sdk.XunitException($"Timed out waiting for: {what}."),
+            interval: TimeSpan.FromMilliseconds(100));
 
     /// <summary>Message count of each consumer's <c>_error</c> queue (0 when it was never created).</summary>
     private async Task<Dictionary<string, uint>> ErrorQueueDepthsAsync()

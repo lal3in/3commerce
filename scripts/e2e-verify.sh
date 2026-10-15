@@ -139,6 +139,9 @@
 #       destination-exempt post no tax line, an unprojected rate is Unknown (never guessed), a 0-decimal
 #       currency rounds to whole yen, the renewal-shaped Sale books net + tax to the store's own accounts with
 #       the gross unchanged (AUD/EUR/JPY, every line Currency, one side each), and a full refund nets it to 0
+#   A3i Unit · projection waits (EventuallyTests): the shared Eventually helper polls on Stopwatch (awake) time,
+#       not the wall clock a sleeping Mac jumps, and looks once more after its budget, so a projection that
+#       lands during the last delay is not a timeout; a condition that never holds throws the caller's error
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -166,8 +169,12 @@
 #       Catalog go-live readiness projection under concurrency: carrier + payment events for 20
 #       new storefronts at once → every row has both flags, no 23505/40001, nothing in _error;
 #       redelivery/re-publish idempotent, one signal never clobbers the other; a burst of one
-#       signal for one storefront applies in order with no 40001 (serial endpoints)
-#       (StorefrontReadinessConcurrencyTests)
+#       signal for one storefront applies in order with no 40001 (serial endpoints); an OLDER event
+#       (AsOf) delivered after a newer one never overwrites it, a tie or newer applies
+#       (StorefrontReadinessConcurrencyTests); the real Payments/Fulfillment admin paths land readiness in
+#       Catalog through their outbox (StorefrontReadinessCrossServiceTests), and 20 payment accounts
+#       submitted then activated right after a 30-message outbox burst (parallel outbox delivery, events
+#       may arrive inverted) all end ACTIVE in Catalog (ReadinessOutboxOrderingTests)
 #   A6b Integration · Ledger invariant: balanced entry commits, unbalanced rejected,
 #       append-only (UPDATE/DELETE blocked)
 #   A6c Integration · Money flow: guest checkout saga → confirmed + balanced sale,
@@ -392,6 +399,15 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
+# Keep a Mac awake for the whole run. A run that outlasts the display going off is put to sleep at the end of a
+# dark-wake window: Docker, the broker and the test process pause, and a test waiting on wall-clock time fails on
+# wake (engineering-gotchas.md, "host sleep"). caffeinate -i blocks idle sleep, -s system sleep on AC power; it
+# exits with the run. No-op where caffeinate does not exist (Linux, CI).
+if [[ "$(uname -s)" == Darwin && -z "${E2E_VERIFY_CAFFEINATED:-}" ]] && command -v caffeinate >/dev/null 2>&1; then
+  export E2E_VERIFY_CAFFEINATED=1
+  exec caffeinate -is "$ROOT/scripts/e2e-verify.sh" "$@"
+fi
+
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$DOTNET_ROOT/tools:$PATH"
 
@@ -477,6 +493,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeTaxTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3h renewal + usage tax"; else fail "A3h renewal + usage tax"; fi
+
+  stage "A3i Projection waits — awake-time budget + a final poll after it (Eventually)"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EventuallyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3i projection waits"; else fail "A3i projection waits"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
