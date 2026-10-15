@@ -153,11 +153,12 @@ public static class CartEndpoints
         }).ToList();
 
         // Whether a line is RECURRING comes from the same resolver CHECKOUT uses for billing mode
-        // (ResolveOffer), not from the PRICING resolver above: the pricing one ignores an offer with no
-        // price of its own, which is exactly the shape a subscription offer has when the catalog price
-        // stands. Reading billing mode off the priced offer would silently show no renewal at all.
-        var lineOffers = cart.Items.Select(i => OfferResolution.ResolveOffer(
-            offerCopies, tenantId, i.ProductId, i.VariantId, approvedSupplierIds)).ToList();
+        // (ResolveLineOffer — the priced offer when one sets the price, else the best of the sell gate's
+        // storefront + currency set), not from the PRICING resolver alone: that one ignores an offer with no
+        // price of its own, which is exactly the shape a subscription offer has when the catalog price stands.
+        // Reading billing mode off the priced offer alone would silently show no renewal at all.
+        var lineOffers = cart.Items.Select(i => OfferResolution.ResolveLineOffer(
+            offerCopies, tenantId, i.ProductId, i.VariantId, storeId, i.Currency, now, approvedSupplierIds)).ToList();
         var subtotalMinor = lines.Sum(l => l.TotalMinor);
 
         var promotionCopies = await db.PromotionCopies.AsNoTracking()

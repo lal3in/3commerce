@@ -28,8 +28,9 @@ public class OfferCopy
     /// <summary>Per-unit supplier cost (COGS, phase 1), minor units in <see cref="Currency"/>. 0 = unknown.</summary>
     public long SupplierCostMinor { get; set; }
 
-    /// <summary>The currency <see cref="SupplierCostMinor"/> is denominated in — a paid order only accrues
-    /// COGS from this offer when it matches the order's currency (no FX in this codebase).</summary>
+    /// <summary>The offer's currency — its price AND its <see cref="SupplierCostMinor"/>. An offer only
+    /// supplies (and costs) a line sold in this currency (ADR-0059 coverage), so COGS never crosses
+    /// currencies (no FX in this codebase).</summary>
     public string Currency { get; set; } = "";
 
     /// <summary>The offer's authoritative selling price (minor units in <see cref="Currency"/>). When this
@@ -65,24 +66,60 @@ public class OfferCopy
     };
 }
 
-/// <summary>Picks the offer that fulfils a line (ADR-0028): a variant-specific offer beats a
-/// product-level one; ties break on lowest priority; no active offer means none.
+/// <summary>Offer resolution for a cart/order line (ADR-0028, ADR-0047, ADR-0048, ADR-0059).
 ///
-/// Approval-gated availability (DECISION A, strict): when <c>approvedSupplierIds</c> is supplied, an offer
-/// backed by a supplier that is not in that set never counts — not for pricing, not for fulfilment, not for
-/// COGS. Passing null leaves resolution ungated (the pre-approval behaviour, kept for callers/paths where
-/// the supplier is already known-approved, e.g. an order line whose supplier was gated at checkout).</summary>
+/// Approval-gated availability (DECISION A, strict): an offer backed by a supplier that is not in the
+/// approved set never counts — not for pricing, not for supply, not for COGS.</summary>
 public static class OfferResolution
 {
-    public static OfferCopy? ResolveOffer(
+    /// <summary>
+    /// THE offer of a line sold on <paramref name="storefrontId"/> in <paramref name="currency"/> at
+    /// <paramref name="now"/> — one offer decides its price, its supply (supplier, fulfilment type, billing
+    /// mode) and its supplier cost (owner, 2026-10-15; ADR-0059 Amendment 2).
+    /// <para>
+    /// When an offer sets the line's price (<see cref="ResolvePricingOffer"/>: effective, in-window, priced,
+    /// approved — unchanged, so no shelf price moves), that offer is the line's offer. Otherwise the catalogue
+    /// price stands and the line's offer is <see cref="ResolveSupplyOffer"/> over the sell gate's set. Both rank
+    /// the same way: variant-specific → storefront-scoped over all-storefront → lowest
+    /// <see cref="OfferCopy.Priority"/>. Every pricing candidate is also a supply candidate (effective ⇒
+    /// covering), so the result always lies in the gate's set.
+    /// </para>
+    /// <para>
+    /// Null = no eligible offer: an offerless line (catalogue price, <c>Unassigned</c>, no supplier, one-time).
+    /// </para>
+    /// </summary>
+    public static OfferCopy? ResolveLineOffer(
         IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
-        IReadOnlySet<Guid>? approvedSupplierIds = null) =>
+        Guid storefrontId, string currency, DateTimeOffset now, IReadOnlySet<Guid> approvedSupplierIds)
+    {
+        var list = offers as IReadOnlyCollection<OfferCopy> ?? offers.ToList();
+        return ResolvePricingOffer(list, tenantId, productId, variantId, storefrontId, currency, now, approvedSupplierIds)
+            ?? ResolveSupplyOffer(list, tenantId, productId, variantId, storefrontId, currency, approvedSupplierIds);
+    }
+
+    /// <summary>
+    /// The offer that SUPPLIES a line when no offer sets its price — callers use <see cref="ResolveLineOffer"/>,
+    /// which prefers the price-setting offer so price, supply and cost are one offer. The candidates are exactly
+    /// the sell gate's set (<see cref="IsSupplyAvailable"/>, ADR-0059): offers that <see cref="Covers"/> the line
+    /// on this storefront (or all storefronts) in this currency AND whose supplier is approved — so an offer for
+    /// another store or another currency can never supply the line. Ranked as the price is: variant-specific →
+    /// storefront-scoped over all-storefront → lowest <see cref="OfferCopy.Priority"/> → lowest
+    /// <see cref="OfferCopy.OfferId"/> (deterministic tie-break).
+    /// <para>
+    /// Not interchangeable with <see cref="ResolvePricingOffer"/> on its own: that one skips price-less or
+    /// out-of-window offers (a subscription offer whose catalogue price stands has no price).
+    /// </para>
+    /// </summary>
+    public static OfferCopy? ResolveSupplyOffer(
+        IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
+        Guid storefrontId, string currency, IReadOnlySet<Guid> approvedSupplierIds) =>
         offers
-            .Where(o => o.Active && o.TenantId == tenantId && o.ProductId == productId
-                && (o.VariantId == variantId || o.VariantId == null)
-                && (approvedSupplierIds is null || approvedSupplierIds.Contains(o.SupplierId)))
+            .Where(o => Covers(o, tenantId, productId, variantId, storefrontId, currency)
+                && approvedSupplierIds.Contains(o.SupplierId))
             .OrderByDescending(o => o.VariantId == variantId)
+            .ThenByDescending(o => o.StorefrontId == storefrontId)
             .ThenBy(o => o.Priority)
+            .ThenBy(o => o.OfferId)
             .FirstOrDefault();
 
     /// <summary>
@@ -132,14 +169,17 @@ public static class OfferResolution
         return !covered;
     }
 
+    /// <summary>The fulfilment type of the line's supply offer (<see cref="ResolveSupplyOffer"/>);
+    /// <c>Unassigned</c> when no offer is eligible.</summary>
     public static FulfilmentType ResolveFulfilment(
         IEnumerable<OfferCopy> offers, Guid tenantId, Guid productId, Guid? variantId,
-        IReadOnlySet<Guid>? approvedSupplierIds = null) =>
-        ResolveOffer(offers, tenantId, productId, variantId, approvedSupplierIds)?.FulfilmentType ?? FulfilmentType.Unassigned;
+        Guid storefrontId, string currency, IReadOnlySet<Guid> approvedSupplierIds) =>
+        ResolveSupplyOffer(offers, tenantId, productId, variantId, storefrontId, currency, approvedSupplierIds)?.FulfilmentType
+            ?? FulfilmentType.Unassigned;
 
     /// <summary>
     /// Picks the offer whose price should be CHARGED for a line on a specific storefront (offer-as-price,
-    /// ADR-0028): the same grain precedence as <see cref="ResolveOffer"/> (a variant-specific offer beats a
+    /// ADR-0028): the same grain precedence as <see cref="ResolveSupplyOffer"/> (a variant-specific offer beats a
     /// product-level one; lowest priority wins), but filtered to offers that are effective for the line's
     /// storefront + currency at <paramref name="now"/> (active, in-window, storefront-matching, and carrying
     /// a non-zero price). A storefront-scoped offer is preferred over an all-storefront one at the same grain.

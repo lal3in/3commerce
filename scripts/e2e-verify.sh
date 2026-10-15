@@ -72,7 +72,14 @@
 #       currency than its storefront's is refused (message names both currencies; no projected copy = not
 #       gated), and supply availability is Catalog's ADR-0048 rule per storefront AND currency — offerless
 #       = available, an approved offer only for another store/currency neither unlocks nor blocks, window
-#       ignored for coverage;
+#       ignored for coverage; and ONE offer decides price, supply (supplier/fulfilment/billing) and COGS
+#       (ResolveLineOffer, owner 2026-10-15): drawn from that same set — another store's or another currency's
+#       offer never supplies the line, an all-store offer in the order's currency does; variant → store-scoped
+#       → Priority → OfferId; the owner's example (all-store P1 X 10/6 vs store-A P2 Y 12/8 → A 12/Y/8, B
+#       10/X/6); a price-less or out-of-window offer never outranks the priced one; a randomised sweep proves
+#       the line offer IS the pricing offer whenever one exists (prices unchanged) and is always gate-eligible;
+#       offerless = Unassigned;
+#       CheckoutTests: the supply offer's supplier + unit cost ride the attempt onto the order line unbooked;
 #       Ordering REFUSAL CODES (OrderingProblemsTests): the numeric checkoutBlock 0–16 / cartRefusal 0–5 wire
 #       values never renumber, the status per code (409 price drift, 503 payment unavailable, 409 cart
 #       currency conflict, else 400/404), one stable title per code (ADR-0059's two gates keep #282's shared
@@ -207,6 +214,14 @@
 #       numeric checkoutBlock / cartRefusal; the gate-specific refusals assert the same shape in their own
 #       suites (ship-to, storefront not open, subscription x3, collect, mixed currency, cart currency
 #       conflict, coupon per-customer / wrong storefront);
+#       ONE OFFER = PRICE + SUPPLY + COST (SupplyOfferSellGateTests + MoneyFlowTests): the owner's example end
+#       to end (store A charges 12, ships Y, books 8; store B 10 / X / 6); two stores of one currency
+#       with different approved suppliers/costs for one product — an order on store A books store A's
+#       supplier + cost to A's accounts, its OrderConfirmed ships via A's fulfilment type (store B's own
+#       checkout gets B's), and an RMA restock after the offer is edited reverses exactly the BOOKED cost;
+#       the order currency's offer supplies + costs the line, never a better-ranked foreign-currency one
+#       (and a foreign-only offer supplies nothing — no relabel, no accrual); a subscription supplied by
+#       this store's offer still renews and books in its currency; ledger balanced, every line has Currency;
 #       PROMOTION SCOPE + CAPS (PromotionScopeAndCapTests): the per-customer limit under EIGHT
 #       concurrent checkouts (the only read-then-write window, held by an advisory lock — proven to
 #       fail without it), a storefront-scoped promotion discounting its own store and no other while
@@ -434,10 +449,10 @@ run_automated() {
       --filter 'Category!=Integration&(FullyQualifiedName~PromotionTests|FullyQualifiedName~PromotionEvaluatorTests|FullyQualifiedName~PromotionPreviewTests|FullyQualifiedName~PricingTests|FullyQualifiedName~CouponTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3b promotions + coupons"; else fail "A3b promotions + coupons"; fi
 
-  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability + refusal codes"
+  stage "A3c Checkout gates (ADR-0059) — storefront currency + per-storefront/currency supply availability + supply offer + refusal codes"
   if dotnet test "$ROOT/3commerce.sln" --no-build \
-      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests|FullyQualifiedName~OrderingProblemsTests)' 2>&1 \
-      | grep -q 'Failed: *0'; then pass "A3c checkout gates + refusal codes"; else fail "A3c checkout gates + refusal codes"; fi
+      --filter 'Category!=Integration&(FullyQualifiedName~CheckoutGateTests|FullyQualifiedName~OfferResolutionTests|FullyQualifiedName~CheckoutTests|FullyQualifiedName~OrderingProblemsTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3c checkout gates + supply offer + refusal codes"; else fail "A3c checkout gates + supply offer + refusal codes"; fi
 
   stage "A3d One receive endpoint per service (ADR-0060) — no queue shared across services"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \

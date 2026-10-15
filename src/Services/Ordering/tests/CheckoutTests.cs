@@ -90,7 +90,23 @@ public class CheckoutTests
         Assert.Equal(OrderNumberSequence.FirstNumber, sequence.NextNumber);
     }
 
-    private static CheckoutAttempt NewAttempt(Guid storefrontId) => new()
+    [Fact]
+    public void CheckoutAttempt_carries_the_supply_offers_supplier_and_unit_cost_onto_the_order_line_unbooked()
+    {
+        // The supplier, fulfilment and unit cost were snapshotted together from ONE supply offer at checkout
+        // (ADR-0059); the order keeps them together. Nothing is booked until confirmation accrues it.
+        var supplierId = Guid.CreateVersion7();
+        var attempt = NewAttempt(Guid.CreateVersion7(), supplierId, supplierUnitCostMinor: 3_000);
+
+        var line = Assert.Single(attempt.ToOrder(1000, DateTimeOffset.UtcNow).Lines);
+
+        Assert.Equal(supplierId, line.SupplierId);
+        Assert.Equal(FulfilmentType.Dropship, line.FulfilmentType);
+        Assert.Equal(3_000, line.SupplierUnitCostMinor);
+        Assert.Equal(0, line.BookedSupplierCostMinor);
+    }
+
+    private static CheckoutAttempt NewAttempt(Guid storefrontId, Guid? supplierId = null, long supplierUnitCostMinor = 0) => new()
     {
         Id = Guid.CreateVersion7(),
         TenantId = Guid.CreateVersion7(),
@@ -120,6 +136,8 @@ public class CheckoutTests
                 UnitPriceMinor = 1000,
                 Quantity = 1,
                 FulfilmentType = FulfilmentType.Dropship,
+                SupplierId = supplierId,
+                SupplierUnitCostMinor = supplierUnitCostMinor,
             },
         ],
     };

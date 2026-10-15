@@ -1,6 +1,6 @@
 # 0059 — Checkout enforces the storefront's currency, and its offer/approval gate equals Catalog's
 
-Status: Accepted — implemented
+Status: Accepted — implemented; amended 2026-10-11 (problem+json refusals) and 2026-10-11/15 (Amendment 2: one offer decides price, supply and cost)
 Area: Ordering / Catalog / Storefront / pricing
 Extends: [0038](./0038-per-currency-shelf-prices-and-tax-entry.md) (storefront ↔ currency is 1:1), [0045](./0045-mandatory-per-storefront-ledger-attribution.md) (a sale books to its store's own accounts), [0047](./0047-storefront-scoped-active-window-offer-price.md) (storefront-scoped, in-window offer price), [0048](./0048-supplier-approval-gated-offer-availability.md) (approval-gated availability)
 
@@ -52,12 +52,9 @@ carries the same number as a `checkoutBlock` extension. The storefront cart page
 
 ### What deliberately did not change
 
-* **Which offer supplies a line** (fulfilment type, supplier, billing mode) is still `ResolveOffer` over the
-  approved set — not re-scoped to the store/currency. The COGS accrual (`OrderStatusConsumer`) and its RMA
-  reversal (`RmaDispositionSetConsumer`) re-derive the cost offer the same way, so changing the line's
-  resolver alone would let the stamped supplier and the accrued cost come from different offers. With
-  several approved offers across stores, the supplier can therefore still come from an offer that does not
-  cover this store (pre-existing; a follow-up would change all three resolutions together).
+* ~~**Which offer supplies a line** (fulfilment type, supplier, billing mode) is still `ResolveOffer` over the
+  approved set — not re-scoped to the store/currency.~~ **Done — see Amendment 2 below** (the follow-up this
+  bullet recorded: the line's supply, the COGS accrual and its RMA reversal now change together).
 * **Renewals.** Payments' `SubscriptionService` charges the subscription's *stored* price and currency off
   session and never passes through checkout, so the currency gate cannot affect them — pinned by a renewal
   test bought under the gate.
@@ -98,3 +95,60 @@ the legacy `message`). Cart mutations follow the same shape with a numeric `cart
 404). The storefront shows the problem's `detail` on a refused checkout instead of a generic failure.
 Pinned by `OrderingProblemsTests` (wire values, statuses, titles) and `CheckoutProblemDetailsTests` + the
 gate suites through `ProblemAssert` (content type, title, detail, traceId, code).
+## Amendment 2 (2026-10-11, extended 2026-10-15) — one offer decides price, supply and cost
+
+**Owner's decisions.** (2026-10-11) The offer that SUPPLIES a line — supplier, fulfilment type, billing mode
+and the supplier cost (COGS) booked for it — comes from the same set the gate above checks: approved, active
+offers covering THIS storefront (or all storefronts) in the ORDER'S currency. (2026-10-15, "Option A") **One
+offer decides price, supply and cost**, all three ranked alike: variant-specific → the storefront's own
+(store-scoped) offer over an all-storefront one → lowest `Priority` → lowest `OfferId` (deterministic tie-break).
+Customer-facing prices do not change: the price precedence already preferred the store's own offer.
+
+Example: an all-store offer (Priority 1, supplier X, cost 6, price 10) and a store-A-only offer (Priority 2,
+supplier Y, cost 8, price 12). Store A charges 12, ships via Y and books 8; store B charges 10, ships via X and
+books 6. Before this, store A charged Y's 12 but shipped via and costed X.
+
+**The three resolutions, changed together.**
+
+1. **Checkout (+ cart preview)** — `OfferResolution.ResolveOffer` is replaced by
+   `ResolveLineOffer(…, storefrontId, currency, now, approvedSupplierIds)` = the offer whose price is charged
+   (`ResolvePricingOffer`, untouched — effective, in-window, priced, approved) or, when no offer sets the price
+   and the catalogue price stands, `ResolveSupplyOffer` = `Covers(…) ∧ approved` ranked as above. Every pricing
+   candidate is a covering one, so the line offer always lies in the gate's set; a line that passed
+   `IsSupplyAvailable` has one — or no covering offer at all (offerless → catalogue price, `Unassigned`, no
+   supplier, one-time). A price-less or out-of-window offer never outranks the offer that sets the price: the
+   price cannot move, so the supply follows it. The attempt line snapshots the line offer's `SupplierCostMinor`
+   as `SupplierUnitCostMinor` beside its `SupplierId`; the order line inherits both. `OrderConfirmed` carries
+   the line's supply to Fulfillment unchanged (Fulfillment never resolves offers itself).
+2. **Cost booking** — `OrderStatusConsumer` no longer re-resolves offers at confirmation: it accrues each
+   supplier line's snapshotted `SupplierUnitCostMinor × Quantity` (DECISION A kept: a supplier suspended
+   between checkout and confirmation accrues nothing) and records what it accrued on the line as
+   `BookedSupplierCostMinor`, in the same unit of work as the `OrderCostsRecognized` publish.
+3. **Reversal** — `RmaDispositionSetConsumer` values returned goods from `Σ BookedSupplierCostMinor` (scaled by
+   the refunded share, as before), never from today's offers — an offer edited, re-prioritised, re-scoped or
+   deactivated after the sale cannot change what that order's return reverses. Order cancellation needs no
+   reversal: only Pending/AwaitingPayment orders cancel, and COGS accrues only at confirmation.
+
+**No-FX relabel removed for COGS.** A covering offer is in the order's currency, so supplier cost can no longer
+cross currencies; the ADR-0041 relabel of an offer cost into the order currency is gone (the carrier-cost
+relabel is unaffected). An offer only in another currency now leaves the line offerless — no supplier, no COGS.
+
+**Old orders.** Nothing is restated or migrated: migration `SupplyOfferCostSnapshot` adds the three columns
+with default 0, so an order confirmed before it reverses nothing via RMA. The owner wipes and re-seeds dev data
+after this ships, so every live order goes through the new path.
+
+**Money seams.** Refunds/RMA: reverse exactly what was booked (above). Renewals: Payments renews the stored
+subscription price/currency off session — unaffected; a subscription's billing mode now comes from the store's
+own line offer, so another store's one-time offer can no longer turn it into a one-time sale. Multi-storefront:
+two stores of one currency with different approved suppliers each charge, ship and book their own offer.
+
+**Tie-break note.** `ResolvePricingOffer` (and Catalog's display rule) keep their order unchanged; the `OfferId`
+tie-break applies where an exact tie (same grain, scope and Priority) is resolved by `ResolveSupplyOffer`.
+
+**Verification.** `OfferResolutionTests` — the owner's example, store-scoped beats all-store, a price-less or
+out-of-window offer never outranks the priced one, the line offer IS the pricing offer whenever one exists
+(randomised sweep: prices unchanged) and always lies in the gate's set, store/currency exclusion, variant/
+Priority/OfferId; 8 fail on the old resolver. `CheckoutTests` (snapshot rides onto the order). Integration
+`SupplyOfferSellGateTests` (the owner's example end to end; two-store supplier/cost/fulfilment + RMA reversal
+after an offer edit; order-currency offer beats a better-ranked foreign one; subscription renewal) and
+`MoneyFlowTests.An_offer_in_another_currency_neither_supplies_nor_costs_an_order_line`.

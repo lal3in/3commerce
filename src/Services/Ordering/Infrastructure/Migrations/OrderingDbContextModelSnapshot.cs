@@ -427,6 +427,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uuid");
 
+                    b.Property<long>("SupplierUnitCostMinor")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -667,6 +670,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<int>("BillingPeriod")
                         .HasColumnType("integer");
 
+                    b.Property<long>("BookedSupplierCostMinor")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("DiscountMinor")
                         .HasColumnType("bigint");
 
@@ -687,6 +693,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uuid");
+
+                    b.Property<long>("SupplierUnitCostMinor")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Title")
                         .IsRequired()

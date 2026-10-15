@@ -136,13 +136,16 @@ public static class CheckoutEndpoints
             return OrderingProblems.CheckoutRefused(CheckoutBlock.SupplyUnavailable, CheckoutGate.SupplyUnavailableMessage(unavailableLine.Title));
         }
 
-        // The offer that SUPPLIES each line (fulfilment, supplier, billing mode) — resolved once and reused for
-        // the shipping gate, collect-at-warehouse, the recurring gate and the attempt lines. Deliberately
-        // still ResolveOffer over the approved set (unchanged by ADR-0059): the COGS accrual
-        // (OrderStatusConsumer) and its RMA reversal re-derive the cost offer the same way, so the stamped
-        // supplier and the accrued cost stay one offer. Never ResolvePricingOffer — it skips price-less offers.
+        // THE offer of each line (owner, 2026-10-15): one offer decides its price, supply (fulfilment, supplier,
+        // billing mode) and supplier cost — the offer whose price is charged below when one sets it, else the
+        // best of the SAME set the gate above just checked (approved offers covering this storefront or all, in
+        // this currency; ADR-0059). Resolved once and reused for the shipping gate, collect-at-warehouse, the
+        // recurring gate and the attempt lines; its unit cost is snapshotted on the line so the COGS accrual
+        // (OrderStatusConsumer) and its RMA reversal use this offer and nothing else. Null only for a line with
+        // no covering offer (offerless → catalogue price, Unassigned).
         var lineOffers = cart.Items
-            .Select(i => OfferResolution.ResolveOffer(offerCopies, checkoutTenantId, i.ProductId, i.VariantId, approvedSupplierIds))
+            .Select(i => OfferResolution.ResolveLineOffer(
+                offerCopies, checkoutTenantId, i.ProductId, i.VariantId, storefrontId, i.Currency, now, approvedSupplierIds))
             .ToList();
 
         // Re-validate prices against the current catalog copy (plan edge case: price drift → 409), then apply
@@ -479,8 +482,9 @@ public static class CheckoutEndpoints
             return OrderingProblems.CheckoutRefused(CheckoutBlock.PaymentUnavailable, "Payment service unavailable; please retry.");
         }
 
-        // Each line's fulfilment is the lineOffers entry resolved up front (approved ResolveOffer):
-        // the OfferCopy read model is fed by Catalog's OfferChanged events. No offer → Unassigned.
+        // Each line's supply is the lineOffers entry resolved up front (ResolveLineOffer — the offer that also
+        // set its price, drawn from the sell gate's set): the OfferCopy read model is fed by Catalog's
+        // OfferChanged events. No offer → Unassigned.
         var attempt = new CheckoutAttempt
         {
             Id = orderId,
@@ -555,6 +559,8 @@ public static class CheckoutEndpoints
                     SupplierId = offer?.SupplierId,
                     BillingMode = offer?.BillingMode ?? BillingMode.OneTime,
                     BillingPeriod = offer?.BillingPeriod ?? BillingPeriod.Once,
+                    // Cost of the SAME offer — in the order's currency by construction (coverage is per currency).
+                    SupplierUnitCostMinor = offer?.SupplierCostMinor ?? 0,
                 };
             }).ToList(),
         };

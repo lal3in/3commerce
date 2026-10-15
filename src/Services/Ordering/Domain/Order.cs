@@ -116,6 +116,20 @@ public class OrderLine
 
     /// <summary>Charge cadence for recurring lines (Phase 7): Once / Monthly / Yearly.</summary>
     public BillingPeriod BillingPeriod { get; set; } = BillingPeriod.Once;
+
+    /// <summary>
+    /// Per-unit supplier cost of the line's supply offer, snapshotted at checkout from the same offer that
+    /// set <see cref="SupplierId"/> (order currency by construction, ADR-0059). 0 = no supply offer / unknown.
+    /// </summary>
+    public long SupplierUnitCostMinor { get; init; }
+
+    /// <summary>
+    /// The supplier cost (COGS) actually ACCRUED for this whole line at confirmation, in the order's currency:
+    /// <see cref="SupplierUnitCostMinor"/> × <see cref="Quantity"/> when the supplier was still approved,
+    /// else 0. Reversals (RMA restock/write-off) value the returned goods from this booked figure — never by
+    /// re-resolving offers — so a booking and its reversal can never diverge.
+    /// </summary>
+    public long BookedSupplierCostMinor { get; set; }
 }
 
 /// <summary>

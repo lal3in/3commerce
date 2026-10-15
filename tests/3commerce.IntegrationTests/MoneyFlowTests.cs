@@ -1160,45 +1160,46 @@ public class MoneyFlowTests(Phase3Fixture fixture)
     }
 
     [Fact]
-    public async Task A_paid_order_relabels_a_foreign_currency_supplier_cost_into_the_order_currency()
+    public async Task An_offer_in_another_currency_neither_supplies_nor_costs_an_order_line()
     {
-        // no_fx relabel: the offer's supplier cost is denominated in EUR but the order settles in AUD. With
-        // no FX feed the cost minor amount is carried into the order's currency without conversion — the
-        // same deliberate posture as the carrier-cost consumer (a mock-PSP-style relabel), because an
-        // AUD store showing revenue with zero COGS (a fake 100% margin) is worse dev data. The COGS still
-        // accrues, in AUD, for the same minor amount, and the ledger stays balanced.
-        var storefrontId = new Guid("00000000-0000-0000-0000-000000000001");
-        var (productId, supplierId) = await fixture.SeedSuppliedProductAsync(
+        // ADR-0059 supply rule (supply_offer_sell_gate): the offer that supplies a line — and so its supplier
+        // and its COGS — comes only from offers covering the order's storefront IN THE ORDER'S CURRENCY. An
+        // EUR-costed offer therefore does not supply an AUD order at all: the line is offerless here (sold at
+        // the catalogue price, Unassigned, no supplier) and no COGS accrues. This replaces the old no-FX
+        // relabel, which carried the EUR cost into the AUD order — a cost from an offer that could not even
+        // have been sold in AUD.
+        var (productId, _) = await fixture.SeedSuppliedProductAsync(
             priceMinor: 10_000, supplierCostMinor: 4_000, currency: "AUD", offerCurrency: "EUR");
 
         using var shopper = fixture.Ordering.CreateClient();
         await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 2 });
         var order = (await (await shopper.PostAsJsonAsync("/checkout", Checkout())).Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
+        Assert.Equal("AUD", order.Currency);
 
         await SimulatePaymentAsync(order.OrderId, order.GrossMinor);
         await WaitForStatusAsync(shopper, order.OrderId, "Confirmed");
-        await WaitForSupplierPayableAsync(order.OrderId);
 
-        using var scope = fixture.Payments.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        using (var scope = fixture.Ordering.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+            var line = (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.Include(db.Orders, o => o.Lines),
+                o => o.Id == order.OrderId)).Lines.Single();
+            Assert.Null(line.SupplierId);
+            Assert.Equal(FulfilmentType.Unassigned, line.FulfilmentType);
+            Assert.Equal(0, line.SupplierUnitCostMinor);
+            Assert.Equal(0, line.BookedSupplierCostMinor);
+        }
 
-        // Cost = 4000 × 2 = 8000, relabelled from EUR into the order's AUD (same minor amount, no conversion).
-        var payable = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
-            db.SupplierPayables.Where(p => p.OrderId == order.OrderId));
-        Assert.Equal(supplierId, payable.SupplierEntityId);
-        Assert.Equal(8_000, payable.GrossMinor);
-        Assert.Equal("AUD", payable.Currency);
+        // Nothing was published for Payments to accrue — give a stray accrual time to land, then prove none did.
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            Assert.False(await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                db.SupplierPayables.Where(p => p.OrderId == order.OrderId)));
+        }
 
-        // Account routing is unchanged by the relabel: still the order's own per-store COGS / supplier payable.
-        var entry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
-            db.JournalEntries.Where(e => e.Reference == payable.Id.ToString()));
-        var lines = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
-            db.JournalLines.Where(l => l.EntryId == entry.Id));
-        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.CogsStoreFor(storefrontId)).Sum(l => l.DebitMinor));
-        // ledger_sf_3: supplier-payable credit per storefront.
-        Assert.Equal(8_000, lines.Where(l => l.AccountCode == Accounts.SupplierPayableStoreFor(storefrontId)).Sum(l => l.CreditMinor));
-        Assert.Equal(0, lines.Where(l => l.AccountCode == Accounts.LiabilitySupplierPayable).Sum(l => l.CreditMinor)); // shared payable untouched
-        Assert.Equal(lines.Sum(l => l.DebitMinor), lines.Sum(l => l.CreditMinor));
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
