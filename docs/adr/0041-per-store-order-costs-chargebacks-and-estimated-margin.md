@@ -35,3 +35,11 @@ ADR-0040 gave each storefront its own income accounts (`revenue.store-{id}`, `ta
 - Financials shows true per-store contribution margin (net revenue + shipping − COGS − carrier cost − write-offs), plus an estimated net margin after assumed overheads.
 - COGS/carrier/write-off accruals are cash-neutral liabilities until a payout/settlement flow books them out — consistent with 0014's accrual posture.
 - Storefront duplication (per [0040] account derivation) stays safe: a clone auto-derives fresh `*.store-{newId}` cost accounts too, so clone books never mix with the source's.
+
+## Amendment (2026-10-15) — renewals and usage charges carry tax; their chargebacks are not modelled
+
+A subscription renewal and a metered usage charge now post net revenue + output tax to the storefront's own accounts
+(ADR-0057 amendment, ADR-0063 P4), so per-store net revenue no longer overstates inclusive-regime stores by their
+GST/VAT. Chargebacks (this ADR) remain **order-payment only**: a dispute is matched to a `Payment` by payment intent,
+and renewal/usage charges create none, so a dispute on one is recorded in the webhook inbox and otherwise ignored.
+Modelling it needs a per-charge payment record; until then a renewal/usage dispute must be booked by hand.

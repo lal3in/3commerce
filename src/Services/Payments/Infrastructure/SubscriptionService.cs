@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -10,7 +11,9 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// Subscription lifecycle (mt7_3): set up at confirmation (the first period was paid with the order),
 /// renew by charging the period via the resolved payment provider, mark past-due on failure, cancel.
 /// </summary>
-public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRegistry registry, PaymentModeResolver modeResolver, TimeProvider clock)
+public sealed class SubscriptionService(
+    PaymentsDbContext db, IPaymentProviderRegistry registry, PaymentModeResolver modeResolver, TimeProvider clock,
+    ILogger<SubscriptionService> logger)
 {
     public async Task<Subscription> StartAsync(SubscriptionRequested m, CancellationToken ct)
     {
@@ -31,7 +34,7 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
 
         var subscription = Subscription.Start(
             m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow(),
-            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId);
+            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId, m.TaxInclusive, m.TaxExempt);
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
         return subscription;
@@ -143,9 +146,17 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
     /// <summary>
     /// Book the renewal's revenue to the storefront's own ledger accounts (mirrors the order-sale posting in
     /// PaymentEventProcessor): a receivable-bridged Sale for the period price to <c>revenue.store-{id}</c> /
-    /// <c>cash.store-{id}.{provider}</c>. The reference <c>renew-{id}-{sequence}</c> is idempotency-distinct
-    /// from the order's own sale entry and from other periods, so a redelivered renewal never double-posts.
-    /// Renewals carry no tax/fee/shipping in this model (the period price is treated as net revenue).
+    /// <c>tax.store-{id}</c> / <c>cash.store-{id}.{provider}</c>. The reference <c>renew-{id}-{sequence}</c> is
+    /// idempotency-distinct from the order's own sale entry and from other periods, so a redelivered renewal
+    /// never double-posts.
+    /// <para>
+    /// Tax (ADR-0063 P4, renewal_usage_tax_2026_10_11 — before this every renewal posted tax 0, so on an
+    /// inclusive store the whole charge landed in revenue and output tax was under-reported): the regime is
+    /// the subscription's snapshot (<see cref="Subscription.TaxInclusive"/>, what its price MEANS), the rate is
+    /// the storefront's rate in force NOW (rates change by law; the tax point is each period's supply), and the
+    /// split is checkout's: <see cref="RecurringChargeTax"/>. The charged gross is unchanged. An exclusive
+    /// regime posts no tax and charges the bare price, exactly as before, pending the owner's decision.
+    /// </para>
     /// </summary>
     private async Task PostRenewalRevenueAsync(Subscription subscription, int sequence, string provider, DateTimeOffset now, CancellationToken ct)
     {
@@ -158,14 +169,34 @@ public sealed class SubscriptionService(PaymentsDbContext db, IPaymentProviderRe
         var accounts = subscription.StorefrontId is { } sid
             ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
             : null;
+        var tax = RecurringChargeTax.For(
+            subscription.PriceMinor, accounts?.TaxRateBasisPoints,
+            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, subscription.TaxExempt);
+        LogUnpostedTax(logger, tax.Basis, reference, subscription.StorefrontId);
         var sale = Ledger.Sale(
-            subscription.OrderId, subscription.PriceMinor, 0, 0, subscription.Currency, now,
+            subscription.OrderId, subscription.PriceMinor, tax.TaxMinor, 0, subscription.Currency, now,
             PaymentMethodKind.Card, provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             0, accounts?.ShippingAccountCode, subscription.StorefrontId, reference,
             $"Subscription renewal {subscription.Id} period {sequence}");
         if (sale.Lines.Count > 0)
         {
             db.JournalEntries.Add(sale);
+        }
+    }
+
+    /// <summary>Make a renewal/usage charge that posts NO tax for want of facts visible, rather than silent.</summary>
+    internal static void LogUnpostedTax(ILogger logger, RecurringChargeTaxBasis basis, string reference, Guid? storefrontId)
+    {
+        if (basis == RecurringChargeTaxBasis.Unknown)
+        {
+            logger.LogWarning(
+                "Charge {Reference}: storefront {StorefrontId} has no projected tax rate; posting no tax", reference, storefrontId);
+        }
+        else if (basis == RecurringChargeTaxBasis.ExclusiveNotCharged)
+        {
+            logger.LogWarning(
+                "Charge {Reference}: storefront {StorefrontId} is tax-exclusive; the charge carries no added tax (pending decision), posting none",
+                reference, storefrontId);
         }
     }
 

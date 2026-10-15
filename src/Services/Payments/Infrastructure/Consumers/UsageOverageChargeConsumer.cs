@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -16,7 +17,8 @@ public sealed class UsageOverageChargeConsumer(
     IPaymentProviderRegistry registry,
     PaymentModeResolver modeResolver,
     PaymentsDbContext db,
-    TimeProvider time) : IConsumer<UsageOverageCharge>
+    TimeProvider time,
+    ILogger<UsageOverageChargeConsumer> logger) : IConsumer<UsageOverageCharge>
 {
     public async Task Consume(ConsumeContext<UsageOverageCharge> context)
     {
@@ -35,7 +37,7 @@ public sealed class UsageOverageChargeConsumer(
             return;
         }
 
-        await UsageRevenuePoster.PostAsync(db, time, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
+        await UsageRevenuePoster.PostAsync(db, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
             $"Usage overage — {m.Meter} × {m.OverageQuantity}", context.CancellationToken);
     }
 }

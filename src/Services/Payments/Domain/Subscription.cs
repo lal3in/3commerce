@@ -24,6 +24,16 @@ public sealed class Subscription
     public BillingPeriod BillingPeriod { get; init; }
     public long PriceMinor { get; init; }
     public required string Currency { get; init; }
+
+    /// <summary>
+    /// The tax regime <see cref="PriceMinor"/> was sold under (ADR-0063 §7.1 / P4): true = the price CONTAINS
+    /// the tax (AU GST / EU VAT), false = tax is added on top (US). Snapshotted at purchase because it fixes what
+    /// the price MEANS; null for a subscription set up before the snapshot (the storefront's projection is used).
+    /// </summary>
+    public bool? TaxInclusive { get; init; }
+
+    /// <summary>The line was destination-exempt at purchase (ProductShipRule for the order's ship-to): renewals post no tax.</summary>
+    public bool TaxExempt { get; init; }
     public SubscriptionStatus Status { get; private set; } = SubscriptionStatus.Active;
     public DateTimeOffset CurrentPeriodStart { get; private set; }
     public DateTimeOffset CurrentPeriodEnd { get; private set; }
@@ -51,7 +61,8 @@ public sealed class Subscription
     public static Subscription Start(
         Guid tenantId, Guid orderId, string email, Guid productId, Guid? variantId,
         BillingPeriod period, long priceMinor, string currency, DateTimeOffset now,
-        string? providerCustomerId = null, string? providerPaymentMethodId = null, Guid? storefrontId = null)
+        string? providerCustomerId = null, string? providerPaymentMethodId = null, Guid? storefrontId = null,
+        bool? taxInclusive = null, bool taxExempt = false)
     {
         if (period == BillingPeriod.Once)
         {
@@ -70,6 +81,8 @@ public sealed class Subscription
             BillingPeriod = period,
             PriceMinor = priceMinor,
             Currency = currency.ToUpperInvariant(),
+            TaxInclusive = taxInclusive,
+            TaxExempt = taxExempt,
             CurrentPeriodStart = now,
             CurrentPeriodEnd = Advance(now, period),
             ProviderCustomerId = providerCustomerId,

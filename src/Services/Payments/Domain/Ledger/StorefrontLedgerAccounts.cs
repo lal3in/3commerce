@@ -20,5 +20,15 @@ public sealed class StorefrontLedgerAccounts
     public required string TaxAccountCode { get; set; }
     /// <summary>Shipping-income account for the store; null on pre-shipping-split projections.</summary>
     public string? ShippingAccountCode { get; set; }
+
+    /// <summary>
+    /// The storefront's tax rate in basis points (1000 = 10%), projected from the same event (ADR-0063 P4) so a
+    /// renewal / usage charge resolves the rate IN FORCE at the charge, like checkout does at the sale. Null on
+    /// a projection written before this column — tax is then unknown and not posted (never guessed).
+    /// </summary>
+    public int? TaxRateBasisPoints { get; set; }
+
+    /// <summary>ADR-0038: the store's shelf prices CONTAIN the tax (AU GST / EU VAT) rather than having it added.</summary>
+    public bool TaxInclusive { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

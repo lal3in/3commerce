@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure.Providers;
@@ -14,7 +15,8 @@ public sealed class UsageAutoLoadChargeConsumer(
     IPaymentProviderRegistry registry,
     PaymentModeResolver modeResolver,
     PaymentsDbContext db,
-    TimeProvider time) : IConsumer<UsageAutoLoadCharge>
+    TimeProvider time,
+    ILogger<UsageAutoLoadChargeConsumer> logger) : IConsumer<UsageAutoLoadCharge>
 {
     public async Task Consume(ConsumeContext<UsageAutoLoadCharge> context)
     {
@@ -33,7 +35,7 @@ public sealed class UsageAutoLoadChargeConsumer(
             return;
         }
 
-        await UsageRevenuePoster.PostAsync(db, time, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
+        await UsageRevenuePoster.PostAsync(db, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
             $"Usage auto-load — {m.Meter} × {m.ReloadQuantity}", context.CancellationToken);
     }
 }

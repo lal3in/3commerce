@@ -107,3 +107,33 @@ permanent one can win together, and the renewal keeps only the permanent one.
   first period at 1300 and the renewal at 1500. The same suite pins the PREVIEW: an introductory cart
   showing 1300 today reports 2000 as the ongoing price, a permanent promotion reports its own 1500, and a
   one-time cart reports no renewal at all.
+
+## Amendment (2026-10-15) — a renewal posts its tax (ADR-0063 P4, `renewal_usage_tax_2026_10_11`)
+
+`Subscription.PriceMinor` is a **shelf price** (ADR-0038), so it means different things in different regimes. Until
+this amendment every renewal (and every metered usage charge) was posted as if it carried no tax: on an inclusive
+store (AU GST / EU VAT) the whole charge landed in `revenue.store-{id}` and output tax was under-reported.
+
+* **What is snapshotted, what is not.** At purchase `SubscriptionRequested` now carries the line's tax *terms*
+  (appended, optional): `TaxInclusive` (the storefront's regime — does the price contain the tax?) and `TaxExempt`
+  (the line was destination-exempt for the order's ship-to via `ProductShipRule`, the lookup checkout used). Payments
+  stores both on the subscription. The **rate is not snapshotted**: rates change by law and each period is a new
+  supply, so a renewal uses the storefront's rate **in force at the charge**, projected into Payments'
+  `StorefrontLedgerAccounts` from `StorefrontConfigChanged` (`TaxRateBasisPoints`, `TaxInclusive`). This matches
+  ADR-0063 §7.1.
+* **The split is checkout's.** `RecurringChargeTax` extracts `amount × bps / (10000 + bps)`, half away from zero —
+  unit-swept equal to `CheckoutEndpoints` for every amount 0..20000 at nine rates — and the posting is the usual
+  receivable-bridged `Ledger.Sale` with net to `revenue.store-{id}` and tax to `tax.store-{id}`. **The charged gross
+  never changes.** 0% stores and exempt lines post no tax line (`ck_line_one_side`); an unprojected rate (a
+  projection written before this change, or no storefront) posts no tax and logs a warning — never a guess.
+* **Exclusive regimes are unchanged, pending an owner decision.** Checkout ADDS tax on an exclusive (US) store, but
+  a renewal has always charged the bare `PriceMinor` — and the cart preview ("renews at x") shows that bare figure.
+  Adding tax would change what customers are charged, so it is not done silently: renewals and usage on an
+  exclusive store still charge and post exactly as before (a warning per charge). `RecurringChargeTax.ExclusiveTaxOn`
+  already pins checkout's add-on arithmetic so the decision is a call-site change.
+* **Refunds.** A renewal or usage charge creates no `Payment` row, so the refund saga (keyed by the order's payment)
+  and the dispute webhook (keyed by the payment intent) cannot reach one: there is no renewal/usage refund or
+  chargeback path to reverse its tax yet. When one is built it must reverse the tax portion of the `renew-{id}-{seq}`
+  entry (`Ledger.Refund` with that tax nets every account to zero — unit-pinned).
+
+Verification: `RecurringChargeTaxTests` (unit, e2e-verify A3h) and `RenewalUsageTaxTests` (integration, A4b).

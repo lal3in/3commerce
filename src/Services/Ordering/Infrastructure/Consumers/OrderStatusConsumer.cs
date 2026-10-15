@@ -195,7 +195,14 @@ public sealed class OrderStatusConsumer(
         await PublishOrderCostsAsync(order, context);
 
         // Recurring lines set up a subscription in Payments (mt7_3); the first period was paid with the order.
-        foreach (var line in order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once))
+        var recurringLines = order.Lines.Where(l => l.BillingMode == BillingMode.Recurring && l.BillingPeriod != BillingPeriod.Once).ToList();
+        if (recurringLines.Count == 0)
+        {
+            return;
+        }
+
+        var (taxInclusive, exemptProductIds) = await SubscriptionTaxTermsAsync(order, recurringLines, context.CancellationToken);
+        foreach (var line in recurringLines)
         {
             // The RENEWAL price, which is not always what the first period cost (ADR-0057). The first
             // period was paid with the order at the fully discounted price; a renewal keeps only the
@@ -205,8 +212,29 @@ public sealed class OrderStatusConsumer(
             var renewalPriceMinor = Math.Max(0, line.UnitPriceMinor - line.RenewalDiscountMinor);
             await context.Publish(new SubscriptionRequested(
                 order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, renewalPriceMinor, order.Currency,
-                order.StorefrontId));
+                order.StorefrontId, taxInclusive, exemptProductIds.Contains(line.ProductId)));
         }
+    }
+
+    /// <summary>
+    /// The tax TERMS a subscription line was sold under (ADR-0063 §7.1 / P4), snapshotted for its renewals:
+    /// the storefront's regime (does the price contain the tax?) and which lines were destination-exempt for
+    /// the order's ship-to — the same <see cref="ProductCopy.RuleFor"/> lookup checkout used to drop a line from
+    /// the tax base. The rate is NOT snapshotted: Payments applies the rate in force at each renewal. A store with
+    /// no projected config reports null (checkout charged no tax; Payments falls back to its own projection).
+    /// </summary>
+    private async Task<(bool? TaxInclusive, HashSet<Guid> ExemptProductIds)> SubscriptionTaxTermsAsync(
+        Order order, List<OrderLine> lines, CancellationToken ct)
+    {
+        bool? inclusive = order.StorefrontId is { } sid
+            ? (await db.StorefrontTaxCopies.AsNoTracking().SingleOrDefaultAsync(c => c.StorefrontId == sid, ct))?.TaxInclusive
+            : null;
+        var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+        // Entities, not a .Select of ShipRules: the jsonb converter only runs on materialization (see checkout).
+        var copies = await db.ProductCopies.AsNoTracking().Where(p => productIds.Contains(p.ProductId)).ToListAsync(ct);
+        var shipTo = order.ShipCountry.Trim().ToUpperInvariant();
+        var exempt = copies.Where(c => c.RuleFor(shipTo) is { ChargeDestinationTax: false }).Select(c => c.ProductId).ToHashSet();
+        return (inclusive, exempt);
     }
 
     /// <summary>
