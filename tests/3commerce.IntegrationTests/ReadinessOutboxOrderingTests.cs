@@ -12,12 +12,16 @@ using Xunit.Abstractions;
 namespace ThreeCommerce.IntegrationTests;
 
 /// <summary>
-/// End to end through the REAL Payments outbox: the bus outbox does not deliver in publish order. Each admin
-/// transition is its own outbox batch, and once a delivery pass has sent 10+ messages MassTransit's delivery service
-/// (RequestRateAlgorithm) sends up to six batches in parallel, so a payment account's "submitted" (not active) and
-/// "activated" (active) readiness events can reach Catalog in either order. Catalog must still end on "active"
-/// (ADR-0042, AsOf guard). Each round bursts the outbox first, the way a busy service does, then drives the two
-/// transitions; the arrival order Catalog saw is recorded, so the log shows how often the events were inverted.
+/// End to end through the REAL Payments outbox, with the outbox busy: each round stages a 30-message batch, then
+/// submits ("not active") and activates ("active") a payment account. Two guarantees, two bugs:
+/// <list type="number">
+/// <item>One host delivers its outbox batches one transaction at a time, in publish order
+/// (<c>MassTransitExtensions.OutboxDeliveryQueryLimit</c>). At MassTransit's default the delivery service ran up to six
+/// transactions in parallel after a busy pass: batches reached Catalog inverted (1–5 of 20 storefronts per run), and
+/// the parallel transactions collided on the outbox lock (40001), stalling every pending message 3–30 s.</item>
+/// <item>Catalog ends on "active" even when the events do arrive inverted (replicas still deliver in parallel): the
+/// readiness events carry AsOf and Catalog keeps the newer copy (ADR-0043 amendment 2026-10-16).</item>
+/// </list>
 /// </summary>
 [Trait("Category", "Integration")]
 [Collection(Phase4Collection.Name)]
@@ -32,7 +36,7 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
     private ConnectHandle? _handle;
 
     [Fact]
-    public async Task Submitted_then_activated_payment_accounts_end_active_in_catalog_whatever_order_the_outbox_delivers()
+    public async Task A_busy_outbox_delivers_submit_then_activate_in_order_and_catalog_ends_active()
     {
         _handle = fixture.Catalog.Services.GetRequiredService<IBus>().ConnectConsumeObserver(_arrivals);
         using var admin = fixture.Payments.CreateClient();
@@ -63,13 +67,17 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
         var inverted = storefronts.Count(_arrivals.ArrivedOutOfOrder);
         output.WriteLine($"{inverted}/{Rounds} storefronts received 'active' before 'not active' (outbox delivered out of order).");
         Assert.True(stuck.Count == 0,
-            $"{stuck.Count}/{Rounds} storefronts stuck on 'not active' in Catalog ({inverted} saw the events inverted): {string.Join(", ", stuck)}");
+            $"{stuck.Count}/{Rounds} storefronts stuck on 'not active' in Catalog ({inverted} saw the events inverted):"
+            + string.Concat(await Task.WhenAll(stuck.Select(DescribeAsync))));
+        Assert.True(inverted == 0,
+            $"{inverted}/{Rounds} storefronts received 'active' before 'not active': one host's outbox delivered out of publish order"
+            + string.Concat(await Task.WhenAll(storefronts.Where(_arrivals.ArrivedOutOfOrder).Select(DescribeAsync))));
     }
 
     public void Dispose() => _handle?.Disconnect();
 
     // Stages Burst readiness events for throw-away storefronts in ONE Payments outbox batch: the next delivery pass
-    // sends 10+ messages, which raises the delivery service's parallelism for the passes that follow.
+    // sends 10+ messages, which is what made MassTransit's default go parallel for the passes that follow.
     private async Task BurstAsync(Guid tenant)
     {
         using var scope = fixture.Payments.Services.CreateScope();
@@ -80,6 +88,16 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
         }
 
         await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().SaveChangesAsync();
+    }
+
+    // One stuck storefront: what Catalog stored (flag + AsOf) and every delivery it saw, in order, with any fault.
+    private async Task<string> DescribeAsync(Guid storefront)
+    {
+        using var scope = fixture.Catalog.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var row = await db.StorefrontPaymentReadiness.AsNoTracking().SingleOrDefaultAsync(r => r.StorefrontId == storefront);
+        var stored = row is null ? "no row" : $"stored active={row.HasActivePaymentAccount} asOf={row.AsOf:O}";
+        return $"{Environment.NewLine}  {storefront}: {stored}; deliveries: {_arrivals.Describe(storefront)}";
     }
 
     private async Task<List<Guid>> NotActiveAsync(List<Guid> storefronts)
@@ -96,23 +114,42 @@ public sealed class ReadinessOutboxOrderingTests(Phase4Fixture fixture, ITestOut
     /// <summary>Records, per storefront, the order in which Catalog received payment readiness values.</summary>
     private sealed class ArrivalObserver : IConsumeObserver
     {
-        private readonly ConcurrentDictionary<Guid, ConcurrentQueue<bool>> _arrivals = new();
+        private readonly ConcurrentDictionary<Guid, ConcurrentQueue<(bool Active, string Event)>> _arrivals = new();
 
         public bool ArrivedOutOfOrder(Guid storefront) =>
-            _arrivals.TryGetValue(storefront, out var values) && values.ToArray() is [.., true, false];
+            _arrivals.TryGetValue(storefront, out var events)
+            && events.Where(e => e.Event == "consume").Select(e => e.Active).ToArray() is [.., true, false];
+
+        public string Describe(Guid storefront) =>
+            _arrivals.TryGetValue(storefront, out var events) ? string.Join(" | ", events.Select(e => e.Event)) : "none";
 
         public Task PreConsume<T>(ConsumeContext<T> context) where T : class
         {
-            if (context.Message is StorefrontPaymentReadinessChanged m)
-            {
-                _arrivals.GetOrAdd(m.StorefrontId, _ => new ConcurrentQueue<bool>()).Enqueue(m.HasActivePaymentAccount);
-            }
-
+            Record(context, "consume");
             return Task.CompletedTask;
         }
 
-        public Task PostConsume<T>(ConsumeContext<T> context) where T : class => Task.CompletedTask;
+        public Task PostConsume<T>(ConsumeContext<T> context) where T : class
+        {
+            Record(context, "ok");
+            return Task.CompletedTask;
+        }
 
-        public Task ConsumeFault<T>(ConsumeContext<T> context, Exception exception) where T : class => Task.CompletedTask;
+        public Task ConsumeFault<T>(ConsumeContext<T> context, Exception exception) where T : class
+        {
+            Record(context, $"FAULT {exception.GetType().Name}: {exception.Message}");
+            return Task.CompletedTask;
+        }
+
+        private void Record<T>(ConsumeContext<T> context, string what) where T : class
+        {
+            if (context.Message is StorefrontPaymentReadinessChanged m)
+            {
+                var detail = what == "consume"
+                    ? "consume"
+                    : $"{what} (active={m.HasActivePaymentAccount} asOf={m.AsOf:O} id={context.MessageId} retry={context.GetRetryAttempt()})";
+                _arrivals.GetOrAdd(m.StorefrontId, _ => new()).Enqueue((m.HasActivePaymentAccount, detail));
+            }
+        }
     }
 }

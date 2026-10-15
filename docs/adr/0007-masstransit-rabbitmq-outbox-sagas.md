@@ -84,3 +84,31 @@ The 2026-10-08 rules cover consumers that race on one key. Three Ordering writes
   records the verified email and publishes one `GuestOrderOwnerVerified(OrderId, UserId)` per matching
   order through the outbox; `OrderStatusConsumer` consumes it on the same endpoint, through the SAME
   `IPartitioner` instance as the order's other events, so nothing writes one order row concurrently.
+
+## Amendment 2026-10-16 — one bus-outbox delivery transaction per host
+
+MassTransit 8's `BusOutboxDeliveryService` drives its delivery passes through a `RequestRateAlgorithm` whose
+parallelism is `ceil(QueryMessageLimit / 10)`. At the default `QueryMessageLimit` of 100, any pass that delivers 10+
+messages raises it to six concurrent delivery transactions. Each one locks the oldest unlocked batch with
+`SELECT … FROM "<svc>"."OutboxState" ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED` inside the outbox's
+REPEATABLE READ transaction. When a row it meets was just updated by a sibling transaction, Postgres raises
+`40001 could not serialize access due to concurrent update` (SKIP LOCKED skips locked rows, not rows changed after
+the snapshot). The delivery service's retry backs off exponentially (3 s, then up to 30 s), and every pending message
+of that service waits. Batches delivered in parallel also reach consumers out of publish order.
+
+Detailed integration logs showed the 40001 on Payments' outbox in 13 of 15 runs of the readiness classes. It surfaced
+as cross-service projections arriving 20–30 s late: `StorefrontReadinessCrossServiceTests` and
+`AuditTimelineProjectionTests` (Payments → Audit) both timed out (integration_projection_timeouts_2026_10_15).
+
+- **Decision:** `AddServiceBus<TDbContext>` sets `QueryMessageLimit = MassTransitExtensions.OutboxDeliveryQueryLimit`
+  (10). The request limit becomes 1: one delivery transaction per host, which takes batches in `Created` order. Each pass
+  still sends whole batches (`MessageDeliveryLimit` 100). The inbox cleanup, which the same setting sizes, loops until
+  it finds nothing left to delete. Pinned by `OutboxDeliveryTests` (unit lane; the default 100 is the control and does
+  go parallel) and `ReadinessOutboxOrderingTests`.
+  - With the limit set back to 100, that test failed in 2 of 3 runs and logged 40001s.
+  - At 10 it saw no inversion and no 40001 in 5 runs.
+- **Not covered:** replicas of one service still deliver in parallel against the same outbox table. That costs an
+  occasional 40001 backoff and possible reordering across replicas. Events whose order matters carry their own
+  version and their projection keeps the newer copy (ADR-0043 amendment 2026-10-16).
+- **Rejected for now:** a READ COMMITTED outbox (`EntityFrameworkOutboxOptions.IsolationLevel`). In MassTransit 8 it
+  also changes every consumer's transaction, which the 2026-10-08 rules are written against. Tracked as a follow-up.

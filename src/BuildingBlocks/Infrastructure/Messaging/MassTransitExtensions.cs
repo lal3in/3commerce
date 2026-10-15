@@ -29,6 +29,21 @@ public static class MassTransitExtensions
     public const int DefaultStartTimeoutSeconds = 120;
 
     /// <summary>
+    /// The EF outbox's <c>QueryMessageLimit</c>. MassTransit's bus-outbox delivery service runs its passes through a
+    /// <c>RequestRateAlgorithm</c> whose parallelism is <c>ceil(QueryMessageLimit / 10)</c>: at the default 100 it
+    /// runs up to SIX delivery transactions at once after any pass of 10+ messages. Each takes the oldest unlocked
+    /// batch (<c>… ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED</c>) inside a REPEATABLE READ transaction, so one
+    /// that meets a batch another just updated fails with <c>40001 could not serialize access due to concurrent
+    /// update</c>. The service's retry then backs off exponentially (3 s, then up to 30 s per attempt) and EVERY
+    /// pending message of the service waits — a projection 20–30 s late — and batches delivered in parallel reach
+    /// consumers out of publish order. At 10 the request limit is 1: one delivery transaction per host, batches in
+    /// <c>Created</c> order, no self-inflicted 40001. Each pass still delivers whole batches (MessageDeliveryLimit
+    /// 100), and the inbox cleanup it also sizes loops until nothing is left to delete. Replicas of a service still
+    /// deliver in parallel, so events whose order matters carry their own version (ADR-0043 amendment 2026-10-16).
+    /// </summary>
+    public const int OutboxDeliveryQueryLimit = 10;
+
+    /// <summary>
     /// Service bus for services that own a database: EF transactional outbox (writes and
     /// publishes commit atomically) plus inbox-based consumer idempotency on every endpoint.
     /// </summary>
@@ -52,6 +67,8 @@ public static class MassTransitExtensions
                 // (HasDefaultSchema), the default cache leaks one service's schema to others when
                 // multiple services share a process (integration tests / in-process hosts).
                 outbox.LockStatementProvider = new PostgresLockStatementProvider(enableSchemaCaching: false);
+                // One outbox delivery transaction at a time per host (see OutboxDeliveryQueryLimit).
+                outbox.QueryMessageLimit = OutboxDeliveryQueryLimit;
                 outbox.UseBusOutbox();
             });
 
