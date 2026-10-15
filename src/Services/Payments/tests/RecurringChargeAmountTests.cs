@@ -173,6 +173,67 @@ public class RecurringChargeAmountTests
     }
 
     [Fact]
+    public async Task A_nightly_run_commits_each_renewal_before_the_next_provider_call_and_a_failed_one_stays_retryable()
+    {
+        // Per-renewal commit is the deliberate semantics (ADR-0057 amendment): money moved for renewal 1 is durable
+        // before renewal 2's card is touched; a provider failure on renewal 2 duns only it, renewal 3 still commits,
+        // and renewal 2 retries later under the same key for the same pinned amount.
+        var name = $"rca_{Guid.NewGuid():N}";
+        await using var db = NewDb(name);
+        var store = AddStore(db, 825, inclusive: false);
+        var subs = new List<Subscription>();
+        for (var i = 0; i < 3; i++)
+        {
+            subs.Add(await StartAsync(db, store, 1000, "USD", taxInclusive: false));
+        }
+
+        var committedBeforeCall = new List<(int Renewed, int PastDue)>();
+        var provider = new RecordingProvider
+        {
+            OnAuthorize = call =>
+            {
+                // What ANOTHER connection sees at the moment of each provider call = what is committed.
+                using var probe = NewDb(name);
+                committedBeforeCall.Add((
+                    probe.JournalEntries.Count(e => e.Reference.StartsWith("renew-")),
+                    probe.Subscriptions.Count(s => s.Status == SubscriptionStatus.PastDue)));
+                if (call == 2)
+                {
+                    throw new HttpRequestException("provider unavailable");
+                }
+            },
+        };
+        // 13:00 on the day the first periods end: past the schedule's default 12:00 run time.
+        var nightly = new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(),
+            new FixedTime(Now.AddMonths(1).AddHours(13)), new ListLogger<SubscriptionService>());
+
+        await nightly.AutoRenewDueAsync(default);
+
+        Assert.Equal([(0, 0), (1, 0), (1, 1)], committedBeforeCall); // 1 committed before call 2; 2's dunning before call 3
+        await using (var fresh = NewDb(name))
+        {
+            var statuses = await fresh.Subscriptions.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Status);
+            var failed = provider.Requests[1].IdempotencyKey;
+            var failedSub = subs.Single(s => failed.StartsWith($"renew-{s.Id}-", StringComparison.Ordinal));
+            Assert.Equal(SubscriptionStatus.PastDue, statuses[failedSub.Id]);
+            Assert.Equal(2, statuses.Count(kv => kv.Value == SubscriptionStatus.Active));
+            Assert.Equal(2, await fresh.JournalEntries.CountAsync(e => e.Reference.StartsWith("renew-")));
+
+            // The failed renewal is retryable: same key, same pinned amount, then it commits.
+            await using var retryDb = NewDb(name);
+            var retry = new SubscriptionService(retryDb, new SingleProviderRegistry(provider), Resolver(),
+                new FixedTime(Now.AddMonths(1).AddHours(14)), new ListLogger<SubscriptionService>());
+            await retry.RenewAsync(TenantId, failedSub.Id, default);
+            Assert.Equal(failed, provider.Requests[^1].IdempotencyKey);
+            Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));
+        }
+
+        await using var final = NewDb(name);
+        Assert.Equal(3, await final.JournalEntries.CountAsync(e => e.Reference.StartsWith("renew-")));
+        Assert.All(await final.Subscriptions.AsNoTracking().ToListAsync(), s => Assert.Equal(SubscriptionStatus.Active, s.Status));
+    }
+
+    [Fact]
     public async Task The_next_period_is_a_new_key_and_takes_the_rate_then_in_force()
     {
         await using var db = NewDb();
@@ -231,8 +292,8 @@ public class RecurringChargeAmountTests
 
     // ---- Helpers --------------------------------------------------------------------------------------
 
-    private static PaymentsDbContext NewDb() =>
-        new(new DbContextOptionsBuilder<PaymentsDbContext>().UseInMemoryDatabase($"rca_{Guid.NewGuid():N}").Options);
+    private static PaymentsDbContext NewDb(string? name = null) =>
+        new(new DbContextOptionsBuilder<PaymentsDbContext>().UseInMemoryDatabase(name ?? $"rca_{Guid.NewGuid():N}").Options);
 
     private static PaymentModeResolver Resolver() =>
         new(PaymentTestSupport.Config(("Payments:Mode", "Sandbox")), PaymentTestSupport.Env(Environments.Development));
@@ -312,11 +373,15 @@ public class RecurringChargeAmountTests
         /// <summary>Throw on this many first calls (a provider outage), recording the request first.</summary>
         public int ThrowFirst { get; set; }
 
+        /// <summary>Called with the 1-based call number before answering; may throw to simulate a failure.</summary>
+        public Action<int>? OnAuthorize { get; init; }
+
         public string ProviderKey => "stripe";
 
         public Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct)
         {
             Requests.Add(request);
+            OnAuthorize?.Invoke(Requests.Count);
             if (ThrowFirst > 0)
             {
                 ThrowFirst--;

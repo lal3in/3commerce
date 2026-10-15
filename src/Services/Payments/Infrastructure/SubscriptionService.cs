@@ -82,6 +82,9 @@ public sealed class SubscriptionService(
             {
                 schedule = StorefrontBillingSchedule.CreateDefault(storefrontId, now);
                 db.StorefrontBillingSchedules.Add(schedule);
+                // Committed now, deliberately: every renewal below commits on its own (see ChargeRenewalAsync), and
+                // nothing else may be left pending to ride along with one of those commits.
+                await db.SaveChangesAsync(ct);
             }
 
             if (!schedule.ShouldRunNow(today, timeOfDay))
@@ -106,9 +109,25 @@ public sealed class SubscriptionService(
         return renewed;
     }
 
-    /// <summary>Charge one renewal period off-session and advance the aggregate; dun to PastDue on failure.
-    /// The caller owns SaveChanges so a batch sweep commits all renewals in one unit of work.</summary>
+    /// <summary>
+    /// Charge one renewal period off-session and advance the aggregate; dun to PastDue on failure — and COMMIT it.
+    /// <para>
+    /// Each renewal is its own unit of work, deliberately (ADR-0057 amendment, 2026-10-15): the provider call moves
+    /// real money, so the period's outcome (advanced + history row + ledger entry, or PastDue) is made durable BEFORE
+    /// the next customer's card is touched. A crash or DB failure later in a nightly run can then lose at most the
+    /// renewal in flight — whose pinned key + amount (<see cref="RecurringChargePin"/>, its own commit before the
+    /// provider call) make a re-run de-duplicate at the provider rather than charge twice — instead of rolling back
+    /// the record of charges that already happened. The commit sits outside the dunning catch: a failure to record a
+    /// SUCCESSFUL charge must abort the run (and be retried under the same key), never dun a customer who paid.
+    /// </para>
+    /// </summary>
     private async Task ChargeRenewalAsync(Subscription subscription, DateTimeOffset now, CancellationToken ct)
+    {
+        await ChargeAndAdvanceAsync(subscription, now, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task ChargeAndAdvanceAsync(Subscription subscription, DateTimeOffset now, CancellationToken ct)
     {
         try
         {

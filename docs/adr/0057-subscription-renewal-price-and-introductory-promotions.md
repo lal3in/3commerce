@@ -163,6 +163,17 @@ the first period:
   the provider de-duplicates instead of rejecting or double-charging, and the posting matches what was charged.
   A redelivery after success is stopped earlier still by the journal-reference check. The **next** period is a new
   key and takes the rate in force then.
+* **Each renewal commits on its own (deliberate).** A nightly run (`AutoRenewDueAsync`) used to commit every renewal
+  in one final `SaveChanges`; a crash or DB failure late in the run then rolled back the record of charges that had
+  already moved money. Now each renewal is its own unit of work: pin committed → provider call → the period's
+  outcome (advanced + history row + ledger entry, or PastDue) committed — before the next customer's card is
+  touched. A run can lose at most the renewal in flight, which re-runs under its pinned key and amount (the provider
+  de-duplicates). The commit sits outside the dunning catch, so a failure to *record* a successful charge aborts the
+  run for a retry instead of dunning a customer who paid. A newly created billing schedule is committed explicitly
+  too, so the pin's commit never carries other pending changes. Pinned by
+  `RecurringChargeAmountTests.A_nightly_run_commits_each_renewal_before_the_next_provider_call_and_a_failed_one_stays_retryable`
+  (another connection sees renewal 1 committed at renewal 2's provider call; a provider failure on renewal 2 duns
+  only it; renewal 3 commits; renewal 2 later retries with the same key and amount).
 * **The posting.** The usual receivable-bridged `Ledger.Sale` with **gross = the charge**, **tax = the added tax**
   (to `tax.store-{id}`) and therefore **net = the price** (to `revenue.store-{id}`) — the split checkout posts.
   Every line carries the currency; a tax that rounds to 0 posts no tax line (`ck_line_one_side`).

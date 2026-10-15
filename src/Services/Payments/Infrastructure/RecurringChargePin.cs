@@ -22,7 +22,9 @@ public static class RecurringChargePin
 
     /// <summary>
     /// The split pinned to <paramref name="idempotencyKey"/>: the stored one when a previous attempt already pinned it,
-    /// else <paramref name="compute"/>'s result, persisted (SaveChanges) before returning.
+    /// else <paramref name="compute"/>'s result, persisted (SaveChanges) before returning. Callers keep no other
+    /// change pending on <paramref name="db"/> at this point (each renewal / usage charge commits its own outcome),
+    /// so this commit writes the pin and nothing else.
     /// </summary>
     public static async Task<RecurringChargeTaxResult> PinAsync(
         PaymentsDbContext db, TimeProvider time, string idempotencyKey, Func<RecurringChargeTaxResult> compute, CancellationToken ct)
