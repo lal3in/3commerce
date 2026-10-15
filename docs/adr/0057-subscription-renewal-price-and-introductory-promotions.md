@@ -126,7 +126,8 @@ store (AU GST / EU VAT) the whole charge landed in `revenue.store-{id}` and outp
   receivable-bridged `Ledger.Sale` with net to `revenue.store-{id}` and tax to `tax.store-{id}`. **The charged gross
   never changes.** 0% stores and exempt lines post no tax line (`ck_line_one_side`); an unprojected rate (a
   projection written before this change, or no storefront) posts no tax and logs a warning — never a guess.
-* **Exclusive regimes are unchanged, pending an owner decision.** Checkout ADDS tax on an exclusive (US) store, but
+* **Exclusive regimes are unchanged, pending an owner decision.** *(Superseded the same day by the owner decision
+  below: exclusive renewals and usage charges now add the tax.)* Checkout ADDS tax on an exclusive (US) store, but
   a renewal has always charged the bare `PriceMinor` — and the cart preview ("renews at x") shows that bare figure.
   Adding tax would change what customers are charged, so it is not done silently: renewals and usage on an
   exclusive store still charge and post exactly as before (a warning per charge). `RecurringChargeTax.ExclusiveTaxOn`
@@ -137,3 +138,52 @@ store (AU GST / EU VAT) the whole charge landed in `revenue.store-{id}` and outp
   entry (`Ledger.Refund` with that tax nets every account to zero — unit-pinned).
 
 Verification: `RecurringChargeTaxTests` (unit, e2e-verify A3h) and `RenewalUsageTaxTests` (integration, A4b).
+
+## Amendment (2026-10-15) — owner decision: exclusive regimes ADD the tax to renewals and usage (option A, `renewal_usage_tax_exclusive_decision`)
+
+The owner chose **option A** of the three put to them (A: add the tax to the charge and say "+ tax" in the preview;
+B: keep charging the bare price, the merchant owes the uncollected tax; C: keep the charge but treat it as
+tax-inclusive, the merchant absorbs the tax). On a tax-**exclusive** storefront (US sales tax, ADR-0038) a
+subscription renewal and a usage charge (overage and prepaid auto-load) are now charged exactly as checkout charged
+the first period:
+
+* **The charge.** `RecurringChargeTax.For(price, rate, inclusive: false, exempt)` returns basis `Exclusive` with
+  `tax = price × bps / 10000` rounded half away from zero (checkout's formula — unit-swept equal for every amount
+  0..20000 at six rates) and `ChargeMinor = price + tax`. The tax is resolved **before** the provider call
+  (`SubscriptionService.RenewalTaxAsync`, `UsageChargeBilling.ChargeAndPostAsync`) and the rail is asked for
+  `ChargeMinor`; the idempotency key is unchanged (`renew-{id}-{periodEnd}` / the usage reference). The period's
+  history row (`SubscriptionRenewal.AmountMinor`) records what was charged.
+* **The posting.** The usual receivable-bridged `Ledger.Sale` with **gross = the charge**, **tax = the added tax**
+  (to `tax.store-{id}`) and therefore **net = the price** (to `revenue.store-{id}`) — the split checkout posts.
+  Every line carries the currency; a tax that rounds to 0 posts no tax line (`ck_line_one_side`).
+* **What adds nothing.** A 0% store, a line destination-exempt at purchase (`Subscription.TaxExempt`) and an
+  inclusive store charge the price itself, as before. A subscription bought before the terms snapshot
+  (`TaxInclusive = null`) follows the storefront's projected regime — so an existing US subscriber's next renewal
+  starts adding tax, matching what their first period was charged at checkout.
+* **Unknown rate — charge the bare price, never guess, never refuse.** When Payments has no projected rate for the
+  store (a `StorefrontLedgerAccounts` row written before `TaxRateBasisPoints` was carried, or a charge with no
+  storefront), the renewal/usage charge goes ahead at the **bare price** with no tax posted. The alternatives were
+  worse: charging a guessed rate could over-charge a customer beyond what they were told; refusing or deferring the
+  charge would dun (or silently stop billing) a customer for a gap in *our* read model, and a never-arriving
+  projection would mean free service indefinitely. Under-collection is bounded to the tax, it is logged as an
+  **error** on an exclusive store (a warning on an inclusive one, where only the split is missing) naming the store,
+  and it heals the moment the storefront's config is re-published (saving the storefront in admin re-sends
+  `StorefrontConfigChanged`). A future refinement could snapshot the purchase-time rate as a fallback.
+* **What the customer sees.** `CartRenewalResponse` gains `TaxAdded` (appended boolean `taxAdded`, default false, so
+  an older client simply ignores it): true when the storefront is exclusive with a non-zero rate and the period's recurring lines are not
+  all destination-exempt for the shopper's known ship-to. The storefront then renders the renewal as
+  **"{amount} + tax"** in the cart and at checkout (all six locales) instead of a bare figure — consistent with how
+  checkout itself shows exclusive tax (prices before tax, a separate "Tax (added)" line), and honest because the
+  renewal uses the rate **in force at the renewal**, which the preview cannot promise. Inclusive stores are
+  unchanged (the amount *is* the charge). There is no renewal or usage email that states an amount, and no storefront
+  account page shows the next charge, so nothing else changes; the admin Subscriptions history shows the charged
+  amount per period.
+* **Not changed here.** Renewal/usage refunds and chargebacks (`renewal_usage_refund_path` — still no `Payment` row;
+  when built, `Ledger.Refund` with the entry's tax reverses it exactly — unit-pinned for the exclusive shape too);
+  `subscription_renew_on_failed_charge`; `subscription_renewal_price_quantity` (the renewal price ignores line
+  quantity while the preview uses the line total — tax is added on whichever price Payments charges, so that
+  mismatch carries through unchanged).
+
+Verification: `RecurringChargeTaxTests` + `RecurringChargeAmountTests` (unit — a recording provider pins the amount
+the rail is asked for; e2e-verify A3h + A3l), `RenewalUsageTaxTests` (integration, A4b) and
+`e2e/renewal-plus-tax.spec.ts` (Playwright, L20).

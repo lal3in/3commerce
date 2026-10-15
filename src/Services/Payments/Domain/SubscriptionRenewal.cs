@@ -12,6 +12,10 @@ public sealed class SubscriptionRenewal
     public int Sequence { get; init; }
     public DateTimeOffset PeriodStart { get; init; }
     public DateTimeOffset PeriodEnd { get; init; }
+    /// <summary>
+    /// The gross charged for a renewed period (Sequence ≥ 2): the price, plus the added tax on an exclusive (US) store
+    /// (owner decision 2026-10-15). Sequence 1 records the subscription's price (the first period was paid with the order).
+    /// </summary>
     public long AmountMinor { get; init; }
     public required string Currency { get; init; }
     public DateTimeOffset RecordedAt { get; init; }

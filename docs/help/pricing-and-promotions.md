@@ -190,7 +190,11 @@ a retried checkout idempotent.
   `unit price − that share`; all zeroes means list.
   <br/>**The shopper is shown it.** `GET /cart/summary` returns `renewals` — the recurring lines' cost per
   period from the next one on, grouped by billing period — and the cart and checkout render it ("Renews
-  monthly at ..."). So `shown == charged` covers the second invoice, not only the first. Billing mode is
+  monthly at ..."). So `shown == charged` covers the second invoice, not only the first. **Tax on renewals**
+  follows the store's regime, exactly as at checkout: inclusive (AU GST / EU VAT) — the amount shown IS the charge,
+  tax inside; exclusive (US sales tax) — the renewal is charged the amount **plus** the rate in force at the renewal,
+  so the row reads "Renews monthly at $10.00 + tax" (`renewals[].taxAdded`; owner decision 2026-10-15, ADR-0057
+  amendment). Usage overage / auto-load charges follow the same rule. Billing mode is
   resolved with `ResolveLineOffer` (checkout's line-offer resolver), never `ResolvePricingOffer`: the latter ignores an
   offer with no price of its own and would show no renewal for exactly the subscriptions that need one.
 - **A promotion must be able to apply.** A promotion is currency-pinned and nothing converts currency,

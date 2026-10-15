@@ -156,7 +156,7 @@ renders, under **Subtotal**:
 | `Promotion: {name}` (one row each) | every threshold promotion this cart won, with its own share of the discount ([ADR-0051](../adr/0051-threshold-promotions-and-combinability.md)) |
 | `Free shipping` | a winning promotion granted it — the shipping line is zeroed at checkout |
 | `Free shipping may apply` | a shippable cart with **no address yet**, where free shipping is in genuine contention: the figures shown are the guaranteed FLOOR and the reward is not yet decided ([ADR-0054](../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md)) |
-| `Renews monthly/yearly at` | for a **subscription** line, what the NEXT period costs — the line less only the discount that rides renewals, so an introductory offer cannot be mistaken for the ongoing price ([ADR-0057](../adr/0057-subscription-renewal-price-and-introductory-promotions.md)) |
+| `Renews monthly/yearly at` | for a **subscription** line, what the NEXT period costs — the line less only the discount that rides renewals, so an introductory offer cannot be mistaken for the ongoing price ([ADR-0057](../adr/0057-subscription-renewal-price-and-introductory-promotions.md)). On a tax-**exclusive** store (US sales tax) it reads "… at $10.00 + tax": each renewal is charged the amount plus the rate in force at the renewal, as checkout adds tax to the first period (owner decision 2026-10-15) |
 | `Items total` | subtotal minus both discount kinds, jointly capped at the subtotal |
 
 Note that `GET /cart/summary` reports the **offer-resolved** price per line

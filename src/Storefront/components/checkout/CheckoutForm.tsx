@@ -32,7 +32,8 @@ interface CheckoutFormProps {
   // Threshold promotions (ADR-0051), decided server-side by Ordering's shared PromotionEvaluator — never
   // recomputed here. The discount is deducted from the items' subtotal alongside the storefront-wide one.
   promotionDiscountMinor: number;
-  renewals: { billingPeriod: number; amountMinor: number }[];
+  // What the recurring lines cost per period after the first (ADR-0057); taxAdded = exclusive store, tax goes on top.
+  renewals: { billingPeriod: number; amountMinor: number; taxAdded?: boolean }[];
   appliedPromotions: AppliedPromotionDto[];
   // A promotion granted free shipping: the shipping line shows free and contributes nothing to the tax base.
   freeShippingApplied: boolean;
@@ -224,8 +225,13 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
           {renewals.map((renewal) => (
             <Row
               key={renewal.billingPeriod}
+              testId={`renewal-${renewal.billingPeriod}`}
               label={t(renewal.billingPeriod === 3 ? "renewsYearly" : "renewsMonthly")}
-              value={formatMoney(renewal.amountMinor, cart.currency)}
+              // Exclusive store: the renewal is charged this amount PLUS the rate in force at the renewal, the way the
+              // "Tax (added)" line above adds it to today's total — so it reads "+ tax", never a bare figure.
+              value={renewal.taxAdded
+                ? t("renewalPlusTax", { amount: formatMoney(renewal.amountMinor, cart.currency) })
+                : formatMoney(renewal.amountMinor, cart.currency)}
               muted
             />
           ))}
@@ -611,9 +617,9 @@ function Field({ name, label, type = "text", autoComplete, maxLength, defaultVal
   );
 }
 
-function Row({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+function Row({ label, value, muted = false, testId }: { label: string; value: string; muted?: boolean; testId?: string }) {
   return (
-    <div className={muted ? "flex justify-between text-neutral-500" : "flex justify-between"}>
+    <div className={muted ? "flex justify-between text-neutral-500" : "flex justify-between"} data-testid={testId}>
       <span>{label}</span>
       <span>{value}</span>
     </div>

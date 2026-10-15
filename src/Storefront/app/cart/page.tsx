@@ -135,7 +135,13 @@ export default async function CartPage() {
             data-testid={`renewal-${renewal.billingPeriod}`}
           >
             <span>{t(renewal.billingPeriod === 3 ? "renewsYearly" : "renewsMonthly")}</span>
-            <span>{formatMoney(renewal.amountMinor, cart.currency)}</span>
+            {/* Exclusive store (owner decision 2026-10-15): the renewal is charged this amount PLUS the rate in force
+                at the renewal, as checkout adds tax to the first period — so it says "+ tax", never a bare figure. */}
+            <span>
+              {renewal.taxAdded
+                ? t("renewalPlusTax", { amount: formatMoney(renewal.amountMinor, cart.currency) })
+                : formatMoney(renewal.amountMinor, cart.currency)}
+            </span>
           </div>
         ))}
       </div>

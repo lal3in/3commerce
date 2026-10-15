@@ -8,7 +8,8 @@ namespace ThreeCommerce.Payments.Tests;
 /// checkout of the same amount in the same storefront would have posted — before this both posted tax 0, so on an
 /// inclusive (AU GST / EU VAT) store the whole charge landed in revenue and output tax was under-reported. The
 /// split is checkout's (ADR-0038): inclusive extracts <c>amount × bps / (10000 + bps)</c>, half away from zero,
-/// and the charged gross never changes. Exclusive regimes post no tax pending the owner's decision.
+/// and the charged gross never changes; exclusive ADDS <c>price × bps / 10000</c> (half away from zero) and the
+/// charge is price + tax, as checkout charges the first period (owner decision 2026-10-15, option A).
 /// </summary>
 public class RecurringChargeTaxTests
 {
@@ -61,46 +62,74 @@ public class RecurringChargeTaxTests
     [Fact]
     public void The_exclusive_add_on_equals_checkouts_too()
     {
-        // Not applied to renewals/usage today (owner decision pending) — pinned so the decision is a call-site change.
-        foreach (var bps in new[] { 400, 625, 725, 1000, 2000 })
+        // Applied to renewals/usage since the owner decision of 2026-10-15 (option A): swept like the inclusive split.
+        foreach (var bps in new[] { 400, 625, 725, 825, 1000, 2000 })
         {
-            for (long price = 0; price <= 20_000; price += 7)
+            for (long price = 0; price <= 20_000; price++)
             {
                 Assert.Equal(CheckoutExclusiveTax(price, bps), RecurringChargeTax.ExclusiveTaxOn(price, bps));
+                Assert.Equal(CheckoutExclusiveTax(price, bps), RecurringChargeTax.For(price, bps, taxInclusive: false).TaxMinor);
             }
         }
 
         Assert.Equal(1, RecurringChargeTax.ExclusiveTaxOn(5, 1000)); // 0.5 → away from zero
     }
 
-    [Fact]
-    public void An_exclusive_charge_posts_no_tax_and_says_why()
+    [Theory]
+    [InlineData(1000, 825, 83, 1083)]   // US 8.25%: $10.00 + 82.5¢ → 83¢ (away from zero) → $10.83
+    [InlineData(999, 825, 82, 1081)]    // 82.4175 → 82
+    [InlineData(2000, 1000, 200, 2200)]
+    [InlineData(5, 1000, 1, 6)]         // 0.5 → 1
+    [InlineData(4, 1000, 0, 4)]         // a sub-unit tax rounds to nothing → charged the bare price, no tax line
+    public void An_exclusive_charge_adds_checkouts_tax_on_top_of_the_price(long price, int bps, long expectedTax, long expectedCharge)
     {
-        // The charge omits the tax checkout would add; posting a split would book tax nobody collected.
-        var result = RecurringChargeTax.For(1000, 825, taxInclusive: false);
+        // Owner decision 2026-10-15 (option A): a renewal / usage charge on a US-style store is charged price + tax,
+        // exactly as checkout charged the first period; the price stays the net revenue.
+        var result = RecurringChargeTax.For(price, bps, taxInclusive: false);
 
-        Assert.Equal(RecurringChargeTaxBasis.ExclusiveNotCharged, result.Basis);
-        Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(RecurringChargeTaxBasis.Exclusive, result.Basis);
+        Assert.Equal(expectedTax, result.TaxMinor);
+        Assert.Equal(expectedCharge, result.ChargeMinor);
+        Assert.Equal(price, result.NetMinor);
     }
 
     [Theory]
-    [InlineData(0, false)]    // a 0% store
-    [InlineData(1000, true)]  // a destination-exempt line (ProductShipRule)
-    public void A_zero_rate_or_exempt_line_is_untaxed(int bps, bool exempt)
+    [InlineData(2200, 1000)]
+    [InlineData(1999, 2100)]
+    public void An_inclusive_charge_is_the_price_unchanged(long price, int bps)
     {
-        var result = RecurringChargeTax.For(2200, bps, taxInclusive: true, taxExempt: exempt);
+        var result = RecurringChargeTax.For(price, bps, taxInclusive: true);
+
+        Assert.Equal(price, result.ChargeMinor);                 // the shelf price IS the charge
+        Assert.Equal(price - result.TaxMinor, result.NetMinor);
+    }
+
+    [Theory]
+    [InlineData(0, false, true)]     // a 0% inclusive store
+    [InlineData(0, false, false)]    // a 0% exclusive store: nothing to add
+    [InlineData(1000, true, true)]   // a destination-exempt line (ProductShipRule)
+    [InlineData(825, true, false)]   // a destination-exempt line on an exclusive store: no tax ADDED either
+    public void A_zero_rate_or_exempt_line_is_untaxed_and_charged_the_price(int bps, bool exempt, bool inclusive)
+    {
+        var result = RecurringChargeTax.For(2200, bps, taxInclusive: inclusive, taxExempt: exempt);
 
         Assert.Equal(RecurringChargeTaxBasis.Untaxed, result.Basis);
         Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(2200, result.ChargeMinor);
     }
 
-    [Fact]
-    public void An_unprojected_rate_is_unknown_never_guessed()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_unprojected_rate_is_unknown_never_guessed_and_charges_the_bare_price(bool inclusive)
     {
-        var result = RecurringChargeTax.For(2200, null, taxInclusive: true);
+        // The rate is not projected (a pre-P4 projection, or no storefront): never a guessed rate, never a refused
+        // renewal — the bare price is charged and no tax posted (an exclusive store under-collects; it is logged).
+        var result = RecurringChargeTax.For(2200, null, taxInclusive: inclusive);
 
         Assert.Equal(RecurringChargeTaxBasis.Unknown, result.Basis);
         Assert.Equal(0, result.TaxMinor);
+        Assert.Equal(2200, result.ChargeMinor);
     }
 
     [Fact]
@@ -109,6 +138,44 @@ public class RecurringChargeTaxTests
         // JPY has no minor unit: minor = yen. ¥1,000 at 10% inclusive contains ¥90.909… → ¥91.
         Assert.Equal(91, RecurringChargeTax.For(1000, 1000, taxInclusive: true).TaxMinor);
         Assert.Equal(100, RecurringChargeTax.For(1100, 1000, taxInclusive: true).TaxMinor);
+        // Exclusive: ¥999 at 8.25% adds ¥82.4175 → ¥82, charged ¥1,081; ¥1,000 adds ¥82.5 → ¥83 (away from zero).
+        Assert.Equal(1081, RecurringChargeTax.For(999, 825, taxInclusive: false).ChargeMinor);
+        Assert.Equal(1083, RecurringChargeTax.For(1000, 825, taxInclusive: false).ChargeMinor);
+    }
+
+    [Theory]
+    [InlineData("USD", 1000, 825, 83)]
+    [InlineData("CAD", 1999, 1300, 260)]   // 259.87 → 260
+    [InlineData("JPY", 999, 825, 82)]
+    public void An_exclusive_sale_books_the_price_as_net_and_the_added_tax_with_the_charge_as_gross(
+        string currency, long price, int bps, long expectedTax)
+    {
+        var tax = RecurringChargeTax.For(price, bps, taxInclusive: false);
+        var entry = Ledger.Sale(Guid.CreateVersion7(), tax.ChargeMinor, tax.TaxMinor, 0, currency, DateTimeOffset.UtcNow,
+            PaymentMethodKind.Card, "stripe", Rev, Tax, Recv, 0, Ship, Sid, "renew-u-2", "renewal");
+
+        Assert.Equal(price, Credits(entry, Rev));                                         // net revenue = the price
+        Assert.Equal(expectedTax, Credits(entry, Tax));                                   // the added tax
+        Assert.Equal(price + expectedTax, Debits(entry, Accounts.CashStoreFor(Sid, "stripe"))); // what was charged
+        Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
+        Assert.All(entry.Lines, l => Assert.Equal(currency, l.Currency));
+        Assert.All(entry.Lines, l => Assert.True((l.DebitMinor > 0) ^ (l.CreditMinor > 0))); // ck_line_one_side
+        Assert.DoesNotContain(entry.Lines, l => Accounts.IsSharedCode(l.AccountCode));
+    }
+
+    [Fact]
+    public void A_full_refund_of_an_exclusive_renewal_shaped_sale_reverses_net_and_tax_exactly()
+    {
+        var tax = RecurringChargeTax.For(1000, 825, taxInclusive: false);
+        var sale = Ledger.Sale(Guid.CreateVersion7(), tax.ChargeMinor, tax.TaxMinor, 0, "USD", DateTimeOffset.UtcNow,
+            PaymentMethodKind.Card, "stripe", Rev, Tax, Recv, 0, Ship, Sid, "renew-v-2", "renewal");
+        var refund = Ledger.Refund(Guid.CreateVersion7(), Guid.CreateVersion7(), tax.ChargeMinor, tax.TaxMinor, "USD", DateTimeOffset.UtcNow,
+            PaymentMethodKind.Card, "stripe", Rev, Tax, Recv, 0, Ship, Sid);
+
+        foreach (var account in sale.Lines.Concat(refund.Lines).Select(l => l.AccountCode).Distinct())
+        {
+            Assert.Equal(0, Debits(sale, account) - Credits(sale, account) + Debits(refund, account) - Credits(refund, account));
+        }
     }
 
     [Theory]

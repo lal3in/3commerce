@@ -135,10 +135,11 @@
 #       OrderStatusConsumer (the order partition), not by the EmailVerified sweep
 #   A3h Unit · renewal + usage tax (ADR-0063 P4, RecurringChargeTaxTests): an inclusive charge extracts
 #       amount × bps/(10000+bps) half away from zero — swept equal to checkout's formula for every amount 0..20000
-#       at nine rates (and the exclusive add-on likewise) — exclusive posts none (owner decision pending), 0% /
-#       destination-exempt post no tax line, an unprojected rate is Unknown (never guessed), a 0-decimal
-#       currency rounds to whole yen, the renewal-shaped Sale books net + tax to the store's own accounts with
-#       the gross unchanged (AUD/EUR/JPY, every line Currency, one side each), and a full refund nets it to 0
+#       at nine rates — and an EXCLUSIVE charge ADDS price × bps/10000 (swept equal to checkout's add-on at six
+#       rates; owner decision 2026-10-15) so the charge is price + tax and the net is the price; 0% /
+#       destination-exempt add/post nothing, an unprojected rate is Unknown (never guessed) and charges the bare
+#       price, a 0-decimal currency rounds to whole yen, the renewal-shaped Sale books net + tax to the store's own
+#       accounts (AUD/EUR/JPY/USD/CAD, every line Currency, one side each), and a full refund nets it to 0
 #   A3i Unit · projection waits + outbox delivery (EventuallyTests, OutboxDeliveryTests): the shared Eventually
 #       helper polls on Stopwatch (awake) time, not the wall clock a sleeping Mac jumps, and looks once more after
 #       its budget; a condition that never holds throws the caller's error. AddServiceBus runs the bus-outbox
@@ -152,6 +153,16 @@
 #       service.version <ver>+<sha7>[-dirty] + vcs.ref.head.revision <sha>; host environment → deployment.environment.name
 #       (dev/test/prod/ci); explicit OTEL_RESOURCE_ATTRIBUTES wins per key (percent-decoded); a build without a SHA
 #       starts with no revision; a real host's tracer + meter resources share one release identity + instance id
+#   A3l Unit · exclusive-tax renewal + usage CHARGES (RecurringChargeAmountTests, owner decision 2026-10-15): with a
+#       RECORDING provider the rail is asked for exactly price + checkout's add-on on a renewal (exclusive 1083,
+#       inclusive 2200, exempt/0% 1000, JPY ¥1081, pre-snapshot subscription follows the store, two USD stores
+#       1083/1000/1089) and on a usage charge (once, even redelivered; a failed charge posts nothing); the period
+#       history row records the charge; an unknown rate on an exclusive store logs an ERROR and still renews; the
+#       amount is PINNED per idempotency key: a renewal retried after a provider outage AND a rate change re-sends
+#       the same key with the same 1083 (not re-priced), a redelivered usage charge likewise and posts once, and
+#       the next period is a new key at the new rate (1100); a nightly run commits EACH renewal before the next
+#       provider call (another connection sees it), a provider failure on renewal 2 duns only it while 1 and 3 stay
+#       committed, and renewal 2 then retries under the same key for the same amount
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -162,8 +173,12 @@
 #       checkout snapshots its tax terms and its renewal posts net 2000 + GST 200 (== checkout's) to the store's
 #       accounts with the gross 2200 unchanged; an EU VAT renewal extracts 347 of 1999; the rate in force at the
 #       renewal applies, not the purchase rate; a destination-exempt line and a 0% store renew with no tax line;
-#       an exclusive store's renewal is unchanged (no tax added/posted, pending decision); two stores sharing a
-#       currency each book their own tax; usage overage + auto-load charges split net + tax; trial balance 0
+#       a US-style EXCLUSIVE subscription bought through checkout (8.25%: first period 1000 + 83) renews at
+#       1083 posting net 1000 + tax 83 (== checkout's) with the history row at 1083, exempt/0% exclusive renewals
+#       add nothing, two exclusive stores sharing a currency add their own rate (83 / 89); two stores sharing a
+#       currency each book their own tax; usage overage + auto-load split net + tax (inclusive) and ADD it
+#       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
+#       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -402,6 +417,9 @@
 #       discount row appearing, and remove pricing the cart back at full price (ADR-0052);
 #       a cart filled on the EU store and opened on the AU store shows the checkout-blocked notice
 #       naming EUR and AUD before checkout (ADR-0059, e2e/currency-tax.spec.ts; needs --data full);
+#       on the tax-exclusive US store a product made a monthly subscription (store-scoped offer, deactivated
+#       afterwards) previews "Renews monthly at $10.00 + tax" in the cart and at checkout (owner decision
+#       2026-10-15, e2e/renewal-plus-tax.spec.ts; needs --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;
@@ -505,7 +523,7 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~OrderRaceGuardTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3g order-write race guards"; else fail "A3g order-write race guards"; fi
 
-  stage "A3h Renewal + usage tax (ADR-0063 P4) — checkout's inclusive split, exclusive/0%/exempt/unknown, ledger shape"
+  stage "A3h Renewal + usage tax (ADR-0063 P4) — inclusive split, exclusive add-on, 0%/exempt/unknown, ledger shape"
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeTaxTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3h renewal + usage tax"; else fail "A3h renewal + usage tax"; fi
@@ -524,6 +542,11 @@ run_automated() {
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~ReleaseIdentityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3k release stamping"; else fail "A3k release stamping"; fi
+
+  stage "A3l Exclusive-tax renewal + usage charges — price + tax charged, pinned per key, per-renewal commit"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeAmountTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3l exclusive-tax renewal + usage charges"; else fail "A3l exclusive-tax renewal + usage charges"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

@@ -191,11 +191,12 @@ public static class CartEndpoints
             ? null
             : shipToCountry.Trim().ToUpperInvariant();
         var allShippingCovered = false;
+        List<ProductCopy> ruleCopies = [];
         if (destination is not null)
         {
             // Load the copies as entities (not a .Select of the property) so EF applies the jsonb ShipRules
             // value converter on materialization — a projected converted collection comes back empty.
-            var ruleCopies = await db.ProductCopies.AsNoTracking()
+            ruleCopies = await db.ProductCopies.AsNoTracking()
                 .Where(p => productIds.Contains(p.ProductId))
                 .ToListAsync(ct);
             allShippingCovered = cart.Items.All(i =>
@@ -236,13 +237,23 @@ public static class CartEndpoints
         // promotion and the storefront-wide discount are absent here by construction, so a shopper who is
         // getting a first-period-only deal sees the real ongoing price instead of being surprised by it.
         // Grouped by billing period, because a cart may hold a monthly and a yearly plan at once.
+        // TaxAdded (owner decision 2026-10-15, option A): on an exclusive store (US sales tax, ADR-0038) with a
+        // non-zero rate, Payments ADDS the storefront's rate in force at each renewal on top of this amount, exactly
+        // as checkout adds it to the first period — so the shopper is told "+ tax" rather than shown a figure the
+        // card will not be charged. A group whose every line is destination-exempt for the shopper's (known)
+        // ship-to renews untaxed, the same ProductShipRule lookup checkout and the subscription snapshot use.
+        var taxAddedOnRenewal = storefrontCopy is { TaxInclusive: false, TaxRateBasisPoints: > 0 };
+        bool ExemptHere(Guid productId) =>
+            destination is not null
+            && ruleCopies.FirstOrDefault(c => c.ProductId == productId)?.RuleFor(destination) is { ChargeDestinationTax: false };
         var renewals = lines
             .Select((line, index) => (Line: line, Offer: lineOffers[index], Index: index))
             .Where(x => x.Offer is { BillingMode: BillingMode.Recurring })
             .GroupBy(x => x.Offer!.BillingPeriod)
             .Select(g => new CartRenewalResponse(
                 g.Key,
-                g.Sum(x => Math.Max(0, x.Line.TotalMinor - outcome.RenewalLineDiscountsMinor[x.Index]))))
+                g.Sum(x => Math.Max(0, x.Line.TotalMinor - outcome.RenewalLineDiscountsMinor[x.Index])),
+                taxAddedOnRenewal && g.Any(x => !ExemptHere(x.Line.ProductId))))
             .OrderBy(r => r.BillingPeriod)
             .ToList();
 
@@ -452,5 +463,11 @@ public record CartSummaryResponse(
     // The currency this storefront sells in (null when no storefront config is projected).
     string? StorefrontCurrency = null);
 
-/// <summary>What the cart's recurring lines of one billing period cost per period after the first.</summary>
-public record CartRenewalResponse(BillingPeriod BillingPeriod, long AmountMinor);
+/// <summary>
+/// What the cart's recurring lines of one billing period cost per period after the first. <see cref="TaxAdded"/>
+/// (appended, default false): the storefront is tax-EXCLUSIVE with a non-zero rate, so each renewal is charged
+/// <see cref="AmountMinor"/> PLUS the storefront's rate in force at the renewal (owner decision 2026-10-15) — the
+/// storefront renders "+ tax". False on inclusive / 0% stores (the amount is the charge) and when every line of the
+/// group is destination-exempt for the known ship-to.
+/// </summary>
+public record CartRenewalResponse(BillingPeriod BillingPeriod, long AmountMinor, bool TaxAdded = false);

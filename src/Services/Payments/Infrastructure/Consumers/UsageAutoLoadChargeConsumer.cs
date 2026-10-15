@@ -1,5 +1,4 @@
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
@@ -8,8 +7,9 @@ using ThreeCommerce.Payments.Infrastructure.Providers;
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
 /// <summary>Charges a prepaid usage auto-load top-up via the rail (jobmgr_3) and, on a settled charge,
-/// records the revenue in the ledger attributed to the balance's storefront
-/// (pay_usage_charges_post_revenue), mirroring the arrears <see cref="UsageOverageChargeConsumer"/>.
+/// records the revenue + tax in the ledger attributed to the balance's storefront
+/// (pay_usage_charges_post_revenue, ADR-0063 P4), mirroring the arrears <see cref="UsageOverageChargeConsumer"/>
+/// through the shared <see cref="UsageChargeBilling"/> (tax added on an exclusive store).
 /// Idempotent by Reference (the intent key).</summary>
 public sealed class UsageAutoLoadChargeConsumer(
     IPaymentProviderRegistry registry,
@@ -18,24 +18,11 @@ public sealed class UsageAutoLoadChargeConsumer(
     TimeProvider time,
     ILogger<UsageAutoLoadChargeConsumer> logger) : IConsumer<UsageAutoLoadCharge>
 {
-    public async Task Consume(ConsumeContext<UsageAutoLoadCharge> context)
+    public Task Consume(ConsumeContext<UsageAutoLoadCharge> context)
     {
         var m = context.Message;
-        if (await db.JournalEntries.AnyAsync(e => e.Reference == m.Reference, context.CancellationToken))
-        {
-            return; // already charged + posted for this top-up
-        }
-
-        var account = modeResolver.DefaultAccountForHost();
-        var response = await registry.Resolve(account).AuthorizeAsync(
-            new PaymentRequest(Guid.Empty, m.ChargeMinor, m.Currency, m.Reference, PaymentMethodKind.Card, account),
-            context.CancellationToken);
-        if (response.Outcome != PaymentOutcome.Succeeded)
-        {
-            return;
-        }
-
-        await UsageRevenuePoster.PostAsync(db, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
+        return UsageChargeBilling.ChargeAndPostAsync(
+            db, registry, modeResolver, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, m.Reference,
             $"Usage auto-load — {m.Meter} × {m.ReloadQuantity}", context.CancellationToken);
     }
 }
