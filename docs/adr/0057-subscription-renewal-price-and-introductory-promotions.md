@@ -150,9 +150,19 @@ the first period:
 * **The charge.** `RecurringChargeTax.For(price, rate, inclusive: false, exempt)` returns basis `Exclusive` with
   `tax = price × bps / 10000` rounded half away from zero (checkout's formula — unit-swept equal for every amount
   0..20000 at six rates) and `ChargeMinor = price + tax`. The tax is resolved **before** the provider call
-  (`SubscriptionService.RenewalTaxAsync`, `UsageChargeBilling.ChargeAndPostAsync`) and the rail is asked for
+  (`SubscriptionService.RenewalTax`, `UsageChargeBilling.ChargeAndPostAsync`) and the rail is asked for
   `ChargeMinor`; the idempotency key is unchanged (`renew-{id}-{periodEnd}` / the usage reference). The period's
   history row (`SubscriptionRenewal.AmountMinor`) records what was charged.
+* **The amount is pinned to its idempotency key.** Because the tax now changes the charge, a retry of the same key
+  after the store's rate changed would send a different amount — and a real provider rejects a reused key with
+  different parameters (Stripe `idempotency_error`), so that renewal or usage charge would fail permanently. The
+  first attempt therefore computes price + tax once and **persists** it (`RecurringChargePin`: an
+  `IdempotencyRecord` under `charge-amount:{key}`, committed **before** the provider call, so even a crash between
+  the charge and our save replays the same figures). Every retry of that key — the same period re-run after a
+  failure, a redelivered usage message — reuses the pinned amount and split verbatim: same key, same amount, so
+  the provider de-duplicates instead of rejecting or double-charging, and the posting matches what was charged.
+  A redelivery after success is stopped earlier still by the journal-reference check. The **next** period is a new
+  key and takes the rate in force then.
 * **The posting.** The usual receivable-bridged `Ledger.Sale` with **gross = the charge**, **tax = the added tax**
   (to `tax.store-{id}`) and therefore **net = the price** (to `revenue.store-{id}`) — the split checkout posts.
   Every line carries the currency; a tax that rounds to 0 posts no tax line (`ck_line_one_side`).

@@ -114,18 +114,22 @@ public sealed class SubscriptionService(
         {
             // The period's tax is resolved BEFORE the charge, because on an exclusive (US) store it changes what is
             // charged: price + checkout's add-on tax (owner decision 2026-10-15, option A). Inclusive / 0% / exempt /
-            // unknown-rate charge the price itself (see RenewalTaxAsync).
-            var (tax, accounts) = await RenewalTaxAsync(subscription, ct);
+            // unknown-rate charge the price itself (see RenewalTax). The amount is PINNED to the period's
+            // idempotency key (persisted before the provider call): a retry of the same period — after a failure,
+            // a crash, or a rate change in between — re-sends the SAME amount under the SAME key, which a provider
+            // de-duplicates instead of rejecting (Stripe idempotency_error) or charging twice.
+            var idempotencyKey = $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}";
+            var accounts = await AccountsAsync(subscription.StorefrontId, ct);
+            var tax = await RecurringChargePin.PinAsync(db, clock, idempotencyKey, () => RenewalTax(subscription, accounts), ct);
 
             // When the subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so
             // the renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment
-            // method is supplied (StripePaymentProvider sets OffSession/Confirm on a present method). The
-            // idempotency key is unchanged (subscription + period end): a retried period re-sends the same amount.
+            // method is supplied (StripePaymentProvider sets OffSession/Confirm on a present method).
             var account = modeResolver.DefaultAccountForHost();
             var response = await registry.Resolve(account).AuthorizeAsync(
                 new PaymentRequest(
                     subscription.OrderId, tax.ChargeMinor, subscription.Currency,
-                    $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", PaymentMethodKind.Card, account,
+                    idempotencyKey, PaymentMethodKind.Card, account,
                     subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId),
                 ct);
             subscription.Renew(now, tax.ChargeMinor);
@@ -159,7 +163,7 @@ public sealed class SubscriptionService(
     /// Tax (ADR-0063 P4): the regime is the subscription's snapshot (<see cref="Subscription.TaxInclusive"/>,
     /// what its price MEANS), the rate is the storefront's rate in force NOW (rates change by law; the tax point
     /// is each period's supply), and the arithmetic is checkout's (<see cref="RecurringChargeTax"/>), resolved
-    /// before the charge by <see cref="RenewalTaxAsync"/>. Inclusive: net + contained tax, gross = the price.
+    /// before the charge by <see cref="RenewalTax"/> and pinned per period (<see cref="RecurringChargePin"/>). Inclusive: net + contained tax, gross = the price.
     /// Exclusive (owner decision 2026-10-15, option A): net = the price, tax = the added tax, gross = what was
     /// charged (price + tax) — the same split checkout posts for the first period.
     /// </para>
@@ -185,20 +189,22 @@ public sealed class SubscriptionService(
         }
     }
 
-    /// <summary>
-    /// The tax of the period about to be charged, plus the storefront's projected accounts it posts to. Logged when
-    /// the rate is unknown (see <see cref="LogUnknownRate"/>).
-    /// </summary>
-    private async Task<(RecurringChargeTaxResult Tax, StorefrontLedgerAccounts? Accounts)> RenewalTaxAsync(
-        Subscription subscription, CancellationToken ct)
-    {
-        var accounts = subscription.StorefrontId is { } sid
+    /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>
+    private async Task<StorefrontLedgerAccounts?> AccountsAsync(Guid? storefrontId, CancellationToken ct) =>
+        storefrontId is { } sid
             ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
             : null;
+
+    /// <summary>
+    /// The tax of the period about to be charged, at the store's rate in force NOW — computed only on the first attempt
+    /// of a period (then pinned, <see cref="RecurringChargePin"/>). Logged when the rate is unknown (<see cref="LogUnknownRate"/>).
+    /// </summary>
+    private RecurringChargeTaxResult RenewalTax(Subscription subscription, StorefrontLedgerAccounts? accounts)
+    {
         var taxInclusive = subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false;
         var tax = RecurringChargeTax.For(subscription.PriceMinor, accounts?.TaxRateBasisPoints, taxInclusive, subscription.TaxExempt);
         LogUnknownRate(logger, tax, taxInclusive, $"renew-{subscription.Id}", subscription.StorefrontId);
-        return (tax, accounts);
+        return tax;
     }
 
     /// <summary>

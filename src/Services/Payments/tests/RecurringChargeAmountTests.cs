@@ -147,6 +147,74 @@ public class RecurringChargeAmountTests
     }
 
     [Fact]
+    public async Task A_renewal_retried_after_a_rate_change_charges_the_SAME_amount_under_the_same_key()
+    {
+        // A provider rejects a reused idempotency key with different parameters (Stripe idempotency_error), so a retry of
+        // the same period must re-send exactly what the first attempt sent — the amount is pinned per period key.
+        await using var db = NewDb();
+        var store = AddStore(db, 825, inclusive: false);
+        var subscription = await StartAsync(db, store, 1000, "USD", taxInclusive: false);
+        var provider = new RecordingProvider { ThrowFirst = 1 };
+        var service = new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(), new FixedTime(Now.AddMonths(1)),
+            new ListLogger<SubscriptionService>());
+
+        var failed = await service.RenewAsync(TenantId, subscription.Id, default);  // provider down → dunned
+        Assert.Equal(SubscriptionStatus.PastDue, failed!.Status);
+        await SetRateAsync(db, store, 1000);                                         // the rate rises before the retry
+        await service.RenewAsync(TenantId, subscription.Id, default);                // the same period, retried
+
+        Assert.Equal(2, provider.Requests.Count);
+        Assert.Equal(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey);
+        Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));       // pinned at 8.25%, not re-priced at 10%
+        var entry = await EntryAsync(db, $"renew-{subscription.Id}-2");
+        Assert.Equal(83, Credit(entry, $"tax.store-{store:N}"));                    // the split posted == the split charged
+        Assert.Equal(1083, Debit(entry, Accounts.CashStoreFor(store, "stripe")));
+        Assert.Equal(1083, (await RenewalAsync(db, subscription.Id, 2)).AmountMinor);
+    }
+
+    [Fact]
+    public async Task The_next_period_is_a_new_key_and_takes_the_rate_then_in_force()
+    {
+        await using var db = NewDb();
+        var store = AddStore(db, 825, inclusive: false);
+        var subscription = await StartAsync(db, store, 1000, "USD", taxInclusive: false);
+        var (service, provider, _) = Service(db);
+
+        await service.RenewAsync(TenantId, subscription.Id, default);
+        await SetRateAsync(db, store, 1000);
+        await service.RenewAsync(TenantId, subscription.Id, default);
+
+        Assert.Equal([1083L, 1100L], provider.Requests.Select(r => r.AmountMinor));
+        Assert.NotEqual(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey);
+    }
+
+    [Fact]
+    public async Task A_usage_charge_redelivered_after_a_rate_change_charges_the_same_amount_and_posts_once()
+    {
+        await using var db = NewDb();
+        var store = AddStore(db, 825, inclusive: false);
+        var provider = new RecordingProvider { ThrowFirst = 1 };
+        var registry = new SingleProviderRegistry(provider);
+        const string reference = "overage-retry-1";
+
+        Task Deliver() => UsageChargeBilling.ChargeAndPostAsync(
+            db, registry, Resolver(), TimeProvider.System, new ListLogger<RecurringChargeAmountTests>(),
+            store, 1000, "USD", reference, "Usage overage", default);
+
+        await Assert.ThrowsAsync<HttpRequestException>(Deliver);   // first delivery: the provider call blows up
+        await SetRateAsync(db, store, 1000);                       // the rate changes before the redelivery
+        await Deliver();                                           // redelivery
+        await Deliver();                                           // a duplicate after success
+
+        Assert.Equal(2, provider.Requests.Count);                  // the duplicate never reached the rail
+        Assert.All(provider.Requests, r => Assert.Equal(reference, r.IdempotencyKey));
+        Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));
+        var entry = await EntryAsync(db, reference);               // SingleAsync: posted exactly once
+        Assert.Equal(83, Credit(entry, $"tax.store-{store:N}"));
+        Assert.Equal(1083, Debit(entry, Accounts.CashStoreFor(store, "stripe")));
+    }
+
+    [Fact]
     public async Task A_failed_usage_charge_posts_nothing()
     {
         await using var db = NewDb();
@@ -194,6 +262,13 @@ public class RecurringChargeAmountTests
         return id;
     }
 
+    private static async Task SetRateAsync(PaymentsDbContext db, Guid store, int bps)
+    {
+        var row = await db.StorefrontLedgerAccounts.SingleAsync(x => x.StorefrontId == store);
+        row.TaxRateBasisPoints = bps;
+        await db.SaveChangesAsync();
+    }
+
     private static async Task<Subscription> StartAsync(
         PaymentsDbContext db, Guid store, long price, string currency, bool? taxInclusive, bool taxExempt = false)
     {
@@ -233,11 +308,21 @@ public class RecurringChargeAmountTests
     {
         public List<PaymentRequest> Requests { get; } = [];
         public PaymentOutcome Outcome { get; init; } = PaymentOutcome.Succeeded;
+
+        /// <summary>Throw on this many first calls (a provider outage), recording the request first.</summary>
+        public int ThrowFirst { get; set; }
+
         public string ProviderKey => "stripe";
 
         public Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct)
         {
             Requests.Add(request);
+            if (ThrowFirst > 0)
+            {
+                ThrowFirst--;
+                throw new HttpRequestException("provider unavailable");
+            }
+
             return Task.FromResult(new PaymentResponse($"pi_rec_{Requests.Count}", null, Outcome));
         }
 

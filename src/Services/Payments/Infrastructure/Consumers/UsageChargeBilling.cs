@@ -15,7 +15,8 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 /// price, ADR-0038) with checkout's arithmetic (<see cref="RecurringChargeTax"/>, ADR-0063 P4);</item>
 /// <item>charge the rail <see cref="RecurringChargeTaxResult.ChargeMinor"/> — the amount itself on an inclusive /
 /// 0% / unknown-rate store, the amount + the added tax on an exclusive (US) store (owner decision 2026-10-15,
-/// option A);</item>
+/// option A) — pinned to the reference on the first attempt (<see cref="RecurringChargePin"/>), so every retry
+/// sends the same amount under the same idempotency key;</item>
 /// <item>on a settled charge, post a receivable-bridged <see cref="Ledger.Sale"/> attributed to the storefront:
 /// net to <c>revenue.store-{id}</c>, tax to <c>tax.store-{id}</c>, gross to <c>cash.store-{id}.{provider}</c>.
 /// No fee/shipping.</item>
@@ -36,9 +37,16 @@ public static class UsageChargeBilling
         var accounts = storefrontId is { } sid
             ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, ct)
             : null;
-        var taxInclusive = accounts?.TaxInclusive ?? false;
-        var tax = RecurringChargeTax.For(amountMinor, accounts?.TaxRateBasisPoints, taxInclusive);
-        SubscriptionService.LogUnknownRate(logger, tax, taxInclusive, reference, storefrontId);
+        // Computed once per reference and PINNED (persisted before the provider call): a redelivery of the same
+        // message — even after the store's rate changed — re-sends the same amount under the same key, so the
+        // provider de-duplicates it instead of rejecting a changed amount or charging twice.
+        var tax = await RecurringChargePin.PinAsync(db, time, reference, () =>
+        {
+            var taxInclusive = accounts?.TaxInclusive ?? false;
+            var computed = RecurringChargeTax.For(amountMinor, accounts?.TaxRateBasisPoints, taxInclusive);
+            SubscriptionService.LogUnknownRate(logger, computed, taxInclusive, reference, storefrontId);
+            return computed;
+        }, ct);
 
         var account = modeResolver.DefaultAccountForHost();
         var response = await registry.Resolve(account).AuthorizeAsync(
