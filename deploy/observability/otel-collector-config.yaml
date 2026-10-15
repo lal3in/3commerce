@@ -23,6 +23,35 @@ receivers:
 
 processors:
   batch: {}
+  # Defence in depth against secrets/PII in telemetry (observability audit P0-2). The services must not
+  # log them in the first place (LoggingEmailSender logs bodies/links in Development only); this catches
+  # what slips through before it is stored: one-time tokens in links/query strings, bearer credentials,
+  # email addresses, and Authorization/Cookie headers (as attributes). Built-in `transform` processor of
+  # the contrib image in use (0.110.0) — no new image. Regexes avoid backslashes and dollar signs on purpose (no
+  # escaping or env-expansion surprises); keep this block identical to the Helm copy
+  # (deploy/helm/3commerce/templates/observability.yaml).
+  transform/redact:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+          - 'replace_pattern(body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_pattern(body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_pattern(body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_pattern(body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+          - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+    trace_statements:
+      - context: span
+        statements:
+          - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+          - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
   # Declutter the Loki log view: drop the high-volume BACKGROUND logs that carry no trace context —
   # EF SQL from outbox/inbox polling and MassTransit bus polling run outside any request span, so they
   # have an empty trace_id and can never link to a trace. Guarded on trace_id == 0 so in-request
@@ -59,9 +88,9 @@ service:
       exporters: [prometheus, prometheusremotewrite]
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [transform/redact, batch]
       exporters: [otlp/tempo]
     logs:
       receivers: [otlp]
-      processors: [filter/loki_noise, batch]
+      processors: [filter/loki_noise, transform/redact, batch]
       exporters: [otlphttp/loki]

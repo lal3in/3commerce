@@ -77,6 +77,22 @@ observability:
     image: grafana/tempo:2.6.1
   mimir:
     image: grafana/mimir:2.14.1
+  # Explicit retention (observability audit P0-2, Q2). Loki deletes log chunks older than `logs` via its
+  # compactor, Tempo drops trace blocks older than `traces`, Mimir's compactor drops metric blocks older than
+  # `metrics`. Dev keeps metrics short; values-prod.yaml raises metrics to 13 months. (The in-chart stack is
+  # emptyDir-backed, so a pod restart loses everything sooner — these bound a long-lived pod and are the
+  # settings to carry into the production backend, P0-5.)
+  retention:
+    logs: 720h          # 30 days
+    traces: 336h        # 14 days
+    metrics: 30d        # dev; prod = 395d (~13 months)
+
+# Notifications' only email sender logs instead of delivering. Outside Development the worker refuses to
+# boot unless this acknowledges a sandbox that sends no email (EmailSenderGuard, audit P0-2). Even when
+# true, a non-Development worker logs only email metadata (subject, reference, recipient hash), never
+# bodies or links. Production stays false until a real provider is wired.
+notifications:
+  allowLoggingEmailSender: false
 
 kafka:
   enabled: false         # enables EventStreaming config for apps; core workflows do not depend on Kafka

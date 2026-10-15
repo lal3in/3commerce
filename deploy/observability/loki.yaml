@@ -37,6 +37,16 @@ limits_config:
   # OTLP-native ingest stores resource/log attributes (incl. trace_id) as structured
   # metadata — v13 schema + this flag are both required for the /otlp endpoint to accept data.
   allow_structured_metadata: true
+  # Explicit retention (observability audit P0-2 / Q2): log chunks older than 30 days are deleted. Without
+  # this Loki keeps everything forever. Enforced by the compactor below (retention needs both).
+  retention_period: 720h
   # The ingest RATE limits stay at Loki's defaults on purpose: they are what keeps this single binary
   # inside the dev Docker VM's memory. Raising them to 64 MB/s let a `--data full` seed land everything
   # and Loki was OOM-killed (~3 GB RSS) in a 6 GB Colima VM.
+
+# The compactor applies retention_period (above) and processes delete requests. Loki 3 requires a
+# delete_request_store once retention is enabled.
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem

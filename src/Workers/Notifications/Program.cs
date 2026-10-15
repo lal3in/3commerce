@@ -11,6 +11,9 @@ using ThreeCommerce.Workers.Notifications.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddContainerConfig();
+// Before anything else: a non-Development host refuses to start on the logging sender (it delivers nothing)
+// unless Notifications:Email:AllowLoggingSender=true acknowledges a sandbox — production fails closed.
+EmailSenderGuard.EnsureProductionSafe(builder.Configuration, builder.Environment);
 builder.AddServiceTelemetry("notifications");
 builder.Services.AddApiProblemDetails();
 builder.Services.AddOpenApi();
@@ -19,7 +22,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 var storefrontBaseUrl = builder.Configuration["Storefront:BaseUrl"] ?? "http://localhost:3000";
 builder.Services.AddSingleton(new EmailTemplates(storefrontBaseUrl));
-// The real (dev/sandbox logging) sender, wrapped by a recorder that writes every attempt to the
+// The real (dev/sandbox logging) sender — full body in Development only, metadata elsewhere — wrapped by a recorder that writes every attempt to the
 // delivery log so Mission Control can monitor the notification pipeline (mc_proc_4).
 builder.Services.AddSingleton<LoggingEmailSender>();
 builder.Services.AddSingleton<IEmailSender>(sp => new RecordingEmailSender(
@@ -47,6 +50,13 @@ builder.Services.AddServiceHealth<NotificationsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
+if (EmailSenderGuard.IsAcknowledgedSandbox(app.Configuration, app.Environment))
+{
+    app.Logger.LogWarning(
+        "Sandbox email: {Setting}=true in environment {Environment} — emails are NOT delivered; only metadata is logged",
+        EmailSenderGuard.AllowLoggingSenderSetting, app.Environment.EnvironmentName);
+}
+
 app.UseApiProblemDetails();
 if (app.Environment.IsDevelopment())
 {

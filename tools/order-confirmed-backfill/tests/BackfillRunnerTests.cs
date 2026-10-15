@@ -77,7 +77,9 @@ public class BackfillRunnerTests
             services.AddDbContext<NotificationsDbContext>(o => Microsoft.EntityFrameworkCore.InMemoryDbContextOptionsExtensions.UseInMemoryDatabase(o, Name));
             await using var provider = services.BuildServiceProvider();
             var sender = new RecordingEmailSender(
-                new LoggingEmailSender(NullLogger<LoggingEmailSender>.Instance),
+                new LoggingEmailSender(
+                    NullLogger<LoggingEmailSender>.Instance,
+                    new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { EnvironmentName = "Development" }),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 TimeProvider.System,
                 NullLogger<RecordingEmailSender>.Instance);

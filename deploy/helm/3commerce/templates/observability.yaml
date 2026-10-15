@@ -21,6 +21,35 @@ data:
             endpoint: 0.0.0.0:4318
     processors:
       batch: {}
+      # Defence in depth against secrets/PII in telemetry (observability audit P0-2). The services must not
+      # log them in the first place (LoggingEmailSender logs bodies/links in Development only); this catches
+      # what slips through before it is stored: one-time tokens in links/query strings, bearer credentials,
+      # email addresses, and Authorization/Cookie headers (as attributes). Built-in `transform` processor of
+      # the contrib image in use (0.110.0) — no new image. Regexes avoid backslashes and dollar signs on purpose (no
+      # escaping or env-expansion surprises); keep this block identical to the dev copy
+      # (deploy/observability/otel-collector-config.yaml).
+      transform/redact:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+              - 'replace_pattern(body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+              - 'replace_pattern(body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+              - 'replace_pattern(body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+              - 'replace_pattern(body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+              - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+        trace_statements:
+          - context: span
+            statements:
+              - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+              - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+              - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
     exporters:
       prometheusremotewrite:
         endpoint: http://mimir:9009/api/v1/push
@@ -41,11 +70,11 @@ data:
           exporters: [prometheusremotewrite]
         traces:
           receivers: [otlp]
-          processors: [batch]
+          processors: [transform/redact, batch]
           exporters: [otlp/tempo]
         logs:
           receivers: [otlp]
-          processors: [batch]
+          processors: [transform/redact, batch]
           exporters: [otlphttp/loki]
 ---
 apiVersion: v1
@@ -82,6 +111,12 @@ data:
     limits_config:
       # v13 schema + structured metadata are both required for the native /otlp endpoint.
       allow_structured_metadata: true
+      # Logs are deleted after this (observability.retention.logs); enforced by the compactor below.
+      retention_period: {{ .Values.observability.retention.logs }}
+    compactor:
+      working_directory: /loki/compactor
+      retention_enabled: true
+      delete_request_store: filesystem
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -112,7 +147,7 @@ data:
           path: /var/tempo/wal
     compactor:
       compaction:
-        block_retention: 48h
+        block_retention: {{ .Values.observability.retention.traces }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -157,6 +192,9 @@ data:
       sharding_ring:
         instance_addr: 127.0.0.1
         replication_factor: 1
+    limits:
+      # Metric blocks older than this are deleted by the compactor (observability.retention.metrics).
+      compactor_blocks_retention_period: {{ .Values.observability.retention.metrics }}
 ---
 apiVersion: apps/v1
 kind: Deployment

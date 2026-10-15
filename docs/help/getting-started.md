@@ -163,6 +163,14 @@ home/search pages will show products.
 > [Testing → payment modes](./testing.md) to point it at your inbox or move to
 > sandbox credentials.
 >
+> **Emails are logged in Development only.** With no email provider, the
+> Notifications worker writes every email — including verification and
+> password-reset links — to `.run/notifications.log`, which is how local flows
+> (and `scripts/e2e-verify.sh --live`) read those links. Those links are bearer
+> secrets, so any other environment logs only the subject, reference and a
+> recipient hash, and refuses to boot at all unless
+> `Notifications:Email:AllowLoggingSender=true` acknowledges a sandbox.
+>
 > **Operator MFA** is available on the admin **Security** page (`/security`):
 > enroll a TOTP factor, manage recovery codes, and set the tenant MFA policy —
 > see [Roles &amp; permissions](./roles-permissions.md).

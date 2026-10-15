@@ -144,6 +144,10 @@
 #       its budget; a condition that never holds throws the caller's error. AddServiceBus runs the bus-outbox
 #       DELIVERY transaction READ COMMITTED (one delivery service, replacing MassTransit's) while consumer
 #       transactions stay REPEATABLE READ — MassTransit's parallel REPEATABLE READ deliveries collided with 40001
+#   A3j Unit · no secrets in email logs (NotificationEmailSafetyTests, audit P0-2): Development logs the full
+#       email (the live lane greps verify/reset links from .run/notifications.log); Production/Staging/other log
+#       subject + reference + a recipient hash, never a link, token or address; EmailSenderGuard refuses a
+#       non-Development host without Notifications:Email:AllowLoggingSender=true, the real Program refuses to boot
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -502,6 +506,11 @@ run_automated() {
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~EventuallyTests|FullyQualifiedName~OutboxDeliveryTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3i projection waits + outbox delivery"; else fail "A3i projection waits + outbox delivery"; fi
+
+  stage "A3j No secrets in email logs (audit P0-2) — full body in Development only, boot guard elsewhere"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~NotificationEmailSafetyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3j no secrets in email logs"; else fail "A3j no secrets in email logs"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

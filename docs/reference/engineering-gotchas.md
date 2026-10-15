@@ -278,6 +278,26 @@ Ledger postings (Payments):
   `BookedSupplierCostMinor`; RMA values returns from the booked figure. Never re-resolve offers for an existing
   order (an edited/re-scoped offer would book one cost and reverse another).
 
+## Privacy and telemetry
+
+- **Never log a secret or a full email address outside Development — the logs ship to Loki.** The
+  Notifications `LoggingEmailSender` once logged every email body (verification and password-reset links are
+  bearer secrets) at `Information` with no environment guard (observability audit P0-2). Now only a
+  `Development` host logs full emails (the live lane greps links from `.run/notifications.log`); every other
+  environment logs subject, reference and a `rcpt-<sha256/12>` recipient hash, and `EmailSenderGuard` refuses
+  to boot a non-Development worker unless `Notifications:Email:AllowLoggingSender=true` acknowledges a sandbox.
+  Any new log line carrying user data follows the same rule: gate on `IsDevelopment()` or log a pseudonym.
+- **The collector redacts as a backstop, not a licence.** `transform/redact` (dev
+  `deploy/observability/otel-collector-config.yaml` + the Helm copy — keep them identical) strips `token=`/
+  `password=` values, `Bearer` credentials and email addresses from log bodies and log/span attributes, and
+  deletes `Authorization`/`Cookie` attributes. It only sees OTLP: console output and `.run/*.log` are not
+  redacted. Keep its regexes free of backslashes and dollar signs (OTTL string escaping + collector env
+  expansion); validate a change with `otelcol-contrib validate --config=…` on the pinned 0.110.0.
+- **Retention is explicit:** Loki 30 d (compactor `retention_enabled` + `delete_request_store` — retention is a
+  no-op without both), Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months (`395d`) prod values, the dev
+  Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they are
+  repeated there).
+
 ## Local dev stack
 
 - **The infra is all-or-nothing — never start/stop individual infra containers by hand; use

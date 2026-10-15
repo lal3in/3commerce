@@ -155,6 +155,7 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
 
         <blockquote>
           <p><strong>Payments in dev run in mock mode.</strong> With no provider credentials, Payments defaults to <code>LocalMock</code> (<code>appsettings.Development.json</code>): checkouts complete the full saga and ledger without any external call, and each one emits a <strong>TEST ONLY / MOCK PAYMENT</strong> email (with a redacted payload) to the Notifications worker log (<code>.run/notifications.log</code>). See <a class="inline" href="testing.html">Testing → payment modes</a> to point it at your inbox or move to sandbox credentials.</p>
+          <p><strong>Emails are logged in Development only.</strong> With no email provider, the Notifications worker writes every email — including verification and password-reset links — to <code>.run/notifications.log</code>, which is how local flows (and <code>scripts/e2e-verify.sh --live</code>) read those links. Those links are bearer secrets, so any other environment logs only the subject, reference and a recipient hash, and refuses to boot at all unless <code>Notifications:Email:AllowLoggingSender=true</code> acknowledges a sandbox.</p>
           <p><strong>Operator MFA</strong> is available on the admin <strong>Security</strong> page (<code>/security</code>): enroll a TOTP factor, manage recovery codes, and set the tenant MFA policy — see <a class="inline" href="roles-permissions.html">Roles &amp; permissions</a>.</p>
         </blockquote>
 

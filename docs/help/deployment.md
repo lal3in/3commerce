@@ -20,7 +20,7 @@ scripts/launch.sh [--fresh|--reuse] [--env dev|prod]
 | `--fresh` | `docker compose down -v` first — drops the Postgres volume so init SQL re-runs, migrations re-apply, catalog is empty: a brand-new deployment. |
 | `--reuse` | keep existing data; just (re)launch (default). |
 | `--env dev` | committed dev ES256 keys, admin auto-seeded (default). |
-| `--env prod` | mint a fresh keypair, inject it, and **enforce the BL-11 secret gate** (`DevSecretGuard` refuses the committed dev key outside `Development`). |
+| `--env prod` | mint a fresh keypair, inject it, and **enforce the BL-11 secret gate** (`DevSecretGuard` refuses the committed dev key outside `Development`). Notifications refuses to boot on its logging-only email sender unless you opt in: `NOTIFICATIONS_ALLOW_LOGGING_SENDER=true scripts/launch.sh --env prod`. |
 
 Endpoints once up: gateway `:8080`, storefront `:3000`, admin `:5200`, supplier portal `:5300`. The catalog is
 **not** auto-seeded — after a fresh launch, log into the admin **Imports** screen (or
@@ -227,6 +227,7 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | `Importer:TargetRows` | `SampleDataImporter` (Catalog) | `10_500` | Sample-import row count. CI sets `400` to keep the projection storm light. |
 | `Payments:Mode` | Payments (ADR-0039) | `LocalMock` in Development, `Production` otherwise | Host mode ceiling: `LocalMock` \| `Sandbox` \| `Production`. `PaymentModeGuard` refuses `LocalMock` outside Development at boot. |
 | `Payments:DefaultProvider` | Payments | `stripe` | Provider used when an account doesn't name one (`mock`/`stripe`/`polar`/`paypal`/`afterpay`). |
+| `Notifications:Email:AllowLoggingSender` | Notifications worker (`EmailSenderGuard`) | `false` | The worker's only sender logs instead of delivering. Outside `Development` it **refuses to boot** unless this is `true` (sandbox acknowledged; compose prod: `NOTIFICATIONS_ALLOW_LOGGING_SENDER=true`, Helm: `notifications.allowLoggingEmailSender`). Only `Development` logs full emails (links included); everywhere else logs subject, reference and a recipient hash only. |
 | `Payments:AllowMockEmail` / `Payments:MockEmailTo` | Payments + Notifications worker | `true` / `dev-payments@localhost` (Development only) | TEST-ONLY mock-payment payload email; refused at boot outside Development. |
 | `Stripe:SecretKey` (+ `Polar:*`, `PayPal:*`, `Afterpay:*`) | Payments provider adapters | _unset_ | Env-injected per deploy; test/live key prefix is asserted against the mode (`docs/ops/secrets.md`). |
 | `Payments:WebhookBaseUrl` | Payments | `http://localhost:8080` | Public base URL used when a payment account is activated: the provider webhook endpoint is (re)registered at `{base}/webhooks/{provider}` and its signing secret rotated in. Set to the real public gateway URL per environment. |
