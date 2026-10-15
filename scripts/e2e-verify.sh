@@ -126,12 +126,24 @@
 #       allocator connects through its OWN Npgsql pool (distinct Application Name, never enlisted), Order.Version
 #       is the xmin concurrency token (xid column, no DDL), and GuestOrderOwnerVerified is consumed by
 #       OrderStatusConsumer (the order partition), not by the EmailVerified sweep
+#   A3h Unit · renewal + usage tax (ADR-0063 P4, RecurringChargeTaxTests): an inclusive charge extracts
+#       amount × bps/(10000+bps) half away from zero — swept equal to checkout's formula for every amount 0..20000
+#       at nine rates (and the exclusive add-on likewise) — exclusive posts none (owner decision pending), 0% /
+#       destination-exempt post no tax line, an unprojected rate is Unknown (never guessed), a 0-decimal
+#       currency rounds to whole yen, the renewal-shaped Sale books net + tax to the store's own accounts with
+#       the gross unchanged (AUD/EUR/JPY, every line Currency, one side each), and a full refund nets it to 0
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
 #   A4a Integration · bus startup (BusStartupIntegrationTests, own broker each): a publish right after host start
 #       on a FRESH broker reaches the consumer (queue bound before StartAsync returns; bus health already
 #       Healthy); a host started before its broker keeps retrying, then starts and consumes once the broker is up
+#   A4b Integration · renewal + usage tax (ADR-0063 P4, RenewalUsageTaxTests): an AU GST subscription bought through
+#       checkout snapshots its tax terms and its renewal posts net 2000 + GST 200 (== checkout's) to the store's
+#       accounts with the gross 2200 unchanged; an EU VAT renewal extracts 347 of 1999; the rate in force at the
+#       renewal applies, not the purchase rate; a destination-exempt line and a 0% store renew with no tax line;
+#       an exclusive store's renewal is unchanged (no tax added/posted, pending decision); two stores sharing a
+#       currency each book their own tax; usage overage + auto-load charges split net + tax; trial balance 0
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -445,6 +457,11 @@ run_automated() {
   if dotnet test "$ROOT/3commerce.sln" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OrderRaceGuardTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3g order-write race guards"; else fail "A3g order-write race guards"; fi
+
+  stage "A3h Renewal + usage tax (ADR-0063 P4) — checkout's inclusive split, exclusive/0%/exempt/unknown, ledger shape"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeTaxTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3h renewal + usage tax"; else fail "A3h renewal + usage tax"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

@@ -375,6 +375,12 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
+                    b.Property<bool>("TaxInclusive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("TaxRateBasisPoints")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -813,6 +819,12 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.Property<Guid?>("StorefrontId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("TaxExempt")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("TaxInclusive")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");

@@ -7,7 +7,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
 /// <summary>
 /// Keeps Payments' local copy of each storefront's ledger account codes (phase 2, ADR-0008), fed by
-/// Catalog's <see cref="StorefrontConfigChanged"/>. Upsert per storefront; an event from an older
+/// Catalog's <see cref="StorefrontConfigChanged"/>, plus its tax rate + inclusiveness (ADR-0063 P4). Upsert per storefront; an event from an older
 /// Catalog that carries no codes is ignored so it never blanks an existing projection.
 /// </summary>
 public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimeProvider time) : IConsumer<StorefrontConfigChanged>
@@ -30,6 +30,8 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
                 RevenueAccountCode = m.RevenueAccountCode,
                 TaxAccountCode = m.TaxAccountCode,
                 ShippingAccountCode = string.IsNullOrWhiteSpace(m.ShippingAccountCode) ? null : m.ShippingAccountCode,
+                TaxRateBasisPoints = m.TaxRateBasisPoints,
+                TaxInclusive = m.TaxInclusive,
                 UpdatedAt = time.GetUtcNow(),
             });
         }
@@ -39,6 +41,10 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
             row.RevenueAccountCode = m.RevenueAccountCode;
             row.TaxAccountCode = m.TaxAccountCode;
             row.ShippingAccountCode = string.IsNullOrWhiteSpace(m.ShippingAccountCode) ? null : m.ShippingAccountCode;
+            // The tax terms ride the same event (ADR-0063 P4): renewals and usage charges resolve the rate in
+            // force at the charge from here, the way checkout resolves it from Ordering's StorefrontTaxCopy.
+            row.TaxRateBasisPoints = m.TaxRateBasisPoints;
+            row.TaxInclusive = m.TaxInclusive;
             row.UpdatedAt = time.GetUtcNow();
         }
 

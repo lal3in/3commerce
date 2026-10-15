@@ -212,6 +212,12 @@ Ledger postings (Payments):
 - **Guard zero lines.** `ck_line_one_side` requires exactly one of Debit/Credit non-zero, so the
   net-revenue line is posted only `if (netMinor > 0)` (shipping-only or usage-metered orders net to
   zero). An unguarded zero line 500s the sale webhook and leaves the order unpaid.
+- **Non-order charges post tax too (ADR-0063 P4).** A subscription renewal and a usage charge are shelf-priced
+  (ADR-0038): on an inclusive store their tax is inside the charge, so posting them with `taxMinor: 0` books the
+  GST/VAT as revenue. Use `RecurringChargeTax.For` (checkout's split) with the store's projected rate in force
+  (`StorefrontLedgerAccounts.TaxRateBasisPoints`) and the subscription's snapshotted terms (`TaxInclusive`,
+  `TaxExempt`). Exclusive regimes still charge the bare price and post no tax — an owner decision, not an oversight.
+  Renewals/usage have no `Payment` row, so the refund saga and the dispute webhook cannot reach them.
 - **No-FX relabel posture (ADR-0041):** with no rate feed, a cost in another currency is relabelled
   into the order currency (with a once-per-order warning) rather than skipped. Reconciliation identity,
   asserted in `MoneyFlowTests`: per currency C, Σ(each store's account in C) + shared/unattributed =
