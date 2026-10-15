@@ -68,5 +68,5 @@ so its auto-generated `service.instance.id` differed from the traces'/metrics'.
 - Each new commit changes `SourceRevisionId`, so every project's generated AssemblyInfo changes and recompiles
   (already true since the SDK started stamping SourceLink SHAs). A dirty bare-run build differs from a plain
   `dotnet build` of the same tree, so switching between them recompiles once.
-- Pinned by `ReleaseIdentityTests` (unit lane, e2e-verify **A3h**) and live by **L2b** (the catalog service's
+- Pinned by `ReleaseIdentityTests` (unit lane, e2e-verify **A3k**) and live by **L2b** (the catalog service's
   startup line carries the commit e2e-verify built).
