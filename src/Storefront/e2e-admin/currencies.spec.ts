@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, unusedCurrencyCode } from "./helpers";
 
 // Currency registry admin page (currency_1): lists the managed currencies and adds a new one, which the
 // registry accepts (variable decimals) and then displays — the surface an operator uses to add/retire the
@@ -16,8 +16,8 @@ test("Currencies page lists the seeded set and can add a currency", async ({ pag
     await expect(table.getByText(code, { exact: true }).first()).toBeVisible({ timeout: 10_000 });
   }
 
-  // Add a fresh currency (unique per run) with a non-2-decimal value, and see it appear in the list.
-  const code = `Z${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+  // Add a currency the registry doesn't have yet (ZA?–ZM?, first unused) and see it appear in the list.
+  const code = await unusedCurrencyCode(page, "ABCDEFGHIJKLM");
   await page.getByPlaceholder("JPY").fill(code);
   await page.getByPlaceholder("Japanese Yen").fill("Test Currency");
   await page.getByPlaceholder("¥").fill("₸");
