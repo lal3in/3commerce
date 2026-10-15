@@ -88,6 +88,31 @@ Key dependencies:
   a briefly-stale flag self-heals on the next carrier/account change. It is deliberately *not* on the
   money path — checkout still resolves the acquiring account directly (decision 2).
 
+## Amendment 2026-10-16 — readiness events carry `AsOf`; Catalog keeps the newer copy
+
+The 2026-10-07 serial endpoints keep **queue** order, but queue order is not **publish** order. Every
+mutation that republishes readiness is its own bus-outbox batch (`OutboxState`), and MassTransit 8's
+`BusOutboxDeliveryService` sends batches through a `RequestRateAlgorithm`: after a delivery pass of 10 or more
+messages it runs up to six `DeliverOutbox` calls in parallel, each taking the oldest unlocked batch
+(`ORDER BY "Created" LIMIT 1 FOR UPDATE SKIP LOCKED`). Several replicas of a service do the same without any
+burst. So a payment account submitted (readiness `false`) and then activated (`true`) can reach Catalog
+`true`-first, and the blind upsert then holds `false` until the NEXT mutation of that storefront — "self-heals"
+above does not cover a storefront nobody touches again. This failed `StorefrontReadinessCrossServiceTests`
+intermittently (integration_projection_timeouts_2026_10_15); `ReadinessOutboxOrderingTests` reproduces it through
+the real Payments outbox (with the guard removed, 3 of 5 runs left a storefront stuck on `false` after Catalog
+received the two events inverted).
+
+- `StorefrontPaymentReadinessChanged` and `StorefrontCarrierReadinessChanged` gain an additive, nullable
+  `AsOf`: the time the publisher read the truth, taken just before the read, so a later `AsOf` never carries an
+  older truth (Payments admin transitions + storefront duplication, Fulfillment `CarrierService`).
+- Catalog stores `AsOf` per signal row (migration `ReadinessAsOf`) and its upsert applies an event only when
+  `EXCLUDED."AsOf" >= stored "AsOf"` (a tie applies). A null `AsOf` — an event from a publisher deployed before
+  this field — applies as before, keeping the stored `AsOf`, so a rolling deploy never stalls the projection.
+- Residual: `AsOf` comes from each publisher's clock; replicas with skewed clocks could order two events that
+  are closer together than the skew. Readiness changes are seconds apart (admin actions), far above NTP skew.
+- Rule for any "current truth" projection fed by more than one outbox batch: carry a version or `AsOf` and keep
+  the newer copy; consumer-side serialisation alone does not restore publish order.
+
 ## Consequences
 
 - The admin **Carriers** and **Payment accounts** pages require a storefront; there is no tenant-default

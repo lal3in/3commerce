@@ -141,6 +141,16 @@ you are touching before you push.
   The same holds for two events of ONE signal for one row (a carrier configured, then activated): run in
   parallel they fail with 40001, and the retried, older value can land last. Give such an endpoint
   `ConcurrentMessageLimit = 1` (Catalog `Program.cs`) so it applies them one at a time in queue order.
+- **The bus outbox does not keep publish order, so a "current truth" event needs `AsOf` (ADR-0043 amendment
+  2026-10-16).** Each request or consumer that publishes is its own outbox batch. After any delivery pass of 10+
+  messages, MassTransit's `BusOutboxDeliveryService` delivers up to six batches in parallel
+  (`RequestRateAlgorithm`, `… LIMIT 1 FOR UPDATE SKIP LOCKED`), and replicas always do. So Payments' "submitted"
+  (readiness `false`) and "activated" (`true`) reached Catalog inverted, and the blind upsert stuck on `false`:
+  `StorefrontReadinessCrossServiceTests` timed out at 30 s on 2 of ~10 full runs, never alone, and the class
+  passed in isolation. `ConcurrentMessageLimit = 1` only keeps QUEUE order. Fix: the event carries `AsOf` (read
+  time) and the projection keeps the newer copy (`… DO UPDATE … WHERE r."AsOf" <= EXCLUDED."AsOf"`); null =
+  legacy publisher, applies. Reproduce with `ReadinessOutboxOrderingTests` (burst the outbox, then two
+  transitions); a failure that says "carrier=… payment=False" (a row, but stale) points here, "no row" does not.
 - **One writer, several messages for one key: partition the endpoint by that key.** Support's
   `OrderSnapshotConsumer` is the only writer of `OrderSnapshot`, yet two `OrderConfirmed` for one order
   with different message ids (the inbox only dedupes a repeated id) consumed in parallel both saw no row
