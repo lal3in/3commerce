@@ -54,6 +54,32 @@
           "legendFormat": "{{service_name}}"
         }
       ]
+    },
+    {
+      "id": 4,
+      "title": "Running releases by service (ADR-0064)",
+      "description": "Which build each service runs: service.version (<version>+<sha7>[-dirty]), the full commit (vcs.ref.head.revision) and the deployment environment — the release resource every span/metric/log carries. A service listed twice is mid-rollout, or two generations are running.",
+      "type": "table",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "group by (service_name, service_version, vcs_ref_head_revision, deployment_environment_name) (http_server_request_duration_seconds_count)",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Value": true },
+            "indexByName": { "service_name": 0, "service_version": 1, "vcs_ref_head_revision": 2, "deployment_environment_name": 3 },
+            "renameByName": { "service_name": "service", "service_version": "service.version", "vcs_ref_head_revision": "commit", "deployment_environment_name": "environment" }
+          }
+        }
+      ]
     }
   ]
 }

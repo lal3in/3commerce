@@ -35,6 +35,12 @@ done
 [ "$ENV" = dev ] || [ "$ENV" = prod ] || { echo "--env must be dev or prod" >&2; exit 1; }
 
 export ENV
+# Release identity (ADR-0064): compose passes these as build args (x-release-args) so every image — and every
+# span/metric/log its service emits — carries the commit it was built from. Caller-set values win.
+source scripts/lib/release.sh
+GIT_SHA="${GIT_SHA:-$(release_revision)}"
+VERSION="$(release_version)"
+export GIT_SHA VERSION
 COMPOSE=(-f docker-compose.yml)
 
 if [ "$ENV" = prod ]; then
@@ -45,7 +51,7 @@ if [ "$ENV" = prod ]; then
   export INTERNAL_AUTH_PRIVATE_KEY="$PRIV"
   export INTERNAL_AUTH_PUBLIC_KEY="$PUB"
   export INTERNAL_AUTH_ADMIN_PASSWORD="$(openssl rand -base64 24 | tr '+/' '-_' | tr -d '=')"
-  printf 'ASPNETCORE_ENVIRONMENT=Production\n' > deploy/.env.prod
+  printf 'ASPNETCORE_ENVIRONMENT=Production\nOTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=prod\n' > deploy/.env.prod
   COMPOSE+=(-f docker-compose.prod.yml)
 fi
 

@@ -148,6 +148,10 @@
 #       email (the live lane greps verify/reset links from .run/notifications.log); Production/Staging/other log
 #       subject + reference + a recipient hash, never a link, token or address; EmailSenderGuard refuses a
 #       non-Development host without Notifications:Email:AllowLoggingSender=true, the real Program refuses to boot
+#   A3k Unit · release stamping (ReleaseIdentityTests, ADR-0064): InformationalVersion <ver>+<sha>[-dirty] →
+#       service.version <ver>+<sha7>[-dirty] + vcs.ref.head.revision <sha>; host environment → deployment.environment.name
+#       (dev/test/prod/ci); explicit OTEL_RESOURCE_ATTRIBUTES wins per key (percent-decoded); a build without a SHA
+#       starts with no revision; a real host's tracer + meter resources share one release identity + instance id
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -359,6 +363,9 @@
 #   L1  Infra healthy: the WHOLE infra set up (all-or-nothing, scripts/lib/infra.sh — every container running +
 #       healthy/probed; the core set on CI) + Postgres holds all service DBs from init-databases.sql
 #   L2  All six services report /health/ready
+#   L2b Release identity (ADR-0064): the catalog service's "Release identity:" startup line carries
+#       service.version, deployment.environment.name and vcs.ref.head.revision = the commit this run built
+#       (an own boot), or any full SHA on a reused stack (reported against HEAD — it was built earlier)
 #   L3  Ping-pong spine flows through the gateway to the Notifications worker
 #   L4  Gateway blocks internal health routes (/api/*/health* → 404)
 #   L5  Register → 202, identical body on repeat (no user enumeration)
@@ -427,6 +434,7 @@ MODE="auto"
 
 [[ "${CI:-}" == true ]] && export INFRA_SET="${INFRA_SET:-core}"
 source "$ROOT/scripts/lib/infra.sh"
+source "$ROOT/scripts/lib/release.sh"   # release_revision (ADR-0064): what an own boot stamps + L2b expects
 source "$ROOT/scripts/lib/procs.sh"
 
 PASS=0 FAIL=0
@@ -511,6 +519,11 @@ run_automated() {
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~NotificationEmailSafetyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3j no secrets in email logs"; else fail "A3j no secrets in email logs"; fi
+
+  stage "A3k Release stamping (ADR-0064) — service.version + vcs.ref.head.revision + deployment.environment.name"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ReleaseIdentityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3k release stamping"; else fail "A3k release stamping"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -684,7 +697,7 @@ run_live() {
   stage "Booting services"
   APP_BOOTED=1
   mkdir -p "$ROOT/.run"
-  dotnet build "$ROOT/3commerce.sln" >/dev/null 2>&1
+  GIT_SHA="$(release_revision)" dotnet build "$ROOT/3commerce.sln" >/dev/null 2>&1
   : > "$ROOT/.run/notifications.log" 2>/dev/null || true
   "$ROOT/scripts/run-all.sh" start >/dev/null
   # Wait for service health BEFORE the CPU-heavy storefront build (avoids startup contention).
@@ -711,6 +724,34 @@ run_live() {
     # Reusing: still PROVE the running services are healthy rather than assuming it.
     local ok=1; for p in 5101 5102 5103 5104 5105 5106 5107; do wait_health "$p" || ok=0; done
     [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || fail "L2 service health"
+  fi
+
+  stage "L2b Release identity (ADR-0064)"
+  # Every service logs "Release identity: service.name=… service.version=… vcs.ref.head.revision=<sha> …" once at
+  # startup — the same attributes its OTel resource exports. bare-run opens .run/<svc>.log with '>', so the line
+  # of the RUNNING generation is the first one in the file.
+  local rel_line rel_rev rel_head
+  rel_line="$(grep -a -m1 'Release identity:' "$ROOT/.run/catalog.log" 2>/dev/null || true)"
+  rel_rev="$(grep -oE 'vcs\.ref\.head\.revision=[0-9a-f]{40}' <<<"$rel_line" | cut -d= -f2 || true)"
+  rel_head="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -z "$rel_line" ]]; then
+    fail "L2b release identity (no 'Release identity:' line in .run/catalog.log)"
+  elif ! grep -qE 'service\.version=[^ ]+ .*deployment\.environment\.name=[^ ]+' <<<"$rel_line"; then
+    fail "L2b release identity (version/environment missing: ${rel_line##*Release identity: })"
+  elif (( APP_BOOTED )); then
+    if [[ -n "$rel_head" && "$rel_rev" == "$rel_head" ]]; then
+      pass "L2b catalog stamped with the commit this run built (${rel_head:0:7})"
+    else
+      fail "L2b release identity (catalog reports '${rel_rev:-none}', this run built '${rel_head:-?}')"
+    fi
+  elif [[ -n "$rel_rev" ]]; then
+    if [[ "$rel_rev" == "$rel_head" ]]; then
+      pass "L2b reused stack stamped ${rel_rev:0:7} (= HEAD)"
+    else
+      pass "L2b reused stack stamped ${rel_rev:0:7} (HEAD is ${rel_head:0:7} — the running stack was built earlier)"
+    fi
+  else
+    fail "L2b release identity (reused stack carries no commit SHA: ${rel_line##*Release identity: })"
   fi
 
   stage "L3–L4  Gateway routing"

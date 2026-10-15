@@ -29,4 +29,10 @@ COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 EXPOSE 3000
+# OCI image labels (ADR-0064): which commit this image is. Last, so a new SHA never busts the layers above.
+ARG GIT_SHA=""
+ARG VERSION=""
+LABEL org.opencontainers.image.source="https://github.com/lal3in/3commerce" \
+      org.opencontainers.image.revision="$GIT_SHA" \
+      org.opencontainers.image.version="$VERSION"
 CMD ["node", "server.js"]

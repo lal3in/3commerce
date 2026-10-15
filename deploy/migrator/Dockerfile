@@ -31,4 +31,10 @@ WORKDIR /bundles
 COPY --from=build /bundles/ ./
 COPY deploy/migrator/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+# OCI image labels (ADR-0064): which commit this image is. Last, so a new SHA never busts the layers above.
+ARG GIT_SHA=""
+ARG VERSION=""
+LABEL org.opencontainers.image.source="https://github.com/lal3in/3commerce" \
+      org.opencontainers.image.revision="$GIT_SHA" \
+      org.opencontainers.image.version="$VERSION"
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

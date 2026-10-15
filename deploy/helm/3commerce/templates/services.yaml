@@ -38,6 +38,7 @@ spec:
               value: "true"
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ $.Values.environment | quote }}
+            {{- include "3commerce.otelResourceEnv" $ | nindent 12 }}
             {{- if and (ne $.Values.environment "Development") $.Values.secret.name }}
             - name: InternalAuth__PublicKey
               valueFrom:

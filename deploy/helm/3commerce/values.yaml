@@ -1,5 +1,9 @@
 # Defaults = dev. Override with -f values-dev.yaml or -f values-prod.yaml.
 environment: Development            # ASPNETCORE_ENVIRONMENT (Development = committed dev keys, admin seeded)
+# Release identity (ADR-0064): deployment.environment.name on every span/metric/log of the .NET services, gateway
+# and worker (dev | test | prod). Set per release stage — the `test` stage runs Production config but reports
+# "test" (--set deploymentEnvironment=test). Rendered into OTEL_RESOURCE_ATTRIBUTES, which wins over the mapping.
+deploymentEnvironment: dev
 
 image:
   repoPrefix: 3commerce             # image = {repoPrefix}/{name}:{tag}; for kind, build+`kind load` these

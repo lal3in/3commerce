@@ -2,6 +2,7 @@
 #   deploy/helm/make-secret.sh | kubectl apply -f -
 # then: helm install 3commerce deploy/helm/3commerce -f values-prod.yaml
 environment: Production
+deploymentEnvironment: prod   # a release-candidate (test) install: --set deploymentEnvironment=test
 secret:
   name: 3commerce-secrets
 kafka:
