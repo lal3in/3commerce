@@ -161,17 +161,20 @@ public class CheckoutAttemptLine
     public BillingPeriod BillingPeriod { get; init; } = BillingPeriod.Once;
 }
 
+/// <summary>
+/// A storefront's order-number counter: <see cref="NextNumber"/> is the number the next order gets.
+/// It is advanced only by Infrastructure's <c>OrderNumberAllocator</c>, in one atomic statement outside the
+/// confirming transaction — never read-then-incremented through EF, which collided (40001/23505) when two
+/// orders of one storefront confirmed together. Numbers can therefore have gaps (a confirmation that rolls
+/// back burns its number); they are order references, not tax-invoice numbers.
+/// </summary>
 public class OrderNumberSequence
 {
-    public Guid StorefrontId { get; init; }
-    public long NextNumber { get; set; } = 1000;
+    /// <summary>A storefront's first order number.</summary>
+    public const long FirstNumber = 1000;
 
-    public long ReserveNext()
-    {
-        var number = NextNumber;
-        NextNumber++;
-        return number;
-    }
+    public Guid StorefrontId { get; init; }
+    public long NextNumber { get; set; } = FirstNumber;
 }
 
 public sealed class OrderingRuleException(string message) : Exception(message);

@@ -92,7 +92,7 @@ public static class OrdersEndpoints
         return TypedResults.Ok(counts);
     }
 
-    private static async Task<Results<Accepted, NotFound, Conflict<string>>> CancelOrder(
+    private static async Task<Results<Accepted, NotFound, ProblemHttpResult>> CancelOrder(
         Guid id, CancelOrderRequest? request, OrderingDbContext db, IPublishEndpoint publisher,
         IAuditRecorder audit, ClaimsPrincipal user, CancellationToken ct)
     {
@@ -104,15 +104,17 @@ public static class OrdersEndpoints
 
         if (order.Status == OrderStatus.Cancelled)
         {
-            return TypedResults.Conflict("Order is already cancelled.");
+            return OrderingProblems.OrderRefused(OrderRefusal.AlreadyCancelled, "Order is already cancelled.");
         }
 
         if (order.Status == OrderStatus.Confirmed)
         {
-            return TypedResults.Conflict("Confirmed (paid) orders can't be cancelled — issue a refund instead.");
+            return OrderingProblems.OrderRefused(
+                OrderRefusal.PaidOrderNotCancellable, "Confirmed (paid) orders can't be cancelled — issue a refund instead.");
         }
 
-        // The OrderStatusConsumer transitions the (unpaid) order to Cancelled.
+        // The OrderStatusConsumer transitions the (unpaid) order to Cancelled — on the order's partition, in line
+        // with its other events. This handler never writes the Orders row itself, so it needs no Version check.
         var reason = request?.Reason ?? "cancelled by admin";
         await publisher.Publish(new OrderCancelled(id, reason), ct);
         await audit.RecordAsync(user.Mutation(
@@ -141,7 +143,8 @@ public static class OrdersEndpoints
                 o.Id, o.PublicOrderNumber, o.Status.ToString(), o.GrossMinor, o.Currency, o.CreatedAt,
                 o.CollectAtWarehouse, o.Email,
                 o.Lines.Where(l => l.SupplierId == supplierId.Value)
-                    .Select(l => new SupplierOrderLine(l.Title, l.Quantity, l.FulfilmentType.ToString())).ToList()))
+                    .Select(l => new SupplierOrderLine(l.Title, l.Quantity, l.FulfilmentType.ToString())).ToList(),
+                o.Version))
             .ToListAsync(ct);
         return TypedResults.Ok(orders);
     }
@@ -151,8 +154,13 @@ public static class OrdersEndpoints
     // Authorized to the FULFILLING supplier only (a line SupplierId matching the caller's supplier_entity)
     // or an operator (admin/master); any other supplier is forbidden even if signed in. Idempotent: an
     // already-Delivered order returns 200 with no second event.
-    private static async Task<Results<Ok<OrderStatusResponse>, NotFound, ForbidHttpResult, Conflict<string>>> MarkDelivered(
-        Guid id, ClaimsPrincipal user, OrderingDbContext db, IPublishEndpoint publisher,
+    //
+    // Optimistic concurrency (Order.Version = xmin): this HTTP write runs outside the order's event partition, so
+    // a refund/dispute/attach event can change the row between the read and the save. EF's UPDATE carries
+    // `AND xmin = @loaded`; a concurrent commit makes it match nothing → 409 problem+json, never a lost update.
+    // A client that sends the Version it displayed also gets 409 when the order changed since it loaded it.
+    private static async Task<Results<Ok<OrderStatusResponse>, NotFound, ForbidHttpResult, ProblemHttpResult>> MarkDelivered(
+        Guid id, MarkDeliveredRequest? request, ClaimsPrincipal user, OrderingDbContext db, IPublishEndpoint publisher,
         IAuditRecorder audit, CancellationToken ct)
     {
         var order = await db.Orders.Include(o => o.Lines).SingleOrDefaultAsync(o => o.Id == id, ct);
@@ -172,12 +180,18 @@ public static class OrdersEndpoints
 
         if (order.Status == OrderStatus.Delivered)
         {
-            return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString())); // idempotent
+            return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString(), order.Version)); // idempotent
+        }
+
+        if (request?.Version is { } expected && expected != order.Version)
+        {
+            return OrderingProblems.OrderRefused(
+                OrderRefusal.ChangedConcurrently, OrderingProblems.OrderChangedConcurrentlyDetail, order.Version);
         }
 
         if (order.Status != OrderStatus.Confirmed)
         {
-            return TypedResults.Conflict("Only a confirmed order can be marked delivered.");
+            return OrderingProblems.OrderRefused(OrderRefusal.NotConfirmed, "Only a confirmed order can be marked delivered.");
         }
 
         order.Status = OrderStatus.Delivered;
@@ -185,8 +199,18 @@ public static class OrdersEndpoints
         await publisher.Publish(new OrderDelivered(order.Id, order.TenantId, actingSupplier), ct);
         await audit.RecordAsync(user.Mutation(
             order.TenantId, "Order", order.Id.ToString(), "ordering.order.mark_delivered", $"#{order.PublicOrderNumber}"), ct);
-        await db.SaveChangesAsync(ct); // flush the bus outbox (OrderDelivered + AuditEntryRecorded)
-        return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString()));
+        try
+        {
+            await db.SaveChangesAsync(ct); // flush the bus outbox (OrderDelivered + AuditEntryRecorded)
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The UPDATE matched no row: the order changed after we read it. The whole SaveChanges rolled back,
+            // so neither the status change nor OrderDelivered / the audit entry went out.
+            return OrderingProblems.OrderRefused(OrderRefusal.ChangedConcurrently, OrderingProblems.OrderChangedConcurrentlyDetail);
+        }
+
+        return TypedResults.Ok(new OrderStatusResponse(order.Id, order.Status.ToString(), order.Version));
     }
 
     private static async Task<Ok<List<OrderSummary>>> ListMyOrders(
@@ -288,7 +312,7 @@ public static class OrdersEndpoints
         o.Id, o.Status.ToString(), o.Email, o.NetMinor, o.ShippingMinor, o.DiscountMinor, o.TaxMinor, o.GrossMinor, o.Currency, o.CreatedAt,
         o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.VariantId, l.VariantSku, l.Title, l.UnitPriceMinor, l.DiscountMinor, l.Quantity, l.FulfilmentType.ToString(), l.BillingMode.ToString())).ToList(),
         o.PublicOrderNumber, o.PaymentOption, o.PaymentInstrumentSummary, o.PaymentProvider, o.PartiallyRefunded, o.Disputed,
-        new ShippingAddressResponse(o.ShipName, o.ShipLine1, o.ShipCity, o.ShipPostcode, o.ShipCountry));
+        new ShippingAddressResponse(o.ShipName, o.ShipLine1, o.ShipCity, o.ShipPostcode, o.ShipCountry), o.Version);
 }
 
 // PaymentOption defaults for legacy rows: the column is NOT NULL with a "CreditCard" DB default,
@@ -300,13 +324,18 @@ public record OrderDetail(
     Guid Id, string Status, string Email, long NetMinor, long ShippingMinor, long DiscountMinor, long TaxMinor, long GrossMinor,
     string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines,
     long PublicOrderNumber = 0, string PaymentOption = "CreditCard", string? PaymentInstrumentSummary = null,
-    string PaymentProvider = "Stripe", bool PartiallyRefunded = false, bool Disputed = false, ShippingAddressResponse? ShippingAddress = null);
-public record OrderStatusResponse(Guid Id, string Status);
+    string PaymentProvider = "Stripe", bool PartiallyRefunded = false, bool Disputed = false, ShippingAddressResponse? ShippingAddress = null,
+    uint Version = 0);
+// Version: the order's concurrency token (xmin) — null for a checkout attempt that is not an order yet.
+public record OrderStatusResponse(Guid Id, string Status, uint? Version = null);
+
+/// <summary>Optional body of mark-delivered: the order Version the caller last saw. Sent, a stale value is a 409.</summary>
+public record MarkDeliveredRequest(uint? Version);
 public record CancelOrderRequest(string? Reason);
 public record SupplierOrderLine(string Title, int Quantity, string FulfilmentType);
 public record SupplierOrderSummary(
     Guid Id, long PublicOrderNumber, string Status, long GrossMinor, string Currency, DateTimeOffset CreatedAt,
-    bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines);
+    bool CollectAtWarehouse, string Email, List<SupplierOrderLine> Lines, uint Version = 0);
 public record CheckoutStateCountDto(string State, int Count);
 
 /// <summary>Coupon usage for one promotion (ADR-0052): held (reserved + confirmed), confirmed, and the cap

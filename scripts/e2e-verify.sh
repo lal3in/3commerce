@@ -76,10 +76,13 @@
 #       Ordering REFUSAL CODES (OrderingProblemsTests): the numeric checkoutBlock 0–16 / cartRefusal 0–5 wire
 #       values never renumber, the status per code (409 price drift, 503 payment unavailable, 409 cart
 #       currency conflict, else 400/404), one stable title per code (ADR-0059's two gates keep #282's shared
-#       title), and the problem result carries code + detail + extra extensions;
+#       title), and the problem result carries code + detail + extra extensions; orderRefusal 0–4 (admin
+#       cancel / mark-delivered, all 409) likewise never renumbers, has one title per code, and the
+#       ChangedConcurrently problem carries "This order was just updated — refresh and try again." +
+#       currentVersion (omitted when unknown);
 #       ITaxStrategy home-regime/default-zero/export zero-rating behavior;
 #       Ordering CheckoutAttempt before Order, per-storefront
-#       order-number sequence, and campaign/storefront checkout snapshot seam;
+#       order-number sequence starting at 1000, and campaign/storefront checkout snapshot seam;
 #       Payments PaymentAccount lifecycle/readiness, tenant default/storefront override,
 #       saved card/customer vault snapshots and active-method rules,
 #       active-only checkout snapshot, provider mode snapshot, supplier bank approval,
@@ -119,6 +122,10 @@
 #       MassTransitHostOptions.WaitUntilStarted with a bounded StartTimeout (Messaging:StartTimeoutSeconds, default
 #       120; non-positive refused); a host whose broker is unreachable fails its start at the bound with
 #       "Broker unreachable" instead of hanging or serving without a bus
+#   A3g Unit · order-write race guards (OrderRaceGuardTests, ADR-0007 amendment 2026-10-11): the order-number
+#       allocator connects through its OWN Npgsql pool (distinct Application Name, never enlisted), Order.Version
+#       is the xmin concurrency token (xid column, no DDL), and GuestOrderOwnerVerified is consumed by
+#       OrderStatusConsumer (the order partition), not by the EmailVerified sweep
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -228,7 +235,21 @@
 #       for each of 20 orders at once → every order Disputed + PartiallyRefunded, no 40001/23505, nothing in
 #       order-status_error; partial-then-full refunds for 10 orders land Refunded AND PartiallyRefunded (queue
 #       order kept per order); a redelivered refund is a no-op (endpoint partitioned by order id across all
-#       five event types) (OrderStatusConcurrencyTests)
+#       five event types) (OrderStatusConcurrencyTests);
+#       ORDER NUMBERS under concurrency (OrderNumberAllocationTests): 24 CheckoutCompleted for ONE brand-new
+#       storefront at once → 24 orders, 24 unique numbers ≥ 1000, no 23505/40001 log line, no fault, nothing
+#       in order-status_error; NEGATIVE CONTROL: the old read-then-increment under REPEATABLE READ, all racers
+#       reading before any writes → 3 of 4 fail with 40001 (row exists) / 23505 (first order); the atomic
+#       allocator in the same harness → 8 of 8 succeed, unique and gapless from 1000;
+#       ORDER EDITS outside the partition (OrderEditConcurrencyTests): mark-delivered with the current version
+#       → 200 (new version returned), repeat → 200 idempotent, body-less → 200; with a STALE version (a
+#       dispute landed since) → 409 problem+json orderRefusal 4 + currentVersion, order untouched, retry with
+#       currentVersion → 200; a commit between the endpoint's read and its save (row lock held by another
+#       transaction) → 409 and the other write survives; PaymentDisputed and mark-delivered fired together
+#       for 12 orders → Disputed never lost, Delivered exactly when the endpoint said 200, else 409, no
+#       _error growth; guest attach (EmailVerified) concurrent with dispute + partial refund for 6 orders × 3
+#       rounds → every order attached AND Disputed AND PartiallyRefunded, no 23505/40001;
+#       admin cancel of a paid order → 409 problem+json orderRefusal 2 (MoneyFlowTests)
 #   A6d Integration · RMA saga: approve → refund → RefundIssued, double-approve no-op,
 #       deny path + require-return → AwaitingReturn → return-received releases the refund;
 #       per-line RMA derives the refund server-side from the order snapshot
@@ -382,7 +403,7 @@ try:
     assert isinstance(p, dict) and ("title" in p or "detail" in p)
 except Exception:
     print(raw[:400]); sys.exit(0)
-codes = " ".join(f"{k}={p[k]}" for k in ("checkoutBlock", "cartRefusal", "couponStatus", "errorCode") if k in p)
+codes = " ".join(f"{k}={p[k]}" for k in ("checkoutBlock", "cartRefusal", "orderRefusal", "couponStatus", "errorCode") if k in p)
 print(f"{p.get('title', '')} — {p.get('detail', '')}" + (f" [{codes}]" if codes else ""))
 PY
 }
@@ -419,6 +440,11 @@ run_automated() {
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~BusStartupTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3f services wait for their bus"; else fail "A3f services wait for their bus"; fi
+
+  stage "A3g Order-write race guards — order-number allocator pool, xmin token, guest attach on the order partition"
+  if dotnet test "$ROOT/3commerce.sln" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OrderRaceGuardTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3g order-write race guards"; else fail "A3g order-write race guards"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

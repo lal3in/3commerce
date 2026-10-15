@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Identity;
+using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.Ordering.Domain;
 
 namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
@@ -12,6 +13,14 @@ namespace ThreeCommerce.Ordering.Infrastructure.Consumers;
 /// AFTER verification (payment settles later than the account conversion) attach at
 /// creation time in <see cref="OrderStatusConsumer"/>. Idempotent — re-running just
 /// re-matches the same orders and upserts the same copy row.
+/// <para>
+/// It never writes an order row itself. <see cref="EmailVerified"/> is keyed by email, not by order, so it
+/// cannot share the order partition; updating the matching orders here ran concurrently with their status
+/// events (a refund or dispute landing while the shopper verified) and failed with 40001 under the outbox's
+/// REPEATABLE READ transaction. Instead it publishes one <see cref="GuestOrderOwnerVerified"/> per matching
+/// order (through the outbox, so only once this commits), which <see cref="OrderStatusConsumer"/> applies on
+/// that order's partition, in line with the order's other events.
+/// </para>
 /// </summary>
 public sealed class GuestOrderAttachConsumer(OrderingDbContext db) : IConsumer<EmailVerified>
 {
@@ -37,14 +46,15 @@ public sealed class GuestOrderAttachConsumer(OrderingDbContext db) : IConsumer<E
             copy.VerifiedAt = DateTimeOffset.UtcNow;
         }
 
-        // Sweep guest orders that already exist with this (now verified) email.
-        var orphans = await db.Orders
+        // Guest orders that already exist with this (now verified) email: hand each to its own partition.
+        var orphans = await db.Orders.AsNoTracking()
             .Where(o => o.UserId == null && o.Email.ToLower() == email)
+            .Select(o => o.Id)
             .ToListAsync(context.CancellationToken);
 
-        foreach (var order in orphans)
+        foreach (var orderId in orphans)
         {
-            order.UserId = context.Message.UserId;
+            await context.Publish(new GuestOrderOwnerVerified(orderId, context.Message.UserId), context.CancellationToken);
         }
 
         await db.SaveChangesAsync(context.CancellationToken);

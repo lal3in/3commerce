@@ -153,6 +153,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             o.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
             o.Property(x => x.CouponCode).HasMaxLength(40);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
+            // xmin as the concurrency token (Npgsql maps a uint row version to the system column; nothing is
+            // added to the table). Every EF UPDATE of an order then checks it — see Order.Version.
+            o.Property(x => x.Version).IsRowVersion();
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
 

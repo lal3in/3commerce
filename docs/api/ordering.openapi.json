@@ -525,11 +525,11 @@
             "description": "Not Found"
           },
           "409": {
-            "description": "Conflict",
+            "description": "Conflict — the order is already cancelled (orderRefusal 1) or is paid and must be refunded instead (orderRefusal 2). application/problem+json; detail is the operator-facing reason.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/OrderProblem"
                 }
               }
             }
@@ -626,6 +626,95 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/orders/supplier/{id}/mark-delivered": {
+      "post": {
+        "tags": [
+          "Supplier Orders"
+        ],
+        "description": "The fulfilling supplier (or an operator) marks a Confirmed order Delivered and publishes OrderDelivered (ADR-0049). Idempotent: an already-Delivered order returns 200. Optimistic concurrency: send the order's version (from GET /orders/supplier/me or GET /admin/orders/{id}); a stale version, or a change committed between this request's read and its save, is a 409 with orderRefusal 4 — refresh and try again.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MarkDeliveredRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatusResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — the caller fulfils no line of this order and is not an operator."
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict — the order is not Confirmed (orderRefusal 3), or it changed since the caller loaded it (orderRefusal 4, detail \"This order was just updated — refresh and try again.\", currentVersion when known). application/problem+json.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/supplier/me": {
+      "get": {
+        "tags": [
+          "Supplier Orders"
+        ],
+        "description": "The orders the calling supplier fulfils (any line with its SupplierId), newest first, capped at 200. Each carries the order's version for mark-delivered.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupplierOrderSummary"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found — the caller is not bound to a supplier entity."
           }
         }
       }
@@ -1118,6 +1207,14 @@
                 "$ref": "#/components/schemas/ShippingAddressResponse"
               }
             ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "The order's optimistic-concurrency token (Postgres xmin). Echo it to mark-delivered; it changes on every update of the order.",
+            "default": 0
           }
         }
       },
@@ -1200,6 +1297,14 @@
           },
           "status": {
             "type": "string"
+          },
+          "version": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64",
+            "description": "The order's concurrency token after this response's state (null while it is still a checkout attempt)."
           }
         }
       },
@@ -1597,6 +1702,156 @@
         "required": [
           "cartRefusal"
         ]
+      },
+      "MarkDeliveredRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64",
+            "description": "The order version the caller last saw. Omitted: the save is still guarded against a concurrent change."
+          }
+        }
+      },
+      "SupplierOrderLine": {
+        "required": [
+          "title",
+          "quantity",
+          "fulfilmentType"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fulfilmentType": {
+            "type": "string"
+          }
+        }
+      },
+      "SupplierOrderSummary": {
+        "required": [
+          "id",
+          "publicOrderNumber",
+          "status",
+          "grossMinor",
+          "currency",
+          "createdAt",
+          "collectAtWarehouse",
+          "email",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publicOrderNumber": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Per-storefront order REFERENCE (starts at 1000; unique per storefront; may have gaps — not a tax-invoice number)."
+          },
+          "status": {
+            "type": "string"
+          },
+          "grossMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "collectAtWarehouse": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupplierOrderLine"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "The order's optimistic-concurrency token (Postgres xmin). Echo it to mark-delivered; it changes on every update of the order.",
+            "default": 0
+          }
+        }
+      },
+      "OrderRefusal": {
+        "type": "integer",
+        "description": "Numeric order-mutation refusal code (append-only; every one is 409). 0 None, 1 AlreadyCancelled, 2 PaidOrderNotCancellable, 3 NotConfirmed, 4 ChangedConcurrently (the order's version moved — refresh and try again)."
+      },
+      "OrderProblem": {
+        "type": "object",
+        "description": "Every admin cancel and mark-delivered refusal (application/problem+json, 409). Branch on orderRefusal; show detail.",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Stable per code (RFC 9457: the same for every occurrence of a problem type)."
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The operator-facing sentence for this occurrence — show it; never branch on it."
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Correlates with the distributed trace (added by AddApiProblemDetails)."
+          },
+          "orderRefusal": {
+            "$ref": "#/components/schemas/OrderRefusal"
+          },
+          "currentVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64",
+            "description": "orderRefusal 4 only, when known: the order's current version, to retry against after showing the fresh state."
+          }
+        },
+        "required": [
+          "orderRefusal"
+        ]
       }
     }
   },
@@ -1612,6 +1867,9 @@
     },
     {
       "name": "Cart"
+    },
+    {
+      "name": "Supplier Orders"
     }
   ]
 }

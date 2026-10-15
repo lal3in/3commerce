@@ -81,12 +81,13 @@ public class CheckoutTests
     }
 
     [Fact]
-    public void OrderNumberSequence_allocates_per_storefront_order_numbers()
+    public void OrderNumberSequence_starts_a_storefront_at_1000()
     {
+        // The human-facing format is unchanged by the atomic allocator: a storefront's first order is #1000.
         var sequence = new OrderNumberSequence { StorefrontId = Guid.CreateVersion7() };
 
-        Assert.Equal(1000, sequence.ReserveNext());
-        Assert.Equal(1001, sequence.ReserveNext());
+        Assert.Equal(1000, OrderNumberSequence.FirstNumber);
+        Assert.Equal(OrderNumberSequence.FirstNumber, sequence.NextNumber);
     }
 
     private static CheckoutAttempt NewAttempt(Guid storefrontId) => new()

@@ -253,7 +253,8 @@ else
         }
         else
         {
-            _error = await response.Content.ReadAsStringAsync();
+            // A refusal is problem+json (orderRefusal code + detail): show its detail, not the raw envelope.
+            _error = await GatewayError.ReadAsync(response);
         }
     }
 

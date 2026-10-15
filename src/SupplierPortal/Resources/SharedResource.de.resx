@@ -273,4 +273,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>Das Lieferantenportal konnte die Anfrage nicht abschließen. Versuchen Sie es erneut oder wenden Sie sich an den Plattform-Support.</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>Diese Bestellung wurde gerade aktualisiert — bitte neu laden und erneut versuchen.</value>
+  </data>
 </root>

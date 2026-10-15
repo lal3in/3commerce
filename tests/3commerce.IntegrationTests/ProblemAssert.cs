@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace ThreeCommerce.IntegrationTests;
 
 /// <summary>
-/// Asserts the RFC 9457 shape every Ordering cart/checkout refusal must have (AGENTS.md "Error Handling"):
+/// Asserts the RFC 9457 shape every Ordering cart/checkout/order refusal must have (AGENTS.md "Error Handling"):
 /// <c>application/problem+json</c>, the expected status, a non-empty title, the human message as
-/// <c>detail</c>, and the numeric machine-readable code (<c>checkoutBlock</c> / <c>cartRefusal</c>).
+/// <c>detail</c>, and the numeric machine-readable code (<c>checkoutBlock</c> / <c>cartRefusal</c> / <c>orderRefusal</c>).
 /// Returns the parsed body so a test can check further extensions.
 /// </summary>
 internal static class ProblemAssert
@@ -18,6 +18,10 @@ internal static class ProblemAssert
     public static Task<JsonElement> CartRefusedAsync(
         HttpResponseMessage response, HttpStatusCode status, int cartRefusal, string? detail = null) =>
         RefusedAsync(response, status, "cartRefusal", cartRefusal, detail);
+
+    /// <summary>An order mutation refusal (admin cancel / mark-delivered): always 409 with <c>orderRefusal</c>.</summary>
+    public static Task<JsonElement> OrderRefusedAsync(HttpResponseMessage response, int orderRefusal, string? detail = null) =>
+        RefusedAsync(response, HttpStatusCode.Conflict, "orderRefusal", orderRefusal, detail);
 
     private static async Task<JsonElement> RefusedAsync(
         HttpResponseMessage response, HttpStatusCode status, string codeName, int code, string? detail)

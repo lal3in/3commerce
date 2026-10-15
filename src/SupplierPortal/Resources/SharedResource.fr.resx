@@ -273,4 +273,7 @@
   <data name="Error_Body" xml:space="preserve">
     <value>Le portail fournisseur n'a pas pu traiter la demande. Réessayez ou contactez le support de la plateforme.</value>
   </data>
+  <data name="Orders_ChangedConcurrently" xml:space="preserve">
+    <value>Cette commande vient d’être mise à jour — actualisez puis réessayez.</value>
+  </data>
 </root>

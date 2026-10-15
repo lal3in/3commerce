@@ -5,7 +5,7 @@ using ThreeCommerce.Ordering.Domain;
 namespace ThreeCommerce.Ordering.Tests;
 
 /// <summary>
-/// Every cart/checkout refusal is RFC 9457 problem+json (AGENTS.md "Error Handling"): these facts pin the
+/// Every cart/checkout/order refusal is RFC 9457 problem+json (AGENTS.md "Error Handling"): these facts pin the
 /// wire codes clients branch on (they cross HTTP as numbers and are never renumbered), the status per code,
 /// and that each code has its own stable title.
 /// </summary>
@@ -82,4 +82,44 @@ public class OrderingProblemsTests
     [Fact]
     public void A_cart_refusal_carries_its_code() =>
         Assert.Equal(4, OrderingProblems.CartRefused(CartRefusal.CurrencyConflict, "x").ProblemDetails.Extensions["cartRefusal"]);
+
+    [Fact]
+    public void OrderRefusal_wire_values_are_stable()
+    {
+        Assert.Equal([0, 1, 2, 3, 4], Enum.GetValues<OrderRefusal>().Select(r => (int)r));
+        // The supplier portal branches on this number to show "This order was just updated — refresh and try again."
+        Assert.Equal(4, (int)OrderRefusal.ChangedConcurrently);
+    }
+
+    [Fact]
+    public void Every_order_refusal_has_its_own_title()
+    {
+        var titles = Enum.GetValues<OrderRefusal>().Where(r => r != OrderRefusal.None).Select(OrderingProblems.TitleFor).ToList();
+        Assert.DoesNotContain("The order change was refused.", titles);
+        Assert.Equal(titles.Count, titles.Distinct().Count());
+    }
+
+    [Fact]
+    public void A_concurrent_order_change_is_a_409_with_its_code_detail_and_current_version()
+    {
+        var result = OrderingProblems.OrderRefused(
+            OrderRefusal.ChangedConcurrently, OrderingProblems.OrderChangedConcurrentlyDetail, currentVersion: 812u);
+
+        Assert.Equal(StatusCodes.Status409Conflict, result.StatusCode);
+        Assert.Equal("application/problem+json", result.ContentType);
+        Assert.Equal("This order was just updated — refresh and try again.", result.ProblemDetails.Detail);
+        Assert.Equal("The order was changed concurrently.", result.ProblemDetails.Title);
+        Assert.Equal(4, result.ProblemDetails.Extensions["orderRefusal"]);
+        Assert.Equal(812u, result.ProblemDetails.Extensions["currentVersion"]);
+    }
+
+    [Fact]
+    public void An_order_refusal_without_a_known_version_omits_it()
+    {
+        var result = OrderingProblems.OrderRefused(OrderRefusal.NotConfirmed, "Only a confirmed order can be marked delivered.");
+
+        Assert.Equal(StatusCodes.Status409Conflict, result.StatusCode);
+        Assert.Equal(3, result.ProblemDetails.Extensions["orderRefusal"]);
+        Assert.False(result.ProblemDetails.Extensions.ContainsKey("currentVersion"));
+    }
 }
