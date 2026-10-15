@@ -1,8 +1,8 @@
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.Gateway.Auth;
 using ThreeCommerce.Gateway.RateLimiting;
@@ -13,8 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
     builder.Configuration.AddJsonFile("appsettings.Container.json", optional: true, reloadOnChange: false);
 
+// Release identity (ADR-0064): service.version + vcs.ref.head.revision + deployment.environment.name.
+var release = builder.AddReleaseIdentity("gateway");
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService("gateway"))
+    .ConfigureResource(resource => release.Configure(resource))
     .WithTracing(tracing =>
     {
         tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();

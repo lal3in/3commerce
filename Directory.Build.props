@@ -12,4 +12,17 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
+  <!--
+    Release identity (ADR-0064): InformationalVersion = $(Version)+$(SourceRevisionId), read at startup by
+    AddServiceTelemetry into service.version + vcs.ref.head.revision on every OTel resource.
+    - Version: the product version (override with -p:Version=… / the Dockerfiles' VERSION build arg). The release
+      identity is the commit SHA, not this number (ADR-0058 promotes one tested commit).
+    - SourceRevisionId: an explicit GIT_SHA (Docker build arg, CI, bare-run's "<sha>-dirty") wins; otherwise the
+      SDK's SourceLink stamps HEAD from .git (it only fills an EMPTY SourceRevisionId). Container builds have no
+      .git (.dockerignore), so they rely on GIT_SHA — scripts/build-images.sh and CI pass it.
+  -->
+  <PropertyGroup Label="Release identity">
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <SourceRevisionId Condition="'$(SourceRevisionId)' == '' AND '$(GIT_SHA)' != ''">$(GIT_SHA)</SourceRevisionId>
+  </PropertyGroup>
 </Project>

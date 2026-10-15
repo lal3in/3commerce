@@ -21,14 +21,17 @@ public static class OtelExtensions
     /// Prometheus/Mimir — all fronted by Grafana. Without an endpoint, traces fall back to
     /// console; logs and metrics are OTLP-only (logs already reach the console through the
     /// default logging provider — the OTel logs pipeline is additive, never a replacement).
+    /// Every signal shares one resource stamped with the <see cref="ReleaseIdentity"/> (ADR-0064):
+    /// service.version, vcs.ref.head.revision, deployment.environment.name and one service.instance.id.
     /// </summary>
     public static TBuilder AddServiceTelemetry<TBuilder>(this TBuilder builder, string serviceName)
         where TBuilder : IHostApplicationBuilder
     {
         var useOtlp = !string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+        var release = builder.AddReleaseIdentity(serviceName);
 
         builder.Services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService(serviceName))
+            .ConfigureResource(resource => release.Configure(resource))
             .WithTracing(tracing =>
             {
                 tracing
@@ -62,13 +65,14 @@ public static class OtelExtensions
             });
 
         // Logs are additive: the default console provider keeps emitting as-is; this pipeline
-        // ships the same log records over OTLP (collector → Loki) with the service resource
-        // attached, so Grafana can correlate them with traces/metrics by service_name.
+        // ships the same log records over OTLP (collector → Loki) with the SAME release resource
+        // (same service.instance.id as traces/metrics) attached, so Grafana can correlate them with
+        // traces/metrics by service_name and by release.
         if (useOtlp)
         {
             builder.Logging.AddOpenTelemetry(logging =>
             {
-                logging.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName));
+                logging.SetResourceBuilder(release.Configure(ResourceBuilder.CreateDefault()));
                 logging.IncludeFormattedMessage = true;
                 logging.IncludeScopes = true;
                 logging.ParseStateValues = true;
