@@ -120,6 +120,38 @@ export async function seedPaidOrderWithRma(request: APIRequestContext): Promise<
   return { orderId };
 }
 
+/**
+ * A `Z??` currency code that is NOT yet in the registry, for specs that add a throwaway currency.
+ *
+ * The registry persists across runs on a long-lived dev database (and a disabled code still exists, so it
+ * can't be re-added), so a random pick from the 676 `Z??` codes eventually collided ("Currency ZLO already
+ * exists."). Instead read every code the /currencies page lists — it shows disabled ones too
+ * (`includeDisabled=true`) — and return the first unused code in a fixed order, so the pick is deterministic
+ * (a fresh CI DB always gets the first code of the range). `secondLetters` partitions the space per spec, so
+ * two specs never race for the same code even when run in parallel. Fails clearly once a range is used up.
+ *
+ * Call it on the /currencies page after the Blazor circuit has rendered the list.
+ */
+export async function unusedCurrencyCode(page: Page, secondLetters: string): Promise<string> {
+  const table = page.locator("table").first();
+  // The seeded registry always has AUD: once it renders, the whole list has rendered (one batch).
+  await expect(table.getByText("AUD", { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+  const existing = new Set(
+    (await table.locator("tbody tr td:first-child code").allInnerTexts()).map((c) => c.trim().toUpperCase()),
+  );
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (const second of secondLetters) {
+    for (const third of letters) {
+      const code = `Z${second}${third}`;
+      if (!existing.has(code)) return code;
+    }
+  }
+  throw new Error(
+    `Every throwaway currency code Z[${secondLetters}]? is already in the registry (${existing.size} codes listed) — ` +
+      "currencies can't be deleted, so reset the dev database (scripts/dev-up.sh --fresh).",
+  );
+}
+
 export async function rmaState(request: APIRequestContext, orderId: string): Promise<string | undefined> {
   const rmas = await (await request.get(`${GATEWAY}/api/support/admin/rmas`)).json();
   return rmas.find((r: { orderId: string }) => r.orderId === orderId)?.state;

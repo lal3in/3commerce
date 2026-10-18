@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./helpers";
+import { loginAsAdmin, unusedCurrencyCode } from "./helpers";
 
 // currency_4: prove a 0-decimal currency (JPY) behaves end-to-end. A JPY demo storefront with JPY-priced
 // products and placed JPY orders is seeded, so JPY money surfaces on the admin dashboards. JPY has zero
@@ -68,8 +68,9 @@ test("a disabled currency is not offered for a new storefront", async ({ page })
   await expect(page.getByRole("heading", { name: /currencies/i })).toBeVisible();
   await page.waitForTimeout(1500); // let the Blazor circuit load the registry
 
-  // Add a fresh throwaway currency (unique per run), mirroring currencies.spec.ts.
-  const code = `Z${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+  // Add a throwaway currency the registry doesn't have yet (ZN?–ZZ?, first unused — currencies.spec.ts uses
+  // ZA?–ZM?). A random pick collided with codes earlier runs left in a long-lived dev DB.
+  const code = await unusedCurrencyCode(page, "NOPQRSTUVWXYZ");
   await page.getByPlaceholder("JPY").fill(code);
   await page.getByPlaceholder("Japanese Yen").fill("Throwaway Currency");
   await page.getByPlaceholder("¥").fill("¤");
