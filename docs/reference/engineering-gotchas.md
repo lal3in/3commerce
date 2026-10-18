@@ -252,7 +252,11 @@ Ledger postings (Payments):
   (ADR-0038): on an inclusive store their tax is inside the charge, so posting them with `taxMinor: 0` books the
   GST/VAT as revenue. Use `RecurringChargeTax.For` (checkout's split) with the store's projected rate in force
   (`StorefrontLedgerAccounts.TaxRateBasisPoints`) and the subscription's snapshotted terms (`TaxInclusive`,
-  `TaxExempt`). Exclusive regimes still charge the bare price and post no tax — an owner decision, not an oversight.
+  `TaxExempt`). On an **exclusive** store the tax changes the CHARGE, not just the split (owner decision
+  2026-10-15): resolve it BEFORE the provider call and charge `RecurringChargeTaxResult.ChargeMinor` (price + tax),
+  then post gross = that charge, tax = the added tax — charging `PriceMinor` and posting a split books tax nobody
+  collected. Any surface that shows a renewal amount on an exclusive store says "+ tax" (`CartRenewalResponse.TaxAdded`).
+  An unprojected rate charges the bare price and logs an error (never a guessed rate, never a refused renewal).
   Renewals/usage have no `Payment` row, so the refund saga and the dispute webhook cannot reach them.
 - **No-FX relabel posture (ADR-0041):** with no rate feed, a cost in another currency is relabelled
   into the order currency (with a once-per-order warning) rather than skipped — today only the carrier

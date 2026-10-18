@@ -74,7 +74,7 @@ public enum MockScenario
 /// </summary>
 public sealed record PaymentRequest(
     Guid OrderId,
-    long AmountMinor,               // gross the shopper pays (Ordering-owned tax already inside; never re-taxed)
+    long AmountMinor,               // gross the shopper pays, tax already inside (Ordering's for an order; RecurringChargeTax's for a renewal/usage charge); never re-taxed by an adapter
     string Currency,
     string IdempotencyKey,
     PaymentMethodKind MethodKind,

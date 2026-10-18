@@ -1,17 +1,16 @@
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
-using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 
 /// <summary>
-/// Charges a metered overage via the rail (mt7_5) and, on a settled charge, records the revenue in the
-/// ledger attributed to the usage balance's storefront (pay_usage_charges_post_revenue). Idempotent by
-/// Reference (the intent key) — the same overage never double-charges or double-posts.
+/// Charges a metered overage via the rail (mt7_5) and, on a settled charge, records the revenue + tax in the
+/// ledger attributed to the usage balance's storefront (pay_usage_charges_post_revenue, ADR-0063 P4). On an
+/// exclusive (US) store the tax is added to the charge. Idempotent by Reference (the intent key) — the same
+/// overage never double-charges or double-posts. See <see cref="UsageChargeBilling"/>.
 /// </summary>
 public sealed class UsageOverageChargeConsumer(
     IPaymentProviderRegistry registry,
@@ -20,24 +19,11 @@ public sealed class UsageOverageChargeConsumer(
     TimeProvider time,
     ILogger<UsageOverageChargeConsumer> logger) : IConsumer<UsageOverageCharge>
 {
-    public async Task Consume(ConsumeContext<UsageOverageCharge> context)
+    public Task Consume(ConsumeContext<UsageOverageCharge> context)
     {
         var m = context.Message;
-        if (await db.JournalEntries.AnyAsync(e => e.Reference == m.Reference, context.CancellationToken))
-        {
-            return; // already charged + posted for this overage
-        }
-
-        var account = modeResolver.DefaultAccountForHost();
-        var response = await registry.Resolve(account).AuthorizeAsync(
-            new PaymentRequest(Guid.Empty, m.ChargeMinor, m.Currency, m.Reference, PaymentMethodKind.Card, account),
-            context.CancellationToken);
-        if (response.Outcome != PaymentOutcome.Succeeded)
-        {
-            return;
-        }
-
-        await UsageRevenuePoster.PostAsync(db, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, account.Provider, m.Reference,
+        return UsageChargeBilling.ChargeAndPostAsync(
+            db, registry, modeResolver, time, logger, m.StorefrontId, m.ChargeMinor, m.Currency, m.Reference,
             $"Usage overage — {m.Meter} × {m.OverageQuantity}", context.CancellationToken);
     }
 }

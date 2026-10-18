@@ -362,6 +362,10 @@ export async function readProblem(response: Response): Promise<ProblemDetails | 
 export type CartRenewalDto = {
   billingPeriod: number;
   amountMinor: number;
+  // Exclusive store (US sales tax) with a non-zero rate: each renewal is charged amountMinor PLUS the storefront's
+  // rate in force at the renewal, as checkout adds it to the first period (owner decision 2026-10-15) — render
+  // "+ tax". Absent from an older Ordering → treated as false.
+  taxAdded?: boolean;
 };
 
 // Mirrors Ordering's CouponStatus. Enums cross HTTP as NUMBERS (platform invariant), so these values are

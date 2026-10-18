@@ -90,12 +90,16 @@ public sealed class Subscription
             CreatedAt = now,
             UpdatedAt = now,
         };
-        subscription.RecordPeriod(now); // Sequence 1 — the first period, paid with the order at checkout
+        subscription.RecordPeriod(now, priceMinor); // Sequence 1 — the first period, paid with the order at checkout
         return subscription;
     }
 
-    /// <summary>Advance to the next period after a successful renewal charge.</summary>
-    public void Renew(DateTimeOffset now)
+    /// <summary>
+    /// Advance to the next period after a successful renewal charge. <paramref name="chargedMinor"/> is the gross the
+    /// period was charged — <see cref="PriceMinor"/> plus the added tax on an exclusive (US) store (ADR-0057
+    /// amendment, owner decision 2026-10-15) — and is recorded on the period's history row; defaults to the price.
+    /// </summary>
+    public void Renew(DateTimeOffset now, long? chargedMinor = null)
     {
         if (Status == SubscriptionStatus.Cancelled)
         {
@@ -106,7 +110,7 @@ public sealed class Subscription
         CurrentPeriodEnd = Advance(CurrentPeriodEnd, BillingPeriod);
         Status = SubscriptionStatus.Active;
         UpdatedAt = now;
-        RecordPeriod(now); // append the newly-opened period (Sequence n+1)
+        RecordPeriod(now, chargedMinor ?? PriceMinor); // append the newly-opened period (Sequence n+1)
     }
 
     public void MarkPastDue(DateTimeOffset now)
@@ -124,7 +128,7 @@ public sealed class Subscription
         UpdatedAt = now;
     }
 
-    private void RecordPeriod(DateTimeOffset now) =>
+    private void RecordPeriod(DateTimeOffset now, long amountMinor) =>
         _renewals.Add(new SubscriptionRenewal
         {
             Id = Guid.CreateVersion7(),
@@ -132,7 +136,7 @@ public sealed class Subscription
             Sequence = _renewals.Count + 1,
             PeriodStart = CurrentPeriodStart,
             PeriodEnd = CurrentPeriodEnd,
-            AmountMinor = PriceMinor,
+            AmountMinor = amountMinor,
             Currency = Currency,
             RecordedAt = now,
         });

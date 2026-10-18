@@ -1489,6 +1489,16 @@
               2
             ]
           },
+          "renewals": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CartRenewalResponse"
+            },
+            "description": "What the cart's RECURRING lines cost per period from the next one on (ADR-0057), grouped by billing period; empty/null for a cart with no subscription. Excludes any discount that does not ride renewals (introductory promotions, the storefront-wide discount)."
+          },
           "checkoutBlock": {
             "$ref": "#/components/schemas/CheckoutBlock"
           },
@@ -1852,6 +1862,29 @@
         "required": [
           "orderRefusal"
         ]
+      },
+      "CartRenewalResponse": {
+        "type": "object",
+        "properties": {
+          "billingPeriod": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              2,
+              3
+            ],
+            "description": "BillingPeriod as a NUMBER: 2 Monthly, 3 Yearly."
+          },
+          "amountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The renewal price per period in minor units of the cart currency (before any tax added on top — see taxAdded)."
+          },
+          "taxAdded": {
+            "type": "boolean",
+            "description": "Appended (default false). True when the storefront is tax-EXCLUSIVE (US sales tax, ADR-0038) with a non-zero rate and the group's lines are not all destination-exempt for the known shipToCountry: each renewal is then charged amountMinor PLUS the storefront's rate in force at the renewal, as checkout adds tax to the first period (owner decision 2026-10-15, ADR-0057 amendment). The storefront renders \"{amount} + tax\". False on inclusive / 0% stores, where amountMinor is the charge."
+          }
+        }
       }
     }
   },

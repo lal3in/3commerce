@@ -20,7 +20,9 @@ namespace ThreeCommerce.IntegrationTests;
 /// under-reported. Pinned end to end: the subscription snapshots its tax TERMS at purchase (Ordering →
 /// <see cref="SubscriptionRequested"/>), Payments projects the storefront's RATE from
 /// <see cref="StorefrontConfigChanged"/>, and the renewal entry splits net + tax with the gross unchanged.
-/// Exclusive regimes are pinned at today's behaviour (no tax added, none posted) pending the owner's decision.
+/// Exclusive (US-style) regimes ADD the tax on top of the renewal / usage charge, exactly as checkout adds it to the
+/// first period (owner decision 2026-10-15, option A, renewal_usage_tax_exclusive_decision), and the cart preview
+/// reports it (<c>TaxAdded</c>) so the storefront says "+ tax".
 /// </summary>
 [Trait("Category", "Integration")]
 [Collection(Phase3Collection.Name)]
@@ -130,19 +132,127 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
     }
 
     [Fact]
-    public async Task An_exclusive_store_renewal_is_unchanged_pending_the_owners_decision()
+    public async Task A_US_style_exclusive_renewal_charges_the_price_plus_checkouts_tax_and_posts_net_and_tax()
     {
-        // US-style: checkout ADDS tax, but a renewal charges the bare price. Adding it would change what customers
-        // pay, so it is an owner decision — until then: same charge, no tax posted (nothing was collected).
+        // Owner decision 2026-10-15 (option A): checkout ADDS tax on an exclusive store, and so does every renewal —
+        // the full path: checkout on an 8.25% exclusive store → terms snapshotted → the renewal charges price + the
+        // same tax the first period's checkout added, books the price as net and the tax to the store's account.
         const string currency = "RTU";
         var store = await StoreAsync(currency, bps: 825, inclusive: false);
-        var subscription = await StartAsync(store, currency, priceMinor: 1_000, taxInclusive: false);
+        var productId = await fixture.SeedRecurringProductAsync(1_000, currency);
+
+        var order = await SubscribeAsync(store, productId, "us-renew@example.com");
+        Assert.Equal(83, order.TaxMinor);        // checkout ADDED 82.5 → 83 (half away from zero)
+        Assert.Equal(1_083, order.GrossMinor);
+
+        var subscription = await SubscriptionOfAsync(order.OrderId);
+        Assert.False(subscription.TaxInclusive);
 
         var lines = await RenewAndReadAsync(subscription);
 
-        Assert.Equal(1_000, CashDebits(lines));
+        Assert.Equal(1_083, CashDebits(lines));                // charged price + tax, == the first period
+        Assert.Equal(1_000, Credit(lines, Rev(store)));        // net revenue = the price
+        Assert.Equal(order.TaxMinor, Credit(lines, Tax(store))); // the tax == what checkout added
+        Assert.Equal(1_083, (await RenewalRowAsync(subscription.Id, 2)).AmountMinor); // the period history
+        AssertWellFormed(lines, currency);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task An_exclusive_destination_exempt_or_zero_rate_renewal_adds_nothing()
+    {
+        // Exempt at purchase (snapshotted) and a 0% exclusive store renew at the bare price with no tax line.
+        const string currency = "RTN";
+        var store = await StoreAsync(currency, bps: 825, inclusive: false);
+        var zeroStore = await StoreAsync(currency, bps: 0, inclusive: false);
+        var exempt = await StartAsync(store, currency, priceMinor: 1_000, taxInclusive: false, taxExempt: true);
+        var zero = await StartAsync(zeroStore, currency, priceMinor: 1_000, taxInclusive: false);
+
+        var exemptLines = await RenewAndReadAsync(exempt);
+        var zeroLines = await RenewAndReadAsync(zero);
+
+        Assert.Equal(1_000, CashDebits(exemptLines));
+        Assert.DoesNotContain(exemptLines, l => l.AccountCode == Tax(store));
+        Assert.Equal(1_000, CashDebits(zeroLines));
+        Assert.DoesNotContain(zeroLines, l => l.AccountCode == Tax(zeroStore));
+        AssertWellFormed(exemptLines, currency);
+        AssertWellFormed(zeroLines, currency);
+    }
+
+    [Fact]
+    public async Task Two_exclusive_storefronts_sharing_a_currency_each_add_their_own_rate()
+    {
+        const string currency = "RTW";
+        var texas = await StoreAsync(currency, bps: 825, inclusive: false);
+        var nyc = await StoreAsync(currency, bps: 888, inclusive: false);
+        var a = await StartAsync(texas, currency, priceMinor: 1_000, taxInclusive: false);
+        var b = await StartAsync(nyc, currency, priceMinor: 1_000, taxInclusive: false);
+
+        var aLines = await RenewAndReadAsync(a);
+        var bLines = await RenewAndReadAsync(b);
+
+        Assert.Equal(1_083, CashDebits(aLines));
+        Assert.Equal(83, Credit(aLines, Tax(texas)));
+        Assert.Equal(1_089, CashDebits(bLines));               // 88.8 → 89
+        Assert.Equal(89, Credit(bLines, Tax(nyc)));
+        Assert.DoesNotContain(aLines, l => l.AccountCode.Contains($"{nyc:N}", StringComparison.Ordinal));
+        Assert.DoesNotContain(bLines, l => l.AccountCode.Contains($"{texas:N}", StringComparison.Ordinal));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task A_usage_overage_charge_on_an_exclusive_store_adds_the_tax()
+    {
+        const string currency = "RTP";
+        var store = await StoreAsync(currency, bps: 825, inclusive: false);
+        var reference = $"overage-{Guid.NewGuid():N}";
+
+        await fixture.PublishAsync(new UsageOverageCharge(
+            TenantId, "meter@example.com", MeterType.Token, OverageQuantity: 20, ChargeMinor: 1_000, currency, reference, store));
+
+        var lines = await EntryLinesAsync(reference);
+        Assert.Equal(1_083, CashDebits(lines)); // charged amount + tax
         Assert.Equal(1_000, Credit(lines, Rev(store)));
-        Assert.DoesNotContain(lines, l => l.AccountCode == Tax(store));
+        Assert.Equal(83, Credit(lines, Tax(store)));
+        AssertWellFormed(lines, currency);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task A_usage_auto_load_charge_on_an_exclusive_store_adds_the_tax()
+    {
+        const string currency = "RTQ";
+        var store = await StoreAsync(currency, bps: 600, inclusive: false);
+        var reference = $"autoload-{Guid.NewGuid():N}";
+
+        await fixture.PublishAsync(new UsageAutoLoadCharge(
+            TenantId, "meter@example.com", MeterType.Token, ReloadQuantity: 100, ChargeMinor: 1_999, currency, reference, store));
+
+        var lines = await EntryLinesAsync(reference);
+        Assert.Equal(2_119, CashDebits(lines)); // 1999 + 119.94 → 120
+        Assert.Equal(1_999, Credit(lines, Rev(store)));
+        Assert.Equal(120, Credit(lines, Tax(store)));
+        AssertWellFormed(lines, currency);
+    }
+
+    [Fact]
+    public async Task The_cart_preview_says_plus_tax_only_where_the_renewal_adds_it()
+    {
+        // The "renews at x" preview is told whether tax goes on top (CartRenewalResponse.TaxAdded): an exclusive
+        // store with a rate → yes; an inclusive store (the amount IS the charge) and a 0% store → no; and a line
+        // destination-exempt for the shopper's known ship-to → no (it will renew untaxed).
+        const string currency = "RTC";
+        var exclusive = await StoreAsync(currency, bps: 825, inclusive: false);
+        var inclusive = await StoreAsync(currency, bps: 1000, inclusive: true);
+        var zero = await StoreAsync(currency, bps: 0, inclusive: false);
+        var productId = await fixture.SeedRecurringProductAsync(1_000, currency);
+        await ExemptForGermanyAsync(productId);
+
+        Assert.True(await PreviewTaxAddedAsync(exclusive, productId, shipTo: null));
+        Assert.True(await PreviewTaxAddedAsync(exclusive, productId, shipTo: "US"));
+        Assert.False(await PreviewTaxAddedAsync(exclusive, productId, shipTo: "DE")); // exempt there
+        Assert.False(await PreviewTaxAddedAsync(inclusive, productId, shipTo: null));
+        Assert.False(await PreviewTaxAddedAsync(zero, productId, shipTo: null));
     }
 
     [Fact]
@@ -240,12 +350,36 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
         return id;
     }
 
-    private async Task<Subscription> StartAsync(Guid store, string currency, long priceMinor, bool taxInclusive)
+    private async Task<Subscription> StartAsync(Guid store, string currency, long priceMinor, bool taxInclusive, bool taxExempt = false)
     {
         using var scope = fixture.Payments.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<SubscriptionService>().StartAsync(new SubscriptionRequested(
             TenantId, Guid.CreateVersion7(), "renewal-tax@example.com", Guid.CreateVersion7(), null, BillingPeriod.Monthly,
-            priceMinor, currency, store, taxInclusive), default);
+            priceMinor, currency, store, taxInclusive, taxExempt), default);
+    }
+
+    private async Task<SubscriptionRenewal> RenewalRowAsync(Guid subscriptionId, int sequence)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().SubscriptionRenewals.AsNoTracking()
+            .SingleAsync(r => r.SubscriptionId == subscriptionId && r.Sequence == sequence);
+    }
+
+    private sealed record CartSummaryDto(long SubtotalMinor, List<CartRenewalDto>? Renewals = null);
+
+    private sealed record CartRenewalDto(int BillingPeriod, long AmountMinor, bool TaxAdded);
+
+    /// <summary>A fresh cart (own client = own cookie) holding the recurring product, previewed on <paramref name="store"/>.</summary>
+    private async Task<bool> PreviewTaxAddedAsync(Guid store, Guid productId, string? shipTo)
+    {
+        using var client = fixture.Ordering.CreateClient();
+        client.DefaultRequestHeaders.Add("X-3C-Storefront-Id", store.ToString());
+        (await client.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+        var query = $"/cart/summary?storefrontId={store}" + (shipTo is null ? "" : $"&shipToCountry={shipTo}");
+        var summary = (await client.GetFromJsonAsync<CartSummaryDto>(query))!;
+        var renewal = Assert.Single(summary.Renewals ?? []);
+        Assert.Equal(1_000, renewal.AmountMinor); // the amount itself never changes — only whether tax goes on top
+        return renewal.TaxAdded;
     }
 
     private async Task<List<JournalLine>> RenewAndReadAsync(Subscription subscription)
