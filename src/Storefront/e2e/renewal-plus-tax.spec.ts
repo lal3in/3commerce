@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 import { capture } from "../e2e-support/screenshots";
 
 /**
@@ -7,8 +7,10 @@ import { capture } from "../e2e-support/screenshots";
  * first period — so the "Renews monthly at" preview must say "+ tax" rather than show a bare figure the card will
  * not be charged. The demo seed sells no subscription on the US store, so this spec turns one of the US store's own
  * products into a monthly subscription with a store-scoped offer through the admin API, checks the cart and the
- * checkout preview, then DEACTIVATES the offer in a finally block so sibling specs see the baseline. Requires
- * dev-up --data full (the US demo store); skips otherwise.
+ * checkout preview, then DEACTIVATES the offer in a finally block so sibling specs see the baseline. The offer
+ * belongs to a supplier this spec creates and approves itself — never the demo supplier, whose cost table
+ * (e2e-admin/suppliers.spec.ts) must list each product exactly once. Requires dev-up --data full (the US demo
+ * store); skips otherwise.
  */
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -88,24 +90,13 @@ async function addFirstInStockStoreProduct(page: Page, request: APIRequestContex
 }
 
 /**
- * A store-scoped, top-priority monthly subscription offer for the product, from a supplier the product is already
- * offered by (an approved one — DECISION A, ADR-0048). Re-runs re-activate the offer a previous run deactivated
- * (one offer per tenant × product × variant × supplier × storefront).
+ * A store-scoped, top-priority monthly subscription offer for the product from a supplier created and approved
+ * for this run (DECISION A, ADR-0048: only an approved supplier's offer counts). A fresh supplier per run keeps the
+ * offer key (tenant × product × variant × supplier × storefront) unique and leaves the demo supplier's offers —
+ * and its admin cost table — untouched.
  */
 async function makeMonthlySubscription(request: APIRequestContext, productId: string, storefrontId: string, currency: string): Promise<string> {
-  const list = await request.get(`${GATEWAY}/api/catalog/admin/offers?tenantId=${TENANT_ID}&product=${productId}`);
-  expect(list.ok()).toBeTruthy();
-  const offers = (await list.json()) as { id: string; supplierId: string; storefrontId: string | null; variantId: string | null }[];
-  const ours = offers.find((o) => o.storefrontId === storefrontId && o.variantId === null);
-  const pricing = { priceMinor: RENEWAL_PRICE_MINOR, priority: 0, pricingModel: 2, billingPeriod: MONTHLY };
-  if (ours) {
-    const put = await request.put(`${GATEWAY}/api/catalog/admin/offers/${ours.id}`, { data: { ...pricing, active: true } });
-    expect(put.ok(), `re-activating the subscription offer should succeed: ${await put.text()}`).toBeTruthy();
-    return ours.id;
-  }
-
-  const supplierId = offers[0]?.supplierId;
-  test.skip(!supplierId, "the product has no supplier offer to reuse (needs dev-up --data full)");
+  const supplierId = await createApprovedSupplier(request, `Renewal tax E2E ${Date.now()}`);
   const created = await request.post(`${GATEWAY}/api/catalog/admin/offers`, {
     data: {
       tenantId: TENANT_ID,
@@ -116,9 +107,34 @@ async function makeMonthlySubscription(request: APIRequestContext, productId: st
       fulfilmentType: 4, // Subscription
       currency,
       storefrontId,
-      ...pricing,
+      priceMinor: RENEWAL_PRICE_MINOR,
+      priority: 0,
+      pricingModel: 2, // Subscription
+      billingPeriod: MONTHLY,
     },
   });
   expect(created.ok(), `creating the subscription offer should succeed: ${await created.text()}`).toBeTruthy();
   return ((await created.json()) as { id: string }).id;
+}
+
+/** A supplier driven through onboarding to Active via the gateway (the same steps as e2e-admin/suppliers.spec.ts). */
+async function createApprovedSupplier(request: APIRequestContext, legalName: string): Promise<string> {
+  const ok = async (call: Promise<APIResponse>, step: string) => {
+    const r = await call;
+    expect(r.ok(), `${step}: ${r.status()} ${await r.text()}`).toBeTruthy();
+    return r;
+  };
+  const created = await ok(request.post(`${GATEWAY}/api/entity/entities`, { data: { tenantId: TENANT_ID, type: 2, legalName } }), "create entity");
+  const entityId = ((await created.json()) as { id: string }).id;
+  const base = `${GATEWAY}/api/entity/entities/${entityId}`;
+  const withAbn = await ok(request.post(`${base}/identifiers`, { data: { type: 1, value: "51824753556" } }), "add ABN");
+  const abnId = ((await withAbn.json()) as { identifiers: { id: string; type: number }[] }).identifiers.find((i) => i.type === 1)!.id;
+  await ok(request.post(`${base}/identifiers/${abnId}/verify`, { data: {} }), "verify ABN");
+  await ok(request.post(`${base}/contacts`, { data: { purpose: 1, kind: 1, value: "ops@e2e.example" } }), "add contact");
+  await ok(request.post(`${base}/addresses`, { data: { purpose: 1, line1: "1 Test St", city: "Sydney", postcode: "2000", countryCode: "AU" } }), "add address");
+  await ok(request.post(`${base}/suppliers`, { data: {} }), "start onboarding");
+  await ok(request.post(`${base}/suppliers/submit-verification`, { data: {} }), "submit verification");
+  await ok(request.post(`${base}/suppliers/verification-complete`, { data: {} }), "verification complete");
+  await ok(request.post(`${base}/suppliers/activate`, { data: {} }), "approve (activate)");
+  return entityId;
 }
