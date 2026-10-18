@@ -143,7 +143,7 @@ public sealed class BusStartupIntegrationTests
     [Fact]
     public async Task A_host_started_before_the_broker_waits_for_it_then_serves()
     {
-        var port = FreePort();
+        var port = UnusedPortBelowEphemeralRanges();
         await using var broker = Broker(port);
 
         using var host = ServiceHost($"amqp://busstart:busstart@127.0.0.1:{port}", startTimeoutSeconds: 120);
@@ -152,10 +152,31 @@ public sealed class BusStartupIntegrationTests
         {
             // The broker is not up yet: the host must still be starting (retrying), not started and not failed.
             await Task.Delay(TimeSpan.FromSeconds(3));
-            Assert.False(start.IsCompleted, $"host start completed without a broker: {start.Status}");
+            Assert.False(start.IsCompleted,
+                $"host start completed without a broker: {start.Status} {start.Exception?.GetBaseException().Message}");
 
-            await broker.StartAsync();
-            await start.WaitAsync(TimeSpan.FromSeconds(110));
+            // Each step names itself on failure: this test failed once in a full integration run with only its
+            // [FAIL] line captured, and which step broke is most of the diagnosis.
+            try
+            {
+                await broker.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"broker container did not start on host port {port} (is the port taken where Docker binds it?): {ex.GetBaseException().Message}", ex);
+            }
+
+            var waited = Stopwatch.StartNew();
+            try
+            {
+                await start.WaitAsync(TimeSpan.FromSeconds(110));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"host start did not complete {waited.Elapsed.TotalSeconds:F0} s after the broker came up ({start.Status}): {ex.GetBaseException().Message}", ex);
+            }
 
             var id = Guid.NewGuid();
             await host.Services.GetRequiredService<IBus>().Publish(new BusStartupProbe(id));
@@ -185,13 +206,37 @@ public sealed class BusStartupIntegrationTests
         return builder.Build();
     }
 
-    private static int FreePort()
+    // The broker's host port has to be chosen before the broker exists (the host is pointed at it first), so Docker
+    // cannot pick it. A port-0 pick (an ephemeral port free on this machine at that instant) was flaky: Docker binds
+    // the port in ITS network namespace — inside the Linux VM on macOS (colima/Docker Desktop), whose ephemeral
+    // range 32768–60999 overlaps macOS's 49152–65535 — and seconds later. Every connection the suite makes to a
+    // container is relayed inside the VM (port forwarder + docker-proxy) from a random VM ephemeral port that then
+    // sits in TIME_WAIT, so late in a full run the pick could already be held there, invisible to a check on the
+    // Mac, and the broker's start failed with "address already in use". A port below every ephemeral range (Linux
+    // 32768+, macOS/Windows 49152+) is never handed to an outgoing connection, nor to a container Docker publishes
+    // on a random port, so only an explicit listener could hold it — and that is checked here on the loopback.
+    private static int UnusedPortBelowEphemeralRanges()
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var port = Random.Shared.Next(20000, 32768);
+            var listener = new TcpListener(IPAddress.Loopback, port);
+            try
+            {
+                listener.Start();
+                return port;
+            }
+            catch (SocketException)
+            {
+                // An explicit listener holds it; try another.
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
+
+        throw new InvalidOperationException("No port in 20000–32767 is free on the loopback.");
     }
 }
 

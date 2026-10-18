@@ -10,6 +10,7 @@ namespace ThreeCommerce.IntegrationTests;
 /// context isolates rows, fails closed with no context, and does not leak across scopes on a
 /// reused connection. Uses FORCE ROW LEVEL SECURITY because the service connects as table owner.
 /// </summary>
+[Trait("Category", "Integration")]
 public class RlsIsolationTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").WithCommand("-c", "max_connections=400").Build();
