@@ -93,6 +93,18 @@ you are touching before you push.
   (`caffeinate -is dotnet test …`). Write new waits with `Eventually.PollAsync` / `UntilAsync`
   (`tests/3commerce.IntegrationTests/Eventually.cs`): its budget is Stopwatch time, which pauses while the host
   sleeps, and it polls once more after the budget.
+- **A host port a test picks for a container must come from below every ephemeral range, not from port 0.**
+  Prefer Testcontainers' random binding (`GetMappedPublicPort`), which Docker allocates itself. When the port
+  has to be known before the container exists (`BusStartupIntegrationTests` points a host at a broker that is
+  not up yet), a `TcpListener(…, 0)` pick only proves the port is free on the Mac. Docker binds it later inside
+  the colima VM, whose Linux ephemeral range (32768–60999) overlaps macOS's (49152–65535). Every connection the
+  suite makes to a container is relayed inside the VM (lima port forwarder, then docker-proxy) from a random VM
+  ephemeral port, which then sits in TIME_WAIT. Late in a full run, a port that is free on the Mac can therefore
+  be held in the VM, and the container start fails with "address already in use". The test passed when run alone
+  and failed once at #105 of 400, with only its `[FAIL]` line captured (2026-10-18). Pick from 20000–32767 and
+  check it on the loopback (`UnusedPortBelowEphemeralRanges`). To tell this from a lost message: the test fails
+  seconds after it starts, not after its 110 s/20 s waits. `e2e-verify.sh` A4–A6 now prints each failed test's
+  message and first stack frames, and keeps the whole run in `.run/e2e-integration.log`.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
 
 ## Messaging / consumers

@@ -550,6 +550,8 @@ run_automated() {
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
+  # The whole run is kept: a one-off failure must be diagnosable after the fact, not only by a rerun that passes.
+  mkdir -p "$ROOT/.run" && printf '%s\n' "$out" >"$ROOT/.run/e2e-integration.log"
   # A fixture teardown failure (e.g. TestHostTracker: a test left a service host running) still prints
   # "Failed: 0" but exits non-zero, so check for it explicitly.
   if grep -q 'Failed: *0' <<<"$out" && ! grep -q 'Cleanup Failure' <<<"$out"; then
@@ -557,6 +559,18 @@ run_automated() {
     pass "A4–A6 integration ($n passed)"
   else
     fail "A4–A6 integration"; grep -E 'Failed!|\[FAIL\]|Cleanup Failure' <<<"$out" | head -5
+    # Each failed test's own block from the console logger ("  Failed <name> [<time>]", "Error Message:", "Stack
+    # Trace:"): up to 30 message lines and the first 8 stack frames (the test's own is among them), at most 5 tests.
+    awk '
+      /^  Failed [A-Za-z_]/                { if (++shown > 5) exit; show = 1; stack = 0; frames = 0; lines = 0; print; next }
+      !show                                { next }
+      /^  Stack Trace:/                    { stack = 1; print; next }
+      stack && (/^     at / || /^--- End of /) { if (++frames <= 8) print; next }
+      stack                                { show = 0; next }
+      /^  (Passed|Skipped) / || /^(Passed|Failed)!/ || /^(info|warn|fail|dbug|trce|crit): / { show = 0; next }
+                                           { if (++lines <= 30) print }
+    ' <<<"$out"
+    echo "  full output: .run/e2e-integration.log"
   fi
 
   stage "A7  Storefront typecheck + build"
