@@ -291,21 +291,9 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
         return order;
     }
 
-    private static async Task WaitAsync(Func<Task<bool>> settled, string what)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await settled())
-            {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"{what}.");
-    }
+    // Awake-time budget (Eventually): a Mac sleep mid-wait cannot expire it (engineering-gotchas, integration waits).
+    private static Task WaitAsync(Func<Task<bool>> settled, string what) =>
+        Eventually.UntilAsync(settled, () => new TimeoutException($"{what}."), TimeSpan.FromSeconds(30), TimeSpan.FromMilliseconds(250));
 
     /// <summary>A rail that answers <see cref="Outcome"/> and records what it was asked to charge.</summary>
     private sealed class ScriptedProvider(PaymentOutcome outcome = PaymentOutcome.Succeeded) : IPaymentProvider
