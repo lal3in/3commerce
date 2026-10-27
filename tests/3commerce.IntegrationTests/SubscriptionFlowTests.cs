@@ -59,24 +59,15 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         Assert.Equal(1750, (await GetAsync(tenant, legacy.Id))!.Renewals.Single(r => r.Sequence == 2).AmountMinor);
     }
 
+    // Awake-time budget (Eventually): a Mac sleep mid-wait cannot expire it (engineering-gotchas, integration waits).
     private async Task<Subscription> WaitForAsync(Guid tenant, Func<Subscription, bool> match)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (true)
-        {
-            var hit = (await ListAsync(tenant)).FirstOrDefault(match);
-            if (hit is not null)
-            {
-                return hit;
-            }
-
-            if (DateTimeOffset.UtcNow > deadline)
-            {
-                throw new TimeoutException("subscription did not reach the expected state");
-            }
-
-            await Task.Delay(300);
-        }
+        Subscription? hit = null;
+        await Eventually.UntilAsync(
+            async () => (hit = (await ListAsync(tenant)).FirstOrDefault(match)) is not null,
+            () => new TimeoutException("subscription did not reach the expected state"),
+            TimeSpan.FromSeconds(30), TimeSpan.FromMilliseconds(300));
+        return hit!;
     }
 
     [Fact]
