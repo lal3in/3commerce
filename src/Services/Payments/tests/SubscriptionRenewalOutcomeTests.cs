@@ -50,7 +50,7 @@ public class SubscriptionRenewalOutcomeTests
     }
 
     [Fact]
-    public async Task RequiresAction_asks_the_customer_to_authenticate_the_pinned_amount_and_a_decline_does_not()
+    public async Task RequiresAction_asks_the_customer_to_authenticate_and_a_decline_says_when_it_is_retried()
     {
         await using var db = NewDb();
         var store = AddStore(db, 825, inclusive: false);
@@ -62,7 +62,15 @@ public class SubscriptionRenewalOutcomeTests
         provider.Outcome = PaymentOutcome.Failed;
         await service.RenewAsync(TenantId, declined.Id, default);
 
-        var asked = Assert.IsType<SubscriptionRenewalActionRequired>(Assert.Single(publisher.Published));
+        // Dunning (2026-10-27): both outcomes tell the customer, with the next retry (day 1) and when it cancels (day 7).
+        Assert.Equal(2, publisher.Published.Count);
+        var asked = Assert.IsType<SubscriptionRenewalActionRequired>(publisher.Published[0]);
+        var failed = Assert.IsType<SubscriptionPaymentFailed>(publisher.Published[1]);
+        Assert.Equal(declined.Id, failed.SubscriptionId);
+        Assert.Equal(1083, failed.AmountMinor);
+        Assert.Equal(Now.AddMonths(1).AddDays(1), failed.NextRetryAt);
+        Assert.Equal(Now.AddMonths(1).AddDays(7), failed.CancelsAfter);
+        Assert.Equal(Now.AddMonths(1).AddDays(1), asked.NextRetryAt);
         Assert.Equal(needsAuth.Id, asked.SubscriptionId);
         Assert.Equal(TenantId, asked.TenantId);
         Assert.Equal(store, asked.StorefrontId);
@@ -76,7 +84,7 @@ public class SubscriptionRenewalOutcomeTests
     [Theory]
     [InlineData(PaymentOutcome.Failed)]
     [InlineData(PaymentOutcome.RequiresAction)]
-    public async Task A_retry_after_an_unsettled_renewal_is_the_same_period_key_and_amount_and_then_renews_once(PaymentOutcome first)
+    public async Task A_retry_after_an_unsettled_renewal_uses_a_fresh_attempt_key_the_same_amount_and_renews_once(PaymentOutcome first)
     {
         await using var db = NewDb();
         var store = AddStore(db, 825, inclusive: false);
@@ -89,7 +97,9 @@ public class SubscriptionRenewalOutcomeTests
         var renewed = await service.RenewAsync(TenantId, subscription.Id, default);
 
         Assert.Equal(2, provider.Requests.Count);
-        Assert.Equal(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey); // same period
+        // The same period, a FRESH key (a provider replays a reused key's answer — owner decision 2026-10-27).
+        Assert.Equal($"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}", provider.Requests[0].IdempotencyKey);
+        Assert.Equal(provider.Requests[0].IdempotencyKey + "-a1", provider.Requests[1].IdempotencyKey);
         Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));                  // pinned, not re-priced
         Assert.Equal(SubscriptionStatus.Active, renewed!.Status);
         Assert.Equal(subscription.CurrentPeriodEnd, renewed.CurrentPeriodStart);                // advanced exactly once
@@ -102,7 +112,7 @@ public class SubscriptionRenewalOutcomeTests
     }
 
     [Fact]
-    public async Task The_nightly_run_duns_an_unsettled_renewal_and_leaves_it_to_an_operator_retry()
+    public async Task The_nightly_run_duns_an_unsettled_renewal_and_retries_it_from_day_one()
     {
         await using var db = NewDb();
         var store = AddStore(db, 0, inclusive: false);
@@ -121,9 +131,14 @@ public class SubscriptionRenewalOutcomeTests
         Assert.Equal(1, statuses.Count(kv => kv.Value == SubscriptionStatus.Active));
         Assert.Single(await db.JournalEntries.ToListAsync());
 
-        // The next day's run does not re-charge a past-due subscription (only Active/Trialing renew automatically).
-        await Nightly(db, provider, Now.AddMonths(1).AddDays(1).AddHours(13)).AutoRenewDueAsync(default);
+        // Later the same day nothing more happens; the next day's run is the first scheduled retry: a fresh key, the same amount.
+        await Nightly(db, provider, Now.AddMonths(1).AddHours(20)).AutoRenewDueAsync(default);
         Assert.Equal(2, provider.Requests.Count);
+        await Nightly(db, provider, Now.AddMonths(1).AddDays(1).AddHours(13)).AutoRenewDueAsync(default);
+        Assert.Equal(3, provider.Requests.Count);
+        Assert.Equal(provider.Requests[1].IdempotencyKey + "-a1", provider.Requests[2].IdempotencyKey);
+        Assert.Equal(provider.Requests[1].AmountMinor, provider.Requests[2].AmountMinor);
+        Assert.Equal(SubscriptionStatus.Active, (await db.Subscriptions.AsNoTracking().SingleAsync(s => s.Id == failed.Id)).Status);
     }
 
     [Theory]
