@@ -32,6 +32,24 @@ public class Order
     public bool Disputed { get; set; }
     public long NetMinor { get; set; }
     public long TaxMinor { get; set; }
+
+    /// <summary>
+    /// The shipping line's tax facts (ADR-0063 P1), carried from the checkout attempt.
+    /// <c>Σ line TaxMinor + ShippingTaxMinor == TaxMinor</c> on every order placed since P1; the NotRecorded/0
+    /// defaults mark an order placed before it (no backfill — ADR-0063 D18).
+    /// </summary>
+    public TaxCategory ShippingTaxCategory { get; set; }
+    public int ShippingTaxRateBps { get; set; }
+    public long ShippingTaxableBaseMinor { get; set; }
+    public long ShippingTaxMinor { get; set; }
+    public TaxExemptionReason ShippingExemptionReason { get; set; }
+
+    /// <summary>The scheme the sale was taxed under (always Domestic today; NotRecorded before ADR-0063 P1).</summary>
+    public TaxScheme TaxScheme { get; set; }
+
+    /// <summary>Whether the prices CONTAINED the tax (inclusive regime, ADR-0038) or had it added (exclusive).</summary>
+    public bool TaxInclusive { get; set; }
+
     public long ShippingMinor { get; set; }
     public long DiscountMinor { get; set; }
 
@@ -130,6 +148,18 @@ public class OrderLine
     /// re-resolving offers — so a booking and its reversal can never diverge.
     /// </summary>
     public long BookedSupplierCostMinor { get; set; }
+
+    /// <summary>
+    /// The line's tax facts (ADR-0063 P1), carried verbatim from the checkout attempt line: category, rate, base
+    /// (always NET of the tax — see <see cref="LineTax.TaxableBaseMinor"/>), its share of <see cref="Order.TaxMinor"/>
+    /// (largest remainder) and the exemption reason. NotRecorded/0 on a pre-P1 order. An invoice takes these
+    /// verbatim — it never recomputes base × rate (ADR-0063 § 8).
+    /// </summary>
+    public TaxCategory TaxCategory { get; init; }
+    public int TaxRateBps { get; init; }
+    public long TaxableBaseMinor { get; init; }
+    public long TaxMinor { get; init; }
+    public TaxExemptionReason ExemptionReason { get; init; }
 }
 
 /// <summary>

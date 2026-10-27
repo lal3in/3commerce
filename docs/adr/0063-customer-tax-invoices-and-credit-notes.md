@@ -500,7 +500,7 @@ JurisdictionProfile { Code ("EU-DE", "EU-FR", "AU", "NZ", "GB", "CA", "CH", "US"
 
 | # | Prerequisite | Owner | Why |
 |---|---|---|---|
-| P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
+| P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. **Status: persisted on `feature/tax-per-line-breakdown` (2026-10-27, § 9.2)**; publishing them is P5. | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
 | P1b | **EU OSS-aware tax strategy** (or a tax engine) before **EU cross-border B2C** goes live. Today a storefront charges its single rate regardless of EU destination. | Ordering | Wrong VAT cannot be made right by the invoice |
 | P2 | **Seller identity**: Entity tax-ID schemes + establishments; storefront → jurisdiction + establishment binding | Entity, Catalog | Art. 226(3),(5); profile resolution |
 | P3 | **Buyer identity**: bill-to address (defaults to ship-to), optional business name + tax ID at checkout | Ordering, Storefront | Art. 226(4),(5); AU ≥ A$1,000 |
@@ -531,6 +531,50 @@ P1 + P2 ─► P1b EU OSS tax strategy   (needed for EU cross-border B2C only; n
 | 3b | **P4b — `feature/settled-charge-events`** | Payments publishes `SubscriptionRenewalSettled` and `UsageChargeSettled`, carrying the P1-shaped tax facts and period/meter data, through the outbox in the same unit of work as the ledger posting. | P4, P1 | Exactly one event per settled renewal or charge (redelivery-safe; keyed `renew-{id}-{seq}` / usage reference); no event for Failed/RequiresAction; contract tests; consumer-name uniqueness test (ADR-0060) still green. |
 | 4 | **P5 — `feature/invoicing-contract-facts`** | **Append** to `OrderConfirmed` (`StorefrontId`, `PublicOrderNumber`, Net/Discount/Shipping/Tax, `TaxInclusive`, `TaxJurisdiction`, `TaxScheme`, `BillTo`, `Buyer`, shipping tax, `CapturedAt`) and to `OrderLineInfo` (`LineId`, `TaxCategory`, `TaxRateBps`, `TaxMinor`, `ExemptionReason`). Append `Lines`/`ShippingMinor`/`Kind` to `RefundRequested`/`RefundCompleted`; the Support RMA path and the admin refund endpoint populate them. | P1, P3 (the facts exist to publish) | Every new field has a default; a pre-change message deserializes with defaults (back-compat test, on the ADR-0055 pattern); existing consumers (Fulfillment, Notifications, Support, Entitlement) unchanged and green; an RMA refund carries its lines and an admin amount refund carries none; `e2e-verify.sh` A-group updated. |
 | 5 | **P1b — `feature/eu-oss-tax-strategy`** | An EU strategy with destination rates per country and category; the home rate below the €10,000 EU-wide threshold (tracked per tenant); scheme = OSS above it. The rate table is versioned with effective dates. **Not on the phase-1 AU path; required before EU cross-border B2C goes live.** | P1, P2 | A known-rates fixture for every EU-27 standard rate; a below-threshold sale charges the home rate; an above-threshold sale charges the destination rate with scheme OSS; a rate change takes effect on its date; inclusive storefronts charge the shelf price unchanged (ADR-0038), with tax extracted at the destination rate. |
+
+### 9.2 Implementation notes
+
+**P1 — per-line tax breakdown (2026-10-27, `feature/tax-per-line-breakdown`).**
+
+* **The seam.** `ITaxStrategy.TaxFor(TaxCalculationInput) → TaxBreakdown` (`Ordering/Domain/Tax.cs`). The input is
+  per line — listed value, the line's share of the discount (promotion allocation + storefront-wide share, both
+  largest remainder as checkout already split them), and an exemption reason — plus the shipping charged. The
+  output is one `LineTax { Category, RateBps, TaxableBaseMinor, TaxMinor, ExemptionReason }` per line (index-aligned)
+  and one for shipping, the `Scheme`, `TaxInclusive`, and a derived per-rate summary. `TaxBreakdown.TaxMinor` **is**
+  `Σ line tax + shipping tax`, so the invariant holds by construction, and checkout charges exactly that number.
+* **Behaviour-preserving.** `StorefrontRateTaxStrategy` is checkout's old inline code, moved: the goods base is
+  the destination-taxable lines less their discount, clamped at their subtotal as one aggregate; shipping joins
+  the base only when some goods are taxable; **one** rounding of the whole base (inclusive `× bps/(10000+bps)`,
+  exclusive `× bps/10000`, half away from zero). Only then is that total split over the taxable lines and the
+  shipping line by largest remainder (ties to the earliest component). Rounding per line would drift by a minor
+  unit (3 × 333 at 10 % gives 99 per line vs 100 charged), which is why the split comes after the rounding. The
+  arithmetic moved from `double` to `decimal`; a unit sweep over every rate step 0..10000 proves the two
+  identical, and 20,000 seeded random carts reproduce the old inline result exactly (`TaxBreakdownTests`).
+* **Facts persisted.** `CheckoutAttemptLine`/`OrderLine`: `TaxCategory`, `TaxRateBps`, `TaxableBaseMinor`,
+  `TaxMinor`, `ExemptionReason`. `CheckoutAttempt`/`Order`: `ShippingTaxCategory`, `ShippingTaxRateBps`,
+  `ShippingTaxableBaseMinor`, `ShippingTaxMinor`, `ShippingExemptionReason`, `TaxScheme`, `TaxInclusive`. `ToOrder`
+  copies them verbatim. Migration `PerLineTaxBreakdown` adds them with defaults 0/false; **pre-P1 rows read
+  `TaxCategory.NotRecorded` / `TaxScheme.NotRecorded`** and are not backfilled (D18). Enums cross the wire as numbers;
+  append members only.
+* **Base convention.** `TaxableBaseMinor` is **always net of the tax**: on an exclusive store the discounted amount
+  the tax was added to; on an inclusive store the discounted shelf amount less the tax it contains, so
+  `base + tax` = what the shopper paid for that component. An exempt line's base is its discounted amount.
+* **Categories and reasons today.** `Standard` (the storefront's rate, possibly 0 %) or `Exempt` with
+  `DestinationShipRule` (the product's ship rule for the ship-to country says `ChargeDestinationTax = false`,
+  ADR-0050); an all-exempt cart's shipping is `Exempt` / `ShippingFollowsExemptGoods`. The scheme is always
+  `Domestic`; P1b appends reduced categories and the other schemes. `ProductCopy.TaxMode` is **not** consulted: it is
+  never projected (always `Exclusive`), and honouring it would change amounts — it remains the pricing engine's
+  input only (`ProductTaxMode`).
+* **Scope held.** No contract and no HTTP response changed (P5 publishes the facts). Untouched and unchanged in
+  amount: promotion/coupon evaluation, `GET /cart/summary` (computes no tax), the subscription "renews at" preview
+  (`taxAddedOnRenewal` reads the storefront copy only), Payments renewals/usage (`RecurringChargeTax`, the same
+  rounding), refunds and the RMA basis (`OrderLineDiscounts`, `OrderConfirmed` unchanged), and a second storefront
+  sharing the currency (the strategy is built from **this** storefront's copy, ADR-0055).
+* **Known pre-existing quirk, preserved.** The taxable discount is clamped on the taxable subtotal as a whole. A
+  line discounted past its own value (a stacked promotion plus the storefront-wide share) therefore pushes the
+  excess onto the other taxable lines; the per-line bases are then the aggregate base spread over the lines' own
+  discounted amounts. An exempt line discounted past its value does **not** spill into the taxable base, exactly as
+  before.
 
 ---
 

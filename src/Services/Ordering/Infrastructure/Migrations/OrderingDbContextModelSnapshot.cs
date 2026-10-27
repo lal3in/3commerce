@@ -354,7 +354,22 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<string>("ShipRegion")
                         .HasColumnType("text");
 
+                    b.Property<int>("ShippingExemptionReason")
+                        .HasColumnType("integer");
+
                     b.Property<long>("ShippingMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ShippingTaxCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ShippingTaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ShippingTaxRateBps")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ShippingTaxableBaseMinor")
                         .HasColumnType("bigint");
 
                     b.Property<int>("Status")
@@ -363,8 +378,14 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("TaxInclusive")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<int>("TaxScheme")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -412,6 +433,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<long>("DiscountMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("ExemptionReason")
+                        .HasColumnType("integer");
+
                     b.Property<int>("FulfilmentType")
                         .HasColumnType("integer");
 
@@ -428,6 +452,18 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<long>("SupplierUnitCostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxRateBps")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TaxableBaseMinor")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Title")
@@ -611,7 +647,22 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<string>("ShipRegion")
                         .HasColumnType("text");
 
+                    b.Property<int>("ShippingExemptionReason")
+                        .HasColumnType("integer");
+
                     b.Property<long>("ShippingMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ShippingTaxCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ShippingTaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ShippingTaxRateBps")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ShippingTaxableBaseMinor")
                         .HasColumnType("bigint");
 
                     b.Property<int>("Status")
@@ -620,8 +671,14 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid?>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("TaxInclusive")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<int>("TaxScheme")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -676,6 +733,9 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<long>("DiscountMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("ExemptionReason")
+                        .HasColumnType("integer");
+
                     b.Property<int>("FulfilmentType")
                         .HasColumnType("integer");
 
@@ -695,6 +755,18 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<long>("SupplierUnitCostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TaxMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TaxRateBps")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TaxableBaseMinor")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Title")

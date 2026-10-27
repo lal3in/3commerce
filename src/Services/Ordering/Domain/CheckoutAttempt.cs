@@ -20,6 +20,23 @@ public class CheckoutAttempt
     public long NetMinor { get; init; }
     public long ShippingMinor { get; init; }
     public long TaxMinor { get; init; }
+
+    /// <summary>
+    /// The shipping line's tax facts (ADR-0063 P1). <c>Σ line TaxMinor + ShippingTaxMinor == TaxMinor</c> on every
+    /// attempt written since P1; the NotRecorded/0 defaults mark an attempt written before it.
+    /// </summary>
+    public TaxCategory ShippingTaxCategory { get; init; }
+    public int ShippingTaxRateBps { get; init; }
+    public long ShippingTaxableBaseMinor { get; init; }
+    public long ShippingTaxMinor { get; init; }
+    public TaxExemptionReason ShippingExemptionReason { get; init; }
+
+    /// <summary>The scheme the sale was taxed under (always Domestic today; NotRecorded before ADR-0063 P1).</summary>
+    public TaxScheme TaxScheme { get; init; }
+
+    /// <summary>Whether the prices CONTAINED the tax (inclusive regime, ADR-0038) or had it added (exclusive).</summary>
+    public bool TaxInclusive { get; init; }
+
     public long DiscountMinor { get; init; }
 
     /// <summary>The promotion share of <see cref="DiscountMinor"/> (ADR-0051); the remainder is the
@@ -90,6 +107,13 @@ public class CheckoutAttempt
             NetMinor = NetMinor,
             ShippingMinor = ShippingMinor,
             TaxMinor = TaxMinor,
+            ShippingTaxCategory = ShippingTaxCategory,
+            ShippingTaxRateBps = ShippingTaxRateBps,
+            ShippingTaxableBaseMinor = ShippingTaxableBaseMinor,
+            ShippingTaxMinor = ShippingTaxMinor,
+            ShippingExemptionReason = ShippingExemptionReason,
+            TaxScheme = TaxScheme,
+            TaxInclusive = TaxInclusive,
             DiscountMinor = DiscountMinor,
             PromotionDiscountMinor = PromotionDiscountMinor,
             AppliedPromotionIds = AppliedPromotionIds,
@@ -132,6 +156,11 @@ public class CheckoutAttempt
                 BillingMode = l.BillingMode,
                 BillingPeriod = l.BillingPeriod,
                 SupplierUnitCostMinor = l.SupplierUnitCostMinor,
+                TaxCategory = l.TaxCategory,
+                TaxRateBps = l.TaxRateBps,
+                TaxableBaseMinor = l.TaxableBaseMinor,
+                TaxMinor = l.TaxMinor,
+                ExemptionReason = l.ExemptionReason,
             }).ToList(),
         };
     }
@@ -168,6 +197,17 @@ public class CheckoutAttemptLine
     /// never come from a different offer than the supplier the line was sold with. 0 = no supply offer / unknown.
     /// </summary>
     public long SupplierUnitCostMinor { get; init; }
+
+    /// <summary>
+    /// The line's tax facts (ADR-0063 P1), from the checkout's <see cref="ITaxStrategy"/>: its category, the rate
+    /// applied, the base (always NET of the tax — see <see cref="LineTax.TaxableBaseMinor"/>), its share of the
+    /// order's tax (largest remainder) and why it is exempt, if it is. NotRecorded/0 on a pre-P1 attempt.
+    /// </summary>
+    public TaxCategory TaxCategory { get; init; }
+    public int TaxRateBps { get; init; }
+    public long TaxableBaseMinor { get; init; }
+    public long TaxMinor { get; init; }
+    public TaxExemptionReason ExemptionReason { get; init; }
 }
 
 /// <summary>

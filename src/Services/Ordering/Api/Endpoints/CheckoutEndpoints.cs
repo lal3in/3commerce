@@ -200,11 +200,6 @@ public static class CheckoutEndpoints
             ruleCopies.FirstOrDefault(c => c.ProductId == productId)?.RuleFor(shipToCountry);
 
         var subtotal = cart.Items.Sum(i => i.UnitPriceMinor * i.Quantity);
-        // Goods subject to destination tax: a rule with ChargeDestinationTax=false exempts the line
-        // (no resolved rule = taxed as normal). The full subtotal is still charged; only tax shrinks.
-        var taxableSubtotal = cart.Items
-            .Where(i => RuleFor(i.ProductId) is not { ChargeDestinationTax: false })
-            .Sum(i => i.UnitPriceMinor * i.Quantity);
         // Shipping is waived only when EVERY line's resolved rule marks shipping already covered.
         var allShippingCovered = cart.Items.All(i => RuleFor(i.ProductId)?.ShippingCovered == true);
 
@@ -337,47 +332,28 @@ public static class CheckoutEndpoints
             return OrderingProblems.CheckoutRefused(CheckoutBlock.StorefrontNotOpen, "This storefront is not currently open for orders.");
         }
 
-        var taxConfig = storefrontCopy;
-        var taxBps = taxConfig?.TaxRateBasisPoints ?? 0;
-        // Tax base excludes ship-rule-exempt goods; the charge base always keeps the full subtotal so the
-        // shopper still pays for exempt lines — only the tax portion shrinks (see ProductShipRule).
-        // Shipping follows the goods' taxability: when no goods are destination-taxable (a fully exempt
-        // cart, taxableSubtotal == 0) shipping is not destination-taxed either.
-        var taxableShippingMinor = taxableSubtotal > 0 ? shippingMinor : 0;
-        // The discount reduces the taxable base EXACTLY, per line (ADR-0051). A single proportional ratio
-        // is right for a uniform storefront-wide percentage but wrong for a product-scoped promotion, whose
-        // discount may fall entirely on a tax-exempt line (or entirely on a taxable one). So: the promotion
-        // part comes from the evaluator's per-line vector, the storefront-wide part is a uniform percentage
-        // spread proportionally by line value (largest remainder, so the parts sum to the whole), and only
-        // the allocations landing on destination-taxable lines enter the base. Clamped at the taxable
-        // subtotal so the base can never go negative.
+        // Checkout does not compute tax: it describes each line to THE tax seam (ADR-0063 § 7.1, P1) — its value,
+        // its share of the discount, and whether its ship rule exempts it — and charges what the strategy answers.
+        // The discount reduces the taxable base EXACTLY, per line (ADR-0051): the promotion part is the evaluator's
+        // per-line vector and the storefront-wide part a uniform percentage spread by line value (largest
+        // remainder, so the parts sum to the whole). A line whose ship rule says ChargeDestinationTax=false is
+        // exempt; the shopper still pays for it — only the tax shrinks (ProductShipRule).
         var lineTotalsMinor = cart.Items.Select(i => (long)i.UnitPriceMinor * i.Quantity).ToArray();
         var storefrontLineDiscounts = PromotionEvaluator.AllocateProportionally(storefrontDiscountMinor, lineTotalsMinor);
-        long taxableDiscountMinor = 0;
-        for (var i = 0; i < cart.Items.Count; i++)
-        {
-            if (RuleFor(cart.Items[i].ProductId) is { ChargeDestinationTax: false })
-            {
-                continue;
-            }
+        var taxLines = cart.Items
+            .Select((item, index) => new TaxLineInput(
+                lineTotalsMinor[index],
+                promotionOutcome.LineDiscountsMinor[index] + storefrontLineDiscounts[index],
+                RuleFor(item.ProductId) is { ChargeDestinationTax: false } ? TaxExemptionReason.DestinationShipRule : TaxExemptionReason.None))
+            .ToList();
+        var tax = StorefrontRateTaxStrategy.For(storefrontCopy)
+            .TaxFor(new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor));
+        var taxMinor = tax.TaxMinor;
 
-            taxableDiscountMinor += promotionOutcome.LineDiscountsMinor[i] + storefrontLineDiscounts[i];
-        }
-
-        taxableDiscountMinor = Math.Min(taxableDiscountMinor, taxableSubtotal);
-        var taxBaseMinor = taxableSubtotal - taxableDiscountMinor + taxableShippingMinor;
+        // Inclusive (AU GST / EU VAT, ADR-0038): the listed price IS the charge and the tax is contained in it.
+        // Exclusive (US sales tax): the tax is added on top.
         var chargeBaseMinor = subtotal - discountMinor + shippingMinor;
-        long taxMinor, netMinor;
-        if (taxConfig?.TaxInclusive == true)
-        {
-            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / (10000.0 + taxBps), MidpointRounding.AwayFromZero);
-            netMinor = chargeBaseMinor; // listed price IS the charge
-        }
-        else
-        {
-            taxMinor = (long)Math.Round(taxBaseMinor * taxBps / 10000.0, MidpointRounding.AwayFromZero);
-            netMinor = chargeBaseMinor + taxMinor;
-        }
+        var netMinor = tax.TaxInclusive ? chargeBaseMinor : chargeBaseMinor + taxMinor;
 
         if (priceChanged)
         {
@@ -514,6 +490,14 @@ public static class CheckoutEndpoints
             CouponCode = couponReserved ? couponPromotion?.Code : null,
             // Ordering owns storefront tax (ADR-0008 projection); Payments' flat-rate seam is unused here.
             TaxMinor = taxMinor,
+            // The strategy's facts (ADR-0063 P1), verbatim: Σ line tax + shipping tax == TaxMinor by construction.
+            ShippingTaxCategory = tax.Shipping.Category,
+            ShippingTaxRateBps = tax.Shipping.RateBps,
+            ShippingTaxableBaseMinor = tax.Shipping.TaxableBaseMinor,
+            ShippingTaxMinor = tax.Shipping.TaxMinor,
+            ShippingExemptionReason = tax.Shipping.ExemptionReason,
+            TaxScheme = tax.Scheme,
+            TaxInclusive = tax.TaxInclusive,
             GrossMinor = intent.GrossMinor,
             Currency = currency,
             PaymentIntentId = intent.PaymentIntentId,
@@ -561,6 +545,11 @@ public static class CheckoutEndpoints
                     BillingPeriod = offer?.BillingPeriod ?? BillingPeriod.Once,
                     // Cost of the SAME offer — in the order's currency by construction (coverage is per currency).
                     SupplierUnitCostMinor = offer?.SupplierCostMinor ?? 0,
+                    TaxCategory = tax.Lines[index].Category,
+                    TaxRateBps = tax.Lines[index].RateBps,
+                    TaxableBaseMinor = tax.Lines[index].TaxableBaseMinor,
+                    TaxMinor = tax.Lines[index].TaxMinor,
+                    ExemptionReason = tax.Lines[index].ExemptionReason,
                 };
             }).ToList(),
         };
