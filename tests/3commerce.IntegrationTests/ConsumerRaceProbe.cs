@@ -84,21 +84,12 @@ public sealed class ConsumerRaceProbe : IAsyncDisposable
         }
     }
 
-    public static async Task WaitUntilAsync(Func<Task<bool>> condition, string what, int timeoutSeconds = 30)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(timeoutSeconds);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await condition())
-            {
-                return;
-            }
-
-            await Task.Delay(100);
-        }
-
-        throw new Xunit.Sdk.XunitException($"Timed out waiting for: {what}.");
-    }
+    public static Task WaitUntilAsync(Func<Task<bool>> condition, string what, int timeoutSeconds = 30) =>
+        Eventually.UntilAsync(
+            condition,
+            () => new Xunit.Sdk.XunitException($"Timed out waiting for: {what}."),
+            TimeSpan.FromSeconds(timeoutSeconds),
+            TimeSpan.FromMilliseconds(100));
 
     public ValueTask DisposeAsync()
     {

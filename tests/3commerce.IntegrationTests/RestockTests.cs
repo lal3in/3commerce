@@ -57,17 +57,12 @@ public class RestockTests(Phase4Fixture fixture)
         await fixture.PublishAsync(new RestockRequested(tenant, Guid.NewGuid(),
             [new RestockItemInfo(product, null, locationId, 4)]));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await AvailableAsync(tenant, product) == 6) // 2 + 4 restocked
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        Assert.Fail("Restock was not applied from RestockRequested.");
+                return await AvailableAsync(tenant, product) == 6; // 2 + 4 restocked
+            },
+            () => Xunit.Sdk.FailException.ForFailure("Restock was not applied from RestockRequested."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

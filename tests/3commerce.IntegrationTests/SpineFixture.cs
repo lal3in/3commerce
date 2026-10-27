@@ -119,19 +119,17 @@ public sealed class SpineFixture : IAsyncLifetime
 
     public async Task<PongResponded> WaitForPongAsync(Guid pingId, TimeSpan timeout)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var match = Pongs.FirstOrDefault(p => p.PingId == pingId);
-            if (match is not null)
+        PongResponded? match = null;
+        await Eventually.UntilAsync(
+            () =>
             {
-                return match;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"No PongResponded for {pingId} within {timeout}.");
+                match = Pongs.FirstOrDefault(p => p.PingId == pingId);
+                return Task.FromResult(match is not null);
+            },
+            () => new TimeoutException($"No PongResponded for {pingId} within {timeout}."),
+            timeout,
+            TimeSpan.FromMilliseconds(250));
+        return match!;
     }
 
     private async Task ExecInDbAsync(string database, string sql)

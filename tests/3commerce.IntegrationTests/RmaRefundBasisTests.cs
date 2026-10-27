@@ -222,43 +222,32 @@ public class RmaRefundBasisTests(Phase4Fixture fixture)
 
     private async Task<long> SagaAmountAsync(Guid rmaId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (true)
-        {
-            using var scope = fixture.Support.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
-            var saga = await db.Rmas.AsNoTracking().FirstOrDefaultAsync(r => r.CorrelationId == rmaId);
-            if (saga is not null)
+        long amountMinor = 0;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return saga.AmountMinor;
-            }
-
-            if (DateTimeOffset.UtcNow > deadline)
-            {
-                throw new TimeoutException($"RMA {rmaId} never materialized.");
-            }
-
-            await Task.Delay(200);
-        }
+                using var scope = fixture.Support.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
+                var saga = await db.Rmas.AsNoTracking().FirstOrDefaultAsync(r => r.CorrelationId == rmaId);
+                amountMinor = saga?.AmountMinor ?? 0;
+                return saga is not null;
+            },
+            () => new TimeoutException($"RMA {rmaId} never materialized."));
+        return amountMinor;
     }
 
     private async Task WaitForStateAsync(Guid rmaId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
         string? last = null;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Support.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
-            last = (await db.Rmas.AsNoTracking().FirstOrDefaultAsync(r => r.CorrelationId == rmaId))?.CurrentState;
-            if (last == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"RMA {rmaId} never reached {expected} (last state: {last ?? "<none>"}).");
+                using var scope = fixture.Support.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
+                last = (await db.Rmas.AsNoTracking().FirstOrDefaultAsync(r => r.CorrelationId == rmaId))?.CurrentState;
+                return last == expected;
+            },
+            () => new TimeoutException($"RMA {rmaId} never reached {expected} (last state: {last ?? "<none>"})."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 }

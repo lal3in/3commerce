@@ -35,20 +35,15 @@ public class ConfirmOnOrderTests(Phase4Fixture fixture)
         var ship = new ShipToInfo("Buyer", "1 St", "Sydney", "2000", "AU");
         await fixture.PublishAsync(new OrderConfirmed(orderId, tenant, "buyer@example.com", 3500, "EUR", ship, lines));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Fulfillment.Services.CreateScope();
-            var inventory = scope.ServiceProvider.GetRequiredService<InventoryService>();
-            if (await inventory.AvailableAsync(tenant, product, null, default) == 7) // 10 - 3 consumed
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        Assert.Fail("Warehouse stock was not consumed on OrderConfirmed.");
+                using var scope = fixture.Fulfillment.Services.CreateScope();
+                var inventory = scope.ServiceProvider.GetRequiredService<InventoryService>();
+                return await inventory.AvailableAsync(tenant, product, null, default) == 7; // 10 - 3 consumed
+            },
+            () => Xunit.Sdk.FailException.ForFailure("Warehouse stock was not consumed on OrderConfirmed."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     [Fact]
@@ -65,20 +60,15 @@ public class ConfirmOnOrderTests(Phase4Fixture fixture)
         var ship = new ShipToInfo("Buyer", "1 St", "Sydney", "2000", "AU");
         await fixture.PublishAsync(new OrderConfirmed(orderId, tenant, "buyer@example.com", 3000, "EUR", ship, lines));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Fulfillment.Services.CreateScope();
-            var supplierOrders = scope.ServiceProvider.GetRequiredService<SupplierOrderService>();
-            var list = await supplierOrders.ListAsync(tenant, orderId, default);
-            if (list.Count == 1 && list[0].SupplierId == supplier && list[0].Status == SupplierOrderStatus.TrackingReceived)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        Assert.Fail("Dropship line was not forwarded to the supplier on OrderConfirmed.");
+                using var scope = fixture.Fulfillment.Services.CreateScope();
+                var supplierOrders = scope.ServiceProvider.GetRequiredService<SupplierOrderService>();
+                var list = await supplierOrders.ListAsync(tenant, orderId, default);
+                return list.Count == 1 && list[0].SupplierId == supplier && list[0].Status == SupplierOrderStatus.TrackingReceived;
+            },
+            () => Xunit.Sdk.FailException.ForFailure("Dropship line was not forwarded to the supplier on OrderConfirmed."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

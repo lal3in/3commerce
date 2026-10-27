@@ -31,19 +31,16 @@ public class DigitalFulfilmentTests(Phase4Fixture fixture)
 
     private async Task<T> PollAsync<T>(Func<Task<T>> read, Func<T, bool> done, string failure)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var value = await read();
-            if (done(value))
+        T value = default!;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return value;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new Xunit.Sdk.XunitException(failure);
+                value = await read();
+                return done(value);
+            },
+            () => new Xunit.Sdk.XunitException(failure),
+            interval: TimeSpan.FromMilliseconds(300));
+        return value;
     }
 
     [Fact]

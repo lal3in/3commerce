@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net.Http.Json;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 
@@ -77,19 +76,18 @@ public class AuditTimelineProjectionTests(Phase4Fixture fixture)
     private async Task<AuditEntryDto> WaitForEntryAsync(Guid tenantId, string action)
     {
         using var audit = AuditAdmin();
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < TimeSpan.FromSeconds(20))
-        {
-            var entries = await audit.GetFromJsonAsync<List<AuditEntryDto>>($"/admin/audit?tenantId={tenantId}&action={action}");
-            if (entries is { Count: > 0 })
+        AuditEntryDto? found = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return entries[0];
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Audit entry '{action}' for tenant {tenantId} did not appear in the central projection.");
+                var entries = await audit.GetFromJsonAsync<List<AuditEntryDto>>($"/admin/audit?tenantId={tenantId}&action={action}");
+                found = entries is { Count: > 0 } ? entries[0] : null;
+                return found is not null;
+            },
+            () => new TimeoutException($"Audit entry '{action}' for tenant {tenantId} did not appear in the central projection."),
+            TimeSpan.FromSeconds(20),
+            TimeSpan.FromMilliseconds(250));
+        return found!;
     }
 
     private sealed record AccountRef(Guid Id);

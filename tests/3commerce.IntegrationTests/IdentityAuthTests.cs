@@ -195,18 +195,11 @@ public class IdentityAuthTests(Phase2Fixture fixture)
 
     private static async Task<string> WaitForTokenAsync(ConcurrentDictionary<string, string> captured, string key)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (captured.TryGetValue(key, out var token))
-            {
-                return token;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"No token captured for {key}.");
+        await Eventually.UntilAsync(
+            () => Task.FromResult(captured.ContainsKey(key)),
+            () => new TimeoutException($"No token captured for {key}."),
+            TimeSpan.FromSeconds(20));
+        return captured[key];
     }
 
     private sealed class BusHandle(IBusControl bus) : IAsyncDisposable

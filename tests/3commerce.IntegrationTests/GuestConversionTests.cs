@@ -142,12 +142,6 @@ public class GuestConversionTests(Phase3Fixture fixture)
         Assert.Null(await fixture.OrderUserIdAsync(orderId));
     }
 
-    private static async Task WaitUntilAsync(Func<Task<bool>> condition)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (!await condition() && DateTimeOffset.UtcNow < deadline)
-        {
-            await Task.Delay(250);
-        }
-    }
+    private static Task WaitUntilAsync(Func<Task<bool>> condition) =>
+        Eventually.PollAsync(condition, TimeSpan.FromSeconds(20), TimeSpan.FromMilliseconds(250));
 }

@@ -106,38 +106,37 @@ public class OrderConfirmedBackfillTests(Phase3Fixture fixture)
 
     private static async Task<T> WaitForAsync<T>(ConcurrentQueue<T> queue, Func<T, bool> match, string what)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(60);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            foreach (var item in queue)
+        T found = default!;
+        await Eventually.UntilAsync(
+            () =>
             {
-                if (match(item))
+                foreach (var item in queue)
                 {
-                    return item;
+                    if (match(item))
+                    {
+                        found = item;
+                        return Task.FromResult(true);
+                    }
                 }
-            }
 
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Timed out waiting for {what}.");
+                return Task.FromResult(false);
+            },
+            () => new TimeoutException($"Timed out waiting for {what}."),
+            TimeSpan.FromSeconds(60));
+        return found;
     }
 
     private async Task SimulatePaymentAsync(Guid orderId, long gross)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.CheckoutStates.Where(s => s.CorrelationId == orderId)))
+        await Eventually.PollAsync(
+            async () =>
             {
-                break;
-            }
-
-            await Task.Delay(250);
-        }
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.CheckoutStates.Where(s => s.CorrelationId == orderId));
+            },
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
 
         using var payments = fixture.Payments.CreateClient();
         (await payments.PostAsync($"/dev/simulate-payment/pi_fake_{orderId:N}?amountMinor={gross}", null)).EnsureSuccessStatusCode();
@@ -145,18 +144,13 @@ public class OrderConfirmedBackfillTests(Phase3Fixture fixture)
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

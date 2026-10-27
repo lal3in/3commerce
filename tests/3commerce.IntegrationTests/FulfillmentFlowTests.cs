@@ -63,23 +63,21 @@ public class FulfillmentFlowTests(Phase4Fixture fixture)
 
     private async Task<List<ShipmentInfo>> WaitForShipmentsAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Fulfillment.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<FulfillmentDbContext>();
-            var shipments = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
-                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
-                    .Include(db.Shipments, s => s.Lines)
-                    .Where(s => s.OrderId == orderId));
-            if (shipments.Count > 0)
+        List<ShipmentInfo> found = [];
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return shipments.Select(s => new ShipmentInfo(s.FulfillmentSource, s.Lines.Count)).ToList();
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"No shipments created for order {orderId}.");
+                using var scope = fixture.Fulfillment.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<FulfillmentDbContext>();
+                var shipments = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                    Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                        .Include(db.Shipments, s => s.Lines)
+                        .Where(s => s.OrderId == orderId));
+                found = shipments.Select(s => new ShipmentInfo(s.FulfillmentSource, s.Lines.Count)).ToList();
+                return found.Count > 0;
+            },
+            () => new TimeoutException($"No shipments created for order {orderId}."),
+            interval: TimeSpan.FromMilliseconds(300));
+        return found;
     }
 }

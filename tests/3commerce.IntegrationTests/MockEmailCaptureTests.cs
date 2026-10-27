@@ -150,20 +150,18 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
         // recording sender). The deadline is only an upper bound for a loaded CI runner — it returns as soon
         // as the email lands. NOTE: raising it never fixed the old flake; that was a LOST message (the
         // consumer's queue was not yet bound when Payments published), fixed by WaitUntilStarted above.
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(120);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var match = recorder.Sent.FirstOrDefault(m => m.Body.Contains(orderId.ToString()));
-            if (match is not null)
+        EmailMessage? match = null;
+        await Eventually.UntilAsync(
+            () =>
             {
-                return match;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException(
-            $"No TEST-ONLY mock payment email arrived for order {orderId} ({recorder.Sent.Count} email(s) recorded, none for this order).");
+                match = recorder.Sent.FirstOrDefault(m => m.Body.Contains(orderId.ToString()));
+                return Task.FromResult(match is not null);
+            },
+            () => new TimeoutException(
+                $"No TEST-ONLY mock payment email arrived for order {orderId} ({recorder.Sent.Count} email(s) recorded, none for this order)."),
+            TimeSpan.FromSeconds(120),
+            interval: TimeSpan.FromMilliseconds(250));
+        return match!;
     }
 
     private async Task SimulatePaymentAsync(Guid orderId, long gross)
@@ -176,37 +174,27 @@ public class MockEmailCaptureTests(Phase3Fixture fixture)
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.CheckoutStates.Where(s => s.CorrelationId == orderId)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} did not start.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.CheckoutStates.Where(s => s.CorrelationId == orderId));
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} did not start."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

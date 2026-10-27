@@ -187,21 +187,16 @@ public class RmaSagaTests(Phase4Fixture fixture)
 
     private async Task WaitForStateAsync(Guid rmaId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Support.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
-            var state = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
-                .FirstOrDefaultAsync(db.Rmas.Where(r => r.CorrelationId == rmaId));
-            if (state?.CurrentState == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"RMA {rmaId} did not reach {expected}.");
+                using var scope = fixture.Support.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
+                var state = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                    .FirstOrDefaultAsync(db.Rmas.Where(r => r.CorrelationId == rmaId));
+                return state?.CurrentState == expected;
+            },
+            () => new TimeoutException($"RMA {rmaId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }
