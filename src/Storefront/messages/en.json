@@ -569,5 +569,57 @@
       "refunded": "Refunded",
       "refundFailed": "Refund failed"
     }
+  },
+  "subscriptions": {
+    "heading": "Subscriptions",
+    "none": "You have no subscriptions.",
+    "renewsOn": "Renews {date}",
+    "status": {
+      "Active": "Active",
+      "Trialing": "Trial",
+      "PastDue": "Payment due",
+      "Cancelled": "Cancelled"
+    },
+    "completePaymentLink": "Complete payment",
+    "pageTitle": "Complete your subscription payment",
+    "intro": "Your subscription renewal has not been paid yet. Nothing has been charged for this period.",
+    "amountDue": "Amount due",
+    "period": "For the period ending",
+    "item": "Subscription",
+    "reason": {
+      "RequiresAction": "Your bank needs you to confirm this payment.",
+      "Failed": "Your card was declined.",
+      "Cancelled": "The payment was cancelled.",
+      "Error": "We could not reach the payment provider."
+    },
+    "nextRetry": "If you do nothing we will try again on {date}.",
+    "cancelsAfter": "If it is still unpaid after {date}, the subscription will be cancelled.",
+    "card": "Pay with",
+    "currentCard": "The card on the subscription",
+    "savedCard": "{brand} ending {last4}",
+    "cardHint": "A card you choose here is also used for future renewals. Add a new card on your account page.",
+    "pay": "Pay {amount} now",
+    "paying": "Paying…",
+    "paid": "Thank you — your payment went through and your subscription is active again.",
+    "authenticateTitle": "Confirm the payment with your bank",
+    "authenticateBody": "Your bank asked you to authenticate this payment (3-D Secure).",
+    "authenticate": "Complete bank authentication (test)",
+    "authenticating": "Authenticating…",
+    "declined": "The payment was declined. Try again or choose another card.",
+    "unavailable": "We could not reach the payment provider. Nothing was charged — please try again.",
+    "notPastDue": "This subscription has nothing to pay.",
+    "unknownCard": "That card is not one of your saved cards.",
+    "failed": "Something went wrong. Nothing was charged — please try again.",
+    "notDue": "There is nothing to pay on this subscription.",
+    "notFound": "We couldn't find that subscription.",
+    "backToAccount": "Back to your account",
+    "loading": "Loading your subscription…",
+    "tips": {
+      "pay": "Charges the amount due now. It is the same amount every attempt for this period.",
+      "card": "The card to charge — it becomes the card for future renewals too.",
+      "authenticate": "Test mode: simulates you approving the payment in your banking app.",
+      "completePayment": "Pay the overdue renewal of this subscription."
+    },
+    "tryAgain": "Try again"
   }
 }

@@ -561,5 +561,57 @@
       "refunded": "已退款",
       "refundFailed": "退款失敗"
     }
+  },
+  "subscriptions": {
+    "heading": "訂閱",
+    "none": "你未有任何訂閱。",
+    "renewsOn": "{date} 續期",
+    "status": {
+      "Active": "生效中",
+      "Trialing": "試用中",
+      "PastDue": "待付款",
+      "Cancelled": "已取消"
+    },
+    "completePaymentLink": "完成付款",
+    "pageTitle": "完成你嘅訂閱付款",
+    "intro": "你嘅訂閱續期仲未付款。呢個週期未有收取任何款項。",
+    "amountDue": "應付金額",
+    "period": "週期截至",
+    "item": "訂閱",
+    "reason": {
+      "RequiresAction": "你嘅銀行要你確認呢筆付款。",
+      "Failed": "你張卡被拒絕咗。",
+      "Cancelled": "付款已被取消。",
+      "Error": "我哋聯絡唔到付款服務商。"
+    },
+    "nextRetry": "如果你唔做任何嘢，我哋會喺 {date} 再試。",
+    "cancelsAfter": "如果 {date} 之後仍然未付款，訂閱會被取消。",
+    "card": "付款方式",
+    "currentCard": "訂閱而家用緊嘅卡",
+    "savedCard": "{brand} 尾號 {last4}",
+    "cardHint": "你喺度揀嘅卡亦會用嚟支付之後嘅續期。新卡可以喺帳戶頁面加入。",
+    "pay": "即刻付 {amount}",
+    "paying": "付款中…",
+    "paid": "多謝！你嘅付款已成功，訂閱已經重新生效。",
+    "authenticateTitle": "同你嘅銀行確認付款",
+    "authenticateBody": "你嘅銀行要求你驗證呢筆付款（3-D Secure）。",
+    "authenticate": "完成銀行驗證（測試）",
+    "authenticating": "驗證中…",
+    "declined": "付款被拒絕。請再試一次或者揀另一張卡。",
+    "unavailable": "我哋聯絡唔到付款服務商。冇收取任何款項，請再試一次。",
+    "notPastDue": "呢個訂閱冇需要付嘅款項。",
+    "unknownCard": "呢張卡唔係你已儲存嘅卡。",
+    "failed": "出咗問題。冇收取任何款項，請再試一次。",
+    "notDue": "呢個訂閱冇需要付嘅款項。",
+    "notFound": "搵唔到呢個訂閱。",
+    "backToAccount": "返回你嘅帳戶",
+    "loading": "載入緊你嘅訂閱…",
+    "tips": {
+      "pay": "即刻收取應付金額。呢個週期每次嘗試都係同一個金額。",
+      "card": "要扣款嘅卡——之後嘅續期亦會用呢張卡。",
+      "authenticate": "測試模式：模擬你喺銀行 app 批准呢筆付款。",
+      "completePayment": "支付呢個訂閱逾期嘅續期款項。"
+    },
+    "tryAgain": "再試一次"
   }
 }
