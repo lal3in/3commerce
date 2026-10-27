@@ -1074,13 +1074,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<bool>("IsLive")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("SellerEstablishmentKey")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasDefaultValue("");
-
                     b.Property<string>("ShipToCountries")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -1088,13 +1081,6 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<bool>("TaxInclusive")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("TaxJurisdiction")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(6)
-                        .HasColumnType("character varying(6)")
-                        .HasDefaultValue("");
 
                     b.Property<int>("TaxRateBasisPoints")
                         .HasColumnType("integer");
