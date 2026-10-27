@@ -182,7 +182,7 @@
                     }
                 </select>
             </label>
-            <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
+            <button id="sf-save-settings" @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
             @if (_sellerEstablishments.Count == 0)
             {
                 <p style="grid-column:1 / -1; margin:0; color:#6b7280; font-size:.8rem;">@L["Ops.SellerEstablishment.Hint"]</p>

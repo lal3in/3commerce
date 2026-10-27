@@ -27,11 +27,14 @@ public static class SellerIdentityEndpoints
         group.MapGet("/seller", GetSeller)
             .WithSummary("The tenant's seller of record with its tax identifiers and establishments (404 when none is designated).");
         group.MapPost("/{id:guid}/seller", DesignateSeller)
-            .WithSummary("Designate the entity as its tenant's seller of record (409 when another entity already is).");
+            .WithSummary("Designate the entity as its tenant's seller of record (409 when another entity already is).")
+            .ProducesProblem(StatusCodes.Status409Conflict);
         group.MapPost("/{id:guid}/establishments", AddEstablishment)
-            .WithSummary("Add a seller establishment (address + tax jurisdiction) with a stable key storefronts bind to.");
+            .WithSummary("Add a seller establishment (address + tax jurisdiction) with a stable key storefronts bind to.")
+            .ProducesProblem(StatusCodes.Status409Conflict);
         group.MapPut("/{id:guid}/establishments/{establishmentId:guid}", UpdateEstablishment)
-            .WithSummary("Edit a seller establishment's label, address or jurisdiction (the key is immutable).");
+            .WithSummary("Edit a seller establishment's label, address or jurisdiction (the key is immutable).")
+            .ProducesProblem(StatusCodes.Status409Conflict);
         return group;
     }
 

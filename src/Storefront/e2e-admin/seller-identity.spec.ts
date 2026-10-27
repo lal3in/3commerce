@@ -108,7 +108,7 @@ test("entities + commerce ops: seller of record, tax ID, establishment and store
     await expect(page.locator("#sf-seller-establishment")).toHaveAttribute("title", /.+/);
     await page.locator("#sf-tax-jurisdiction").fill("au");
     await page.locator("#sf-seller-establishment").selectOption(EST_KEY);
-    await page.getByRole("button", { name: "Save storefront settings", exact: true }).click();
+    await page.locator("#sf-save-settings").click();
     await capture(page, "seller-identity-storefront");
 
     await expect
