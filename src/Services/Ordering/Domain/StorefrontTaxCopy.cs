@@ -34,4 +34,14 @@ public class StorefrontTaxCopy
     /// non-empty = checkout rejects a ship-to country not in this list.
     /// </summary>
     public List<string> ShipToCountries { get; set; } = [];
+
+    /// <summary>
+    /// ADR-0063 P2: where the storefront's sales are taxed (ISO country + optional region, e.g. <c>AU</c>,
+    /// <c>US-CA</c>), projected from Catalog. Empty = not configured (and on copies projected from a
+    /// pre-P2 message). Input for the per-line tax breakdown (P1/P1b); not used by checkout yet.
+    /// </summary>
+    public string TaxJurisdiction { get; set; } = string.Empty;
+
+    /// <summary>ADR-0063 P2: the seller establishment key the storefront sells from; empty = not bound.</summary>
+    public string SellerEstablishmentKey { get; set; } = string.Empty;
 }

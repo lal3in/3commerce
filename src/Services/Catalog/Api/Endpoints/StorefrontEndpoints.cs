@@ -198,6 +198,7 @@ public static class StorefrontEndpoints
             storefront.SetTheme(ThemeJsonFrom(request.Theme), time.GetUtcNow());
             storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), time.GetUtcNow());
             storefront.SetShipToCountries(request.ShipToCountries, time.GetUtcNow());
+            storefront.SetTaxIdentity(request.TaxJurisdiction, request.SellerEstablishmentKey, time.GetUtcNow()); // ADR-0063 P2
             db.Storefronts.Add(storefront);
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
@@ -207,7 +208,7 @@ public static class StorefrontEndpoints
         }
         catch (CatalogRuleException ex)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Name)] = [ex.Message] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [ex.Field ?? nameof(request.Name)] = [ex.Message] });
         }
     }
 
@@ -336,6 +337,7 @@ public static class StorefrontEndpoints
             storefront.SetTheme(ThemeJsonFrom(request.Theme), now); // null = leave the current theme as-is
             storefront.SetCostAssumptions(CostAssumptionsJsonFrom(request.CostAssumptions), now);
             storefront.SetShipToCountries(request.ShipToCountries, now); // null = leave as-is (older client can't wipe it)
+            storefront.SetTaxIdentity(request.TaxJurisdiction, request.SellerEstablishmentKey, now); // null = leave as-is (ADR-0063 P2)
             await PublishConfigAsync(publisher, storefront, cancellationToken); // before Save so it lands in the outbox tx
             await audit.RecordAsync(user.Mutation(
                 storefront.TenantId, "Storefront", storefront.Id.ToString(), "catalog.storefront.update", storefront.Name), cancellationToken);
@@ -344,7 +346,7 @@ public static class StorefrontEndpoints
         }
         catch (CatalogRuleException ex)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Name)] = [ex.Message] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [ex.Field ?? nameof(request.Name)] = [ex.Message] });
         }
     }
 
@@ -476,7 +478,9 @@ public static class StorefrontEndpoints
             TaxAccountCode: s.TaxAccountCode,
             ShippingAccountCode: s.ShippingAccountCode,
             ShipToCountries: s.ShipToCountries.ToArray(),
-            DiscountBps: s.DiscountBasisPoints), ct);
+            DiscountBps: s.DiscountBasisPoints,
+            TaxJurisdiction: s.TaxJurisdiction, // ADR-0063 P2
+            SellerEstablishmentKey: s.SellerEstablishmentKey), ct);
 
     private static async Task<Results<Created<ProductPublicationResponse>, NotFound, Conflict<string>, ValidationProblem>> AssignProduct(
         Guid id,
@@ -703,7 +707,9 @@ public static class StorefrontEndpoints
         storefront.CreatedAt,
         storefront.UpdatedAt,
         storefront.ActivatedAt,
-        storefront.DuplicatedFromStorefrontId);
+        storefront.DuplicatedFromStorefrontId,
+        storefront.TaxJurisdiction,
+        storefront.SellerEstablishmentKey);
 }
 
 public sealed record CreateStorefrontRequest(
@@ -729,7 +735,11 @@ public sealed record CreateStorefrontRequest(
     // Per-storefront cost-assumption bps (phase 4); omit → none. Validated by Storefront.SetCostAssumptions.
     IReadOnlyDictionary<string, int>? CostAssumptions = null,
     // Ship-to allowlist (ISO 3166-1 alpha-2); omit/empty → ships worldwide.
-    IReadOnlyList<string>? ShipToCountries = null);
+    IReadOnlyList<string>? ShipToCountries = null,
+    // ADR-0063 P2: place of taxation (ISO country + optional region, e.g. AU, US-CA); omit → not configured.
+    [property: StringLength(6)] string? TaxJurisdiction = null,
+    // ADR-0063 P2: key of the seller establishment (Entity) this storefront sells from; omit → not bound.
+    [property: StringLength(40)] string? SellerEstablishmentKey = null);
 
 public sealed record UpdateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name,
@@ -754,7 +764,10 @@ public sealed record UpdateStorefrontRequest(
     // Per-storefront cost-assumption bps (phase 4); omit → keeps current. Validated by Storefront.SetCostAssumptions.
     IReadOnlyDictionary<string, int>? CostAssumptions = null,
     // Optional: null → the storefront keeps its current ship-to allowlist; [] → clears it (worldwide).
-    IReadOnlyList<string>? ShipToCountries = null);
+    IReadOnlyList<string>? ShipToCountries = null,
+    // ADR-0063 P2. Optional: null → keeps the current value; "" → clears it.
+    [property: StringLength(6)] string? TaxJurisdiction = null,
+    [property: StringLength(40)] string? SellerEstablishmentKey = null);
 
 public sealed record DuplicateStorefrontRequest(
     [property: Required, StringLength(120, MinimumLength = 2)] string Name);
@@ -788,7 +801,10 @@ public sealed record StorefrontResponse(
     DateTimeOffset? ActivatedAt,
     // Read-only: the storefront this one was duplicated from (set by POST /{id}/duplicate), null otherwise. No
     // create/update request carries it, so it can't be set or changed through the admin API.
-    Guid? DuplicatedFromStorefrontId = null);
+    Guid? DuplicatedFromStorefrontId = null,
+    // ADR-0063 P2: place of taxation and seller-establishment binding ('' = not configured).
+    string TaxJurisdiction = "",
+    string SellerEstablishmentKey = "");
 
 public sealed record StorefrontDomainResponse(Guid Id, string Host, bool Canonical);
 

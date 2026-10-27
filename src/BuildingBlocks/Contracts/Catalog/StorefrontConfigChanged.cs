@@ -28,4 +28,9 @@ public record StorefrontConfigChanged(
     string[]? ShipToCountries = null,
     // Storefront-wide discount in basis points (0–10000; 0 = none). Deducted from the items' subtotal only
     // at checkout (not shipping, not tax), applied after offer/catalog pricing. Optional → back-compatible.
-    int DiscountBps = 0);
+    int DiscountBps = 0,
+    // ADR-0063 P2: where the storefront's sales are taxed — ISO 3166-1 alpha-2 country with an optional
+    // ISO 3166-2 subdivision ("AU", "US-CA") — and the key of the seller establishment (Entity) it sells
+    // from. "" = not configured. Optional → an older message without them projects with "" (back-compatible).
+    string TaxJurisdiction = "",
+    string SellerEstablishmentKey = "");

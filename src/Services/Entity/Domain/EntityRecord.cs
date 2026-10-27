@@ -16,6 +16,15 @@ public sealed class EntityRecord
     public List<EntityIdentifier> Identifiers { get; private set; } = [];
     public List<EntityContactMethod> ContactMethods { get; private set; } = [];
 
+    /// <summary>Where the seller of record is established (ADR-0063 P2); only a seller entity has any.</summary>
+    public List<SellerEstablishment> Establishments { get; private set; } = [];
+
+    /// <summary>
+    /// True when this entity is its tenant's seller of record — the legal entity that sells and issues
+    /// tax documents (an active <see cref="EntityRoleKind.TenantOwner"/> profile; ADR-0063 D1 (a)).
+    /// </summary>
+    public bool IsSeller => Profiles.Any(p => p.Role == EntityRoleKind.TenantOwner && p.Status == EntityProfileStatus.Active);
+
     private EntityRecord()
     {
     }
@@ -137,12 +146,12 @@ public sealed class EntityRecord
         return address;
     }
 
-    public EntityIdentifier AddIdentifier(EntityIdentifierType type, string value, DateTimeOffset now)
+    public EntityIdentifier AddIdentifier(EntityIdentifierType type, string value, DateTimeOffset now, string? jurisdiction = null)
     {
-        var normalizedValue = NormalizeIdentifierValue(type, value);
-        if (Identifiers.Any(i => i.Type == type && i.Value == normalizedValue))
+        var normalized = TaxIdentifierFormats.Normalize(type, value, jurisdiction);
+        if (Identifiers.Any(i => i.Type == type && i.Value == normalized.Value))
         {
-            throw new DomainRuleException($"Identifier '{type}' already exists on this entity.");
+            throw new DomainRuleException($"Identifier '{type}' already exists on this entity.", TaxIdentifierFormats.ValueField);
         }
 
         var identifier = new EntityIdentifier
@@ -150,12 +159,66 @@ public sealed class EntityRecord
             Id = Guid.CreateVersion7(),
             EntityId = Id,
             Type = type,
-            Value = normalizedValue,
+            Value = normalized.Value,
+            Jurisdiction = normalized.Jurisdiction,
             CreatedAt = now,
         };
         Identifiers.Add(identifier);
         UpdatedAt = now;
         return identifier;
+    }
+
+    /// <summary>
+    /// Makes this entity its tenant's seller of record (adds the TenantOwner profile). The caller enforces
+    /// "at most one seller per tenant" — it needs a cross-aggregate query. Returns the profile (new or existing).
+    /// </summary>
+    public EntityProfile DesignateAsSeller(DateTimeOffset now)
+    {
+        if (Status == EntityRecordStatus.Archived)
+        {
+            throw new DomainRuleException("An archived entity cannot be the seller of record.", "entity");
+        }
+
+        if (Type == EntityType.NaturalPerson)
+        {
+            // A sole trader is a SoleTrader entity; a bare natural person is not a selling business.
+            throw new DomainRuleException("A natural person cannot be the seller of record — use a business entity type.", "Type");
+        }
+
+        return AddProfile(EntityRoleKind.TenantOwner, now);
+    }
+
+    public SellerEstablishment AddEstablishment(string key, SellerEstablishmentDetails details, DateTimeOffset now)
+    {
+        EnsureSeller();
+        var normalizedKey = SellerEstablishment.NormalizeKey(key);
+        if (Establishments.Any(e => e.Key == normalizedKey))
+        {
+            throw new DomainRuleException($"Establishment key '{normalizedKey}' already exists on this entity.", nameof(SellerEstablishment.Key));
+        }
+
+        var establishment = SellerEstablishment.Create(Id, normalizedKey, details, now);
+        Establishments.Add(establishment);
+        UpdatedAt = now;
+        return establishment;
+    }
+
+    public SellerEstablishment UpdateEstablishment(Guid establishmentId, SellerEstablishmentDetails details, DateTimeOffset now)
+    {
+        EnsureSeller();
+        var establishment = Establishments.SingleOrDefault(e => e.Id == establishmentId)
+            ?? throw new DomainRuleException("Establishment not found on this entity.", "establishment");
+        establishment.Apply(details, now);
+        UpdatedAt = now;
+        return establishment;
+    }
+
+    private void EnsureSeller()
+    {
+        if (!IsSeller)
+        {
+            throw new DomainRuleException("Only the tenant's seller of record has establishments — designate the entity as seller first.", "entity");
+        }
     }
 
     public EntityContactMethod AddContactMethod(EntityContactPurpose purpose, EntityContactKind kind, string value, DateTimeOffset now)
@@ -237,27 +300,6 @@ public sealed class EntityRecord
         }
 
         return value;
-    }
-
-    private static string NormalizeIdentifierValue(EntityIdentifierType type, string value)
-    {
-        var normalized = type is EntityIdentifierType.Abn or EntityIdentifierType.Acn
-            ? new string(value.Where(char.IsAsciiDigit).ToArray())
-            : value.Trim().ToUpperInvariant();
-
-        var valid = type switch
-        {
-            EntityIdentifierType.Abn => normalized.Length == 11,
-            EntityIdentifierType.Acn => normalized.Length == 9,
-            _ => normalized.Length is >= 2 and <= 80,
-        };
-
-        if (!valid)
-        {
-            throw new DomainRuleException($"Invalid {type} identifier value.");
-        }
-
-        return normalized;
     }
 
     private static string NormalizeContactValue(EntityContactKind kind, string value)

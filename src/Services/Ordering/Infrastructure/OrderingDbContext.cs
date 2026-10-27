@@ -131,6 +131,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
                         v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode(StringComparison.Ordinal))),
                         v => v.ToList()))
                 .HasMaxLength(1000);
+            // ADR-0063 P2 projection; '' = not configured (also what pre-P2 rows get).
+            tax.Property(t => t.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
+            tax.Property(t => t.SellerEstablishmentKey).HasMaxLength(40).HasDefaultValue(string.Empty);
             tax.HasIndex(t => new { t.Currency, t.IsLive });
         });
 

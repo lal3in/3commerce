@@ -818,6 +818,13 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasDefaultValue("");
 
+                    b.Property<string>("SellerEstablishmentKey")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("");
+
                     b.Property<string>("ShipToCountries")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -835,6 +842,13 @@ namespace ThreeCommerce.Catalog.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("TaxJurisdiction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
                         .HasDefaultValue("");
 
                     b.Property<int>("TaxRateBasisPoints")
