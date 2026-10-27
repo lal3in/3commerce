@@ -36,6 +36,19 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
         "We received your support request",
         $"Your ticket {ticketId} for order {orderId} is open. We'll be in touch shortly.");
 
+    /// <summary>
+    /// A subscription renewal the customer's bank wants them to authenticate (3DS/SCA) before it pays (ADR-0057
+    /// amendment 2026-10-27). The renewal was not taken and the subscription is past-due until it is. The delivery-log
+    /// reference names the subscription period, so "was this customer asked?" has an exact answer.
+    /// </summary>
+    public EmailMessage SubscriptionRenewalActionRequired(SubscriptionRenewalActionRequired e) => new(
+        e.CustomerEmail,
+        "Action needed: confirm your subscription payment",
+        $"Your bank needs you to confirm the renewal payment of {Money.Amount(e.AmountMinor, e.Currency)} {e.Currency} for your subscription. "
+            + "The renewal has not been charged and your subscription is paused as past due until it is. "
+            + $"Sign in at {storefrontBaseUrl}/account to check your payment method; the renewal is retried for the same amount.",
+        NotificationReferences.SubscriptionRenewalActionRequired(e.SubscriptionId, e.PeriodEnd));
+
     public EmailMessage RmaStateChanged(string to, Guid rmaId, string state) => new(
         to,
         $"Your return/refund request is now {state}",

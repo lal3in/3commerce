@@ -44,6 +44,7 @@ builder.Services.AddServiceBus(builder.Configuration, bus =>
     bus.AddConsumer<TrackingAssignedConsumer>();
     bus.AddConsumer<TicketOpenedConsumer>();
     bus.AddConsumer<RmaStateChangedConsumer>();
+    bus.AddConsumer<SubscriptionRenewalActionRequiredConsumer>(); // ADR-0057 amendment 2026-10-27: renewal needs 3DS
     bus.AddConsumer<MockPaymentCapturedConsumer>(); // pay_3: TEST-ONLY mock-payment payload email
 });
 builder.Services.AddServiceHealth<NotificationsDbContext>();

@@ -19,7 +19,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Consumers;
 /// sends the same amount under the same idempotency key;</item>
 /// <item>on a settled charge, post a receivable-bridged <see cref="Ledger.Sale"/> attributed to the storefront:
 /// net to <c>revenue.store-{id}</c>, tax to <c>tax.store-{id}</c>, gross to <c>cash.store-{id}.{provider}</c>.
-/// No fee/shipping.</item>
+/// No fee/shipping. An unsettled one (Failed / RequiresAction / Cancelled) posts nothing and is logged.</item>
 /// </list>
 /// A usage charge has no ship-to, so it is never destination-exempt.
 /// </summary>
@@ -53,6 +53,13 @@ public static class UsageChargeBilling
             new PaymentRequest(Guid.Empty, tax.ChargeMinor, currency, reference, PaymentMethodKind.Card, account), ct);
         if (response.Outcome != PaymentOutcome.Succeeded)
         {
+            // Not settled (Failed / RequiresAction / Cancelled): no money moved, so nothing is posted — no revenue, no
+            // tax, no journal entry, which is also what marks a reference as charged (the de-dupe above), so a re-sent
+            // charge under this reference retries with the same pinned amount (ADR-0057 amendment 2026-10-27). Logged
+            // because Usage has already treated the charge as billed when it published it.
+            logger.LogWarning(
+                "Usage charge {Reference} for storefront {StorefrontId} was not settled ({Outcome}, {ErrorCode}); nothing posted",
+                reference, storefrontId, response.Outcome, response.Error?.Code);
             return;
         }
 

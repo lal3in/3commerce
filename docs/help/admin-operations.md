@@ -254,9 +254,13 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess)
   **instead of a shipment**. Filter by tenant / order / email.
 - **Subscriptions** (`GET /api/payments/admin/subscriptions`, `POST …/{id}/renew|cancel`) —
-  a recurring line sets one up on confirm (first period paid with the order). **Renew**
-  charges the period via the payment rail and advances; a failed charge → **PastDue**
-  (dunning). **Cancel** ends it.
+  a recurring line sets one up on confirm (first period paid with the order). Its price is
+  each renewal's price for the **whole line** (unit × quantity less the line's renewal
+  discount). **Renew** charges the period via the payment rail and advances **only when the
+  charge settles**; a declined charge, one the bank wants the customer to authenticate (the
+  customer is emailed), or a provider error → **PastDue** (dunning) — the period does not
+  advance and nothing is booked. A past-due subscription is not picked up by the nightly
+  auto-renew: **Renew** it again to retry the same period (same amount). **Cancel** ends it.
 - **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**

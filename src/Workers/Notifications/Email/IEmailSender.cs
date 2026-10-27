@@ -23,4 +23,8 @@ public static class NotificationReferences
     public const string OrderConfirmedPrefix = "order-confirmed:";
 
     public static string OrderConfirmed(Guid orderId) => OrderConfirmedPrefix + orderId.ToString("D");
+
+    /// <summary>The "confirm your renewal payment" email of one subscription period (keyed like the renewal itself).</summary>
+    public static string SubscriptionRenewalActionRequired(Guid subscriptionId, DateTimeOffset periodEnd) =>
+        $"subscription-renewal-action:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}";
 }

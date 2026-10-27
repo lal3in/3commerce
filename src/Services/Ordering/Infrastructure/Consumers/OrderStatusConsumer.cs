@@ -203,17 +203,21 @@ public sealed class OrderStatusConsumer(
         var (taxInclusive, exemptProductIds) = await SubscriptionTaxTermsAsync(order, recurringLines, context.CancellationToken);
         foreach (var line in recurringLines)
         {
-            // The RENEWAL price, which is not always what the first period cost (ADR-0057). The first
-            // period was paid with the order at the fully discounted price; a renewal keeps only the
-            // discount of promotions flagged AppliesToRenewals. An introductory promotion and the
-            // storefront-wide percentage both drop off here, so renewals go back to list — which is
-            // what this line published unconditionally before the flag existed.
-            var renewalPriceMinor = Math.Max(0, line.UnitPriceMinor - line.RenewalDiscountMinor);
-            await context.Publish(new SubscriptionRequested(
-                order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, renewalPriceMinor, order.Currency,
-                order.StorefrontId, taxInclusive, exemptProductIds.Contains(line.ProductId)));
+            await context.Publish(SubscriptionRequestFor(order, line, taxInclusive, exemptProductIds.Contains(line.ProductId)));
         }
     }
+
+    /// <summary>
+    /// The subscription a recurring line sets up. Its price is the RENEWAL price, which is not always what the first
+    /// period cost (ADR-0057): the first period was paid with the order at the fully discounted price; a renewal keeps
+    /// only the discount of promotions flagged AppliesToRenewals (an introductory promotion and the storefront-wide
+    /// percentage drop off, so renewals go back to list). It is the WHOLE line — unit × quantity less the line's
+    /// renewal discount (<see cref="OrderLine.RenewalPriceMinor"/>, owner decision 2026-10-27) — matching the cart's
+    /// "renews at" preview and the first charge; before that decision it was one unit's price whatever the quantity.
+    /// </summary>
+    public static SubscriptionRequested SubscriptionRequestFor(Order order, OrderLine line, bool? taxInclusive, bool taxExempt) =>
+        new(order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.RenewalPriceMinor(), order.Currency,
+            order.StorefrontId, taxInclusive, taxExempt, line.Quantity);
 
     /// <summary>
     /// The tax TERMS a subscription line was sold under (ADR-0063 §7.1 / P4), snapshotted for its renewals:

@@ -115,23 +115,26 @@ public static class SubscriptionEndpoints
 
     private static SubscriptionDto ToDto(Subscription s) =>
         new(s.Id, s.OrderId, s.StorefrontId, s.CustomerEmail, s.ProductId, s.VariantId, s.BillingPeriod.ToString(), s.PriceMinor, s.Currency,
-            s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt);
+            s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt, s.Quantity);
 
     private static SubscriptionDetailDto ToDetailDto(Subscription s) =>
         new(s.Id, s.TenantId, s.OrderId, s.StorefrontId, s.CustomerEmail, s.ProductId, s.VariantId, s.BillingPeriod.ToString(), s.PriceMinor,
             s.Currency, s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt,
             s.Renewals.OrderBy(r => r.Sequence)
                 .Select(r => new RenewalDto(r.Sequence, r.PeriodStart, r.PeriodEnd, r.AmountMinor, r.Currency, r.RecordedAt))
-                .ToList());
+                .ToList(),
+            s.Quantity);
 }
 
+/// <summary>A subscription. <c>PriceMinor</c> is each renewal's price for all <c>Quantity</c> units (appended, ADR-0057 amendment 2026-10-27).</summary>
 public record SubscriptionDto(
     Guid Id, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor, string Currency,
-    string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+    string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
+    int Quantity = 1);
 
 public record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
 
 public record SubscriptionDetailDto(
     Guid Id, Guid TenantId, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,
     string Currency, string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt, IReadOnlyList<RenewalDto> Renewals);
+    DateTimeOffset UpdatedAt, IReadOnlyList<RenewalDto> Renewals, int Quantity = 1);
