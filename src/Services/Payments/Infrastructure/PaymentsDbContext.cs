@@ -29,6 +29,7 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<Mandate> Mandates => Set<Mandate>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
+    public DbSet<SubscriptionChargeAttempt> SubscriptionChargeAttempts => Set<SubscriptionChargeAttempt>();
     public DbSet<StorefrontBillingSchedule> StorefrontBillingSchedules => Set<StorefrontBillingSchedule>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
@@ -58,6 +59,23 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             subscription.HasMany(x => x.Renewals).WithOne().HasForeignKey(r => r.SubscriptionId);
             subscription.Metadata.FindNavigation(nameof(Subscription.Renewals))!
                 .SetPropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        // Dunning (ADR-0057 amendment 2026-10-27): the reason is a short outcome name.
+        modelBuilder.Entity<Subscription>().Property(x => x.LastFailureReason).HasMaxLength(24);
+        // The nightly dunning sweep filters PastDue subscriptions per storefront, like the auto-renew sweep.
+        modelBuilder.Entity<Subscription>().HasIndex(x => new { x.StorefrontId, x.Status, x.DunningStartedAt });
+
+        modelBuilder.Entity<SubscriptionChargeAttempt>(attempt =>
+        {
+            attempt.Property(x => x.IdempotencyKey).HasMaxLength(160);
+            attempt.Property(x => x.Currency).HasMaxLength(3);
+            attempt.Property(x => x.Outcome).HasMaxLength(24);
+            attempt.Property(x => x.PaymentIntentId).HasMaxLength(255);
+            attempt.Property(x => x.Trigger).HasConversion<string>().HasMaxLength(16);
+            attempt.HasIndex(x => x.IdempotencyKey).IsUnique();
+            attempt.HasIndex(x => x.PaymentIntentId); // the provider's success event finds its attempt by intent id
+            attempt.HasIndex(x => new { x.SubscriptionId, x.PeriodEnd });
         });
 
         modelBuilder.Entity<SubscriptionRenewal>(renewal =>

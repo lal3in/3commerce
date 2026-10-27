@@ -55,7 +55,12 @@ public sealed class SubscriptionService(
         return subscription;
     }
 
-    public async Task<Subscription?> RenewAsync(Guid tenantId, Guid id, CancellationToken ct)
+    /// <summary>
+    /// An operator's Renew (admin): charge the subscription's current period now — the first attempt of a due period,
+    /// or another attempt of a past-due one (a fresh attempt key, the same pinned amount). <paramref name="scenario"/> is
+    /// honoured by the LocalMock rail only (the dev endpoint that drives a past-due renewal in E2E).
+    /// </summary>
+    public async Task<Subscription?> RenewAsync(Guid tenantId, Guid id, CancellationToken ct, MockScenario? scenario = null)
     {
         // Load the history so Renew() appends the next Sequence (n+1), not a duplicate first period.
         var subscription = await db.Subscriptions.Include(s => s.Renewals)
@@ -65,31 +70,35 @@ public sealed class SubscriptionService(
             return null;
         }
 
-        await ChargeRenewalAsync(subscription, clock.GetUtcNow(), ct);
+        await ChargeRenewalAsync(subscription, clock.GetUtcNow(), SubscriptionChargeTrigger.Operator, ct, scenario: scenario);
         await db.SaveChangesAsync(ct);
         return subscription;
     }
 
     /// <summary>
-    /// Auto-renew due subscriptions per storefront (jobmgr_2). Runs on a fine cadence; for each storefront
-    /// with a due subscription, once its configured daily time has passed and it hasn't run today, renews
-    /// every Active/Trialing subscription whose period has ended, then stamps the schedule so it fires at most
-    /// once per storefront per day. Idempotent. Returns the number of subscriptions renewed.
+    /// Auto-renew due subscriptions per storefront (jobmgr_2). Runs on a fine cadence; for each storefront with a due
+    /// subscription or a due dunning retry, once its configured daily time has passed and it hasn't run today, renews
+    /// every Active/Trialing subscription whose period has ended and retries every PastDue one whose scheduled retry
+    /// (days 1, 3 and 7 after the first failure — <see cref="Subscription.ScheduledRetryDue"/>) has come, cancelling
+    /// it when the final retry does not settle; then stamps the schedule so it fires at most once per storefront per
+    /// day. Idempotent. Returns the number of subscriptions charged.
     /// </summary>
     public async Task<int> AutoRenewDueAsync(CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var timeOfDay = TimeOnly.FromDateTime(now.UtcDateTime);
+        var firstRetry = now.AddDays(-Subscription.RetryDays[0]);
 
         var dueStorefronts = await db.Subscriptions.AsNoTracking()
-            .Where(s => s.StorefrontId != null && s.CurrentPeriodEnd <= now
-                && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trialing))
+            .Where(s => s.StorefrontId != null
+                && ((s.CurrentPeriodEnd <= now && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trialing))
+                    || (s.Status == SubscriptionStatus.PastDue && s.DunningStartedAt != null && s.DunningStartedAt <= firstRetry)))
             .Select(s => s.StorefrontId!.Value)
             .Distinct()
             .ToListAsync(ct);
 
-        var renewed = 0;
+        var charged = 0;
         foreach (var storefrontId in dueStorefronts)
         {
             var schedule = await db.StorefrontBillingSchedules.SingleOrDefaultAsync(x => x.StorefrontId == storefrontId, ct);
@@ -113,106 +122,293 @@ public sealed class SubscriptionService(
                 .ToListAsync(ct);
             foreach (var subscription in due)
             {
-                await ChargeRenewalAsync(subscription, now, ct);
-                renewed++;
+                await ChargeRenewalAsync(subscription, now, SubscriptionChargeTrigger.Renewal, ct);
+                charged++;
+            }
+
+            var pastDue = await db.Subscriptions.Include(s => s.Renewals)
+                .Where(s => s.StorefrontId == storefrontId && s.Status == SubscriptionStatus.PastDue
+                    && s.DunningStartedAt != null && s.DunningStartedAt <= firstRetry)
+                .ToListAsync(ct);
+            foreach (var subscription in pastDue)
+            {
+                if (subscription.ScheduledRetryDue(now) is { } retry)
+                {
+                    await ChargeRenewalAsync(subscription, now, SubscriptionChargeTrigger.ScheduledRetry, ct, finalRetry: retry.IsFinal);
+                    charged++;
+                }
             }
 
             schedule.MarkRan(today, now);
         }
 
         await db.SaveChangesAsync(ct);
-        return renewed;
+        return charged;
     }
 
     /// <summary>
-    /// Charge one renewal period off-session and advance the aggregate; dun to PastDue on failure — and COMMIT it.
+    /// The customer's own attempt from the storefront "complete payment" page (owner decision 2026-10-27): charge the
+    /// past-due period now, ON-SESSION (the customer is present, so the bank may ask for 3-D Secure), optionally on
+    /// another of their saved cards — which then becomes the card future renewals charge. A fresh attempt key, the
+    /// period's pinned amount. Returns null when the subscription is not the customer's.
+    /// </summary>
+    public async Task<SubscriptionPayResult?> PayAsync(
+        Guid tenantId, string email, Guid userId, Guid id, Guid? savedPaymentMethodId, CancellationToken ct, MockScenario? scenario = null)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        var subscription = await db.Subscriptions.Include(s => s.Renewals)
+            .SingleOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.CustomerEmail == normalized, ct);
+        if (subscription is null)
+        {
+            return null;
+        }
+
+        if (subscription.Status != SubscriptionStatus.PastDue)
+        {
+            return new SubscriptionPayResult(subscription, SubscriptionPayOutcome.NotPastDue, null, null);
+        }
+
+        var now = clock.GetUtcNow();
+        if (savedPaymentMethodId is { } methodId)
+        {
+            var method = await db.SavedPaymentMethods.AsNoTracking()
+                .Where(m => m.Id == methodId && m.UserId == userId && m.TenantId == tenantId && m.State == SavedPaymentMethodState.Active)
+                .Select(m => new
+                {
+                    m.ProviderPaymentMethodId,
+                    ProviderCustomerId = db.PaymentCustomers.Where(c => c.Id == m.PaymentCustomerId).Select(c => c.ProviderCustomerId).FirstOrDefault(),
+                })
+                .SingleOrDefaultAsync(ct);
+            if (method is null)
+            {
+                return new SubscriptionPayResult(subscription, SubscriptionPayOutcome.UnknownPaymentMethod, null, null);
+            }
+
+            subscription.ChangeInstrument(method.ProviderCustomerId, method.ProviderPaymentMethodId, now);
+        }
+
+        var response = await ChargeRenewalAsync(subscription, now, SubscriptionChargeTrigger.Customer, ct, scenario: scenario);
+        var outcome = response?.Outcome switch
+        {
+            PaymentOutcome.Succeeded => SubscriptionPayOutcome.Paid,
+            PaymentOutcome.RequiresAction => SubscriptionPayOutcome.RequiresAction,
+            null => SubscriptionPayOutcome.ProviderUnavailable,
+            _ => SubscriptionPayOutcome.Declined,
+        };
+        return new SubscriptionPayResult(
+            subscription, outcome, response?.PaymentIntentId, outcome == SubscriptionPayOutcome.RequiresAction ? response?.ClientSecret : null);
+    }
+
+    /// <summary>
+    /// A provider event says an attempt's PaymentIntent succeeded later (the customer finished 3-D Secure): settle that
+    /// period exactly once — renew, history row, the pinned split posted. The caller (the webhook processor) owns the
+    /// SaveChanges. Returns false when the intent is not a renewal attempt.
+    /// </summary>
+    public async Task<bool> SettleAttemptAsync(string paymentIntentId, CancellationToken ct)
+    {
+        var attempt = await db.SubscriptionChargeAttempts.SingleOrDefaultAsync(a => a.PaymentIntentId == paymentIntentId, ct);
+        if (attempt is null)
+        {
+            return false;
+        }
+
+        if (attempt.SettledAt is not null)
+        {
+            return true; // already settled (the immediate answer, or an earlier delivery of the event)
+        }
+
+        var subscription = await db.Subscriptions.Include(s => s.Renewals).SingleAsync(s => s.Id == attempt.SubscriptionId, ct);
+        if (subscription.Status == SubscriptionStatus.Cancelled || subscription.CurrentPeriodEnd != attempt.PeriodEnd)
+        {
+            // Money arrived for a period that is closed (cancelled for non-payment, or settled by another attempt): it
+            // must be refunded by an operator — never silently booked against the wrong period.
+            logger.LogError(
+                "Renewal attempt {Key} of subscription {SubscriptionId} succeeded at the provider but its period is no longer open ({Status}); refund intent {Intent} manually",
+                attempt.IdempotencyKey, subscription.Id, subscription.Status, paymentIntentId);
+            attempt.Outcome = nameof(PaymentOutcome.Succeeded);
+            return true;
+        }
+
+        var now = clock.GetUtcNow();
+        var accounts = await AccountsAsync(subscription.StorefrontId, ct);
+        var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
+        await RenewAndPostAsync(subscription, tax, accounts, modeResolver.DefaultAccountForHost().Provider, now, ct);
+        attempt.Outcome = nameof(PaymentOutcome.Succeeded);
+        attempt.SettledAt = now;
+        return true;
+    }
+
+    /// <summary>
+    /// Charge one renewal period and advance the aggregate; dun to PastDue when it does not settle — and COMMIT it.
     /// <para>
     /// Each renewal is its own unit of work, deliberately (ADR-0057 amendment, 2026-10-15): the provider call moves
     /// real money, so the period's outcome (advanced + history row + ledger entry, or PastDue) is made durable BEFORE
-    /// the next customer's card is touched. A crash or DB failure later in a nightly run can then lose at most the
-    /// renewal in flight — whose pinned key + amount (<see cref="RecurringChargePin"/>, its own commit before the
-    /// provider call) make a re-run de-duplicate at the provider rather than charge twice — instead of rolling back
-    /// the record of charges that already happened. The commit sits outside the dunning catch: a failure to record a
-    /// SUCCESSFUL charge must abort the run (and be retried under the same key), never dun a customer who paid.
+    /// the next customer's card is touched. The attempt (its key) and the period's pinned amount
+    /// (<see cref="RecurringChargePin"/>) are committed BEFORE the provider call, so a crash or a thrown provider error
+    /// leaves an UNANSWERED attempt whose key the next attempt reuses — the provider then de-duplicates rather than
+    /// charging twice. Only an attempt the provider ANSWERED (Failed / RequiresAction / Cancelled) is followed by a
+    /// fresh key (<c>{PeriodKey}-a{n}</c>, owner decision 2026-10-27), because a provider replays a reused key's result.
+    /// The commit sits outside the dunning catch: a failure to record a SUCCESSFUL charge must abort the run (and be
+    /// retried under the same key), never dun a customer who paid.
     /// </para>
     /// </summary>
-    private async Task ChargeRenewalAsync(Subscription subscription, DateTimeOffset now, CancellationToken ct)
+    private async Task<PaymentResponse?> ChargeRenewalAsync(
+        Subscription subscription, DateTimeOffset now, SubscriptionChargeTrigger trigger, CancellationToken ct,
+        bool finalRetry = false, MockScenario? scenario = null)
     {
-        await ChargeAndAdvanceAsync(subscription, now, ct);
+        var response = await ChargeAndAdvanceAsync(subscription, now, trigger, finalRetry, scenario, ct);
         await db.SaveChangesAsync(ct);
+        return response;
     }
 
-    private async Task ChargeAndAdvanceAsync(Subscription subscription, DateTimeOffset now, CancellationToken ct)
+    private async Task<PaymentResponse?> ChargeAndAdvanceAsync(
+        Subscription subscription, DateTimeOffset now, SubscriptionChargeTrigger trigger, bool finalRetry, MockScenario? scenario,
+        CancellationToken ct)
     {
         try
         {
             // The period's tax is resolved BEFORE the charge, because on an exclusive (US) store it changes what is
             // charged: price + checkout's add-on tax (owner decision 2026-10-15, option A). Inclusive / 0% / exempt /
-            // unknown-rate charge the price itself (see RenewalTax). The amount is PINNED to the period's
-            // idempotency key (persisted before the provider call): a retry of the same period — after a failure,
-            // a crash, or a rate change in between — re-sends the SAME amount under the SAME key, which a provider
-            // de-duplicates instead of rejecting (Stripe idempotency_error) or charging twice.
-            var idempotencyKey = $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}";
+            // unknown-rate charge the price itself (see RenewalTax). The amount is PINNED to the PERIOD (persisted
+            // before the first provider call): every attempt of the period — a retry after a failure, a crash, or a
+            // rate change in between — charges the SAME amount.
             var accounts = await AccountsAsync(subscription.StorefrontId, ct);
-            var tax = await RecurringChargePin.PinAsync(db, clock, idempotencyKey, () => RenewalTax(subscription, accounts), ct);
+            var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
+            var attempt = await BeginAttemptAsync(subscription, trigger, tax, now, ct);
 
-            // When the subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so
-            // the renewal doesn't re-trigger SCA; the provider adapter confirms off-session when a payment
-            // method is supplied (StripePaymentProvider sets OffSession/Confirm on a present method).
+            // When the subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so the
+            // renewal doesn't re-trigger SCA — unless the customer is present on the pay page, where the bank may ask
+            // for 3-D Secure (CustomerPresent → on-session).
             var account = modeResolver.DefaultAccountForHost();
             var response = await registry.Resolve(account).AuthorizeAsync(
                 new PaymentRequest(
                     subscription.OrderId, tax.ChargeMinor, subscription.Currency,
-                    idempotencyKey, PaymentMethodKind.Card, account,
-                    subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId),
+                    attempt.IdempotencyKey, PaymentMethodKind.Card, account,
+                    subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId,
+                    Scenario: scenario, CustomerPresent: trigger == SubscriptionChargeTrigger.Customer),
                 ct);
+            attempt.PaymentIntentId = response.PaymentIntentId;
+            attempt.Outcome = response.Outcome.ToString();
+            subscription.AttemptAnswered(now);
 
-            // Only a SETTLED charge renews (owner decision 2026-10-27, ADR-0057 amendment). A Failed or
-            // RequiresAction outcome (and a Cancelled one) took no money, so it goes down the same dunning path as a
-            // thrown provider error: PastDue, the period does NOT advance (so a retry is the same period — same key,
-            // same pinned amount), no history row, no revenue, no tax. RequiresAction additionally asks the customer
-            // to authenticate.
+            // Only a SETTLED charge renews (owner decision 2026-10-27, ADR-0057 amendment). A Failed or RequiresAction
+            // outcome (and a Cancelled one) took no money, so it goes down the dunning path: PastDue, the period does
+            // NOT advance, no history row, no revenue, no tax.
             if (response.Outcome != PaymentOutcome.Succeeded)
             {
-                await DunAsync(subscription, response, tax, now, ct);
-                return;
+                await DunAsync(subscription, response, tax, trigger, finalRetry, now, ct);
+                return response;
             }
 
-            subscription.Renew(now, tax.ChargeMinor);
-            // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
-            // DetectChanges infers such a child Modified (UPDATE → 0 rows → DbUpdateConcurrencyException),
-            // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
-            var renewal = subscription.Renewals[^1];
-            db.SubscriptionRenewals.Add(renewal);
-
-            // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
-            // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
-            await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, account.Provider, now, ct);
+            await RenewAndPostAsync(subscription, tax, accounts, account.Provider, now, ct);
+            attempt.SettledAt = now;
+            return response;
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
         {
-            subscription.MarkPastDue(now); // dunning
+            // Unanswered (the provider threw, or something before it did): dunning, but no customer-visible failure —
+            // no email; the attempt stays reusable (same key) and does not use up a scheduled retry.
+            logger.LogWarning(ex, "Renewal of subscription {SubscriptionId} could not be charged; marked past-due", subscription.Id);
+            subscription.MarkPastDue(now, SubscriptionChargeOutcomes.Error);
+            return null;
         }
     }
 
     /// <summary>
-    /// A renewal the provider did not settle (Failed / RequiresAction / Cancelled): dun it exactly like a thrown provider
-    /// error — PastDue, period not advanced, nothing posted. A RequiresAction outcome also publishes
-    /// <see cref="SubscriptionRenewalActionRequired"/> (bus outbox: it commits with the dunning, or not at all) so
-    /// Notifications asks the customer to authenticate the payment.
+    /// The attempt this charge is made under, COMMITTED before the provider is asked: the period's last attempt again
+    /// when the provider never answered it (same key — the provider de-duplicates), else a new one with a fresh key.
+    /// </summary>
+    private async Task<SubscriptionChargeAttempt> BeginAttemptAsync(
+        Subscription subscription, SubscriptionChargeTrigger trigger, RecurringChargeTaxResult tax, DateTimeOffset now, CancellationToken ct)
+    {
+        var last = await db.SubscriptionChargeAttempts
+            .Where(a => a.SubscriptionId == subscription.Id && a.PeriodEnd == subscription.CurrentPeriodEnd)
+            .OrderByDescending(a => a.Attempt)
+            .FirstOrDefaultAsync(ct);
+        if (last is { Outcome: SubscriptionChargeOutcomes.Pending })
+        {
+            return last;
+        }
+
+        var attempt = new SubscriptionChargeAttempt
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = subscription.TenantId,
+            SubscriptionId = subscription.Id,
+            PeriodEnd = subscription.CurrentPeriodEnd,
+            Attempt = subscription.AttemptCount,
+            IdempotencyKey = subscription.NextAttemptKey,
+            Trigger = trigger,
+            AmountMinor = tax.ChargeMinor,
+            Currency = subscription.Currency,
+            Outcome = SubscriptionChargeOutcomes.Pending,
+            CreatedAt = now,
+        };
+        subscription.KeyIssued(now);
+        db.SubscriptionChargeAttempts.Add(attempt);
+        await db.SaveChangesAsync(ct);
+        return attempt;
+    }
+
+    private async Task RenewAndPostAsync(
+        Subscription subscription, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts, string provider, DateTimeOffset now,
+        CancellationToken ct)
+    {
+        subscription.Renew(now, tax.ChargeMinor);
+        // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
+        // DetectChanges infers such a child Modified (UPDATE → 0 rows → DbUpdateConcurrencyException),
+        // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
+        var renewal = subscription.Renewals[^1];
+        db.SubscriptionRenewals.Add(renewal);
+
+        // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
+        // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
+        await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, provider, now, ct);
+    }
+
+    /// <summary>
+    /// A renewal attempt the provider answered without settling (Failed / RequiresAction / Cancelled): PastDue, period
+    /// not advanced, nothing posted — and the customer is told (bus outbox: the event commits with the dunning, or not
+    /// at all), unless they are on the pay page and see the answer there. RequiresAction asks them to authenticate
+    /// (<see cref="SubscriptionRenewalActionRequired"/>); a decline says when it is retried
+    /// (<see cref="SubscriptionPaymentFailed"/>); the FINAL scheduled retry not settling cancels the subscription
+    /// (<see cref="SubscriptionCancelledForNonPayment"/>).
     /// </summary>
     private async Task DunAsync(
-        Subscription subscription, PaymentResponse response, RecurringChargeTaxResult tax, DateTimeOffset now, CancellationToken ct)
+        Subscription subscription, PaymentResponse response, RecurringChargeTaxResult tax, SubscriptionChargeTrigger trigger,
+        bool finalRetry, DateTimeOffset now, CancellationToken ct)
     {
-        subscription.MarkPastDue(now);
+        subscription.MarkPastDue(now, response.Outcome.ToString());
         logger.LogWarning(
-            "Renewal of subscription {SubscriptionId} for period ending {PeriodEnd:O} was not settled ({Outcome}, {ErrorCode}); marked past-due, period not advanced",
-            subscription.Id, subscription.CurrentPeriodEnd, response.Outcome, response.Error?.Code);
+            "Renewal of subscription {SubscriptionId} for period ending {PeriodEnd:O} was not settled ({Outcome}, {ErrorCode}, {Trigger}); marked past-due, period not advanced",
+            subscription.Id, subscription.CurrentPeriodEnd, response.Outcome, response.Error?.Code, trigger);
+
+        if (finalRetry)
+        {
+            subscription.Cancel(now);
+            logger.LogWarning("Subscription {SubscriptionId} cancelled for non-payment after its final retry", subscription.Id);
+            await publisher.Publish(new SubscriptionCancelledForNonPayment(
+                subscription.TenantId, subscription.Id, subscription.StorefrontId, subscription.CustomerEmail,
+                tax.ChargeMinor, subscription.Currency, subscription.CurrentPeriodEnd), ct);
+            return;
+        }
+
+        if (trigger == SubscriptionChargeTrigger.Customer)
+        {
+            return; // the customer is on the pay page and sees the answer there
+        }
+
         if (response.Outcome == PaymentOutcome.RequiresAction)
         {
             await publisher.Publish(new SubscriptionRenewalActionRequired(
                 subscription.TenantId, subscription.Id, subscription.StorefrontId, subscription.CustomerEmail,
-                tax.ChargeMinor, subscription.Currency, subscription.CurrentPeriodEnd), ct);
+                tax.ChargeMinor, subscription.Currency, subscription.CurrentPeriodEnd, subscription.NextRetryAt, subscription.CancelsAfter), ct);
+        }
+        else
+        {
+            await publisher.Publish(new SubscriptionPaymentFailed(
+                subscription.TenantId, subscription.Id, subscription.StorefrontId, subscription.CustomerEmail,
+                tax.ChargeMinor, subscription.Currency, subscription.CurrentPeriodEnd, subscription.NextRetryAt, subscription.CancelsAfter), ct);
         }
     }
 
@@ -311,6 +507,18 @@ public sealed class SubscriptionService(
         await db.SaveChangesAsync(ct);
         return subscription;
     }
+
+    /// <summary>The signed-in customer's own subscription (tenant + email claims), or null — 404, never 403.</summary>
+    public Task<Subscription?> GetForCustomerAsync(Guid tenantId, string email, Guid id, CancellationToken ct)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        return db.Subscriptions.AsNoTracking()
+            .SingleOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId && s.CustomerEmail == normalized, ct);
+    }
+
+    /// <summary>What the current period charges — the pinned amount (price + any added tax) once it has been attempted.</summary>
+    public async Task<long?> AmountDueAsync(Subscription subscription, CancellationToken ct) =>
+        (await RecurringChargePin.PinnedAsync(db, subscription.PeriodKey, ct))?.ChargeMinor;
 
     /// <summary>A single subscription with its full renewal history (ordered by Sequence), or null.</summary>
     public async Task<Subscription?> GetAsync(Guid tenantId, Guid id, CancellationToken ct)

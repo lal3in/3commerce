@@ -62,6 +62,34 @@ public sealed class Subscription
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    /// <summary>
+    /// Dunning (owner decision 2026-10-27, ADR-0057 amendment): when the CURRENT period's first charge did not settle.
+    /// Scheduled retries fall on <see cref="RetryDays"/> after it; null while the subscription is in good standing.
+    /// </summary>
+    public DateTimeOffset? DunningStartedAt { get; private set; }
+
+    /// <summary>When the current period was last attempted (any trigger: nightly, scheduled retry, customer, operator).</summary>
+    public DateTimeOffset? LastAttemptAt { get; private set; }
+
+    /// <summary>
+    /// Charge attempts made for the CURRENT period. Attempt 0 uses <see cref="PeriodKey"/>; attempt n uses
+    /// <c>{PeriodKey}-a{n}</c> — a FRESH provider idempotency key, because a provider replays a reused key's result
+    /// (Stripe: about 24 hours), while the amount stays pinned to <see cref="PeriodKey"/>.
+    /// </summary>
+    public int AttemptCount { get; private set; }
+
+    /// <summary>Why the current period is past due: <c>RequiresAction</c>, <c>Failed</c>, <c>Cancelled</c> or <c>Error</c>.</summary>
+    public string? LastFailureReason { get; private set; }
+
+    /// <summary>Scheduled retries, in days after <see cref="DunningStartedAt"/>; the last one failing cancels the subscription.</summary>
+    public static readonly IReadOnlyList<int> RetryDays = [1, 3, 7];
+
+    /// <summary>The period's identity: the renewal key the amount is pinned to (<c>RecurringChargePin</c>).</summary>
+    public string PeriodKey => $"renew-{Id}-{CurrentPeriodEnd:O}";
+
+    /// <summary>The provider idempotency key of the NEXT attempt of the current period.</summary>
+    public string NextAttemptKey => AttemptCount == 0 ? PeriodKey : $"{PeriodKey}-a{AttemptCount}";
+
     // Renewal history (mt7_3): one row per period opened, kept on the aggregate so it saves in the same
     // SaveChanges as the state change. Read-only to callers; the aggregate is the sole writer.
     private readonly List<SubscriptionRenewal> _renewals = [];
@@ -132,6 +160,9 @@ public sealed class Subscription
         CurrentPeriodEnd = Advance(CurrentPeriodEnd, BillingPeriod);
         Status = SubscriptionStatus.Active;
         UpdatedAt = StoredTime.Of(now);
+        DunningStartedAt = null;          // a settled period ends dunning; the new period starts clean
+        AttemptCount = 0;
+        LastFailureReason = null;
         RecordPeriod(UpdatedAt, chargedMinor ?? PriceMinor); // append the newly-opened period (Sequence n+1)
     }
 
@@ -157,13 +188,72 @@ public sealed class Subscription
         return true;
     }
 
-    public void MarkPastDue(DateTimeOffset now)
+    /// <summary>A new attempt key of the current period was issued (<see cref="NextAttemptKey"/> moves on).</summary>
+    public void KeyIssued(DateTimeOffset now)
+    {
+        AttemptCount++;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// The provider ANSWERED an attempt of the current period (any outcome). Only an answered attempt counts towards the
+    /// retry schedule: a provider outage never uses up a scheduled retry.
+    /// </summary>
+    public void AttemptAnswered(DateTimeOffset now)
+    {
+        LastAttemptAt = now;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Dun: the current period did not settle. The first failure of a period starts the retry schedule.</summary>
+    public void MarkPastDue(DateTimeOffset now, string reason = "Error")
     {
         if (Status != SubscriptionStatus.Cancelled)
         {
             Status = SubscriptionStatus.PastDue;
             UpdatedAt = StoredTime.Of(now);
+            DunningStartedAt ??= UpdatedAt;
+            LastFailureReason = reason;
         }
+    }
+
+    /// <summary>
+    /// The scheduled retry due at <paramref name="now"/>, if any: retry k (1-based) falls due once
+    /// <c>DunningStartedAt + RetryDays[k-1]</c> has passed and nothing was attempted since then (a customer's own attempt
+    /// on the pay page counts). Several missed days collapse into one retry. <c>IsFinal</c>: the last one — if it does
+    /// not settle, the subscription is cancelled.
+    /// </summary>
+    public (int Retry, bool IsFinal)? ScheduledRetryDue(DateTimeOffset now)
+    {
+        if (Status != SubscriptionStatus.PastDue || DunningStartedAt is not { } start)
+        {
+            return null;
+        }
+
+        var due = RetryDays.Count(d => start.AddDays(d) <= now);
+        if (due == 0 || LastAttemptAt >= start.AddDays(RetryDays[due - 1]))
+        {
+            return null;
+        }
+
+        return (due, due == RetryDays.Count);
+    }
+
+    /// <summary>When the next scheduled retry falls due (null when none is left, or not dunning).</summary>
+    public DateTimeOffset? NextRetryAt =>
+        Status == SubscriptionStatus.PastDue && DunningStartedAt is { } start
+            ? RetryDays.Select(d => start.AddDays(d)).Cast<DateTimeOffset?>().FirstOrDefault(t => !(LastAttemptAt >= t))
+            : null;
+
+    /// <summary>When an unpaid period's subscription is cancelled: the final scheduled retry.</summary>
+    public DateTimeOffset? CancelsAfter => DunningStartedAt?.AddDays(RetryDays[^1]);
+
+    /// <summary>Charge future renewals to another of the customer's stored instruments ("update the card").</summary>
+    public void ChangeInstrument(string? providerCustomerId, string providerPaymentMethodId, DateTimeOffset now)
+    {
+        ProviderCustomerId = providerCustomerId ?? ProviderCustomerId;
+        ProviderPaymentMethodId = providerPaymentMethodId;
+        UpdatedAt = now;
     }
 
     public void Cancel(DateTimeOffset now)
