@@ -732,7 +732,7 @@
   <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>证明此标识符已经核对（将其标记为已验证）。</value></data>
   <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>要添加的标识符种类。</value></data>
   <data name="Entities.Ident.Value" xml:space="preserve"><value>标识符值</value></data>
-  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN 为 11 位数字；ACN 为 9 位数字。</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>各类型格式：ABN 11 位；ACN 9 位；欧盟增值税 = 成员国前缀 + 号码（DE123456789）；英国 VRN 为 GB + 9 位；新西兰 GST 8–9 位；加拿大 BN 9 位（+ RT0001）；瑞士 UID CHE-123.456.789（MWST）；美国州税号须填州作为管辖区。</value></data>
   <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>将此标识符添加到该实体。</value></data>
   <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
   <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
@@ -1806,4 +1806,40 @@
   <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>已使用 {0} 次</value></data>
   <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · 剩余 {2}</value></data>
   <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>占用 {0} · 已确认 {1}</value></data>
+  <data name="Entities.IdType.EuVat" xml:space="preserve"><value>欧盟增值税号</value></data>
+  <data name="Entities.IdType.GbVrn" xml:space="preserve"><value>英国增值税号 (VRN)</value></data>
+  <data name="Entities.IdType.NzGst" xml:space="preserve"><value>新西兰 GST 号</value></data>
+  <data name="Entities.IdType.CaBn" xml:space="preserve"><value>加拿大 BN / GST-HST</value></data>
+  <data name="Entities.IdType.ChUid" xml:space="preserve"><value>瑞士 UID / 增值税</value></data>
+  <data name="Entities.IdType.UsStateSalesTaxId" xml:space="preserve"><value>美国州销售税号</value></data>
+  <data name="Entities.Ident.Jurisdiction" xml:space="preserve"><value>税务管辖区</value></data>
+  <data name="Entities.Ident.Jurisdiction.Tip" xml:space="preserve"><value>税务管辖区：ISO 国家代码，可附地区（如 US-CA）。美国州销售税号必填；其他情况可选——将根据税号类型或欧盟增值税前缀推断。</value></data>
+  <data name="Entities.Seller.Heading" xml:space="preserve"><value>登记卖方</value></data>
+  <data name="Entities.Seller.Intro" xml:space="preserve"><value>在该租户店铺中销售并将开具税务发票的法律实体。每个租户只有一个。其税号即上方的标识符；其经营场所即其开展业务的地点。</value></data>
+  <data name="Entities.Seller.Designate" xml:space="preserve"><value>设为登记卖方</value></data>
+  <data name="Entities.Seller.Designate.Tip" xml:space="preserve"><value>将此实体设为租户的登记卖方。如已有其他实体则会被拒绝。</value></data>
+  <data name="Entities.Seller.IsSeller" xml:space="preserve"><value>此实体是租户的登记卖方。</value></data>
+  <data name="Entities.Est.Heading" xml:space="preserve"><value>经营场所</value></data>
+  <data name="Entities.Est.None" xml:space="preserve"><value>暂无经营场所——请添加一个，以便店铺绑定。</value></data>
+  <data name="Entities.Est.JurisdictionShort" xml:space="preserve"><value>征税地</value></data>
+  <data name="Entities.Est.Edit" xml:space="preserve"><value>编辑</value></data>
+  <data name="Entities.Est.Edit.Tip" xml:space="preserve"><value>将此经营场所载入下方表单以编辑名称、地址或管辖区。键不可更改。</value></data>
+  <data name="Entities.Est.Key" xml:space="preserve"><value>键（如 sydney-hq）</value></data>
+  <data name="Entities.Est.Key.Tip" xml:space="preserve"><value>店铺绑定所用的稳定键：2–40 个小写字母、数字或连字符。每个卖方唯一，创建后不可更改。</value></data>
+  <data name="Entities.Est.Label" xml:space="preserve"><value>名称</value></data>
+  <data name="Entities.Est.Label.Tip" xml:space="preserve"><value>便于识别的名称，如悉尼总部。</value></data>
+  <data name="Entities.Est.Country.Tip" xml:space="preserve"><value>经营场所地址所在国家——管辖区必须在该国。</value></data>
+  <data name="Entities.Est.Jurisdiction" xml:space="preserve"><value>管辖区（可选，如 US-CA）</value></data>
+  <data name="Entities.Est.Jurisdiction.Tip" xml:space="preserve"><value>该经营场所的征税地：默认为地址所在国；可加地区（US-CA）细化。不能是其他国家。</value></data>
+  <data name="Entities.Est.Save.Tip" xml:space="preserve"><value>保存经营场所（记入审计日志，并发送给在税务单据上打印卖方信息的服务）。</value></data>
+  <data name="Entities.Info.SellerDesignated" xml:space="preserve"><value>已将实体设为登记卖方。</value></data>
+  <data name="Entities.Info.EstablishmentAdded" xml:space="preserve"><value>已添加经营场所。</value></data>
+  <data name="Entities.Info.EstablishmentUpdated" xml:space="preserve"><value>已更新经营场所。</value></data>
+  <data name="Ops.Field.TaxJurisdiction" xml:space="preserve"><value>税务管辖区</value></data>
+  <data name="Ops.Field.TaxJurisdiction.Tip" xml:space="preserve"><value>本店铺销售的征税地：ISO 国家代码，可附地区（AU、DE、US-CA）。用于选择税务发票规则。未决定前可留空；允许清空。</value></data>
+  <data name="Ops.Field.SellerEstablishment" xml:space="preserve"><value>卖方经营场所</value></data>
+  <data name="Ops.Field.SellerEstablishment.Tip" xml:space="preserve"><value>本店铺从登记卖方的哪个经营场所销售（实体 → 登记卖方）。复制的店铺沿用同一个。</value></data>
+  <data name="Ops.SellerEstablishment.None" xml:space="preserve"><value>— 未绑定 —</value></data>
+  <data name="Ops.SellerEstablishment.Unknown" xml:space="preserve"><value>不是卖方的经营场所</value></data>
+  <data name="Ops.SellerEstablishment.Hint" xml:space="preserve"><value>暂无卖方经营场所：请在“实体”中设定登记卖方并添加其经营场所。</value></data>
 </root>

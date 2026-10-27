@@ -732,7 +732,7 @@
   <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>Bestätigen Sie, dass diese Kennung geprüft wurde (markiert sie als verifiziert).</value></data>
   <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>Art der hinzuzufügenden Kennung.</value></data>
   <data name="Entities.Ident.Value" xml:space="preserve"><value>Kennungswert</value></data>
-  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN hat 11 Ziffern; ACN hat 9 Ziffern.</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>Format je Schema: ABN 11 Ziffern; ACN 9 Ziffern; EU-USt = Länderpräfix + Nummer (DE123456789); UK-VRN GB + 9 Ziffern; NZ-GST 8–9 Ziffern; CA-BN 9 Ziffern (+ RT0001); CH-UID CHE-123.456.789 (MWST); US-Bundesstaat-ID braucht den Staat als Rechtsraum.</value></data>
   <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>Fügen Sie diese Kennung der Entität hinzu.</value></data>
   <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
   <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
@@ -1806,4 +1806,40 @@
   <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} eingelöst</value></data>
   <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · {2} übrig</value></data>
   <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} belegt · {1} bestätigt</value></data>
+  <data name="Entities.IdType.EuVat" xml:space="preserve"><value>EU-USt-IdNr.</value></data>
+  <data name="Entities.IdType.GbVrn" xml:space="preserve"><value>UK-USt-Nummer (VRN)</value></data>
+  <data name="Entities.IdType.NzGst" xml:space="preserve"><value>NZ-GST-Nummer</value></data>
+  <data name="Entities.IdType.CaBn" xml:space="preserve"><value>Kanada BN / GST-HST</value></data>
+  <data name="Entities.IdType.ChUid" xml:space="preserve"><value>Schweizer UID / MWST</value></data>
+  <data name="Entities.IdType.UsStateSalesTaxId" xml:space="preserve"><value>US-Bundesstaat Sales-Tax-ID</value></data>
+  <data name="Entities.Ident.Jurisdiction" xml:space="preserve"><value>Rechtsraum</value></data>
+  <data name="Entities.Ident.Jurisdiction.Tip" xml:space="preserve"><value>Steuerlicher Rechtsraum: ISO-Ländercode mit optionaler Region (z. B. US-CA). Pflicht für eine US-Sales-Tax-ID; sonst optional – wird aus dem Schema bzw. dem EU-USt-Präfix abgeleitet.</value></data>
+  <data name="Entities.Seller.Heading" xml:space="preserve"><value>Verkäufer (Rechnungssteller)</value></data>
+  <data name="Entities.Seller.Intro" xml:space="preserve"><value>Die juristische Person, die in den Storefronts dieses Mandanten verkauft und dessen Steuerrechnungen ausstellen wird. Ein Mandant hat genau eine. Ihre Steuer-IDs sind die Kennungen oben; ihre Niederlassungen sind die Orte, von denen aus sie tätig ist.</value></data>
+  <data name="Entities.Seller.Designate" xml:space="preserve"><value>Als Verkäufer festlegen</value></data>
+  <data name="Entities.Seller.Designate.Tip" xml:space="preserve"><value>Diese Entität als Verkäufer des Mandanten festlegen. Wird abgelehnt, wenn bereits eine andere Entität dies ist.</value></data>
+  <data name="Entities.Seller.IsSeller" xml:space="preserve"><value>Diese Entität ist der Verkäufer des Mandanten.</value></data>
+  <data name="Entities.Est.Heading" xml:space="preserve"><value>Niederlassungen</value></data>
+  <data name="Entities.Est.None" xml:space="preserve"><value>Noch keine Niederlassungen – fügen Sie eine hinzu, damit Storefronts sie binden können.</value></data>
+  <data name="Entities.Est.JurisdictionShort" xml:space="preserve"><value>besteuert in</value></data>
+  <data name="Entities.Est.Edit" xml:space="preserve"><value>Bearbeiten</value></data>
+  <data name="Entities.Est.Edit.Tip" xml:space="preserve"><value>Diese Niederlassung zum Bearbeiten von Bezeichnung, Adresse oder Rechtsraum ins Formular laden. Der Schlüssel ist unveränderlich.</value></data>
+  <data name="Entities.Est.Key" xml:space="preserve"><value>Schlüssel (z. B. sydney-hq)</value></data>
+  <data name="Entities.Est.Key.Tip" xml:space="preserve"><value>Stabiler Schlüssel, an den Storefronts binden: 2–40 Kleinbuchstaben, Ziffern oder Bindestriche. Pro Verkäufer eindeutig und nach dem Anlegen unveränderlich.</value></data>
+  <data name="Entities.Est.Label" xml:space="preserve"><value>Bezeichnung</value></data>
+  <data name="Entities.Est.Label.Tip" xml:space="preserve"><value>Ein Name, den Bediener erkennen, z. B. Hauptsitz Sydney.</value></data>
+  <data name="Entities.Est.Country.Tip" xml:space="preserve"><value>Land der Niederlassungsadresse – der Rechtsraum muss in diesem Land liegen.</value></data>
+  <data name="Entities.Est.Jurisdiction" xml:space="preserve"><value>Rechtsraum (optional, z. B. US-CA)</value></data>
+  <data name="Entities.Est.Jurisdiction.Tip" xml:space="preserve"><value>Wo diese Niederlassung besteuert wird: standardmäßig das Adressland; eine Region (US-CA) grenzt es ein. Ein anderes Land ist nicht möglich.</value></data>
+  <data name="Entities.Est.Save.Tip" xml:space="preserve"><value>Niederlassung speichern (wird im Audit-Log erfasst und an die Dienste gesendet, die den Verkäufer auf Steuerbelegen drucken).</value></data>
+  <data name="Entities.Info.SellerDesignated" xml:space="preserve"><value>Entität als Verkäufer festgelegt.</value></data>
+  <data name="Entities.Info.EstablishmentAdded" xml:space="preserve"><value>Niederlassung hinzugefügt.</value></data>
+  <data name="Entities.Info.EstablishmentUpdated" xml:space="preserve"><value>Niederlassung aktualisiert.</value></data>
+  <data name="Ops.Field.TaxJurisdiction" xml:space="preserve"><value>Steuerlicher Rechtsraum</value></data>
+  <data name="Ops.Field.TaxJurisdiction.Tip" xml:space="preserve"><value>Wo die Verkäufe dieser Storefront besteuert werden: ISO-Ländercode mit optionaler Region (AU, DE, US-CA). Bestimmt die Rechnungsregeln. Leer lassen, bis entschieden; Leeren ist erlaubt.</value></data>
+  <data name="Ops.Field.SellerEstablishment" xml:space="preserve"><value>Verkäufer-Niederlassung</value></data>
+  <data name="Ops.Field.SellerEstablishment.Tip" xml:space="preserve"><value>Von welcher Niederlassung des Verkäufers diese Storefront verkauft (Entitäten → Verkäufer). Eine duplizierte Storefront behält dieselbe.</value></data>
+  <data name="Ops.SellerEstablishment.None" xml:space="preserve"><value>— nicht gebunden —</value></data>
+  <data name="Ops.SellerEstablishment.Unknown" xml:space="preserve"><value>keine Niederlassung des Verkäufers</value></data>
+  <data name="Ops.SellerEstablishment.Hint" xml:space="preserve"><value>Noch keine Verkäufer-Niederlassungen: Legen Sie unter Entitäten den Verkäufer fest und fügen Sie seine Niederlassungen hinzu.</value></data>
 </root>
