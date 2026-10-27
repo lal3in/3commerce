@@ -106,6 +106,18 @@ you are touching before you push.
   seconds after it starts, not after its 110 s/20 s waits. `e2e-verify.sh` A4–A6 now prints each failed test's
   message and first stack frames, and keeps the whole run in `.run/e2e-integration.log`.
 - **Superuser-connected tests do not exercise RLS.** See the FORCE RLS note in `AGENTS.md`.
+- **Postgres keeps microseconds; a .NET `DateTimeOffset` keeps 100 ns ticks — and only Linux clocks fill the last
+  digit.** `timestamptz` has microsecond resolution and Npgsql drops the seventh fractional digit on write. The macOS
+  clock reports whole microseconds, so a time from `TimeProvider.System` round-trips unchanged on a Mac; the Linux
+  clock reports 100 ns ticks, so ~9 in 10 values come back different. A test comparing an in-memory time with the
+  same time reloaded (`…54.1755249` vs `…54.1755240`) therefore passes locally and fails on CI
+  (`SubscriptionRenewalDunningTests`, PR #311 → fix PR below). It is not only a test problem: anything derived from
+  the time — a key `renew-{id}-{periodEnd:O}`, a hash over `OccurredAt.ToString("O")` — differs between the aggregate
+  that set it and the row reloaded. Truncate at the domain boundary where such a time is SET
+  (`Payments.Domain.StoredTime.Of`, used by `Subscription`), so memory and DB hold the same value. To reproduce on a
+  Mac, pin the clock to a sub-microsecond tick (a fixed `TimeProvider` at `….1755249`), never rely on the system
+  clock; EF InMemory/SQLite tests cannot catch it at all. The local audit chain (`AuditChain`, BuildingBlocks) still
+  hashes the untruncated `OccurredAt` — see the tracker's open row before verifying a chain read back from Postgres.
 
 ## Messaging / consumers
 

@@ -87,6 +87,9 @@ public sealed class Subscription
             throw new SubscriptionRuleException("A subscription covers at least one unit.");
         }
 
+        // Every period end derives from this start, and each renewal's idempotency key is built from the period end:
+        // hold it at the precision Postgres stores, so the key is the same before and after a reload (StoredTime).
+        now = StoredTime.Of(now);
         var subscription = new Subscription
         {
             Id = Guid.CreateVersion7(),
@@ -128,8 +131,8 @@ public sealed class Subscription
         CurrentPeriodStart = CurrentPeriodEnd;
         CurrentPeriodEnd = Advance(CurrentPeriodEnd, BillingPeriod);
         Status = SubscriptionStatus.Active;
-        UpdatedAt = now;
-        RecordPeriod(now, chargedMinor ?? PriceMinor); // append the newly-opened period (Sequence n+1)
+        UpdatedAt = StoredTime.Of(now);
+        RecordPeriod(UpdatedAt, chargedMinor ?? PriceMinor); // append the newly-opened period (Sequence n+1)
     }
 
     public void MarkPastDue(DateTimeOffset now)
@@ -137,14 +140,14 @@ public sealed class Subscription
         if (Status != SubscriptionStatus.Cancelled)
         {
             Status = SubscriptionStatus.PastDue;
-            UpdatedAt = now;
+            UpdatedAt = StoredTime.Of(now);
         }
     }
 
     public void Cancel(DateTimeOffset now)
     {
         Status = SubscriptionStatus.Cancelled;
-        UpdatedAt = now;
+        UpdatedAt = StoredTime.Of(now);
     }
 
     private void RecordPeriod(DateTimeOffset now, long amountMinor) =>

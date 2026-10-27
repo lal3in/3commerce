@@ -161,18 +161,60 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
         Assert.False(await EntryExistsAsync($"renew-{subscription.Id}-2"));
     }
 
+    /// <summary>
+    /// Postgres keeps microseconds, a Linux clock 100 ns ticks. A subscription started at …54.1755249 and dunned in the
+    /// SAME DbContext keys its renewal from the tracked aggregate; the retry reloads the row (…54.1755240). Both must be
+    /// one key with one pinned amount — otherwise the retry is a second charge request under a new key. The clock is
+    /// pinned to the sub-microsecond tick so this reproduces on macOS too (whose clock only gives microseconds).
+    /// </summary>
+    [Fact]
+    public async Task A_renewal_keyed_before_a_reload_is_retried_under_the_same_key_after_it()
+    {
+        const string currency = "RQ4";
+        var store = await StoreAsync(currency, bps: 825, inclusive: false);
+        var linuxNow = new DateTimeOffset(2026, 11, 27, 15, 47, 54, TimeSpan.Zero).AddTicks(1_755_249);
+        var provider = new ScriptedProvider(PaymentOutcome.RequiresAction);
+
+        Subscription subscription;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var service = Service(scope.ServiceProvider, provider, new FixedClock(linuxNow));
+            subscription = await service.StartAsync(new SubscriptionRequested(
+                TenantId, Guid.CreateVersion7(), "renewal-precision@example.com", Guid.CreateVersion7(), null,
+                BillingPeriod.Monthly, 2_000, currency, store, TaxInclusive: null, TaxExempt: false, Quantity: 1), default);
+            var dunned = await service.RenewAsync(TenantId, subscription.Id, default); // the tracked, never-reloaded aggregate
+            Assert.Equal(SubscriptionStatus.PastDue, dunned!.Status);
+        }
+
+        var stored = await StoredAsync(subscription.Id);
+        Assert.Equal(subscription.CurrentPeriodEnd, stored.CurrentPeriodEnd);   // in memory == what Postgres kept
+        Assert.Equal(subscription.CurrentPeriodStart, stored.CurrentPeriodStart);
+
+        provider.Outcome = PaymentOutcome.Succeeded;
+        var renewed = await RenewAsync(subscription.Id, provider);              // a fresh context: the reloaded row
+        Assert.Equal(SubscriptionStatus.Active, renewed.Status);
+        Assert.Equal(2, provider.Requests.Count);
+        Assert.Equal(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey);
+        Assert.All(provider.Requests, r => Assert.Equal(2_165, r.AmountMinor));
+
+        using var check = fixture.Payments.Services.CreateScope();
+        var pins = await check.ServiceProvider.GetRequiredService<PaymentsDbContext>().IdempotencyRecords.AsNoTracking()
+            .CountAsync(r => r.Key.StartsWith($"charge-amount:renew-{subscription.Id}-"));
+        Assert.Equal(1, pins);                                                  // one period, one pinned amount
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------------
 
     /// <summary>Renew through the real host's DbContext, mode resolver and bus-outbox publisher — only the rail is scripted.</summary>
     private async Task<Subscription> RenewAsync(Guid subscriptionId, ScriptedProvider provider)
     {
         using var scope = fixture.Payments.Services.CreateScope();
-        var sp = scope.ServiceProvider;
-        var service = new SubscriptionService(
-            sp.GetRequiredService<PaymentsDbContext>(), new ScriptedRegistry(provider), sp.GetRequiredService<PaymentModeResolver>(),
-            TimeProvider.System, sp.GetRequiredService<ILogger<SubscriptionService>>(), sp.GetRequiredService<IPublishEndpoint>());
-        return (await service.RenewAsync(TenantId, subscriptionId, default))!;
+        return (await Service(scope.ServiceProvider, provider, TimeProvider.System).RenewAsync(TenantId, subscriptionId, default))!;
     }
+
+    private static SubscriptionService Service(IServiceProvider sp, ScriptedProvider provider, TimeProvider clock) =>
+        new(sp.GetRequiredService<PaymentsDbContext>(), new ScriptedRegistry(provider), sp.GetRequiredService<PaymentModeResolver>(),
+            clock, sp.GetRequiredService<ILogger<SubscriptionService>>(), sp.GetRequiredService<IPublishEndpoint>());
 
     private async Task<Subscription> StoredAsync(Guid subscriptionId)
     {
@@ -321,6 +363,11 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
         public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) => throw new NotSupportedException();
         public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) => throw new NotSupportedException();
         public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     private sealed class ScriptedRegistry(IPaymentProvider provider) : IPaymentProviderRegistry
