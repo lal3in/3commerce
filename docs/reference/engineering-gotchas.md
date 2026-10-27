@@ -279,6 +279,16 @@ Ledger postings (Payments):
   collected. Any surface that shows a renewal amount on an exclusive store says "+ tax" (`CartRenewalResponse.TaxAdded`).
   An unprojected rate charges the bare price and logs an error (never a guessed rate, never a refused renewal).
   Renewals/usage have no `Payment` row, so the refund saga and the dispute webhook cannot reach them.
+- **A provider that RETURNS did not necessarily take the money.** `AuthorizeAsync` reports Failed / RequiresAction /
+  Cancelled as an outcome, not an exception, so a `catch` alone is not a failure path. Any off-session charge
+  (renewal, usage) must branch on `response.Outcome == Succeeded` before it advances state, credits anything or
+  posts — a renewal advanced on a returned decline gave a free period while the ledger showed nothing (ADR-0057
+  amendment 2026-10-27). Unsettled renewals dun to PastDue without advancing, so the retry keeps the period's key
+  and pinned amount.
+- **A per-LINE discount is subtracted from the LINE total, never from a unit price.** `RenewalDiscountMinor` (like
+  `DiscountMinor`) is allocated per line, so a renewal is `UnitPriceMinor × Quantity − RenewalDiscountMinor`
+  (`OrderLine.RenewalPriceMinor()`); `UnitPriceMinor − RenewalDiscountMinor` under-bills every multi-unit line and
+  disagrees with the cart preview.
 - **No-FX relabel posture (ADR-0041):** with no rate feed, a cost in another currency is relabelled
   into the order currency (with a once-per-order warning) rather than skipped — today only the carrier
   cost; COGS can no longer cross currencies (the supply offer is in the order's currency). Reconciliation identity,

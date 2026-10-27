@@ -7,7 +7,9 @@ public enum SubscriptionStatus { Trialing = 1, Active = 2, PastDue = 3, Cancelle
 /// <summary>
 /// A recurring billing arrangement for a subscription line (Phase 7 / mt7_3). The first period is
 /// paid with the order at checkout; renewals charge <see cref="PriceMinor"/> via IPaymentProvider and
-/// advance the period. Lives in Payments (the rail/ledger owner) for now.
+/// advance the period ONLY when the charge settles — an unsettled one (failed, needs authentication) duns to
+/// <see cref="SubscriptionStatus.PastDue"/> and the period stays put (ADR-0057 amendment 2026-10-27). Lives in
+/// Payments (the rail/ledger owner) for now.
 /// </summary>
 public sealed class Subscription
 {
@@ -22,7 +24,18 @@ public sealed class Subscription
     public Guid ProductId { get; init; }
     public Guid? VariantId { get; init; }
     public BillingPeriod BillingPeriod { get; init; }
+
+    /// <summary>
+    /// What each renewal charges (before any tax an exclusive store adds): the WHOLE line — unit × <see cref="Quantity"/>
+    /// less the line's renewal discount, computed by Ordering at purchase (owner decision 2026-10-27, ADR-0057).
+    /// </summary>
     public long PriceMinor { get; init; }
+
+    /// <summary>
+    /// Units the subscription covers (informational: <see cref="PriceMinor"/> already includes them). 1 for a
+    /// subscription set up before quantity was carried — whose price was one unit's, and keeps renewing at that.
+    /// </summary>
+    public int Quantity { get; init; } = 1;
     public required string Currency { get; init; }
 
     /// <summary>
@@ -62,11 +75,16 @@ public sealed class Subscription
         Guid tenantId, Guid orderId, string email, Guid productId, Guid? variantId,
         BillingPeriod period, long priceMinor, string currency, DateTimeOffset now,
         string? providerCustomerId = null, string? providerPaymentMethodId = null, Guid? storefrontId = null,
-        bool? taxInclusive = null, bool taxExempt = false)
+        bool? taxInclusive = null, bool taxExempt = false, int quantity = 1)
     {
         if (period == BillingPeriod.Once)
         {
             throw new SubscriptionRuleException("A subscription needs a recurring billing period.");
+        }
+
+        if (quantity < 1)
+        {
+            throw new SubscriptionRuleException("A subscription covers at least one unit.");
         }
 
         var subscription = new Subscription
@@ -80,6 +98,7 @@ public sealed class Subscription
             VariantId = variantId,
             BillingPeriod = period,
             PriceMinor = priceMinor,
+            Quantity = quantity,
             Currency = currency.ToUpperInvariant(),
             TaxInclusive = taxInclusive,
             TaxExempt = taxExempt,

@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
@@ -10,10 +11,12 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// <summary>
 /// Subscription lifecycle (mt7_3): set up at confirmation (the first period was paid with the order),
 /// renew by charging the period via the resolved payment provider, mark past-due on failure, cancel.
+/// <paramref name="publisher"/> is the scoped publish endpoint (bus outbox): what it publishes commits with the
+/// renewal's own SaveChanges.
 /// </summary>
 public sealed class SubscriptionService(
     PaymentsDbContext db, IPaymentProviderRegistry registry, PaymentModeResolver modeResolver, TimeProvider clock,
-    ILogger<SubscriptionService> logger)
+    ILogger<SubscriptionService> logger, IPublishEndpoint publisher)
 {
     public async Task<Subscription> StartAsync(SubscriptionRequested m, CancellationToken ct)
     {
@@ -34,7 +37,8 @@ public sealed class SubscriptionService(
 
         var subscription = Subscription.Start(
             m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow(),
-            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId, m.TaxInclusive, m.TaxExempt);
+            instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId, m.TaxInclusive, m.TaxExempt,
+            Math.Max(1, m.Quantity)); // an older message omits Quantity (default 1); never fewer than one unit
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
         return subscription;
@@ -151,6 +155,18 @@ public sealed class SubscriptionService(
                     idempotencyKey, PaymentMethodKind.Card, account,
                     subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId),
                 ct);
+
+            // Only a SETTLED charge renews (owner decision 2026-10-27, ADR-0057 amendment). A Failed or
+            // RequiresAction outcome (and a Cancelled one) took no money, so it goes down the same dunning path as a
+            // thrown provider error: PastDue, the period does NOT advance (so a retry is the same period — same key,
+            // same pinned amount), no history row, no revenue, no tax. RequiresAction additionally asks the customer
+            // to authenticate.
+            if (response.Outcome != PaymentOutcome.Succeeded)
+            {
+                await DunAsync(subscription, response, tax, now, ct);
+                return;
+            }
+
             subscription.Renew(now, tax.ChargeMinor);
             // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
             // DetectChanges infers such a child Modified (UPDATE → 0 rows → DbUpdateConcurrencyException),
@@ -159,16 +175,33 @@ public sealed class SubscriptionService(
             db.SubscriptionRenewals.Add(renewal);
 
             // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
-            // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted
-            // nothing. Only a Succeeded settlement posts; a RequiresAction/Failed outcome does not.
-            if (response.Outcome == PaymentOutcome.Succeeded)
-            {
-                await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, account.Provider, now, ct);
-            }
+            // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
+            await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, account.Provider, now, ct);
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
         {
             subscription.MarkPastDue(now); // dunning
+        }
+    }
+
+    /// <summary>
+    /// A renewal the provider did not settle (Failed / RequiresAction / Cancelled): dun it exactly like a thrown provider
+    /// error — PastDue, period not advanced, nothing posted. A RequiresAction outcome also publishes
+    /// <see cref="SubscriptionRenewalActionRequired"/> (bus outbox: it commits with the dunning, or not at all) so
+    /// Notifications asks the customer to authenticate the payment.
+    /// </summary>
+    private async Task DunAsync(
+        Subscription subscription, PaymentResponse response, RecurringChargeTaxResult tax, DateTimeOffset now, CancellationToken ct)
+    {
+        subscription.MarkPastDue(now);
+        logger.LogWarning(
+            "Renewal of subscription {SubscriptionId} for period ending {PeriodEnd:O} was not settled ({Outcome}, {ErrorCode}); marked past-due, period not advanced",
+            subscription.Id, subscription.CurrentPeriodEnd, response.Outcome, response.Error?.Code);
+        if (response.Outcome == PaymentOutcome.RequiresAction)
+        {
+            await publisher.Publish(new SubscriptionRenewalActionRequired(
+                subscription.TenantId, subscription.Id, subscription.StorefrontId, subscription.CustomerEmail,
+                tax.ChargeMinor, subscription.Currency, subscription.CurrentPeriodEnd), ct);
         }
     }
 

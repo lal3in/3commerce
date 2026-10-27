@@ -171,6 +171,18 @@
 #       exemption → Exempt + reason, a fully exempt cart's shipping follows the goods; net bases (inclusive base + tax
 #       = paid); ISO exponents 0/2/3 (JPY/AUD/BHD) half away from zero; the pricing engine's breakdown sums to its tax;
 #       the attempt hands its facts to the order verbatim
+#   A3n Unit · unsettled renewals dun + renewal price × quantity (owner decisions 2026-10-27, ADR-0057 amendment;
+#       SubscriptionRenewalOutcomeTests, SubscriptionRenewalQuantityTests, SubscriptionRenewalActionEmailTests): a
+#       Failed / RequiresAction / Cancelled renewal outcome duns to PastDue (committed), the period does NOT advance,
+#       no history row, no ledger entry; RequiresAction publishes SubscriptionRenewalActionRequired with the pinned
+#       amount (1083) + period end and a decline publishes nothing; the retry is the same key + amount (after a rate
+#       change) and renews exactly once; the nightly run duns an unsettled renewal and does not re-charge a past-due
+#       one; an unsettled usage charge posts nothing, logs it, and a re-send charges the same pinned amount once; a
+#       subscription line renews at unit × qty − the line's renewal discount (2×2000 → 4000, 3×2000 − 1500 → 4500,
+#       never negative) and SubscriptionRequested carries that total + Quantity; a 2-unit subscription renews at its
+#       line total with tax on that total (US 4000 → 4330, AU GST 4400 → 400 tax); a pre-quantity request covers 1
+#       unit; the RequiresAction email goes to the subscriber with the amount, "has not been charged", the account
+#       link and a per-period delivery reference
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -187,6 +199,12 @@
 #       currency each book their own tax; usage overage + auto-load split net + tax (inclusive) and ADD it
 #       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
 #       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0
+#   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
+#       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
+#       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
+#       renewal (real Postgres + outbox) commits PastDue with the period unmoved and no entry, delivers
+#       SubscriptionRenewalActionRequired (2165) over RabbitMQ, and its retry re-sends the same key + 2165 and renews
+#       once (tax 165); a declined renewal on an inclusive store duns without advancing or posting
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -565,6 +583,17 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~TaxBreakdownTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3m per-line tax breakdown"; else fail "A3m per-line tax breakdown"; fi
+
+  stage "A3n Unsettled renewals dun + renewal price × quantity (owner decisions 2026-10-27) — PastDue, no advance, no posting, 3DS email"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SubscriptionRenewalOutcomeTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SubscriptionRenewalQuantityTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SubscriptionRenewalActionEmailTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3n unsettled renewals dun + renewal price × quantity"; else fail "A3n unsettled renewals dun + renewal price × quantity"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

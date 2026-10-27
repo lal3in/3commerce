@@ -208,3 +208,69 @@ the first period:
 Verification: `RecurringChargeTaxTests` + `RecurringChargeAmountTests` (unit — a recording provider pins the amount
 the rail is asked for; e2e-verify A3h + A3l), `RenewalUsageTaxTests` (integration, A4b) and
 `e2e/renewal-plus-tax.spec.ts` (Playwright, L20).
+
+## Amendment (2026-10-27) — owner decisions: only a settled renewal renews; a renewal is priced for the whole line
+
+Two defects found by `renewal_usage_tax_2026_10_11` and decided by the owner on 2026-10-27.
+
+### An unsettled renewal is dunned (`subscription_renew_on_failed_charge`)
+
+`SubscriptionService` advanced the period whenever the provider *returned*, whatever it returned: only a thrown error
+dunned to PastDue. A **Failed** or **RequiresAction** outcome therefore opened a new period (history row and all)
+while the ledger — which posts only on Succeeded — recorded no revenue, so the subscription and the ledger
+disagreed and the customer got a free period.
+
+* **Decision.** Only a **Succeeded** charge renews. Failed and RequiresAction (and Cancelled, which also took no
+  money) go down the **existing dunning path**, exactly like a thrown provider error: the subscription becomes
+  **PastDue**, the period does **not** advance, no `SubscriptionRenewal` row is written, and **no revenue or tax is
+  posted**. The outcome is committed per renewal as before (2026-10-15 amendment), with a warning log naming the
+  outcome and error code.
+* **The retry is the same period.** Because the period did not advance, the next attempt computes the same key
+  `renew-{id}-{periodEnd:O}` and `RecurringChargePin` replays the same pinned amount — even after a rate change — so
+  the provider sees one charge, not two. The existing retry is the operator's **Renew** (`POST
+  /admin/subscriptions/{id}/renew`, or the admin Subscriptions page): the nightly auto-renew only picks Active /
+  Trialing subscriptions, so it never re-charges a past-due one. There is **no automatic dunning schedule** today;
+  whether to add one (and a storefront flow to complete 3DS on a renewal intent) is open
+  (`subscription_past_due_retry_and_authenticate`). Note for whoever builds it: Stripe replays a reused idempotency
+  key's cached result for about 24 hours, so a same-key retry inside that window returns the same outcome.
+* **RequiresAction asks the customer.** No dunning notification existed, so an additive contract
+  `SubscriptionRenewalActionRequired` (tenant, subscription, storefront, email, the pinned amount, the period end) is
+  published through the bus outbox — it commits with the dunning, or not at all — and the Notifications worker's
+  `SubscriptionRenewalActionRequiredConsumer` (a unique consumer name, ADR-0060) emails the customer that their bank
+  needs them to confirm the renewal, that nothing was charged, and where to sign in. The delivery-log reference is
+  `subscription-renewal-action:{subscriptionId}:{periodEnd}`. A plain decline sends no email (unchanged).
+* **Usage charges.** `UsageChargeBilling` already posted nothing for an unsettled charge and has no "settled" mark of
+  its own (the journal entry is the de-dupe), so it was not affected in Payments; it now logs the unsettled outcome
+  and a re-sent charge under the same reference charges the same pinned amount once. The Usage service, however,
+  marks the overage billed / credits the prepaid auto-load when it *publishes* the charge, so a declined usage charge
+  is forgiven there. Fixing that needs a failure contract back to Usage and an owner decision on what a failed
+  top-up does to access — tracked as `usage_charge_failure_feedback`, not changed here.
+
+### A renewal is priced for the whole line (`subscription_renewal_price_quantity`)
+
+`OrderStatusConsumer` published `UnitPriceMinor − RenewalDiscountMinor` as the subscription price. The renewal
+discount is allocated per **line**, while the price was per **unit**, so a quantity-2 line renewed at one unit's
+price less the whole line's discount (2 × 1000 with a 25% permanent promotion previewed 1500 but would renew at 500),
+and the cart's "renews at" preview (`line.TotalMinor − RenewalLineDiscountsMinor[i]`) disagreed with the charge.
+
+* **Decision.** A renewal = **unit × quantity − the line's renewal discount** (`OrderLine.RenewalPriceMinor()`,
+  never negative) — the preview's figure and the basis of the first charge. Quantity > 1 stays allowed.
+* **Carried, not re-derived.** `SubscriptionRequested.PriceMinor` is now that line total, and the contract appends
+  `Quantity` (default 1). Payments stores it on `Subscription.Quantity` (migration `SubscriptionQuantity`, existing
+  rows default to **1**); it is informational — `PriceMinor` already covers every unit, so every downstream reader of
+  the price (renewal charge, tax, the admin API) is unchanged in shape. The admin API appends `quantity` to
+  `SubscriptionDto` / `SubscriptionDetailDto`.
+* **Existing subscriptions are not repriced.** A subscription set up before this change was priced for one unit and
+  keeps renewing at that (quantity 1) — the same "no silent repricing" rule as the original decision above. A
+  quantity > 1 subscription from before the change is under-billed until an operator re-creates it.
+* **Traced.** *Tax:* `RecurringChargeTax` works on `PriceMinor`, so an exclusive store adds its rate on the line total
+  — for a single line the same tax checkout added to the first period (pinned end to end: 2 × 1000 − 25% → 1500 +
+  124). *Preview:* unchanged — it already showed the line total, and now equals the stored price. *Second storefront
+  sharing the currency:* the subscription carries its own storefront and that store's rate; nothing is shared.
+  *Refunds:* a renewal still has no `Payment` row (`renewal_usage_refund_path`); the order's own refund is untouched.
+  *Usage:* overage is billed per unit of usage by the Usage service, independent of subscription quantity.
+
+Verification: `SubscriptionRenewalOutcomeTests` (Payments unit), `SubscriptionRenewalQuantityTests` (Ordering unit)
+and `SubscriptionRenewalActionEmailTests` (Notifications, unit lane) — e2e-verify **A3n**; `SubscriptionRenewalDunningTests`
+(integration — a real 2-unit checkout through to the renewal, and a RequiresAction renewal delivered over RabbitMQ
+through the outbox) — **A4c**. Each was proven to fail with its fix reverted.

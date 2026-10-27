@@ -286,12 +286,14 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/admin/subscriptions?tenantId=&email=` | admin | Subscriptions (Phase 7 mt7_3): set up from a confirmed recurring line via `SubscriptionRequested` |
-| POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance; failure → PastDue/dunning) or cancel |
+| GET | `/admin/subscriptions?tenantId=&email=` | admin | Subscriptions (Phase 7 mt7_3): set up from a confirmed recurring line via `SubscriptionRequested`. `priceMinor` is each renewal's price for the whole line; appended `quantity` (default 1) is the units it covers (ADR-0057 amendment 2026-10-27) |
+| POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance ONLY on a settled charge; a thrown error **or a Failed / RequiresAction / Cancelled outcome** → PastDue/dunning, period not advanced, nothing posted, and a retry re-sends the same key + pinned amount; RequiresAction also publishes `SubscriptionRenewalActionRequired` → Notifications emails the customer — ADR-0057 amendment 2026-10-27) or cancel |
 | GET | `/me/subscriptions` | customer | The signed-in customer's own subscriptions |
 
 > Phase 7 bus contracts: `OfferChanged` carries `pricing_model` + `billing_period`; Ordering publishes
-> `SubscriptionRequested` per recurring line on confirm (→ Payments); Usage publishes
+> `SubscriptionRequested` per recurring line on confirm (→ Payments; `PriceMinor` = unit × qty − the line's renewal
+> discount, appended `Quantity`); Payments publishes `SubscriptionRenewalActionRequired` when a renewal needs the
+> customer to authenticate (→ Notifications email); Usage publishes
 > `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). The dedicated
 > Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
 > capability-first placement in Catalog/Fulfillment).

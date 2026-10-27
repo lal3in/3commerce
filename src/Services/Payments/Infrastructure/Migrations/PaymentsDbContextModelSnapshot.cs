@@ -812,6 +812,11 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(12)

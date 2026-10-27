@@ -118,10 +118,19 @@ public class OrderLine
 
     /// <summary>
     /// The part of <see cref="DiscountMinor"/> that rides this line's RENEWALS when it is a subscription
-    /// (ADR-0057). Renewals are charged <c>UnitPriceMinor − this</c>; 0 means renewals charge list.
+    /// (ADR-0057) — allocated per LINE, like <see cref="DiscountMinor"/>. Renewals are charged
+    /// <see cref="RenewalPriceMinor"/>; 0 means renewals charge list.
     /// </summary>
     public long RenewalDiscountMinor { get; init; }
     public int Quantity { get; init; }
+
+    /// <summary>
+    /// What each renewal of this subscription line costs, before any tax an exclusive store adds: the line total
+    /// (<c>UnitPriceMinor × Quantity</c>) less the line's <see cref="RenewalDiscountMinor"/>, never negative — the
+    /// same figure the cart's "renews at" preview shows (owner decision 2026-10-27, ADR-0057 amendment). A method,
+    /// not a property, so EF never maps it.
+    /// </summary>
+    public long RenewalPriceMinor() => Math.Max(0, (UnitPriceMinor * Quantity) - RenewalDiscountMinor);
 
     /// <summary>How this line is sourced/delivered (ADR-0028, shared vocabulary).</summary>
     public FulfilmentType FulfilmentType { get; set; } = FulfilmentType.Unassigned;

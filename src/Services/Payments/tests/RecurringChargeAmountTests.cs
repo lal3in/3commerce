@@ -156,7 +156,7 @@ public class RecurringChargeAmountTests
         var subscription = await StartAsync(db, store, 1000, "USD", taxInclusive: false);
         var provider = new RecordingProvider { ThrowFirst = 1 };
         var service = new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(), new FixedTime(Now.AddMonths(1)),
-            new ListLogger<SubscriptionService>());
+            new ListLogger<SubscriptionService>(), new RecordingPublisher());
 
         var failed = await service.RenewAsync(TenantId, subscription.Id, default);  // provider down → dunned
         Assert.Equal(SubscriptionStatus.PastDue, failed!.Status);
@@ -205,7 +205,7 @@ public class RecurringChargeAmountTests
         };
         // 13:00 on the day the first periods end: past the schedule's default 12:00 run time.
         var nightly = new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(),
-            new FixedTime(Now.AddMonths(1).AddHours(13)), new ListLogger<SubscriptionService>());
+            new FixedTime(Now.AddMonths(1).AddHours(13)), new ListLogger<SubscriptionService>(), new RecordingPublisher());
 
         await nightly.AutoRenewDueAsync(default);
 
@@ -222,7 +222,7 @@ public class RecurringChargeAmountTests
             // The failed renewal is retryable: same key, same pinned amount, then it commits.
             await using var retryDb = NewDb(name);
             var retry = new SubscriptionService(retryDb, new SingleProviderRegistry(provider), Resolver(),
-                new FixedTime(Now.AddMonths(1).AddHours(14)), new ListLogger<SubscriptionService>());
+                new FixedTime(Now.AddMonths(1).AddHours(14)), new ListLogger<SubscriptionService>(), new RecordingPublisher());
             await retry.RenewAsync(TenantId, failedSub.Id, default);
             Assert.Equal(failed, provider.Requests[^1].IdempotencyKey);
             Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));
@@ -302,7 +302,7 @@ public class RecurringChargeAmountTests
     {
         var provider = new RecordingProvider();
         var log = new ListLogger<SubscriptionService>();
-        return (new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(), new FixedTime(Now.AddMonths(1)), log), provider, log);
+        return (new SubscriptionService(db, new SingleProviderRegistry(provider), Resolver(), new FixedTime(Now.AddMonths(1)), log, new RecordingPublisher()), provider, log);
     }
 
     private static Guid AddStore(PaymentsDbContext db, int? bps, bool inclusive)
@@ -358,60 +358,5 @@ public class RecurringChargeAmountTests
         Assert.All(entry.Lines, l => Assert.Equal(currency, l.Currency));
         Assert.All(entry.Lines, l => Assert.True((l.DebitMinor > 0) ^ (l.CreditMinor > 0))); // ck_line_one_side
         Assert.DoesNotContain(entry.Lines, l => Accounts.IsSharedCode(l.AccountCode));
-    }
-
-    private sealed class FixedTime(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
-    }
-
-    private sealed class RecordingProvider : IPaymentProvider
-    {
-        public List<PaymentRequest> Requests { get; } = [];
-        public PaymentOutcome Outcome { get; init; } = PaymentOutcome.Succeeded;
-
-        /// <summary>Throw on this many first calls (a provider outage), recording the request first.</summary>
-        public int ThrowFirst { get; set; }
-
-        /// <summary>Called with the 1-based call number before answering; may throw to simulate a failure.</summary>
-        public Action<int>? OnAuthorize { get; init; }
-
-        public string ProviderKey => "stripe";
-
-        public Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct)
-        {
-            Requests.Add(request);
-            OnAuthorize?.Invoke(Requests.Count);
-            if (ThrowFirst > 0)
-            {
-                ThrowFirst--;
-                throw new HttpRequestException("provider unavailable");
-            }
-
-            return Task.FromResult(new PaymentResponse($"pi_rec_{Requests.Count}", null, Outcome));
-        }
-
-        public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct) => throw new NotSupportedException();
-        public Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct) => throw new NotSupportedException();
-        public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) => throw new NotSupportedException();
-        public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) => throw new NotSupportedException();
-        public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
-    }
-
-    private sealed class SingleProviderRegistry(IPaymentProvider provider) : IPaymentProviderRegistry
-    {
-        public IPaymentProvider Resolve(PaymentAccountSnapshot account) => provider;
-        public IPaymentProvider ResolveDefault() => provider;
-        public IPaymentProvider ResolveByKey(string providerKey) => provider;
-    }
-
-    private sealed class ListLogger<T> : ILogger<T>
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-            Entries.Add((logLevel, formatter(state, exception)));
     }
 }

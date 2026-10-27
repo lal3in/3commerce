@@ -13,8 +13,14 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// exactly as checkout excluded it from the tax base). The RATE is not carried: a renewal uses the rate in force
 /// at the charge. Both appended optional → back-compatible (null = regime unknown, Payments uses its projection).
 /// </para>
+/// <para>
+/// <see cref="PriceMinor"/> is the price of each renewal for the WHOLE line: unit × <see cref="Quantity"/> less the
+/// line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment) — the cart's "renews at" figure. Before
+/// that decision it was one unit's price whatever the quantity. <see cref="Quantity"/> (appended, default 1) is the
+/// number of units the subscription covers; it is informational — the price already includes it.
+/// </para>
 /// </summary>
 public record SubscriptionRequested(
     Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId,
     BillingPeriod BillingPeriod, long PriceMinor, string Currency, Guid? StorefrontId = null,
-    bool? TaxInclusive = null, bool TaxExempt = false);
+    bool? TaxInclusive = null, bool TaxExempt = false, int Quantity = 1);
