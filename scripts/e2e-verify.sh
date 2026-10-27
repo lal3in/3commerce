@@ -193,7 +193,7 @@
 #   A3o Unit · stored-precision subscription times (SubscriptionStoredTimeTests): Postgres keeps microseconds, a Linux
 #       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
 #       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
-#       dun and cancel stamp stored-precision times
+#       dun, cancel and a quantity-backfill correction stamp stored-precision times
 #   A3q Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
 #       XI, EL→GR), GbVrn, NzGst, CaBn, ChUid, UsStateSalesTaxId (state required) + ABN/ACN unchanged — each invalid
 #       shape names its field (Value/Jurisdiction) (TaxIdentifierFormatTests); seller designation + establishments:

@@ -153,7 +153,7 @@ public sealed class Subscription
 
         Quantity = quantity;
         PriceMinor = priceMinor;
-        UpdatedAt = now;
+        UpdatedAt = StoredTime.Of(now);
         return true;
     }
 

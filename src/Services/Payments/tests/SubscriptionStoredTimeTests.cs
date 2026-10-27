@@ -62,4 +62,14 @@ public class SubscriptionStoredTimeTests
         sub.Cancel(later);
         Assert.Equal(StoredTime.Of(later), sub.UpdatedAt);
     }
+
+    [Fact]
+    public void A_quantity_backfill_correction_stamps_a_stored_precision_time()
+    {
+        var sub = Subscription.Start(
+            Guid.NewGuid(), Guid.NewGuid(), "buyer@example.com", Guid.NewGuid(), null, BillingPeriod.Monthly, 500, "USD", StoredNow);
+
+        Assert.True(sub.CorrectLegacyQuantity(3, 4500, LinuxNow));
+        Assert.Equal(StoredNow, sub.UpdatedAt);
+    }
 }
