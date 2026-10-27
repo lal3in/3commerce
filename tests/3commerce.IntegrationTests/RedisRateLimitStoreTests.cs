@@ -16,11 +16,8 @@ public class RedisRateLimitStoreTests(RedisFixture fixture)
     {
         var connection = fixture.NewConnection();
         _ = connection.Multiplexer; // trigger the lazy connect
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(15);
-        while (!connection.IsAvailable && DateTimeOffset.UtcNow < deadline)
-        {
-            await Task.Delay(100);
-        }
+        await Eventually.PollAsync(
+            () => Task.FromResult(connection.IsAvailable), TimeSpan.FromSeconds(15), TimeSpan.FromMilliseconds(100));
 
         Assert.True(connection.IsAvailable, "Redis connection never became available");
         return new RedisRateLimitStore(connection);

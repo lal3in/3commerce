@@ -42,11 +42,8 @@ public class SessionCacheAuthFlowTests(Phase2Fixture fixture, RedisFixture redis
     {
         var connection = redis.NewConnection();
         _ = connection.Multiplexer;
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(15);
-        while (!connection.IsAvailable && DateTimeOffset.UtcNow < deadline)
-        {
-            await Task.Delay(100);
-        }
+        await Eventually.PollAsync(
+            () => Task.FromResult(connection.IsAvailable), TimeSpan.FromSeconds(15), TimeSpan.FromMilliseconds(100));
 
         return await connection.Database!.KeyExistsAsync($"sess:usr:{userId:N}");
     }

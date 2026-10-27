@@ -161,18 +161,14 @@ public class PaymentAccountAdminTests(Phase4Fixture fixture)
         await fixture.PublishAsync(new ThreeCommerce.BuildingBlocks.Contracts.Catalog.StorefrontDuplicated(tenant, source, target, "Target"));
 
         AccountDto? clone = null;
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var all = await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}");
-            clone = all!.FirstOrDefault(a => a.StorefrontId == target);
-            if (clone is not null)
+        await Eventually.PollAsync(
+            async () =>
             {
-                break;
-            }
-
-            await Task.Delay(200);
-        }
+                var all = await admin.GetFromJsonAsync<List<AccountDto>>($"/admin/payment-accounts?tenantId={tenant}");
+                clone = all!.FirstOrDefault(a => a.StorefrontId == target);
+                return clone is not null;
+            },
+            TimeSpan.FromSeconds(20));
 
         Assert.NotNull(clone);
         Assert.Equal("Source acct", clone!.Name);

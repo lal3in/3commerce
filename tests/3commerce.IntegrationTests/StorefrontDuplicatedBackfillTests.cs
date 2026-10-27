@@ -204,20 +204,23 @@ public class StorefrontDuplicatedBackfillTests(Phase2Fixture fixture) : IAsyncLi
 
     private static async Task<T> WaitForAsync<T>(ConcurrentQueue<T> queue, Func<T, bool> match, string what)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(60);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            foreach (var item in queue)
+        T found = default!;
+        await Eventually.UntilAsync(
+            () =>
             {
-                if (match(item))
+                foreach (var item in queue)
                 {
-                    return item;
+                    if (match(item))
+                    {
+                        found = item;
+                        return Task.FromResult(true);
+                    }
                 }
-            }
 
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Timed out waiting for {what}.");
+                return Task.FromResult(false);
+            },
+            () => new TimeoutException($"Timed out waiting for {what}."),
+            TimeSpan.FromSeconds(60));
+        return found;
     }
 }

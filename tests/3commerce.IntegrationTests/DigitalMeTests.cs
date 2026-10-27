@@ -37,18 +37,14 @@ public class DigitalMeTests(Phase4Fixture fixture)
 
         // The signed-in customer sees their entitlement once the digital line is fulfilled.
         using var mine = Client(email, tenant);
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        List<MeEntitlement>? list;
-        while (true)
-        {
-            list = await mine.GetFromJsonAsync<List<MeEntitlement>>("/me/entitlements");
-            if (list!.Count == 1 || DateTimeOffset.UtcNow > deadline)
+        List<MeEntitlement>? list = null;
+        await Eventually.PollAsync(
+            async () =>
             {
-                break;
-            }
-
-            await Task.Delay(300);
-        }
+                list = await mine.GetFromJsonAsync<List<MeEntitlement>>("/me/entitlements");
+                return list!.Count == 1;
+            },
+            interval: TimeSpan.FromMilliseconds(300));
 
         Assert.Single(list!);
         Assert.Equal(email, list![0].CustomerEmail);

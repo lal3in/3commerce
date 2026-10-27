@@ -83,25 +83,25 @@ public class ShipmentPackageTests(Phase4Fixture fixture)
         Assert.NotNull(labelled);
         Assert.Equal(PackageStatus.Labelled, labelled!.Status);
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            var entry = await db.JournalEntries.Include(e => e.Lines)
-                .SingleOrDefaultAsync(e => e.Reference == package!.Id.ToString());
-            if (entry is not null)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
-                Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.ExpenseShippingCarrier && l.DebitMinor > 0);
-                Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.LiabilityCarrierPayable && l.CreditMinor > 0);
-                return;
-            }
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                var entry = await db.JournalEntries.Include(e => e.Lines)
+                    .SingleOrDefaultAsync(e => e.Reference == package!.Id.ToString());
+                if (entry is not null)
+                {
+                    Assert.Equal(entry.Lines.Sum(l => l.DebitMinor), entry.Lines.Sum(l => l.CreditMinor));
+                    Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.ExpenseShippingCarrier && l.DebitMinor > 0);
+                    Assert.Contains(entry.Lines, l => l.AccountCode == Accounts.LiabilityCarrierPayable && l.CreditMinor > 0);
+                    return true;
+                }
 
-            await Task.Delay(300);
-        }
-
-        Assert.Fail("Carrier cost accrual was not booked in Payments after buying a label.");
+                return false;
+            },
+            () => Xunit.Sdk.FailException.ForFailure("Carrier cost accrual was not booked in Payments after buying a label."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     /// <summary>
@@ -142,24 +142,24 @@ public class ShipmentPackageTests(Phase4Fixture fixture)
         Assert.NotNull(labelled);
 
         var storeAccount = Accounts.ShippingCostStoreFor(storefrontId);
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            var entry = await db.JournalEntries.Include(e => e.Lines)
-                .SingleOrDefaultAsync(e => e.Reference == package!.Id.ToString());
-            if (entry is not null)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                Assert.Equal("EUR", entry.Currency);
-                Assert.Contains(entry.Lines, l => l.AccountCode == storeAccount && l.DebitMinor > 0);
-                Assert.DoesNotContain(entry.Lines, l => l.AccountCode == Accounts.ExpenseShippingCarrier);
-                return;
-            }
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                var entry = await db.JournalEntries.Include(e => e.Lines)
+                    .SingleOrDefaultAsync(e => e.Reference == package!.Id.ToString());
+                if (entry is not null)
+                {
+                    Assert.Equal("EUR", entry.Currency);
+                    Assert.Contains(entry.Lines, l => l.AccountCode == storeAccount && l.DebitMinor > 0);
+                    Assert.DoesNotContain(entry.Lines, l => l.AccountCode == Accounts.ExpenseShippingCarrier);
+                    return true;
+                }
 
-            await Task.Delay(300);
-        }
-
-        Assert.Fail("Attributed carrier cost accrual was not booked in EUR to the store's own account.");
+                return false;
+            },
+            () => Xunit.Sdk.FailException.ForFailure("Attributed carrier cost accrual was not booked in EUR to the store's own account."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }
