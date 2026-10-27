@@ -199,10 +199,13 @@ public class SellerIdentityEndpointTests(Phase2Fixture fixture) : IAsyncLifetime
             Assert.True(final.IsSeller);
             Assert.Equal(TaxIdScheme.Abn, Assert.Single(final.TaxIdentifiers).Scheme);
             Assert.Equal("2 George St", Assert.Single(final.Establishments).Address.Line1);
-            // Negative control: the non-seller's tax ID never produced a LegalEntityChanged.
-            await Task.Delay(500);
+            // designate, identifier, add, update — one snapshot each...
+            await Eventually.UntilAsync(
+                () => Task.FromResult(changes.Count(c => c.EntityId == sellerId) == 4),
+                () => new TimeoutException($"expected 4 seller snapshots, saw {changes.Count(c => c.EntityId == sellerId)}"),
+                TimeSpan.FromSeconds(60));
+            // ...and (negative control) the non-seller's tax ID, published before all of them, produced none.
             Assert.DoesNotContain(changes, c => c.EntityId == otherId);
-            Assert.Equal(4, changes.Count(c => c.EntityId == sellerId)); // designate, identifier, add, update
         }
         finally
         {
@@ -231,20 +234,15 @@ public class SellerIdentityEndpointTests(Phase2Fixture fixture) : IAsyncLifetime
 
     private async Task<DetailDto> DetailAsync(Guid entityId) => (await _admin.GetFromJsonAsync<DetailDto>($"/entities/{entityId}"))!;
 
+    // Awake-time budget + a final poll (Eventually, #309) — never a wall-clock deadline.
     private static async Task<T> WaitForAsync<T>(ConcurrentQueue<T> queue, Func<T, bool> match, string what)
+        where T : class
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(60);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var hit = queue.FirstOrDefault(match);
-            if (hit is not null)
-            {
-                return hit;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Timed out waiting for {what}.");
+        T? hit = null;
+        await Eventually.UntilAsync(
+            () => Task.FromResult((hit = queue.FirstOrDefault(match)) is not null),
+            () => new TimeoutException($"Timed out waiting for {what}."),
+            TimeSpan.FromSeconds(60));
+        return hit!;
     }
 }

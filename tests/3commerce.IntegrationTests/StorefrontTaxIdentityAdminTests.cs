@@ -159,20 +159,15 @@ public class StorefrontTaxIdentityAdminTests(Phase2Fixture fixture) : IAsyncLife
         sellerEstablishmentKey = key,
     };
 
+    // Awake-time budget + a final poll (Eventually, #309) — never a wall-clock deadline.
     private static async Task<T> WaitForAsync<T>(ConcurrentQueue<T> queue, Func<T, bool> match, string what)
+        where T : class
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(60);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var hit = queue.FirstOrDefault(match);
-            if (hit is not null)
-            {
-                return hit;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Timed out waiting for {what}.");
+        T? hit = null;
+        await Eventually.UntilAsync(
+            () => Task.FromResult((hit = queue.FirstOrDefault(match)) is not null),
+            () => new TimeoutException($"Timed out waiting for {what}."),
+            TimeSpan.FromSeconds(60));
+        return hit!;
     }
 }
