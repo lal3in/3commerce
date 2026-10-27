@@ -162,5 +162,5 @@ message id per subscription and the `3c-backfill` header, after the usual broker
 `3commerce.Payments.Api`, queue drained). Payments applies it through `Subscription.CorrectLegacyQuantity`: only a
 subscription still at quantity 1 is re-priced, never a downgrade and never one that already carries a quantity, so a
 redelivery or a re-run is a no-op. A period already attempted keeps its pinned amount (`RecurringChargePin`); the
-corrected price applies from the next period. The customer's next renewal charges the corrected (higher) amount.
+corrected price applies from the next period. The customer's next renewal charges the corrected (higher) amount and nothing is sent to them — **run it before live customers exist; with live customers, send a notice first** (owner decision 2026-10-27).
 

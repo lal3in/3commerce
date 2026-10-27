@@ -194,6 +194,10 @@ Subscriptions set up before 2026-10-27 from a recurring line of quantity > 1 ren
 line's renewal discount (ADR-0057 amendment). Payments must run the build that carries `Subscription.Quantity`
 (migration `SubscriptionQuantity`) and `CorrectLegacyQuantity`.
 
+**Precondition: run this before live customers exist** (owner decision 2026-10-27). The correction raises the next
+renewal of every selected subscription and sends the customer nothing; production is in Stripe test mode with no real
+customers today. With live customers, send them a notice of the new renewal amount first.
+
 ```bash
 dotnet $BIN subscription-quantity --dry-run --list      # verdicts; UnexpectedPrice rows are always listed — review them by hand
 dotnet $BIN subscription-quantity --execute --limit 5   # canary

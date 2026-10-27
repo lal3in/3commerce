@@ -294,5 +294,7 @@ preflight, with a deterministic message id; `--dry-run` / `--execute` is mandato
 `SubscriptionService.StartAsync` through `Subscription.CorrectLegacyQuantity`: the only change an existing
 subscription accepts from a request, and only from quantity 1 to a larger quantity — never a downgrade, never a
 second correction — so a redelivery or a re-run is a no-op. A period already attempted keeps its pinned amount; the
-corrected price applies from the next period key. Verification: `SubscriptionQuantityBackfillTests` (tool, e2e-verify
+corrected price applies from the next period key. **Precondition (owner, 2026-10-27): run it before live customers
+exist** — production is in Stripe test mode with no real customers, so no customer notice is sent; once live customers
+exist, a notice of the higher renewal must be sent first. Verification: `SubscriptionQuantityBackfillTests` (tool, e2e-verify
 A3e), `SubscriptionTests` (domain), `SubscriptionFlowTests` (integration, A6g).
