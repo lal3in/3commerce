@@ -183,6 +183,10 @@
 #       line total with tax on that total (US 4000 → 4330, AU GST 4400 → 400 tax); a pre-quantity request covers 1
 #       unit; the RequiresAction email goes to the subscriber with the amount, "has not been charged", the account
 #       link and a per-period delivery reference
+#   A3o Unit · stored-precision subscription times (SubscriptionStoredTimeTests): Postgres keeps microseconds, a Linux
+#       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
+#       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
+#       dun and cancel stamp stored-precision times
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -204,7 +208,9 @@
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
 #       renewal (real Postgres + outbox) commits PastDue with the period unmoved and no entry, delivers
 #       SubscriptionRenewalActionRequired (2165) over RabbitMQ, and its retry re-sends the same key + 2165 and renews
-#       once (tax 165); a declined renewal on an inclusive store duns without advancing or posting
+#       once (tax 165); a declined renewal on an inclusive store duns without advancing or posting; a subscription
+#       started at a sub-microsecond tick and dunned in the SAME DbContext (key from the tracked aggregate) is retried
+#       from a reload under the same key + 2165 with one pinned amount
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -594,6 +600,11 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~SubscriptionRenewalActionEmailTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3n unsettled renewals dun + renewal price × quantity"; else fail "A3n unsettled renewals dun + renewal price × quantity"; fi
+
+  stage "A3o Stored-precision subscription times — microsecond truncation, renewal key stable across a reload"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SubscriptionStoredTimeTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3o stored-precision subscription times"; else fail "A3o stored-precision subscription times"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
