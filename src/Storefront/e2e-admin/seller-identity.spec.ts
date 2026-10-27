@@ -57,9 +57,11 @@ test("entities + commerce ops: seller of record, tax ID, establishment and store
     if (!seller) {
       await expect(page.locator("#seller-designate")).toHaveAttribute("title", /.+/);
       await page.locator("#seller-designate").click();
-      await expect(section).toContainText("seller of record", { timeout: 10_000 });
+      // The button disappears only once the designation committed and the details reloaded (the heading already
+      // says "Seller of record" before the click, so it is no signal).
+      await expect(page.locator("#seller-designate")).toHaveCount(0, { timeout: 10_000 });
+      await expect.poll(async () => (await currentSeller(request))?.entityId ?? null, { timeout: 10_000 }).not.toBeNull();
       seller = await currentSeller(request);
-      expect(seller).not.toBeNull();
     }
 
     // An invalid EU VAT ID is refused with the per-scheme reason; nothing is stored.
@@ -67,14 +69,14 @@ test("entities + commerce ops: seller of record, tax ID, establishment and store
     await expect(page.locator("#ident-jurisdiction")).toHaveAttribute("title", /.+/);
     await page.locator("#ident-value").fill("DE12345");
     await page.locator("#ident-add").click();
-    await expect(page.getByText(/does not match the DE format/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/does not match the DE format/).first()).toBeVisible({ timeout: 10_000 });
 
     // A valid one is stored normalized with its jurisdiction (only once — identifiers are permanent).
     if (!seller!.identifiers.some((i) => i.type === 5 && i.value === "DE123456789")) {
       await page.locator("#ident-value").fill("de 123 456 789");
       await page.locator("#ident-add").click();
     }
-    await expect(page.getByText("DE123456789")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("DE123456789").first()).toBeVisible({ timeout: 10_000 });
 
     // Establishment: add it the first time, edit its label on later runs (the key is immutable).
     const label = `E2E head office ${Date.now()}`;
