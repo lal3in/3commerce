@@ -291,13 +291,17 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/admin/subscriptions?tenantId=&email=` | admin | Subscriptions (Phase 7 mt7_3): set up from a confirmed recurring line via `SubscriptionRequested`. `priceMinor` is each renewal's price for the whole line; appended `quantity` (default 1) is the units it covers (ADR-0057 amendment 2026-10-27) |
-| POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance ONLY on a settled charge; a thrown error **or a Failed / RequiresAction / Cancelled outcome** → PastDue/dunning, period not advanced, nothing posted, and a retry re-sends the same key + pinned amount; RequiresAction also publishes `SubscriptionRenewalActionRequired` → Notifications emails the customer — ADR-0057 amendment 2026-10-27) or cancel |
+| POST | `/admin/subscriptions/{id}/renew` · `/cancel` | admin | Renew (charge the period via `IPaymentProvider` → advance ONLY on a settled charge; a thrown error **or a Failed / RequiresAction / Cancelled outcome** → PastDue/dunning, period not advanced, nothing posted; a retry is the same period with a FRESH attempt key `…-a{n}` and the same pinned amount — an unanswered attempt (provider outage) reuses its key; RequiresAction also publishes `SubscriptionRenewalActionRequired` → Notifications emails the customer — ADR-0057 amendment 2026-10-27) or cancel. Dunning: the nightly auto-renew retries PastDue subscriptions on days 1, 3 and 7 after the first failure, then cancels (`SubscriptionCancelledForNonPayment`). The DTOs append `failureReason`, `nextRetryAt`, `cancelsAfter` |
 | GET | `/me/subscriptions` | customer | The signed-in customer's own subscriptions |
+| GET | `/me/subscriptions/{id}` | customer | The customer's own subscription for the storefront "complete payment" page: `amountDueMinor` (past due: the pinned charge), `failureReason`, `nextRetryAt`, `cancelsAfter`; 404 when not theirs |
+| POST | `/me/subscriptions/{id}/pay` | customer | Pay a past-due renewal now, ON-SESSION (3-D Secure possible), optionally `savedPaymentMethodId` (becomes the renewal card); **Idempotency-Key required** (replay returns the stored answer, never the client secret). 200 `outcome` 1 Paid / 2 RequiresAction (+ `paymentIntentId`, `clientSecret`) / 3 Declined / 4 ProviderUnavailable; 409 not past due; 422 unknown card; 404 not theirs. The provider's later `payment_intent.succeeded` for a RequiresAction attempt settles the period once (ADR-0057 amendment 2026-10-27) |
 
 > Phase 7 bus contracts: `OfferChanged` carries `pricing_model` + `billing_period`; Ordering publishes
 > `SubscriptionRequested` per recurring line on confirm (→ Payments; `PriceMinor` = unit × qty − the line's renewal
 > discount, appended `Quantity`); Payments publishes `SubscriptionRenewalActionRequired` when a renewal needs the
-> customer to authenticate (→ Notifications email); Usage publishes
+> customer to authenticate, `SubscriptionPaymentFailed` when one is declined and will be retried, and
+> `SubscriptionCancelledForNonPayment` when the day-7 retry fails (→ Notifications emails linking
+> `/account/subscriptions/{id}/pay`); Usage publishes
 > `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). The dedicated
 > Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
 > capability-first placement in Catalog/Fulfillment).

@@ -67,7 +67,7 @@
           </tr>
           <tr>
             <td>payments</td><td><code>subscription-auto-renew</code></td><td><code>0 0/15 * * * ?</code> — every 15 min</td>
-            <td>Sweeps <strong>due subscription renewals</strong> and charges them off-session against the saved payment method; each storefront renews at most once per day once its configured window has passed, and a failed charge marks the subscription past-due (dunning). Idempotent. <code>SubscriptionAutoRenewJob</code>.</td>
+            <td>Sweeps <strong>due subscription renewals</strong> and charges them off-session against the saved payment method; each storefront renews at most once per day once its configured window has passed, and a charge that does not settle marks the subscription past-due (dunning); the same run retries past-due subscriptions on days 1, 3 and 7 after the first failure (a fresh attempt, the same amount) and cancels one when its day-7 retry fails. Idempotent. <code>SubscriptionAutoRenewJob</code>.</td>
           </tr>
           <tr>
             <td>payments</td><td><code>daily-journal</code></td><td><code>0 0 2 * * ?</code> — 02:00 UTC daily</td>

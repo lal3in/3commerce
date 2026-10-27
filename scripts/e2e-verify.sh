@@ -182,9 +182,10 @@
 #       SubscriptionRenewalOutcomeTests, SubscriptionRenewalQuantityTests, SubscriptionRenewalActionEmailTests): a
 #       Failed / RequiresAction / Cancelled renewal outcome duns to PastDue (committed), the period does NOT advance,
 #       no history row, no ledger entry; RequiresAction publishes SubscriptionRenewalActionRequired with the pinned
-#       amount (1083) + period end and a decline publishes nothing; the retry is the same key + amount (after a rate
-#       change) and renews exactly once; the nightly run duns an unsettled renewal and does not re-charge a past-due
-#       one; an unsettled usage charge posts nothing, logs it, and a re-send charges the same pinned amount once; a
+#       amount (1083) + period end and a decline SubscriptionPaymentFailed (next retry day 1, cancels day 7); the retry
+#       is the same period with a fresh key (-a1) and the same amount (after a rate change) and renews exactly once;
+#       the nightly run duns an unsettled renewal and retries it on day 1; an unsettled usage charge posts nothing,
+#       logs it, and a re-send charges the same pinned amount once; a
 #       subscription line renews at unit × qty − the line's renewal discount (2×2000 → 4000, 3×2000 − 1500 → 4500,
 #       never negative) and SubscriptionRequested carries that total + Quantity; a 2-unit subscription renews at its
 #       line total with tax on that total (US 4000 → 4330, AU GST 4400 → 400 tax); a pre-quantity request covers 1
@@ -193,7 +194,20 @@
 #   A3o Unit · stored-precision subscription times (SubscriptionStoredTimeTests): Postgres keeps microseconds, a Linux
 #       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
 #       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
-#       dun, cancel and a quantity-backfill correction stamp stored-precision times
+#       dun, cancel and a quantity-backfill correction stamp stored-precision times, and so do the dunning clocks
+#       (DunningStartedAt, LastAttemptAt, an issued attempt key, a changed instrument) so a retry's due time is the
+#       same in memory and reloaded
+#   A3p Unit · dunning retries + the complete-payment page (owner decisions 2026-10-27, SubscriptionDunningTests):
+#       retries fall on days 1, 3 and 7 after the first failure (a customer attempt in a window counts; missed days
+#       collapse into one), each with a FRESH key (-a1..-a3) and the SAME pinned amount (1083, through a rate change);
+#       the day-7 failure cancels the subscription (period never advanced, nothing posted) and publishes
+#       SubscriptionCancelledForNonPayment, the earlier ones SubscriptionPaymentFailed with the next retry; a retry
+#       that settles renews once and clears dunning; a provider outage reuses the unanswered key, sends no email and
+#       does not use up a retry; the customer pays on-session (CustomerPresent) with another saved card that becomes
+#       the renewal card, sees no email; not theirs → null, not past due → NotPastDue, unknown card →
+#       UnknownPaymentMethod; a 3-D Secure attempt settles once from the provider's success event (redelivered) and
+#       money for a closed period is never booked; the dunning emails link /account/subscriptions/{id}/pay with the
+#       next retry / cancellation dates and per-period references, and their consumers send them
 #   A3q Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
 #       XI, EL→GR), GbVrn, NzGst, CaBn, ChUid, UsStateSalesTaxId (state required) + ABN/ACN unchanged — each invalid
 #       shape names its field (Value/Jurisdiction) (TaxIdentifierFormatTests); seller designation + establishments:
@@ -223,10 +237,15 @@
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
 #       renewal (real Postgres + outbox) commits PastDue with the period unmoved and no entry, delivers
-#       SubscriptionRenewalActionRequired (2165) over RabbitMQ, and its retry re-sends the same key + 2165 and renews
-#       once (tax 165); a declined renewal on an inclusive store duns without advancing or posting; a subscription
-#       started at a sub-microsecond tick and dunned in the SAME DbContext (key from the tracked aggregate) is retried
-#       from a reload under the same key + 2165 with one pinned amount
+#       SubscriptionRenewalActionRequired (2165) over RabbitMQ, and its retry uses a fresh key (-a1) for the same 2165
+#       and renews once (tax 165); a declined renewal on an inclusive store duns without advancing or posting; a
+#       subscription started at a sub-microsecond tick and dunned in the SAME DbContext (key from the tracked
+#       aggregate) is retried from a reload under the same period key (+ -a1) for 2165 with one pinned amount;
+#       DUNNING: the nightly runs on days 1, 3, 7 retry with keys -a1..-a3 at the pinned 1083, then cancel, and
+#       SubscriptionPaymentFailed ×3 (next retry day 1/3/7) + SubscriptionCancelledForNonPayment arrive over RabbitMQ;
+#       the customer pays over HTTP (GET /me/subscriptions/{id} shows 2200 due / Failed; POST …/pay needs an
+#       Idempotency-Key, 404 for another customer, a replayed key books once, then 409); a RequiresAction attempt
+#       settles once from /dev/simulate-payment (delivered twice), posting 1083 with tax 83, trial balance 0
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -486,6 +505,9 @@
 #       on the tax-exclusive US store a product made a monthly subscription (store-scoped offer, deactivated
 #       afterwards) previews "Renews monthly at $10.00 + tax" in the cart and at checkout (owner decision
 #       2026-10-15, e2e/renewal-plus-tax.spec.ts; needs --data full);
+#       the demo customer's monthly subscription put past due (dev renew, LocalMock "3-D Secure required") shows as
+#       "Payment due" with a "Complete payment" link on /account; the pay page names the reason and amount, paying
+#       makes it active again (owner decision 2026-10-27, e2e/subscription-pay-page.spec.ts; needs --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;
@@ -638,6 +660,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~SubscriptionStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3o stored-precision subscription times"; else fail "A3o stored-precision subscription times"; fi
+
+  stage "A3p Dunning retries + complete-payment page (owner decisions 2026-10-27) — days 1/3/7, fresh keys, one amount, cancel"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SubscriptionDunningTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3p dunning retries + complete-payment page"; else fail "A3p dunning retries + complete-payment page"; fi
 
   stage "A3q Seller tax identity (ADR-0063 P2) — tax-ID schemes, establishments, LegalEntityChanged, storefront binding, back-compat"
   if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \

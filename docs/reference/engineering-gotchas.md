@@ -297,6 +297,12 @@ Ledger postings (Payments):
   posts — a renewal advanced on a returned decline gave a free period while the ledger showed nothing (ADR-0057
   amendment 2026-10-27). Unsettled renewals dun to PastDue without advancing, so the retry keeps the period's key
   and pinned amount.
+- **Retry a declined charge under a NEW idempotency key — but an unanswered one under the SAME key.** A provider
+  replays a reused key's cached answer (Stripe: ~24 h), so retrying a decline under the same key just gets the
+  decline back; yet retrying a call that threw (timeout, crash) under a new key can charge twice. Renewal attempts
+  are recorded before the provider call (`SubscriptionChargeAttempt`, `Pending`): a Pending attempt is retried under
+  its own key, an answered one is followed by `{periodKey}-a{n}` — and every attempt charges the amount pinned to the
+  period, never re-priced (ADR-0057 amendment 2026-10-27).
 - **A per-LINE discount is subtracted from the LINE total, never from a unit price.** `RenewalDiscountMinor` (like
   `DiscountMinor`) is allocated per line, so a renewal is `UnitPriceMinor × Quantity − RenewalDiscountMinor`
   (`OrderLine.RenewalPriceMinor()`); `UnitPriceMinor − RenewalDiscountMinor` under-bills every multi-unit line and

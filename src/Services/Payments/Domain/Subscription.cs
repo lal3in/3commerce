@@ -68,7 +68,10 @@ public sealed class Subscription
     /// </summary>
     public DateTimeOffset? DunningStartedAt { get; private set; }
 
-    /// <summary>When the current period was last attempted (any trigger: nightly, scheduled retry, customer, operator).</summary>
+    /// <summary>
+    /// When the provider last ANSWERED an attempt of the current period (any trigger: nightly, scheduled retry, customer,
+    /// operator). An attempt the provider never answered (an outage) does not count, so it never uses up a scheduled retry.
+    /// </summary>
     public DateTimeOffset? LastAttemptAt { get; private set; }
 
     /// <summary>
