@@ -229,10 +229,12 @@ disagreed and the customer got a free period.
   `renew-{id}-{periodEnd:O}` and `RecurringChargePin` replays the same pinned amount — even after a rate change — so
   the provider sees one charge, not two. The existing retry is the operator's **Renew** (`POST
   /admin/subscriptions/{id}/renew`, or the admin Subscriptions page): the nightly auto-renew only picks Active /
-  Trialing subscriptions, so it never re-charges a past-due one. There is **no automatic dunning schedule** today;
-  whether to add one (and a storefront flow to complete 3DS on a renewal intent) is open
-  (`subscription_past_due_retry_and_authenticate`). Note for whoever builds it: Stripe replays a reused idempotency
-  key's cached result for about 24 hours, so a same-key retry inside that window returns the same outcome.
+  Trialing subscriptions, so it never re-charges a past-due one. **Follow-up decided (owner, 2026-10-27,
+  `subscription_past_due_retry_and_authenticate`, branch `feature/subscription-dunning-retries-and-pay-page`):** the
+  nightly job retries a PastDue subscription on days 1, 3 and 7 after the first failure, then cancels it and emails
+  the customer; each retry uses a FRESH attempt key (`renew-{id}-{periodEnd:O}-a{n}`) with the SAME pinned amount,
+  because Stripe replays a reused key's cached result for about 24 hours; and a storefront "complete payment" page
+  lets the customer finish 3-D Secure or update the card, linked from the RequiresAction and dunning emails.
 * **RequiresAction asks the customer.** No dunning notification existed, so an additive contract
   `SubscriptionRenewalActionRequired` (tenant, subscription, storefront, email, the pinned amount, the period end) is
   published through the bus outbox — it commits with the dunning, or not at all — and the Notifications worker's
@@ -243,8 +245,9 @@ disagreed and the customer got a free period.
   its own (the journal entry is the de-dupe), so it was not affected in Payments; it now logs the unsettled outcome
   and a re-sent charge under the same reference charges the same pinned amount once. The Usage service, however,
   marks the overage billed / credits the prepaid auto-load when it *publishes* the charge, so a declined usage charge
-  is forgiven there. Fixing that needs a failure contract back to Usage and an owner decision on what a failed
-  top-up does to access — tracked as `usage_charge_failure_feedback`, not changed here.
+  is forgiven there. **Follow-up decided (owner, 2026-10-27, `usage_charge_failure_feedback`, delivered with tax
+  P4b's settled-charge events):** Payments publishes settled / failed per usage charge, and Usage reverses the
+  auto-load credit or marks the overage unpaid on failure, with the same retry and email rules as renewals.
 
 ### A renewal is priced for the whole line (`subscription_renewal_price_quantity`)
 
@@ -261,13 +264,17 @@ and the cart's "renews at" preview (`line.TotalMinor − RenewalLineDiscountsMin
   the price (renewal charge, tax, the admin API) is unchanged in shape. The admin API appends `quantity` to
   `SubscriptionDto` / `SubscriptionDetailDto`.
 * **Existing subscriptions are not repriced.** A subscription set up before this change was priced for one unit and
-  keeps renewing at that (quantity 1) — the same "no silent repricing" rule as the original decision above. A
-  quantity > 1 subscription from before the change is under-billed until an operator re-creates it.
+  keeps renewing at that (quantity 1) until it is backfilled. **Follow-up decided (owner, 2026-10-27,
+  `subscription_quantity_backfill`, branch `fix/subscription-quantity-backfill`):** an idempotent operator command
+  in the ADR-0060 backfill tool (`tools/order-confirmed-backfill`), with a dry-run mode, re-sends each existing
+  quantity > 1 subscription's quantity and renewal price from its order line to Payments.
 * **Traced.** *Tax:* `RecurringChargeTax` works on `PriceMinor`, so an exclusive store adds its rate on the line total
   — for a single line the same tax checkout added to the first period (pinned end to end: 2 × 1000 − 25% → 1500 +
   124). *Preview:* unchanged — it already showed the line total, and now equals the stored price. *Second storefront
   sharing the currency:* the subscription carries its own storefront and that store's rate; nothing is shared.
-  *Refunds:* a renewal still has no `Payment` row (`renewal_usage_refund_path`); the order's own refund is untouched.
+  *Refunds:* a renewal still has no `Payment` row (`renewal_usage_refund_path` — decided as the next follow-up: a
+  `Payment` row per renewal and usage charge so the refund saga, partial refunds and disputes reach it, the reversal
+  taking that charge's own ledger tax); the order's own refund is untouched.
   *Usage:* overage is billed per unit of usage by the Usage service, independent of subscription quantity.
 
 Verification: `SubscriptionRenewalOutcomeTests` (Payments unit), `SubscriptionRenewalQuantityTests` (Ordering unit)
