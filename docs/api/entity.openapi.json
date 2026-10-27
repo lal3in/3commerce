@@ -1453,10 +1453,7 @@
             "name": "tenantId",
             "in": "query",
             "schema": {
-              "type": [
-                "null",
-                "string"
-              ],
+              "type": "string",
               "format": "uuid"
             }
           }
@@ -1747,7 +1744,9 @@
           "key",
           "label",
           "line1",
+          "line2",
           "city",
+          "region",
           "postcode",
           "countryCode"
         ],
@@ -1756,8 +1755,7 @@
           "key": {
             "maxLength": 40,
             "minLength": 2,
-            "type": "string",
-            "description": "Lowercase slug, unique per seller, immutable."
+            "type": "string"
           },
           "label": {
             "maxLength": 120,
@@ -1771,6 +1769,7 @@
           },
           "line2": {
             "maxLength": 200,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1783,6 +1782,7 @@
           },
           "region": {
             "maxLength": 120,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1800,11 +1800,11 @@
           },
           "jurisdiction": {
             "maxLength": 6,
+            "minLength": 0,
             "type": [
               "null",
               "string"
-            ],
-            "description": "ISO country + optional region; omit → the address country. Must be in countryCode."
+            ]
           }
         }
       },
@@ -1825,11 +1825,11 @@
           },
           "jurisdiction": {
             "maxLength": 6,
+            "minLength": 0,
             "type": [
               "null",
               "string"
-            ],
-            "description": "ADR-0063 P2: ISO country + optional region (US-CA). Required for UsStateSalesTaxId (10); otherwise derived from the scheme / EU VAT prefix."
+            ]
           }
         }
       },
@@ -2199,7 +2199,8 @@
             }
           },
           "isSeller": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": false
           },
           "establishments": {
             "type": [
@@ -2243,8 +2244,7 @@
         }
       },
       "EntityIdentifierType": {
-        "type": "integer",
-        "description": "Abn 1 · Acn 2 · Gst 3 · OtherTaxRegistration 4 · EuVat 5 · GbVrn 6 · NzGst 7 · CaBn 8 · ChUid 9 · UsStateSalesTaxId 10 (ADR-0063 P2). Invalid format → 400 naming `Value` or `Jurisdiction`."
+        "type": "integer"
       },
       "EntityRecordStatus": {
         "type": "integer"
@@ -2426,9 +2426,11 @@
             ]
           },
           "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer"
+              "integer",
+              "string"
             ],
             "format": "int32"
           },
@@ -2861,7 +2863,9 @@
         "required": [
           "label",
           "line1",
+          "line2",
           "city",
+          "region",
           "postcode",
           "countryCode"
         ],
@@ -2879,6 +2883,7 @@
           },
           "line2": {
             "maxLength": 200,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -2891,6 +2896,7 @@
           },
           "region": {
             "maxLength": 120,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -2908,11 +2914,11 @@
           },
           "jurisdiction": {
             "maxLength": 6,
+            "minLength": 0,
             "type": [
               "null",
               "string"
-            ],
-            "description": "ISO country + optional region; omit → the address country. Must be in countryCode."
+            ]
           }
         }
       }
