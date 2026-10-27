@@ -24,8 +24,10 @@ namespace ThreeCommerce.IntegrationTests;
 /// and an exclusive store adds its tax on that total — the same tax checkout added to the first period.</item>
 /// <item><b>subscription_renew_on_failed_charge</b> — a renewal the provider returns Failed / RequiresAction for is
 /// dunned: PastDue committed, period not advanced, no renewal entry posted; RequiresAction publishes
-/// <see cref="SubscriptionRenewalActionRequired"/> through the bus outbox; the retry re-sends the same key and pinned
-/// amount and then renews exactly once.</item>
+/// <see cref="SubscriptionRenewalActionRequired"/> through the bus outbox; the retry sends a fresh attempt key of the
+/// same period with the same pinned amount and then renews exactly once.</item>
+/// <item><b>subscription_past_due_retry_and_authenticate</b> — nightly retries on days 1, 3 and 7, then cancellation;
+/// the customer's complete-payment endpoints; a 3-D Secure attempt settled by the provider's success event.</item>
 /// </list>
 /// The rail is scripted (the host's mock always settles a renewal); everything else — the DbContext, the outbox, the
 /// ledger, Ordering's checkout and confirmation — is the real host's.

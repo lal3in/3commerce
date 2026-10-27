@@ -234,7 +234,7 @@ public sealed class SubscriptionService(
         var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
         await RenewAndPostAsync(subscription, tax, accounts, modeResolver.DefaultAccountForHost().Provider, now, ct);
         attempt.Outcome = nameof(PaymentOutcome.Succeeded);
-        attempt.SettledAt = now;
+        attempt.SettledAt = StoredTime.Of(now);
         return true;
     }
 
@@ -301,7 +301,7 @@ public sealed class SubscriptionService(
             }
 
             await RenewAndPostAsync(subscription, tax, accounts, account.Provider, now, ct);
-            attempt.SettledAt = now;
+            attempt.SettledAt = StoredTime.Of(now);
             return response;
         }
         catch (Exception ex) when (ex is not SubscriptionRuleException)
@@ -342,7 +342,7 @@ public sealed class SubscriptionService(
             AmountMinor = tax.ChargeMinor,
             Currency = subscription.Currency,
             Outcome = SubscriptionChargeOutcomes.Pending,
-            CreatedAt = now,
+            CreatedAt = StoredTime.Of(now),
         };
         subscription.KeyIssued(now);
         db.SubscriptionChargeAttempts.Add(attempt);

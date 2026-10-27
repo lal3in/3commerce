@@ -195,7 +195,7 @@ public sealed class Subscription
     public void KeyIssued(DateTimeOffset now)
     {
         AttemptCount++;
-        UpdatedAt = now;
+        UpdatedAt = StoredTime.Of(now);
     }
 
     /// <summary>
@@ -204,8 +204,10 @@ public sealed class Subscription
     /// </summary>
     public void AttemptAnswered(DateTimeOffset now)
     {
-        LastAttemptAt = now;
-        UpdatedAt = now;
+        // Stored precision (StoredTime): the retry schedule compares this with DunningStartedAt + n days, in memory and
+        // reloaded alike.
+        UpdatedAt = StoredTime.Of(now);
+        LastAttemptAt = UpdatedAt;
     }
 
     /// <summary>Dun: the current period did not settle. The first failure of a period starts the retry schedule.</summary>
@@ -256,7 +258,7 @@ public sealed class Subscription
     {
         ProviderCustomerId = providerCustomerId ?? ProviderCustomerId;
         ProviderPaymentMethodId = providerPaymentMethodId;
-        UpdatedAt = now;
+        UpdatedAt = StoredTime.Of(now);
     }
 
     public void Cancel(DateTimeOffset now)

@@ -72,4 +72,32 @@ public class SubscriptionStoredTimeTests
         Assert.True(sub.CorrectLegacyQuantity(3, 4500, LinuxNow));
         Assert.Equal(StoredNow, sub.UpdatedAt);
     }
+
+    /// <summary>
+    /// The dunning clocks are stored too, and the retry schedule (and the next-retry date the customer's email states)
+    /// is computed from them: a past-due subscription must answer the same in memory as reloaded.
+    /// </summary>
+    [Fact]
+    public void Dunning_stamps_stored_precision_times_so_the_retry_schedule_survives_a_reload()
+    {
+        var sub = Subscription.Start(
+            Guid.NewGuid(), Guid.NewGuid(), "buyer@example.com", Guid.NewGuid(), null, BillingPeriod.Monthly, 1500, "USD", StoredNow);
+        var failure = LinuxNow.AddMonths(1);
+        var stored = StoredTime.Of(failure);
+
+        sub.KeyIssued(failure);
+        Assert.Equal(stored, sub.UpdatedAt);
+
+        sub.AttemptAnswered(failure);
+        Assert.Equal(stored, sub.LastAttemptAt);
+        Assert.Equal(stored, sub.UpdatedAt);
+
+        sub.MarkPastDue(failure, "Failed");
+        Assert.Equal(stored, sub.DunningStartedAt);
+        Assert.Equal(stored.AddDays(1), sub.NextRetryAt);   // what the PaymentFailed email states == what a reload computes
+        Assert.Equal(stored.AddDays(7), sub.CancelsAfter);
+
+        sub.ChangeInstrument("cus_2", "pm_2", failure);
+        Assert.Equal(stored, sub.UpdatedAt);
+    }
 }
