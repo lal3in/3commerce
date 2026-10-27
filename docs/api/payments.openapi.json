@@ -2827,7 +2827,8 @@
               "integer",
               "string"
             ],
-            "format": "int64"
+            "format": "int64",
+            "description": "Each renewal's price for the WHOLE line (all quantity units) in minor units, before any tax an exclusive store adds at the renewal (ADR-0057)."
           },
           "currency": {
             "type": "string"
@@ -2856,6 +2857,11 @@
             "items": {
               "$ref": "#/components/schemas/RenewalDto"
             }
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
           }
         }
       },
@@ -2916,7 +2922,8 @@
               "integer",
               "string"
             ],
-            "format": "int64"
+            "format": "int64",
+            "description": "Each renewal's price for the WHOLE line (all quantity units) in minor units, before any tax an exclusive store adds at the renewal (ADR-0057)."
           },
           "currency": {
             "type": "string"
@@ -2939,6 +2946,11 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
           }
         }
       },
