@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -126,12 +127,13 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
             Assert.Equal("renewal-dunning@example.com", message.CustomerEmail);
             Assert.Equal(store, message.StorefrontId);
 
-            // The customer authenticates; the retry is the same period: same key, same amount — and renews once.
+            // The retry is the same period with a FRESH attempt key (a provider replays a reused key's answer — owner
+            // decision 2026-10-27) and the same pinned amount — and renews once.
             provider.Outcome = PaymentOutcome.Succeeded;
             var renewed = await RenewAsync(subscription.Id, provider);
             Assert.Equal(SubscriptionStatus.Active, renewed.Status);
             Assert.Equal(2, provider.Requests.Count);
-            Assert.Equal(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey);
+            Assert.Equal(provider.Requests[0].IdempotencyKey + "-a1", provider.Requests[1].IdempotencyKey);
             Assert.All(provider.Requests, r => Assert.Equal(2_165, r.AmountMinor));
             var lines = await EntryLinesAsync($"renew-{subscription.Id}-2");
             Assert.Equal(165, lines.Where(l => l.AccountCode == $"tax.store-{store:N}").Sum(l => l.CreditMinor));
@@ -164,13 +166,14 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
     /// <summary>
     /// Postgres keeps microseconds, a Linux clock 100 ns ticks. A subscription started at …54.1755249 and dunned in the
     /// SAME DbContext keys its renewal from the tracked aggregate; the retry reloads the row (…54.1755240). Both must be
-    /// one key with one pinned amount — otherwise the retry is a second charge request under a new key. The clock is
+    /// one period key with one pinned amount — otherwise the retry is a second period under a new pin. (The retry's
+    /// provider key is that period key's fresh attempt suffix <c>-a1</c>, owner decision 2026-10-27.) The clock is
     /// pinned to the sub-microsecond tick so this reproduces on macOS too (whose clock only gives microseconds).
     /// </summary>
     [Fact]
-    public async Task A_renewal_keyed_before_a_reload_is_retried_under_the_same_key_after_it()
+    public async Task A_renewal_keyed_before_a_reload_is_retried_under_the_same_period_key_after_it()
     {
-        const string currency = "RQ4";
+        const string currency = "RQ7";
         var store = await StoreAsync(currency, bps: 825, inclusive: false);
         var linuxNow = new DateTimeOffset(2026, 11, 27, 15, 47, 54, TimeSpan.Zero).AddTicks(1_755_249);
         var provider = new ScriptedProvider(PaymentOutcome.RequiresAction);
@@ -194,13 +197,182 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
         var renewed = await RenewAsync(subscription.Id, provider);              // a fresh context: the reloaded row
         Assert.Equal(SubscriptionStatus.Active, renewed.Status);
         Assert.Equal(2, provider.Requests.Count);
-        Assert.Equal(provider.Requests[0].IdempotencyKey, provider.Requests[1].IdempotencyKey);
+        Assert.Equal($"renew-{subscription.Id}-{stored.CurrentPeriodEnd:O}", provider.Requests[0].IdempotencyKey);
+        Assert.Equal(provider.Requests[0].IdempotencyKey + "-a1", provider.Requests[1].IdempotencyKey);
         Assert.All(provider.Requests, r => Assert.Equal(2_165, r.AmountMinor));
 
         using var check = fixture.Payments.Services.CreateScope();
         var pins = await check.ServiceProvider.GetRequiredService<PaymentsDbContext>().IdempotencyRecords.AsNoTracking()
             .CountAsync(r => r.Key.StartsWith($"charge-amount:renew-{subscription.Id}-"));
         Assert.Equal(1, pins);                                                  // one period, one pinned amount
+    }
+
+    [Fact]
+    public async Task Scheduled_retries_on_days_1_3_and_7_use_fresh_keys_then_cancel_and_tell_the_customer_over_the_bus()
+    {
+        const string currency = "RQ4";
+        var store = await StoreAsync(currency, bps: 825, inclusive: false);
+        var subscription = await StartAsync(store, currency, priceMinor: 1_000, quantity: 1);
+        var cancelledEvent = new TaskCompletionSource<SubscriptionCancelledForNonPayment>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failures = new List<SubscriptionPaymentFailed>();
+        var probe = Bus.Factory.CreateUsingRabbitMq(cfg =>
+        {
+            cfg.Host(new Uri(fixture.RabbitMqUri));
+            cfg.ReceiveEndpoint($"dunning-probe-{Guid.NewGuid():N}", e =>
+            {
+                e.AutoDelete = true;
+                e.Durable = false;
+                e.Handler<SubscriptionPaymentFailed>(ctx =>
+                {
+                    if (ctx.Message.SubscriptionId == subscription.Id)
+                    {
+                        lock (failures)
+                        {
+                            failures.Add(ctx.Message);
+                        }
+                    }
+
+                    return Task.CompletedTask;
+                });
+                e.Handler<SubscriptionCancelledForNonPayment>(ctx =>
+                {
+                    if (ctx.Message.SubscriptionId == subscription.Id)
+                    {
+                        cancelledEvent.TrySetResult(ctx.Message);
+                    }
+
+                    return Task.CompletedTask;
+                });
+            });
+        });
+        await probe.StartAsync();
+        try
+        {
+            var provider = new ScriptedProvider(PaymentOutcome.Failed);
+            await RenewAsync(subscription.Id, provider);                                   // the first failure
+            var started = (await StoredAsync(subscription.Id)).DunningStartedAt!.Value;
+
+            // The storefront's nightly run (default 12:00 UTC) on and after each retry day.
+            foreach (var day in new[] { 1, 3, 7 })
+            {
+                var due = started.AddDays(day);
+                var nightly = due.UtcDateTime.Date.AddHours(23) >= due.UtcDateTime ? due.UtcDateTime.Date.AddHours(23) : due.UtcDateTime.Date.AddDays(1).AddHours(23);
+                await NightlyAsync(provider, new DateTimeOffset(nightly, TimeSpan.Zero));
+            }
+
+            // The nightly run also retries other tests' past-due subscriptions (shared fixture): look at this one's charges.
+            var key = $"renew-{subscription.Id}-{subscription.CurrentPeriodEnd:O}";
+            var mine = provider.Requests.Where(r => r.IdempotencyKey.StartsWith(key, StringComparison.Ordinal)).ToList();
+            Assert.Equal([key, key + "-a1", key + "-a2", key + "-a3"], mine.Select(r => r.IdempotencyKey));
+            Assert.All(mine, r => Assert.Equal(1_083, r.AmountMinor));                    // pinned for the period
+            var stored = await StoredAsync(subscription.Id);
+            Assert.Equal(SubscriptionStatus.Cancelled, stored.Status);
+            Assert.Equal(subscription.CurrentPeriodEnd, stored.CurrentPeriodEnd);
+            Assert.False(await EntryExistsAsync($"renew-{subscription.Id}-2"));
+
+            var cancelled = await cancelledEvent.Task.WaitAsync(TimeSpan.FromSeconds(30)); // through the bus outbox
+            Assert.Equal(1_083, cancelled.AmountMinor);
+            // The first decline and the day-1 and day-3 retries each tell the customer the next retry; the day-7 one cancels.
+            await WaitAsync(() => Task.FromResult(failures.Count >= 3), "three dunning emails were not published");
+            lock (failures)
+            {
+                Assert.Equal(
+                    [started.AddDays(1), started.AddDays(3), started.AddDays(7)],
+                    failures.Select(f => f.NextRetryAt!.Value).Order());
+            }
+        }
+        finally
+        {
+            await probe.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task The_customer_pays_a_past_due_renewal_over_HTTP_once_per_idempotency_key()
+    {
+        const string currency = "RQ5";
+        const string email = "pay-page@example.com";
+        var store = await StoreAsync(currency, bps: 1000, inclusive: true);
+        var subscription = await StartAsync(store, currency, priceMinor: 2_200, quantity: 1, email: email);
+        await RenewAsync(subscription.Id, new ScriptedProvider(PaymentOutcome.Failed));       // past due
+
+        using var customer = CustomerClient(email);
+        using (var other = CustomerClient("someone-else@example.com"))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/me/subscriptions/{subscription.Id}")).StatusCode);
+        }
+
+        var due = (await customer.GetFromJsonAsync<MineDto>($"/me/subscriptions/{subscription.Id}"))!;
+        Assert.Equal(("PastDue", 2_200L, "Failed"), (due.Status, due.AmountDueMinor!.Value, due.FailureReason));
+        Assert.NotNull(due.NextRetryAt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await customer.PostAsJsonAsync($"/me/subscriptions/{subscription.Id}/pay", new { })).StatusCode);
+
+        var key = Guid.NewGuid().ToString();
+        var first = await PayAsync(customer, subscription.Id, key);
+        var replay = await PayAsync(customer, subscription.Id, key);                         // a double submit
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var paid = (await first.Content.ReadFromJsonAsync<PayDto>())!;
+        Assert.Equal((1, "Active"), (paid.Outcome, paid.Status));                            // 1 = Paid
+        Assert.Equal(paid.Outcome, (await replay.Content.ReadFromJsonAsync<PayDto>())!.Outcome);
+        var lines = await EntryLinesAsync($"renew-{subscription.Id}-2");                     // booked exactly once
+        Assert.Equal(200, lines.Where(l => l.AccountCode == $"tax.store-{store:N}").Sum(l => l.CreditMinor));
+
+        Assert.Equal(HttpStatusCode.Conflict, (await PayAsync(customer, subscription.Id, Guid.NewGuid().ToString())).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_3DS_renewal_settles_once_from_the_providers_success_event()
+    {
+        const string currency = "RQ6";
+        var store = await StoreAsync(currency, bps: 825, inclusive: false);
+        var subscription = await StartAsync(store, currency, priceMinor: 1_000, quantity: 1);
+        var provider = new ScriptedProvider(PaymentOutcome.RequiresAction);
+        await RenewAsync(subscription.Id, provider);
+        var intent = provider.LastIntentId!;
+
+        using var payments = fixture.Payments.CreateClient();
+        for (var delivery = 0; delivery < 2; delivery++)                                      // the event, redelivered
+        {
+            (await payments.PostAsync($"/dev/simulate-payment/{intent}", null)).EnsureSuccessStatusCode();
+        }
+
+        var stored = await StoredAsync(subscription.Id);
+        Assert.Equal(SubscriptionStatus.Active, stored.Status);
+        Assert.Equal(subscription.CurrentPeriodEnd, stored.CurrentPeriodStart);
+        var lines = await EntryLinesAsync($"renew-{subscription.Id}-2");
+        Assert.Equal(1_083, lines.Where(l => l.AccountCode.StartsWith("cash.", StringComparison.Ordinal)).Sum(l => l.DebitMinor));
+        Assert.Equal(83, lines.Where(l => l.AccountCode == $"tax.store-{store:N}").Sum(l => l.CreditMinor));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    private sealed record MineDto(string Status, long? AmountDueMinor, string? FailureReason, DateTimeOffset? NextRetryAt);
+
+    private sealed record PayDto(int Outcome, string? PaymentIntentId, string Status);
+
+    private HttpClient CustomerClient(string email)
+    {
+        var client = fixture.Payments.CreateClient();
+        client.DefaultRequestHeaders.Add(
+            InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.NewGuid(), "customer", email, emailVerified: true));
+        return client;
+    }
+
+    private static Task<HttpResponseMessage> PayAsync(HttpClient client, Guid subscriptionId, string key)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/me/subscriptions/{subscriptionId}/pay")
+        {
+            Content = JsonContent.Create(new { savedPaymentMethodId = (Guid?)null }),
+        };
+        request.Headers.Add("Idempotency-Key", key);
+        return client.SendAsync(request);
+    }
+
+    /// <summary>The nightly auto-renew at <paramref name="at"/> on the real host's DbContext, outbox and schedule — only the rail is scripted.</summary>
+    private async Task NightlyAsync(ScriptedProvider provider, DateTimeOffset at)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        await Service(scope.ServiceProvider, provider, new FixedClock(at)).AutoRenewDueAsync(default);
     }
 
     // ---- Helpers --------------------------------------------------------------------------------------
@@ -237,11 +409,11 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
         return entry.Lines.ToList();
     }
 
-    private async Task<Subscription> StartAsync(Guid store, string currency, long priceMinor, int quantity)
+    private async Task<Subscription> StartAsync(Guid store, string currency, long priceMinor, int quantity, string email = "renewal-dunning@example.com")
     {
         using var scope = fixture.Payments.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<SubscriptionService>().StartAsync(new SubscriptionRequested(
-            TenantId, Guid.CreateVersion7(), "renewal-dunning@example.com", Guid.CreateVersion7(), null,
+            TenantId, Guid.CreateVersion7(), email, Guid.CreateVersion7(), null,
             BillingPeriod.Monthly, priceMinor, currency, store,
             TaxInclusive: null, TaxExempt: false, Quantity: quantity), default);
     }
@@ -355,8 +527,12 @@ public class SubscriptionRenewalDunningTests(Phase3Fixture fixture)
                 PaymentOutcome.Failed => new PaymentError(PaymentErrorCode.CardDeclined, "Card declined.", Retryable: false),
                 _ => null,
             };
-            return Task.FromResult(new PaymentResponse($"pi_scripted_{Requests.Count}", null, Outcome, error));
+            // Unique per attempt across the shared fixture: a provider event finds its attempt by intent id.
+            LastIntentId = $"pi_scripted_{Guid.NewGuid():N}";
+            return Task.FromResult(new PaymentResponse(LastIntentId, null, Outcome, error));
         }
+
+        public string? LastIntentId { get; private set; }
 
         public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct) => throw new NotSupportedException();
         public Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct) => throw new NotSupportedException();
