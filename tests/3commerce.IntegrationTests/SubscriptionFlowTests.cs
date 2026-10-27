@@ -31,6 +31,55 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
     }
 
     [Fact]
+    public async Task A_resent_request_with_the_line_quantity_reprices_a_legacy_subscription_once()
+    {
+        // subscription_quantity_backfill (ADR-0057 amendment 2026-10-27): a qty-2 line set up before quantity was carried
+        // is stored as ONE unit at unit − the line's renewal discount (1000 − 250 = 750). The backfill tool re-sends the
+        // live request (2 × 1000 − 250 = 1750, Quantity 2); Payments corrects it once, then the renewal charges 1750.
+        var tenant = Guid.NewGuid();
+        var product = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        await fixture.PublishAsync(new SubscriptionRequested(
+            tenant, orderId, "legacy-qty@example.com", product, null, BillingPeriod.Monthly, 750, "EUR"));
+        var legacy = await WaitForAsync(tenant, s => s.PriceMinor == 750);
+        Assert.Equal(1, legacy.Quantity);
+
+        var corrected = new SubscriptionRequested(
+            tenant, orderId, "legacy-qty@example.com", product, null, BillingPeriod.Monthly, 1750, "EUR", Quantity: 2);
+        await fixture.PublishAsync(corrected);
+        var fixedUp = await WaitForAsync(tenant, s => s.Quantity == 2);
+        Assert.Equal(legacy.Id, fixedUp.Id);                          // corrected in place, not a second subscription
+        Assert.Equal(1750, fixedUp.PriceMinor);
+
+        Assert.Single(await ListAsync(tenant));
+        // (A repeat, or a different quantity, never re-prices a carried quantity — pinned by SubscriptionTests.)
+
+        var renewed = await ActAsync(tenant, legacy.Id, cancel: false);
+        Assert.Equal(SubscriptionStatus.Active, renewed!.Status);
+        Assert.Equal(1750, (await GetAsync(tenant, legacy.Id))!.Renewals.Single(r => r.Sequence == 2).AmountMinor);
+    }
+
+    private async Task<Subscription> WaitForAsync(Guid tenant, Func<Subscription, bool> match)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+        while (true)
+        {
+            var hit = (await ListAsync(tenant)).FirstOrDefault(match);
+            if (hit is not null)
+            {
+                return hit;
+            }
+
+            if (DateTimeOffset.UtcNow > deadline)
+            {
+                throw new TimeoutException("subscription did not reach the expected state");
+            }
+
+            await Task.Delay(300);
+        }
+    }
+
+    [Fact]
     public async Task SubscriptionRequested_sets_up_then_renew_advances_then_cancel_ends()
     {
         var tenant = Guid.NewGuid();

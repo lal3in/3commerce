@@ -281,3 +281,18 @@ Verification: `SubscriptionRenewalOutcomeTests` (Payments unit), `SubscriptionRe
 and `SubscriptionRenewalActionEmailTests` (Notifications, unit lane) — e2e-verify **A3n**; `SubscriptionRenewalDunningTests`
 (integration — a real 2-unit checkout through to the renewal, and a RequiresAction renewal delivered over RabbitMQ
 through the outbox) — **A4c**. Each was proven to fail with its fix reverted.
+
+### Follow-up delivered — the quantity backfill (`subscription_quantity_backfill`, 2026-10-27)
+
+The ADR-0060 operator tool gains a `subscription-quantity` command (`tools/order-confirmed-backfill`, see its README).
+It selects a recurring order line of quantity > 1 only when Payments still holds its subscription at quantity 1 **and**
+exactly the pre-fix price (`unit − the line's renewal discount`); anything else is reported, never sent (a subscription
+that already carries a quantity, none, cancelled, or a quantity-1 subscription at some other price). For each selected
+line it **sends** the live `SubscriptionRequested` (`OrderStatusConsumer.SubscriptionRequestFor`, with the
+subscription's own snapshotted tax terms) to Payments' `subscription-requested` queue, after the usual broker
+preflight, with a deterministic message id; `--dry-run` / `--execute` is mandatory. Payments applies it in
+`SubscriptionService.StartAsync` through `Subscription.CorrectLegacyQuantity`: the only change an existing
+subscription accepts from a request, and only from quantity 1 to a larger quantity — never a downgrade, never a
+second correction — so a redelivery or a re-run is a no-op. A period already attempted keeps its pinned amount; the
+corrected price applies from the next period key. Verification: `SubscriptionQuantityBackfillTests` (tool, e2e-verify
+A3e), `SubscriptionTests` (domain), `SubscriptionFlowTests` (integration, A6g).

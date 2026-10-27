@@ -24,7 +24,18 @@ public sealed class SubscriptionService(
             s => s.OrderId == m.OrderId && s.ProductId == m.ProductId && s.VariantId == m.VariantId, ct);
         if (existing is not null)
         {
-            return existing; // idempotent per (order, product, variant)
+            // Idempotent per (order, product, variant). The one exception is the quantity backfill
+            // (subscription_quantity_backfill): a subscription set up before quantity was carried is stored as one unit at
+            // one unit's price; the re-sent request carries the line's quantity and its correct renewal price.
+            if (existing.CorrectLegacyQuantity(m.Quantity, m.PriceMinor, clock.GetUtcNow()))
+            {
+                logger.LogInformation(
+                    "Subscription {SubscriptionId} re-priced for {Quantity} units: renewals now charge {PriceMinor} {Currency} (quantity backfill)",
+                    existing.Id, existing.Quantity, existing.PriceMinor, existing.Currency);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return existing;
         }
 
         // Copy the instrument the order paid with so renewals can charge it off-session (a saved card or a

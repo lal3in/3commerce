@@ -29,13 +29,13 @@ public sealed class Subscription
     /// What each renewal charges (before any tax an exclusive store adds): the WHOLE line — unit × <see cref="Quantity"/>
     /// less the line's renewal discount, computed by Ordering at purchase (owner decision 2026-10-27, ADR-0057).
     /// </summary>
-    public long PriceMinor { get; init; }
+    public long PriceMinor { get; private set; }
 
     /// <summary>
     /// Units the subscription covers (informational: <see cref="PriceMinor"/> already includes them). 1 for a
     /// subscription set up before quantity was carried — whose price was one unit's, and keeps renewing at that.
     /// </summary>
-    public int Quantity { get; init; } = 1;
+    public int Quantity { get; private set; } = 1;
     public required string Currency { get; init; }
 
     /// <summary>
@@ -133,6 +133,28 @@ public sealed class Subscription
         Status = SubscriptionStatus.Active;
         UpdatedAt = StoredTime.Of(now);
         RecordPeriod(UpdatedAt, chargedMinor ?? PriceMinor); // append the newly-opened period (Sequence n+1)
+    }
+
+    /// <summary>
+    /// Re-price a subscription set up before quantity was carried (ADR-0057 amendment 2026-10-27,
+    /// <c>subscription_quantity_backfill</c>): it was stored as ONE unit at one unit's price less the whole line's
+    /// renewal discount; <paramref name="priceMinor"/> is the line's correct renewal price (unit × quantity − the line's
+    /// renewal discount). Only a legacy single-unit subscription is corrected — never a downgrade, never a subscription
+    /// whose quantity is already carried — so a repeated correction is a no-op. Returns whether anything changed. A
+    /// period already attempted keeps its pinned amount (<c>RecurringChargePin</c>); the corrected price applies from the
+    /// next period key on.
+    /// </summary>
+    public bool CorrectLegacyQuantity(int quantity, long priceMinor, DateTimeOffset now)
+    {
+        if (Quantity != 1 || quantity <= 1 || priceMinor < 0)
+        {
+            return false;
+        }
+
+        Quantity = quantity;
+        PriceMinor = priceMinor;
+        UpdatedAt = now;
+        return true;
     }
 
     public void MarkPastDue(DateTimeOffset now)

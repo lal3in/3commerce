@@ -187,3 +187,21 @@ made, so it first looked like a candidate that "had nothing" and the next run re
 `CandidatesDisagree` (refused, nothing sent). The planner now counts a side filled after the copy window with exactly
 what the agreeing sources hold as held since creation (unit test
 `A_canary_run_does_not_stall_the_rest_and_the_source_gaining_rows_later_is_copied_as_it_is_now`).
+
+## Legacy multi-unit subscriptions (`subscription-quantity` command)
+
+Subscriptions set up before 2026-10-27 from a recurring line of quantity > 1 renew at ONE unit's price less the whole
+line's renewal discount (ADR-0057 amendment). Payments must run the build that carries `Subscription.Quantity`
+(migration `SubscriptionQuantity`) and `CorrectLegacyQuantity`.
+
+```bash
+dotnet $BIN subscription-quantity --dry-run --list      # verdicts; UnexpectedPrice rows are always listed — review them by hand
+dotnet $BIN subscription-quantity --execute --limit 5   # canary
+# wait for queue:subscription-requested to drain, then check the canaries:
+#   SELECT "Id","Quantity","PriceMinor" FROM payments."Subscriptions" WHERE "Quantity" > 1 ORDER BY "UpdatedAt" DESC LIMIT 5;
+dotnet $BIN subscription-quantity --execute
+dotnet $BIN subscription-quantity --dry-run             # expect TO CORRECT = 0
+```
+
+Each correction logs `re-priced for {Quantity} units` in `.run/payments.log` / the Payments container log. The
+customer's NEXT renewal charges the corrected amount (a period already attempted keeps its pinned amount).
