@@ -810,4 +810,4 @@ orders.
 * **Tests.** Unit: `TaxIdentifierFormatTests`, `SellerEstablishmentTests`, `LegalEntityChangedTests`,
   `StorefrontTaxIdentityTests`, `StorefrontConfigBackCompatTests` (pre-P2 JSON → defaults). Integration:
   `SellerIdentityEndpointTests`, `SellerEstablishmentRlsTests` (real migrations as a non-superuser owner),
-  `StorefrontTaxIdentityAdminTests`. Browser: `e2e-admin/seller-identity.spec.ts`. `e2e-verify.sh` A3o + A6i.
+  `StorefrontTaxIdentityAdminTests`. Browser: `e2e-admin/seller-identity.spec.ts`. `e2e-verify.sh` A3q + A6i.

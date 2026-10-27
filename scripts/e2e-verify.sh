@@ -187,7 +187,7 @@
 #       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
 #       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
 #       dun and cancel stamp stored-precision times
-#   A3o Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
+#   A3q Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
 #       XI, EL→GR), GbVrn, NzGst, CaBn, ChUid, UsStateSalesTaxId (state required) + ABN/ACN unchanged — each invalid
 #       shape names its field (Value/Jurisdiction) (TaxIdentifierFormatTests); seller designation + establishments:
 #       key slug unique/immutable, jurisdiction defaults to and stays within the address country, only the seller has
@@ -630,7 +630,7 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~SubscriptionStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3o stored-precision subscription times"; else fail "A3o stored-precision subscription times"; fi
 
-  stage "A3o Seller tax identity (ADR-0063 P2) — tax-ID schemes, establishments, LegalEntityChanged, storefront binding, back-compat"
+  stage "A3q Seller tax identity (ADR-0063 P2) — tax-ID schemes, establishments, LegalEntityChanged, storefront binding, back-compat"
   if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~TaxIdentifierFormatTests|FullyQualifiedName~SellerEstablishmentTests|FullyQualifiedName~LegalEntityChangedTests)' 2>&1 \
       | grep -q 'Failed: *0' \
@@ -639,7 +639,7 @@ run_automated() {
       | grep -q 'Failed: *0' \
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~StorefrontConfigBackCompatTests' 2>&1 \
-      | grep -q 'Failed: *0'; then pass "A3o seller tax identity"; else fail "A3o seller tax identity"; fi
+      | grep -q 'Failed: *0'; then pass "A3q seller tax identity"; else fail "A3q seller tax identity"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
