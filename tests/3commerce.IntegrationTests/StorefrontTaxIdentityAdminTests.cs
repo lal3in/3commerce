@@ -95,7 +95,13 @@ public class StorefrontTaxIdentityAdminTests(Phase2Fixture fixture) : IAsyncLife
             // An update that does not send the fields (an older admin client) keeps them.
             var update = await _admin.PutAsJsonAsync($"/admin/storefronts/{storefront.Id}", new
             {
-                name, visibility = 1, accessPasswordHash = (string?)null, publicUrl = (string?)null, currency = "USD", taxRegime = 3, taxRateBasisPoints = 725,
+                name,
+                visibility = 1,
+                accessPasswordHash = (string?)null,
+                publicUrl = (string?)null,
+                currency = "USD",
+                taxRegime = 3,
+                taxRateBasisPoints = 725,
             });
             Assert.Equal(HttpStatusCode.OK, update.StatusCode);
             Assert.Equal("US-CA", (await update.Content.ReadFromJsonAsync<StorefrontDto>())!.TaxJurisdiction);
@@ -104,8 +110,15 @@ public class StorefrontTaxIdentityAdminTests(Phase2Fixture fixture) : IAsyncLife
             // Clearing with "" is explicit.
             var cleared = await _admin.PutAsJsonAsync($"/admin/storefronts/{storefront.Id}", new
             {
-                name, visibility = 1, accessPasswordHash = (string?)null, publicUrl = (string?)null, currency = "USD", taxRegime = 3, taxRateBasisPoints = 725,
-                taxJurisdiction = "US-NY", sellerEstablishmentKey = "",
+                name,
+                visibility = 1,
+                accessPasswordHash = (string?)null,
+                publicUrl = (string?)null,
+                currency = "USD",
+                taxRegime = 3,
+                taxRateBasisPoints = 725,
+                taxJurisdiction = "US-NY",
+                sellerEstablishmentKey = "",
             });
             var afterClear = (await cleared.Content.ReadFromJsonAsync<StorefrontDto>())!;
             Assert.Equal(("US-NY", ""), (afterClear.TaxJurisdiction, afterClear.SellerEstablishmentKey));

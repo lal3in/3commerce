@@ -187,6 +187,15 @@
 #       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
 #       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
 #       dun and cancel stamp stored-precision times
+#   A3o Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
+#       XI, EL→GR), GbVrn, NzGst, CaBn, ChUid, UsStateSalesTaxId (state required) + ABN/ACN unchanged — each invalid
+#       shape names its field (Value/Jurisdiction) (TaxIdentifierFormatTests); seller designation + establishments:
+#       key slug unique/immutable, jurisdiction defaults to and stays within the address country, only the seller has
+#       them (SellerEstablishmentTests); LegalEntityChanged full snapshot for the seller only + TaxIdScheme contract
+#       mirrors EntityIdentifierType (LegalEntityChangedTests); storefront TaxJurisdiction/SellerEstablishmentKey
+#       validation, null keeps / "" clears, cloned on duplication (StorefrontTaxIdentityTests); a pre-P2
+#       StorefrontConfigChanged JSON still deserializes (MassTransit options) and projects with "" defaults
+#       (StorefrontConfigBackCompatTests)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -401,6 +410,17 @@
 #       traversal, upload allow-list, image variants) · MfaPolicy (platform-min/tenant-strengthen/step-up) ·
 #       Notifications (security-always/marketing-opt-in + minimal alert content) · Region (no region move,
 #       retention Retain/Redact/Purge). Plus Payments JobExecutor (scheduled-run success/failure).
+#   A6i Integration · seller tax identity (ADR-0063 P2): through the Entity API every scheme's malformed ID is a 400
+#       problem+json naming Value/Jurisdiction and a well-formed one is stored normalized with its jurisdiction; the
+#       seller lifecycle (409 establishment before designation, 409 second seller, 400 jurisdiction outside the
+#       country, 400 duplicate key) and each accepted mutation's local audit entry + AuditEntryRecorded +
+#       LegalEntityChanged reach the broker, none for a non-seller (SellerIdentityEndpointTests);
+#       entity."SellerEstablishments" FORCE RLS via the REAL migrations as a non-superuser owner — tenant isolation,
+#       cross-tenant write rejected, fail-closed reads/writes, platform scope (SellerEstablishmentRlsTests); Catalog
+#       admin: invalid TaxJurisdiction/SellerEstablishmentKey → 400 naming the field, values ride
+#       StorefrontConfigChanged, an older client's PUT keeps them, "" clears, /duplicate clones them, all audited
+#       (StorefrontTaxIdentityAdminTests). Browser: e2e-admin/seller-identity.spec.ts (designate, tax ID refusal +
+#       add, establishment, storefront binding; tooltips; capture())
 #   A6c Browser E2E (Playwright) · preview parity (ADR-0054, e2e/promotion-shipping-parity.spec.ts):
 #       a shippable cart with no address shows "free shipping may apply" and never the decided row,
 #       and entering an address at checkout quotes the real carrier rate, settles the contest on it,
@@ -462,7 +482,11 @@
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;
 #       Commerce ops duplicate → Manage on the copy shows "Duplicated from: <source>" whose link opens
 #       the source (which shows none), the admin API returning the same read-only id
-#       (e2e-admin/commerce-ops-duplicated-from.spec.ts)
+#       (e2e-admin/commerce-ops-duplicated-from.spec.ts);
+#       seller tax identity (ADR-0063 P2): Entities → Details designates the seller of record, refuses a malformed
+#       EU VAT ID with its per-scheme reason, stores a valid one as DE123456789, adds/edits the e2e-hq establishment,
+#       and Commerce ops binds a storefront to AU + that establishment, every new field carrying a tooltip
+#       (e2e-admin/seller-identity.spec.ts)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -605,6 +629,17 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~SubscriptionStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3o stored-precision subscription times"; else fail "A3o stored-precision subscription times"; fi
+
+  stage "A3o Seller tax identity (ADR-0063 P2) — tax-ID schemes, establishments, LegalEntityChanged, storefront binding, back-compat"
+  if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~TaxIdentifierFormatTests|FullyQualifiedName~SellerEstablishmentTests|FullyQualifiedName~LegalEntityChangedTests)' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Catalog/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~StorefrontTaxIdentityTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~StorefrontConfigBackCompatTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3o seller tax identity"; else fail "A3o seller tax identity"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

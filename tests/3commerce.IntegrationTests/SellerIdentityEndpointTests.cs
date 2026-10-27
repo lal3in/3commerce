@@ -157,7 +157,12 @@ public class SellerIdentityEndpointTests(Phase2Fixture fixture) : IAsyncLifetime
             Assert.Equal(HttpStatusCode.BadRequest, duplicateKey.StatusCode);
             var update = await _admin.PutAsJsonAsync($"/entities/{sellerId}/establishments/{establishment.Id}", new
             {
-                label = "Sydney office", line1 = "2 George St", city = "Sydney", region = "NSW", postcode = "2000", countryCode = "AU",
+                label = "Sydney office",
+                line1 = "2 George St",
+                city = "Sydney",
+                region = "NSW",
+                postcode = "2000",
+                countryCode = "AU",
             });
             Assert.Equal(HttpStatusCode.OK, update.StatusCode);
 
