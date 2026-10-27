@@ -90,7 +90,7 @@ else if (_details is not null)
                 </select>
                 <input id="ident-value" @bind="_newIdentValue" placeholder="@L["Entities.Ident.Value"]" title="@L["Entities.Ident.Value.Tip"]" style="flex:1;" />
                 <input id="ident-jurisdiction" @bind="_newIdentJurisdiction" placeholder="@L["Entities.Ident.Jurisdiction"]" title="@L["Entities.Ident.Jurisdiction.Tip"]" style="width:6rem;" />
-                <button @onclick="AddIdentifier" title="@L["Entities.Ident.Add.Tip"]">@L["Common.Add"]</button>
+                <button id="ident-add" @onclick="AddIdentifier" title="@L["Entities.Ident.Add.Tip"]">@L["Common.Add"]</button>
             </div>
         </section>
 

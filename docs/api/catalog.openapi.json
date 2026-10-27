@@ -2198,6 +2198,22 @@
             "items": {
               "type": "string"
             }
+          },
+          "taxJurisdiction": {
+            "maxLength": 6,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ADR-0063 P2: ISO country + optional region (AU, US-CA). Null → keep (update) / none (create); \"\" → clear. Invalid → 400 key `TaxJurisdiction`."
+          },
+          "sellerEstablishmentKey": {
+            "maxLength": 40,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ADR-0063 P2: key of the seller establishment (Entity). Null → keep; \"\" → clear. Invalid → 400 key `SellerEstablishmentKey`."
           }
         }
       },
@@ -3393,6 +3409,12 @@
             ],
             "format": "uuid",
             "description": "Read-only: the storefront this one was duplicated from (set by POST /admin/storefronts/{id}/duplicate); null for storefronts created any other way and for copies made before the link was recorded. No request can set or change it."
+          },
+          "taxJurisdiction": {
+            "type": "string"
+          },
+          "sellerEstablishmentKey": {
+            "type": "string"
           }
         }
       },
@@ -3687,6 +3709,22 @@
             "items": {
               "type": "string"
             }
+          },
+          "taxJurisdiction": {
+            "maxLength": 6,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ADR-0063 P2: ISO country + optional region (AU, US-CA). Null → keep (update) / none (create); \"\" → clear. Invalid → 400 key `TaxJurisdiction`."
+          },
+          "sellerEstablishmentKey": {
+            "maxLength": 40,
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "ADR-0063 P2: key of the seller establishment (Entity). Null → keep; \"\" → clear. Invalid → 400 key `SellerEstablishmentKey`."
           }
         }
       },
