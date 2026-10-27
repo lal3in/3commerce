@@ -252,6 +252,15 @@ the undiscounted price, a resolver that ignores price-less offers). Two resolver
 interchangeable at a call site (`ResolvePricingOffer` vs `ResolveSupplyOffer`/`ResolveLineOffer`, formerly `ResolveOffer`) are not. Trace the number
 into Support/RMA, Payments renewals, and a second live storefront sharing the currency.
 
+Checkout tax (Ordering, ADR-0063 P1):
+
+- **Never compute tax inline — ask `ITaxStrategy`** (`StorefrontRateTaxStrategy.For(storefrontCopy)`), and charge
+  `TaxBreakdown.TaxMinor`, which IS `Σ line tax + shipping tax`. The total is rounded ONCE on the whole base and then
+  split by largest remainder; rounding each line separately drifts a minor unit (3 × 333 at 10 % = 99 vs 100). A
+  new order-creating path persists the line + shipping facts too, or its rows read `TaxCategory.NotRecorded` like a
+  pre-P1 order. `TaxableBaseMinor` is NET of the tax in both regimes (inclusive: base + tax = what was paid).
+  `ProductCopy.TaxMode` is never projected — don't start honouring it at checkout without an amount-change decision.
+
 Ledger postings (Payments):
 
 - **Every `JournalLine` sets `Currency`.** Balances key on `(AccountCode, Currency)`; a blank currency

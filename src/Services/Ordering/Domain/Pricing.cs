@@ -133,7 +133,9 @@ public sealed record PricingResult(
     bool FreeShippingApplied,
     // The winning discount spread over the input lines (largest remainder); sums to the promotion part of
     // DiscountMinor exactly. Empty when no promotion applied.
-    IReadOnlyList<long> LinePromotionDiscountsMinor)
+    IReadOnlyList<long> LinePromotionDiscountsMinor,
+    // The strategy's per-line breakdown (ADR-0063 P1); TaxMinor is its total. Appended with a default.
+    TaxBreakdown? Tax = null)
 {
     /// <summary>
     /// The first applied promotion, or null when none applied. Kept as a computed convenience for callers
@@ -141,59 +143,6 @@ public sealed record PricingResult(
     /// <see cref="AppliedPromotionIds"/>.
     /// </summary>
     public Guid? AppliedPromotionId => AppliedPromotionIds.Count > 0 ? AppliedPromotionIds[0] : null;
-}
-
-public interface ITaxStrategy
-{
-    public long TaxFor(TaxCalculationInput input);
-}
-
-public sealed record TaxCalculationInput(
-    string Currency,
-    string? ShipCountry,
-    IReadOnlyList<PricingLineInput> Lines,
-    long DiscountMinor);
-
-public sealed class ZeroTaxStrategy : ITaxStrategy
-{
-    public static ZeroTaxStrategy Instance { get; } = new();
-
-    private ZeroTaxStrategy()
-    {
-    }
-
-    public long TaxFor(TaxCalculationInput input) => 0;
-}
-
-public sealed class HomeRegimeTaxStrategy(string? homeCountry, int rateBasisPoints, bool pricesIncludeTax = false) : ITaxStrategy
-{
-    public long TaxFor(TaxCalculationInput input)
-    {
-        if (string.IsNullOrWhiteSpace(homeCountry) || rateBasisPoints <= 0)
-        {
-            return 0;
-        }
-
-        if (!string.Equals(input.ShipCountry, homeCountry, StringComparison.OrdinalIgnoreCase))
-        {
-            return 0;
-        }
-
-        var taxableSubtotal = input.Lines
-            .Where(l => l.TaxMode != TaxMode.Exempt)
-            .Sum(l => checked(l.SellingPriceMinor * l.Quantity));
-        var totalSubtotal = input.Lines.Sum(l => checked(l.SellingPriceMinor * l.Quantity));
-        if (taxableSubtotal == 0 || totalSubtotal == 0)
-        {
-            return 0;
-        }
-
-        var taxableDiscount = input.DiscountMinor * taxableSubtotal / totalSubtotal;
-        var taxableBase = Math.Max(0, taxableSubtotal - taxableDiscount);
-        return pricesIncludeTax
-            ? (long)Math.Round(taxableBase * rateBasisPoints / (10000m + rateBasisPoints), MidpointRounding.ToEven)
-            : (long)Math.Round(taxableBase * rateBasisPoints / 10000m, MidpointRounding.ToEven);
-    }
 }
 
 public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
@@ -243,12 +192,21 @@ public sealed class PricingEngine(ITaxStrategy? taxStrategy = null)
             : 0;
         var discountMinor = Math.Min(promotionDiscount + storefrontDiscount, subtotal);
         var shippingMinor = outcome.FreeShippingApplied ? 0 : input.ShippingMinor;
-        var taxMinor = _taxStrategy.TaxFor(new TaxCalculationInput(input.Currency, input.ShipCountry, input.Lines, discountMinor));
+        // The strategy sees each line with its share of the whole discount (largest remainder by line value) and its
+        // product taxability; shipping stays outside the engine's tax base, as it always has.
+        var lineTotals = input.Lines.Select(l => checked(l.SellingPriceMinor * l.Quantity)).ToArray();
+        var lineDiscounts = PromotionEvaluator.AllocateProportionally(discountMinor, lineTotals);
+        var taxLines = input.Lines
+            .Select((l, i) => new TaxLineInput(
+                lineTotals[i], lineDiscounts[i], l.TaxMode == TaxMode.Exempt ? TaxExemptionReason.ProductTaxMode : TaxExemptionReason.None))
+            .ToList();
+        var tax = _taxStrategy.TaxFor(new TaxCalculationInput(input.Currency, input.ShipCountry, taxLines));
+        var taxMinor = tax.TaxMinor;
         var gross = subtotal - discountMinor + shippingMinor + taxMinor;
 
         return new PricingResult(
             subtotal, discountMinor, shippingMinor, taxMinor, gross, input.Currency,
-            outcome.AppliedPromotionIds, outcome.FreeShippingApplied, outcome.LineDiscountsMinor);
+            outcome.AppliedPromotionIds, outcome.FreeShippingApplied, outcome.LineDiscountsMinor, tax);
     }
 
     private static void Validate(PricingInput input)

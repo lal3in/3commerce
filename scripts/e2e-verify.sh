@@ -163,6 +163,14 @@
 #       the next period is a new key at the new rate (1100); a nightly run commits EACH renewal before the next
 #       provider call (another connection sees it), a provider failure on renewal 2 duns only it while 1 and 3 stay
 #       committed, and renewal 2 then retries under the same key for the same amount
+#   A3m Unit · per-line tax breakdown (ADR-0063 P1, TaxBreakdownTests): StorefrontRateTaxStrategy's inclusive/exclusive
+#       rounding equals checkout's old inline double arithmetic over every rate step 0..10000 (and amounts 0..20000 at
+#       eight rates); 20,000 seeded random carts (exempt lines, promotion + storefront discounts incl. over-allocation,
+#       shipping on/off, 0%, both regimes) tax EXACTLY what the old inline checkout did and Σ line tax + shipping tax
+#       == the total; largest remainder (ties to the earliest line; per-line rounding would drift 99 vs 100); ship-rule
+#       exemption → Exempt + reason, a fully exempt cart's shipping follows the goods; net bases (inclusive base + tax
+#       = paid); ISO exponents 0/2/3 (JPY/AUD/BHD) half away from zero; the pricing engine's breakdown sums to its tax;
+#       the attempt hands its facts to the order verbatim
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -231,6 +239,11 @@
 #       low-rate store is not bled into by a louder same-currency neighbour, another TENANT's live
 #       store in the same currency is not a tax source, and a storefront that is not live is refused
 #       at checkout rather than sold untaxed — money identity + trial balance 0 on every settled path;
+#       PER-LINE TAX FACTS (ADR-0063 P1, TaxBreakdownPersistenceTests): an exclusive store with a storefront-wide
+#       discount and a ship-rule-exempt line, and an inclusive store with a remainder split, charge their pre-P1
+#       totals (10089 / 6054) and persist category/rate/net base/tax/exemption per line + the shipping line +
+#       scheme + inclusive on the checkout attempt, Σ line tax + shipping tax == TaxMinor, and the confirmed order
+#       carries the same facts verbatim (trial balance 0);
 #       CHECKOUT CURRENCY + OFFER GATE (ADR-0059): a EUR cart on an AUD storefront is a 400 naming both
 #       currencies, flagged first by /cart/summary (checkoutBlock=CurrencyMismatch, unpriced), nothing
 #       booked, and the same store sells once the cart is in AUD (CartCurrencyTests); a subscription
@@ -547,6 +560,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~RecurringChargeAmountTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3l exclusive-tax renewal + usage charges"; else fail "A3l exclusive-tax renewal + usage charges"; fi
+
+  stage "A3m Per-line tax breakdown (ADR-0063 P1) — strategy == old inline checkout, lines sum to the total, exponents 0/2/3"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~TaxBreakdownTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3m per-line tax breakdown"; else fail "A3m per-line tax breakdown"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
