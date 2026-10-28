@@ -340,3 +340,10 @@ dunning emails in `SubscriptionRenewalActionEmailTests` — e2e-verify **A3p**; 
 pay endpoint with its idempotency, and a 3-D Secure attempt settled once from the provider's success event);
 `e2e/subscription-pay-page.spec.ts` (Playwright, **L20**: the account lists the past-due subscription, the page shows
 the reason and amount, paying makes it active again). Each fix was shown to fail its tests when reverted.
+
+### Follow-up delivered — renewal and usage refunds and disputes (`renewal_usage_refund_path`, 2026-10-28)
+
+Each settled renewal and usage charge is now a `Payment` of its own (kind `Renewal` / `UsageCharge`, keyed by the
+journal reference that booked it, carrying its intent id and the tax that entry booked), so `POST /admin/refunds`
+(`chargeReference`), partial refunds and the dispute webhooks reach it; a full refund nets the charge's tax account to
+zero, and Ordering leaves the order alone. Details and verification: ADR-0041, amendment 2026-10-28.

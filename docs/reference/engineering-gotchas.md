@@ -343,6 +343,14 @@ Ledger postings (Payments):
   snapshots the offer's unit cost on the line (`SupplierUnitCostMinor`); confirmation accrues that and records
   `BookedSupplierCostMinor`; RMA values returns from the booked figure. Never re-resolve offers for an existing
   order (an edited/re-scoped offer would book one cost and reverse another).
+- **A Payment is no longer one per order** (ADR-0041 amendment 2026-10-28). Each settled renewal shares its
+  subscription's order, and a usage charge has none (`OrderId` = empty). Only `Kind = Order` is unique per order.
+  - Whenever you mean "the order's checkout payment", filter `p.Kind == PaymentKind.Order`. A bare
+    `SingleOrDefault(p => p.OrderId == …)` throws as soon as the order renews once, and on Postgres the old
+    unfiltered unique index refused the renewal's row.
+  - A charge payment's reversals are referenced by its `ChargeReference` (`Payment.ChargebackReference`), never
+    `{orderId}:…`.
+  - Events about it carry `ChargeReference`, so order-level consumers (Ordering) skip them.
 
 ## Privacy and telemetry
 

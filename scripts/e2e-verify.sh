@@ -236,6 +236,14 @@
 #       untouched; CheckoutBlock 17 InvalidBuyerIdentity is a 400 (BuyerIdentityTests, OrderingProblemsTests);
 #       Ordering's copy of the per-scheme format rules agrees with Entity's on every scheme × value × jurisdiction
 #       of a corpus that both accepts and rejects (BuyerTaxIdFormatParityTests)
+#   A3t Unit · renewal + usage charges are payments (renewal_usage_refund_path, RecurringChargePaymentTests): a
+#       settled renewal / usage / 3-D Secure-settled renewal records its own Payment (kind, renew-{id}-{seq} /
+#       overage-… reference, its intent, 1083 with tax 83 == Ledger.TaxOf(its entry)); an unsettled one records none;
+#       a refund by chargeReference (single refund consumer, test harness) refunds that intent and nets every account
+#       to 0, partial refunds 500 + 583 reverse 38 + 45 = 83 then refuse more; a refund by order reaches only the
+#       order's checkout payment; a foreign / unknown reference is refused; a renewal dispute books
+#       {ref}:chargeback with its own tax and a win reinstates it; a late success webhook for a refunded renewal posts
+#       and publishes nothing; the LocalMock rail gives each usage charge its own intent
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -271,6 +279,13 @@
 #       12399 with French VAT 2067 under OSS (every line + shipping at 2000 bps, Σ == TaxMinor); the sale that takes
 #       the current year over is itself OSS (Italy 22 % added: 2310); a domestic sale and a store with no
 #       jurisdiction charge as before and count nothing; trial balance 0 throughout
+#   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
+#       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
+#       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
+#       refunds 1083 and every account (tax.store-… included) nets to 0 with the checkout payment untouched and the
+#       order still Confirmed after a later order refund; /dev/simulate-chargeback on a renewal intent books
+#       renew-…:chargeback (GST 200), never {orderId}:chargeback, and the order is not badged Disputed; a usage
+#       charge (no order) is refunded 500 + 583 by reference with its own tax 38 + 45 = 83; trial balance 0
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -728,6 +743,11 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~BuyerTaxIdFormatParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3s buyer identity at checkout"; else fail "A3s buyer identity at checkout"; fi
+
+  stage "A3t Renewal + usage charges are payments (renewal_usage_refund_path) — refund by reference, own tax nets to 0, disputes"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RecurringChargePaymentTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3t renewal + usage charge payments"; else fail "A3t renewal + usage charge payments"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

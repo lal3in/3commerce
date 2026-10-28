@@ -268,10 +268,15 @@ public class RecurringChargePaymentTests
     }
 
     [Fact]
-    public async Task A_late_success_webhook_for_a_settled_renewal_books_nothing_and_tells_no_order()
+    public async Task A_late_success_webhook_for_a_refunded_renewal_books_nothing_and_tells_no_order()
     {
         var (name, subscription, _, rail) = await RenewedAsync(825, inclusive: false, 1000);
         var publisher = new RecordingPublisher();
+        await using (var db = NewDb(name))
+        {
+            (await db.Payments.SingleAsync()).Status = PaymentStatus.Refunded; // the renewal was refunded meanwhile
+            await db.SaveChangesAsync();
+        }
 
         await using (var db = NewDb(name))
         {
@@ -282,7 +287,22 @@ public class RecurringChargePaymentTests
         Assert.Equal(1, await check.JournalEntries.CountAsync());                                       // the renewal's own entry only
         Assert.False(await check.JournalEntries.AnyAsync(e => e.Reference == subscription.OrderId.ToString()));
         Assert.Empty(publisher.Published);
+        Assert.Equal(PaymentStatus.Refunded, (await check.Payments.SingleAsync()).Status);              // not "succeeded" again
         Assert.True(await check.WebhookInbox.AnyAsync(w => w.EventId == "evt_late"));
+    }
+
+    [Fact]
+    public async Task The_local_mock_rail_gives_each_usage_charge_its_own_intent()
+    {
+        var rail = new ThreeCommerce.Payments.Infrastructure.Providers.Mock.FakePaymentProvider();
+        var account = Modes().DefaultAccountForHost();
+        var first = await rail.AuthorizeAsync(new PaymentRequest(Guid.Empty, 1_000, "USD", "overage-a-1", PaymentMethodKind.Card, account), default);
+        var second = await rail.AuthorizeAsync(new PaymentRequest(Guid.Empty, 1_000, "USD", "overage-a-2", PaymentMethodKind.Card, account), default);
+        var again = await rail.AuthorizeAsync(new PaymentRequest(Guid.Empty, 1_000, "USD", "overage-a-1", PaymentMethodKind.Card, account), default);
+
+        Assert.NotEqual(first.PaymentIntentId, second.PaymentIntentId); // a dispute webhook finds exactly one charge
+        Assert.Equal(first.PaymentIntentId, again.PaymentIntentId);     // the same key is the same intent
+        Assert.StartsWith("pi_fake_charge_", first.PaymentIntentId);
     }
 
     [Fact]
