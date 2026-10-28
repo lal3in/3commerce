@@ -82,6 +82,11 @@ public sealed class OrderStatusConsumer(
     /// </summary>
     public async Task Consume(ConsumeContext<PaymentDisputed> context)
     {
+        if (context.Message.ChargeReference is { Length: > 0 })
+        {
+            return; // a renewal / usage charge's dispute, not the order's payment (renewal_usage_refund_path)
+        }
+
         var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
         if (order is null || order.Disputed)
         {
@@ -99,6 +104,11 @@ public sealed class OrderStatusConsumer(
     /// </summary>
     public async Task Consume(ConsumeContext<PaymentChargedBack> context)
     {
+        if (context.Message.ChargeReference is { Length: > 0 })
+        {
+            return; // a renewal / usage charge's chargeback, not the order's payment (renewal_usage_refund_path)
+        }
+
         var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
         if (order is null || order.Disputed)
         {
@@ -116,6 +126,13 @@ public sealed class OrderStatusConsumer(
     /// </summary>
     public async Task Consume(ConsumeContext<RefundCompleted> context)
     {
+        if (context.Message.ChargeReference is { Length: > 0 })
+        {
+            // A renewal / usage charge was refunded (renewal_usage_refund_path): the order's own payment still stands,
+            // so the order is neither Refunded nor partially refunded by it.
+            return;
+        }
+
         var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == context.Message.OrderId, context.CancellationToken);
         if (order is null || order.Status != OrderStatus.Confirmed)
         {

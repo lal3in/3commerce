@@ -34,7 +34,7 @@ public sealed class AuthorizePaymentConsumer(
         // shopper switching wallet on retry re-attributes correctly.
         var methodKind = PaymentMethodKindMapper.From(msg.PaymentOption);
         var (account, provider) = await ResolveSettlementAsync(methodKind, msg.StorefrontId, context.CancellationToken);
-        var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
+        var existing = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId && p.Kind == PaymentKind.Order, context.CancellationToken);
         if (existing is not null)
         {
             var existingIntent = await provider.AuthorizeAsync(

@@ -22,11 +22,47 @@ public enum DisputeStatus
     Lost = 6,             // charge.dispute.closed, status = lost → PaymentStatus.Chargeback + void record
 }
 
-/// <summary>Tracks one order's payment intent through its lifecycle.</summary>
+/// <summary>
+/// What a <see cref="Payment"/> pays for (renewal_usage_refund_path, ADR-0041/0057 amendments 2026-10-28). An order's
+/// checkout payment is the only one keyed by its order; a renewal or usage charge is its own payment, keyed by its
+/// <see cref="Payment.ChargeReference"/> (the reference of the journal entry that booked it), so the refund path,
+/// partial refunds and the dispute webhooks reach it without ever touching the order's own payment.
+/// </summary>
+public enum PaymentKind
+{
+    /// <summary>An order's checkout payment — one per order (the legacy meaning of every row).</summary>
+    Order = 1,
+
+    /// <summary>A settled subscription renewal (<c>renew-{subscriptionId}-{sequence}</c>).</summary>
+    Renewal = 2,
+
+    /// <summary>A settled metered usage charge — overage or prepaid auto-load (<c>overage-…</c> / <c>autoload-…</c>).</summary>
+    UsageCharge = 3,
+}
+
+/// <summary>Tracks one payment intent through its lifecycle: an order's checkout payment, or a renewal / usage charge.</summary>
 public class Payment
 {
     public Guid Id { get; init; }
+
+    /// <summary>
+    /// The order this payment belongs to. A renewal carries its subscription's order (several rows per order); a usage
+    /// charge has none (<see cref="Guid.Empty"/>). Only an <see cref="PaymentKind.Order"/> payment is unique per order.
+    /// </summary>
     public Guid OrderId { get; init; }
+
+    /// <summary>What this payment pays for; legacy rows are order payments.</summary>
+    public PaymentKind Kind { get; init; } = PaymentKind.Order;
+
+    /// <summary>
+    /// For a renewal / usage charge: the reference of the journal entry that booked it (<c>renew-{id}-{seq}</c>,
+    /// <c>overage-…</c>, <c>autoload-…</c>) — unique, the key a refund names the charge by, and where a reversal takes its
+    /// tax from. Null for an order payment (its sale entry is referenced by the order id).
+    /// </summary>
+    public string? ChargeReference { get; init; }
+
+    /// <summary>The subscription a renewal payment renewed (null otherwise).</summary>
+    public Guid? SubscriptionId { get; init; }
 
     /// <summary>
     /// The storefront this order belongs to (phase 2), carried on AuthorizePayment. Drives the
@@ -70,4 +106,48 @@ public class Payment
     /// <summary>The provider's dispute id (Stripe <c>dp_…</c> / Polar equivalent), once a dispute opens.</summary>
     public string? ProviderDisputeId { get; set; }
     public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>
+    /// The reference of this payment's dispute reversal entry: <c>{orderId}:chargeback</c> for an order payment (one per
+    /// order, unchanged), <c>{chargeReference}:chargeback</c> for a renewal / usage charge — so disputing a renewal never
+    /// collides with (or is mistaken for) the order's own chargeback.
+    /// </summary>
+    public string ChargebackReference => Kind == PaymentKind.Order ? $"{OrderId}:chargeback" : $"{ChargeReference}:chargeback";
+
+    /// <summary>
+    /// A settled renewal / usage charge, recorded in the SAME unit of work as the journal entry that booked it
+    /// (<paramref name="entry"/>). Its tax is read from that entry — the tax account's credit
+    /// (<see cref="Ledger.Ledger.TaxOf"/>) — so a refund or dispute reverses exactly the tax this charge posted, never one
+    /// recomputed at today's rate or from the subscription's price.
+    /// </summary>
+    public static Payment ForSettledCharge(
+        PaymentKind kind, JournalEntry entry, string? taxAccount, Guid orderId, Guid? subscriptionId, string paymentIntentId,
+        long grossMinor, string currency, string provider, Guid? storefrontId, string? providerCustomerId,
+        string? providerPaymentMethodId, DateTimeOffset now)
+    {
+        if (kind == PaymentKind.Order)
+        {
+            throw new ArgumentException("An order payment is created by checkout (AuthorizePayment), not as a settled charge.", nameof(kind));
+        }
+
+        return new Payment
+        {
+            Id = Guid.CreateVersion7(),
+            Kind = kind,
+            ChargeReference = entry.Reference,
+            OrderId = orderId,
+            SubscriptionId = subscriptionId,
+            StorefrontId = storefrontId,
+            PaymentIntentId = paymentIntentId,
+            AmountMinor = grossMinor,
+            TaxMinor = Ledger.Ledger.TaxOf(entry, taxAccount),
+            Currency = currency,
+            Status = PaymentStatus.Succeeded,
+            MethodKind = PaymentMethodKind.Card,
+            Provider = string.IsNullOrWhiteSpace(provider) ? LedgerProviders.Default : provider,
+            ProviderCustomerId = providerCustomerId,
+            ProviderPaymentMethodId = providerPaymentMethodId,
+            CreatedAt = StoredTime.Of(now),
+        };
+    }
 }

@@ -55,8 +55,23 @@ internal sealed class RecordingProvider : IPaymentProvider
     public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct) => throw new NotSupportedException();
     public Task<SetupIntentResult> CreateSetupIntentAsync(string providerCustomerId, CancellationToken ct) => throw new NotSupportedException();
     public Task<SavedPaymentMethodDetails> GetPaymentMethodAsync(string providerPaymentMethodId, CancellationToken ct) => throw new NotSupportedException();
-    public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct) => throw new NotSupportedException();
+    /// <summary>Refunds the rail was asked for (intent, amount, idempotency key); every one succeeds.</summary>
+    public List<(string Intent, long AmountMinor, string Key)> Refunds { get; } = [];
+
+    public Task<ProviderRefundResult> RefundAsync(string paymentIntentId, long amountMinor, string idempotencyKey, CancellationToken ct)
+    {
+        Refunds.Add((paymentIntentId, amountMinor, idempotencyKey));
+        return Task.FromResult(new ProviderRefundResult($"re_rec_{Refunds.Count}", true));
+    }
+
     public PaymentWebhookEvent? ParseWebhook(string payload, string signatureHeader, IReadOnlyList<string> secrets) => null;
+}
+
+/// <summary>A dedupe store that remembers nothing: the Postgres/EF WebhookInbox is the guarantee under test.</summary>
+internal sealed class NoDedupe : ThreeCommerce.BuildingBlocks.Infrastructure.Redis.IDedupeStore
+{
+    public Task<bool> IsProcessedAsync(string key, CancellationToken ct) => Task.FromResult(false);
+    public Task MarkProcessedAsync(string key, TimeSpan ttl, CancellationToken ct) => Task.CompletedTask;
 }
 
 internal sealed class SingleProviderRegistry(IPaymentProvider provider) : IPaymentProviderRegistry
