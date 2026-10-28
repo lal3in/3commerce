@@ -37,10 +37,15 @@ test.describe("Checkout bill-to + business purchase (ADR-0063 P3)", () => {
     await expect(page.locator('form p[role="alert"]')).toHaveText(/doesn't match the format of the selected type/);
     await expect(business.getByLabel("Tax ID (optional)")).toHaveAttribute("aria-invalid", "true");
     await expect(page).not.toHaveURL(/\/checkout\/confirmation/);
+    // The block survives the refusal exactly as typed, ticked box and chosen type included. React resets the form
+    // after every action, which once unticked the box in the DOM — and a resubmit then silently dropped the block.
+    await expect(page.getByLabel("This is a business purchase")).toBeChecked();
+    await expect(business.getByLabel("Company name")).toHaveValue("Acme GmbH");
+    await expect(business.getByLabel("Tax ID (optional)")).toHaveValue("DE12345678");
+    await expect(business.getByLabel("Tax ID type")).toHaveValue(String(EU_VAT));
     await capture(page, "checkout-business-invalid-tax-id");
 
-    // Fix it on a fresh form (React resets uncontrolled fields after a refused action), with a separate bill-to.
-    await page.goto("/checkout");
+    // Fix only the tax ID in place (the reset cleared the other, uncontrolled fields — refill those), add a bill-to.
     await fillGuestCheckout(page, email);
     await page.getByLabel("Billing address").selectOption("new");
     const billing = page.locator("section").filter({ has: page.getByRole("heading", { name: "Billing address" }) });
@@ -49,10 +54,7 @@ test.describe("Checkout bill-to + business purchase (ADR-0063 P3)", () => {
     await billing.getByLabel("City").fill("Munich");
     await billing.getByLabel("Postcode").fill("80331");
     await billing.getByLabel(/country/i).selectOption("DE");
-    const fixed = await openBusinessBlock(page);
-    await fixed.getByLabel("Company name").fill("Acme GmbH");
-    await fixed.getByLabel("Tax ID (optional)").fill("DE 123 456 789");
-    await fixed.getByLabel("Tax ID type").selectOption(String(EU_VAT));
+    await business.getByLabel("Tax ID (optional)").fill("DE 123 456 789");
     await capture(page, "checkout-business-guest-ready", { docName: "checkout-business-purchase.png" });
 
     const orderId = await placeAndPay(page);
