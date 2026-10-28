@@ -47,8 +47,8 @@ public sealed class SettledChargeContractTests
             TenantId, null, "m@example.com", UsageChargeKind.AutoLoad, MeterType.Request, 50, 22, "autoload-x-1", "AUD", 1000, 100, 1100,
             true, TaxScheme.Domestic, [line with { TaxCategory = TaxCategory.Exempt, ExemptionReason = TaxExemptionReason.DestinationShipRule }], At, 1);
 
-        var renewalJson = JsonSerializer.Serialize(renewal, SystemTextJsonMessageSerializer.Options);
-        var usageJson = JsonSerializer.Serialize(usage, SystemTextJsonMessageSerializer.Options);
+        var renewalJson = Compact(JsonSerializer.Serialize(renewal, SystemTextJsonMessageSerializer.Options));
+        var usageJson = Compact(JsonSerializer.Serialize(usage, SystemTextJsonMessageSerializer.Options));
 
         Assert.Contains("\"taxScheme\":1", renewalJson, StringComparison.Ordinal);
         Assert.Contains("\"taxCategory\":1", renewalJson, StringComparison.Ordinal);
@@ -66,7 +66,7 @@ public sealed class SettledChargeContractTests
     public void The_failure_event_round_trips_with_its_reason_as_a_number()
     {
         var failed = Failed(ChargeFailureReason.RequiresAction, final: false);
-        var json = JsonSerializer.Serialize(failed, SystemTextJsonMessageSerializer.Options);
+        var json = Compact(JsonSerializer.Serialize(failed, SystemTextJsonMessageSerializer.Options));
 
         Assert.Contains("\"reason\":2", json, StringComparison.Ordinal);
         Assert.Equal(failed, JsonSerializer.Deserialize<UsageChargeFailed>(json, SystemTextJsonMessageSerializer.Options));
@@ -116,6 +116,10 @@ public sealed class SettledChargeContractTests
         Assert.DoesNotContain("try again", email.Body, StringComparison.Ordinal);
         Assert.Equal("usage-charge-failed:autoload-x-1:final", email.Reference);
     }
+
+    /// <summary>MassTransit's options indent; strip the layout whitespace so a field can be matched as <c>"name":value</c>.</summary>
+    private static string Compact(string json) =>
+        JsonSerializer.Serialize(JsonDocument.Parse(json).RootElement, new JsonSerializerOptions { WriteIndented = false });
 
     private static UsageChargeFailed Failed(ChargeFailureReason reason, bool final) =>
         new(TenantId, null, "m@example.com", UsageChargeKind.AutoLoad, MeterType.Request, 100, "autoload-x-1", 2_165, "USD", reason,
