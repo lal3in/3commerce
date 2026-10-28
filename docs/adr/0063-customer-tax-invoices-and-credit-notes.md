@@ -864,8 +864,11 @@ orders.
   * **Already in place for categories.** `TaxLineInput.TaxCategoryCode` and per-group rounding: each rate group is
     rounded once, and shipping follows the highest-rated goods. That shipping rule is a conservative interim, until
     a split shipping line can be persisted for pro-rata apportionment.
-  * **Re-verify before go-live.** Re-verify the table against the Commission's TEDB before EU cross-border B2C goes
-    live.
+  * **LAUNCH GATE — TEDB verification.** EU cross-border B2C must not go live until every row of
+    `EuVatRateTable.Current` has been verified against the Commission's TEDB ("VAT rates applied in the Member
+    States") as of the go-live date, and any change since is added with its effective date. The rates were entered
+    from the cited national acts without a TEDB cross-check. Tracker: `eu_vat_rate_table_tedb_verification`. The
+    check repeats on every change of law.
 * **Decision — the destination country.** `TaxCalculationInput.DestinationCountry`. When it is null the strategy
   uses the **ship-to country**, the place of supply of dispatched goods, and checkout passes the ship-to today.
   Digital services are supplied where the customer belongs. When P3 lands bill-to, checkout can pass the bill-to
@@ -874,12 +877,14 @@ orders.
 * **Facts persisted.** `CheckoutAttempt`/`Order` add `TaxJurisdiction` (the storefront's, as applied) and
   `TaxDestinationCountry`, both defaulting to `""`. The scheme lands in the existing `TaxScheme` column (`Oss`). The
   migration is `EuOssTaxStrategy`. No contract and no HTTP shape changed; P5 publishes the facts.
-* **Known gaps (follow-ups, not P1b):**
+* **Known gaps (follow-ups, not P1b; tracker `tax_p1b_followups`):**
   * Renewals of an OSS-taxed subscription still use the storefront's rate in Payments (§ 7.1: the terms snapshot
     must carry the scheme and destination).
   * Special VAT territories (Canaries, Åland, the French DOM…) and Northern Ireland (`XI`) need a postcode or region
     rule.
   * Reduced-rate categories need a Catalog product VAT category projected to Ordering.
+  * A cart that mixes physical goods and digital services needs a per-line destination: ship-to for the goods,
+    bill-to for the services.
 * **Tests.**
   * Unit: `EuOssTaxStrategyTests` covers the EU-27 fixture (typed independently of the table), the
     at/over/crossing threshold, the preceding year, non-EUR, an explicit destination, local-midnight effective dates
