@@ -28,6 +28,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<VerifiedCustomerCopy> VerifiedCustomerCopies => Set<VerifiedCustomerCopy>();
     public DbSet<SupplierApprovalCopy> SupplierApprovalCopies => Set<SupplierApprovalCopy>();
     public DbSet<SupplierWarehouseCopy> SupplierWarehouseCopies => Set<SupplierWarehouseCopy>();
+    public DbSet<EuDistanceSale> EuDistanceSales => Set<EuDistanceSale>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +156,9 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             // can't grow unbounded on a pathological cart.
             o.Property(x => x.AppliedPromotionIds).HasMaxLength(400);
             o.Property(x => x.CouponCode).HasMaxLength(40);
+            // ADR-0063 P1b facts; '' on orders placed before it.
+            o.Property(x => x.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
+            o.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             // xmin as the concurrency token (Npgsql maps a uint row version to the system column; nothing is
             // added to the table). Every EF UPDATE of an order then checks it — see Order.Version.
@@ -172,6 +176,8 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             attempt.Property(x => x.PaymentInstrumentSummary).HasMaxLength(120);
             attempt.Property(x => x.PaymentProvider).HasMaxLength(40);
             attempt.Property(x => x.CampaignRef).HasMaxLength(120);
+            attempt.Property(x => x.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
+            attempt.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty);
             attempt.HasIndex(x => new { x.StorefrontId, x.Status });
             attempt.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.CheckoutAttemptId);
         });
@@ -179,6 +185,17 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         modelBuilder.Entity<OrderNumberSequence>(sequence =>
         {
             sequence.HasKey(x => x.StorefrontId);
+        });
+
+        // ADR-0063 P1b: one row per confirmed intra-EU distance sale; the threshold's running total is the Σ per
+        // (tenant, year, currency), which this index serves without touching the rows' other columns.
+        modelBuilder.Entity<EuDistanceSale>(sale =>
+        {
+            sale.HasKey(x => x.OrderId);
+            sale.Property(x => x.HomeCountry).HasMaxLength(2);
+            sale.Property(x => x.DestinationCountry).HasMaxLength(2);
+            sale.Property(x => x.Currency).HasMaxLength(3);
+            sale.HasIndex(x => new { x.TenantId, x.Year, x.Currency }).IncludeProperties(x => x.NetMinor);
         });
 
         modelBuilder.Entity<VerifiedCustomerCopy>(copy =>

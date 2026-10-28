@@ -277,6 +277,14 @@ Checkout tax (Ordering, ADR-0063 P1):
   new order-creating path persists the line + shipping facts too, or its rows read `TaxCategory.NotRecorded` like a
   pre-P1 order. `TaxableBaseMinor` is NET of the tax in both regimes (inclusive: base + tax = what was paid).
   `ProductCopy.TaxMode` is never projected — don't start honouring it at checkout without an amount-change decision.
+- **Pick the strategy with `TaxStrategySelector.For(storefrontCopy, turnover, now)` (ADR-0063 P1b), not
+  `StorefrontRateTaxStrategy.For` directly.** A storefront whose `TaxJurisdiction` is an EU Member State gets the
+  OSS-aware strategy: a cross-border EU sale over the seller's EUR 10,000 threshold is taxed at the DESTINATION rate
+  (`EuVatRateTable`, local-midnight effective dates), so the same cart can carry different VAT by ship-to. The
+  threshold's running total is Σ `ordering."EuDistanceSales"` per tenant per UTC year, written in the SAME
+  transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
+  turnover under-counts and a sale that should be OSS stays home-taxed. Renewals still use the storefront's own
+  rate in Payments (an OSS subscription's renewal is a known gap, ADR-0063 § 16 P1b).
 
 Ledger postings (Payments):
 

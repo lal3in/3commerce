@@ -378,8 +378,22 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TaxDestinationCountry")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("");
+
                     b.Property<bool>("TaxInclusive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("TaxJurisdiction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasDefaultValue("");
 
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
@@ -484,6 +498,51 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.HasIndex("CheckoutAttemptId");
 
                     b.ToTable("CheckoutAttemptLines", "ordering");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Ordering.Domain.EuDistanceSale", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("DestinationCountry")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("HomeCountry")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<long>("NetMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TaxScheme")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("TenantId", "Year", "Currency");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("TenantId", "Year", "Currency"), new[] { "NetMinor" });
+
+                    b.ToTable("EuDistanceSales", "ordering");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.OfferCopy", b =>
@@ -671,8 +730,22 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<Guid?>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TaxDestinationCountry")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("");
+
                     b.Property<bool>("TaxInclusive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("TaxJurisdiction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasDefaultValue("");
 
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");

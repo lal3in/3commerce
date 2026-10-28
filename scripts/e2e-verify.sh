@@ -217,6 +217,17 @@
 #       validation, null keeps / "" clears, cloned on duplication (StorefrontTaxIdentityTests); a pre-P2
 #       StorefrontConfigChanged JSON still deserializes (MassTransit options) and projects with "" defaults
 #       (StorefrontConfigBackCompatTests)
+#   A3r Unit · EU OSS tax strategy (ADR-0063 P1b, EuOssTaxStrategyTests): the EU-27 standard-rate fixture (typed
+#       independently; nothing in force before OSS start 2021-07-01); a German store over the threshold charges every
+#       other Member State's rate under OSS; at/under EUR 10,000 (current AND preceding year, net of VAT) the home rate
+#       == StorefrontRateTaxStrategy, strictly over it — including the crossing sale — the destination rate; a non-EUR
+#       store's cross-border EU sales take the destination rate; an explicit destination overrides the ship-to; rate
+#       changes at LOCAL midnight (SK 2025-01-01, EE 2025-07-01 vs a UTC-date rule, FI, RO, LU) and a future row only
+#       from its date; inclusive stores charge the shelf price unchanged (HU 27 % extracted from 12399) while exclusive
+#       ones add it; exempt lines stay exempt; per-category rates + shipping at the highest goods rate, 5,000 random
+#       mixed-rate carts well-formed; selection by TaxJurisdiction (DE-BY, EL→GR; AU/US-CA/GB/CH/NO/"" keep the single
+#       rate); 10,000 random carts on non-EU / unconfigured stores (and EU domestic) byte-identical to
+#       StorefrontRateTaxStrategy; EuDistanceSale rows only for confirmed cross-border EU orders (net of VAT)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -246,6 +257,12 @@
 #       the customer pays over HTTP (GET /me/subscriptions/{id} shows 2200 due / Failed; POST …/pay needs an
 #       Idempotency-Key, 404 for another customer, a replayed key books once, then 409); a RequiresAction attempt
 #       settles once from /dev/simulate-payment (delivered twice), posting 1083 with tax 83, trial balance 0
+#   A4d Integration · EU OSS checkout (ADR-0063 P1b, EuOssCheckoutTests, a fresh tenant = seller per test): a German
+#       inclusive store under the threshold charges German VAT on a French sale (12399 gross, 1980 VAT) and the
+#       confirmed order writes its EuDistanceSale row (net 10419, Domestic); over the threshold the same cart is
+#       12399 with French VAT 2067 under OSS (every line + shipping at 2000 bps, Σ == TaxMinor); the sale that takes
+#       the current year over is itself OSS (Italy 22 % added: 2310); a domestic sale and a store with no
+#       jurisdiction charge as before and count nothing; trial balance 0 throughout
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -676,6 +693,11 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~StorefrontConfigBackCompatTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3q seller tax identity"; else fail "A3q seller tax identity"; fi
+
+  stage "A3r EU OSS tax strategy (ADR-0063 P1b) — EU-27 rates, EUR 10,000 threshold, effective dates, inclusive shelf price, non-EU byte-identical"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuOssTaxStrategyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3r EU OSS tax strategy"; else fail "A3r EU OSS tax strategy"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

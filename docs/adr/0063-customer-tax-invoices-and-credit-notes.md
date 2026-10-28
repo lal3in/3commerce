@@ -501,7 +501,7 @@ JurisdictionProfile { Code ("EU-DE", "EU-FR", "AU", "NZ", "GB", "CA", "CH", "US"
 | # | Prerequisite | Owner | Why |
 |---|---|---|---|
 | P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. **Status: persisted on `feature/tax-per-line-breakdown` (2026-10-27, § 9.2)**; publishing them is P5. | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
-| P1b | **EU OSS-aware tax strategy** (or a tax engine) before **EU cross-border B2C** goes live. Today a storefront charges its single rate regardless of EU destination. | Ordering | Wrong VAT cannot be made right by the invoice |
+| P1b | **EU OSS-aware tax strategy** (or a tax engine) before **EU cross-border B2C** goes live. Before P1b a storefront charged its single rate regardless of EU destination. **Status: `EuOssTaxStrategy` on `feature/eu-oss-tax-strategy` (2026-10-28, § 16)** — standard rates only; reduced-rate categories, B2B and OSS renewals are follow-ups. | Ordering | Wrong VAT cannot be made right by the invoice |
 | P2 | **Seller identity**: Entity tax-ID schemes + establishments; storefront → jurisdiction + establishment binding | Entity, Catalog | Art. 226(3),(5); profile resolution |
 | P3 | **Buyer identity**: bill-to address (defaults to ship-to), optional business name + tax ID at checkout | Ordering, Storefront | Art. 226(4),(5); AU ≥ A$1,000 |
 | P4 | **Renewal and usage charges compute and post tax** (today: tax 0 — an output-tax under-report in inclusive regimes, independent of invoicing) and publish the settled events. **Status: tax half done on `fix/renewal-and-usage-tax` (2026-10-15)** — inclusive regimes post checkout's split at the rate in force; exclusive regimes ADD checkout's tax to the charge and post net + tax (owner decision 2026-10-15, option A, `fix/exclusive-tax-on-renewals-and-usage`; see the ADR-0057 amendments); the settled-event half follows in P4b (§ 9.1). | Payments | Correct VAT; renewal and usage invoices |
@@ -811,3 +811,81 @@ orders.
   `StorefrontTaxIdentityTests`, `StorefrontConfigBackCompatTests` (pre-P2 JSON → defaults). Integration:
   `SellerIdentityEndpointTests`, `SellerEstablishmentRlsTests` (real migrations as a non-superuser owner),
   `StorefrontTaxIdentityAdminTests`. Browser: `e2e-admin/seller-identity.spec.ts`. `e2e-verify.sh` A3q + A6i.
+
+### P1b — EU OSS-aware tax strategy (2026-10-28, `feature/eu-oss-tax-strategy`, tracker `tax_p1b_eu_oss_tax_strategy`)
+
+* **The strategy.** `EuOssTaxStrategy` (`Ordering/Domain/EuVat.cs`) behind the P1 seam. `TaxStrategySelector.For`
+  picks it when the storefront's `TaxJurisdiction` (P2) names an EU Member State (`DE`, `DE-BY`; `EL` is read as
+  `GR`). That country is the seller's **home Member State**: it is configuration (the storefront binding), never a
+  constant, as § 12 D2 requires. Every other storefront — non-EU or unconfigured — keeps
+  `StorefrontRateTaxStrategy`, byte-identical (10,000 seeded random carts compare the breakdowns field by field).
+* **What it charges.**
+  * A domestic sale, a sale to a non-EU destination, and a cross-border EU sale while the seller is at or under the
+    threshold: the **home rate**. This is the storefront's own configured rate, so these sales are byte-identical to
+    P1 and to the rate Payments uses for renewals. Scheme `Domestic`.
+  * A cross-border EU sale when the seller is **strictly over EUR 10,000** in the preceding calendar year, or when the
+    current year plus this sale goes over it (the crossing sale is itself OSS, Art. 59c): the **destination** Member
+    State's rate in force on the supply date. Scheme `Oss`.
+  * Inclusive storefronts **extract** that rate from the unchanged shelf price; exclusive ones add it (ADR-0038).
+    Ship-rule exemptions (ADR-0050) stay exempt. Export zero-rating to non-EU destinations is left to those ship
+    rules, as today.
+* **Decision — where the threshold turnover comes from.** The source of truth is Ordering's **confirmed orders**.
+  The running total is an append-only table, `ordering."EuDistanceSales"`, with one row per confirmed intra-EU
+  distance sale: an order whose recorded `TaxJurisdiction` is an EU state and whose `TaxDestinationCountry` is
+  another one. The row is keyed by `OrderId` and written by `OrderStatusConsumer` **in the same transaction** as the
+  `Order` insert, so a sale that rolls back never counts and a redelivery never counts twice.
+  * **Total.** The total per tenant per UTC calendar year is `Σ NetMinor` over the rows, served by the index
+    `(TenantId, Year, Currency) INCLUDE (NetMinor)`. The tenant is the seller (D1).
+  * **Why not a counter row.** It would be a hot row inside the consumer's REPEATABLE READ transaction, which is the
+    `OrderNumberAllocator` 40001 lesson. Committing a counter separately would double-count on a retry.
+  * **What a sale counts.** Its value **net of VAT** (Σ line bases + the shipping base). Only `EUR` rows count until
+    an FX source exists (D13).
+  * **When the total is read.** Checkout reads it only for an EU storefront selling into another Member State.
+  * **Conservative choices, all in the never-under-collect direction:**
+    * Refunds are not deducted.
+    * B2B sales with VAT charged (P3, before reverse charge in phase 2) still count.
+    * A non-EUR storefront cannot measure the EUR threshold, so its cross-border EU sales take the destination rate
+      (opting into OSS below the threshold is lawful, Art. 59c(3)).
+    * The threshold assumes a seller established in one Member State (Art. 59c(1)(a)). A seller with
+      establishments in two states must not rely on it. The phase-1 readiness gate owns that check.
+  * **In-flight tolerance.** Two checkouts priced at the same moment just below the threshold can both be home-taxed.
+    The decision is made at pricing time from *confirmed* turnover. The window is one checkout's lifetime.
+* **Decision — where the rate table lives.** In **code**: `EuVatRateTable.Current`.
+  * **Why code.** A rate change is a change of law. It ships as a reviewed, tested change carrying its effective
+    date, so it can land before the date and take effect exactly on it, with no deploy timing involved.
+  * **Rows.** Each row is `(country, category, EffectiveFrom, bps)`. Standard rates for EU-27 start at the OSS start
+    (2021-07-01), with every change since: EE 2024-01-01 22 % / 2025-07-01 24 %, LU 16 % for 2023, FI 2024-09-01
+    25.5 %, SK 2025-01-01 23 %, RO 2025-08-01 21 %.
+  * **Local midnight.** The effective date is the **local** date in the Member State. A sale at 21:30 UTC on 30 June
+    2025 is a 1 July supply in Tallinn. Ordering's projection and the § 7.2 tenant overrides (DB, audited) can come
+    later, when renewals need the table (§ 7.1).
+  * **Not seeded: reduced rates.** No product carries a VAT category yet, and an unverified reduced rate in a money
+    path is worse than none. A category without a row is taxed at the standard rate, which never under-collects.
+  * **Already in place for categories.** `TaxLineInput.TaxCategoryCode` and per-group rounding: each rate group is
+    rounded once, and shipping follows the highest-rated goods. That shipping rule is a conservative interim, until
+    a split shipping line can be persisted for pro-rata apportionment.
+  * **Re-verify before go-live.** Re-verify the table against the Commission's TEDB before EU cross-border B2C goes
+    live.
+* **Decision — the destination country.** `TaxCalculationInput.DestinationCountry`. When it is null the strategy
+  uses the **ship-to country**, the place of supply of dispatched goods, and checkout passes the ship-to today.
+  Digital services are supplied where the customer belongs. When P3 lands bill-to, checkout can pass the bill-to
+  country through this input for a digital-only cart, with no other seam change. Mixed carts need a per-line
+  destination, which is a follow-up.
+* **Facts persisted.** `CheckoutAttempt`/`Order` add `TaxJurisdiction` (the storefront's, as applied) and
+  `TaxDestinationCountry`, both defaulting to `""`. The scheme lands in the existing `TaxScheme` column (`Oss`). The
+  migration is `EuOssTaxStrategy`. No contract and no HTTP shape changed; P5 publishes the facts.
+* **Known gaps (follow-ups, not P1b):**
+  * Renewals of an OSS-taxed subscription still use the storefront's rate in Payments (§ 7.1: the terms snapshot
+    must carry the scheme and destination).
+  * Special VAT territories (Canaries, Åland, the French DOM…) and Northern Ireland (`XI`) need a postcode or region
+    rule.
+  * Reduced-rate categories need a Catalog product VAT category projected to Ordering.
+* **Tests.**
+  * Unit: `EuOssTaxStrategyTests` covers the EU-27 fixture (typed independently of the table), the
+    at/over/crossing threshold, the preceding year, non-EUR, an explicit destination, local-midnight effective dates
+    and a future row, the unchanged inclusive gross, exclusive add-on, exemptions, categories plus 5,000 mixed-rate
+    carts, selection, the non-EU byte-identity property, `EuDistanceSale` rows, and table validation. Mutating `>` to
+    `>=`, or the local date to the UTC date, fails it.
+  * Integration: `EuOssCheckoutTests` runs real checkouts as a fresh tenant each: under, over and crossing the
+    threshold, domestic and unconfigured stores, with trial balance 0.
+  * `e2e-verify.sh`: A3r and A4d.

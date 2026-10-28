@@ -40,9 +40,10 @@ public enum TaxExemptionReason
 }
 
 /// <summary>
-/// The tax scheme the sale falls under (ADR-0063 § 7.1). Every strategy that exists today charges its storefront's
-/// own single domestic rate, so it is always <see cref="Domestic"/>; the EU OSS-aware strategy (P1b) and the B2B
-/// work (phase 2) produce the others. Crosses the wire as a NUMBER: append members, never renumber.
+/// The tax scheme the sale falls under (ADR-0063 § 7.1). A storefront's own single rate is <see cref="Domestic"/>;
+/// the EU OSS-aware strategy (P1b, <see cref="EuOssTaxStrategy"/>) produces <see cref="Oss"/> for a cross-border EU
+/// B2C sale over the threshold, and the B2B work (phase 2) the others. Crosses the wire as a NUMBER: append members,
+/// never renumber.
 /// </summary>
 public enum TaxScheme
 {
@@ -64,15 +65,29 @@ public enum TaxScheme
 /// discount, exactly as checkout splits them (both largest remainder, ADR-0051/0053).
 /// </param>
 /// <param name="Exemption">Why the line is not taxable, or <see cref="TaxExemptionReason.None"/> when it is.</param>
-public sealed record TaxLineInput(long AmountMinor, long DiscountMinor, TaxExemptionReason Exemption = TaxExemptionReason.None);
+/// <param name="TaxCategoryCode">
+/// The product's VAT category code (ADR-0063 § 7.1, P1b), or null for the standard rate. Only the EU strategy reads
+/// it (a category with its own rate in the taxing Member State); no product carries one yet, so checkout passes null.
+/// </param>
+public sealed record TaxLineInput(
+    long AmountMinor,
+    long DiscountMinor,
+    TaxExemptionReason Exemption = TaxExemptionReason.None,
+    string? TaxCategoryCode = null);
 
 /// <summary>What a tax strategy is asked to tax. Every amount is in minor units of <see cref="Currency"/>.</summary>
 /// <param name="ShippingMinor">The shipping actually charged (after free-shipping promotions and waivers).</param>
+/// <param name="DestinationCountry">
+/// The country the supply is taxed in when the destination decides it (ADR-0063 P1b: EU OSS), or null for the
+/// ship-to country — the place of supply of dispatched goods. A caller that knows better passes it: digital
+/// services are supplied where the customer belongs, which the bill-to country (P3) answers.
+/// </param>
 public sealed record TaxCalculationInput(
     string Currency,
     string? ShipCountry,
     IReadOnlyList<TaxLineInput> Lines,
-    long ShippingMinor = 0);
+    long ShippingMinor = 0,
+    string? DestinationCountry = null);
 
 /// <summary>
 /// The tax facts of one line or of the shipping line (ADR-0063 § 7.1).

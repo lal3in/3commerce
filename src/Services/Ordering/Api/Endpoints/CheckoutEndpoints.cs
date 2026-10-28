@@ -346,8 +346,17 @@ public static class CheckoutEndpoints
                 promotionOutcome.LineDiscountsMinor[index] + storefrontLineDiscounts[index],
                 RuleFor(item.ProductId) is { ChargeDestinationTax: false } ? TaxExemptionReason.DestinationShipRule : TaxExemptionReason.None))
             .ToList();
-        var tax = StorefrontRateTaxStrategy.For(storefrontCopy)
-            .TaxFor(new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor));
+        // THE strategy is chosen by this storefront's tax jurisdiction (ADR-0063 P1b): an EU Member State selects the
+        // OSS-aware strategy (destination VAT over the EUR 10,000 threshold), anything else — every non-EU and every
+        // unconfigured store — keeps its single configured rate, unchanged. The place of supply is the ship-to
+        // country (dispatched goods); P3's bill-to may pass another destination through the input. The seller's
+        // running total is read only when it can matter: an EU store selling into another Member State.
+        var taxDestination = shipToCountry;
+        var distanceSales = TaxStrategySelector.NeedsDistanceSalesTurnover(storefrontCopy, taxDestination)
+            ? await db.EuDistanceSalesTurnoverAsync(tenantId, now, ct)
+            : EuDistanceSalesTurnover.None;
+        var tax = TaxStrategySelector.For(storefrontCopy, distanceSales, now)
+            .TaxFor(new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor, taxDestination));
         var taxMinor = tax.TaxMinor;
 
         // Inclusive (AU GST / EU VAT, ADR-0038): the listed price IS the charge and the tax is contained in it.
@@ -498,6 +507,8 @@ public static class CheckoutEndpoints
             ShippingExemptionReason = tax.Shipping.ExemptionReason,
             TaxScheme = tax.Scheme,
             TaxInclusive = tax.TaxInclusive,
+            TaxJurisdiction = storefrontCopy?.TaxJurisdiction ?? string.Empty,
+            TaxDestinationCountry = taxDestination,
             GrossMinor = intent.GrossMinor,
             Currency = currency,
             PaymentIntentId = intent.PaymentIntentId,
