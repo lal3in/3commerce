@@ -1,6 +1,6 @@
 # order-confirmed-backfill
 
-> Two commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`.
+> Three commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`; [`subscription-quantity`](#subscription-quantity--re-price-legacy-multi-unit-subscriptions) re-sends `SubscriptionRequested` to re-price legacy multi-unit subscriptions.
 
 Operator tool for [ADR-0060](../../docs/adr/0060-unique-receive-endpoint-per-service.md). Until #288, Fulfillment's
 and Notifications' `OrderConfirmedConsumer`s shared the `order-confirmed` queue, so every `OrderConfirmed` reached
@@ -128,3 +128,39 @@ The rebuilt event carries the audit summary as `Name` (what the live event carri
 that holds the rows as `SourceStorefrontId` — the consumers only read the rows to copy from it, so any agreeing
 candidate yields the same copy. Same broker preflight (expected consumers `3commerce.Payments.Api` /
 `3commerce.Fulfillment.Api`), deterministic message id per (target, duplicate), `3c-backfill` header.
+
+## `subscription-quantity` — re-price legacy multi-unit subscriptions
+
+Owner decision 2026-10-27 ([ADR-0057 amendment](../../docs/adr/0057-subscription-renewal-price-and-introductory-promotions.md),
+`subscription_quantity_backfill`). Before quantity was carried, a recurring line of quantity *n* set up its subscription
+as **one** unit at `unit − the line's renewal discount` — so it renews under-billed. Since the fix a renewal is
+`unit × n − the line's renewal discount` and the subscription stores `Quantity`.
+
+```bash
+dotnet $BIN subscription-quantity --dry-run --list       # every multi-unit subscription line + its verdict
+dotnet $BIN subscription-quantity --execute --limit 5    # canary
+dotnet $BIN subscription-quantity --execute
+dotnet $BIN subscription-quantity --dry-run              # after the queue drains: TO CORRECT = 0
+```
+
+Options: `--dry-run` / `--execute` (exactly one), `--tenant <guid>` (repeatable), `--limit <n>`, `--list`,
+`--skip-preflight`. Reads Ordering (confirmed-family orders with their lines) and Payments (subscriptions), per tenant
+inside the RLS scope. Each recurring line with quantity > 1 gets one verdict (`Subscriptions/SubscriptionQuantityPlanner.cs`):
+
+| Verdict | Meaning | Sent |
+|---|---|---|
+| `ToCorrect` | Payments holds the subscription at quantity 1 **and** exactly the legacy price | yes |
+| `AlreadyCorrect` | it already carries the line's quantity (also every subscription corrected by a previous run) | no |
+| `NoSubscription` | Payments has none for (order, product, variant) | no |
+| `Cancelled` | it never renews again | no |
+| `UnexpectedPrice` | quantity 1 but not the legacy price — something else changed it; always listed for an operator | no |
+
+The message is the live `SubscriptionRequested` built by `OrderStatusConsumer.SubscriptionRequestFor` (the mapping the
+confirmation path publishes with), carrying the subscription's own snapshotted tax terms. It is **sent** to
+`queue:subscription-requested` (Payments' `SubscriptionRequestedConsumer`, derived from the type) with a deterministic
+message id per subscription and the `3c-backfill` header, after the usual broker preflight (only consumer
+`3commerce.Payments.Api`, queue drained). Payments applies it through `Subscription.CorrectLegacyQuantity`: only a
+subscription still at quantity 1 is re-priced, never a downgrade and never one that already carries a quantity, so a
+redelivery or a re-run is a no-op. A period already attempted keeps its pinned amount (`RecurringChargePin`); the
+corrected price applies from the next period. The customer's next renewal charges the corrected (higher) amount and nothing is sent to them — **run it before live customers exist; with live customers, send a notice first** (owner decision 2026-10-27).
+

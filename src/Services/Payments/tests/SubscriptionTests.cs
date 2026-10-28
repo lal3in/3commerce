@@ -132,4 +132,30 @@ public class SubscriptionTests
         var sub = Start(BillingPeriod.Yearly);
         Assert.Equal(Now.AddYears(1), sub.CurrentPeriodEnd);
     }
+
+    [Fact]
+    public void A_legacy_single_unit_subscription_is_corrected_once_to_its_line_quantity_and_price()
+    {
+        // subscription_quantity_backfill (ADR-0057 amendment 2026-10-27): stored before quantity was carried.
+        var sub = Start(price: 500);
+
+        Assert.True(sub.CorrectLegacyQuantity(3, 4500, Now.AddDays(1)));
+        Assert.Equal(3, sub.Quantity);
+        Assert.Equal(4500, sub.PriceMinor);
+        Assert.Equal(Now.AddDays(1), sub.UpdatedAt);
+        Assert.False(sub.CorrectLegacyQuantity(3, 4500, Now.AddDays(2)));   // a repeat is a no-op
+        Assert.False(sub.CorrectLegacyQuantity(5, 9999, Now.AddDays(2)));   // a carried quantity is never re-priced
+        Assert.Equal(4500, sub.PriceMinor);
+    }
+
+    [Fact]
+    public void A_single_unit_request_never_reprices_a_subscription()
+    {
+        var sub = Start(price: 1500);
+
+        Assert.False(sub.CorrectLegacyQuantity(1, 9999, Now));
+        Assert.False(sub.CorrectLegacyQuantity(0, 9999, Now));
+        Assert.Equal(1500, sub.PriceMinor);
+        Assert.Equal(1, sub.Quantity);
+    }
 }

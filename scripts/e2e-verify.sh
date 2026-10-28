@@ -125,6 +125,13 @@
 #       evidence "link", one candidate, found without publications/name/audit, settles disagreeing candidates,
 #       not second-guessed by a hand-configured half, a dangling link is undetermined (never inferred) — and
 #       linked + older unlinked copies resolve in one run with a re-run selecting 0
+#       subscription-quantity command (SubscriptionQuantityBackfillTests, ADR-0057 amendment 2026-10-27): only a
+#       multi-unit recurring line whose subscription is still qty 1 at the legacy price (unit − line renewal discount)
+#       is selected (3 × 2000 − 1500: 500 → 4500); carried / missing / cancelled / unexpected-price never sent; the
+#       re-sent request is the live SubscriptionRequestFor mapping with the subscription's own tax terms; --limit caps
+#       sends not counts; Payments applies it once (a redelivery is a no-op) and a re-run selects 0; safe CLI, queue
+#       subscription-requested, deterministic message id; SubscriptionTests: CorrectLegacyQuantity never downgrades
+#       or re-prices a carried quantity
 #   A3f Unit · services wait for their bus (BusStartupTests): both AddServiceBus overloads set
 #       MassTransitHostOptions.WaitUntilStarted with a bounded StartTimeout (Messaging:StartTimeoutSeconds, default
 #       120; non-positive refused); a host whose broker is unreachable fails its start at the bound with
@@ -186,7 +193,7 @@
 #   A3o Unit · stored-precision subscription times (SubscriptionStoredTimeTests): Postgres keeps microseconds, a Linux
 #       clock 100 ns ticks — a subscription started at …54.1755249 holds …54.1755240 (period start/end, created/updated,
 #       first history row), so its renewal key renew-{id}-{periodEnd:O} is the same before and after a reload; renew,
-#       dun and cancel stamp stored-precision times
+#       dun, cancel and a quantity-backfill correction stamp stored-precision times
 #   A3q Unit · seller tax identity (ADR-0063 P2): per-scheme tax-ID formats — EuVat (all 27 Member-State prefixes +
 #       XI, EL→GR), GbVrn, NzGst, CaBn, ChUid, UsStateSalesTaxId (state required) + ABN/ACN unchanged — each invalid
 #       shape names its field (Value/Jurisdiction) (TaxIdentifierFormatTests); seller designation + establishments:
@@ -400,7 +407,9 @@
 #       shipment), the non-physical product matrix (download/subscription/usage/manual-service)
 #       maps to expected entitlements without shipments, and a mixed order ships physical + entitles
 #       digital; a recurring line sets up a
-#       subscription that renews (charge via the rail) + cancels; usage metering rolls records into
+#       subscription that renews (charge via the rail) + cancels; a re-sent request carrying the line quantity
+#       re-prices a legacy single-unit subscription in place (750 → 1750, qty 2) and its renewal charges 1750
+#       (SubscriptionFlowTests, subscription_quantity_backfill); usage metering rolls records into
 #       balances incrementally + idempotently, gates access when overage is off, and bills overage once
 #   A6h Unit · Phase 6 compliance/ops primitives (ADR-0029) — run per filter:
 #       Audit (hash-chain append/verify/tamper + stream-outbox audit fact staging) · SensitiveAudit (coverage taxonomy + denied attempt) ·
