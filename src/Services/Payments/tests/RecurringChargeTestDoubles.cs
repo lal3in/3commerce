@@ -118,7 +118,8 @@ internal sealed class ListLogger<T> : ILogger<T>
 /// <summary>Records every published message (the real one is the scoped bus-outbox endpoint).</summary>
 internal sealed class RecordingPublisher : IPublishEndpoint
 {
-    public List<object> Published { get; } = [];
+    /// <summary>What was published; pass a shared list to collect across several service instances.</summary>
+    public List<object> Published { get; init; } = [];
 
     public Task Publish<T>(T message, CancellationToken cancellationToken = default) where T : class { Published.Add(message); return Task.CompletedTask; }
     public Task Publish<T>(T message, IPipe<PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class { Published.Add(message); return Task.CompletedTask; }
