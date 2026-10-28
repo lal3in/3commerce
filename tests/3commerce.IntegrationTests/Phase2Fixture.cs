@@ -10,7 +10,7 @@ using Testcontainers.RabbitMq;
 namespace ThreeCommerce.IntegrationTests;
 
 /// <summary>
-/// Phase 2 infra: Postgres (+ identity_db/catalog_db with required extensions),
+/// Phase 2 infra: Postgres (+ identity_db/catalog_db/entity_db with required extensions),
 /// RabbitMQ, and a self-contained ES256 keypair so tests can mint the internal
 /// claims the gateway normally issues — without depending on the dev keys.
 /// </summary>
@@ -38,6 +38,7 @@ public sealed class Phase2Fixture : IAsyncLifetime
 
         await _postgres.ExecScriptAsync("CREATE DATABASE identity_db;");
         await _postgres.ExecScriptAsync("CREATE DATABASE catalog_db;");
+        await _postgres.ExecScriptAsync("CREATE DATABASE entity_db;");
         // Extensions the migrations rely on (init script does this in real infra).
         await ExecInDbAsync("identity_db", "CREATE EXTENSION IF NOT EXISTS citext;");
         await ExecInDbAsync("catalog_db", "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;");
@@ -66,6 +67,9 @@ public sealed class Phase2Fixture : IAsyncLifetime
 
     public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> CreateCatalogFactory() =>
         CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
+
+    public WebApplicationFactory<ThreeCommerce.Entity.Api.IApiMarker> CreateEntityFactory() =>
+        CreateFactory<ThreeCommerce.Entity.Api.IApiMarker, ThreeCommerce.Entity.Infrastructure.EntityDbContext>("entity_db");
 
     /// <summary>Mints the ES256 internal-claims JWT a service expects in X-Internal-Claims.</summary>
     public string MintInternalClaims(Guid userId, string role, string? email = null, string? tenantId = null, bool emailVerified = false)

@@ -169,12 +169,13 @@ public static class EntityEndpoints
         Guid id,
         UpdateEntityRequest request,
         EntityDbContext db,
+        IPublishEndpoint publish,
         AuditRecorder audit,
         ClaimsPrincipal user,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var entity = await db.Entities.SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var entity = await LoadWithDetailsAsync(db.Entities, id, cancellationToken);
         if (entity is null)
         {
             return TypedResults.NotFound();
@@ -182,7 +183,9 @@ public static class EntityEndpoints
 
         try
         {
-            entity.UpdateNames(request.LegalName, request.TradingName, timeProvider.GetUtcNow());
+            var now = timeProvider.GetUtcNow();
+            entity.UpdateNames(request.LegalName, request.TradingName, now);
+            await LegalEntityEvents.PublishIfSellerAsync(publish, entity, now, cancellationToken); // seller's legal name (ADR-0063 P2)
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.entity.update", entity.DisplayName), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -208,6 +211,7 @@ public static class EntityEndpoints
         Guid id,
         AddIdentifierRequest request,
         EntityDbContext db,
+        IPublishEndpoint publish,
         AuditRecorder audit,
         ClaimsPrincipal user,
         TimeProvider timeProvider,
@@ -221,11 +225,13 @@ public static class EntityEndpoints
 
         try
         {
-            var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow());
+            var now = timeProvider.GetUtcNow();
+            var identifier = entity.AddIdentifier(request.Type, request.Value, now, request.Jurisdiction);
             // The child carries a client-generated Guid PK; added through the loaded navigation, EF
             // mis-detects it as Modified and emits an UPDATE that affects 0 rows (DbUpdateConcurrency).
             // Force Added so it INSERTs.
             db.Entry(identifier).State = EntityState.Added;
+            await LegalEntityEvents.PublishIfSellerAsync(publish, entity, now, cancellationToken); // seller tax IDs (ADR-0063 P2)
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.identifier.add", $"{request.Type}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -233,7 +239,8 @@ public static class EntityEndpoints
         }
         catch (DomainRuleException ex)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Value)] = [ex.Message] });
+            // Per-scheme format errors name the field at fault (Value / Jurisdiction) — ADR-0063 P2.
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [ex.Field ?? nameof(request.Value)] = [ex.Message] });
         }
     }
 
@@ -241,6 +248,7 @@ public static class EntityEndpoints
         Guid id,
         Guid identifierId,
         EntityDbContext db,
+        IPublishEndpoint publish,
         AuditRecorder audit,
         ClaimsPrincipal user,
         TimeProvider timeProvider,
@@ -254,7 +262,9 @@ public static class EntityEndpoints
 
         try
         {
-            entity.MarkIdentifierVerified(identifierId, timeProvider.GetUtcNow());
+            var now = timeProvider.GetUtcNow();
+            entity.MarkIdentifierVerified(identifierId, now);
+            await LegalEntityEvents.PublishIfSellerAsync(publish, entity, now, cancellationToken);
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.identifier.verify", identifierId.ToString()), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -324,6 +334,12 @@ public static class EntityEndpoints
                     cancellationToken);
             }
 
+            if (request.Purpose == EntityAddressPurpose.RegisteredOffice)
+            {
+                // The seller's registered office is part of its legal identity (ADR-0063 P2).
+                await LegalEntityEvents.PublishIfSellerAsync(publish, entity, address.CreatedAt, cancellationToken);
+            }
+
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.address.add", $"{request.Purpose}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -335,18 +351,26 @@ public static class EntityEndpoints
         }
     }
 
-    private static Task<EntityRecord?> LoadWithDetailsAsync(IQueryable<EntityRecord> entities, Guid id, CancellationToken cancellationToken) =>
+    internal static Task<EntityRecord?> LoadWithDetailsAsync(IQueryable<EntityRecord> entities, Guid id, CancellationToken cancellationToken) =>
         entities
+            .Include(e => e.Profiles)
+            .Include(e => e.Establishments)
             .Include(e => e.Identifiers)
             .Include(e => e.ContactMethods)
             .Include(e => e.Addresses)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(e => e.Id == id, cancellationToken);
 
-    private static EntityDetailResponse ToDetail(EntityRecord e) => new(
+    internal static EntityIdentifierResponse ToIdentifierResponse(EntityIdentifier i) =>
+        new(i.Id, i.Type, i.Value, i.VerificationStatus, i.EffectiveJurisdiction);
+
+    internal static EntityDetailResponse ToDetail(EntityRecord e) => new(
         e.Id, e.TenantId, e.Type, e.LegalName, e.TradingName, e.DisplayName, e.Status,
-        [.. e.Identifiers.OrderBy(i => i.Type).Select(i => new EntityIdentifierResponse(i.Id, i.Type, i.Value, i.VerificationStatus))],
+        [.. e.Identifiers.OrderBy(i => i.Type).Select(ToIdentifierResponse)],
         [.. e.ContactMethods.OrderBy(c => c.Purpose).Select(c => new EntityContactResponse(c.Id, c.Purpose, c.Kind, c.Value))],
-        [.. e.Addresses.Where(a => a.IsCurrent).OrderBy(a => a.Purpose).Select(a => new EntityAddressResponse(a.Id, a.Purpose, a.Line1, a.Line2, a.City, a.Region, a.Postcode, a.CountryCode))]);
+        [.. e.Addresses.Where(a => a.IsCurrent).OrderBy(a => a.Purpose).Select(a => new EntityAddressResponse(a.Id, a.Purpose, a.Line1, a.Line2, a.City, a.Region, a.Postcode, a.CountryCode))],
+        e.IsSeller,
+        [.. e.Establishments.OrderBy(s => s.Key).Select(SellerIdentityEndpoints.ToEstablishmentResponse)]);
 
     private static async Task<Ok<SupplierOnboardingResponse>> StartSupplierOnboarding(
         Guid id,
@@ -540,16 +564,16 @@ public static class EntityEndpoints
         {
             var onboarding = await db.SupplierOnboardings.SingleOrDefaultAsync(s => s.EntityId == entity.Id, cancellationToken);
             onboarding?.EnsureDirectDetailEditAllowed();
-            var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow());
+            var identifier = entity.AddIdentifier(request.Type, request.Value, timeProvider.GetUtcNow(), request.Jurisdiction);
             db.Entry(identifier).State = EntityState.Added; // client-generated PK via loaded nav — force INSERT (see AddIdentifier)
             await audit.RecordAsync(user.Mutation(
                 entity.TenantId, "Entity", entity.Id.ToString(), "entity.supplier.self_identifier_add", $"{request.Type}"), cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
-            return TypedResults.Ok(new EntityIdentifierResponse(identifier.Id, identifier.Type, identifier.Value, identifier.VerificationStatus));
+            return TypedResults.Ok(ToIdentifierResponse(identifier));
         }
         catch (DomainRuleException ex)
         {
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [nameof(request.Value)] = [ex.Message] });
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { [ex.Field ?? nameof(request.Value)] = [ex.Message] });
         }
     }
 
@@ -987,7 +1011,10 @@ public sealed record EntitySummaryResponse(
 
 public sealed record AddIdentifierRequest(
     [property: Required] EntityIdentifierType Type,
-    [property: Required, StringLength(80, MinimumLength = 2)] string Value);
+    [property: Required, StringLength(80, MinimumLength = 2)] string Value,
+    // ADR-0063 P2: the tax jurisdiction (ISO country + optional region, e.g. US-CA). Required for
+    // UsStateSalesTaxId; optional elsewhere (derived from the scheme / EU VAT prefix when omitted).
+    [property: StringLength(6)] string? Jurisdiction = null);
 
 public sealed record AddContactRequest(
     [property: Required] EntityContactPurpose Purpose,
@@ -1003,7 +1030,7 @@ public sealed record AddAddressRequest(
     [property: Required, StringLength(200, MinimumLength = 2)] string Postcode,
     [property: Required, StringLength(2, MinimumLength = 2)] string CountryCode);
 
-public sealed record EntityIdentifierResponse(Guid Id, EntityIdentifierType Type, string Value, EntityVerificationStatus VerificationStatus);
+public sealed record EntityIdentifierResponse(Guid Id, EntityIdentifierType Type, string Value, EntityVerificationStatus VerificationStatus, string? Jurisdiction = null);
 public sealed record EntityContactResponse(Guid Id, EntityContactPurpose Purpose, EntityContactKind Kind, string Value);
 public sealed record EntityAddressResponse(Guid Id, EntityAddressPurpose Purpose, string Line1, string? Line2, string City, string? Region, string Postcode, string CountryCode);
 
@@ -1017,7 +1044,10 @@ public sealed record EntityDetailResponse(
     EntityRecordStatus Status,
     IReadOnlyList<EntityIdentifierResponse> Identifiers,
     IReadOnlyList<EntityContactResponse> Contacts,
-    IReadOnlyList<EntityAddressResponse> Addresses);
+    IReadOnlyList<EntityAddressResponse> Addresses,
+    // ADR-0063 P2: whether this entity is the tenant's seller of record, and its establishments.
+    bool IsSeller = false,
+    IReadOnlyList<SellerEstablishmentResponse>? Establishments = null);
 
 public sealed record OverrideDuplicateWarningRequest([property: Required, StringLength(500, MinimumLength = 8)] string Reason);
 

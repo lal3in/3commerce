@@ -496,6 +496,10 @@ namespace ThreeCommerce.Entity.Infrastructure.Migrations
                     b.Property<Guid>("EntityId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Jurisdiction")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -624,6 +628,72 @@ namespace ThreeCommerce.Entity.Infrastructure.Migrations
                     b.HasIndex("TenantId", "ToEntityId", "Type", "EffectiveTo");
 
                     b.ToTable("EntityRelationships", "entity");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Entity.Domain.SellerEstablishment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Jurisdiction")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Line1")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Line2")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Postcode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Region")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("SellerEstablishments", "entity");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Entity.Domain.SupplierChangeRequest", b =>
@@ -770,11 +840,22 @@ namespace ThreeCommerce.Entity.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Entity.Domain.SellerEstablishment", b =>
+                {
+                    b.HasOne("ThreeCommerce.Entity.Domain.EntityRecord", null)
+                        .WithMany("Establishments")
+                        .HasForeignKey("EntityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ThreeCommerce.Entity.Domain.EntityRecord", b =>
                 {
                     b.Navigation("Addresses");
 
                     b.Navigation("ContactMethods");
+
+                    b.Navigation("Establishments");
 
                     b.Navigation("Identifiers");
 

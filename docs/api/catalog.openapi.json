@@ -2064,6 +2064,109 @@
           }
         }
       },
+      "CreatePromotionRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "currency",
+          "scope"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "Thresholds and the fixed discount are denominated in THIS currency and are never converted (no FX)."
+          },
+          "scope": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Money threshold, minor units. 0 = none. Both thresholds set are ANDed."
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "grantsFreeShipping": {
+            "type": "boolean"
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "combinable": {
+            "type": "boolean",
+            "description": "true stacks with other combinable promotions; false = exclusive."
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
+          }
+        }
+      },
       "CreateStorefrontRequest": {
         "required": [
           "tenantId",
@@ -2121,8 +2224,8 @@
             "minimum": 0,
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
-              "integer",
               "null",
+              "integer",
               "string"
             ],
             "format": "int32"
@@ -2192,12 +2295,28 @@
           },
           "shipToCountries": {
             "type": [
-              "array",
-              "null"
+              "null",
+              "array"
             ],
             "items": {
               "type": "string"
             }
+          },
+          "taxJurisdiction": {
+            "maxLength": 6,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sellerEstablishmentKey": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -3010,8 +3129,110 @@
           }
         }
       },
-      "PublicationState": {
-        "type": "integer"
+      "PromotionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "scope": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 = Storefront (whole cart), 2 = Product. Enums cross HTTP as numbers."
+          },
+          "scopeName": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "grantsFreeShipping": {
+            "type": "boolean"
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "combinable": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "productTitle": {
+            "type": "string"
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
+          }
+        }
       },
       "PublicStorefrontResponse": {
         "required": [
@@ -3084,6 +3305,9 @@
             "format": "int32"
           }
         }
+      },
+      "PublicationState": {
+        "type": "integer"
       },
       "ReplyDto": {
         "required": [
@@ -3391,8 +3615,15 @@
               "null",
               "string"
             ],
-            "format": "uuid",
-            "description": "Read-only: the storefront this one was duplicated from (set by POST /admin/storefronts/{id}/duplicate); null for storefronts created any other way and for copies made before the link was recorded. No request can set or change it."
+            "format": "uuid"
+          },
+          "taxJurisdiction": {
+            "type": "string",
+            "default": ""
+          },
+          "sellerEstablishmentKey": {
+            "type": "string",
+            "default": ""
           }
         }
       },
@@ -3557,6 +3788,94 @@
           }
         }
       },
+      "UpdatePromotionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimumAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "minimumQuantity": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "grantsFreeShipping": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "percentOff": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "discountAmountMinor": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "combinable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "applyScope": {
+            "type": "boolean",
+            "description": "Opt in to setting storefrontId + the active window; false preserves the current scope/window."
+          },
+          "storefrontId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "applyCode": {
+            "type": "boolean",
+            "description": "Opt in to setting code (ADR-0052); false preserves the current code. Null is meaningful (no code = automatic)."
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40,
+            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
+          },
+          "applyUsageLimits": {
+            "type": "boolean",
+            "description": "Opt in to setting both usage limits (ADR-0052); false preserves the current limits. Null is meaningful (no limit = unlimited)."
+          },
+          "maxRedemptions": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
+          },
+          "maxRedemptionsPerCustomer": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
+          }
+        }
+      },
       "UpdateStorefrontRequest": {
         "required": [
           "name",
@@ -3610,8 +3929,8 @@
             "minimum": 0,
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
-              "integer",
               "null",
+              "integer",
               "string"
             ],
             "format": "int32"
@@ -3681,12 +4000,28 @@
           },
           "shipToCountries": {
             "type": [
-              "array",
-              "null"
+              "null",
+              "array"
             ],
             "items": {
               "type": "string"
             }
+          },
+          "taxJurisdiction": {
+            "maxLength": 6,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sellerEstablishmentKey": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -3985,302 +4320,6 @@
             "items": {
               "$ref": "#/components/schemas/CurrencyPriceDto"
             }
-          }
-        }
-      },
-      "PromotionDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "storefrontId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "currency": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 3
-          },
-          "scope": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-              1,
-              2
-            ],
-            "description": "1 = Storefront (whole cart), 2 = Product. Enums cross HTTP as numbers."
-          },
-          "scopeName": {
-            "type": "string"
-          },
-          "productId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "minimumAmountMinor": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "minimumQuantity": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "grantsFreeShipping": {
-            "type": "boolean"
-          },
-          "percentOff": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "discountAmountMinor": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "combinable": {
-            "type": "boolean"
-          },
-          "status": {
-            "type": "string"
-          },
-          "active": {
-            "type": "boolean"
-          },
-          "productTitle": {
-            "type": "string"
-          },
-          "activeFrom": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "activeUntil": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "code": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 40,
-            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
-          },
-          "maxRedemptions": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
-          },
-          "maxRedemptionsPerCustomer": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
-          }
-        }
-      },
-      "CreatePromotionRequest": {
-        "type": "object",
-        "required": [
-          "name",
-          "currency",
-          "scope"
-        ],
-        "properties": {
-          "tenantId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "currency": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 3,
-            "description": "Thresholds and the fixed discount are denominated in THIS currency and are never converted (no FX)."
-          },
-          "scope": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-              1,
-              2
-            ]
-          },
-          "productId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "storefrontId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "minimumAmountMinor": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "description": "Money threshold, minor units. 0 = none. Both thresholds set are ANDed."
-          },
-          "minimumQuantity": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "grantsFreeShipping": {
-            "type": "boolean"
-          },
-          "percentOff": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "discountAmountMinor": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "combinable": {
-            "type": "boolean",
-            "description": "true stacks with other combinable promotions; false = exclusive."
-          },
-          "activeFrom": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "activeUntil": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "code": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 40,
-            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
-          },
-          "maxRedemptions": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
-          },
-          "maxRedemptionsPerCustomer": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
-          }
-        }
-      },
-      "UpdatePromotionRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "minimumAmountMinor": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "minimumQuantity": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "grantsFreeShipping": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "percentOff": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "discountAmountMinor": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "combinable": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "active": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "applyScope": {
-            "type": "boolean",
-            "description": "Opt in to setting storefrontId + the active window; false preserves the current scope/window."
-          },
-          "storefrontId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "activeFrom": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "activeUntil": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "applyCode": {
-            "type": "boolean",
-            "description": "Opt in to setting code (ADR-0052); false preserves the current code. Null is meaningful (no code = automatic)."
-          },
-          "code": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 40,
-            "description": "Coupon code (ADR-0052). Set => the promotion applies ONLY when the shopper enters this code; null/blank => automatic. Normalized to trimmed UPPERCASE (letters, digits, '-', '_') and unique per tenant among non-null codes; a duplicate is a 400."
-          },
-          "applyUsageLimits": {
-            "type": "boolean",
-            "description": "Opt in to setting both usage limits (ADR-0052); false preserves the current limits. Null is meaningful (no limit = unlimited)."
-          },
-          "maxRedemptions": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Total redemptions allowed across all shoppers; null = unlimited. Single-use is simply 1. Enforced race-safely at checkout."
-          },
-          "maxRedemptionsPerCustomer": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true,
-            "minimum": 1,
-            "description": "Redemptions allowed per customer; null = unlimited. Customer = signed-in user id, else the normalized checkout email, so guests count."
           }
         }
       }

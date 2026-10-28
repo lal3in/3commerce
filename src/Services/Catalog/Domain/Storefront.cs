@@ -79,6 +79,19 @@ public sealed class Storefront
     /// </summary>
     public List<string> ShipToCountries { get; private set; } = [];
 
+    /// <summary>
+    /// Where this storefront's sales are taxed (ADR-0063 § 7.3, P2): an ISO 3166-1 alpha-2 country with an
+    /// optional ISO 3166-2 subdivision (<c>AU</c>, <c>DE</c>, <c>US-CA</c>). Empty = not configured yet. Selects
+    /// the invoicing jurisdiction profile (phase 1) and is projected to Ordering via <c>StorefrontConfigChanged</c>.
+    /// </summary>
+    public string TaxJurisdiction { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The key of the seller establishment (Entity, the tenant's seller of record) this storefront sells from —
+    /// ADR-0063 P2. Empty = not bound yet. A key, not an id, so it survives the establishment being edited.
+    /// </summary>
+    public string SellerEstablishmentKey { get; private set; } = string.Empty;
+
     private Storefront()
     {
     }
@@ -383,7 +396,7 @@ public sealed class Storefront
 
     /// <summary>
     /// Clones the shopper-facing configuration of <paramref name="source"/> into a brand-new storefront:
-    /// same currency/tax/language/theme, but with FRESH auto-derived ledger accounts (the safety invariant —
+    /// same currency/tax/language/theme/tax jurisdiction/seller establishment, but with FRESH auto-derived ledger accounts (the safety invariant —
     /// <see cref="SetLedgerAccounts"/>(null,…) derives <c>{kind}.store-{newId:N}</c> from the new id, so the
     /// clone's books never share the source's). Deliberately NOT copied: PublicUrl, domains, visibility
     /// (stays Private), state (stays Draft), access password, account-code strings. Product publications and
@@ -400,8 +413,70 @@ public sealed class Storefront
         clone.SetTheme(source.ThemeJson, now);
         clone.SetCostAssumptions(source.CostAssumptionsJson, now);
         clone.SetLedgerAccounts(null, null, null, now, null);
+        // Same seller, same place of taxation (ADR-0063 P2): the copy sells from the source's establishment.
+        clone.SetTaxIdentity(source.TaxJurisdiction, source.SellerEstablishmentKey, now);
         return clone;
     }
+
+    /// <summary>
+    /// Sets the storefront's tax jurisdiction and seller-establishment binding (ADR-0063 P2). Each argument
+    /// follows the older-client convention: null leaves the current value untouched (an admin client that does
+    /// not know the field can't wipe it), an empty string clears it. Invalid values throw naming the field.
+    /// </summary>
+    public void SetTaxIdentity(string? taxJurisdiction, string? sellerEstablishmentKey, DateTimeOffset now)
+    {
+        if (taxJurisdiction is not null)
+        {
+            TaxJurisdiction = NormalizeTaxJurisdiction(taxJurisdiction);
+            UpdatedAt = now;
+        }
+
+        if (sellerEstablishmentKey is not null)
+        {
+            SellerEstablishmentKey = NormalizeEstablishmentKey(sellerEstablishmentKey);
+            UpdatedAt = now;
+        }
+    }
+
+    private static string NormalizeTaxJurisdiction(string value)
+    {
+        var normalized = value.Trim().ToUpperInvariant();
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (!TaxJurisdictionShape.IsMatch(normalized))
+        {
+            throw new CatalogRuleException(
+                $"Tax jurisdiction '{value.Trim()}' must be an ISO country code with an optional region, e.g. AU, DE or US-CA.",
+                nameof(TaxJurisdiction));
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeEstablishmentKey(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        // Mirrors Entity's SellerEstablishment key rule (duplicated on purpose — no shared domain logic).
+        if (!EstablishmentKeyShape.IsMatch(normalized))
+        {
+            throw new CatalogRuleException(
+                "Seller establishment key must be 2–40 lowercase letters, digits or hyphens (e.g. sydney-hq).",
+                nameof(SellerEstablishmentKey));
+        }
+
+        return normalized;
+    }
+
+    private static readonly Regex TaxJurisdictionShape = new(@"^[A-Z]{2}(-[A-Z0-9]{1,3})?$", RegexOptions.Compiled);
+    private static readonly Regex EstablishmentKeyShape = new(@"^[a-z0-9][a-z0-9-]{1,39}$", RegexOptions.Compiled);
 
     public void Rename(string name, DateTimeOffset now)
     {

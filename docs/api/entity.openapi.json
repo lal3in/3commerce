@@ -1441,6 +1441,230 @@
           }
         }
       }
+    },
+    "/entities/seller": {
+      "get": {
+        "tags": [
+          "Seller identity"
+        ],
+        "summary": "The tenant's seller of record with its tax identifiers and establishments (404 when none is designated).",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerIdentityResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/entities/{id}/seller": {
+      "post": {
+        "tags": [
+          "Seller identity"
+        ],
+        "summary": "Designate the entity as its tenant's seller of record (409 when another entity already is).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{id}/establishments": {
+      "post": {
+        "tags": [
+          "Seller identity"
+        ],
+        "summary": "Add a seller establishment (address + tax jurisdiction) with a stable key storefronts bind to.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddEstablishmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entities/{id}/establishments/{establishmentId}": {
+      "put": {
+        "tags": [
+          "Seller identity"
+        ],
+        "summary": "Edit a seller establishment's label, address or jurisdiction (the key is immutable).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "establishmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEstablishmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1515,6 +1739,75 @@
           }
         }
       },
+      "AddEstablishmentRequest": {
+        "required": [
+          "key",
+          "label",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postcode",
+          "countryCode"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "maxLength": 40,
+            "minLength": 2,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "line2": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 120,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "maxLength": 32,
+            "minLength": 2,
+            "type": "string"
+          },
+          "countryCode": {
+            "maxLength": 2,
+            "minLength": 2,
+            "type": "string"
+          },
+          "jurisdiction": {
+            "maxLength": 6,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AddIdentifierRequest": {
         "required": [
           "type",
@@ -1529,6 +1822,14 @@
             "maxLength": 80,
             "minLength": 2,
             "type": "string"
+          },
+          "jurisdiction": {
+            "maxLength": 6,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1896,6 +2197,19 @@
             "items": {
               "$ref": "#/components/schemas/EntityAddressResponse"
             }
+          },
+          "isSeller": {
+            "type": "boolean",
+            "default": false
+          },
+          "establishments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SellerEstablishmentResponse"
+            }
           }
         }
       },
@@ -1920,6 +2234,12 @@
           },
           "verificationStatus": {
             "$ref": "#/components/schemas/EntityVerificationStatus"
+          },
+          "jurisdiction": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2090,6 +2410,44 @@
           }
         }
       },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RejectSupplierChangeRequestBody": {
         "required": [
           "reason"
@@ -2100,6 +2458,122 @@
             "maxLength": 500,
             "minLength": 8,
             "type": "string"
+          }
+        }
+      },
+      "SellerEstablishmentResponse": {
+        "required": [
+          "id",
+          "key",
+          "label",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postcode",
+          "countryCode",
+          "jurisdiction",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "jurisdiction": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SellerIdentityResponse": {
+        "required": [
+          "entityId",
+          "tenantId",
+          "legalName",
+          "tradingName",
+          "displayName",
+          "identifiers",
+          "establishments",
+          "registeredOffice"
+        ],
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "legalName": {
+            "type": "string"
+          },
+          "tradingName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "identifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityIdentifierResponse"
+            }
+          },
+          "establishments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SellerEstablishmentResponse"
+            }
+          },
+          "registeredOffice": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EntityAddressResponse"
+              }
+            ]
           }
         }
       },
@@ -2378,6 +2852,69 @@
             "type": "string"
           },
           "tradingName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UpdateEstablishmentRequest": {
+        "required": [
+          "label",
+          "line1",
+          "line2",
+          "city",
+          "region",
+          "postcode",
+          "countryCode"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 2,
+            "type": "string"
+          },
+          "line2": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "maxLength": 120,
+            "minLength": 2,
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 120,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "maxLength": 32,
+            "minLength": 2,
+            "type": "string"
+          },
+          "countryCode": {
+            "maxLength": 2,
+            "minLength": 2,
+            "type": "string"
+          },
+          "jurisdiction": {
+            "maxLength": 6,
+            "minLength": 0,
             "type": [
               "null",
               "string"

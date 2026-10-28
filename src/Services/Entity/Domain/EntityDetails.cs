@@ -29,9 +29,19 @@ public sealed class EntityIdentifier
     public Guid EntityId { get; init; }
     public EntityIdentifierType Type { get; init; }
     public required string Value { get; init; }
+
+    /// <summary>
+    /// The tax jurisdiction the identifier belongs to (ISO country, optional region: <c>DE</c>, <c>US-CA</c>,
+    /// <c>GB-NIR</c>) — ADR-0063 P2. Null on identifiers stored before P2 and on free-form schemes without
+    /// one; read through <see cref="EffectiveJurisdiction"/>, which derives it from the scheme.
+    /// </summary>
+    public string? Jurisdiction { get; init; }
+
     public EntityVerificationStatus VerificationStatus { get; set; } = EntityVerificationStatus.Unverified;
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? VerifiedAt { get; set; }
+
+    public string? EffectiveJurisdiction => Jurisdiction ?? TaxIdentifierFormats.ImpliedJurisdiction(Type, Value);
 }
 
 public sealed class EntityContactMethod
@@ -120,6 +130,15 @@ public enum EntityIdentifierType
     Acn = 2,
     Gst = 3,
     OtherTaxRegistration = 4,
+
+    // ADR-0063 P2 seller/buyer tax-ID schemes. Values are part of the HTTP contract (enums cross as numbers)
+    // and mirrored by BuildingBlocks.Contracts.Tax.TaxIdScheme — append only, never renumber.
+    EuVat = 5,
+    GbVrn = 6,
+    NzGst = 7,
+    CaBn = 8,
+    ChUid = 9,
+    UsStateSalesTaxId = 10,
 }
 
 public enum EntityVerificationStatus

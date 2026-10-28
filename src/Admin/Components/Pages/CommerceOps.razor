@@ -167,7 +167,26 @@
             <label>@L["Ops.Field.TaxBps"]<br /><input type="number" @bind="_editTaxRateBasisPoints" style="padding:.4rem;" title="@L["Ops.Field.TaxBps.Tip"]" /></label>
             <label>@L["Ops.Field.Discount"]<br /><input type="number" min="0" max="100" step="0.01" @bind="_editDiscountPercent" style="padding:.4rem;" title="@L["Ops.Field.Discount.Tip"]" /></label>
             <label>@L["Ops.Field.Visibility"]<br /><select @bind="_editVisibility" style="padding:.4rem;" title="@L["Ops.Field.Visibility.Tip"]"><option value="1">@L["Ops.Visibility.Private"]</option><option value="2">@L["Ops.Visibility.Password"]</option><option value="3">@L["Ops.Visibility.InviteOnly"]</option><option value="4">@L["Ops.Visibility.Public"]</option></select></label>
-            <button @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
+            @* ADR-0063 P2: where this storefront's sales are taxed, and which seller establishment it sells from. *@
+            <label>@L["Ops.Field.TaxJurisdiction"]<br /><input id="sf-tax-jurisdiction" @bind="_editTaxJurisdiction" placeholder="AU · DE · US-CA" style="padding:.4rem;" title="@L["Ops.Field.TaxJurisdiction.Tip"]" /></label>
+            <label>@L["Ops.Field.SellerEstablishment"]<br />
+                <select id="sf-seller-establishment" @bind="_editSellerEstablishmentKey" style="padding:.4rem;" title="@L["Ops.Field.SellerEstablishment.Tip"]">
+                    <option value="">@L["Ops.SellerEstablishment.None"]</option>
+                    @foreach (var e in _sellerEstablishments)
+                    {
+                        <option value="@e.Key">@e.Key · @e.Label (@e.Jurisdiction)</option>
+                    }
+                    @if (!string.IsNullOrEmpty(_editSellerEstablishmentKey) && _sellerEstablishments.All(e => e.Key != _editSellerEstablishmentKey))
+                    {
+                        <option value="@_editSellerEstablishmentKey">@_editSellerEstablishmentKey · @L["Ops.SellerEstablishment.Unknown"]</option>
+                    }
+                </select>
+            </label>
+            <button id="sf-save-settings" @onclick="UpdateStorefront" title="@L["Ops.SaveSettings.Tip"]">@L["Ops.SaveSettings"]</button>
+            @if (_sellerEstablishments.Count == 0)
+            {
+                <p style="grid-column:1 / -1; margin:0; color:#6b7280; font-size:.8rem;">@L["Ops.SellerEstablishment.Hint"]</p>
+            }
         </div>
 
         <h3>@L["Ops.Theme"]</h3>
@@ -404,6 +423,10 @@
     private decimal _editDiscountPercent;
     private int _editVisibility = 1;
     private string[] _editShipTo = [];
+    private string _editTaxJurisdiction = string.Empty;
+    private string _editSellerEstablishmentKey = string.Empty;
+    // The tenant's seller establishments (Entity GET /entities/seller) offered as the storefront binding.
+    private List<SellerEstablishmentDto> _sellerEstablishments = [];
 
     // Per-storefront theme tokens (mt5_6), edited on the Manage surface. Blank = leave that token defaulted.
     private string _themeColorPrimary = string.Empty;
@@ -430,6 +453,9 @@
         _error = null;
         _transitionReadiness = null;
         _storefronts = await Gateway.GetListAsync<StorefrontDto>($"/api/catalog/admin/storefronts?tenantId={Uri.EscapeDataString(_tenantId)}");
+        // 404 (no seller of record designated yet) → no establishments to offer; the hint says where to add them.
+        var seller = await Gateway.GetAsync<SellerDto>($"/api/entity/entities/seller?tenantId={Uri.EscapeDataString(_tenantId)}");
+        _sellerEstablishments = seller?.Establishments ?? [];
     }
 
     private async Task CreateStorefront()
@@ -457,6 +483,8 @@
         _editDiscountPercent = storefront.DiscountBasisPoints / 100m;
         _editVisibility = storefront.Visibility;
         _editShipTo = storefront.ShipToCountries?.ToArray() ?? [];
+        _editTaxJurisdiction = storefront.TaxJurisdiction ?? string.Empty;
+        _editSellerEstablishmentKey = storefront.SellerEstablishmentKey ?? string.Empty;
         _themeColorPrimary = ThemeValue(storefront, "colorPrimary");
         _themeColorBg = ThemeValue(storefront, "colorBg");
         _themeColorText = ThemeValue(storefront, "colorText");
@@ -553,7 +581,7 @@
         var selectedId = _selectedStorefront.Id;
         // Enums cross HTTP as numbers (platform invariant); the <select>s bind to int fields, so
         // visibility/taxRegime already serialize as numeric enum values here.
-        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, discountBasisPoints = PercentToBps(_editDiscountPercent), theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo });
+        var response = await Gateway.PutAsync($"/api/catalog/admin/storefronts/{selectedId}", new { name = _editName, visibility = _editVisibility, publicUrl = _editPublicUrl, currency = _editCurrency, taxRegime = _editTaxRegime, taxRateBasisPoints = _editTaxRateBasisPoints, discountBasisPoints = PercentToBps(_editDiscountPercent), theme = BuildThemeDict(), costAssumptions = BuildCostAssumptionsDict(), shipToCountries = _editShipTo, taxJurisdiction = (_editTaxJurisdiction ?? string.Empty).Trim(), sellerEstablishmentKey = _editSellerEstablishmentKey ?? string.Empty });
         await LoadStorefronts();
         if (await HandleMutation(response, L["Ops.Status.SettingsUpdated"]))
         {
@@ -674,7 +702,9 @@
     // A percent entered in the UI (e.g. 8.25) → basis points (825), clamped to the domain's 0–100% range.
     private static int PercentToBps(decimal percent) => (int)Math.Round(Math.Clamp(percent, 0m, 100m) * 100m, MidpointRounding.AwayFromZero);
 
-    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null, int DiscountBasisPoints = 0, Guid? DuplicatedFromStorefrontId = null);
+    public sealed record StorefrontDto(Guid Id, Guid TenantId, string Name, int State, int Visibility, string PublicUrl, string Currency, int TaxRegime, int TaxRateBasisPoints, string ReceivableAccountCode, string RevenueAccountCode, string TaxAccountCode, Dictionary<string, string>? Theme, Dictionary<string, int>? CostAssumptions, List<StorefrontDomainDto> Domains, List<string>? ShipToCountries = null, int DiscountBasisPoints = 0, Guid? DuplicatedFromStorefrontId = null, string TaxJurisdiction = "", string SellerEstablishmentKey = "");
+    public sealed record SellerEstablishmentDto(Guid Id, string Key, string Label, string Jurisdiction);
+    public sealed record SellerDto(Guid EntityId, string LegalName, List<SellerEstablishmentDto> Establishments);
     public sealed record StorefrontDomainDto(Guid Id, string Host, bool Canonical);
     public sealed record ReadinessDto(bool IsReady, List<string> MissingRequirements);
     public sealed record StorefrontProductDto(Guid ProductId, string Title, string State, string StorefrontCurrency, bool CurrencyReady);

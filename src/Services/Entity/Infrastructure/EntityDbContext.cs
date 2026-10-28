@@ -13,6 +13,7 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
     public DbSet<EntityAddress> EntityAddresses => Set<EntityAddress>();
     public DbSet<EntityIdentifier> EntityIdentifiers => Set<EntityIdentifier>();
     public DbSet<EntityContactMethod> EntityContactMethods => Set<EntityContactMethod>();
+    public DbSet<SellerEstablishment> SellerEstablishments => Set<SellerEstablishment>();
     public DbSet<EntityRelationship> EntityRelationships => Set<EntityRelationship>();
     public DbSet<DuplicateWarning> DuplicateWarnings => Set<DuplicateWarning>();
     public DbSet<SupplierOnboarding> SupplierOnboardings => Set<SupplierOnboarding>();
@@ -51,6 +52,25 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
             entity.HasMany(e => e.Addresses).WithOne().HasForeignKey(a => a.EntityId);
             entity.HasMany(e => e.Identifiers).WithOne().HasForeignKey(i => i.EntityId);
             entity.HasMany(e => e.ContactMethods).WithOne().HasForeignKey(c => c.EntityId);
+            entity.HasMany(e => e.Establishments).WithOne().HasForeignKey(s => s.EntityId);
+            entity.Ignore(e => e.IsSeller);
+        });
+
+        modelBuilder.Entity<SellerEstablishment>(establishment =>
+        {
+            establishment.ToTable("SellerEstablishments");
+            establishment.HasKey(s => s.Id);
+            establishment.Property(s => s.Key).HasMaxLength(40);
+            establishment.Property(s => s.Label).HasMaxLength(120);
+            establishment.Property(s => s.Line1).HasMaxLength(200);
+            establishment.Property(s => s.Line2).HasMaxLength(200);
+            establishment.Property(s => s.City).HasMaxLength(120);
+            establishment.Property(s => s.Region).HasMaxLength(120);
+            establishment.Property(s => s.Postcode).HasMaxLength(32);
+            establishment.Property(s => s.CountryCode).HasMaxLength(2);
+            establishment.Property(s => s.Jurisdiction).HasMaxLength(6);
+            // A storefront binds to an establishment by key, so a key names exactly one per entity.
+            establishment.HasIndex(s => new { s.EntityId, s.Key }).IsUnique();
         });
 
         modelBuilder.Entity<EntityProfile>(profile =>
@@ -80,6 +100,8 @@ public sealed class EntityDbContext(DbContextOptions<EntityDbContext> options) :
             identifier.ToTable("EntityIdentifiers");
             identifier.HasKey(i => i.Id);
             identifier.Property(i => i.Value).HasMaxLength(80);
+            identifier.Property(i => i.Jurisdiction).HasMaxLength(6);
+            identifier.Ignore(i => i.EffectiveJurisdiction);
             identifier.HasIndex(i => new { i.Type, i.Value });
             identifier.HasIndex(i => new { i.EntityId, i.Type });
         });

@@ -187,6 +187,9 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
             // BCP-47 default UI language (i18n_0) — independent of Currency/TaxRegime.
             storefront.Property(s => s.DefaultLanguage).HasMaxLength(16).HasDefaultValue(SupportedLanguages.Default);
             storefront.Property(s => s.TaxRegime).HasConversion<string>().HasMaxLength(24);
+            // ADR-0063 P2: place of taxation + seller establishment binding; '' = not configured yet.
+            storefront.Property(s => s.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
+            storefront.Property(s => s.SellerEstablishmentKey).HasMaxLength(40).HasDefaultValue(string.Empty);
             // Per-storefront ledger accounts (phase 2); default '' at rest, auto-derived by the domain.
             storefront.Property(s => s.ReceivableAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);
             storefront.Property(s => s.RevenueAccountCode).HasMaxLength(80).HasDefaultValue(string.Empty);

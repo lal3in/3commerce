@@ -732,7 +732,7 @@
   <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>Attestez que cet identifiant a été vérifié (le marque comme vérifié).</value></data>
   <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>Type d'identifiant à ajouter.</value></data>
   <data name="Entities.Ident.Value" xml:space="preserve"><value>Valeur de l'identifiant</value></data>
-  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>L'ABN comporte 11 chiffres ; l'ACN comporte 9 chiffres.</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>Format par schéma : ABN 11 chiffres ; ACN 9 chiffres ; TVA UE = préfixe pays + numéro (DE123456789) ; VRN UK GB + 9 chiffres ; GST NZ 8–9 chiffres ; NE CA 9 chiffres (+ RT0001) ; IDE CH CHE-123.456.789 (TVA) ; l'ID d'État US exige l'État comme juridiction.</value></data>
   <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>Ajoutez cet identifiant à l'entité.</value></data>
   <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
   <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
@@ -1806,4 +1806,40 @@
   <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>{0} utilisées</value></data>
   <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · {2} restantes</value></data>
   <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>{0} retenues · {1} confirmées</value></data>
+  <data name="Entities.IdType.EuVat" xml:space="preserve"><value>N° TVA intracommunautaire</value></data>
+  <data name="Entities.IdType.GbVrn" xml:space="preserve"><value>N° TVA britannique (VRN)</value></data>
+  <data name="Entities.IdType.NzGst" xml:space="preserve"><value>N° GST néo-zélandais</value></data>
+  <data name="Entities.IdType.CaBn" xml:space="preserve"><value>NE canadien / TPS-TVH</value></data>
+  <data name="Entities.IdType.ChUid" xml:space="preserve"><value>IDE suisse / TVA</value></data>
+  <data name="Entities.IdType.UsStateSalesTaxId" xml:space="preserve"><value>ID taxe de vente d'État (US)</value></data>
+  <data name="Entities.Ident.Jurisdiction" xml:space="preserve"><value>Juridiction</value></data>
+  <data name="Entities.Ident.Jurisdiction.Tip" xml:space="preserve"><value>Juridiction fiscale : code pays ISO avec région facultative (ex. US-CA). Obligatoire pour un ID de taxe de vente d'État américain ; sinon facultative — déduite du schéma ou du préfixe TVA UE.</value></data>
+  <data name="Entities.Seller.Heading" xml:space="preserve"><value>Vendeur officiel</value></data>
+  <data name="Entities.Seller.Intro" xml:space="preserve"><value>L'entité juridique qui vend sur les boutiques de ce locataire et émettra ses factures. Un locataire en a exactement une. Ses identifiants fiscaux sont ceux ci-dessus ; ses établissements sont les lieux d'où elle exerce.</value></data>
+  <data name="Entities.Seller.Designate" xml:space="preserve"><value>Définir comme vendeur officiel</value></data>
+  <data name="Entities.Seller.Designate.Tip" xml:space="preserve"><value>Désigner cette entité comme vendeur officiel du locataire. Refusé si une autre entité l'est déjà.</value></data>
+  <data name="Entities.Seller.IsSeller" xml:space="preserve"><value>Cette entité est le vendeur officiel du locataire.</value></data>
+  <data name="Entities.Est.Heading" xml:space="preserve"><value>Établissements</value></data>
+  <data name="Entities.Est.None" xml:space="preserve"><value>Aucun établissement — ajoutez-en un pour que les boutiques puissent s'y rattacher.</value></data>
+  <data name="Entities.Est.JurisdictionShort" xml:space="preserve"><value>imposé en</value></data>
+  <data name="Entities.Est.Edit" xml:space="preserve"><value>Modifier</value></data>
+  <data name="Entities.Est.Edit.Tip" xml:space="preserve"><value>Charger cet établissement dans le formulaire pour modifier son libellé, son adresse ou sa juridiction. La clé ne change pas.</value></data>
+  <data name="Entities.Est.Key" xml:space="preserve"><value>Clé (ex. sydney-hq)</value></data>
+  <data name="Entities.Est.Key.Tip" xml:space="preserve"><value>Clé stable à laquelle les boutiques se rattachent : 2 à 40 minuscules, chiffres ou tirets. Unique par vendeur et immuable une fois créée.</value></data>
+  <data name="Entities.Est.Label" xml:space="preserve"><value>Libellé</value></data>
+  <data name="Entities.Est.Label.Tip" xml:space="preserve"><value>Un nom parlant, ex. siège de Sydney.</value></data>
+  <data name="Entities.Est.Country.Tip" xml:space="preserve"><value>Pays de l'adresse de l'établissement — la juridiction doit être dans ce pays.</value></data>
+  <data name="Entities.Est.Jurisdiction" xml:space="preserve"><value>Juridiction (facultatif, ex. US-CA)</value></data>
+  <data name="Entities.Est.Jurisdiction.Tip" xml:space="preserve"><value>Lieu d'imposition de l'établissement : le pays de l'adresse par défaut ; une région (US-CA) le précise. Pas d'autre pays.</value></data>
+  <data name="Entities.Est.Save.Tip" xml:space="preserve"><value>Enregistrer l'établissement (journalisé dans l'audit et transmis aux services qui impriment le vendeur sur les documents fiscaux).</value></data>
+  <data name="Entities.Info.SellerDesignated" xml:space="preserve"><value>Entité définie comme vendeur officiel.</value></data>
+  <data name="Entities.Info.EstablishmentAdded" xml:space="preserve"><value>Établissement ajouté.</value></data>
+  <data name="Entities.Info.EstablishmentUpdated" xml:space="preserve"><value>Établissement mis à jour.</value></data>
+  <data name="Ops.Field.TaxJurisdiction" xml:space="preserve"><value>Juridiction fiscale</value></data>
+  <data name="Ops.Field.TaxJurisdiction.Tip" xml:space="preserve"><value>Lieu d'imposition des ventes de cette boutique : code pays ISO avec région facultative (AU, DE, US-CA). Détermine les règles de facturation. Laissez vide tant que non décidé ; l'effacer est permis.</value></data>
+  <data name="Ops.Field.SellerEstablishment" xml:space="preserve"><value>Établissement du vendeur</value></data>
+  <data name="Ops.Field.SellerEstablishment.Tip" xml:space="preserve"><value>L'établissement du vendeur officiel depuis lequel cette boutique vend (Entités → vendeur officiel). Une boutique dupliquée garde le même.</value></data>
+  <data name="Ops.SellerEstablishment.None" xml:space="preserve"><value>— non rattaché —</value></data>
+  <data name="Ops.SellerEstablishment.Unknown" xml:space="preserve"><value>pas un établissement du vendeur</value></data>
+  <data name="Ops.SellerEstablishment.Hint" xml:space="preserve"><value>Aucun établissement : définissez le vendeur officiel et ajoutez ses établissements sous Entités.</value></data>
 </root>

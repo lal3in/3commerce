@@ -770,3 +770,44 @@ orders.
   (re-verify the research doc before each phase). Legal labels in six languages need professional review.
   Clearance mandates (IT, PL, BE, FR, DE, ES) gate B2B in those countries until phase 3, and the readiness
   gate enforces that.
+
+---
+
+## 16. Implementation notes
+
+### P2 — seller tax identity (2026-10-27, `feature/tax-seller-identity`, tracker `tax_p2_seller_identity`)
+
+* **Entity.** `EntityIdentifierType` appends `EuVat 5 · GbVrn 6 · NzGst 7 · CaBn 8 · ChUid 9 · UsStateSalesTaxId 10`
+  (mirrored by the contract enum `BuildingBlocks.Contracts.Tax.TaxIdScheme`, value parity pinned by a unit test — the
+  scheme vocabulary P3 reuses). `TaxIdentifierFormats` validates **format only** per scheme: EU VAT by Member-State
+  prefix (all 27 + `XI`; Greece is `EL`, `GR` refused) and national shape; UK VRN `GB` + 9/12 digits or GD/HA; NZ
+  GST 8–9 digits; CA BN 9 digits (+ program account); CH UID `CHE` + 9 digits (+ MWST/TVA/IVA); a US state ID needs
+  its state as the jurisdiction (`US-CA`). Identifiers carry a `Jurisdiction` (ISO country + optional ISO 3166-2
+  region); identifiers stored before P2 derive it from the scheme. Errors are 400 problem+json keyed `Value` or
+  `Jurisdiction` (`DomainRuleException.Field`).
+* **Deviation — ABN checksum.** § 9.1 says "ABN checksum kept", but `develop` never had an ABN checksum (ABN/ACN
+  were digits-only length checks, and dev seeds/tests use non-checksummed ABNs). P2 keeps that rule unchanged; an
+  ABN mod-89 checksum is a separate, data-migrating decision.
+* **Seller of record + establishments.** The seller is the entity with the active `TenantOwner` profile —
+  `POST /entities/{id}/seller` designates it, exactly one per tenant (a per-tenant advisory lock inside the request
+  transaction serializes concurrent designations; 409 for a second). `SellerEstablishment` (new table
+  `entity."SellerEstablishments"`, FORCE RLS with the parent-join policy of the other entity children) = immutable
+  slug `Key` (storefronts bind to it), label, address, `Jurisdiction` (defaults to the address country, may only
+  narrow to a region of it). `GET /entities/seller`, `POST|PUT /entities/{id}/establishments`. No delete in P2.
+* **`LegalEntityChanged`** (`Contracts/Entity`): a full snapshot (names, tax IDs with scheme/jurisdiction/verified,
+  establishments, registered office, `OccurredAt`), published only for the seller entity on designate, name update,
+  identifier add/verify, registered-office add, establishment add/update — through the bus outbox in the same unit
+  of work as the mutation's audit entry. No consumer yet (Invoicing, phase 1).
+* **Catalog.** `Storefront.TaxJurisdiction` (`""` | `CC` | `CC-RRR`) + `SellerEstablishmentKey`; create/update accept
+  them (null keeps, `""` clears; 400 keyed by the field), `DuplicateFrom` clones them (the duplicate endpoint and
+  thus the ADR-0060 `StorefrontDuplicated` backfill are unchanged — the copy's own `StorefrontConfigChanged` carries
+  them). `StorefrontConfigChanged` appends `TaxJurisdiction = ""`, `SellerEstablishmentKey = ""`; Ordering projects
+  both onto `StorefrontTaxCopy` (no checkout behaviour change). Catalog does not validate that the key exists in
+  Entity (no cross-service read; the admin UI offers only the seller's keys) — the phase-1 readiness gate owns that.
+* **Admin.** Entities → Details: the new schemes + jurisdiction on identifiers and a "Seller of record" section
+  (designate, establishments add/edit). Commerce ops → Manage: tax jurisdiction + seller-establishment picker. All
+  fields carry localized tooltips (six languages).
+* **Tests.** Unit: `TaxIdentifierFormatTests`, `SellerEstablishmentTests`, `LegalEntityChangedTests`,
+  `StorefrontTaxIdentityTests`, `StorefrontConfigBackCompatTests` (pre-P2 JSON → defaults). Integration:
+  `SellerIdentityEndpointTests`, `SellerEstablishmentRlsTests` (real migrations as a non-superuser owner),
+  `StorefrontTaxIdentityAdminTests`. Browser: `e2e-admin/seller-identity.spec.ts`. `e2e-verify.sh` A3q + A6i.

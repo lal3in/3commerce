@@ -732,7 +732,7 @@
   <data name="Entities.Ident.Verify.Tip" xml:space="preserve"><value>證明呢個識別碼已經核對過（標記為已驗證）。</value></data>
   <data name="Entities.Ident.Type.Tip" xml:space="preserve"><value>要新增嘅識別碼種類。</value></data>
   <data name="Entities.Ident.Value" xml:space="preserve"><value>識別碼數值</value></data>
-  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>ABN 係 11 位數字；ACN 係 9 位數字。</value></data>
+  <data name="Entities.Ident.Value.Tip" xml:space="preserve"><value>各類型格式：ABN 11 位；ACN 9 位；歐盟增值稅 = 成員國前綴 + 號碼（DE123456789）；英國 VRN 係 GB + 9 位；紐西蘭 GST 8–9 位；加拿大 BN 9 位（+ RT0001）；瑞士 UID CHE-123.456.789（MWST）；美國州稅號要填州做管轄區。</value></data>
   <data name="Entities.Ident.Add.Tip" xml:space="preserve"><value>將呢個識別碼加入實體。</value></data>
   <data name="Entities.IdType.Abn" xml:space="preserve"><value>ABN</value></data>
   <data name="Entities.IdType.Acn" xml:space="preserve"><value>ACN</value></data>
@@ -1806,4 +1806,40 @@
   <data name="Promotions.Redemptions.UsedUnlimited" xml:space="preserve"><value>已使用 {0} 次</value></data>
   <data name="Promotions.Redemptions.UsedOfMax" xml:space="preserve"><value>{0} / {1} · 剩 {2}</value></data>
   <data name="Promotions.Redemptions.Detail" xml:space="preserve"><value>佔用 {0} · 已確認 {1}</value></data>
+  <data name="Entities.IdType.EuVat" xml:space="preserve"><value>歐盟增值稅號</value></data>
+  <data name="Entities.IdType.GbVrn" xml:space="preserve"><value>英國增值稅號 (VRN)</value></data>
+  <data name="Entities.IdType.NzGst" xml:space="preserve"><value>紐西蘭 GST 號碼</value></data>
+  <data name="Entities.IdType.CaBn" xml:space="preserve"><value>加拿大 BN / GST-HST</value></data>
+  <data name="Entities.IdType.ChUid" xml:space="preserve"><value>瑞士 UID / 增值稅</value></data>
+  <data name="Entities.IdType.UsStateSalesTaxId" xml:space="preserve"><value>美國州銷售稅號</value></data>
+  <data name="Entities.Ident.Jurisdiction" xml:space="preserve"><value>稅務管轄區</value></data>
+  <data name="Entities.Ident.Jurisdiction.Tip" xml:space="preserve"><value>稅務管轄區：ISO 國家代碼，可加地區（例如 US-CA）。美國州銷售稅號必填；其他情況可選——會由稅號類型或歐盟增值稅前綴推斷。</value></data>
+  <data name="Entities.Seller.Heading" xml:space="preserve"><value>登記賣方</value></data>
+  <data name="Entities.Seller.Intro" xml:space="preserve"><value>喺呢個租戶嘅店舖銷售、並會開具稅務發票嘅法律實體。每個租戶只有一個。佢嘅稅號就係上面嘅識別碼；營業地點就係佢經營業務嘅地方。</value></data>
+  <data name="Entities.Seller.Designate" xml:space="preserve"><value>設為登記賣方</value></data>
+  <data name="Entities.Seller.Designate.Tip" xml:space="preserve"><value>將呢個實體設為租戶嘅登記賣方。如果已經有其他實體就會被拒絕。</value></data>
+  <data name="Entities.Seller.IsSeller" xml:space="preserve"><value>呢個實體係租戶嘅登記賣方。</value></data>
+  <data name="Entities.Est.Heading" xml:space="preserve"><value>營業地點</value></data>
+  <data name="Entities.Est.None" xml:space="preserve"><value>未有營業地點——加一個俾店舖綁定。</value></data>
+  <data name="Entities.Est.JurisdictionShort" xml:space="preserve"><value>課稅地</value></data>
+  <data name="Entities.Est.Edit" xml:space="preserve"><value>編輯</value></data>
+  <data name="Entities.Est.Edit.Tip" xml:space="preserve"><value>將呢個營業地點載入下面嘅表格，編輯名稱、地址或管轄區。鍵唔可以改。</value></data>
+  <data name="Entities.Est.Key" xml:space="preserve"><value>鍵（例如 sydney-hq）</value></data>
+  <data name="Entities.Est.Key.Tip" xml:space="preserve"><value>店舖綁定用嘅固定鍵：2–40 個細楷字母、數字或連字號。每個賣方唯一，建立後唔可以改。</value></data>
+  <data name="Entities.Est.Label" xml:space="preserve"><value>名稱</value></data>
+  <data name="Entities.Est.Label.Tip" xml:space="preserve"><value>容易認得嘅名稱，例如悉尼總部。</value></data>
+  <data name="Entities.Est.Country.Tip" xml:space="preserve"><value>營業地點地址所在國家——管轄區必須喺呢個國家。</value></data>
+  <data name="Entities.Est.Jurisdiction" xml:space="preserve"><value>管轄區（可選，例如 US-CA）</value></data>
+  <data name="Entities.Est.Jurisdiction.Tip" xml:space="preserve"><value>呢個營業地點嘅課稅地：預設係地址所在國家；可以加地區（US-CA）收窄。唔可以係其他國家。</value></data>
+  <data name="Entities.Est.Save.Tip" xml:space="preserve"><value>儲存營業地點（記錄喺審計日誌，並傳送俾喺稅務文件上列印賣方資料嘅服務）。</value></data>
+  <data name="Entities.Info.SellerDesignated" xml:space="preserve"><value>已將實體設為登記賣方。</value></data>
+  <data name="Entities.Info.EstablishmentAdded" xml:space="preserve"><value>已加入營業地點。</value></data>
+  <data name="Entities.Info.EstablishmentUpdated" xml:space="preserve"><value>已更新營業地點。</value></data>
+  <data name="Ops.Field.TaxJurisdiction" xml:space="preserve"><value>稅務管轄區</value></data>
+  <data name="Ops.Field.TaxJurisdiction.Tip" xml:space="preserve"><value>呢間店舖銷售嘅課稅地：ISO 國家代碼，可加地區（AU、DE、US-CA）。用嚟揀稅務發票規則。未決定可以留空；亦可以清空。</value></data>
+  <data name="Ops.Field.SellerEstablishment" xml:space="preserve"><value>賣方營業地點</value></data>
+  <data name="Ops.Field.SellerEstablishment.Tip" xml:space="preserve"><value>呢間店舖由登記賣方邊個營業地點銷售（實體 → 登記賣方）。複製嘅店舖會沿用同一個。</value></data>
+  <data name="Ops.SellerEstablishment.None" xml:space="preserve"><value>— 未綁定 —</value></data>
+  <data name="Ops.SellerEstablishment.Unknown" xml:space="preserve"><value>唔係賣方嘅營業地點</value></data>
+  <data name="Ops.SellerEstablishment.Hint" xml:space="preserve"><value>未有賣方營業地點：請喺「實體」設定登記賣方並加入營業地點。</value></data>
 </root>

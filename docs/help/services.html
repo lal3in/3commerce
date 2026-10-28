@@ -125,6 +125,21 @@
           <li>Record metered usage idempotently; reject usage when the allowance is exhausted and overage is off.</li>
           <li>Bill the unbilled overage once at period end (re-billing is a no-op).</li>
         </ul>
+        <h2 id="seller-tax-identity">Seller tax identity <span style="opacity:.6">(Entity <code>/api/entity</code> · Catalog <code>/api/catalog</code> — ADR-0063 P2)</span></h2>
+        <p>Who sells, under which tax IDs, from where — the seller half of a tax invoice (EU Art. 226(3),(5)). The <b>seller of record</b> is the tenant's Entity record with the TenantOwner profile (exactly one per tenant); its tax IDs are ordinary entity identifiers with per-scheme format validation; its <b>establishments</b> are addresses with a tax jurisdiction and a stable key. Each storefront names its <b>tax jurisdiction</b> and the establishment it sells from. No tax document is issued yet — this is phase 0 of the invoicing work.</p>
+        <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><code>POST</code></td><td><code>/api/entity/entities/{id}/identifiers</code></td><td>admin</td><td>Add a tax ID. Schemes (numeric): Abn 1 · Acn 2 · Gst 3 · Other 4 · EuVat 5 · GbVrn 6 · NzGst 7 · CaBn 8 · ChUid 9 · UsStateSalesTaxId 10, with an optional <code>jurisdiction</code> (<code>US-CA</code>; required for 10). A malformed ID is a 400 naming <code>Value</code> or <code>Jurisdiction</code></td></tr>
+              <tr><td><code>GET</code></td><td><code>/api/entity/entities/seller</code></td><td>admin</td><td>The tenant's seller of record with its tax IDs, establishments and registered office (404 when none)</td></tr>
+              <tr><td><code>POST</code></td><td><code>/api/entity/entities/{id}/seller</code></td><td>admin</td><td>Designate the seller of record (409 when another entity already is)</td></tr>
+              <tr><td><code>POST</code> · <code>PUT</code></td><td><code>/api/entity/entities/{id}/establishments[/{establishmentId}]</code></td><td>admin</td><td>Add / edit an establishment: key (lowercase slug, immutable), label, address, jurisdiction (defaults to the address country; may narrow to a region)</td></tr>
+              <tr><td><code>POST</code> · <code>PUT</code></td><td><code>/api/catalog/admin/storefronts[/{id}]</code></td><td>admin</td><td><code>taxJurisdiction</code> (<code>AU</code>, <code>US-CA</code>) + <code>sellerEstablishmentKey</code>; null keeps, <code>""</code> clears; cloned by <code>/duplicate</code></td></tr>
+        </tbody></table>
+        <p><b>Events.</b> Every seller mutation publishes <code>LegalEntityChanged</code> (a full snapshot: names, tax IDs with scheme + jurisdiction, establishments, registered office) through the outbox in the same unit of work as its audit entry (<code>entity.seller.designate</code>, <code>entity.identifier.add</code>, <code>entity.establishment.add/update</code>). <code>StorefrontConfigChanged</code> gains <code>TaxJurisdiction</code> and <code>SellerEstablishmentKey</code> (default <code>""</code>, so older messages still project) and Ordering keeps them on <code>StorefrontTaxCopy</code>.</p>
+        <p><b>Use cases</b></p><ul>
+          <li>Record a German VAT ID (<code>DE123456789</code>) and a California sales-tax permit (<code>US-CA</code>) for the seller.</li>
+          <li>Add a Sydney head office establishment and bind the AU storefront to it (Admin <b>Entities → Details → Seller of record</b>, then <b>Commerce ops → Manage</b>).</li>
+          <li>Duplicate a storefront: the copy keeps the same jurisdiction and establishment.</li>
+        </ul>
         <footer class="page-nav"><a class="prev" href="deployment.html"><div class="dir">← Previous</div><div class="ttl">Deployment</div></a><a class="next" href="screens.html"><div class="dir">Next →</div><div class="ttl">UI screens</div></a></footer></div></main>
     <aside class="toc"><div class="toc-title">On this page</div><nav></nav></aside></div></div>
 <script src="assets/wiki.js"></script></body></html>
