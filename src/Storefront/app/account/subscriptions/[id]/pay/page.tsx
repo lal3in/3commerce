@@ -24,7 +24,9 @@ export default async function PayRenewalPage({ params }: { params: Promise<{ id:
       <div className="max-w-xl">
         <h1 className="text-xl font-semibold mb-4">{t("pageTitle")}</h1>
         <p className="text-sm text-neutral-600">{t("notFound")}</p>
-        <Link href="/account" className="mt-4 inline-block text-sm underline">{t("backToAccount")}</Link>
+        <Link href="/account" className="mt-4 inline-block text-sm underline">
+          {t("backToAccount")}
+        </Link>
       </div>
     );
   }
@@ -39,10 +41,22 @@ export default async function PayRenewalPage({ params }: { params: Promise<{ id:
     <div className="max-w-xl" data-testid="pay-renewal">
       <h1 className="text-xl font-semibold mb-2">{t("pageTitle")}</h1>
       {pastDue ? (
-        <>
+        <PayRenewalForm
+          subscriptionId={subscription.id}
+          idempotencyKey={crypto.randomUUID()}
+          amountLabel={formatMoney(amountDue, subscription.currency)}
+          cards={cards.map((c) => ({
+            id: c.id,
+            label: t("savedCard", { brand: c.brand.toUpperCase(), last4: c.last4 }),
+          }))}
+        >
+          {/* What is owed: the form shows it until the period is paid, then replaces it with the confirmation. */}
           <p className="mb-4 text-sm text-neutral-600">{t("intro")}</p>
           {reasonKey && (
-            <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" data-testid="pay-renewal-reason">
+            <p
+              className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              data-testid="pay-renewal-reason"
+            >
               {t(`reason.${reasonKey}`)}
             </p>
           )}
@@ -53,7 +67,9 @@ export default async function PayRenewalPage({ params }: { params: Promise<{ id:
             </div>
             <div className="flex justify-between border-b border-neutral-100 py-2">
               <dt className="text-neutral-500">{t("period")}</dt>
-              <dd><LocalTime iso={subscription.currentPeriodEnd} dateOnly /></dd>
+              <dd>
+                <LocalTime iso={subscription.currentPeriodEnd} dateOnly />
+              </dd>
             </div>
             <div className="flex justify-between border-b border-neutral-100 py-2 font-medium">
               <dt>{t("amountDue")}</dt>
@@ -62,27 +78,28 @@ export default async function PayRenewalPage({ params }: { params: Promise<{ id:
           </dl>
           {subscription.nextRetryAt && (
             <p className="mt-3 text-sm text-neutral-600">
-              {t.rich("nextRetry", { date: () => <LocalTime iso={subscription.nextRetryAt!} dateOnly /> })}
+              {t.rich("nextRetry", {
+                date: () => <LocalTime iso={subscription.nextRetryAt!} dateOnly />,
+              })}
             </p>
           )}
           {subscription.cancelsAfter && (
             <p className="mt-1 text-sm text-neutral-600">
-              {t.rich("cancelsAfter", { date: () => <LocalTime iso={subscription.cancelsAfter!} dateOnly /> })}
+              {t.rich("cancelsAfter", {
+                date: () => <LocalTime iso={subscription.cancelsAfter!} dateOnly />,
+              })}
             </p>
           )}
-          <PayRenewalForm
-            subscriptionId={subscription.id}
-            idempotencyKey={crypto.randomUUID()}
-            amountLabel={formatMoney(amountDue, subscription.currency)}
-            cards={cards.map((c) => ({ id: c.id, label: t("savedCard", { brand: c.brand.toUpperCase(), last4: c.last4 }) }))}
-          />
-        </>
+        </PayRenewalForm>
       ) : (
         <p className="text-sm text-neutral-600" data-testid="pay-renewal-not-due">
-          {t("notDue")} {t(`status.${(["Active", "Trialing", "PastDue", "Cancelled"] as const).find((s) => s === subscription.status) ?? "Active"}`)}
+          {t("notDue")}{" "}
+          {t(`status.${(["Active", "Trialing", "PastDue", "Cancelled"] as const).find((s) => s === subscription.status) ?? "Active"}`)}
         </p>
       )}
-      <Link href="/account" className="mt-6 inline-block text-sm underline">{t("backToAccount")}</Link>
+      <Link href="/account" className="mt-6 inline-block text-sm underline">
+        {t("backToAccount")}
+      </Link>
     </div>
   );
 }
