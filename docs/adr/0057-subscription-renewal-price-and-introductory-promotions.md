@@ -361,6 +361,11 @@ Delivered with ADR-0063 P4b on `feature/settled-charge-events`.
   `usage-charge-retry` (hourly) runs `RetryDueAsync`; the final failure **abandons** the charge. The provider's later
   success event for a usage attempt (routed by `PaymentEventProcessor` after the renewal check) settles it once — even
   when abandoned, because the usage was consumed and the money is owed.
+* **Behaviour change (accepted): a provider exception no longer redelivers the request.** Before, a provider call that
+  threw propagated out of the usage consumer, so MassTransit's retry redelivered the message (and an exhausted retry left
+  it in the error queue). Now, exactly as for renewals, the unanswered attempt marks the charge past due with reason
+  `Error`, publishes nothing (no customer-visible failure, Usage keeps its credit) and is retried by the dunning schedule
+  under the SAME key, so the provider de-duplicates it. A failure to RECORD a settled charge still throws and is redelivered.
 * **Outcomes are published.** Settled → `UsageChargeSettled` (P4b facts). Every answered failure → `UsageChargeFailed`
   (`Reason` Failed / RequiresAction / Cancelled, `Attempt`, `NextRetryAt`, `AbandonsAfter`, `Final`).
 * **Usage reacts.** It records each charge it publishes (`usage.UsageCharges`, Open → Settled / Unpaid / Abandoned,
