@@ -561,5 +561,57 @@
       "refunded": "Reembolsado",
       "refundFailed": "Reembolso fallido"
     }
+  },
+  "subscriptions": {
+    "heading": "Suscripciones",
+    "none": "No tienes suscripciones.",
+    "renewsOn": "Se renueva el <date></date>",
+    "status": {
+      "Active": "Activa",
+      "Trialing": "Prueba",
+      "PastDue": "Pago pendiente",
+      "Cancelled": "Cancelada"
+    },
+    "completePaymentLink": "Completar el pago",
+    "pageTitle": "Completa el pago de tu suscripción",
+    "intro": "La renovación de tu suscripción aún no se ha pagado. No se ha cobrado nada por este periodo.",
+    "amountDue": "Importe pendiente",
+    "period": "Para el periodo que termina el",
+    "item": "Suscripción",
+    "reason": {
+      "RequiresAction": "Tu banco necesita que confirmes este pago.",
+      "Failed": "Tu tarjeta fue rechazada.",
+      "Cancelled": "El pago se canceló.",
+      "Error": "No pudimos contactar con el proveedor de pagos."
+    },
+    "nextRetry": "Si no haces nada, lo volveremos a intentar el <date></date>.",
+    "cancelsAfter": "Si sigue sin pagarse después del <date></date>, la suscripción se cancelará.",
+    "card": "Pagar con",
+    "currentCard": "La tarjeta de la suscripción",
+    "savedCard": "{brand} terminada en {last4}",
+    "cardHint": "La tarjeta que elijas aquí también se usará para futuras renovaciones. Añade una tarjeta nueva en tu página de cuenta.",
+    "pay": "Pagar {amount} ahora",
+    "paying": "Pagando…",
+    "paid": "Gracias: tu pago se ha realizado y tu suscripción vuelve a estar activa.",
+    "authenticateTitle": "Confirma el pago con tu banco",
+    "authenticateBody": "Tu banco te ha pedido que autentiques este pago (3-D Secure).",
+    "authenticate": "Completar la autenticación bancaria (prueba)",
+    "authenticating": "Autenticando…",
+    "declined": "El pago fue rechazado. Inténtalo de nuevo o elige otra tarjeta.",
+    "unavailable": "No pudimos contactar con el proveedor de pagos. No se ha cobrado nada; inténtalo de nuevo.",
+    "notPastDue": "Esta suscripción no tiene nada pendiente de pago.",
+    "unknownCard": "Esa tarjeta no es una de tus tarjetas guardadas.",
+    "failed": "Algo salió mal. No se ha cobrado nada; inténtalo de nuevo.",
+    "notDue": "No hay nada que pagar en esta suscripción.",
+    "notFound": "No encontramos esa suscripción.",
+    "backToAccount": "Volver a tu cuenta",
+    "loading": "Cargando tu suscripción…",
+    "tips": {
+      "pay": "Cobra ahora el importe pendiente. Es el mismo importe en cada intento de este periodo.",
+      "card": "La tarjeta que se cargará; también será la tarjeta de futuras renovaciones.",
+      "authenticate": "Modo de prueba: simula que apruebas el pago en la app de tu banco.",
+      "completePayment": "Paga la renovación vencida de esta suscripción."
+    },
+    "tryAgain": "Intentar de nuevo"
   }
 }

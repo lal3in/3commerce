@@ -561,5 +561,57 @@
       "refunded": "已退款",
       "refundFailed": "退款失败"
     }
+  },
+  "subscriptions": {
+    "heading": "订阅",
+    "none": "您还没有任何订阅。",
+    "renewsOn": "<date></date> 续订",
+    "status": {
+      "Active": "生效中",
+      "Trialing": "试用中",
+      "PastDue": "待付款",
+      "Cancelled": "已取消"
+    },
+    "completePaymentLink": "完成付款",
+    "pageTitle": "完成您的订阅付款",
+    "intro": "您的订阅续订尚未付款。本周期尚未扣取任何费用。",
+    "amountDue": "应付金额",
+    "period": "周期截至",
+    "item": "订阅",
+    "reason": {
+      "RequiresAction": "您的银行需要您确认这笔付款。",
+      "Failed": "您的银行卡被拒绝。",
+      "Cancelled": "付款已被取消。",
+      "Error": "无法连接支付服务商。"
+    },
+    "nextRetry": "如果您不采取任何操作，我们将于 <date></date> 再次尝试。",
+    "cancelsAfter": "如果 <date></date> 之后仍未付款，订阅将被取消。",
+    "card": "付款方式",
+    "currentCard": "订阅当前使用的银行卡",
+    "savedCard": "{brand} 尾号 {last4}",
+    "cardHint": "您在此选择的银行卡也将用于以后的续订。可在账户页面添加新卡。",
+    "pay": "立即支付 {amount}",
+    "paying": "付款中…",
+    "paid": "谢谢！您的付款已成功，订阅已重新生效。",
+    "authenticateTitle": "向您的银行确认付款",
+    "authenticateBody": "您的银行要求您验证这笔付款（3-D Secure）。",
+    "authenticate": "完成银行验证（测试）",
+    "authenticating": "验证中…",
+    "declined": "付款被拒绝。请重试或选择其他银行卡。",
+    "unavailable": "无法连接支付服务商。未扣取任何费用，请重试。",
+    "notPastDue": "此订阅没有需要支付的款项。",
+    "unknownCard": "该银行卡不是您已保存的卡。",
+    "failed": "出现问题。未扣取任何费用，请重试。",
+    "notDue": "此订阅没有需要支付的款项。",
+    "notFound": "找不到该订阅。",
+    "backToAccount": "返回您的账户",
+    "loading": "正在加载您的订阅…",
+    "tips": {
+      "pay": "立即扣取应付金额。本周期每次尝试的金额都相同。",
+      "card": "要扣款的银行卡——以后的续订也将使用这张卡。",
+      "authenticate": "测试模式：模拟您在银行 App 中批准这笔付款。",
+      "completePayment": "支付此订阅逾期的续订款项。"
+    },
+    "tryAgain": "重试"
   }
 }

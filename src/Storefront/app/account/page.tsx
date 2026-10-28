@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getAddresses, getProfile, getMyOrders, getSavedPaymentMethods } from "@/lib/gateway";
+import { getAddresses, getProfile, getMyOrders, getMySubscriptions, getSavedPaymentMethods } from "@/lib/gateway";
+import { formatMoney } from "@/lib/money";
+import { LocalTime } from "@/components/LocalTime";
 import { logout } from "@/lib/auth-actions";
 import { AddressForms } from "@/components/account/AccountForms";
 import { CardEntryForm } from "@/components/account/CardEntryForm";
@@ -11,12 +13,15 @@ export const metadata = { title: "Account" };
 
 // Dynamic, cookie-dependent page — never cached (components.md §1 rendering table).
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ address?: string; card?: string }> }) {
-  const [t, tc] = await Promise.all([getTranslations("account"), getTranslations("common")]);
+  const [t, tc, ts] = await Promise.all([getTranslations("account"), getTranslations("common"), getTranslations("subscriptions")]);
   const profile = await getProfile();
   if (!profile) {
     redirect("/login");
   }
-  const [orders, addresses, paymentMethods, status] = await Promise.all([getMyOrders(), getAddresses(), getSavedPaymentMethods(), searchParams]);
+  const [orders, addresses, paymentMethods, subscriptions, status] = await Promise.all([
+    getMyOrders(), getAddresses(), getSavedPaymentMethods(), getMySubscriptions(), searchParams,
+  ]);
+  const statusKey = (s: string) => (["Active", "Trialing", "PastDue", "Cancelled"] as const).find((k) => k === s) ?? "Active";
 
   return (
     <div className="max-w-2xl">
@@ -111,6 +116,39 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         !profile.emailVerified ? null : <p className="mt-2 text-sm text-neutral-500">{t("noOrders")}</p>
       ) : (
         <OrderHistory orders={orders} />
+      )}
+
+      {/* Subscriptions (ADR-0057 amendment 2026-10-27): a past-due one links its "complete payment" page. */}
+      <h2 className="mt-8 text-lg font-semibold">{ts("heading")}</h2>
+      {subscriptions.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">{ts("none")}</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-neutral-100 text-sm" data-testid="account-subscriptions">
+          {subscriptions.map((s) => (
+            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+              <div>
+                <span>{formatMoney(s.priceMinor, s.currency)}</span>
+                <span className={s.status === "PastDue" ? "ml-2 font-medium text-amber-700" : "ml-2 text-neutral-500"}>
+                  {ts(`status.${statusKey(s.status)}`)}
+                </span>
+                {s.status !== "Cancelled" && (
+                  <span className="ml-2 text-neutral-500">
+                    {ts.rich("renewsOn", { date: () => <LocalTime iso={s.currentPeriodEnd} dateOnly /> })}
+                  </span>
+                )}
+              </div>
+              {s.status === "PastDue" && (
+                <Link
+                  href={`/account/subscriptions/${s.id}/pay`}
+                  title={ts("tips.completePayment")}
+                  className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white"
+                >
+                  {ts("completePaymentLink")}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       <h2 className="mt-8 text-lg font-semibold">{t("myAccess")}</h2>

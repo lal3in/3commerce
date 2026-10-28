@@ -51,7 +51,8 @@ public sealed class StripePaymentProvider : IPaymentProvider, IDirectDebitProvid
             Customer = request.ProviderCustomerId,
             PaymentMethod = request.ProviderPaymentMethodId,
             Confirm = request.ProviderPaymentMethodId is not null,
-            OffSession = request.ProviderPaymentMethodId is not null,
+            // Merchant-initiated (off-session) unless the customer is present to authenticate (the renewal pay page).
+            OffSession = request.ProviderPaymentMethodId is not null && !request.CustomerPresent,
             SetupFutureUsage = request.SetupFutureUsage ? "off_session" : null,
             Metadata = new() { ["order_id"] = request.OrderId.ToString() },
         };

@@ -1987,6 +1987,108 @@
           }
         }
       }
+    },
+    "/me/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "The signed-in customer's subscription with what its current period owes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySubscriptionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found (not the customer's)"
+          }
+        }
+      }
+    },
+    "/me/subscriptions/{id}/pay": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Pay a past-due renewal now (Idempotency-Key required)",
+        "description": "The customer's own attempt (owner decision 2026-10-27, ADR-0057 amendment): charges the past-due period ON-SESSION (3-D Secure possible) with a fresh attempt key and the period's pinned amount, optionally on another saved card, which then renews the subscription. A replayed Idempotency-Key returns the stored answer without the client secret.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySubscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaySubscriptionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Idempotency-Key missing"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found (not the customer's)"
+          },
+          "409": {
+            "description": "Not past due — nothing to pay (outcome 5)"
+          },
+          "422": {
+            "description": "The card is not one of the customer's saved cards (outcome 6)"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2862,6 +2964,29 @@
             "type": "integer",
             "format": "int32",
             "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Appended (dunning, 2026-10-27): why the current period is past due — RequiresAction | Failed | Cancelled | Error."
+          },
+          "nextRetryAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "Appended: the next scheduled dunning retry (days 1, 3, 7 after the first failure)."
+          },
+          "cancelsAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "Appended: when an unpaid period cancels the subscription."
           }
         }
       },
@@ -2951,6 +3076,29 @@
             "type": "integer",
             "format": "int32",
             "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Appended (dunning, 2026-10-27): why the current period is past due — RequiresAction | Failed | Cancelled | Error."
+          },
+          "nextRetryAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "Appended: the next scheduled dunning retry (days 1, 3, 7 after the first failure)."
+          },
+          "cancelsAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "Appended: when an unpaid period cancels the subscription."
           }
         }
       },
@@ -3299,6 +3447,156 @@
       },
       "XeroMappingScope": {
         "type": "integer"
+      },
+      "MySubscriptionDto": {
+        "type": "object",
+        "description": "The customer's own subscription for the 'complete payment' page (ADR-0057 amendment 2026-10-27).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "priceMinor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amountDueMinor": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64",
+            "description": "Past due only: what the unpaid period charges — the pinned price + any added tax, the same for every attempt."
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "RequiresAction | Failed | Cancelled | Error."
+          },
+          "nextRetryAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "The next scheduled retry (days 1, 3 and 7 after the first failure); null when none is left."
+          },
+          "cancelsAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "When an unpaid period cancels the subscription (the day-7 retry)."
+          }
+        },
+        "required": [
+          "id",
+          "orderId",
+          "productId",
+          "variantId",
+          "billingPeriod",
+          "priceMinor",
+          "quantity",
+          "currency",
+          "status",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "amountDueMinor",
+          "failureReason",
+          "nextRetryAt",
+          "cancelsAfter"
+        ]
+      },
+      "PaySubscriptionRequest": {
+        "type": "object",
+        "properties": {
+          "savedPaymentMethodId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid",
+            "description": "Optional: pay with (and from now on renew on) another of the customer's saved cards."
+          }
+        }
+      },
+      "PaySubscriptionResponse": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "description": "1 Paid, 2 RequiresAction, 3 Declined, 4 ProviderUnavailable (numbers on the wire)."
+          },
+          "paymentIntentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "The subscription's status after the attempt."
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "RequiresAction only, first answer only: confirm the intent (3-D Secure) with it. Never returned on an idempotent replay."
+          }
+        },
+        "required": [
+          "outcome",
+          "paymentIntentId",
+          "status",
+          "clientSecret"
+        ]
       }
     }
   },

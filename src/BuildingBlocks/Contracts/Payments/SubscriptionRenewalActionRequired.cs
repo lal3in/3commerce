@@ -10,6 +10,11 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// store); <see cref="PeriodEnd"/> identifies the period (the renewal key is <c>renew-{SubscriptionId}-{PeriodEnd:O}</c>).
 /// </para>
 /// </summary>
+/// <para>
+/// Appended (dunning, 2026-10-27): <see cref="NextRetryAt"/> — when the renewal is retried if the customer does nothing
+/// (null when no retry is left) — and <see cref="CancelsAfter"/> — when an unpaid period cancels the subscription.
+/// </para>
 public record SubscriptionRenewalActionRequired(
     Guid TenantId, Guid SubscriptionId, Guid? StorefrontId, string CustomerEmail,
-    long AmountMinor, string Currency, DateTimeOffset PeriodEnd);
+    long AmountMinor, string Currency, DateTimeOffset PeriodEnd,
+    DateTimeOffset? NextRetryAt = null, DateTimeOffset? CancelsAfter = null);

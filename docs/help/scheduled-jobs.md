@@ -16,7 +16,7 @@ demand, pause/resume it, or change its schedule.
 | Service | Job | Schedule (cron) | What it does |
 |---|---|---|---|
 | marketing | `scheduled-publish` | `0 * * * * ?` — every minute | Applies due **content publishes**: anything whose scheduled go-live time has arrived is published (latency ≤ 60s). No-op when nothing is due. |
-| payments | `subscription-auto-renew` | `0 0/15 * * * ?` — every 15 min | Sweeps **due subscription renewals** and charges them off-session; each storefront renews at most once/day once its window passes; a failed charge marks past-due (dunning). Idempotent. |
+| payments | `subscription-auto-renew` | `0 0/15 * * * ?` — every 15 min | Sweeps **due subscription renewals** and charges them off-session; each storefront renews at most once/day once its window passes; a charge that does not settle marks past-due (dunning), and the same run retries past-due subscriptions on days 1, 3 and 7 after the first failure, cancelling after the day-7 retry fails. Idempotent. |
 | payments | `daily-journal` | `0 0 2 * * ?` — 02:00 UTC daily | Posts the prior UTC day's **ledger journal to Xero**. Idempotent per date. |
 | usage | `usage-period-close` | `0 0 * * * ?` — hourly | Closes **metered usage periods** that have ended: bills unbilled overage and rolls each balance to its next period. Idempotent. |
 

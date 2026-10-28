@@ -259,8 +259,13 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   discount). **Renew** charges the period via the payment rail and advances **only when the
   charge settles**; a declined charge, one the bank wants the customer to authenticate (the
   customer is emailed), or a provider error → **PastDue** (dunning) — the period does not
-  advance and nothing is booked. A past-due subscription is not picked up by the nightly
-  auto-renew: **Renew** it again to retry the same period (same amount). **Cancel** ends it.
+  advance and nothing is booked. **Dunning:** the nightly auto-renew retries a past-due
+  subscription on days 1, 3 and 7 after the first failure (same amount, a fresh payment
+  attempt each time) and cancels it when the day-7 retry fails; the customer is emailed each
+  time with a link to the storefront **complete payment** page (`/account/subscriptions/{id}/pay`),
+  where they can authenticate (3-D Secure) or pay with another saved card. **Renew** retries
+  the period at once; the API shows the failure reason, next retry and cancellation date.
+  **Cancel** ends it.
 - **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**

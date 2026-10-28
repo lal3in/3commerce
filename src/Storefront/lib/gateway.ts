@@ -236,6 +236,52 @@ export async function getSavedPaymentMethods(): Promise<SavedPaymentMethodDto[]>
   return response.ok ? ((await response.json()) as SavedPaymentMethodDto[]) : [];
 }
 
+// The signed-in customer's subscription (Payments /me/subscriptions). amountDueMinor (past due only) is what the
+// unpaid period charges — the pinned price + any added tax, the same for every attempt (ADR-0057 amendment
+// 2026-10-27). failureReason: RequiresAction | Failed | Cancelled | Error. nextRetryAt: the next scheduled retry
+// (days 1, 3, 7 after the first failure); cancelsAfter: when an unpaid period cancels the subscription.
+export type MySubscriptionDto = {
+  id: string;
+  orderId: string;
+  productId: string;
+  variantId: string | null;
+  billingPeriod: string;
+  priceMinor: number;
+  quantity: number;
+  currency: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  amountDueMinor: number | null;
+  failureReason: string | null;
+  nextRetryAt: string | null;
+  cancelsAfter: string | null;
+};
+
+// The list shape (Payments SubscriptionDto) — only what the account page shows.
+export type SubscriptionSummaryDto = {
+  id: string;
+  orderId: string;
+  productId: string;
+  billingPeriod: string;
+  priceMinor: number;
+  currency: string;
+  status: string;
+  currentPeriodEnd: string;
+  quantity?: number;
+  nextRetryAt?: string | null;
+};
+
+export async function getMySubscriptions(): Promise<SubscriptionSummaryDto[]> {
+  const response = await gatewayFetch(`/api/payments/me/subscriptions`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as SubscriptionSummaryDto[]) : [];
+}
+
+export async function getMySubscription(id: string): Promise<MySubscriptionDto | null> {
+  const response = await gatewayFetch(`/api/payments/me/subscriptions/${encodeURIComponent(id)}`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as MySubscriptionDto) : null;
+}
+
 export type CartItemDto = {
   productId: string;
   variantId: string | null;

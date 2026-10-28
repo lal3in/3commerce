@@ -83,7 +83,8 @@ public sealed record PaymentRequest(
     string? ProviderPaymentMethodId = null,
     string? WalletToken = null,     // Apple/Google Pay tokenization blob — never logged/emailed
     bool SetupFutureUsage = false,
-    MockScenario? Scenario = null); // honored ONLY in LocalMock
+    MockScenario? Scenario = null,  // honored ONLY in LocalMock
+    bool CustomerPresent = false);  // a stored instrument charged WITH the customer present (the renewal pay page): on-session, so the bank may ask for 3-D Secure
 
 /// <summary>The provider-agnostic authorize result. Mirrors the old intent id + client secret plus a typed outcome/error.</summary>
 public sealed record PaymentResponse(

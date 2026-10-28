@@ -19,7 +19,11 @@ public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider
         var suffix = request.ProviderPaymentMethodId is null
             ? request.OrderId.ToString("N")
             : $"{request.OrderId:N}_{request.ProviderPaymentMethodId}";
-        var intentId = $"pi_fake_{suffix}";
+        // A subscription renewal attempt is its own PaymentIntent, as with a real provider (one per idempotency key) —
+        // not the order's: a provider event about it must find the attempt, never the order's checkout payment.
+        var intentId = request.IdempotencyKey.StartsWith("renew-", StringComparison.Ordinal)
+            ? $"pi_fake_renew_{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(request.IdempotencyKey)))[..24]}"
+            : $"pi_fake_{suffix}";
         return Task.FromResult(new PaymentResponse(intentId, $"{intentId}_secret_test", PaymentOutcome.Succeeded));
     }
 

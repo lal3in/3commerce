@@ -27,4 +27,13 @@ public static class NotificationReferences
     /// <summary>The "confirm your renewal payment" email of one subscription period (keyed like the renewal itself).</summary>
     public static string SubscriptionRenewalActionRequired(Guid subscriptionId, DateTimeOffset periodEnd) =>
         $"subscription-renewal-action:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}";
+
+    /// <summary>One "payment didn't go through" email per subscription period and retry (keyed by the next retry).</summary>
+    public static string SubscriptionPaymentFailed(Guid subscriptionId, DateTimeOffset periodEnd, DateTimeOffset? nextRetryAt) =>
+        $"subscription-payment-failed:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}:"
+        + (nextRetryAt is { } next ? next.ToUniversalTime().ToString("yyyyMMddTHHmmssZ", System.Globalization.CultureInfo.InvariantCulture) : "final");
+
+    /// <summary>The cancellation-for-non-payment email of one subscription period.</summary>
+    public static string SubscriptionCancelledForNonPayment(Guid subscriptionId, DateTimeOffset periodEnd) =>
+        $"subscription-cancelled-non-payment:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}";
 }

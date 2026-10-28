@@ -561,5 +561,57 @@
       "refunded": "Erstattet",
       "refundFailed": "Rückerstattung fehlgeschlagen"
     }
+  },
+  "subscriptions": {
+    "heading": "Abonnements",
+    "none": "Sie haben keine Abonnements.",
+    "renewsOn": "Verlängert sich am <date></date>",
+    "status": {
+      "Active": "Aktiv",
+      "Trialing": "Testphase",
+      "PastDue": "Zahlung fällig",
+      "Cancelled": "Gekündigt"
+    },
+    "completePaymentLink": "Zahlung abschließen",
+    "pageTitle": "Zahlung für Ihr Abonnement abschließen",
+    "intro": "Die Verlängerung Ihres Abonnements ist noch nicht bezahlt. Für diesen Zeitraum wurde nichts abgebucht.",
+    "amountDue": "Fälliger Betrag",
+    "period": "Für den Zeitraum bis",
+    "item": "Abonnement",
+    "reason": {
+      "RequiresAction": "Ihre Bank möchte, dass Sie diese Zahlung bestätigen.",
+      "Failed": "Ihre Karte wurde abgelehnt.",
+      "Cancelled": "Die Zahlung wurde abgebrochen.",
+      "Error": "Der Zahlungsanbieter war nicht erreichbar."
+    },
+    "nextRetry": "Wenn Sie nichts tun, versuchen wir es am <date></date> erneut.",
+    "cancelsAfter": "Ist der Betrag nach dem <date></date> noch offen, wird das Abonnement gekündigt.",
+    "card": "Bezahlen mit",
+    "currentCard": "Die Karte des Abonnements",
+    "savedCard": "{brand} mit Endziffern {last4}",
+    "cardHint": "Eine hier gewählte Karte wird auch für künftige Verlängerungen verwendet. Neue Karten fügen Sie auf Ihrer Kontoseite hinzu.",
+    "pay": "Jetzt {amount} bezahlen",
+    "paying": "Zahlung läuft…",
+    "paid": "Vielen Dank – Ihre Zahlung war erfolgreich und Ihr Abonnement ist wieder aktiv.",
+    "authenticateTitle": "Zahlung bei Ihrer Bank bestätigen",
+    "authenticateBody": "Ihre Bank hat Sie gebeten, diese Zahlung zu bestätigen (3-D Secure).",
+    "authenticate": "Bankbestätigung abschließen (Test)",
+    "authenticating": "Bestätigung läuft…",
+    "declined": "Die Zahlung wurde abgelehnt. Versuchen Sie es erneut oder wählen Sie eine andere Karte.",
+    "unavailable": "Der Zahlungsanbieter war nicht erreichbar. Es wurde nichts abgebucht – bitte versuchen Sie es erneut.",
+    "notPastDue": "Für dieses Abonnement ist nichts zu bezahlen.",
+    "unknownCard": "Diese Karte gehört nicht zu Ihren gespeicherten Karten.",
+    "failed": "Etwas ist schiefgelaufen. Es wurde nichts abgebucht – bitte versuchen Sie es erneut.",
+    "notDue": "Für dieses Abonnement ist nichts zu bezahlen.",
+    "notFound": "Dieses Abonnement wurde nicht gefunden.",
+    "backToAccount": "Zurück zu Ihrem Konto",
+    "loading": "Ihr Abonnement wird geladen…",
+    "tips": {
+      "pay": "Bucht den fälligen Betrag jetzt ab. Für diesen Zeitraum ist es bei jedem Versuch derselbe Betrag.",
+      "card": "Die zu belastende Karte – sie wird auch für künftige Verlängerungen verwendet.",
+      "authenticate": "Testmodus: simuliert Ihre Freigabe der Zahlung in Ihrer Banking-App.",
+      "completePayment": "Die überfällige Verlängerung dieses Abonnements bezahlen."
+    },
+    "tryAgain": "Erneut versuchen"
   }
 }

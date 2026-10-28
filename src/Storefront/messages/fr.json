@@ -561,5 +561,57 @@
       "refunded": "Remboursé",
       "refundFailed": "Remboursement échoué"
     }
+  },
+  "subscriptions": {
+    "heading": "Abonnements",
+    "none": "Vous n'avez aucun abonnement.",
+    "renewsOn": "Renouvellement le <date></date>",
+    "status": {
+      "Active": "Actif",
+      "Trialing": "Essai",
+      "PastDue": "Paiement dû",
+      "Cancelled": "Résilié"
+    },
+    "completePaymentLink": "Finaliser le paiement",
+    "pageTitle": "Finalisez le paiement de votre abonnement",
+    "intro": "Le renouvellement de votre abonnement n'est pas encore payé. Rien n'a été débité pour cette période.",
+    "amountDue": "Montant dû",
+    "period": "Pour la période se terminant le",
+    "item": "Abonnement",
+    "reason": {
+      "RequiresAction": "Votre banque vous demande de confirmer ce paiement.",
+      "Failed": "Votre carte a été refusée.",
+      "Cancelled": "Le paiement a été annulé.",
+      "Error": "Le prestataire de paiement est injoignable."
+    },
+    "nextRetry": "Sans action de votre part, nous réessaierons le <date></date>.",
+    "cancelsAfter": "S'il reste impayé après le <date></date>, l'abonnement sera résilié.",
+    "card": "Payer avec",
+    "currentCard": "La carte de l'abonnement",
+    "savedCard": "{brand} se terminant par {last4}",
+    "cardHint": "La carte choisie ici servira aussi aux prochains renouvellements. Ajoutez une nouvelle carte depuis votre compte.",
+    "pay": "Payer {amount} maintenant",
+    "paying": "Paiement en cours…",
+    "paid": "Merci : votre paiement a été accepté et votre abonnement est de nouveau actif.",
+    "authenticateTitle": "Confirmez le paiement auprès de votre banque",
+    "authenticateBody": "Votre banque vous demande d'authentifier ce paiement (3-D Secure).",
+    "authenticate": "Finaliser l'authentification bancaire (test)",
+    "authenticating": "Authentification…",
+    "declined": "Le paiement a été refusé. Réessayez ou choisissez une autre carte.",
+    "unavailable": "Le prestataire de paiement est injoignable. Rien n'a été débité, veuillez réessayer.",
+    "notPastDue": "Cet abonnement n'a rien à payer.",
+    "unknownCard": "Cette carte ne fait pas partie de vos cartes enregistrées.",
+    "failed": "Une erreur est survenue. Rien n'a été débité, veuillez réessayer.",
+    "notDue": "Il n'y a rien à payer sur cet abonnement.",
+    "notFound": "Abonnement introuvable.",
+    "backToAccount": "Retour à votre compte",
+    "loading": "Chargement de votre abonnement…",
+    "tips": {
+      "pay": "Débite maintenant le montant dû. C'est le même montant à chaque tentative pour cette période.",
+      "card": "La carte à débiter ; elle servira aussi aux prochains renouvellements.",
+      "authenticate": "Mode test : simule votre validation du paiement dans l'application de votre banque.",
+      "completePayment": "Payer le renouvellement en retard de cet abonnement."
+    },
+    "tryAgain": "Réessayer"
   }
 }

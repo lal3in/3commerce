@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure.Idempotency;
 
@@ -39,5 +41,17 @@ public static class RecurringChargePin
             },
             ct);
         return new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis);
+    }
+
+    /// <summary>The split already pinned to <paramref name="idempotencyKey"/>, or null — a read that never pins (the amount due shown on the pay page).</summary>
+    public static async Task<RecurringChargeTaxResult?> PinnedAsync(PaymentsDbContext db, string idempotencyKey, CancellationToken ct)
+    {
+        var json = await db.IdempotencyRecords.AsNoTracking()
+            .Where(r => r.Key == KeyPrefix + idempotencyKey)
+            .Select(r => r.ResponseJson)
+            .SingleOrDefaultAsync(ct);
+        return json is null || JsonSerializer.Deserialize<PinnedCharge>(json, JsonSerializerOptions.Web) is not { } pinned
+            ? null
+            : new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis);
     }
 }

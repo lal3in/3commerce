@@ -45,6 +45,8 @@ builder.Services.AddServiceBus(builder.Configuration, bus =>
     bus.AddConsumer<TicketOpenedConsumer>();
     bus.AddConsumer<RmaStateChangedConsumer>();
     bus.AddConsumer<SubscriptionRenewalActionRequiredConsumer>(); // ADR-0057 amendment 2026-10-27: renewal needs 3DS
+    bus.AddConsumer<SubscriptionPaymentFailedConsumer>();         // dunning: a declined renewal will be retried
+    bus.AddConsumer<SubscriptionCancelledForNonPaymentConsumer>(); // dunning: the final retry failed
     bus.AddConsumer<MockPaymentCapturedConsumer>(); // pay_3: TEST-ONLY mock-payment payload email
 });
 builder.Services.AddServiceHealth<NotificationsDbContext>();

@@ -298,3 +298,45 @@ corrected price applies from the next period key. **Precondition (owner, 2026-10
 exist** — production is in Stripe test mode with no real customers, so no customer notice is sent; once live customers
 exist, a notice of the higher renewal must be sent first. Verification: `SubscriptionQuantityBackfillTests` (tool, e2e-verify
 A3e), `SubscriptionTests` (domain), `SubscriptionFlowTests` (integration, A6g).
+
+### Follow-up delivered — dunning retries and the "complete payment" page (`subscription_past_due_retry_and_authenticate`, 2026-10-27)
+
+* **The schedule.** The nightly auto-renew (per storefront, at its daily run time) now also retries PastDue
+  subscriptions: retry k falls due once `DunningStartedAt + [1, 3, 7][k-1]` days have passed and nothing was attempted
+  since (`Subscription.ScheduledRetryDue`) — a customer's own attempt on the pay page counts, and several missed days
+  collapse into one retry. When the **day-7** retry does not settle, the subscription is **cancelled** and
+  `SubscriptionCancelledForNonPayment` emails the customer. A settled retry renews once and clears the dunning state.
+  `DunningStartedAt` is the period's first failure; subscriptions already past due when this shipped start the
+  schedule at the deployment (migration `SubscriptionDunning`), never with an immediate final retry.
+* **Fresh attempt keys, one pinned amount.** Every charge of a period is a `SubscriptionChargeAttempt` row (attempt n,
+  its own provider key `renew-{id}-{periodEnd:O}` for n = 0 and `…-a{n}` after, the trigger, the intent id, the
+  outcome) committed **before** the provider call. An attempt the provider ANSWERED (Failed / RequiresAction /
+  Cancelled) is followed by a fresh key, because a provider replays a reused key's cached result (Stripe: about
+  24 hours). An UNANSWERED attempt (the call threw, or a crash) is retried under its own key, so the provider
+  de-duplicates instead of charging twice — and it neither emails nor uses up a scheduled retry. The amount stays
+  pinned to the period (`RecurringChargePin` keyed by the period key), whatever the rate does in between.
+* **What the customer is told.** RequiresAction → `SubscriptionRenewalActionRequired`; a decline →
+  `SubscriptionPaymentFailed`; both now carry `NextRetryAt` and `CancelsAfter`, and the emails link the pay page
+  (`/account/subscriptions/{id}/pay`). The final failure → `SubscriptionCancelledForNonPayment`. Attempts the customer
+  makes on the page send no email (they see the answer there).
+* **The pay page.** `GET /me/subscriptions/{id}` (the customer's own; 404 otherwise) returns the amount due (the pinned
+  charge), the reason, the next retry and the cancellation date. `POST /me/subscriptions/{id}/pay` (Idempotency-Key
+  required; replays return the stored answer and never the client secret) charges the period **on-session**
+  (`PaymentRequest.CustomerPresent` → Stripe `off_session = false`, so the bank may ask for 3-D Secure), optionally on
+  another of the customer's saved cards — which then becomes the card future renewals charge. Outcomes cross as numbers
+  (1 Paid, 2 RequiresAction + intent id + client secret, 3 Declined, 4 ProviderUnavailable); 409 when nothing is due,
+  422 for a card that is not the customer's. The storefront page renders the reason, amount, schedule and a card
+  choice; on RequiresAction it shows the authentication step — today the test-mode step (the storefront has no card
+  SDK yet, exactly like checkout's test payment), in production the client confirms the intent with its client secret.
+* **Settling after 3-D Secure.** A renewal attempt has no `Payment` row, so the provider's `payment_intent.succeeded`
+  for its intent is routed by `PaymentEventProcessor` to `SubscriptionService.SettleAttemptAsync`: renew once, post the
+  pinned split, mark the attempt settled — idempotent (inbox + the attempt's `SettledAt` + the journal reference). Money
+  that arrives for a period that is already closed (settled by another attempt, or cancelled) is **not** booked; it is
+  logged as an error naming the intent for a manual refund (a renewal refund path is `renewal_usage_refund_path`).
+
+Verification: `SubscriptionDunningTests` + the updated `SubscriptionRenewalOutcomeTests` (Payments unit) and the
+dunning emails in `SubscriptionRenewalActionEmailTests` — e2e-verify **A3p**; `SubscriptionRenewalDunningTests`
+(integration, **A4c**: the day 1/3/7 schedule with fresh keys ending in a cancellation delivered over RabbitMQ, the HTTP
+pay endpoint with its idempotency, and a 3-D Secure attempt settled once from the provider's success event);
+`e2e/subscription-pay-page.spec.ts` (Playwright, **L20**: the account lists the past-due subscription, the page shows
+the reason and amount, paying makes it active again). Each fix was shown to fail its tests when reverted.
