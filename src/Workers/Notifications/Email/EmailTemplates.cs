@@ -68,6 +68,47 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
             + $"You can subscribe again at any time at {storefrontBaseUrl}.",
         NotificationReferences.SubscriptionCancelledForNonPayment(e.SubscriptionId, e.PeriodEnd));
 
+    /// <summary>
+    /// A metered usage charge (overage or prepaid auto-load) that did not settle (owner decision 2026-10-27,
+    /// usage_charge_failure_feedback) — the same retry and email rules as a subscription renewal: each failure says when it
+    /// is retried and when billable usage is suspended; the final one says it is suspended. There is no usage pay page yet
+    /// (tracker <c>usage_charge_pay_page</c>), so the email links the account.
+    /// </summary>
+    public EmailMessage UsageChargeFailed(UsageChargeFailed e)
+    {
+        var amount = $"{Money.Amount(e.AmountMinor, e.Currency)} {e.Currency}";
+        var what = e.Kind == UsageChargeKind.AutoLoad
+            ? $"your automatic {e.Meter} top-up ({e.Quantity} units)"
+            : $"your {e.Meter} usage beyond your plan ({e.Quantity} units)";
+        if (e.Final)
+        {
+            return new(
+                e.CustomerEmail,
+                $"Your {e.Meter} usage has been suspended",
+                $"We tried several times but couldn't collect {amount} for {what}, so billable {e.Meter} usage is suspended until it is paid. "
+                    + "Usage within your plan's allowance and any prepaid credit you have left are not affected. "
+                    + $"You can manage your account at {storefrontBaseUrl}/account.",
+                NotificationReferences.UsageChargeFailed(e.Reference, null));
+        }
+
+        var reason = e.Reason == ChargeFailureReason.RequiresAction
+            ? $"Your bank asked to confirm the payment of {amount} for {what}, so it was not taken. "
+            : $"We couldn't charge {amount} for {what}. ";
+        var consequence = e.Kind == UsageChargeKind.AutoLoad
+            ? "The prepaid credit from this top-up is on hold until it is paid, and no further automatic top-ups will be made. "
+            : "The amount is still due. ";
+        return new(
+            e.CustomerEmail,
+            $"Your {e.Meter} usage payment didn't go through",
+            reason + consequence + $"You can manage your account at {storefrontBaseUrl}/account."
+                + UsageSchedule(e.Meter.ToString(), e.NextRetryAt, e.AbandonsAfter),
+            NotificationReferences.UsageChargeFailed(e.Reference, e.NextRetryAt));
+    }
+
+    private static string UsageSchedule(string meter, DateTimeOffset? nextRetryAt, DateTimeOffset? abandonsAfter) =>
+        (nextRetryAt is { } next ? $" We will try again on {next.UtcDateTime.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)} (UTC)." : string.Empty)
+        + (abandonsAfter is { } end ? $" If it is still unpaid after {end.UtcDateTime.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)} (UTC), billable {meter} usage will be suspended." : string.Empty);
+
     /// <summary>The storefront "complete payment" page of one subscription (3-D Secure or another card).</summary>
     private string PayLink(Guid subscriptionId) => $"{storefrontBaseUrl}/account/subscriptions/{subscriptionId:D}/pay";
 

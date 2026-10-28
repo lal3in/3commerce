@@ -19,8 +19,11 @@ public static class RecurringChargePin
 {
     private const string KeyPrefix = "charge-amount:";
 
-    /// <summary>The persisted shape (a plain record so it round-trips through JSON exactly).</summary>
-    private sealed record PinnedCharge(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis);
+    /// <summary>
+    /// The persisted shape (a plain record so it round-trips through JSON exactly). <c>RateBps</c> was appended for the
+    /// settled-charge events (ADR-0063 P4b): a pin written before it reads back null.
+    /// </summary>
+    private sealed record PinnedCharge(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null);
 
     /// <summary>
     /// The split pinned to <paramref name="idempotencyKey"/>: the stored one when a previous attempt already pinned it,
@@ -37,10 +40,10 @@ public static class RecurringChargePin
             _ =>
             {
                 var tax = compute();
-                return Task.FromResult(new PinnedCharge(tax.PriceMinor, tax.TaxMinor, tax.Basis));
+                return Task.FromResult(new PinnedCharge(tax.PriceMinor, tax.TaxMinor, tax.Basis, tax.RateBps));
             },
             ct);
-        return new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis);
+        return new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps);
     }
 
     /// <summary>The split already pinned to <paramref name="idempotencyKey"/>, or null — a read that never pins (the amount due shown on the pay page).</summary>
@@ -52,6 +55,6 @@ public static class RecurringChargePin
             .SingleOrDefaultAsync(ct);
         return json is null || JsonSerializer.Deserialize<PinnedCharge>(json, JsonSerializerOptions.Web) is not { } pinned
             ? null
-            : new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis);
+            : new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps);
     }
 }

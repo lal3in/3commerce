@@ -1,6 +1,11 @@
 using MassTransit;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ThreeCommerce.BuildingBlocks.Contracts.Payments;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Payments.Domain;
+using ThreeCommerce.Payments.Infrastructure;
+using ThreeCommerce.Payments.Infrastructure.Consumers;
 using ThreeCommerce.Payments.Infrastructure.Providers;
 
 namespace ThreeCommerce.Payments.Tests;
@@ -12,6 +17,25 @@ namespace ThreeCommerce.Payments.Tests;
 internal sealed class FixedTime(DateTimeOffset now) : TimeProvider
 {
     public override DateTimeOffset GetUtcNow() => now;
+}
+
+/// <summary>Builds the usage-charge service (<see cref="UsageChargeBilling"/>) and its requests over a test db.</summary>
+internal static class UsageBilling
+{
+    public static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    public static UsageChargeBilling For(
+        PaymentsDbContext db, IPaymentProvider provider, TimeProvider? time = null, RecordingPublisher? publisher = null,
+        ILogger<UsageChargeBilling>? log = null) =>
+        new(db, new SingleProviderRegistry(provider),
+            new PaymentModeResolver(PaymentTestSupport.Config(("Payments:Mode", "Sandbox")), PaymentTestSupport.Env(Environments.Development)),
+            time ?? TimeProvider.System, log ?? new ListLogger<UsageChargeBilling>(), publisher ?? new RecordingPublisher());
+
+    public static UsageChargeRequest Request(
+        Guid? storefrontId, long amountMinor, string reference, UsageChargeKind kind = UsageChargeKind.Overage, long quantity = 20,
+        string currency = "USD") =>
+        new(TenantId, storefrontId, "usage@example.com", kind, MeterType.Token, quantity, 0, amountMinor, currency, reference,
+            $"Usage {kind} — {MeterType.Token} × {quantity}");
 }
 
 internal sealed class RecordingProvider : IPaymentProvider

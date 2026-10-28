@@ -9,6 +9,7 @@ public sealed class UsageDbContext(DbContextOptions<UsageDbContext> options) : D
 {
     public DbSet<UsageBalance> UsageBalances => Set<UsageBalance>();
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
+    public DbSet<UsageCharge> UsageCharges => Set<UsageCharge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,20 @@ public sealed class UsageDbContext(DbContextOptions<UsageDbContext> options) : D
             record.Property(x => x.CustomerEmail).HasMaxLength(256);
             record.HasIndex(x => new { x.TenantId, x.ReferenceId });
             record.HasIndex(x => x.BalanceId);
+        });
+
+        // Charges published to Payments and their reported outcome (usage_charge_failure_feedback).
+        modelBuilder.Entity<UsageBalance>().Property(x => x.PaymentHold).HasConversion<string>().HasMaxLength(12)
+            .HasDefaultValue(UsagePaymentHold.None); // existing balances: no hold
+        modelBuilder.Entity<UsageCharge>(charge =>
+        {
+            charge.Property(x => x.Reference).HasMaxLength(160);
+            charge.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
+            charge.Property(x => x.State).HasConversion<string>().HasMaxLength(12);
+            charge.Property(x => x.LastFailureReason).HasConversion<string>().HasMaxLength(16);
+            charge.Property(x => x.Currency).HasMaxLength(3);
+            charge.HasIndex(x => new { x.TenantId, x.Reference }).IsUnique();
+            charge.HasIndex(x => new { x.BalanceId, x.State });
         });
     }
 }
