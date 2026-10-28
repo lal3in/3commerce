@@ -3,6 +3,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.Ordering.Domain;
@@ -312,7 +313,18 @@ public static class OrdersEndpoints
         o.Id, o.Status.ToString(), o.Email, o.NetMinor, o.ShippingMinor, o.DiscountMinor, o.TaxMinor, o.GrossMinor, o.Currency, o.CreatedAt,
         o.Lines.Select(l => new OrderLineResponse(l.ProductId, l.VariantId, l.VariantSku, l.Title, l.UnitPriceMinor, l.DiscountMinor, l.Quantity, l.FulfilmentType.ToString(), l.BillingMode.ToString())).ToList(),
         o.PublicOrderNumber, o.PaymentOption, o.PaymentInstrumentSummary, o.PaymentProvider, o.PartiallyRefunded, o.Disputed,
-        new ShippingAddressResponse(o.ShipName, o.ShipLine1, o.ShipCity, o.ShipPostcode, o.ShipCountry), o.Version);
+        new ShippingAddressResponse(o.ShipName, o.ShipLine1, o.ShipCity, o.ShipPostcode, o.ShipCountry), o.Version,
+        BillingAddressOf(o), BuyerOf(o));
+
+    // ADR-0063 P3. Null for an order placed before P3 (no bill-to recorded — no backfill, D18).
+    private static BillingAddressResponse? BillingAddressOf(ThreeCommerce.Ordering.Domain.Order o) =>
+        o.BillName is null || o.BillLine1 is null || o.BillCity is null || o.BillPostcode is null || o.BillCountry is null
+            ? null
+            : new BillingAddressResponse(o.BillName, o.BillLine1, o.BillCity, o.BillRegion, o.BillPostcode, o.BillCountry);
+
+    // Null for a consumer purchase (no business block).
+    private static BuyerResponse? BuyerOf(ThreeCommerce.Ordering.Domain.Order o) =>
+        o.BuyerCompanyName is null ? null : new BuyerResponse(o.BuyerCompanyName, o.BuyerTaxId, o.BuyerTaxIdScheme, o.BuyerTaxIdJurisdiction);
 }
 
 // PaymentOption defaults for legacy rows: the column is NOT NULL with a "CreditCard" DB default,
@@ -325,7 +337,13 @@ public record OrderDetail(
     string Currency, DateTimeOffset CreatedAt, List<OrderLineResponse> Lines,
     long PublicOrderNumber = 0, string PaymentOption = "CreditCard", string? PaymentInstrumentSummary = null,
     string PaymentProvider = "Stripe", bool PartiallyRefunded = false, bool Disputed = false, ShippingAddressResponse? ShippingAddress = null,
-    uint Version = 0);
+    uint Version = 0,
+    // ADR-0063 P3, appended with defaults: the bill-to address (null before P3) and the business-purchase block
+    // (null for a consumer purchase).
+    BillingAddressResponse? BillingAddress = null, BuyerResponse? Buyer = null);
+public record BillingAddressResponse(string Name, string Line1, string City, string? Region, string Postcode, string Country);
+// TaxIdScheme crosses HTTP as a NUMBER (the shared BuildingBlocks.Contracts.Tax enum).
+public record BuyerResponse(string CompanyName, string? TaxId, TaxIdScheme? TaxIdScheme, string? TaxIdJurisdiction);
 // Version: the order's concurrency token (xmin) — null for a checkout attempt that is not an order yet.
 public record OrderStatusResponse(Guid Id, string Status, uint? Version = null);
 

@@ -503,7 +503,7 @@ JurisdictionProfile { Code ("EU-DE", "EU-FR", "AU", "NZ", "GB", "CA", "CH", "US"
 | P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. **Status: persisted on `feature/tax-per-line-breakdown` (2026-10-27, § 9.2)**; publishing them is P5. | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
 | P1b | **EU OSS-aware tax strategy** (or a tax engine) before **EU cross-border B2C** goes live. Before P1b a storefront charged its single rate regardless of EU destination. **Status: `EuOssTaxStrategy` on `feature/eu-oss-tax-strategy` (2026-10-28, § 16)** — standard rates only; reduced-rate categories, B2B and OSS renewals are follow-ups. | Ordering | Wrong VAT cannot be made right by the invoice |
 | P2 | **Seller identity**: Entity tax-ID schemes + establishments; storefront → jurisdiction + establishment binding | Entity, Catalog | Art. 226(3),(5); profile resolution |
-| P3 | **Buyer identity**: bill-to address (defaults to ship-to), optional business name + tax ID at checkout | Ordering, Storefront | Art. 226(4),(5); AU ≥ A$1,000 |
+| P3 | **Buyer identity**: bill-to address (defaults to ship-to), optional business name + tax ID at checkout. **Status: captured on `feature/checkout-bill-to-and-buyer-tax-id` (2026-10-28, § 16)**; the account-profile default business identity is deferred (`tax_p3b_profile_business_identity`). | Ordering, Storefront | Art. 226(4),(5); AU ≥ A$1,000 |
 | P4 | **Renewal and usage charges compute and post tax** (today: tax 0 — an output-tax under-report in inclusive regimes, independent of invoicing) and publish the settled events. **Status: tax half done on `fix/renewal-and-usage-tax` (2026-10-15)** — inclusive regimes post checkout's split at the rate in force; exclusive regimes ADD checkout's tax to the charge and post net + tax (owner decision 2026-10-15, option A, `fix/exclusive-tax-on-renewals-and-usage`; see the ADR-0057 amendments); the settled-event half follows in P4b (§ 9.1). | Payments | Correct VAT; renewal and usage invoices |
 | P5 | Additive contract changes (§ 6.2) and `LineId` on `OrderLineInfo` | Contracts | Credit-note line attribution |
 
@@ -894,3 +894,47 @@ orders.
   * Integration: `EuOssCheckoutTests` runs real checkouts as a fresh tenant each: under, over and crossing the
     threshold, domestic and unconfigured stores, with trial balance 0.
   * `e2e-verify.sh`: A3r and A4d.
+
+### P3 — buyer identity at checkout (2026-10-28, `feature/checkout-bill-to-and-buyer-tax-id`, tracker `tax_p3_buyer_identity`)
+
+* **Request.** `POST /checkout` appends `billingAddress` (the `shippingAddress` shape; absent = bill to the ship-to
+  address) and `buyer` = `{ companyName, taxId?, taxIdScheme?, taxIdJurisdiction? }`. `taxIdScheme` is the shared
+  contract enum `BuildingBlocks.Contracts.Tax.TaxIdScheme` from P2 and crosses HTTP as a number.
+* **Validation.** It runs first in the handler, before the cart is loaded, because it depends only on the request.
+  The company name is required (at most 200 characters). A tax ID needs its scheme, and a scheme needs its tax ID.
+  The tax ID's format is checked per scheme by `Ordering.Domain.BuyerTaxIdFormats`, which is a **copy** of Entity's
+  `TaxIdentifierFormats`. Ordering cannot reference Entity's domain, and BuildingBlocks holds no domain logic, so
+  Ordering keeps its own copy. `BuyerTaxIdFormatParityTests` is a unit-lane test in the integration-test project,
+  the only project that sees both. It runs a corpus of inputs through every scheme in both copies and fails on any
+  disagreement. A one-character change to the NZ rule was used to confirm it fails. A US state sales-tax ID with
+  no `taxIdJurisdiction` takes its state from the region of a US bill-to address. A refusal returns 400
+  problem+json with `checkoutBlock` 17 `InvalidBuyerIdentity`, plus `field` (`buyer.companyName` /
+  `buyer.taxId` / `buyer.taxIdScheme` / `buyer.taxIdJurisdiction`) and an `errors` dictionary keyed by that
+  field. Nothing is booked, and the cart is kept.
+* **Persisted.** `CheckoutAttempt` and `Order` gain `BillName/BillLine1/BillCity/BillRegion/BillPostcode/BillCountry`
+  and `BuyerCompanyName/BuyerTaxId/BuyerTaxIdScheme/BuyerTaxIdJurisdiction`. All of them are nullable, and
+  `ToOrder` copies them verbatim. Migration `CheckoutBillToAndBuyerIdentity` adds them; the bounded columns are
+  also bounded in the domain, so an oversize value returns a 400 and never reaches the database. Every attempt
+  written since P3 has a bill-to. Older rows read null and are not backfilled (D18). The tax ID is stored
+  normalized, with the jurisdiction its scheme implies (an `EL` prefix gives `GR`; ABN gives `AU`).
+* **Read back.** `GET /orders/{id}` and `GET /admin/orders/{id}` append `billingAddress` and `buyer`. The
+  storefront's account order history shows both.
+* **Amount unchanged.** Neither field reaches the tax seam or the charge. There is no reverse charge (D5), and
+  `ITaxStrategy` is untouched. An integration test checks out the same cart with and without a block and gets
+  byte-identical net, discount, shipping, tax and gross. `OrderConfirmed` is unchanged; P5 publishes `BillTo`
+  and `Buyer`.
+* **Storefront.** The billing-address section was already in the checkout form but was not posted. Its fields now
+  post as `billingAddress`, and its copy now says the address is also the invoice address. A new "Business
+  purchase" section (`components/checkout/BusinessPurchase.tsx`) has a checkbox, company name, tax ID, a scheme
+  picker, and an issuing-state field shown for US state IDs. Its fields are controlled, so a refused checkout
+  keeps what the shopper typed. A refusal is explained in the shopper's language, keyed by `field`
+  (`checkout.business.errors.*`), and the field is marked `aria-invalid`. Every label and tooltip exists in all
+  six languages. A member's saved addresses (Identity) feed the billing-address picker as before.
+* **Deferred.** The § 9.1 scope line "the account profile can store a default business identity" is not in this
+  task. It needs Identity profile columns, an endpoint, and an account UI, and it is not in P3's acceptance
+  criteria. It is tracked as `tax_p3b_profile_business_identity`.
+* **Tests.** Unit: `BuyerIdentityTests` (bill-to default, per-scheme accept/refuse naming the request field,
+  bounds, `ToOrder` copy, request resolution) and `BuyerTaxIdFormatParityTests`. Integration:
+  `BuyerIdentityCheckoutTests` covers a guest and a member, each with and without a block, an unchanged charge,
+  a member reading the block back with a numeric scheme, and five refusals returning 400 with nothing booked.
+  Browser: `e2e/checkout-business-purchase.spec.ts` (`capture()`). `e2e-verify.sh` A3s + A6j.

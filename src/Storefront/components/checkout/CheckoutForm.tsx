@@ -8,6 +8,8 @@ import { PromotionBasis } from "@/lib/promotion-basis";
 import type { AddressDto, AppliedPromotionDto, CartDto, CartSummaryDto, ProfileDto, SavedPaymentMethodDto } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { COUNTRIES, COMMON_COUNTRIES, regionLabel } from "@/lib/countries";
+import { businessFieldErrorKey } from "@/lib/tax-id-scheme";
+import { BusinessPurchase } from "@/components/checkout/BusinessPurchase";
 
 interface CheckoutFormProps {
   cart: CartDto;
@@ -58,6 +60,7 @@ const PAYMENT_OPTIONS = [
 export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRateBasisPoints, taxInclusive, shipToCountries, discountBps, subtotalMinor, promotionDiscountMinor, appliedPromotions, freeShippingApplied, promotionBasis, appliedCouponCode, renewals }: CheckoutFormProps) {
   const t = useTranslations("checkout");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
+  const businessError = businessFieldErrorKey(state.field);
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
   const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
@@ -175,7 +178,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
       {appliedCouponCode && <input type="hidden" name="couponCode" value={appliedCouponCode} />}
       {state.error && (
         <p role="alert" className="rounded bg-red-50 text-red-700 px-3 py-2 text-sm">
-          {state.error}
+          {/* A refused business block names its field: explain it in the shopper's language (ADR-0063 P3). */}
+          {businessError ? t(`business.errors.${businessError}`) : state.error}
         </p>
       )}
 
@@ -417,6 +421,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} />}
         {billingId === "same" && <p className="text-sm text-neutral-500">{t("usingShippingForBilling")}</p>}
       </section>
+
+      <BusinessPurchase errorField={state.field} />
 
       <button
         type="submit"

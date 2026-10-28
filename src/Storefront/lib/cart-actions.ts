@@ -58,7 +58,8 @@ export async function removeFromCart(productId: string, variantId?: string | nul
   revalidatePath("/checkout");
 }
 
-export type CheckoutState = { error?: string };
+// `field`: the request field a refused checkout names (ADR-0063 P3 business block, e.g. "buyer.taxId").
+export type CheckoutState = { error?: string; field?: string };
 export type ShippingRate = { carrier: string; service: string; serviceName: string; amountMinor: number; currency: string; estimatedDays: number; expiresAt: string };
 
 export async function quoteCheckoutShipping(formData: FormData): Promise<{ rates?: ShippingRate[]; summary?: CartSummaryDto | null; error?: string }> {
@@ -159,6 +160,21 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     // the redemption before authorizing payment, so a code that ran out in the meantime is refused
     // rather than charged at a discount we cannot honour.
     couponCode: String(formData.get("couponCode") || "") || null,
+    // The bill-to address (ADR-0063 P3): the billing fields are rendered only when the shopper picks a billing
+    // address other than "Same as shipping"; absent, Ordering bills to the shipping address.
+    billingAddress: formData.has("billingName")
+      ? {
+          name: String(formData.get("billingName") || ""),
+          line1: String(formData.get("billingLine1") || ""),
+          city: String(formData.get("billingCity") || ""),
+          region: String(formData.get("billingRegion") || "") || null,
+          postcode: String(formData.get("billingPostcode") || ""),
+          country: String(formData.get("billingCountry") || ""),
+        }
+      : null,
+    // The optional business-purchase block (ADR-0063 P3). The scheme crosses HTTP as a NUMBER and is sent only
+    // with a tax ID (Ordering refuses one without the other). Never changes the amount charged.
+    buyer: businessBuyer(formData),
   };
   // Attribute the order to the active storefront (rev_5): Ordering reads these headers (and the body
   // storefrontId above) into CheckoutAttempt.TenantId/StorefrontId; else it falls back to the default.
@@ -178,7 +194,10 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     // terms (components.md §5: errors render ProblemDetails messages) — else the generic fallback.
     const problem = await readProblem(response);
     const detail = typeof problem?.detail === "string" ? problem.detail.trim() : "";
-    return { error: detail || "Checkout failed. Please review your cart and details." };
+    // A refused business block also names the input at fault (`field`), so the form can mark it and explain
+    // it in the shopper's language.
+    const field = typeof problem?.field === "string" ? problem.field : undefined;
+    return { error: detail || "Checkout failed. Please review your cart and details.", field };
   }
   const result = (await response.json()) as { orderId: string };
   // Remember only guest email so the confirmation page can offer account creation (FR-7).
@@ -193,6 +212,19 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     cookieStore.set("3c_guest_details", details, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
   }
   redirect(`/checkout/confirmation?order=${result.orderId}`);
+}
+
+function businessBuyer(formData: FormData) {
+  if (formData.get("businessPurchase") !== "on") return null;
+  const text = (key: string) => String(formData.get(key) ?? "").trim();
+  const taxId = text("buyerTaxId");
+  const scheme = Number(text("buyerTaxIdScheme"));
+  return {
+    companyName: text("buyerCompanyName"),
+    taxId: taxId || null,
+    taxIdScheme: taxId && Number.isInteger(scheme) && scheme > 0 ? scheme : null,
+    taxIdJurisdiction: (taxId && text("buyerTaxIdJurisdiction")) || null,
+  };
 }
 
 function paymentSummary(paymentOption: string, cardNumber: string) {

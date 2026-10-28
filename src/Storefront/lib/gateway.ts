@@ -365,6 +365,7 @@ export const CheckoutBlock = {
   SubscriptionRequiresSavedPaymentMethod: 14,
   PricesChanged: 15, // 409
   PaymentUnavailable: 16, // 503 — nothing was booked; retry
+  InvalidBuyerIdentity: 17, // ADR-0063 P3: the business-purchase block; `field` names the input
 } as const;
 export type CheckoutBlock = (typeof CheckoutBlock)[keyof typeof CheckoutBlock];
 
@@ -486,12 +487,18 @@ export type OrderLineDetail = {
   unitPriceMinor: number; discountMinor: number; quantity: number; fulfilmentType: string; billingMode: string;
 };
 export type OrderShippingAddress = { name: string; line1: string; city: string; postcode: string; country: string };
+export type OrderBillingAddress = { name: string; line1: string; city: string; region: string | null; postcode: string; country: string };
+export type OrderBuyer = { companyName: string; taxId: string | null; taxIdScheme: number | null; taxIdJurisdiction: string | null };
 export type OrderDetail = {
   id: string; status: string; email: string;
   netMinor: number; shippingMinor: number; discountMinor: number; taxMinor: number; grossMinor: number; currency: string;
   createdAt: string; lines: OrderLineDetail[];
   publicOrderNumber: number; paymentOption: string; paymentInstrumentSummary: string | null; paymentProvider: string;
   partiallyRefunded: boolean; disputed: boolean; shippingAddress: OrderShippingAddress | null;
+  // ADR-0063 P3: the bill-to address (null on an order placed before P3) and the business-purchase block (null for
+  // a consumer purchase). taxIdScheme is the NUMERIC TaxIdScheme (lib/tax-id-scheme.ts).
+  billingAddress?: OrderBillingAddress | null;
+  buyer?: OrderBuyer | null;
 };
 
 // The signed-in customer's own order, full detail (addresses, payment, items, amount breakdown).
