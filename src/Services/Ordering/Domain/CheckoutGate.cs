@@ -59,6 +59,12 @@ public enum CheckoutBlock
 
     /// <summary>The payment service did not answer in time (503) — nothing was booked; retry.</summary>
     PaymentUnavailable = 16,
+
+    /// <summary>
+    /// The business-purchase block is invalid (ADR-0063 P3): no company name, a tax ID without its scheme (or the
+    /// reverse), or a tax ID whose format does not fit its scheme. The problem's <c>field</c> names the input.
+    /// </summary>
+    InvalidBuyerIdentity = 17,
 }
 
 /// <summary>

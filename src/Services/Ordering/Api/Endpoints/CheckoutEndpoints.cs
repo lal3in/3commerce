@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 
@@ -40,6 +41,21 @@ public static class CheckoutEndpoints
         IConfiguration config,
         CancellationToken ct)
     {
+        // Buyer identity (ADR-0063 P3) is pure request shape, so it is checked before anything is loaded: the
+        // bill-to address (the ship-to address when none is given) and the optional business-purchase block,
+        // whose tax ID is format-checked per scheme. A refusal names the field at fault. Neither ever changes
+        // the amount charged — no reverse charge until phase 2 (§ 12 D5).
+        BillToAddress billTo;
+        BusinessBuyer? buyer;
+        try
+        {
+            (billTo, buyer) = ResolveBuyerIdentity(request);
+        }
+        catch (BuyerIdentityException ex)
+        {
+            return BuyerIdentityRefused(ex);
+        }
+
         var userId = CartEndpoints.UserId(http.User);
         var cartKey = CartEndpoints.EnsureCartKey(http);
         var cart = await carts.GetOrCreateAsync(userId, cartKey, ct);
@@ -522,6 +538,16 @@ public static class CheckoutEndpoints
             ShipRegion = string.IsNullOrWhiteSpace(request.ShippingAddress.Region) ? null : request.ShippingAddress.Region.Trim(),
             ShipPostcode = request.ShippingAddress.Postcode,
             ShipCountry = request.ShippingAddress.Country,
+            BillName = billTo.Name,
+            BillLine1 = billTo.Line1,
+            BillCity = billTo.City,
+            BillRegion = billTo.Region,
+            BillPostcode = billTo.Postcode,
+            BillCountry = billTo.Country,
+            BuyerCompanyName = buyer?.CompanyName,
+            BuyerTaxId = buyer?.TaxId,
+            BuyerTaxIdScheme = buyer?.TaxIdScheme,
+            BuyerTaxIdJurisdiction = buyer?.TaxIdJurisdiction,
             CollectAtWarehouse = request.CollectAtWarehouse,
             WarehouseName = collectWarehouse?.Name,
             WarehouseLine1 = collectWarehouse?.Line1,
@@ -589,6 +615,46 @@ public static class CheckoutEndpoints
             ["couponCode"] = code,
         });
 
+    /// <summary>The bill-to address (defaulting to the ship-to address) and the validated business block, if any.</summary>
+    public static (BillToAddress BillTo, BusinessBuyer? Buyer) ResolveBuyerIdentity(CheckoutRequest request)
+    {
+        var shipTo = ToBillTo(request.ShippingAddress);
+        var billTo = BuyerIdentity.ResolveBillTo(shipTo, request.BillingAddress is { } billing ? ToBillTo(billing) : null);
+        var buyer = request.Buyer is { } b
+            ? BuyerIdentity.Resolve(b.CompanyName, b.TaxId, b.TaxIdScheme, b.TaxIdJurisdiction, billTo)
+            : null;
+        return (billTo, buyer);
+    }
+
+    private static BillToAddress ToBillTo(AddressRequest address) =>
+        new(address.Name, address.Line1, address.City, address.Region, address.Postcode, address.Country);
+
+    /// <summary>
+    /// The request field a <see cref="BuyerIdentityException"/> is about, as the client spelled it (camelCase JSON
+    /// path) — what the 400's <c>errors</c> key and <c>field</c> extension say.
+    /// </summary>
+    public static string BuyerFieldPath(string field) => field switch
+    {
+        BuyerIdentity.CompanyNameField => "buyer.companyName",
+        BuyerIdentity.TaxIdField => "buyer.taxId",
+        BuyerIdentity.TaxIdSchemeField => "buyer.taxIdScheme",
+        BuyerIdentity.TaxIdJurisdictionField => "buyer.taxIdJurisdiction",
+        BuyerIdentity.BillingAddressField => "billingAddress",
+        _ => "buyer",
+    };
+
+    // 400 problem+json in the checkout's shape (checkoutBlock = InvalidBuyerIdentity) plus the field at fault, both
+    // as `field` and as a ValidationProblemDetails-style `errors` dictionary, so a client can mark the input.
+    private static ProblemHttpResult BuyerIdentityRefused(BuyerIdentityException ex)
+    {
+        var field = BuyerFieldPath(ex.Field);
+        return OrderingProblems.CheckoutRefused(CheckoutBlock.InvalidBuyerIdentity, ex.Message, new Dictionary<string, object?>
+        {
+            ["field"] = field,
+            ["errors"] = new Dictionary<string, string[]> { [field] = [ex.Message] },
+        });
+    }
+
     private static Guid? HeaderGuid(HttpContext http, string name) =>
         Guid.TryParse(http.Request.Headers[name].FirstOrDefault(), out var id) ? id : null;
 
@@ -646,7 +712,24 @@ public record CheckoutRequest(
     Guid? StorefrontId = null,
     // The coupon code the shopper entered (ADR-0052). Null/blank = no coupon. Matched case-insensitively
     // against the tenant's code-gated promotions; a code that does not apply is a 400 naming the reason.
-    string? CouponCode = null);
+    string? CouponCode = null,
+    // The bill-to address (ADR-0063 P3). Null = bill to the shipping address, which is then persisted as the
+    // bill-to — every order placed since P3 has one.
+    AddressRequest? BillingAddress = null,
+    // The optional business-purchase block (ADR-0063 P3). Null = a consumer purchase. Never changes the charge.
+    BuyerRequest? Buyer = null);
+
+/// <summary>
+/// "Business purchase" at checkout (ADR-0063 P3, § 8): the buying company's name and, optionally, its tax ID with
+/// the register it belongs to. <see cref="TaxIdScheme"/> crosses HTTP as a NUMBER (the shared contract enum).
+/// <see cref="TaxIdJurisdiction"/> is needed only for a US state sales-tax ID (<c>US-CA</c>), and defaults to the
+/// state of a US bill-to address. Validated by <see cref="BuyerIdentity"/>; a refusal is a 400 naming the field.
+/// </summary>
+public record BuyerRequest(
+    string? CompanyName,
+    string? TaxId = null,
+    TaxIdScheme? TaxIdScheme = null,
+    string? TaxIdJurisdiction = null);
 
 // Positional record: NEW FIELDS MUST BE APPENDED WITH DEFAULTS, or every call site and the storefront
 // client break. FreeShippingApplied / AppliedPromotionIds are the threshold-promotion outcome (ADR-0051).

@@ -1,4 +1,5 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax;
 
 namespace ThreeCommerce.Ordering.Domain;
 
@@ -89,6 +90,28 @@ public class CheckoutAttempt
     public required string ShipPostcode { get; init; }
     public required string ShipCountry { get; init; }
 
+    /// <summary>
+    /// The bill-to address (ADR-0063 P3, Art. 226(5)) — the address the invoice is made out to. Every attempt
+    /// written since P3 has one (the ship-to address when the shopper gave no separate billing address); null on an
+    /// attempt written before P3 (no backfill — ADR-0063 D18).
+    /// </summary>
+    public string? BillName { get; init; }
+    public string? BillLine1 { get; init; }
+    public string? BillCity { get; init; }
+    public string? BillRegion { get; init; }
+    public string? BillPostcode { get; init; }
+    public string? BillCountry { get; init; }
+
+    /// <summary>
+    /// The optional business-purchase block (ADR-0063 P3, § 8): the buying company and its tax registration,
+    /// normalized per <see cref="TaxIdScheme"/>. Null when the shopper bought as a
+    /// consumer. Captured for the invoice only — it never changed the amount charged (no reverse charge, § 12 D5).
+    /// </summary>
+    public string? BuyerCompanyName { get; init; }
+    public string? BuyerTaxId { get; init; }
+    public TaxIdScheme? BuyerTaxIdScheme { get; init; }
+    public string? BuyerTaxIdJurisdiction { get; init; }
+
     /// <summary>The shopper chose to collect at the fulfilling supplier's warehouse (zero shipping, no carrier).</summary>
     public bool CollectAtWarehouse { get; init; }
     public string? WarehouseName { get; init; }
@@ -146,6 +169,16 @@ public class CheckoutAttempt
             ShipRegion = ShipRegion,
             ShipPostcode = ShipPostcode,
             ShipCountry = ShipCountry,
+            BillName = BillName,
+            BillLine1 = BillLine1,
+            BillCity = BillCity,
+            BillRegion = BillRegion,
+            BillPostcode = BillPostcode,
+            BillCountry = BillCountry,
+            BuyerCompanyName = BuyerCompanyName,
+            BuyerTaxId = BuyerTaxId,
+            BuyerTaxIdScheme = BuyerTaxIdScheme,
+            BuyerTaxIdJurisdiction = BuyerTaxIdJurisdiction,
             CollectAtWarehouse = CollectAtWarehouse,
             WarehouseName = WarehouseName,
             WarehouseLine1 = WarehouseLine1,

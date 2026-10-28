@@ -1,4 +1,5 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax;
 
 namespace ThreeCommerce.Ordering.Domain;
 
@@ -100,6 +101,28 @@ public class Order
     public string? ShipRegion { get; set; }
     public required string ShipPostcode { get; set; }
     public required string ShipCountry { get; set; }
+
+    /// <summary>
+    /// The bill-to address (ADR-0063 P3, Art. 226(5)) — the address the invoice is made out to. Every order
+    /// placed since P3 has one (the ship-to address when the shopper gave no separate billing address); null on an
+    /// order written before P3 (no backfill — ADR-0063 D18).
+    /// </summary>
+    public string? BillName { get; set; }
+    public string? BillLine1 { get; set; }
+    public string? BillCity { get; set; }
+    public string? BillRegion { get; set; }
+    public string? BillPostcode { get; set; }
+    public string? BillCountry { get; set; }
+
+    /// <summary>
+    /// The optional business-purchase block (ADR-0063 P3, § 8): the buying company and its tax registration,
+    /// normalized per <see cref="TaxIdScheme"/>. Null when the shopper bought as a
+    /// consumer. Captured for the invoice only — it never changed the amount charged (no reverse charge, § 12 D5).
+    /// </summary>
+    public string? BuyerCompanyName { get; set; }
+    public string? BuyerTaxId { get; set; }
+    public TaxIdScheme? BuyerTaxIdScheme { get; set; }
+    public string? BuyerTaxIdJurisdiction { get; set; }
 
     /// <summary>
     /// The shopper chose to collect this order at the fulfilling supplier's warehouse rather than have it

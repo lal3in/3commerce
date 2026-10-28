@@ -974,6 +974,28 @@
             "nullable": true,
             "maxLength": 40,
             "description": "Coupon code (ADR-0052). Unlocks its code-gated promotion and RESERVES one redemption before the payment is authorized. A code that does not apply is a 400 naming the reason, never a silent full-price charge."
+          },
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AddressRequest"
+              }
+            ],
+            "description": "The bill-to address (ADR-0063 P3). Null/absent = bill to shippingAddress, which is then persisted as the bill-to."
+          },
+          "buyer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BuyerRequest"
+              }
+            ],
+            "description": "The optional business-purchase block (ADR-0063 P3). Null = a consumer purchase."
           }
         }
       },
@@ -1215,6 +1237,28 @@
             "maximum": 4294967295,
             "description": "The order's optimistic-concurrency token (Postgres xmin). Echo it to mark-delivered; it changes on every update of the order.",
             "default": 0
+          },
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingAddressResponse"
+              }
+            ],
+            "description": "ADR-0063 P3: the bill-to address; null on an order placed before P3."
+          },
+          "buyer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BuyerResponse"
+              }
+            ],
+            "description": "ADR-0063 P3: the business-purchase block; null for a consumer purchase."
           }
         }
       },
@@ -1542,7 +1586,7 @@
       },
       "CheckoutBlock": {
         "type": "integer",
-        "description": "Numeric checkout refusal code (crosses HTTP as a number; append-only, never renumbered). 0 None, 1 CurrencyMismatch, 2 SupplyUnavailable (the ADR-0059 storefront gates; GET /cart/summary only ever reports 0-2), 3 CartEmpty, 4 StorefrontRequired, 5 MixedCurrencyCart, 6 ShipToNotServed, 7 CollectNotEligible, 8 InvalidShippingSelection, 9 ShippingQuoteExpired, 10 CouponRefused, 11 StorefrontNotOpen, 12 SubscriptionRequiresMember, 13 SubscriptionRequiresVerifiedEmail, 14 SubscriptionRequiresSavedPaymentMethod, 15 PricesChanged (409), 16 PaymentUnavailable (503)."
+        "description": "Numeric checkout refusal code (crosses HTTP as a number; append-only, never renumbered). 0 None, 1 CurrencyMismatch, 2 SupplyUnavailable (the ADR-0059 storefront gates; GET /cart/summary only ever reports 0-2), 3 CartEmpty, 4 StorefrontRequired, 5 MixedCurrencyCart, 6 ShipToNotServed, 7 CollectNotEligible, 8 InvalidShippingSelection, 9 ShippingQuoteExpired, 10 CouponRefused, 11 StorefrontNotOpen, 12 SubscriptionRequiresMember, 13 SubscriptionRequiresVerifiedEmail, 14 SubscriptionRequiresSavedPaymentMethod, 15 PricesChanged (409), 16 PaymentUnavailable (503), 17 InvalidBuyerIdentity (the business-purchase block; see field)."
       },
       "CartRefusal": {
         "type": "integer",
@@ -1661,6 +1705,23 @@
               "format": "uuid"
             },
             "description": "PricesChanged only."
+          },
+          "field": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "InvalidBuyerIdentity only: the request field at fault - buyer.companyName, buyer.taxId, buyer.taxIdScheme, buyer.taxIdJurisdiction or billingAddress."
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "InvalidBuyerIdentity only: ValidationProblemDetails-style, keyed by field."
           }
         },
         "required": [
@@ -1883,6 +1944,118 @@
           "taxAdded": {
             "type": "boolean",
             "description": "Appended (default false). True when the storefront is tax-EXCLUSIVE (US sales tax, ADR-0038) with a non-zero rate and the group's lines are not all destination-exempt for the known shipToCountry: each renewal is then charged amountMinor PLUS the storefront's rate in force at the renewal, as checkout adds tax to the first period (owner decision 2026-10-15, ADR-0057 amendment). The storefront renders \"{amount} + tax\". False on inclusive / 0% stores, where amountMinor is the charge."
+          }
+        }
+      },
+      "TaxIdScheme": {
+        "type": "integer",
+        "description": "The shared tax-identifier scheme (BuildingBlocks.Contracts.Tax.TaxIdScheme, ADR-0063 P2/P3). Crosses HTTP as a NUMBER; append-only. 1 Abn, 2 Acn, 3 Gst, 4 OtherTaxRegistration, 5 EuVat, 6 GbVrn, 7 NzGst, 8 CaBn, 9 ChUid, 10 UsStateSalesTaxId."
+      },
+      "BuyerRequest": {
+        "type": "object",
+        "description": "The optional business-purchase block at checkout (ADR-0063 P3). Captured for the invoice only: it never changes the amount charged (no reverse charge until phase 2). Validated before anything is loaded; a refusal is checkoutBlock 17 InvalidBuyerIdentity naming the field.",
+        "properties": {
+          "companyName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "maxLength": 200,
+            "description": "Required for a business purchase (1-200 characters after trimming); refusal field buyer.companyName."
+          },
+          "taxId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "maxLength": 80,
+            "description": "Optional. The FORMAT is checked per taxIdScheme with the Entity service's P2 rules (no registry/VIES lookup); stored normalized. Needs taxIdScheme. Refusal field buyer.taxId."
+          },
+          "taxIdScheme": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxIdScheme"
+              }
+            ],
+            "description": "Required with a taxId and refused without one. Refusal field buyer.taxIdScheme."
+          },
+          "taxIdJurisdiction": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "maxLength": 10,
+            "description": "ISO country + optional region (US-CA). Needed only for UsStateSalesTaxId, where it defaults to the state of a US billingAddress; must agree with the scheme's country (an EuVat prefix implies it). Refusal field buyer.taxIdJurisdiction."
+          }
+        }
+      },
+      "BillingAddressResponse": {
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postcode",
+          "country"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "BuyerResponse": {
+        "required": [
+          "companyName"
+        ],
+        "type": "object",
+        "description": "The business-purchase block as persisted (ADR-0063 P3): the tax ID normalized, with its jurisdiction.",
+        "properties": {
+          "companyName": {
+            "type": "string"
+          },
+          "taxId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxIdScheme": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxIdScheme"
+              }
+            ]
+          },
+          "taxIdJurisdiction": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

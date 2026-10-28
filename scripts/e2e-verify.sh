@@ -228,6 +228,14 @@
 #       mixed-rate carts well-formed; selection by TaxJurisdiction (DE-BY, EL→GR; AU/US-CA/GB/CH/NO/"" keep the single
 #       rate); 10,000 random carts on non-EU / unconfigured stores (and EU domestic) byte-identical to
 #       StorefrontRateTaxStrategy; EuDistanceSale rows only for confirmed cross-border EU orders (net of VAT)
+#   A3s Unit · buyer identity at checkout (ADR-0063 P3): the bill-to defaults to the ship-to address and a supplied
+#       one is normalized; the business block needs a company (<= 200), a tax ID needs its scheme and a scheme its
+#       tax ID, every scheme's well-formed ID is normalized with its jurisdiction (EL→GR, ABN→AU, a US state ID
+#       takes a US bill-to's state) and each malformed one is refused naming buyer.companyName / buyer.taxId /
+#       buyer.taxIdScheme / buyer.taxIdJurisdiction; the order copies bill-to + block verbatim with its money
+#       untouched; CheckoutBlock 17 InvalidBuyerIdentity is a 400 (BuyerIdentityTests, OrderingProblemsTests);
+#       Ordering's copy of the per-scheme format rules agrees with Entity's on every scheme × value × jurisdiction
+#       of a corpus that both accepts and rejects (BuyerTaxIdFormatParityTests)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -466,6 +474,14 @@
 #       StorefrontConfigChanged, an older client's PUT keeps them, "" clears, /duplicate clones them, all audited
 #       (StorefrontTaxIdentityAdminTests). Browser: e2e-admin/seller-identity.spec.ts (designate, tax ID refusal +
 #       add, establishment, storefront binding; tooltips; capture())
+#   A6j Integration · buyer identity at checkout (ADR-0063 P3, BuyerIdentityCheckoutTests): through Ordering's real
+#       checkout a guest buys with and without a business block on the same 10 % exclusive store and is charged the
+#       SAME net/discount/shipping/tax/gross; the consumer attempt's bill-to is the ship-to, the business one keeps a
+#       separate bill-to + the normalized EU VAT ID (DE) and the confirmed order carries both verbatim; a member's
+#       ABN order reads back on GET /orders/{id} (taxIdScheme a NUMBER) next to a consumer order with buyer null;
+#       five malformed blocks are 400 problem+json checkoutBlock 17 naming the field, nothing booked, cart kept.
+#       Browser: e2e/checkout-business-purchase.spec.ts (guest + member, with and without the block; malformed
+#       tax ID refused and marked; capture())
 #   A6c Browser E2E (Playwright) · preview parity (ADR-0054, e2e/promotion-shipping-parity.spec.ts):
 #       a shippable cart with no address shows "free shipping may apply" and never the decided row,
 #       and entering an address at checkout quotes the real carrier rate, settles the contest on it,
@@ -534,7 +550,13 @@
 #       seller tax identity (ADR-0063 P2): Entities → Details designates the seller of record, refuses a malformed
 #       EU VAT ID with its per-scheme reason, stores a valid one as DE123456789, adds/edits the e2e-hq establishment,
 #       and Commerce ops binds a storefront to AU + that establishment, every new field carrying a tooltip
-#       (e2e-admin/seller-identity.spec.ts)
+#       (e2e-admin/seller-identity.spec.ts);
+#       buyer identity at checkout (ADR-0063 P3): a guest fills the Business purchase block (summary unchanged),
+#       a malformed EU VAT ID is refused with the localized reason and the input marked aria-invalid, then the
+#       fixed ID + a separate billing address place the order, read back via the admin API normalized (DE123456789,
+#       scheme 5); a guest without the block is billed to the shipping address; a member orders without and
+#       with an ABN block and the account order history shows both bill-tos and one "Australian ABN:
+#       51824753556 (AU)" (e2e/checkout-business-purchase.spec.ts; needs --data full)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -698,6 +720,14 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuOssTaxStrategyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3r EU OSS tax strategy"; else fail "A3r EU OSS tax strategy"; fi
+
+  stage "A3s Buyer identity at checkout (ADR-0063 P3) — bill-to default, business block, per-scheme format parity with Entity"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~BuyerIdentityTests|FullyQualifiedName~OrderingProblemsTests)' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~BuyerTaxIdFormatParityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3s buyer identity at checkout"; else fail "A3s buyer identity at checkout"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

@@ -6,9 +6,10 @@ import { useTranslations } from "next-intl";
 import type { OrderSummaryDto, OrderDetail } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { LocalTime } from "@/components/LocalTime";
+import { taxIdSchemeLabelKey } from "@/lib/tax-id-scheme";
 
 // Order history: each row links to Support and expands (fetched on demand) to the full order detail —
-// date, shipping address, payment, items and the amount breakdown.
+// date, shipping and billing addresses, the business-purchase block (ADR-0063 P3), payment, items and the amounts.
 export function OrderHistory({ orders }: { orders: OrderSummaryDto[] }) {
   const t = useTranslations("account");
   return (
@@ -24,6 +25,12 @@ function OrderRow({ order, t }: { order: OrderSummaryDto; t: ReturnType<typeof u
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  // The business block's scheme crosses HTTP as a number; its name is the checkout's localized label.
+  const schemes = useTranslations("checkout.business.schemes");
+  const schemeLabel = (value: number | null) => {
+    const key = taxIdSchemeLabelKey(value);
+    return key ? schemes(key) : "";
+  };
 
   async function toggle() {
     const next = !open;
@@ -92,6 +99,36 @@ function OrderRow({ order, t }: { order: OrderSummaryDto; t: ReturnType<typeof u
                     {detail.shippingAddress.name}<br />
                     {detail.shippingAddress.line1}<br />
                     {detail.shippingAddress.city} {detail.shippingAddress.postcode}, {detail.shippingAddress.country}
+                  </div>
+                </div>
+              )}
+
+              {detail.billingAddress && (
+                <div data-testid="order-billing-address">
+                  <div className="mb-1 font-medium text-neutral-700">{t("billingAddress")}</div>
+                  <div className="text-neutral-600">
+                    {detail.billingAddress.name}<br />
+                    {detail.billingAddress.line1}<br />
+                    {detail.billingAddress.city}{detail.billingAddress.region ? ` ${detail.billingAddress.region}` : ""} {detail.billingAddress.postcode}, {detail.billingAddress.country}
+                  </div>
+                </div>
+              )}
+
+              {detail.buyer && (
+                <div data-testid="order-business-purchase">
+                  <div className="mb-1 font-medium text-neutral-700">{t("businessPurchase")}</div>
+                  <div className="text-neutral-600">
+                    {detail.buyer.companyName}
+                    {detail.buyer.taxId && (
+                      <>
+                        <br />
+                        {t("taxIdLine", {
+                          scheme: schemeLabel(detail.buyer.taxIdScheme),
+                          taxId: detail.buyer.taxId,
+                        })}
+                        {detail.buyer.taxIdJurisdiction ? ` (${detail.buyer.taxIdJurisdiction})` : ""}
+                      </>
+                    )}
                   </div>
                 </div>
               )}

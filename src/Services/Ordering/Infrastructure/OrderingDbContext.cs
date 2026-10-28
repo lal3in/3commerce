@@ -30,6 +30,20 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
     public DbSet<SupplierWarehouseCopy> SupplierWarehouseCopies => Set<SupplierWarehouseCopy>();
     public DbSet<EuDistanceSale> EuDistanceSales => Set<EuDistanceSale>();
 
+    /// <summary>
+    /// The ADR-0063 P3 bill-to + business-purchase columns, shared by <see cref="CheckoutAttempt"/> and
+    /// <see cref="Order"/> (the attempt's values are copied verbatim by <c>ToOrder</c>). Bounded columns are bounded
+    /// in <see cref="BuyerIdentity"/> too, so an oversize value is a 400, never a DB error.
+    /// </summary>
+    private static void ConfigureBuyerIdentity<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> entity)
+        where T : class
+    {
+        entity.Property<string?>("BillCountry").HasMaxLength(2);
+        entity.Property<string?>("BuyerCompanyName").HasMaxLength(BuyerIdentity.CompanyNameMaxLength);
+        entity.Property<string?>("BuyerTaxId").HasMaxLength(BuyerIdentity.TaxIdMaxLength);
+        entity.Property<string?>("BuyerTaxIdJurisdiction").HasMaxLength(10);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -159,6 +173,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             // ADR-0063 P1b facts; '' on orders placed before it.
             o.Property(x => x.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
             o.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty);
+            ConfigureBuyerIdentity(o);
             o.HasIndex(x => new { x.StorefrontId, x.PublicOrderNumber }).IsUnique();
             // xmin as the concurrency token (Npgsql maps a uint row version to the system column; nothing is
             // added to the table). Every EF UPDATE of an order then checks it — see Order.Version.
@@ -178,6 +193,7 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             attempt.Property(x => x.CampaignRef).HasMaxLength(120);
             attempt.Property(x => x.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
             attempt.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty);
+            ConfigureBuyerIdentity(attempt);
             attempt.HasIndex(x => new { x.StorefrontId, x.Status });
             attempt.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.CheckoutAttemptId);
         });

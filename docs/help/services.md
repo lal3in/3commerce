@@ -32,4 +32,15 @@ Usage were extracted out of Fulfillment (which now ships only physical lines).
 > → shipping) is [Pricing & promotions](./pricing-and-promotions.md); every endpoint is listed in
 > [services.html](./services.html) and the [API contracts index](../api/api_contracts_index.md).
 
+> **Buyer identity at checkout (ADR-0063 P3).** `POST /api/ordering/checkout` accepts an optional
+> `billingAddress` (absent = bill to the shipping address, which is then stored as the bill-to) and an
+> optional `buyer` block — company name, tax ID and its numeric `taxIdScheme` (the shared `TaxIdScheme`:
+> EU VAT, ABN, UK VRN, NZ GST, CA BN, CH UID, US state sales-tax ID, …). Ordering checks the tax ID's
+> **format** per scheme with the same rules Entity uses for sellers (mirrored, pinned by a parity test; no
+> VIES lookup yet) and refuses a bad block with a 400 problem+json naming the field (`checkoutBlock` 17,
+> `field` = `buyer.taxId` …). Both are stored on the checkout attempt and the order and returned on the
+> order detail. They **never change the amount charged** — reverse charge is phase 2 — and they are
+> printed on the invoice once the Invoicing service exists. The storefront checkout shows them as the
+> "Billing address" and "Business purchase" sections; the account's order history shows them back.
+
 For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

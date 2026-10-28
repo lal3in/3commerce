@@ -274,6 +274,40 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<string>("AppliedPromotionNames")
                         .HasColumnType("text");
 
+                    b.Property<string>("BillCity")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("BillLine1")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillPostcode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillRegion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BuyerCompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("BuyerTaxId")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("BuyerTaxIdJurisdiction")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int?>("BuyerTaxIdScheme")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CampaignRef")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
@@ -622,6 +656,40 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<string>("AppliedPromotionNames")
                         .HasColumnType("text");
+
+                    b.Property<string>("BillCity")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("BillLine1")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillPostcode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BillRegion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BuyerCompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("BuyerTaxId")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("BuyerTaxIdJurisdiction")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int?>("BuyerTaxIdScheme")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("CollectAtWarehouse")
                         .HasColumnType("boolean");

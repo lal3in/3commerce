@@ -15,12 +15,13 @@ public class OrderingProblemsTests
     public void CheckoutBlock_wire_values_are_stable()
     {
         Assert.Equal(
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
             Enum.GetValues<CheckoutBlock>().Select(b => (int)b));
         Assert.Equal(3, (int)CheckoutBlock.CartEmpty);
         Assert.Equal(10, (int)CheckoutBlock.CouponRefused);
         Assert.Equal(15, (int)CheckoutBlock.PricesChanged);
         Assert.Equal(16, (int)CheckoutBlock.PaymentUnavailable);
+        Assert.Equal(17, (int)CheckoutBlock.InvalidBuyerIdentity);
     }
 
     [Fact]
@@ -33,6 +34,7 @@ public class OrderingProblemsTests
     [InlineData(CheckoutBlock.CartEmpty, StatusCodes.Status400BadRequest)]
     [InlineData(CheckoutBlock.CurrencyMismatch, StatusCodes.Status400BadRequest)]
     [InlineData(CheckoutBlock.CouponRefused, StatusCodes.Status400BadRequest)]
+    [InlineData(CheckoutBlock.InvalidBuyerIdentity, StatusCodes.Status400BadRequest)]
     public void Checkout_refusal_status_follows_the_code(CheckoutBlock block, int status) =>
         Assert.Equal(status, OrderingProblems.StatusFor(block));
 

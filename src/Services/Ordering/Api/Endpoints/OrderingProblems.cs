@@ -63,6 +63,7 @@ public static class OrderingProblems
         CheckoutBlock.SubscriptionRequiresSavedPaymentMethod => "A subscription requires a saved payment method.",
         CheckoutBlock.PricesChanged => "Prices changed since the cart was priced.",
         CheckoutBlock.PaymentUnavailable => "The payment service is unavailable.",
+        CheckoutBlock.InvalidBuyerIdentity => "The business purchase details are invalid.",
         _ => "The checkout was refused.",
     };
 
