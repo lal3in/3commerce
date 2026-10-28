@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { GATEWAY_URL } from "./gateway";
 import type { PayRenewalState } from "./subscription-pay";
 
@@ -23,7 +22,9 @@ export async function payRenewal(prev: PayRenewalState, formData: FormData): Pro
     body: JSON.stringify({ savedPaymentMethodId: card || null }),
     cache: "no-store",
   });
-  revalidatePath(`/account/subscriptions/${subscriptionId}/pay`);
+  // No revalidatePath here: re-rendering this page after a successful payment finds the subscription Active and
+  // unmounts the form — and with it the "paid" confirmation the customer is waiting for. The page and /account are
+  // dynamic (cookie-dependent, never cached), so the next visit reads the new state anyway.
   const attempt = (prev.attempt ?? 0) + 1;
   if (response.status === 409) return { attempt, error: "notPastDue" };
   if (response.status === 422) return { attempt, error: "unknownCard" };

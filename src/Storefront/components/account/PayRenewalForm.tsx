@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { payRenewal } from "@/lib/subscription-actions";
 import { PayOutcome, type PayRenewalState } from "@/lib/subscription-pay";
@@ -18,7 +17,6 @@ interface PayRenewalFormProps {
 // authentication is the test-mode simulation; the provider's success event then settles the period.
 export function PayRenewalForm({ subscriptionId, idempotencyKey, amountLabel, cards }: PayRenewalFormProps) {
   const t = useTranslations("subscriptions");
-  const router = useRouter();
   const [state, action, pending] = useActionState<PayRenewalState, FormData>(payRenewal, {});
   const [authenticating, setAuthenticating] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -45,9 +43,10 @@ export function PayRenewalForm({ subscriptionId, idempotencyKey, amountLabel, ca
             setAuthenticating(true);
             const res = await fetch(`/api/dev-pay-intent/${intentId}`, { method: "POST" });
             setAuthenticating(false);
+            // No router.refresh(): the refreshed page would find the period settled and replace this form (and its
+            // confirmation) with "nothing to pay".
             if (res.ok) {
               setAuthenticated(true);
-              router.refresh();
             }
           }}
           className="rounded-md bg-neutral-900 px-4 py-2 font-medium text-white disabled:opacity-50"
