@@ -17,6 +17,8 @@ const ABN = 1; // TaxIdScheme.Abn
 
 test.describe("Checkout bill-to + business purchase (ADR-0063 P3)", () => {
   test("a guest checks out as a business with a separate bill-to; a malformed tax ID is refused naming it", async ({ page, request }) => {
+    // Two checkout rounds (a refusal + an order, or two orders) plus payment polling: can pass the 60 s default on a cold dev server (first compile of each route).
+    test.setTimeout(180_000);
     test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
     await addWarehouseProduct(page);
     const email = `business-guest-${Date.now()}@example.com`;
@@ -78,6 +80,8 @@ test.describe("Checkout bill-to + business purchase (ADR-0063 P3)", () => {
   });
 
   test("a member checks out with and without the business block and sees it on the order", async ({ page }) => {
+    // Two checkout rounds (a refusal + an order, or two orders) plus payment polling: can pass the 60 s default on a cold dev server (first compile of each route).
+    test.setTimeout(180_000);
     await registerAndLogIn(page);
     test.skip(!(await pinStorefront(page)), "no demo storefront with a published catalog (needs --data full)");
 
