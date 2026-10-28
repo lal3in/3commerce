@@ -244,6 +244,19 @@
 #       order's checkout payment; a foreign / unknown reference is refused; a renewal dispute books
 #       {ref}:chargeback with its own tax and a win reinstates it; a late success webhook for a refunded renewal posts
 #       and publishes nothing; the LocalMock rail gives each usage charge its own intent
+#   A3u Unit · settled-charge events + usage charge failure feedback (ADR-0063 P4b; owner decision 2026-10-27,
+#       usage_charge_failure_feedback): a settled renewal / usage charge publishes exactly one SubscriptionRenewalSettled /
+#       UsageChargeSettled whose P1-shaped facts equal its ledger entry (inclusive / exclusive / exempt / 0% / unknown
+#       rate; the pinned rate even after a rate change), also when settled later by the provider's success event
+#       (redelivered), never for Failed / RequiresAction / Cancelled (SettledChargeEventTests); a declined usage charge
+#       publishes UsageChargeFailed and is retried on days 1/3/7 with fresh keys (-a1..-a3) and the same pinned amount,
+#       then abandoned (Final); an unanswered provider duns silently and reuses its key; late money settles it once
+#       (UsageChargeDunningTests); Usage takes back an auto-load credit once, holds further top-ups / suspends billable
+#       usage, re-grants on settlement, never bills an overage twice, and an overage reference is unique per period
+#       (UsageChargeFeedbackTests); contracts round-trip with numeric enums, a pre-P4b usage charge request still
+#       deserializes, the tax-fact vocabulary equals Ordering's, the declined / suspended emails name the next retry /
+#       suspension and their consumer sends them (SettledChargeContractTests); ConsumerEndpointNameTests (A3d) sees
+#       UsageChargeFailed on two queues (usage-balance-charge-failed, usage-charge-failed-email)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -748,6 +761,17 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~RecurringChargePaymentTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3t renewal + usage charge payments"; else fail "A3t renewal + usage charge payments"; fi
+
+  stage "A3u Settled-charge events + usage charge failure feedback (ADR-0063 P4b) — once per settled charge, dunning, reversal"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~SettledChargeEventTests|FullyQualifiedName~UsageChargeDunningTests)' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Usage/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~UsageChargeFeedbackTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SettledChargeContractTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3u settled-charge events + usage charge feedback"; else fail "A3u settled-charge events + usage charge feedback"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
