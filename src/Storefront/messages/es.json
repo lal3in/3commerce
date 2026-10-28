@@ -565,7 +565,7 @@
   "subscriptions": {
     "heading": "Suscripciones",
     "none": "No tienes suscripciones.",
-    "renewsOn": "Se renueva el {date}",
+    "renewsOn": "Se renueva el <date></date>",
     "status": {
       "Active": "Activa",
       "Trialing": "Prueba",
@@ -584,8 +584,8 @@
       "Cancelled": "El pago se canceló.",
       "Error": "No pudimos contactar con el proveedor de pagos."
     },
-    "nextRetry": "Si no haces nada, lo volveremos a intentar el {date}.",
-    "cancelsAfter": "Si sigue sin pagarse después del {date}, la suscripción se cancelará.",
+    "nextRetry": "Si no haces nada, lo volveremos a intentar el <date></date>.",
+    "cancelsAfter": "Si sigue sin pagarse después del <date></date>, la suscripción se cancelará.",
     "card": "Pagar con",
     "currentCard": "La tarjeta de la suscripción",
     "savedCard": "{brand} terminada en {last4}",

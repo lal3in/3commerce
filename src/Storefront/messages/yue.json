@@ -565,7 +565,7 @@
   "subscriptions": {
     "heading": "訂閱",
     "none": "你未有任何訂閱。",
-    "renewsOn": "{date} 續期",
+    "renewsOn": "<date></date> 續期",
     "status": {
       "Active": "生效中",
       "Trialing": "試用中",
@@ -584,8 +584,8 @@
       "Cancelled": "付款已被取消。",
       "Error": "我哋聯絡唔到付款服務商。"
     },
-    "nextRetry": "如果你唔做任何嘢，我哋會喺 {date} 再試。",
-    "cancelsAfter": "如果 {date} 之後仍然未付款，訂閱會被取消。",
+    "nextRetry": "如果你唔做任何嘢，我哋會喺 <date></date> 再試。",
+    "cancelsAfter": "如果 <date></date> 之後仍然未付款，訂閱會被取消。",
     "card": "付款方式",
     "currentCard": "訂閱而家用緊嘅卡",
     "savedCard": "{brand} 尾號 {last4}",

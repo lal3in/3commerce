@@ -253,6 +253,11 @@ you are touching before you push.
   wait on the feedback locator itself with a timeout sized to the real work.
 - **CI `browser-e2e` boots with the importer only.** Specs that need the `--data full` demo seed
   (AU/EU/US storefronts) must probe for it and `test.skip` when absent.
+- **A component passed to `t.rich` needs a TAG in the message, not a `{placeholder}`.** next-intl calls a
+  function value only for `<date></date>`. With `"Renews {date}"`, the function itself lands in the output and a
+  server component crashes ("Functions cannot be passed directly to Client Components", the page shows only an
+  error digest). Typecheck and lint pass, so only a browser test sees it (`subscription-pay-page.spec.ts` caught the
+  account page). Fix it in all six locale files.
 
 ## Money
 

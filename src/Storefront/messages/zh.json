@@ -565,7 +565,7 @@
   "subscriptions": {
     "heading": "订阅",
     "none": "您还没有任何订阅。",
-    "renewsOn": "{date} 续订",
+    "renewsOn": "<date></date> 续订",
     "status": {
       "Active": "生效中",
       "Trialing": "试用中",
@@ -584,8 +584,8 @@
       "Cancelled": "付款已被取消。",
       "Error": "无法连接支付服务商。"
     },
-    "nextRetry": "如果您不采取任何操作，我们将于 {date} 再次尝试。",
-    "cancelsAfter": "如果 {date} 之后仍未付款，订阅将被取消。",
+    "nextRetry": "如果您不采取任何操作，我们将于 <date></date> 再次尝试。",
+    "cancelsAfter": "如果 <date></date> 之后仍未付款，订阅将被取消。",
     "card": "付款方式",
     "currentCard": "订阅当前使用的银行卡",
     "savedCard": "{brand} 尾号 {last4}",

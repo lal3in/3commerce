@@ -565,7 +565,7 @@
   "subscriptions": {
     "heading": "Abonnements",
     "none": "Sie haben keine Abonnements.",
-    "renewsOn": "Verlängert sich am {date}",
+    "renewsOn": "Verlängert sich am <date></date>",
     "status": {
       "Active": "Aktiv",
       "Trialing": "Testphase",
@@ -584,8 +584,8 @@
       "Cancelled": "Die Zahlung wurde abgebrochen.",
       "Error": "Der Zahlungsanbieter war nicht erreichbar."
     },
-    "nextRetry": "Wenn Sie nichts tun, versuchen wir es am {date} erneut.",
-    "cancelsAfter": "Ist der Betrag nach dem {date} noch offen, wird das Abonnement gekündigt.",
+    "nextRetry": "Wenn Sie nichts tun, versuchen wir es am <date></date> erneut.",
+    "cancelsAfter": "Ist der Betrag nach dem <date></date> noch offen, wird das Abonnement gekündigt.",
     "card": "Bezahlen mit",
     "currentCard": "Die Karte des Abonnements",
     "savedCard": "{brand} mit Endziffern {last4}",
