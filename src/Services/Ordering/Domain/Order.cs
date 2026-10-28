@@ -50,6 +50,18 @@ public class Order
     /// <summary>Whether the prices CONTAINED the tax (inclusive regime, ADR-0038) or had it added (exclusive).</summary>
     public bool TaxInclusive { get; set; }
 
+    /// <summary>
+    /// ADR-0063 P1b: the storefront's tax jurisdiction the sale was taxed under (<c>CC</c> / <c>CC-RRR</c>, P2), or
+    /// <c>""</c> when none was configured (and on rows written before P1b).
+    /// </summary>
+    public string TaxJurisdiction { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ADR-0063 P1b: the country the tax strategy treated as the place of supply — the ship-to country unless the
+    /// caller passed another destination; <c>""</c> on rows written before P1b.
+    /// </summary>
+    public string TaxDestinationCountry { get; set; } = string.Empty;
+
     public long ShippingMinor { get; set; }
     public long DiscountMinor { get; set; }
 

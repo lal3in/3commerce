@@ -169,6 +169,15 @@ public sealed class OrderStatusConsumer(
             attempt.Status = CheckoutAttemptStatus.Confirmed;
             await AttachVerifiedOwnerAsync(order, context.CancellationToken);
             db.Orders.Add(order);
+
+            // ADR-0063 P1b: an intra-EU distance sale counts toward its seller's EUR 10,000 threshold from the moment
+            // it is confirmed — in THIS transaction, so the running total can neither miss a confirmed sale nor count
+            // one that rolled back, and keyed by the order, so a redelivery cannot count it twice.
+            if (EuDistanceSale.For(order, attempt.CreatedAt, DateTimeOffset.UtcNow) is { } distanceSale)
+            {
+                db.EuDistanceSales.Add(distanceSale);
+            }
+
             await db.SaveChangesAsync(context.CancellationToken);
         }
 
