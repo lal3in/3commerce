@@ -55,7 +55,7 @@ public static class OrderConfirmedFactory
     }
 
     // Ordering's P1 enums and the published vocabulary share their numeric values (pinned by
-    // InvoicingContractFactsTests), so the facts cross by value.
+    // OrderConfirmedInvoicingFactsTests and SettledChargeContractTests), so the facts cross by value.
     private static Facts.TaxCategory Category(TaxCategory category) => (Facts.TaxCategory)(int)category;
 
     private static Facts.TaxExemptionReason Reason(TaxExemptionReason reason) => (Facts.TaxExemptionReason)(int)reason;
