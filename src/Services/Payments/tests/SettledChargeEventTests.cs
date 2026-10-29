@@ -77,6 +77,7 @@ public class SettledChargeEventTests
         var line = Assert.Single(settled.Lines);
         Assert.Equal((2L, 2000L, TaxCategory.Standard, 825, 2000L, 165L), (line.Quantity, line.AmountMinor, line.TaxCategory, line.TaxRateBps, line.TaxableBaseMinor, line.TaxMinor));
         Assert.Equal((false, TaxScheme.Domestic), (settled.TaxInclusive, settled.TaxScheme));
+        Assert.Equal("pi_rec_1", settled.PaymentIntentId);                                       // the charge's own payment
         Assert.Equal(settled.TaxMinor, settled.Lines.Sum(l => l.TaxMinor));
     }
 
@@ -127,6 +128,7 @@ public class SettledChargeEventTests
 
         var settled = Assert.IsType<SubscriptionRenewalSettled>(Assert.Single(published));
         Assert.Equal((2, 1083L, 83L, 825), (settled.Sequence, settled.GrossMinor, settled.TaxMinor, Assert.Single(settled.Lines).TaxRateBps));
+        Assert.Equal(intent, settled.PaymentIntentId);
     }
 
     [Fact]
