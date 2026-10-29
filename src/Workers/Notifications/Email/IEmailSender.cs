@@ -33,6 +33,11 @@ public static class NotificationReferences
         $"subscription-payment-failed:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}:"
         + (nextRetryAt is { } next ? next.ToUniversalTime().ToString("yyyyMMddTHHmmssZ", System.Globalization.CultureInfo.InvariantCulture) : "final");
 
+    /// <summary>One "usage payment didn't go through" email per usage charge and retry (keyed by the next retry; <c>final</c> = suspended).</summary>
+    public static string UsageChargeFailed(string reference, DateTimeOffset? nextRetryAt) =>
+        $"usage-charge-failed:{reference}:"
+        + (nextRetryAt is { } next ? next.ToUniversalTime().ToString("yyyyMMddTHHmmssZ", System.Globalization.CultureInfo.InvariantCulture) : "final");
+
     /// <summary>The cancellation-for-non-payment email of one subscription period.</summary>
     public static string SubscriptionCancelledForNonPayment(Guid subscriptionId, DateTimeOffset periodEnd) =>
         $"subscription-cancelled-non-payment:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}";

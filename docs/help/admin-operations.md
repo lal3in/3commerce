@@ -224,7 +224,7 @@ antiforgery → authentication → authorization**.
   job: **Run now**, **Pause/Resume**, and **Edit schedule** (cron, validated) —
   changes route to the owning service and survive restarts (persisted schedule
   overrides). Every service's jobs appear automatically (e.g. `daily-journal`,
-  `subscription-auto-renew`, `usage-period-close`, `scheduled-publish`). There is
+  `subscription-auto-renew`, `usage-charge-retry`, `usage-period-close`, `scheduled-publish`). There is
   also a live **Message bus** section (read-only RabbitMQ management API:
   queue/consumer/ready/unacked/dead-letter KPI cards, a red dead-letter table when
   any `*_error`/`*_skipped` queue holds messages, and a busiest-queues top-10;

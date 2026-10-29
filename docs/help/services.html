@@ -113,11 +113,11 @@
           <li>An operator checks what access an order granted.</li>
         </ul>
         <h2 id="usage">Usage <span style="opacity:.6">(<code>/api/usage</code> · <code>:5113</code>)</span></h2>
-        <p>Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes <code>UsageOverageCharge</code> → Payments.</p>
+        <p>Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes <code>UsageOverageCharge</code> / <code>UsageAutoLoadCharge</code> → Payments and consumes the outcome (<code>UsageChargeSettled</code> / <code>UsageChargeFailed</code>, owner decision 2026-10-27): a declined charge takes back an auto-load's credit and holds the balance (no further top-ups while Payments retries on days 1, 3 and 7; billable usage suspended once the charge is abandoned); a charge that settles later re-grants the credit and lifts the hold. Balances append a numeric <code>paymentHold</code> (0 none, 1 unpaid, 2 suspended).</p>
         <p><b>Refunding a usage charge (ADR-0041 amendment 2026-10-28).</b> Payments records each settled usage charge (and each settled subscription renewal) as a payment of its own, keyed by its reference (<code>overage-…</code> / <code>autoload-…</code> / <code>renew-&lt;id&gt;-&lt;period&gt;</code>). <code>POST /api/payments/admin/refunds</code> with <code>chargeReference</code> refunds it, fully or in parts, and reverses exactly the tax it booked. Disputes on its payment intent are booked against it, never against an order.</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
               <tr><td><code>POST</code></td><td><code>/admin/usage/provision</code></td><td>admin</td><td>Set a meter’s included allowance + overage price</td></tr>
-              <tr><td><code>POST</code></td><td><code>/admin/usage/record</code></td><td>admin</td><td>Record usage (idempotent by referenceId); gated when overage disallowed</td></tr>
+              <tr><td><code>POST</code></td><td><code>/admin/usage/record</code></td><td>admin</td><td>Record usage (idempotent by referenceId); gated when overage disallowed, and beyond the allowance + prepaid credit while a charge is unpaid</td></tr>
               <tr><td><code>POST</code></td><td><code>/admin/usage/balances/{id}/bill-overage</code></td><td>admin</td><td>Charge unbilled overage (once)</td></tr>
               <tr><td><code>GET</code></td><td><code>/admin/usage/balances?email=</code></td><td>admin</td><td>List balances</td></tr>
               <tr><td><code>GET</code></td><td><code>/me/usage</code></td><td>customer</td><td>The customer’s own balances</td></tr>

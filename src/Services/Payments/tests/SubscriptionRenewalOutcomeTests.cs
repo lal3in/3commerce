@@ -145,17 +145,15 @@ public class SubscriptionRenewalOutcomeTests
     [InlineData(PaymentOutcome.Failed)]
     [InlineData(PaymentOutcome.RequiresAction)]
     [InlineData(PaymentOutcome.Cancelled)]
-    public async Task An_unsettled_usage_charge_posts_nothing_logs_it_and_a_resend_retries_the_same_amount(PaymentOutcome outcome)
+    public async Task An_unsettled_usage_charge_posts_nothing_logs_it_and_its_scheduled_retry_charges_the_same_amount(PaymentOutcome outcome)
     {
         await using var db = NewDb();
         var store = AddStore(db, 825, inclusive: false);
         var provider = new RecordingProvider { Outcome = outcome };
-        var log = new ListLogger<SubscriptionRenewalOutcomeTests>();
+        var log = new ListLogger<UsageChargeBilling>();
         const string reference = "overage-unsettled-1";
 
-        Task Charge() => UsageChargeBilling.ChargeAndPostAsync(
-            db, new SingleProviderRegistry(provider), Resolver(), TimeProvider.System, log,
-            store, 1000, "USD", reference, "Usage overage", default);
+        Task Charge() => UsageBilling.For(db, provider, new FixedTime(Now), log: log).ChargeAsync(UsageBilling.Request(store, 1000, reference), default);
 
         await Charge();
         Assert.Empty(await db.JournalEntries.ToListAsync());                                    // no revenue, no tax
@@ -164,8 +162,12 @@ public class SubscriptionRenewalOutcomeTests
 
         await SetRateAsync(db, store, 1000);
         provider.Outcome = PaymentOutcome.Succeeded;
-        await Charge();                                                                         // a re-sent charge
+        await Charge();                                                                         // a re-sent request: answered already, nothing charged
+        Assert.Single(provider.Requests);
+        await UsageBilling.For(db, provider, new FixedTime(Now.AddDays(1).AddHours(1))).RetryDueAsync(default); // the day-1 retry
+        Assert.Equal(2, provider.Requests.Count);
         Assert.All(provider.Requests, r => Assert.Equal(1083, r.AmountMinor));                  // same pinned amount
+        Assert.Equal(reference + "-a1", provider.Requests[1].IdempotencyKey);                   // a fresh key
         Assert.Equal(reference, Assert.Single(await db.JournalEntries.ToListAsync()).Reference);
     }
 

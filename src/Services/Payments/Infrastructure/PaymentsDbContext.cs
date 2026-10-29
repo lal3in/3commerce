@@ -31,6 +31,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<SubscriptionRenewal> SubscriptionRenewals => Set<SubscriptionRenewal>();
     public DbSet<SubscriptionChargeAttempt> SubscriptionChargeAttempts => Set<SubscriptionChargeAttempt>();
     public DbSet<StorefrontBillingSchedule> StorefrontBillingSchedules => Set<StorefrontBillingSchedule>();
+    public DbSet<UsageCharge> UsageCharges => Set<UsageCharge>();
+    public DbSet<UsageChargeAttempt> UsageChargeAttempts => Set<UsageChargeAttempt>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
     public DbSet<StorefrontLedgerAccounts> StorefrontLedgerAccounts => Set<StorefrontLedgerAccounts>();
@@ -76,6 +78,33 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             attempt.HasIndex(x => x.IdempotencyKey).IsUnique();
             attempt.HasIndex(x => x.PaymentIntentId); // the provider's success event finds its attempt by intent id
             attempt.HasIndex(x => new { x.SubscriptionId, x.PeriodEnd });
+        });
+
+        // Usage charges and their attempts (usage_charge_failure_feedback, owner decision 2026-10-27): dunned like renewals.
+        modelBuilder.Entity<UsageCharge>(charge =>
+        {
+            charge.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
+            charge.Property(x => x.Meter).HasConversion<string>().HasMaxLength(16);
+            charge.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            charge.Property(x => x.CustomerEmail).HasMaxLength(256);
+            charge.Property(x => x.Currency).HasMaxLength(3);
+            charge.Property(x => x.Reference).HasMaxLength(160);
+            charge.Property(x => x.Description).HasMaxLength(256);
+            charge.Property(x => x.LastFailureReason).HasMaxLength(24);
+            charge.HasIndex(x => x.Reference).IsUnique(); // one charge per Usage reference, whatever the redelivery
+            charge.HasIndex(x => new { x.Status, x.DunningStartedAt }); // the retry sweep
+        });
+
+        modelBuilder.Entity<UsageChargeAttempt>(attempt =>
+        {
+            attempt.Property(x => x.IdempotencyKey).HasMaxLength(170);
+            attempt.Property(x => x.Currency).HasMaxLength(3);
+            attempt.Property(x => x.Outcome).HasMaxLength(24);
+            attempt.Property(x => x.PaymentIntentId).HasMaxLength(255);
+            attempt.Property(x => x.Trigger).HasConversion<string>().HasMaxLength(16);
+            attempt.HasIndex(x => x.IdempotencyKey).IsUnique();
+            attempt.HasIndex(x => x.PaymentIntentId); // a late provider success event finds its attempt by intent id
+            attempt.HasIndex(x => new { x.UsageChargeId, x.Attempt });
         });
 
         modelBuilder.Entity<SubscriptionRenewal>(renewal =>

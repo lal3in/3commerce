@@ -27,8 +27,10 @@ public enum RecurringChargeTaxBasis
 /// The tax of one renewal / usage charge: the shelf <see cref="PriceMinor"/> it was computed on, the
 /// <see cref="TaxMinor"/> portion, and how it was resolved. <see cref="ChargeMinor"/> is what the customer is
 /// charged (price + tax on an exclusive store, the price itself otherwise); <see cref="NetMinor"/> is the revenue.
+/// <see cref="RateBps"/> is the rate the split was computed at (ADR-0063 P4b: the settled-charge events publish it) —
+/// null when the rate was unknown, or for a split pinned before the rate was recorded.
 /// </summary>
-public readonly record struct RecurringChargeTaxResult(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis)
+public readonly record struct RecurringChargeTaxResult(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null)
 {
     /// <summary>The gross the provider is asked to charge: the price, plus the tax only when it is added on top.</summary>
     public long ChargeMinor => Basis == RecurringChargeTaxBasis.Exclusive ? PriceMinor + TaxMinor : PriceMinor;
@@ -65,17 +67,18 @@ public static class RecurringChargeTax
 
         if (taxExempt || rateBasisPoints <= 0 || priceMinor <= 0)
         {
-            return new(priceMinor, 0, RecurringChargeTaxBasis.Untaxed);
+            return new(priceMinor, 0, RecurringChargeTaxBasis.Untaxed, taxExempt ? 0 : Math.Max(0, rateBasisPoints.Value));
         }
 
         if (!taxInclusive)
         {
-            return new(priceMinor, ExclusiveTaxOn(priceMinor, rateBasisPoints.Value), RecurringChargeTaxBasis.Exclusive);
+            return new(
+                priceMinor, ExclusiveTaxOn(priceMinor, rateBasisPoints.Value), RecurringChargeTaxBasis.Exclusive, rateBasisPoints.Value);
         }
 
         var bps = (decimal)rateBasisPoints.Value;
         var tax = (long)Math.Round(priceMinor * bps / (10000m + bps), MidpointRounding.AwayFromZero);
-        return new(priceMinor, tax, RecurringChargeTaxBasis.Inclusive);
+        return new(priceMinor, tax, RecurringChargeTaxBasis.Inclusive, rateBasisPoints.Value);
     }
 
     /// <summary>

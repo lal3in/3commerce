@@ -70,6 +70,10 @@
             <td>Sweeps <strong>due subscription renewals</strong> and charges them off-session against the saved payment method; each storefront renews at most once per day once its configured window has passed, and a charge that does not settle marks the subscription past-due (dunning); the same run retries past-due subscriptions on days 1, 3 and 7 after the first failure (a fresh attempt, the same amount) and cancels one when its day-7 retry fails. Idempotent. <code>SubscriptionAutoRenewJob</code>.</td>
           </tr>
           <tr>
+            <td>payments</td><td><code>usage-charge-retry</code></td><td><code>0 30 * * * ?</code> — hourly</td>
+            <td>Retries <strong>declined usage charges</strong> (overage / prepaid auto-load) on the renewal dunning schedule: days 1, 3 and 7 after the first failure, a fresh attempt key and the same pinned amount each time; the day-7 failure abandons the charge and Usage suspends billable usage. Outcomes are published back to Usage (<code>UsageChargeSettled</code> / <code>UsageChargeFailed</code>) and declines email the customer. Idempotent. <code>UsageChargeRetryJob</code>.</td>
+          </tr>
+          <tr>
             <td>payments</td><td><code>daily-journal</code></td><td><code>0 0 2 * * ?</code> — 02:00 UTC daily</td>
             <td>Posts the prior UTC day's <strong>ledger journal to Xero</strong> (the scheduled half of the daily-journal job). Idempotent per date, so a re-run for the same day is safe. <code>DailyJournalScheduledJob</code>.</td>
           </tr>

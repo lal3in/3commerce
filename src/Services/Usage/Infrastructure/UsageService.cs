@@ -9,7 +9,10 @@ namespace ThreeCommerce.Usage.Infrastructure;
 /// <summary>
 /// Metered usage (mt7_4/mt7_5): provision an allowance + overage price, record append-only usage with
 /// the balance kept incrementally (O(1) reads), gate access when overage is not allowed, and bill the
-/// unbilled overage by charging it via the rail (UsageOverageCharge → Payments).
+/// unbilled overage by charging it via the rail (UsageOverageCharge → Payments). Every overage / auto-load charge it
+/// publishes is recorded (<see cref="UsageCharge"/>) and moved by Payments' outcome — settled, or declined and retried,
+/// or abandoned — which reverses the optimistic auto-load credit and holds the balance's billing on failure
+/// (usage_charge_failure_feedback, owner decision 2026-10-27).
 /// </summary>
 public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, TimeProvider clock)
 {
@@ -38,7 +41,9 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
         var balance = (await CurrentBalanceAsync(tenantId, email, meter, create: true, ct))!;
         if (!balance.CanAccept(quantity))
         {
-            throw new UsageRuleException("Usage allowance exhausted and overage is not permitted for this plan.");
+            throw new UsageRuleException(balance.PaymentHold == UsagePaymentHold.None
+                ? "Usage allowance exhausted and overage is not permitted for this plan."
+                : "Usage allowance exhausted and further usage is on hold until an unpaid usage charge is paid.");
         }
 
         balance.Add(quantity, now);
@@ -106,15 +111,19 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
     /// owns SaveChanges so a sweep commits all top-ups together.</summary>
     private async Task PublishAutoLoadAsync(UsageBalance balance, CancellationToken ct)
     {
-        var chargeMinor = balance.ApplyAutoLoad(clock.GetUtcNow());
+        var now = clock.GetUtcNow();
+        var chargeMinor = balance.ApplyAutoLoad(now);
         if (chargeMinor <= 0)
         {
             return; // free reload (no unit price) — credit only, nothing to bill
         }
 
+        var reference = balance.AutoLoadChargeReference;
+        db.UsageCharges.Add(UsageCharge.Open(
+            balance.TenantId, balance.Id, reference, UsageChargeKind.AutoLoad, balance.AutoLoadReloadQuantity, chargeMinor, balance.Currency, now));
         await publisher.Publish(new UsageAutoLoadCharge(
             balance.TenantId, balance.CustomerEmail, balance.Meter, balance.AutoLoadReloadQuantity, chargeMinor, balance.Currency,
-            $"autoload-{balance.Id}-{balance.AutoLoadCount}", balance.StorefrontId), ct);
+            reference, balance.StorefrontId, balance.OverageUnitPriceMinor), ct);
     }
 
     /// <summary>Charge the unbilled overage via the rail (mt7_5). No-op when there is nothing to bill.</summary>
@@ -171,11 +180,96 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
             return false;
         }
 
+        var now = clock.GetUtcNow();
+        var reference = balance.OverageChargeReference;
+        db.UsageCharges.Add(UsageCharge.Open(
+            balance.TenantId, balance.Id, reference, UsageChargeKind.Overage, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency, now));
         await publisher.Publish(new UsageOverageCharge(
             balance.TenantId, balance.CustomerEmail, balance.Meter, balance.UnbilledOverageQuantity, chargeMinor, balance.Currency,
-            $"overage-{balance.Id}-{balance.OverageQuantity}", balance.StorefrontId), ct);
-        balance.MarkOverageBilled(clock.GetUtcNow());
+            reference, balance.StorefrontId, balance.OverageUnitPriceMinor), ct);
+        balance.MarkOverageBilled(now);
         return true;
+    }
+
+    /// <summary>
+    /// Payments settled a charge (<see cref="UsageChargeSettled"/>): mark it paid; if it had been declined, re-grant the
+    /// auto-load credit taken back, and release the balance's hold when nothing else is unpaid. Idempotent per reference.
+    /// </summary>
+    public async Task ApplySettledAsync(UsageChargeSettled m, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var shelfMinor = m.UnitPriceMinor > 0 ? m.UnitPriceMinor * m.Quantity : m.GrossMinor;
+        var (charge, balance) = await ChargeForAsync(m.TenantId, m.CustomerEmail, m.Meter, m.Reference, m.Kind, m.Quantity, shelfMinor, m.Currency, ct);
+        if (charge is null || balance is null)
+        {
+            return;
+        }
+
+        if (charge.Settle(now) && charge.Kind == UsageChargeKind.AutoLoad)
+        {
+            balance.RestoreAutoLoad(charge.Quantity, now);
+        }
+
+        await RefreshHoldAsync(balance, charge, now, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Payments could not settle a charge (<see cref="UsageChargeFailed"/>): the first failure takes back the auto-load's
+    /// optimistic credit (an overage simply stays billed-but-unpaid — it is never billed twice); the balance's billing is
+    /// held (Unpaid while Payments retries, Suspended once the final retry failed). Idempotent per reference.
+    /// </summary>
+    public async Task ApplyFailedAsync(UsageChargeFailed m, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var (charge, balance) = await ChargeForAsync(m.TenantId, m.CustomerEmail, m.Meter, m.Reference, m.Kind, m.Quantity, m.AmountMinor, m.Currency, ct);
+        if (charge is null || balance is null)
+        {
+            return;
+        }
+
+        if (charge.Fail(m.Reason, m.NextRetryAt, m.Final, now) && charge.Kind == UsageChargeKind.AutoLoad)
+        {
+            balance.ReverseAutoLoad(charge.Quantity, now);
+        }
+
+        await RefreshHoldAsync(balance, charge, now, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>The recorded charge and its balance. A charge published before charges were recorded is recorded now
+    /// (Open — its credit / billed mark was applied at publish, as it is today). Null when the balance is unknown.</summary>
+    private async Task<(UsageCharge? Charge, UsageBalance? Balance)> ChargeForAsync(
+        Guid tenantId, string email, MeterType meter, string reference, UsageChargeKind kind, long quantity, long amountMinor,
+        string currency, CancellationToken ct)
+    {
+        var charge = await db.UsageCharges.SingleOrDefaultAsync(c => c.TenantId == tenantId && c.Reference == reference, ct);
+        var balance = charge is not null
+            ? await db.UsageBalances.SingleOrDefaultAsync(b => b.Id == charge.BalanceId, ct)
+            : await CurrentBalanceAsync(tenantId, email, meter, create: false, ct);
+        if (balance is null)
+        {
+            return (null, null);
+        }
+
+        if (charge is null)
+        {
+            charge = UsageCharge.Open(tenantId, balance.Id, reference, kind, quantity, amountMinor, currency, clock.GetUtcNow());
+            db.UsageCharges.Add(charge);
+        }
+
+        return (charge, balance);
+    }
+
+    /// <summary>Derive the balance's hold from all its charges (<paramref name="changed"/> as it is now, the others as stored).</summary>
+    private async Task RefreshHoldAsync(UsageBalance balance, UsageCharge changed, DateTimeOffset now, CancellationToken ct)
+    {
+        var others = await db.UsageCharges.AsNoTracking()
+            .Where(c => c.BalanceId == balance.Id && c.Id != changed.Id
+                && (c.State == UsageChargeState.Unpaid || c.State == UsageChargeState.Abandoned))
+            .Select(c => c.State)
+            .ToListAsync(ct);
+        balance.SetPaymentHold(UsageCharge.HoldFor(others.Append(changed.State)), now);
     }
 
     public Task<List<UsageBalance>> ListBalancesAsync(Guid tenantId, string? email, CancellationToken ct)

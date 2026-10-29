@@ -144,12 +144,17 @@ Digital/service-line access (mt7_2/7_6), extracted from Fulfillment. Its `Entitl
 
 ## Usage (`/api/usage`)
 
-Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes `UsageOverageCharge` → Payments.
+Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes `UsageOverageCharge` / `UsageAutoLoadCharge`
+(appended `unitPriceMinor`) → Payments, records each charge, and consumes Payments' outcome — `UsageChargeSettled` /
+`UsageChargeFailed` (usage_charge_failure_feedback, owner decision 2026-10-27): a decline takes back an auto-load's credit
+and holds the balance (no further top-ups; billable usage suspended once the charge is abandoned after its day-7 retry).
+Balance DTOs append `paymentHold` (numeric: 0 none, 1 unpaid, 2 suspended). An overage charge's reference now includes
+the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeated overage level in a later period is charged.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST | `/admin/usage/provision` | admin | Set a meter's included allowance + overage price |
-| POST | `/admin/usage/record` | admin | Record usage (idempotent by `referenceId`); gated when overage disallowed |
+| POST | `/admin/usage/record` | admin | Record usage (idempotent by `referenceId`); gated when overage disallowed, and beyond the allowance + prepaid credit while a charge is unpaid (400 names the hold) |
 | POST | `/admin/usage/balances/{id}/bill-overage` | admin | Charge unbilled overage via the rail (once; no-op when nothing due) |
 | GET | `/admin/usage/balances?email=` | admin | List meter balances |
 | GET | `/me/usage` | customer | The signed-in customer's own meter balances |
@@ -303,7 +308,12 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > customer to authenticate, `SubscriptionPaymentFailed` when one is declined and will be retried, and
 > `SubscriptionCancelledForNonPayment` when the day-7 retry fails (→ Notifications emails linking
 > `/account/subscriptions/{id}/pay`); Usage publishes
-> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). The dedicated
+> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). Payments publishes
+> `SubscriptionRenewalSettled` / `UsageChargeSettled` once per SETTLED renewal / usage charge with P1-shaped tax facts
+> (`Contracts.Tax.Facts`: category, rate, net base, tax, exemption, scheme, inclusive — the split its ledger entry posted;
+> ADR-0063 P4b, consumed by Invoicing in phase 1, and by Usage) and `UsageChargeFailed` per answered failure of a usage
+> charge, which is dunned like a renewal (days 1/3/7, fresh keys, one pinned amount, then abandoned; job `usage-charge-retry`)
+> → Usage (reversal / hold) + Notifications (email). The dedicated
 > Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
 > capability-first placement in Catalog/Fulfillment).
 >

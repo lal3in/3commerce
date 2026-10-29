@@ -290,6 +290,13 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                     b.Property<long>("OverageUnitPriceMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("PaymentHold")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasDefaultValue("None");
+
                     b.Property<DateTimeOffset?>("PeriodEnd")
                         .HasColumnType("timestamp with time zone");
 
@@ -317,6 +324,67 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UsageBalances", "usage");
+                });
+
+            modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageCharge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("BalanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<string>("LastFailureReason")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset?>("NextRetryAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Quantity")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BalanceId", "State");
+
+                    b.HasIndex("TenantId", "Reference")
+                        .IsUnique();
+
+                    b.ToTable("UsageCharges", "usage");
                 });
 
             modelBuilder.Entity("ThreeCommerce.Usage.Domain.UsageRecord", b =>

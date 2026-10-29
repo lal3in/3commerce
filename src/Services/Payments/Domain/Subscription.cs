@@ -84,14 +84,15 @@ public sealed class Subscription
     /// <summary>Why the current period is past due: <c>RequiresAction</c>, <c>Failed</c>, <c>Cancelled</c> or <c>Error</c>.</summary>
     public string? LastFailureReason { get; private set; }
 
-    /// <summary>Scheduled retries, in days after <see cref="DunningStartedAt"/>; the last one failing cancels the subscription.</summary>
-    public static readonly IReadOnlyList<int> RetryDays = [1, 3, 7];
+    /// <summary>Scheduled retries, in days after <see cref="DunningStartedAt"/>; the last one failing cancels the subscription
+    /// (<see cref="DunningSchedule"/> — the same rules usage charges follow).</summary>
+    public static IReadOnlyList<int> RetryDays => DunningSchedule.RetryDays;
 
     /// <summary>The period's identity: the renewal key the amount is pinned to (<c>RecurringChargePin</c>).</summary>
     public string PeriodKey => $"renew-{Id}-{CurrentPeriodEnd:O}";
 
     /// <summary>The provider idempotency key of the NEXT attempt of the current period.</summary>
-    public string NextAttemptKey => AttemptCount == 0 ? PeriodKey : $"{PeriodKey}-a{AttemptCount}";
+    public string NextAttemptKey => DunningSchedule.AttemptKey(PeriodKey, AttemptCount);
 
     // Renewal history (mt7_3): one row per period opened, kept on the aggregate so it saves in the same
     // SaveChanges as the state change. Read-only to callers; the aggregate is the sole writer.
@@ -235,23 +236,17 @@ public sealed class Subscription
             return null;
         }
 
-        var due = RetryDays.Count(d => start.AddDays(d) <= now);
-        if (due == 0 || LastAttemptAt >= start.AddDays(RetryDays[due - 1]))
-        {
-            return null;
-        }
-
-        return (due, due == RetryDays.Count);
+        return DunningSchedule.Due(start, LastAttemptAt, now);
     }
 
     /// <summary>When the next scheduled retry falls due (null when none is left, or not dunning).</summary>
     public DateTimeOffset? NextRetryAt =>
         Status == SubscriptionStatus.PastDue && DunningStartedAt is { } start
-            ? RetryDays.Select(d => start.AddDays(d)).Cast<DateTimeOffset?>().FirstOrDefault(t => !(LastAttemptAt >= t))
+            ? DunningSchedule.NextRetryAt(start, LastAttemptAt)
             : null;
 
     /// <summary>When an unpaid period's subscription is cancelled: the final scheduled retry.</summary>
-    public DateTimeOffset? CancelsAfter => DunningStartedAt?.AddDays(RetryDays[^1]);
+    public DateTimeOffset? CancelsAfter => DunningStartedAt is { } start ? DunningSchedule.EndsAfter(start) : null;
 
     /// <summary>Charge future renewals to another of the customer's stored instruments ("update the card").</summary>
     public void ChangeInstrument(string? providerCustomerId, string providerPaymentMethodId, DateTimeOffset now)

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
@@ -133,9 +134,7 @@ public class RecurringChargeAmountTests
 
         for (var delivery = 0; delivery < 2; delivery++) // a redelivered message never charges or posts twice
         {
-            await UsageChargeBilling.ChargeAndPostAsync(
-                db, new SingleProviderRegistry(provider), Resolver(), TimeProvider.System, new ListLogger<RecurringChargeAmountTests>(),
-                store, amount, "USD", reference, $"Usage overage — {MeterType.Token} × 20", default);
+            await UsageBilling.For(db, provider).ChargeAsync(UsageBilling.Request(store, amount, reference), default);
         }
 
         Assert.Equal(expectedCharge, Assert.Single(provider.Requests).AmountMinor);
@@ -258,11 +257,9 @@ public class RecurringChargeAmountTests
         var registry = new SingleProviderRegistry(provider);
         const string reference = "overage-retry-1";
 
-        Task Deliver() => UsageChargeBilling.ChargeAndPostAsync(
-            db, registry, Resolver(), TimeProvider.System, new ListLogger<RecurringChargeAmountTests>(),
-            store, 1000, "USD", reference, "Usage overage", default);
+        Task Deliver() => UsageBilling.For(db, provider).ChargeAsync(UsageBilling.Request(store, 1000, reference), default);
 
-        await Assert.ThrowsAsync<HttpRequestException>(Deliver);   // first delivery: the provider call blows up
+        await Deliver();                                           // first delivery: the provider call blows up (unanswered: past due, same key kept)
         await SetRateAsync(db, store, 1000);                       // the rate changes before the redelivery
         await Deliver();                                           // redelivery
         await Deliver();                                           // a duplicate after success
@@ -282,9 +279,7 @@ public class RecurringChargeAmountTests
         var store = AddStore(db, 825, inclusive: false);
         var provider = new RecordingProvider { Outcome = PaymentOutcome.Failed };
 
-        await UsageChargeBilling.ChargeAndPostAsync(
-            db, new SingleProviderRegistry(provider), Resolver(), TimeProvider.System, new ListLogger<RecurringChargeAmountTests>(),
-            store, 1000, "USD", "autoload-x-1", "Usage auto-load", default);
+        await UsageBilling.For(db, provider).ChargeAsync(UsageBilling.Request(store, 1000, "autoload-x-1", UsageChargeKind.AutoLoad), default);
 
         Assert.Equal(1083, Assert.Single(provider.Requests).AmountMinor);
         Assert.Empty(await db.JournalEntries.ToListAsync());

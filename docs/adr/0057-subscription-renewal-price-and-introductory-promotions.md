@@ -347,3 +347,45 @@ Each settled renewal and usage charge is now a `Payment` of its own (kind `Renew
 journal reference that booked it, carrying its intent id and the tax that entry booked), so `POST /admin/refunds`
 (`chargeReference`), partial refunds and the dispute webhooks reach it; a full refund nets the charge's tax account to
 zero, and Ordering leaves the order alone. Details and verification: ADR-0041, amendment 2026-10-28.
+
+### Follow-up delivered — usage charges report back and are dunned (`usage_charge_failure_feedback`, 2026-10-28)
+
+Delivered with ADR-0063 P4b on `feature/settled-charge-events`.
+
+* **Payments records and duns every usage charge.** `UsageChargeBilling` (now a scoped service) records the request once
+  per reference (`UsageCharge`, unique `Reference`), pins the amount, and makes each attempt a `UsageChargeAttempt`
+  committed before the provider call — exactly the renewal machinery: the retry rules live in one place,
+  `DunningSchedule` (days 1, 3, 7; `Subscription` now delegates to it), an ANSWERED failure is followed by a fresh key
+  `{reference}-a{n}`, an unanswered one (the provider threw) duns silently as `Error` and keeps its key, and the amount stays
+  pinned. A redelivered request never re-charges an answered charge (retries are the schedule's). The new job
+  `usage-charge-retry` (hourly) runs `RetryDueAsync`; the final failure **abandons** the charge. The provider's later
+  success event for a usage attempt (routed by `PaymentEventProcessor` after the renewal check) settles it once — even
+  when abandoned, because the usage was consumed and the money is owed.
+* **Behaviour change (accepted): a provider exception no longer redelivers the request.** Before, a provider call that
+  threw propagated out of the usage consumer, so MassTransit's retry redelivered the message (and an exhausted retry left
+  it in the error queue). Now, exactly as for renewals, the unanswered attempt marks the charge past due with reason
+  `Error`, publishes nothing (no customer-visible failure, Usage keeps its credit) and is retried by the dunning schedule
+  under the SAME key, so the provider de-duplicates it. A failure to RECORD a settled charge still throws and is redelivered.
+* **Outcomes are published.** Settled → `UsageChargeSettled` (P4b facts). Every answered failure → `UsageChargeFailed`
+  (`Reason` Failed / RequiresAction / Cancelled, `Attempt`, `NextRetryAt`, `AbandonsAfter`, `Final`).
+* **Usage reacts.** It records each charge it publishes (`usage.UsageCharges`, Open → Settled / Unpaid / Abandoned,
+  migration `UsageChargeOutcomes`) and consumes both events (`UsageBalanceChargeSettledConsumer`,
+  `UsageBalanceChargeFailedConsumer` — unique names, ADR-0060). The **first** failure of an open auto-load takes back its
+  optimistic credit (never below zero); an overage stays billed-but-unpaid (never billed twice). The balance gets a
+  `PaymentHold`: **Unpaid** while a charge is retried (no further auto-load top-ups — a declining card is not charged
+  again; usage beyond the allowance and the prepaid credit needs overage to be allowed), **Suspended** once a charge is
+  abandoned (billable usage refused; the allowance and remaining prepaid credit still work). A settlement re-grants a
+  taken-back credit and releases the hold when nothing else is unpaid. An outcome for a charge published before this
+  change is recorded on arrival and applied the same way.
+* **The customer is told.** Notifications' `UsageChargeFailedEmailConsumer` emails each failure (what was not charged, that
+  an auto-load's credit is on hold, the next retry and the suspension date) and the final one (billable usage suspended);
+  delivery-log reference `usage-charge-failed:{reference}:{nextRetry|final}`.
+* **Defect fixed on the way.** An overage reference was `overage-{balance}-{level}`; the level resets every period, so a
+  repeated level in a later period reused an earlier, already posted reference and was never charged. It is now
+  `overage-{balance}-{periodStartUnix}-{level}`.
+* **Deferred.** A usage "complete payment" page (no storefront usage UI exists; the emails link `/account`) — tracker
+  `usage_charge_pay_page`. Charging the customer's stored instrument for usage charges (they still go to the host
+  default account with no customer/payment method) stays open in `jobmgr_3_settlement`.
+
+Verification: `UsageChargeDunningTests` + `SettledChargeEventTests` (Payments), `UsageChargeFeedbackTests` (Usage),
+`SettledChargeContractTests` (emails, contracts) — e2e-verify **A3u**; each was shown to fail with its fix reverted.

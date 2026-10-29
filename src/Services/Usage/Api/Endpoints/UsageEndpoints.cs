@@ -115,7 +115,7 @@ public static class UsageEndpoints
     private static BalanceDto ToDto(UsageBalance b) =>
         new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity,
             b.OverageQuantity, b.OverageAllowed, b.OverageUnitPriceMinor, b.UnbilledOverageChargeMinor, b.Currency, b.PeriodStart, b.PeriodEnd,
-            b.AutoLoadEnabled, b.AutoLoadThresholdQuantity, b.AutoLoadReloadQuantity, b.PrepaidRemainingQuantity);
+            b.AutoLoadEnabled, b.AutoLoadThresholdQuantity, b.AutoLoadReloadQuantity, b.PrepaidRemainingQuantity, b.PaymentHold);
 }
 
 public record ProvisionRequest(
@@ -137,4 +137,5 @@ public record BalanceDto(
     Guid Id, string CustomerEmail, string Meter, long IncludedQuantity, long UsedQuantity, long RemainingQuantity,
     long OverageQuantity, bool OverageAllowed, long OverageUnitPriceMinor, long UnbilledOverageChargeMinor, string Currency,
     DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd,
-    bool AutoLoadEnabled, long AutoLoadThresholdQuantity, long AutoLoadReloadQuantity, long PrepaidRemainingQuantity);
+    bool AutoLoadEnabled, long AutoLoadThresholdQuantity, long AutoLoadReloadQuantity, long PrepaidRemainingQuantity,
+    UsagePaymentHold PaymentHold = UsagePaymentHold.None); // appended (usage_charge_failure_feedback): 0 none, 1 unpaid, 2 suspended

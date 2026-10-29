@@ -360,6 +360,7 @@ public sealed class SubscriptionService(
         // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
         var renewal = subscription.Renewals[^1];
         db.SubscriptionRenewals.Add(renewal);
+        await PublishRenewalSettledAsync(subscription, renewal, tax, accounts, paymentIntentId, now, ct); // ADR-0063 P4b: once per renewed period
 
         // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
         // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
@@ -460,6 +461,32 @@ public sealed class SubscriptionService(
 
         db.JournalEntries.Add(sale);
         return sale;
+    }
+
+    /// <summary>
+    /// ADR-0063 P4b: announce the settled renewal with the tax facts of exactly the split posted under
+    /// <c>renew-{id}-{sequence}</c> (the pinned figures). Called once per <see cref="Subscription.Renew"/> — i.e. once per new
+    /// <see cref="SubscriptionRenewal"/> row, unique per (subscription, sequence) — and published through the bus outbox, so
+    /// it commits with that row and the ledger entry, or not at all: exactly one event per settled renewal, whether it
+    /// settled off-session, on a dunning retry, on the pay page or later from the provider's success event. An unsettled
+    /// attempt never reaches here (it duns).
+    /// </summary>
+    private Task PublishRenewalSettledAsync(
+        Subscription subscription, SubscriptionRenewal renewal, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts,
+        string paymentIntentId, DateTimeOffset now, CancellationToken ct)
+    {
+        var description = subscription.Quantity > 1
+            ? FormattableString.Invariant(
+                $"Subscription renewal — {subscription.Quantity} units, {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}")
+            : FormattableString.Invariant($"Subscription renewal — {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}");
+        var facts = SettledChargeTax.For(
+            tax, description, subscription.Quantity, subscription.TaxExempt,
+            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, accounts?.TaxRateBasisPoints);
+        return publisher.Publish(new SubscriptionRenewalSettled(
+            subscription.TenantId, subscription.StorefrontId, subscription.Id, subscription.OrderId, subscription.CustomerEmail,
+            subscription.ProductId, subscription.VariantId, renewal.Sequence, renewal.PeriodStart, renewal.PeriodEnd,
+            $"renew-{subscription.Id}-{renewal.Sequence}", subscription.Currency, facts.NetMinor, facts.TaxMinor, facts.GrossMinor,
+            facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId), ct);
     }
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>

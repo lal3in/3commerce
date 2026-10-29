@@ -163,7 +163,8 @@ public class SubscriptionDunningTests
         Assert.Equal(("pm_new_card", "cus_new"), (request.ProviderPaymentMethodId, request.ProviderCustomerId));
         Assert.EndsWith("-a1", request.IdempotencyKey);
         Assert.Equal(1083, request.AmountMinor);
-        Assert.Empty(publisher.Published);                                         // the customer sees the answer on the page
+        // No email (the customer sees the answer on the page) — only the settled renewal (ADR-0063 P4b), for the period paid.
+        Assert.Equal(2, Assert.IsType<SubscriptionRenewalSettled>(Assert.Single(publisher.Published)).Sequence);
         await using var fresh = NewDb(name);
         var stored = await fresh.Subscriptions.AsNoTracking().SingleAsync();
         Assert.Equal(SubscriptionStatus.Active, stored.Status);

@@ -64,6 +64,10 @@ public sealed class ConsumerEndpointNameTests
         Assert.Contains("fulfillment-storefront-duplicated", byService["fulfillment"]);
         Assert.Contains("checkout-state", byService["ordering"]);
         Assert.Contains("rma-state", byService["support"]);
+        // usage_charge_failure_feedback: UsageChargeFailed reaches Usage (reversal) AND Notifications (email) — two queues.
+        Assert.Contains("usage-balance-charge-failed", byService["usage"]);
+        Assert.Contains("usage-balance-charge-settled", byService["usage"]);
+        Assert.Contains("usage-charge-failed-email", byService["notifications"]);
     }
 
     [Fact]

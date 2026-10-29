@@ -23,7 +23,8 @@ public sealed class PaymentEventProcessor(
     IDedupeStore dedupe,
     TimeProvider time,
     ILogger<PaymentEventProcessor> logger,
-    SubscriptionService subscriptions)
+    SubscriptionService subscriptions,
+    Consumers.UsageChargeBilling usageCharges)
 {
     // Covers the providers' redelivery window; Postgres backstops anything older, so this only bounds
     // how long the fast-path drops duplicates without a Postgres read.
@@ -57,10 +58,12 @@ public sealed class PaymentEventProcessor(
         var payment = await db.Payments.SingleOrDefaultAsync(p => p.PaymentIntentId == ev.PaymentIntentId, ct);
         if (payment is null
             && ev.Kind == PaymentWebhookKind.PaymentSucceeded
-            && await subscriptions.SettleAttemptAsync(ev.PaymentIntentId, ct))
+            && (await subscriptions.SettleAttemptAsync(ev.PaymentIntentId, ct)
+                || await usageCharges.SettleAttemptAsync(ev.PaymentIntentId, ct)))
         {
             // A subscription renewal attempt (no Payment row) settled later — the customer finished 3-D Secure on
-            // the pay page (ADR-0057 amendment 2026-10-27). Settled with the inbox row, exactly once.
+            // the pay page (ADR-0057 amendment 2026-10-27) — or a usage charge attempt did (usage_charge_failure_feedback).
+            // Settled with the inbox row, exactly once; its settled event (ADR-0063 P4b) commits with it.
             await db.SaveChangesAsync(ct);
             await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct);
             return;

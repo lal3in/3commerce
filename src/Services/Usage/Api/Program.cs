@@ -7,6 +7,7 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Web;
 using ThreeCommerce.Usage.Api.Endpoints;
 using ThreeCommerce.Usage.Infrastructure;
+using ThreeCommerce.Usage.Infrastructure.Consumers;
 using ThreeCommerce.Usage.Infrastructure.Scheduling;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,7 +19,12 @@ builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddDbContext<UsageDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Database"), o => o.MigrationsHistoryTable("__EFMigrationsHistory", "public")));
-builder.Services.AddServiceBus<UsageDbContext>(builder.Configuration);
+builder.Services.AddServiceBus<UsageDbContext>(builder.Configuration, bus =>
+{
+    // Payments' outcome of each overage / auto-load charge (usage_charge_failure_feedback).
+    bus.AddConsumer<UsageBalanceChargeSettledConsumer>();
+    bus.AddConsumer<UsageBalanceChargeFailedConsumer>();
+});
 builder.Services.AddServiceHealth<UsageDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton(TimeProvider.System);

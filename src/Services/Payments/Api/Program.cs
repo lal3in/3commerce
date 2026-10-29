@@ -60,6 +60,7 @@ builder.Services.AddScoped<PaymentEventProcessor>();
 builder.Services.AddScoped<WebhookSecretService>();
 builder.Services.AddScoped<WebhookRegistrationService>();
 builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<UsageChargeBilling>(); // usage charges: charge, post, dun + retry (usage_charge_failure_feedback)
 
 // Scheduled jobs (mt6_3): Quartz fires the daily Xero journal post; each run is recorded as a JobRun.
 // The scheduler is gated by Scheduling:Enabled (default on) so integration tests — which boot many
@@ -70,7 +71,8 @@ if (builder.Configuration.GetValue("Scheduling:Enabled", true))
 {
     builder.Services.AddScheduledJobs(builder.Configuration, "payments", jobs => jobs
         .Add<DailyJournalScheduledJob>("daily-journal", "0 0 2 * * ?")
-        .Add<SubscriptionAutoRenewJob>("subscription-auto-renew", "0 0/15 * * * ?"));
+        .Add<SubscriptionAutoRenewJob>("subscription-auto-renew", "0 0/15 * * * ?")
+        .Add<UsageChargeRetryJob>("usage-charge-retry", "0 30 * * * ?"));
 }
 builder.Services.AddSingleton<IXeroClient, LoggingXeroClient>();
 builder.Services.AddScoped<DailyJournalJob>();
