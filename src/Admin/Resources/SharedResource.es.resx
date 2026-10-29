@@ -1302,6 +1302,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>Importe</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>Registrado</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>Aún no se ha registrado historial de renovaciones.</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>Cargo</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>El pago que liquidó este periodo. Un reembolso del periodo indica su referencia.</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>Reembolsos</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>Si el cargo de este periodo se ha reembolsado, total o parcialmente.</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>Referencia del cargo {0} · pago del proveedor {1}. Un reembolso de este periodo indica esta referencia.</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>Pedido</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>El periodo 1 lo pagó el pedido de la suscripción: reembólsalo desde la página Pedidos.</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>Esta renovación se liquidó antes de que los cargos se registraran por pago, así que no se puede reembolsar aquí.</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>Sin reembolso</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>Liquidado; no se ha reembolsado nada de este cargo.</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>Reembolsado parcialmente</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>{0} de {1} reembolsado; aún se pueden reembolsar {2}.</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>Reembolsado</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>Reembolsado por completo ({0}): no queda nada por reembolsar.</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>En disputa</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>El cliente disputó este cargo; su importe se devuelve mediante la disputa, no con un reembolso.</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>{0} reembolsado</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>Reembolsar</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>Reembolsar el cargo de este periodo, total o parcialmente, a la tarjeta en que se cobró. Pide un importe, un motivo y una confirmación.</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>Reembolso solicitado…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>El reembolso se aceptó y se está ejecutando; Actualizar muestra su resultado.</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>Importe ({0})</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>Cuánto de este cargo reembolsar, en unidades principales: como máximo {0}, lo que queda. Los precios son precios finales, así que es lo que recibe el cliente, impuestos incluidos; la parte de impuestos se revierte proporcionalmente.</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>Motivo</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>Por qué se reembolsa el cargo: obligatorio, y queda en el registro de auditoría.</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>Reembolsar</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>Reembolsar este importe. El primer clic pide confirmación.</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>Confirmar reembolso de {0}</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>Cerrar el formulario de reembolso sin reembolsar.</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>Introduce un importe mayor que cero y como máximo {0}.</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>Introduce un motivo para el reembolso.</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>Reembolso rechazado ({0}): {1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>Reembolso de {0} solicitado para el cargo {1}.</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>Reembolsado {0} del cargo {1}.</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>El reembolso del cargo {0} se aceptó pero aún no se refleja: pulsa Actualizar para comprobarlo. Un reembolso rechazado deja el cargo sin cambios.</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Suscripción renovada.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Suscripción cancelada.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} falló ({1}): {2}</value></data>

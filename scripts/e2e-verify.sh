@@ -589,6 +589,12 @@
 #       the demo customer's monthly subscription put past due (dev renew, LocalMock "3-D Secure required") shows as
 #       "Payment due" with a "Complete payment" link on /account; the pay page names the reason and amount, paying
 #       makes it active again (owner decision 2026-10-27, e2e/subscription-pay-page.spec.ts; needs --data full);
+#       a seeded subscription renewed on the LocalMock rail is refunded from the admin Subscriptions renewal history:
+#       period 1 reads "Order" (no Refund), the new period "Not refunded"; Refund prefills the full amount, more than
+#       the charge is refused in the form, half + a reason → "Confirm refund of …" → "Partially refunded", the rest →
+#       "Refunded" with no Refund button, the API agreeing (refundedMinor, payment status 4) — POST /admin/refunds by
+#       chargeReference (admin_recurring_charge_refund_action, e2e-admin/subscription-charge-refund.spec.ts; needs
+#       --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
 #       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;

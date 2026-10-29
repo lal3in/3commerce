@@ -56,6 +56,18 @@ public static class Money
         return (minor / Pow10[digits]).ToString("N" + digits.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Minor units as a plain major-unit number for an input field (no grouping): 1083 USD → 10.83m, 1500 JPY → 1500m.
+    /// </summary>
+    public static decimal ToMajor(long minor, string? currencyCode) => minor / Pow10[Digits(currencyCode)];
+
+    /// <summary>
+    /// An operator-entered major-unit amount back to minor units at the currency's decimals: 10.83 USD → 1083,
+    /// 1500 JPY → 1500. Digits beyond the currency's precision round half away from zero.
+    /// </summary>
+    public static long ToMinor(decimal major, string? currencyCode) =>
+        (long)Math.Round(major * Pow10[Digits(currencyCode)], MidpointRounding.AwayFromZero);
+
     /// <summary>The amount followed by the upper-cased ISO code: 1500 EUR → "1,500.00 EUR".</summary>
     public static string WithCode(long minor, string? currencyCode) =>
         $"{Amount(minor, currencyCode)} {(currencyCode ?? string.Empty).Trim().ToUpperInvariant()}";

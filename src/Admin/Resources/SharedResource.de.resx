@@ -1302,6 +1302,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>Betrag</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>Erfasst</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>Noch kein Verlängerungsverlauf erfasst.</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>Zahlung</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>Die Zahlung, die diesen Zeitraum beglichen hat. Eine Erstattung des Zeitraums nennt ihre Referenz.</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>Erstattungen</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>Ob die Zahlung dieses Zeitraums ganz oder teilweise erstattet wurde.</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>Zahlungsreferenz {0} · Anbieterzahlung {1}. Eine Erstattung dieses Zeitraums nennt diese Referenz.</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>Bestellung</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>Zeitraum 1 wurde mit der Bestellung des Abonnements bezahlt – erstatten Sie ihn auf der Seite „Bestellungen“.</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>Diese Verlängerung wurde abgerechnet, bevor Zahlungen einzeln erfasst wurden, und kann hier nicht erstattet werden.</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>Nicht erstattet</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>Beglichen; von dieser Zahlung wurde nichts erstattet.</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>Teilweise erstattet</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>{0} von {1} erstattet; {2} können noch erstattet werden.</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>Erstattet</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>Vollständig erstattet ({0}) – es bleibt nichts zu erstatten.</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>Angefochten</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>Der Kunde hat diese Zahlung angefochten; das Geld wird über die Anfechtung zurückgegeben, nicht über eine Erstattung.</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>{0} erstattet</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>Erstatten</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>Die Zahlung dieses Zeitraums ganz oder teilweise auf die belastete Karte erstatten. Fragt nach Betrag, Grund und Bestätigung.</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>Erstattung angefordert…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>Die Erstattung wurde angenommen und wird ausgeführt; „Aktualisieren“ zeigt das Ergebnis.</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>Betrag ({0})</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>Wie viel dieser Zahlung erstattet wird, in Haupteinheiten – höchstens {0}, der verbleibende Rest. Preise sind Endpreise: Das ist der Betrag, den der Kunde zurückerhält, inklusive Steuer; der Steueranteil wird anteilig storniert.</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>Grund</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>Warum die Zahlung erstattet wird – Pflichtfeld, wird im Audit-Protokoll erfasst.</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>Erstatten</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>Diesen Betrag erstatten. Der erste Klick fragt nach einer Bestätigung.</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>Erstattung von {0} bestätigen</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>Das Erstattungsformular schließen, ohne zu erstatten.</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>Geben Sie einen Betrag größer als null und höchstens {0} ein.</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>Geben Sie einen Grund für die Erstattung ein.</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>Erstattung abgelehnt ({0}): {1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>Erstattung von {0} für Zahlung {1} angefordert.</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>{0} von Zahlung {1} erstattet.</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>Die Erstattung der Zahlung {0} wurde angenommen, ist aber noch nicht sichtbar – klicken Sie auf „Aktualisieren“. Eine abgelehnte Erstattung lässt die Zahlung unverändert.</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement verlängert.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement gekündigt.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} fehlgeschlagen ({1}): {2}</value></data>

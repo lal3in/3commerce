@@ -1330,6 +1330,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>Amount</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>Recorded</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>No renewal history recorded yet.</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>Charge</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>The payment that settled this period. A refund of the period names its reference.</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>Refunds</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>Whether this period's charge has been refunded, in full or in part.</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>Charge reference {0} · provider payment {1}. A refund of this period names this reference.</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>Order</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>Period 1 was paid by the subscription's order — refund it from the Orders page.</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>This renewal settled before charges were recorded per payment, so it cannot be refunded here.</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>Not refunded</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>Settled; nothing has been refunded from this charge.</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>Partially refunded</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>{0} of {1} refunded; {2} can still be refunded.</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>Refunded</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>Fully refunded ({0}) — nothing is left to refund.</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>Disputed</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>The customer disputed this charge; its money is returned through the dispute, not a refund.</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>{0} refunded</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>Refund</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>Refund this period's charge, in full or in part, to the card it was charged to. Asks for an amount, a reason and a confirmation.</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>Refund requested…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>The refund was accepted and is being executed; Refresh shows its result.</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>Amount ({0})</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>How much of this charge to refund, in major units — at most {0}, what is left of it. Prices are final shelf prices, so this is what the customer gets back, tax included; the tax share is reversed in proportion.</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>Why the charge is refunded — required, and recorded in the audit log.</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>Refund</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>Refund this amount. The first click asks you to confirm.</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>Confirm refund of {0}</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>Close the refund form without refunding.</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>Enter an amount greater than zero and at most {0}.</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>Enter a reason for the refund.</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>Refund refused ({0}): {1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>Refund of {0} requested for charge {1}.</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>Refunded {0} of charge {1}.</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>The refund of charge {0} was accepted but is not reflected yet — press Refresh to check. A declined refund leaves the charge unchanged.</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Subscription renewed.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Subscription cancelled.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} failed ({1}): {2}</value></data>

@@ -1302,6 +1302,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>金额</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>记录时间</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>暂无续订记录。</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>扣款</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>结清此周期的付款。退款此周期时引用其参考号。</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>此周期的扣款是否已全额或部分退款。</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>扣款参考号 {0} · 支付服务商付款 {1}。退款此周期时引用此参考号。</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>订单</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>第 1 期由订阅的订单支付——请在“订单”页面退款。</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>此续订在按扣款记录付款之前结清，无法在此退款。</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>未退款</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>已结清；此扣款尚未退款。</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>部分退款</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>已退款 {0}（共 {1}）；仍可退款 {2}。</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>已全额退款（{0}）——没有可退的金额。</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>争议中</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>客户对此扣款提出争议；款项通过争议流程退回，而非退款。</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>已退款 {0}</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>将此周期的扣款全额或部分退回原扣款卡。需要填写金额、原因并确认。</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>已申请退款…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>退款已受理并正在执行；点击“刷新”查看结果。</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>金额（{0}）</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>此扣款要退的金额，以主单位计——最多 {0}，即剩余金额。价格为最终价格，因此这是退还给客户的含税金额；税额按比例冲回。</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>原因</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>退款原因——必填，并记录在审计日志中。</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>退还此金额。第一次点击会要求确认。</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>确认退款 {0}</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>关闭退款表单，不退款。</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>请输入大于零且不超过 {0} 的金额。</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>请输入退款原因。</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>退款被拒绝（{0}）：{1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>已为扣款 {1} 申请退款 {0}。</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>已从扣款 {1} 退款 {0}。</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>扣款 {0} 的退款已受理但尚未显示——请点击“刷新”查看。被拒绝的退款不会改变扣款。</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>订阅已续订。</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>订阅已取消。</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} 失败（{1}）：{2}</value></data>

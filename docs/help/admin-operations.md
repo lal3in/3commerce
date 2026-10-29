@@ -270,6 +270,19 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   `POST /api/payments/admin/refunds` with that `chargeReference` refunds it, fully or in parts.
   The tax its entry booked is reversed, and the order itself stays as it is. A usage charge is refunded
   the same way by its `overage-…` / `autoload-…` reference (no order id needed).
+  **In the admin** (`/subscriptions`, expand a row): the renewal history shows each period's **Charge**
+  (its reference; period 1 reads *Order* — the order paid it, so refund it from **Orders**) and its
+  **Refunds** state — *Not refunded*, *Partially refunded* (with the amount refunded so far),
+  *Refunded* or *Disputed*. **Refund** on a settled, undisputed period opens a form prefilled with a
+  full refund of what is left: change the amount for a partial refund (at most what is left; the price
+  is the final price, so the amount is what the customer gets back, tax included, and the tax share is
+  reversed in proportion), give a **reason** (required, recorded in the audit log), then press
+  **Refund** and **Confirm refund of …**. The page calls `POST /api/payments/admin/refunds` with the
+  charge's `chargeReference` and an `Idempotency-Key`, the same admin-role permission as an order
+  refund, then re-reads the charge until the refund shows. The admin has no list of usage charges yet,
+  so a usage charge is refunded through the API only.
+
+  ![Subscriptions — a renewal's charge partially refunded](assets/screenshots/admin-subscription-charge-refund.png)
 - **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**

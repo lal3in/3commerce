@@ -1302,6 +1302,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>Montant</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>Enregistré</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>Aucun historique de renouvellement enregistré pour l'instant.</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>Prélèvement</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>Le paiement qui a réglé cette période. Un remboursement de la période cite sa référence.</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>Remboursements</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>Si le prélèvement de cette période a été remboursé, en totalité ou en partie.</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>Référence du prélèvement {0} · paiement prestataire {1}. Un remboursement de cette période cite cette référence.</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>Commande</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>La période 1 a été payée par la commande de l'abonnement : remboursez-la depuis la page Commandes.</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>Ce renouvellement a été réglé avant l'enregistrement des paiements par prélèvement ; il ne peut pas être remboursé ici.</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>Non remboursé</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>Réglé ; rien n'a été remboursé sur ce prélèvement.</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>Partiellement remboursé</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>{0} sur {1} remboursé ; {2} peuvent encore être remboursés.</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>Remboursé</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>Entièrement remboursé ({0}) : il ne reste rien à rembourser.</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>Contesté</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>Le client a contesté ce prélèvement ; son montant est restitué via la contestation, pas par un remboursement.</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>{0} remboursé</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>Rembourser</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>Rembourser le prélèvement de cette période, en totalité ou en partie, sur la carte débitée. Demande un montant, un motif et une confirmation.</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>Remboursement demandé…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>Le remboursement a été accepté et est en cours ; Actualiser affiche son résultat.</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>Montant ({0})</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>Part de ce prélèvement à rembourser, en unités principales : au plus {0}, ce qu'il en reste. Les prix sont des prix finaux : c'est ce que le client récupère, taxes comprises ; la part de taxe est annulée au prorata.</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>Motif</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>Pourquoi le prélèvement est remboursé : obligatoire, et consigné dans le journal d'audit.</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>Rembourser</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>Rembourser ce montant. Le premier clic demande une confirmation.</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>Confirmer le remboursement de {0}</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>Fermer le formulaire de remboursement sans rembourser.</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>Saisissez un montant supérieur à zéro et d'au plus {0}.</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>Saisissez un motif de remboursement.</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>Remboursement refusé ({0}) : {1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>Remboursement de {0} demandé pour le prélèvement {1}.</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>{0} remboursé sur le prélèvement {1}.</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>Le remboursement du prélèvement {0} a été accepté mais n'apparaît pas encore : cliquez sur Actualiser pour vérifier. Un remboursement refusé laisse le prélèvement inchangé.</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>Abonnement renouvelé.</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>Abonnement annulé.</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} a échoué ({1}) : {2}</value></data>
