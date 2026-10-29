@@ -194,55 +194,40 @@ public class StorefrontTaxScopingTests(Phase3Fixture fixture)
 
     private async Task WaitForCopyAsync(Guid storefrontId, Func<ThreeCommerce.Ordering.Domain.StorefrontTaxCopy, bool> predicate)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
-            if (copy is not null && predicate(copy))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Storefront copy {storefrontId} did not reach the expected shape.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
+                return copy is not null && predicate(copy);
+            },
+            () => new TimeoutException($"Storefront copy {storefrontId} did not reach the expected shape."),
+            TimeSpan.FromSeconds(20));
     }
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} never started.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId);
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} never started."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Order {orderId} never reached {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} never reached {expected}."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 }

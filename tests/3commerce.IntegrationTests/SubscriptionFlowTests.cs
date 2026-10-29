@@ -80,18 +80,14 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         await fixture.PublishAsync(new SubscriptionRequested(
             tenant, orderId, "buyer@example.com", product, null, BillingPeriod.Monthly, 1500, "EUR"));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        List<Subscription> subs;
-        while (true)
-        {
-            subs = await ListAsync(tenant);
-            if (subs.Count == 1 || DateTimeOffset.UtcNow > deadline)
+        List<Subscription> subs = [];
+        await Eventually.PollAsync(
+            async () =>
             {
-                break;
-            }
-
-            await Task.Delay(300);
-        }
+                subs = await ListAsync(tenant);
+                return subs.Count == 1;
+            },
+            interval: TimeSpan.FromMilliseconds(300));
 
         Assert.Single(subs);
         var subscription = subs[0];
@@ -155,18 +151,14 @@ public class SubscriptionFlowTests(Phase4Fixture fixture)
         await fixture.PublishAsync(new SubscriptionRequested(
             tenant, orderId, "buyer@example.com", product, null, BillingPeriod.Monthly, 1500, "EUR"));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
         Subscription? subscription = null;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            subscription = (await ListAsync(tenant)).SingleOrDefault(s => s.OrderId == orderId);
-            if (subscription is not null)
+        await Eventually.PollAsync(
+            async () =>
             {
-                break;
-            }
-
-            await Task.Delay(300);
-        }
+                subscription = (await ListAsync(tenant)).SingleOrDefault(s => s.OrderId == orderId);
+                return subscription is not null;
+            },
+            interval: TimeSpan.FromMilliseconds(300));
 
         Assert.NotNull(subscription);
         Assert.Equal("cus_sub_1", subscription!.ProviderCustomerId);
