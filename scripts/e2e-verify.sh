@@ -299,6 +299,12 @@
 #       order still Confirmed after a later order refund; /dev/simulate-chargeback on a renewal intent books
 #       renew-…:chargeback (GST 200), never {orderId}:chargeback, and the order is not badged Disputed; a usage
 #       charge (no order) is refunded 500 + 583 by reference with its own tax 38 + 45 = 83; trial balance 0
+#   A4f Integration · usage charge outcomes over the broker (usage_charge_failure_feedback + ADR-0063 P4b,
+#       UsageChargeFeedbackIntegrationTests, Payments + Usage on one RabbitMQ): an auto-load Usage publishes is settled
+#       by Payments and UsageChargeSettled reaches Usage through both outboxes (charge Settled, entry posted, no hold);
+#       a DECLINED top-up (real Postgres, scripted rail) delivers UsageChargeFailed and Usage takes the 100-unit credit
+#       back and holds the balance (Unpaid); the day-1 retry (fresh key -a1, the same pinned 500) settles and Usage
+#       re-grants the credit and releases the hold
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
