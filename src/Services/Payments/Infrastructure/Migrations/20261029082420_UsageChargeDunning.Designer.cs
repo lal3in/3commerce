@@ -12,7 +12,7 @@ using ThreeCommerce.Payments.Infrastructure;
 namespace ThreeCommerce.Payments.Infrastructure.Migrations
 {
     [DbContext(typeof(PaymentsDbContext))]
-    [Migration("20261028120648_UsageChargeDunning")]
+    [Migration("20261029082420_UsageChargeDunning")]
     partial class UsageChargeDunning
     {
         /// <inheritdoc />
@@ -460,6 +460,10 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.Property<long>("AmountMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("ChargeReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -472,6 +476,11 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
+
+                    b.Property<int>("Kind")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<int>("MethodKind")
                         .ValueGeneratedOnAdd()
@@ -517,15 +526,25 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.Property<Guid?>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid");
+
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ChargeReference")
+                        .IsUnique()
+                        .HasFilter("\"ChargeReference\" IS NOT NULL");
+
                     b.HasIndex("OrderId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"Kind\" = 1");
 
                     b.HasIndex("PaymentIntentId");
+
+                    b.HasIndex("SubscriptionId");
 
                     b.ToTable("Payments", "payments");
                 });

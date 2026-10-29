@@ -360,7 +360,7 @@ public sealed class SubscriptionService(
         // so add it through the context directly to mark it Added (same trap as StorefrontEndpoints).
         var renewal = subscription.Renewals[^1];
         db.SubscriptionRenewals.Add(renewal);
-        await PublishRenewalSettledAsync(subscription, renewal, tax, accounts, now, ct); // ADR-0063 P4b: once per renewed period
+        await PublishRenewalSettledAsync(subscription, renewal, tax, accounts, paymentIntentId, now, ct); // ADR-0063 P4b: once per renewed period
 
         // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
         // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
@@ -473,7 +473,7 @@ public sealed class SubscriptionService(
     /// </summary>
     private Task PublishRenewalSettledAsync(
         Subscription subscription, SubscriptionRenewal renewal, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts,
-        DateTimeOffset now, CancellationToken ct)
+        string paymentIntentId, DateTimeOffset now, CancellationToken ct)
     {
         var description = subscription.Quantity > 1
             ? FormattableString.Invariant(
@@ -486,7 +486,7 @@ public sealed class SubscriptionService(
             subscription.TenantId, subscription.StorefrontId, subscription.Id, subscription.OrderId, subscription.CustomerEmail,
             subscription.ProductId, subscription.VariantId, renewal.Sequence, renewal.PeriodStart, renewal.PeriodEnd,
             $"renew-{subscription.Id}-{renewal.Sequence}", subscription.Currency, facts.NetMinor, facts.TaxMinor, facts.GrossMinor,
-            facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now)), ct);
+            facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId), ct);
     }
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>

@@ -965,9 +965,9 @@ orders.
   attempt's `SettledAt`). A usage charge publishes from `UsageChargeBilling.SettleAsync` before the posting's
   `SaveChanges`; a reference already posted is never posted or announced again. Failed / RequiresAction / Cancelled never
   reach either point.
-* **Not done here.** The renewal event's `PaymentIntentId` is left null until `renewal_usage_refund_path` threads the intent
-  id into `RenewAndPostAsync` (rebase note). No consumer issues documents yet (Invoicing, phase 1); Usage consumes
-  `UsageChargeSettled` (below).
+* **With the refund path (#318).** Both events carry the settling `PaymentIntentId` — the intent of the `Payment` row
+  (`ForSettledCharge`) that the same unit of work records for the charge, so an invoice and a later credit note find the
+  same charge. No consumer issues documents yet (Invoicing, phase 1); Usage consumes `UsageChargeSettled` (below).
 * **Usage charge failure feedback, delivered on the same branch** (`usage_charge_failure_feedback`, owner decision
   2026-10-27 — see the ADR-0057 follow-up): Payments now records each usage charge (`UsageCharge` + `UsageChargeAttempt`,
   migration `UsageChargeDunning`), duns it on the shared `DunningSchedule`, and publishes `UsageChargeFailed`.

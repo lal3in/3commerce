@@ -327,15 +327,14 @@ public class RecurringChargePaymentTests
         new(db, new SingleProviderRegistry(rail), Modes(), new FixedTime(Now.AddMonths(1)), new ListLogger<SubscriptionService>(), new RecordingPublisher());
 
     private static PaymentEventProcessor Processor(PaymentsDbContext db, RecordingProvider rail, RecordingPublisher publisher) =>
-        new(db, publisher, new NoDedupe(), new FixedTime(Now.AddMonths(1)), new ListLogger<PaymentEventProcessor>(), Service(db, rail));
+        new(db, publisher, new NoDedupe(), new FixedTime(Now.AddMonths(1)), new ListLogger<PaymentEventProcessor>(), Service(db, rail),
+            UsageBilling.For(db, rail, new FixedTime(Now.AddMonths(1)), publisher));
 
     private static PaymentWebhookEvent Event(string id, PaymentWebhookKind kind, string intent, long fee = 0) =>
         new(id, kind, intent, 0, fee, null, ProviderDisputeId: kind >= PaymentWebhookKind.DisputeCreated ? "dp_1" : null);
 
     private static Task Charge(PaymentsDbContext db, RecordingProvider rail, Guid store, long amount, string reference) =>
-        UsageChargeBilling.ChargeAndPostAsync(
-            db, new SingleProviderRegistry(rail), Modes(), new FixedTime(Now), new ListLogger<UsageOverageChargeConsumer>(),
-            store, amount, "USD", reference, $"Usage {reference}", default);
+        UsageBilling.For(db, rail, new FixedTime(Now)).ChargeAsync(UsageBilling.Request(store, amount, reference), default);
 
     /// <summary>A subscription on a fresh store whose period-2 renewal settled (intent pi_rec_1).</summary>
     private static async Task<(string Name, Subscription Subscription, Guid Store, RecordingProvider Rail)> RenewedAsync(int bps, bool inclusive, long price)
