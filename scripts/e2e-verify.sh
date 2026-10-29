@@ -257,6 +257,15 @@
 #       deserializes, the tax-fact vocabulary equals Ordering's, the declined / suspended emails name the next retry /
 #       suspension and their consumer sends them (SettledChargeContractTests); ConsumerEndpointNameTests (A3d) sees
 #       UsageChargeFailed on two queues (usage-balance-charge-failed, usage-charge-failed-email)
+#   A3v Unit · invoicing contract facts (ADR-0063 P5): OrderConfirmed publishes the order's storefront, number,
+#       totals, scheme / jurisdiction / destination, bill-to, buyer, shipping tax, capture time and each line's id +
+#       P1 tax facts verbatim (Σ line tax + shipping tax == TaxMinor; a pre-P1/P3 order publishes NotRecorded / null,
+#       never a guessed bill-to; Ordering's tax enums cross by the same numbers) (OrderConfirmedInvoicingFactsTests);
+#       a pre-P5 OrderConfirmed / RefundRequested / RefundCompleted deserializes with every new field defaulted and
+#       still applies (Support snapshot, amount-only RMA refund, Notifications email), and the facts round-trip with
+#       enums as numbers (InvoicingContractFactsTests); an RMA refund's lines are their discounted values summing to
+#       the amount (largest remainder under the gross cap, 2,000 random requests), no shipping, kind Return, and an
+#       unattributable one goes out amount-only (RmaRefundAttributionTests)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -305,6 +314,11 @@
 #       a DECLINED top-up (real Postgres, scripted rail) delivers UsageChargeFailed and Usage takes the 100-unit credit
 #       back and holds the balance (Unpaid); the day-1 retry (fresh key -a1, the same pinned 500) settles and Usage
 #       re-grants the credit and releases the hold
+#   A4g Integration · refund line attribution (ADR-0063 P5, RefundAttributionTests, real bus): an OrderConfirmed
+#       with line ids projects into Support; a customer RMA of 1 of 2 keyboards publishes RefundRequested and (via
+#       Payments) RefundCompleted with [that line, 1, 4650] + shipping 0 + kind Return; an admin whole-order RMA
+#       attributes every line (9300 + 1900 == 11200); an admin POST /admin/refunds carries no lines, kind
+#       PriceReduction; trial balance 0
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -778,6 +792,17 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~SettledChargeContractTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3u settled-charge events + usage charge feedback"; else fail "A3u settled-charge events + usage charge feedback"; fi
+
+  stage "A3v Invoicing contract facts (ADR-0063 P5) — OrderConfirmed facts, pre-P5 back-compat, RMA refund line attribution"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OrderConfirmedInvoicingFactsTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Support/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RmaRefundAttributionTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~InvoicingContractFactsTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3v invoicing contract facts"; else fail "A3v invoicing contract facts"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

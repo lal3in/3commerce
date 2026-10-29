@@ -37,7 +37,7 @@ public sealed class InvoicingContractFactsTests
           "shipTo": { "name": "Legacy", "line1": "1 Old St", "city": "Paris", "postcode": "75001", "country": "FR", "region": null },
           "lines": [
             { "productId": "01920000-0000-7000-8000-0000000000f2", "variantId": null, "supplierId": null, "title": "Keyboard",
-              "quantity": 2, "fulfilmentType": 1, "billingMode": 1, "unitPriceMinor": 1000, "discountMinor": 200 }
+              "quantity": 2, "fulfilmentType": 2, "billingMode": 1, "unitPriceMinor": 1000, "discountMinor": 200 }
           ]
         }
         """;

@@ -285,6 +285,11 @@ Checkout tax (Ordering, ADR-0063 P1):
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Renewals still use the storefront's own
   rate in Payments (an OSS subscription's renewal is a known gap, ADR-0063 § 16 P1b).
+- **The invoicing facts travel on the events (ADR-0063 P5) — never rebuild them by hand.** `OrderConfirmed` is built
+  only by `OrderConfirmedFactory.From` (line ids, P1 tax facts, bill-to, buyer, `CapturedAt` = the order's
+  `CreatedAt`). A new refund-requesting path states its attribution: `Lines` (order-line ids, amounts summing with
+  `ShippingMinor` to `AmountMinor`) when it refunds particular lines, `Lines = null` + a `Kind` when it refunds an
+  amount — a line list that does not add up makes the credit note disagree with the ledger.
 
 Ledger postings (Payments):
 
