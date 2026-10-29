@@ -42,7 +42,7 @@ public sealed class SubscriptionService(
         // direct-debit mandate's payment method). Absent (e.g. a legacy order) → renewal falls back to the
         // host default account.
         var instrument = await db.Payments.AsNoTracking()
-            .Where(p => p.OrderId == m.OrderId)
+            .Where(p => p.OrderId == m.OrderId && p.Kind == PaymentKind.Order)
             .Select(p => new { p.ProviderCustomerId, p.ProviderPaymentMethodId })
             .FirstOrDefaultAsync(ct);
 
@@ -232,7 +232,7 @@ public sealed class SubscriptionService(
         var now = clock.GetUtcNow();
         var accounts = await AccountsAsync(subscription.StorefrontId, ct);
         var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
-        await RenewAndPostAsync(subscription, tax, accounts, modeResolver.DefaultAccountForHost().Provider, now, ct);
+        await RenewAndPostAsync(subscription, tax, accounts, modeResolver.DefaultAccountForHost().Provider, paymentIntentId, now, ct);
         attempt.Outcome = nameof(PaymentOutcome.Succeeded);
         attempt.SettledAt = StoredTime.Of(now);
         return true;
@@ -300,7 +300,7 @@ public sealed class SubscriptionService(
                 return response;
             }
 
-            await RenewAndPostAsync(subscription, tax, accounts, account.Provider, now, ct);
+            await RenewAndPostAsync(subscription, tax, accounts, account.Provider, response.PaymentIntentId, now, ct);
             attempt.SettledAt = StoredTime.Of(now);
             return response;
         }
@@ -351,8 +351,8 @@ public sealed class SubscriptionService(
     }
 
     private async Task RenewAndPostAsync(
-        Subscription subscription, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts, string provider, DateTimeOffset now,
-        CancellationToken ct)
+        Subscription subscription, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts, string provider,
+        string paymentIntentId, DateTimeOffset now, CancellationToken ct)
     {
         subscription.Renew(now, tax.ChargeMinor);
         // Renew() appended a new client-keyed SubscriptionRenewal to the TRACKED aggregate's nav.
@@ -363,7 +363,18 @@ public sealed class SubscriptionService(
 
         // pay_renew_posts_revenue: a settled renewal records revenue in the ledger, attributed to the
         // subscription's storefront (ledger_sf) — before this, renewals charged the card but posted nothing.
-        await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, provider, now, ct);
+        var sale = await PostRenewalRevenueAsync(subscription, renewal.Sequence, tax, accounts, provider, now, ct);
+
+        // renewal_usage_refund_path: the settled renewal is a Payment of its own (kind Renewal, keyed by the entry's
+        // reference, carrying its intent id and the tax that entry booked) — so the refund path, partial refunds and the
+        // dispute webhooks (matched by intent) reach it. Same unit of work as the entry; nothing charged, nothing recorded.
+        if (sale is not null && !await db.Payments.AnyAsync(p => p.ChargeReference == sale.Reference, ct))
+        {
+            db.Payments.Add(Payment.ForSettledCharge(
+                PaymentKind.Renewal, sale, accounts?.TaxAccountCode, subscription.OrderId, subscription.Id, paymentIntentId,
+                tax.ChargeMinor, subscription.Currency, provider, subscription.StorefrontId,
+                subscription.ProviderCustomerId, subscription.ProviderPaymentMethodId, now));
+        }
     }
 
     /// <summary>
@@ -427,14 +438,14 @@ public sealed class SubscriptionService(
     /// charged (price + tax) — the same split checkout posts for the first period.
     /// </para>
     /// </summary>
-    private async Task PostRenewalRevenueAsync(
+    private async Task<JournalEntry?> PostRenewalRevenueAsync(
         Subscription subscription, int sequence, RecurringChargeTaxResult tax, StorefrontLedgerAccounts? accounts,
         string provider, DateTimeOffset now, CancellationToken ct)
     {
         var reference = $"renew-{subscription.Id}-{sequence}";
         if (await db.JournalEntries.AnyAsync(e => e.Reference == reference, ct))
         {
-            return; // already posted for this period
+            return null; // already posted for this period
         }
 
         var sale = Ledger.Sale(
@@ -442,10 +453,13 @@ public sealed class SubscriptionService(
             PaymentMethodKind.Card, provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             0, accounts?.ShippingAccountCode, subscription.StorefrontId, reference,
             $"Subscription renewal {subscription.Id} period {sequence}");
-        if (sale.Lines.Count > 0)
+        if (sale.Lines.Count == 0)
         {
-            db.JournalEntries.Add(sale);
+            return null; // a zero charge moves no money: no entry, no payment
         }
+
+        db.JournalEntries.Add(sale);
+        return sale;
     }
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>

@@ -19,13 +19,19 @@ public sealed class FakePaymentProvider : IPaymentProvider, IDirectDebitProvider
         var suffix = request.ProviderPaymentMethodId is null
             ? request.OrderId.ToString("N")
             : $"{request.OrderId:N}_{request.ProviderPaymentMethodId}";
-        // A subscription renewal attempt is its own PaymentIntent, as with a real provider (one per idempotency key) —
-        // not the order's: a provider event about it must find the attempt, never the order's checkout payment.
+        // A subscription renewal attempt or a usage charge (no order) is its own PaymentIntent, as with a real provider
+        // (one per idempotency key) — not the order's: a provider event about it must find that charge's attempt /
+        // payment, never the order's checkout payment or another usage charge (renewal_usage_refund_path).
         var intentId = request.IdempotencyKey.StartsWith("renew-", StringComparison.Ordinal)
-            ? $"pi_fake_renew_{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(request.IdempotencyKey)))[..24]}"
-            : $"pi_fake_{suffix}";
+            ? $"pi_fake_renew_{KeyHash(request.IdempotencyKey)}"
+            : request.OrderId == Guid.Empty
+                ? $"pi_fake_charge_{KeyHash(request.IdempotencyKey)}"
+                : $"pi_fake_{suffix}";
         return Task.FromResult(new PaymentResponse(intentId, $"{intentId}_secret_test", PaymentOutcome.Succeeded));
     }
+
+    private static string KeyHash(string idempotencyKey) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(idempotencyKey)))[..24];
 
     public Task<string> CreateCustomerAsync(Guid userId, string email, CancellationToken ct) =>
         Task.FromResult($"cus_fake_{userId:N}");

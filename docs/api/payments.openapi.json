@@ -2678,6 +2678,13 @@
           },
           "reason": {
             "type": "string"
+          },
+          "chargeReference": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "renewal_usage_refund_path: refund this renewal / usage charge (renew-{subscriptionId}-{sequence}, overage-…, autoload-…) instead of the order's checkout payment. orderId may then be the empty uuid (a usage charge has no order); when set it must be the charge's order. 400 when neither orderId nor chargeReference is given."
           }
         }
       },
@@ -2734,6 +2741,52 @@
           "recordedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "chargeReference": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "renewal_usage_refund_path: the settled renewal's own payment — what POST /admin/refunds names to refund this period. Null for period 1 (the order paid it) and renewals settled before payments were recorded per charge."
+          },
+          "paymentIntentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64",
+            "description": "The tax this renewal's journal entry booked (what a refund of it reverses)."
+          },
+          "refundedMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "paymentStatus": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "PaymentStatus as a number: 2 Succeeded, 4 Refunded, 5 Disputed, 6 Chargeback."
+          },
+          "disputeStatus": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "DisputeStatus as a number (0 None … 6 Lost)."
           }
         }
       },

@@ -114,6 +114,7 @@
         </ul>
         <h2 id="usage">Usage <span style="opacity:.6">(<code>/api/usage</code> · <code>:5113</code>)</span></h2>
         <p>Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publishes <code>UsageOverageCharge</code> → Payments.</p>
+        <p><b>Refunding a usage charge (ADR-0041 amendment 2026-10-28).</b> Payments records each settled usage charge (and each settled subscription renewal) as a payment of its own, keyed by its reference (<code>overage-…</code> / <code>autoload-…</code> / <code>renew-&lt;id&gt;-&lt;period&gt;</code>). <code>POST /api/payments/admin/refunds</code> with <code>chargeReference</code> refunds it, fully or in parts, and reverses exactly the tax it booked. Disputes on its payment intent are booked against it, never against an order.</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
               <tr><td><code>POST</code></td><td><code>/admin/usage/provision</code></td><td>admin</td><td>Set a meter’s included allowance + overage price</td></tr>
               <tr><td><code>POST</code></td><td><code>/admin/usage/record</code></td><td>admin</td><td>Record usage (idempotent by referenceId); gated when overage disallowed</td></tr>

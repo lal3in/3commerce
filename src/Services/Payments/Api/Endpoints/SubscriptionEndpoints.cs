@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Scheduling;
@@ -159,10 +160,20 @@ public static class SubscriptionEndpoints
     }
 
     private static async Task<Results<Ok<SubscriptionDetailDto>, NotFound>> Detail(
-        Guid id, Guid? tenantId, SubscriptionService subscriptions, IConfiguration config, CancellationToken ct)
+        Guid id, Guid? tenantId, SubscriptionService subscriptions, PaymentsDbContext db, IConfiguration config, CancellationToken ct)
     {
         var subscription = await subscriptions.GetAsync(tenantId ?? DefaultTenantId(config), id, ct);
-        return subscription is null ? TypedResults.NotFound() : TypedResults.Ok(ToDetailDto(subscription));
+        if (subscription is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // Each settled renewal's own payment (renewal_usage_refund_path): its chargeReference is what POST /admin/refunds
+        // names to refund that period; period 1 was paid by the order (refund it by orderId).
+        var charges = await db.Payments.AsNoTracking()
+            .Where(p => p.SubscriptionId == subscription.Id && p.Kind == PaymentKind.Renewal)
+            .ToDictionaryAsync(p => p.ChargeReference!, ct);
+        return TypedResults.Ok(ToDetailDto(subscription, charges));
     }
 
     private static async Task<Results<Ok<SubscriptionDto>, NotFound>> Renew(
@@ -211,11 +222,14 @@ public static class SubscriptionEndpoints
             s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt, s.Quantity,
             s.LastFailureReason, s.NextRetryAt, s.CancelsAfter);
 
-    private static SubscriptionDetailDto ToDetailDto(Subscription s) =>
+    private static SubscriptionDetailDto ToDetailDto(Subscription s, IReadOnlyDictionary<string, Payment> charges) =>
         new(s.Id, s.TenantId, s.OrderId, s.StorefrontId, s.CustomerEmail, s.ProductId, s.VariantId, s.BillingPeriod.ToString(), s.PriceMinor,
             s.Currency, s.Status.ToString(), s.CurrentPeriodStart, s.CurrentPeriodEnd, s.CreatedAt, s.UpdatedAt,
             s.Renewals.OrderBy(r => r.Sequence)
-                .Select(r => new RenewalDto(r.Sequence, r.PeriodStart, r.PeriodEnd, r.AmountMinor, r.Currency, r.RecordedAt))
+                .Select(r => charges.TryGetValue($"renew-{s.Id}-{r.Sequence}", out var p)
+                    ? new RenewalDto(r.Sequence, r.PeriodStart, r.PeriodEnd, r.AmountMinor, r.Currency, r.RecordedAt,
+                        p.ChargeReference, p.PaymentIntentId, p.TaxMinor, p.RefundedMinor, p.Status, p.DisputeStatus)
+                    : new RenewalDto(r.Sequence, r.PeriodStart, r.PeriodEnd, r.AmountMinor, r.Currency, r.RecordedAt))
                 .ToList(),
             s.Quantity, s.LastFailureReason, s.NextRetryAt, s.CancelsAfter);
 }
@@ -226,7 +240,17 @@ public record SubscriptionDto(
     string Status, DateTimeOffset CurrentPeriodStart, DateTimeOffset CurrentPeriodEnd, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     int Quantity = 1, string? FailureReason = null, DateTimeOffset? NextRetryAt = null, DateTimeOffset? CancelsAfter = null);
 
-public record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
+/// <summary>
+/// One period of a subscription's history. A settled renewal (period 2 on) also carries its own payment
+/// (appended, renewal_usage_refund_path): <c>ChargeReference</c> is what <c>POST /admin/refunds</c> names to refund it,
+/// <c>TaxMinor</c> the tax its journal entry booked, <c>RefundedMinor</c> how much is already refunded, and the payment's
+/// <c>PaymentStatus</c> / <c>DisputeStatus</c> (numbers). Null for period 1 (the order paid it) and for renewals settled
+/// before payments were recorded per charge.
+/// </summary>
+public record RenewalDto(
+    int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt,
+    string? ChargeReference = null, string? PaymentIntentId = null, long? TaxMinor = null, long? RefundedMinor = null,
+    PaymentStatus? PaymentStatus = null, DisputeStatus? DisputeStatus = null);
 
 public record SubscriptionDetailDto(
     Guid Id, Guid TenantId, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,

@@ -265,7 +265,11 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   time with a link to the storefront **complete payment** page (`/account/subscriptions/{id}/pay`),
   where they can authenticate (3-D Secure) or pay with another saved card. **Renew** retries
   the period at once; the API shows the failure reason, next retry and cancellation date.
-  **Cancel** ends it.
+  **Cancel** ends it. **Refunds and disputes of a renewal:** each settled renewal is a payment of
+  its own. `GET …/admin/subscriptions/{id}` shows its `chargeReference` (`renew-<id>-<period>`), and
+  `POST /api/payments/admin/refunds` with that `chargeReference` refunds it, fully or in parts.
+  The tax its entry booked is reversed, and the order itself stays as it is. A usage charge is refunded
+  the same way by its `overage-…` / `autoload-…` reference (no order id needed).
 - **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**

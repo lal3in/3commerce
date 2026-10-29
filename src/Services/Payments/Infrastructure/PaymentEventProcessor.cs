@@ -77,6 +77,21 @@ public sealed class PaymentEventProcessor(
             return;
         }
 
+        // A renewal / usage charge's payment exists only once the charge SETTLED and was booked (renewal_usage_refund_path),
+        // so its own payment-lifecycle events (succeeded / failed / voided — a redelivery, or the success webhook every
+        // off-session charge also sends) carry nothing new: never an order sale, never an order PaymentSucceeded. Its
+        // refund and dispute events below are handled like an order payment's, under the charge's own references.
+        if (payment.Kind != PaymentKind.Order
+            && ev.Kind is PaymentWebhookKind.PaymentSucceeded or PaymentWebhookKind.PaymentFailed or PaymentWebhookKind.PaymentVoided)
+        {
+            logger.LogInformation(
+                "Webhook {EventId} ({Kind}) for charge {ChargeReference}: already settled and booked; nothing to do",
+                ev.EventId, ev.Kind, payment.ChargeReference);
+            await db.SaveChangesAsync(ct);
+            await dedupe.MarkProcessedAsync(dedupeKey, DedupeTtl, ct);
+            return;
+        }
+
         switch (ev.Kind)
         {
             case PaymentWebhookKind.PaymentSucceeded when payment.Status != PaymentStatus.Succeeded:
@@ -113,7 +128,7 @@ public sealed class PaymentEventProcessor(
                 break;
 
             // A dispute opened / funds were withdrawn. ChargebackOpened is the legacy alias. All three book
-            // the reversal exactly once (idempotent on the "{orderId}:chargeback" reference) and flag Disputed.
+            // the reversal exactly once (idempotent on Payment.ChargebackReference) and flag Disputed.
             case PaymentWebhookKind.DisputeCreated:
                 await EnsureDisputeReversedAsync(payment, ev, DisputeStatus.Created, ct);
                 break;
@@ -151,7 +166,8 @@ public sealed class PaymentEventProcessor(
     }
 
     /// <summary>
-    /// Books the dispute reversal exactly once (idempotent on the <c>{orderId}:chargeback</c> reference) and
+    /// Books the dispute reversal exactly once (idempotent on <see cref="Payment.ChargebackReference"/>:
+    /// <c>{orderId}:chargeback</c>, or <c>{chargeReference}:chargeback</c> for a renewal / usage charge) and
     /// flips the payment to <see cref="PaymentStatus.Disputed"/> with the given sub-status. Safe to call from
     /// created / funds-withdrawn / (legacy) chargeback-opened events and from the lost path — only the first
     /// call posts the journal entry and publishes <see cref="PaymentDisputed"/>.
@@ -161,7 +177,7 @@ public sealed class PaymentEventProcessor(
         payment.DisputeStatus = subStatus;
         if (ev.ProviderDisputeId is { Length: > 0 } dp) payment.ProviderDisputeId = dp;
 
-        var reference = $"{payment.OrderId}:chargeback";
+        var reference = payment.ChargebackReference;
         var alreadyReversed = await db.JournalEntries.AnyAsync(e => e.Reference == reference, ct);
 
         // Only a captured (or already-disputed) payment has anything to reverse.
@@ -197,22 +213,23 @@ public sealed class PaymentEventProcessor(
         db.JournalEntries.Add(Ledger.Chargeback(
             payment.OrderId, disputedGross, tax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
             payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-            shipping, accounts?.ShippingAccountCode, payment.StorefrontId));
+            shipping, accounts?.ShippingAccountCode, payment.StorefrontId, reference,
+            payment.Kind == PaymentKind.Order ? null : $"Chargeback of charge {payment.ChargeReference} via {payment.MethodKind}"));
         payment.Status = PaymentStatus.Disputed;
-        await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross), ct);
+        await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross, payment.ChargeReference), ct);
     }
 
     /// <summary>
     /// The merchant won / funds were reinstated: reverse the earlier chargeback entry (idempotent on the
-    /// <c>{orderId}:chargeback-reinstate</c> reference) so the sale stands again, and restore the payment to
+    /// <c>{ChargebackReference}-reinstate</c> reference) so the sale stands again, and restore the payment to
     /// <see cref="PaymentStatus.Succeeded"/>.
     /// </summary>
     private async Task ReinstateDisputeAsync(Payment payment, DisputeStatus subStatus, CancellationToken ct)
     {
         payment.DisputeStatus = subStatus;
 
-        var chargebackRef = $"{payment.OrderId}:chargeback";
-        var reinstateRef = $"{payment.OrderId}:chargeback-reinstate";
+        var chargebackRef = payment.ChargebackReference;
+        var reinstateRef = $"{chargebackRef}-reinstate";
         var chargeback = await db.JournalEntries.Include(e => e.Lines).SingleOrDefaultAsync(e => e.Reference == chargebackRef, ct);
         var alreadyReinstated = await db.JournalEntries.AnyAsync(e => e.Reference == reinstateRef, ct);
         if (chargeback is not null && !alreadyReinstated)
@@ -255,6 +272,6 @@ public sealed class PaymentEventProcessor(
             });
         }
 
-        await publisher.Publish(new PaymentChargedBack(payment.OrderId, payment.PaymentIntentId, chargedBack), ct);
+        await publisher.Publish(new PaymentChargedBack(payment.OrderId, payment.PaymentIntentId, chargedBack, payment.ChargeReference), ct);
     }
 }

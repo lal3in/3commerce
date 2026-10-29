@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
+using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
 
 namespace ThreeCommerce.Payments.Infrastructure.Consumers;
@@ -31,7 +32,7 @@ public sealed class ShippingLabelPurchasedConsumer(
             return; // already booked
         }
 
-        var payment = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId, context.CancellationToken);
+        var payment = await db.Payments.SingleOrDefaultAsync(p => p.OrderId == msg.OrderId && p.Kind == PaymentKind.Order, context.CancellationToken);
         var storeAccount = payment?.StorefrontId is { } sid ? Accounts.ShippingCostStoreFor(sid) : null;
         var carrierPayableAccount = payment?.StorefrontId is { } psid ? Accounts.CarrierPayableStoreFor(psid) : null;
 

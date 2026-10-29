@@ -160,17 +160,24 @@ public static class AdminEndpoints
             return TypedResults.BadRequest("Idempotency-Key header is required.");
         }
 
+        // An order's checkout payment is named by its order; a renewal / usage charge by its chargeReference
+        // (renewal_usage_refund_path) — a usage charge has no order.
+        if (request.OrderId == Guid.Empty && string.IsNullOrWhiteSpace(request.ChargeReference))
+        {
+            return TypedResults.BadRequest("orderId or chargeReference is required.");
+        }
+
         // Uniform replay protection via the shared guard (plan item 12): the same key returns the
         // stored response; the same key with a different body throws IdempotencyConflictException,
         // which the problem-details handler renders as a 409. The guard's SaveChanges also flushes
         // the outbox publish + audit entry recorded inside the operation, so all commit atomically.
         var response = await idempotency.ExecuteAsync(
             key,
-            new { request.OrderId, request.AmountMinor, request.Reason },
+            new { request.OrderId, request.AmountMinor, request.Reason, request.ChargeReference },
             async token =>
             {
                 var refundId = Guid.CreateVersion7();
-                await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin"), token);
+                await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin", request.ChargeReference), token);
                 // Refund requests carry no tenant, so the entry lands under the configured default
                 // tenant — the same default the Audit search (and Mission Control) falls back to.
                 await audit.RecordAsync(user.Mutation(
@@ -193,5 +200,5 @@ public record ChartAccountDto(string Role, string Code, string Name, string Type
 public record BalanceDto(string AccountCode, string Currency, long DebitMinor, long CreditMinor, long NetMinor);
 public record LineDto(string AccountCode, long DebitMinor, long CreditMinor);
 public record EntryDto(Guid Id, string Description, string Reference, string Currency, DateTimeOffset CreatedAt, List<LineDto> Lines);
-public record RefundRequest([property: Required] Guid OrderId, [property: Range(1, long.MaxValue)] long AmountMinor, [property: Required] string Reason);
+public record RefundRequest([property: Required] Guid OrderId, [property: Range(1, long.MaxValue)] long AmountMinor, [property: Required] string Reason, string? ChargeReference = null);
 public record RefundResponse(Guid RefundId);

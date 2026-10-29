@@ -70,6 +70,12 @@ public static class UsageChargeBilling
         if (sale.Lines.Count > 0)
         {
             db.JournalEntries.Add(sale);
+            // renewal_usage_refund_path: the settled usage charge is a Payment of its own (kind UsageCharge, no order,
+            // keyed by this reference, carrying its intent id and the tax this entry booked), so the refund path, partial
+            // refunds and the dispute webhooks reach it. Committed with the entry, or not at all.
+            db.Payments.Add(Payment.ForSettledCharge(
+                PaymentKind.UsageCharge, sale, accounts?.TaxAccountCode, Guid.Empty, null, response.PaymentIntentId,
+                tax.ChargeMinor, currency, account.Provider, storefrontId, null, null, time.GetUtcNow()));
             await db.SaveChangesAsync(ct);
         }
     }

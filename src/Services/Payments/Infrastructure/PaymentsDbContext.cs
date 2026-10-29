@@ -122,7 +122,13 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
 
         modelBuilder.Entity<Payment>(p =>
         {
-            p.HasIndex(x => x.OrderId).IsUnique();
+            // One CHECKOUT payment per order; a renewal shares its subscription's order, a usage charge has none
+            // (renewal_usage_refund_path). Each renewal / usage charge is unique by the journal reference that booked it.
+            p.Property(x => x.Kind).HasDefaultValue(PaymentKind.Order);
+            p.HasIndex(x => x.OrderId).IsUnique().HasFilter("\"Kind\" = 1");
+            p.HasIndex(x => x.ChargeReference).IsUnique().HasFilter("\"ChargeReference\" IS NOT NULL");
+            p.Property(x => x.ChargeReference).HasMaxLength(200);
+            p.HasIndex(x => x.SubscriptionId);
             p.HasIndex(x => x.PaymentIntentId);
             p.Property(x => x.Currency).HasMaxLength(3);
 

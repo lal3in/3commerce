@@ -111,6 +111,18 @@ public static class Ledger
     }
 
     /// <summary>
+    /// The output tax a <see cref="Sale"/> entry booked: its credits to the tax account, resolved exactly as
+    /// <see cref="Sale"/> resolves it (<paramref name="taxAccount"/>, else the shared <see cref="Accounts.LiabilityTaxCollected"/>).
+    /// A renewal / usage charge's reversal takes its tax from here (renewal_usage_refund_path), so a full refund nets the
+    /// tax account the charge credited back to zero.
+    /// </summary>
+    public static long TaxOf(JournalEntry saleEntry, string? taxAccount)
+    {
+        var account = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
+        return saleEntry.Lines.Where(l => l.AccountCode == account).Sum(l => l.CreditMinor - l.DebitMinor);
+    }
+
+    /// <summary>
     /// A refund reverses the sale: money out of cash, revenue + tax back. Legacy/no-storefront refunds
     /// post the reversal to the shared contra-revenue (revenue.refunds); a storefront refund reverses
     /// the store's OWN revenue/tax through its receivable bridge (mirroring <see cref="Sale"/>), so a
@@ -130,7 +142,8 @@ public static class Ledger
         string? receivableAccount = null,
         long shippingMinor = 0,
         string? shippingAccount = null,
-        Guid? storefrontId = null)
+        Guid? storefrontId = null,
+        string? description = null)
     {
         // Mirror the sale: reverse product revenue, shipping income and tax separately so each P&L line
         // nets its refunds. shippingMinor is the (proportional) shipping slice of this refund.
@@ -138,7 +151,8 @@ public static class Ledger
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
         var netMinor = grossMinor - taxMinor - shipping;
         var cash = storefrontId is { } cashSid ? Accounts.CashStoreFor(cashSid, provider) : Accounts.CashFor(provider);
-        var entry = NewEntry($"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
+        var entry = NewEntry(
+            description ?? $"Refund {refundId} for order {orderId} via {methodKind}", refundId.ToString(), currency, now);
 
         if (string.IsNullOrWhiteSpace(receivableAccount))
         {
@@ -207,15 +221,21 @@ public static class Ledger
         string? receivableAccount = null,
         long shippingMinor = 0,
         string? shippingAccount = null,
-        Guid? storefrontId = null)
+        Guid? storefrontId = null,
+        string? reference = null,
+        string? description = null)
     {
         var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
         var netMinor = grossMinor - taxMinor - shipping;
         var cash = storefrontId is { } cashSid ? Accounts.CashStoreFor(cashSid, provider) : Accounts.CashFor(provider);
         // Distinct reference from the sale (which references the bare order id) so reporting/lookup can
-        // tell the dispute reversal apart from the original sale. One chargeback per order in this model.
-        var entry = NewEntry($"Chargeback for order {orderId} via {methodKind}", $"{orderId}:chargeback", currency, now);
+        // tell the dispute reversal apart from the original sale. One chargeback per payment: an order payment's is
+        // {orderId}:chargeback (the default); a renewal / usage charge passes {chargeReference}:chargeback.
+        var entry = NewEntry(
+            description ?? $"Chargeback for order {orderId} via {methodKind}",
+            string.IsNullOrWhiteSpace(reference) ? $"{orderId}:chargeback" : reference,
+            currency, now);
 
         // Reverse the sale (mirror Refund's two branches: shared contra vs the store's own accounts).
         if (string.IsNullOrWhiteSpace(receivableAccount))
