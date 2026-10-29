@@ -8,6 +8,7 @@ namespace ThreeCommerce.Support.Infrastructure.Sagas;
 /// RMA lifecycle (ADR-0018): Requested → Approved/Denied → (AwaitingReturn → ReturnReceived)
 /// → RefundIssued. Approval publishes the single Phase-3 RefundRequested contract — Support
 /// never touches Stripe or the ledger directly. RefundCompleted advances to RefundIssued.
+/// The request names the order lines it refunds (ADR-0063 P5) — see <see cref="RequestRmaRefundActivity"/>.
 /// <para>
 /// RefundFailed is the other terminal outcome: Payments could not execute the refund (no captured
 /// payment, more than the remaining balance, or a provider decline). It used to be a silent return in
@@ -62,7 +63,7 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
                 .IfElse(c => c.Message.AutoApprove,
                     auto => auto
                         .Then(c => c.Saga.RefundId = Guid.CreateVersion7())
-                        .Publish(c => new RefundRequested(c.Saga.RefundId, c.Saga.OrderId, c.Saga.AmountMinor, c.Saga.Reason ?? "rma", "rma"))
+                        .Activity(x => x.OfInstanceType<RequestRmaRefundActivity>())
                         .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "Approved"))
                         .TransitionTo(RefundPending),
                     manual => manual
@@ -77,7 +78,7 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
                         .TransitionTo(AwaitingReturn),
                     noReturn => noReturn
                         .Then(c => c.Saga.RefundId = Guid.CreateVersion7())
-                        .Publish(c => new RefundRequested(c.Saga.RefundId, c.Saga.OrderId, c.Saga.AmountMinor, c.Saga.Reason ?? "rma", "rma"))
+                        .Activity(x => x.OfInstanceType<RequestRmaRefundActivity>())
                         .Publish(c => new RmaStateChanged(c.Saga.CorrelationId, c.Saga.OrderId, c.Saga.Email!, "Approved"))
                         .TransitionTo(RefundPending)),
             When(RmaDeniedEvent)
@@ -89,7 +90,7 @@ public sealed class RmaStateMachine : MassTransitStateMachine<RmaState>
             When(ReturnReceivedEvent)
                 .Then(c => c.Saga.ReturnReceivedAt = DateTimeOffset.UtcNow)
                 .Then(c => c.Saga.RefundId = Guid.CreateVersion7())
-                .Publish(c => new RefundRequested(c.Saga.RefundId, c.Saga.OrderId, c.Saga.AmountMinor, c.Saga.Reason ?? "rma", "rma"))
+                .Activity(x => x.OfInstanceType<RequestRmaRefundActivity>())
                 .TransitionTo(RefundPending));
 
         During(RefundPending,

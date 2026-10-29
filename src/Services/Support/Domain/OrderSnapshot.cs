@@ -24,6 +24,14 @@ public class OrderSnapshotLine
 {
     public Guid Id { get; init; }
     public Guid OrderId { get; init; }
+
+    /// <summary>
+    /// Ordering's id for this order line (<c>OrderLineInfo.LineId</c>, ADR-0063 P5) — what a refund's line attribution
+    /// names so a credit note can credit exactly this line. <see cref="Guid.Empty"/> on snapshots projected before P5
+    /// (not backfilled, D18): their refunds then go out amount-only.
+    /// </summary>
+    public Guid OrderLineId { get; init; }
+
     public Guid ProductId { get; init; }
     public required string Title { get; init; }
 

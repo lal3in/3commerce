@@ -105,6 +105,7 @@ public static class AdminRmaEndpoints
             {
                 Id = Guid.CreateVersion7(),
                 RmaId = rmaId,
+                OrderLineId = line.OrderLineId,
                 ProductId = line.ProductId,
                 Title = line.Title,
                 Quantity = qty,

@@ -225,6 +225,9 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("OrderLineId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
@@ -288,6 +291,9 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
 
                     b.Property<long>("DiscountMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<Guid>("OrderLineId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");

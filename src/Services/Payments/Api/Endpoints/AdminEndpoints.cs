@@ -177,7 +177,12 @@ public static class AdminEndpoints
             async token =>
             {
                 var refundId = Guid.CreateVersion7();
-                await publisher.Publish(new RefundRequested(refundId, request.OrderId, request.AmountMinor, request.Reason, "admin", request.ChargeReference), token);
+                // An amount-only refund (ADR-0063 P5): no lines, so a credit note spreads it over the invoice in proportion.
+                await publisher.Publish(
+                    new RefundRequested(
+                        refundId, request.OrderId, request.AmountMinor, request.Reason, "admin", request.ChargeReference,
+                        Kind: RefundKind.PriceReduction),
+                    token);
                 // Refund requests carry no tenant, so the entry lands under the configured default
                 // tenant — the same default the Audit search (and Mission Control) falls back to.
                 await audit.RecordAsync(user.Mutation(

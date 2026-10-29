@@ -98,7 +98,8 @@ public class OrderConfirmedMappingTests
     [Fact]
     public void The_event_carries_tenant_ship_to_supply_and_the_whole_discount_per_line()
     {
-        var e = OrderConfirmedFactory.From(Attempt().ToOrder(1042, T0));
+        var order = Attempt().ToOrder(1042, T0);
+        var e = OrderConfirmedFactory.From(order);
 
         Assert.Equal(Tenant, e.TenantId);
         Assert.Equal("shopper@example.test", e.Email);
@@ -106,10 +107,12 @@ public class OrderConfirmedMappingTests
         Assert.Equal("AUD", e.Currency);
         Assert.Equal(new ShipToInfo("Shopper", "1 Example St", "Sydney", "2000", "AU", "NSW"), e.ShipTo);
 
+        // Each line also carries its order-line id (ADR-0063 P5) — the key a refund attributes money back to.
         var lines = e.Lines.ToDictionary(l => l.ProductId);
-        Assert.Equal(new OrderLineInfo(Shelf, Variant, null, "Shelf item", 2, FulfilmentType.Warehouse, BillingMode.OneTime, 1000, 282), lines[Shelf]);
-        Assert.Equal(new OrderLineInfo(Dropped, null, Supplier, "Dropshipped item", 1, FulfilmentType.Dropship, BillingMode.OneTime, 3000, 273), lines[Dropped]);
-        Assert.Equal(new OrderLineInfo(Download, null, null, "Download", 1, FulfilmentType.DigitalDownload, BillingMode.OneTime, 500, 45), lines[Download]);
+        Guid LineId(Guid product) => order.Lines.Single(l => l.ProductId == product).Id;
+        Assert.Equal(new OrderLineInfo(Shelf, Variant, null, "Shelf item", 2, FulfilmentType.Warehouse, BillingMode.OneTime, 1000, 282, LineId(Shelf)), lines[Shelf]);
+        Assert.Equal(new OrderLineInfo(Dropped, null, Supplier, "Dropshipped item", 1, FulfilmentType.Dropship, BillingMode.OneTime, 3000, 273, LineId(Dropped)), lines[Dropped]);
+        Assert.Equal(new OrderLineInfo(Download, null, null, "Download", 1, FulfilmentType.DigitalDownload, BillingMode.OneTime, 500, 45, LineId(Download)), lines[Download]);
         Assert.Equal(600, e.Lines.Sum(l => l.DiscountMinor)); // allocations sum to the order's discount exactly
     }
 

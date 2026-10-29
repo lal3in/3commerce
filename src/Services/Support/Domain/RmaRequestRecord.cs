@@ -22,6 +22,11 @@ public class RmaRequestLine
 {
     public Guid Id { get; init; }
     public Guid RmaId { get; init; }
+
+    /// <summary>The order line these units come from (<see cref="OrderSnapshotLine.OrderLineId"/>, ADR-0063 P5);
+    /// <see cref="Guid.Empty"/> when the snapshot predates it.</summary>
+    public Guid OrderLineId { get; init; }
+
     public Guid ProductId { get; init; }
     public required string Title { get; init; }
     public int Quantity { get; init; }
