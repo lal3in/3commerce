@@ -202,7 +202,10 @@ public sealed class RefundAttributionTests(Phase4Fixture fixture) : IAsyncLifeti
         where TMarker : class
     {
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims(role));
+        // Admin calls here issue refunds, which need payment.refund (refund_permission_enforcement): use the seeded
+        // bootstrap admin rather than a bare admin-role claim.
+        client.DefaultRequestHeaders.Add(
+            InternalClaimsAuth.HeaderName, role == "admin" ? fixture.RefundAdminClaims() : fixture.Claims(role));
         return client;
     }
 }

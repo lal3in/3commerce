@@ -334,8 +334,29 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden — the caller lacks payment.refund (errorCode permission_denied)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable — the Identity PDP could not be reached; nothing changed (errorCode authorization_unavailable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
-        }
+        },
+        "summary": "Refund an order's payment, or a renewal / usage charge by chargeReference. Requires the payment.refund permission (403 without it)."
       }
     },
     "/admin/xero/sync-runs": {
@@ -3650,6 +3671,42 @@
           "status",
           "clientSecret"
         ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       }
     }
   },

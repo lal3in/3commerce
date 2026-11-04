@@ -46,6 +46,22 @@ public sealed class Phase4Fixture : IAsyncLifetime
     // by those services (through the EF bus outbox) is delivered to Catalog's readiness consumers.
     public WebApplicationFactory<ThreeCommerce.Catalog.Api.IApiMarker> Catalog { get; private set; } = null!;
 
+    private WebApplicationFactory<ThreeCommerce.Identity.Api.IApiMarker>? _identity;
+    private Guid _refundAdminUserId;
+
+    /// <summary>
+    /// Identity — the PDP the refund endpoints ask (refund_permission_enforcement): every service host here routes its
+    /// PolicyDecisionClient to it (<see cref="PdpTestSupport.RoutePdpTo"/>). Created when the refund admin is seeded.
+    /// </summary>
+    public WebApplicationFactory<ThreeCommerce.Identity.Api.IApiMarker> Identity =>
+        _identity ??= CreateFactory<ThreeCommerce.Identity.Api.IApiMarker, ThreeCommerce.Identity.Infrastructure.IdentityDbContext>("identity_db");
+
+    /// <summary>
+    /// Claims of a bootstrap-shaped admin (MasterGlobal principal + Administrator role, seeded at start-up): the
+    /// caller every refund-issuing test uses, since the admin role claim alone no longer refunds.
+    /// </summary>
+    public string RefundAdminClaims() => MintInternalClaims(_refundAdminUserId, "admin");
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
@@ -60,6 +76,9 @@ public sealed class Phase4Fixture : IAsyncLifetime
         await _postgres.ExecScriptAsync("CREATE DATABASE catalog_db;");
         // Catalog migrations need citext + pg_trgm (product search) — provision them before migrating.
         await ExecInDbAsync("catalog_db", "CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm;");
+        // Identity (the PDP) is started lazily (see Identity); its migrations need citext.
+        await _postgres.ExecScriptAsync("CREATE DATABASE identity_db;");
+        await ExecInDbAsync("identity_db", "CREATE EXTENSION IF NOT EXISTS citext;");
 
         Support = CreateFactory<ThreeCommerce.Support.Api.IApiMarker, ThreeCommerce.Support.Infrastructure.SupportDbContext>("support_db");
         Payments = CreateFactory<ThreeCommerce.Payments.Api.IApiMarker, PaymentsDbContext>("payments_db");
@@ -69,6 +88,8 @@ public sealed class Phase4Fixture : IAsyncLifetime
         Marketing = CreateFactory<ThreeCommerce.Marketing.Api.IApiMarker, ThreeCommerce.Marketing.Infrastructure.MarketingDbContext>("marketing_db");
         Audit = CreateFactory<ThreeCommerce.Audit.Api.IApiMarker, ThreeCommerce.Audit.Infrastructure.AuditDbContext>("audit_db");
         Catalog = CreateFactory<ThreeCommerce.Catalog.Api.IApiMarker, ThreeCommerce.Catalog.Infrastructure.CatalogDbContext>("catalog_db");
+
+        _refundAdminUserId = await PdpTestSupport.SeedStaffUserAsync(Identity, "admin", platformAdmin: true);
 
         // Direct publisher (bypasses the EF bus outbox, which only delivers on SaveChanges).
         _publishBus = Bus.Factory.CreateUsingRabbitMq(cfg => cfg.Host(new Uri(RabbitMqUri)));
@@ -96,6 +117,11 @@ public sealed class Phase4Fixture : IAsyncLifetime
             await Marketing.DisposeAsync();
             await Audit.DisposeAsync();
             await Catalog.DisposeAsync();
+            if (_identity is not null)
+            {
+                await _identity.DisposeAsync();
+            }
+
             leaked = await _hosts.DisposeLeakedAsync();
         }
         finally
@@ -226,9 +252,13 @@ public sealed class Phase4Fixture : IAsyncLifetime
             builder.UseSetting("InternalAuth:PublicKey", PublicKeyPem);
             builder.UseSetting("Stripe:SecretKey", string.Empty);
             builder.UseSetting("Scheduling:Enabled", "false");
+            // Identity: no dev admin seeding (tests seed their own staff users).
+            builder.UseSetting("Identity:SeedAdmin:Email", string.Empty);
             // Host start waits for the bus, so a disposed factory can't leave a zombie consumer on the
             // shared broker (TestBusHosting).
             builder.ConfigureServices(services => services.AddTestBusHosting(tracked));
+            // Refund endpoints ask the PDP — the in-process Identity host (refund_permission_enforcement).
+            PdpTestSupport.RoutePdpTo(builder, () => Identity);
         });
 
         tracked.Factory = factory;

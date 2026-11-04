@@ -269,6 +269,15 @@
 #   A3w Unit · stored-precision order times (OrderStoredTimeTests): an order confirmed at …02.5351758 holds
 #       …02.535175 (what Postgres stores), so OrderConfirmed.CapturedAt published from the in-memory order equals the
 #       one the backfill rebuilds from the row (the A4–A6 OrderConfirmedBackfillTests failed on Linux CI without it)
+#   A3x Unit · refunds need payment.refund (refund_permission_enforcement, owner decisions 2026-11-04 / 2026-11-05,
+#       ADR-0025 amendment): the service PEP (PermissionGateTests) asks the PDP by the caller's sub + tenant (empty principal id),
+#       passes an allowed decision, answers a denied one / a 404 (no principal behind an admin-role user) / a decision
+#       for another permission / a caller without a sub with 403 problem+json (errorCode permission_denied, permission)
+#       and a Denied audit entry, and fails CLOSED with 503 (authorization_unavailable, no audit) on a 500 / 503 /
+#       unreachable PDP; the built-in roles granting payment.refund are exactly admin + finance + support, and
+#       finance/admin/support are allowed while ops/merchandiser are not; Support's default survives repeated re-seeds
+#       (what every login runs) and a pre-2026-11-05 Support role gains it; a user-keyed decide request without a
+#       tenant resolves nothing (PolicyDecisionServiceTests)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -322,6 +331,16 @@
 #       Payments) RefundCompleted with [that line, 1, 4650] + shipping 0 + kind Return; an admin whole-order RMA
 #       attributes every line (9300 + 1900 == 11200); an admin POST /admin/refunds carries no lines, kind
 #       PriceReduction; trial balance 0
+#   A4h Integration · refunds need payment.refund through the real PDP (RefundPermissionTests, Phase4 with an
+#       in-process Identity every service host routes its PEP to; every caller carries role=admin): Finance and
+#       Support refund by order and by chargeReference (202); Ops and Merchandiser are refused 403 problem+json on
+#       both and a Denied payments.refund.request audit entry reaches the Audit projection, and the refused
+#       Idempotency-Key then succeeds for Finance (nothing stored); a staff user with no role and an unknown sub are
+#       refused; the bootstrap admin (MasterGlobal + Administrator) still refunds; Ops' instant RMA refund and its
+#       approval are refused (Denied support.rma.admin_refund / support.rma.approve, the RMA stays Requested) while
+#       its return REQUEST is accepted, and Support's approval reaches RefundIssued with the trial balance 0;
+#       GET /me/permissions lists payment.refund for Finance and Support, not Ops, nothing for an unknown user. The other refund suites (A4e,
+#       A6d, RefundIdempotencyTests …) refund as the seeded bootstrap admin
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -571,6 +590,8 @@
 #       Notifications confirmation email (ADR-0060 — a queue shared by two services splits them)
 #   L18 Ledger: balanced sale posted, trial balance zero
 #   L19 Admin refund → ledger reversal, trial balance stays zero
+#   L19b Refund permission live (refund_permission_enforcement): the dev admin's GET /api/identity/me/permissions
+#       lists payment.refund (the admin UI enables Refund / Approve from it; L19 refunded through gateway → PEP → PDP)
 #   L20 Storefront + Admin E2E in a real browser (Playwright): storefront browsing,
 #       fixture-manifest catalog scenario products (when seeded), cart + full guest checkout
 #       (test payment), a refused checkout showing the service's problem+json detail ("Cart is empty.")
@@ -811,6 +832,14 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OrderStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3w stored-precision order times"; else fail "A3w stored-precision order times"; fi
+
+  stage "A3x Refunds need payment.refund (ADR-0025 amendment) — PEP 403 + Denied audit, fail-closed 503, role defaults"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~PermissionGateTests' 2>&1 \
+      | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Identity/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~PolicyDecisionServiceTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3x refunds need payment.refund"; else fail "A3x refunds need payment.refund"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -1251,6 +1280,14 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
   else
     skip "L15-L19 money flow — no demo storefront to attribute the order (needs --data full)"
   fi
+
+  # L19b: refunds are PDP-enforced (refund_permission_enforcement). The dev admin is a MasterGlobal principal, so
+  # its effective permissions include payment.refund — the admin UI enables Refund / Approve from this list, and
+  # L19 above refunded through the real gateway → PEP → PDP. (/internal → 404 is the gateway's own L4b.)
+  local perms
+  perms="$(curl -s -b "$admin" "$GATEWAY/api/identity/me/permissions")"
+  { [[ "$perms" == *'"payment.refund"'* ]] && pass "L19b refund permission live: the admin holds payment.refund"; } \
+    || fail "L19b refund permission (GET /api/identity/me/permissions lacks payment.refund: ${perms:0:200})"
 
   # The list reporter's closing tally, e.g. "2 flaky, 4 skipped, 107 passed". Playwright counts a flaky
   # test (failed, then passed on retry) as green, so report it instead of only "N passed".

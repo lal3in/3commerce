@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Authz;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Configuration;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
@@ -54,6 +55,8 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
 builder.Services.AddAuditRecorder("payments");
+// Service-side PEP (ADR-0025): refund-issuing endpoints ask the Identity PDP for payment.refund.
+builder.Services.AddPermissionGate(builder.Configuration);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<PaymentEventProcessor>();

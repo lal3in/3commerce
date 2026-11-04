@@ -483,7 +483,7 @@
         "tags": [
           "RMA"
         ],
-        "summary": "Admin-opened RMA for a whole order: auto-approved instant refund (default), or a Requested RMA the operator walks through the lifecycle when AutoApprove=false.",
+        "summary": "Admin-opened RMA for a whole order: auto-approved instant refund (default), or a Requested RMA the operator walks through the lifecycle when AutoApprove=false. The instant refund requires the payment.refund permission (403 without it).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -514,6 +514,26 @@
               "application/json": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — the caller lacks payment.refund (errorCode permission_denied)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable — the Identity PDP could not be reached; nothing changed (errorCode authorization_unavailable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -569,8 +589,29 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden — the caller lacks payment.refund (errorCode permission_denied)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable — the Identity PDP could not be reached; nothing changed (errorCode authorization_unavailable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
-        }
+        },
+        "summary": "Approve a Requested RMA (optionally requiring the goods back first) — it ends in a refund, so it requires the payment.refund permission (403 without it)."
       }
     },
     "/admin/rmas/{id}/deny": {
@@ -1556,6 +1597,42 @@
         "properties": {
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

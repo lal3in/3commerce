@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
+using ThreeCommerce.Identity.Domain.Authz;
 using ThreeCommerce.Identity.Infrastructure;
 
 namespace ThreeCommerce.Identity.Api.Endpoints;
@@ -19,6 +20,8 @@ public static class ProfileEndpoints
 
         group.MapGet("/", GetProfile);
         group.MapPut("/", UpdateProfile);
+        group.MapGet("/permissions", GetPermissions)
+            .WithSummary("The caller's effective permission keys in their tenant (advisory UI capability metadata, ADR-0025; services re-decide every action).");
         group.MapGet("/addresses", ListAddresses);
         group.MapPost("/addresses", AddAddress);
         group.MapPut("/addresses/{id:guid}", UpdateAddress);
@@ -46,6 +49,27 @@ public static class ProfileEndpoints
             : TypedResults.Ok(new ProfileResponse(
                 user.Id, user.Email, user.Title, user.FirstName, user.MiddleName, user.LastName, user.PreferredName,
                 user.Phone, user.DateOfBirth, user.MarketingConsent, user.EmailVerified, user.CreatedAt));
+    }
+
+    /// <summary>
+    /// The caller's effective permissions (refund_permission_enforcement): the admin uses this to hide actions the
+    /// caller cannot take — advisory only, every service re-decides through the PDP (ADR-0025). A platform admin
+    /// (MasterGlobal) is granted every registered permission. No principal behind the user → an empty set.
+    /// </summary>
+    private static async Task<Ok<MyPermissionsResponse>> GetPermissions(
+        ClaimsPrincipal principal, PolicyDecisionService policy, CancellationToken cancellationToken)
+    {
+        var context = await policy.ResolveUserContextAsync(
+            UserId(principal), Guid.Parse(principal.FindFirstValue("tenant")!), cancellationToken);
+        if (context is null)
+        {
+            return TypedResults.Ok(new MyPermissionsResponse(false, []));
+        }
+
+        var keys = context.IsPlatformAdmin
+            ? PermissionRegistry.AllPermissionKeys
+            : PermissionRegistry.AllPermissionKeys.Where(context.Has).ToArray();
+        return TypedResults.Ok(new MyPermissionsResponse(context.IsPlatformAdmin, keys));
     }
 
     private static async Task<Results<NoContent, NotFound>> UpdateProfile(
@@ -193,6 +217,9 @@ public static class ProfileEndpoints
     private static AddressResponse ToResponse(Address address) =>
         new(address.Id, address.Purpose, address.IsDefault, address.Name, address.Line1, address.Line2, address.City, address.Region, address.Postcode, address.Country);
 }
+
+/// <summary>The caller's effective permission keys (registry order) and whether they are a platform admin.</summary>
+public record MyPermissionsResponse(bool IsPlatformAdmin, IReadOnlyList<string> Permissions);
 
 public record ProfileRequest(
     [property: MaxLength(20)] string? Title,

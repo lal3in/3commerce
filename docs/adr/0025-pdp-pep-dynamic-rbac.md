@@ -84,3 +84,37 @@ Enforced in the domain, not the UI: `SupplierChangeRequest.Approve(...)` takes a
 admin. Covered by `Entity/tests/SupplierChangeRequestTests.cs`:
 `An_admin_can_self_approve_their_own_request` (allowed) and
 `A_non_admin_requester_cannot_approve_their_own_request` (rejected with a maker-checker error).
+
+## Amendment (2026-11-04): refunds are the first PDP-enforced action
+
+Owner decision 2026-11-04 (`refund_permission_enforcement`): issuing a refund requires the `payment.refund`
+permission, enforced by the service-side PEP — the coarse `admin` role claim alone is no longer enough. This is the
+first action the PEP path actually enforces; until now every admin endpoint relied on `AdminPolicy` only.
+
+- **Mechanism (no new one):** the BuildingBlocks `PolicyDecisionClient` calls Identity's `/internal/authz/decide`;
+  `PermissionGate` wraps it for endpoints. Services only know the caller's internal-claims `sub` (a tenant *user*,
+  not a principal), so the decide request gained an optional `userId`: with an empty `principalId`, the PDP resolves
+  that user's principal inside the request's tenant (Users is FORCE-RLS, so the lookup runs in that tenant's scope;
+  no tenant or no principal → 404 → deny). Effective permissions still do **not** ride in the claims; that half of
+  this ADR remains unbuilt.
+- **Enforced on:** Payments `POST /admin/refunds` (orders and renewal / usage `chargeReference`s), Support
+  `POST /admin/rmas` when it refunds instantly (`autoApprove`, the default) and `POST /admin/rmas/{id}/approve`.
+  Opening a return request, deny, return-received and disposition move no money and stay on `AdminPolicy` — the
+  refund they lead to was authorised at approval.
+- **Responses:** denied → `403` problem+json (`errorCode: permission_denied`, `permission`) plus an
+  `AuditOutcome.Denied` entry through the service's outbox; PDP unreachable / erroring → `503`
+  (`errorCode: authorization_unavailable`) — fail closed, as decided above. Decisions are never cached. The check
+  runs before the idempotency guard, so a refused key stores nothing.
+- **Role defaults (owner decision 2026-11-05):** `admin` (every permission), `finance` and `support` hold
+  `payment.refund` — Support keeps approving returns and instant refunds, so it gained the permission in the
+  registry; `ops`, `merchandiser`, `customer`, `supplier` do not. A MasterGlobal (platform-admin) principal is
+  allowed everything — every bootstrap admin is one — so existing operators keep refunding. The default lives in
+  the code template: `SeedPermissionRegistryAsync` clears and re-applies every built-in role's permissions at each
+  login, so existing tenants' Support roles gain it at the next login and an operator edit to a built-in role does
+  not stick (withhold refunds with a custom role instead).
+- **Not enforced here:** the decision's `RequiresApproval` (maker-checker for High-risk staff actions) and
+  `RequiresReason` (MasterGlobal) flags — refunds still execute on one human's say-so, as before.
+- **UI:** Identity `GET /me/permissions` returns the caller's effective keys; the admin disables Refund / Approve
+  without `payment.refund` (advisory only). The PDP stays service-to-service only: the gateway 404s every
+  `/api/{service}/internal/*` path (shipped separately as gateway_block_internal_paths — the identity route's
+  catch-all had exposed the PDP and introspection publicly).
