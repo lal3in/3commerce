@@ -166,8 +166,8 @@ else
                                         </tr>
                                         @if (_refundForm is { } form && form.ChargeReference == r.ChargeReference)
                                         {
-                                            <tr style="background:#f9fafb;"><td colspan="7" style="padding:.6rem .5rem;">
-                                                <div class="charge-refund-form" style="display:flex; gap:.6rem; align-items:end; flex-wrap:wrap;">
+                                            <tr style="background:#f9fafb;"><td colspan="7" class="charge-refund-form" style="padding:.6rem .5rem;">
+                                                <div style="display:flex; gap:.6rem; align-items:end; flex-wrap:wrap;">
                                                     <label style="font-size:.8rem; color:#6b7280;">@L["Subs.Refund.Amount", form.Currency]<br />
                                                         <input type="number" min="@AmountStep(form.Currency)" max="@Money.ToMajor(form.RemainingMinor, form.Currency).ToString(System.Globalization.CultureInfo.InvariantCulture)" step="@AmountStep(form.Currency)"
                                                                @bind="form.Amount" @bind:after="ResetRefundConfirm" disabled="@_busy"
@@ -181,7 +181,7 @@ else
                                                             style="color:#b91c1c;">@(form.Confirming ? L["Subs.Refund.Confirm", Money.WithCode(Money.ToMinor(form.Amount, form.Currency), form.Currency)] : L["Subs.Refund.Submit"])</button>
                                                     <button disabled="@_busy" @onclick="CloseRefund" title="@L["Subs.Refund.Close.Tip"]">@L["Common.Cancel"]</button>
                                                 </div>
-                                                @if (form.Error is not null) { <p style="color:#b91c1c; margin:.4rem 0 0; font-size:.8rem;">@form.Error</p> }
+                                                @if (form.Error is not null) { <p role="alert" style="color:#b91c1c; margin:.4rem 0 0; font-size:.8rem;">@form.Error</p> }
                                             </td></tr>
                                         }
                                     }

@@ -138,12 +138,12 @@ test.describe("Subscriptions — refund a renewal's charge (admin_recurring_char
     // Half of it: the first click arms the confirm step, which names the amount.
     let confirm = await submitRefund(form, major(half, charge.currency), "E2E partial renewal refund", /confirm refund of/i);
     await expect(confirm).toContainText(shown(half, charge.currency));
-    await capture(page, "renewal-refund-confirm");
+    await capture(history, "renewal-refund-confirm");
     await confirm.click();
 
     await expect(row).toContainText("Partially refunded", { timeout: 15_000 });
     await expect(row).toContainText(`${shown(half, charge.currency)} refunded`);
-    await capture(page, "renewal-charge-partially-refunded", { docName: "admin-subscription-charge-refund.png" });
+    await capture(history, "renewal-charge-partially-refunded", { docName: "admin-subscription-charge-refund.png" });
     const partial = (await detail(request, subscriptionId!)).renewals.find((r) => r.chargeReference === reference)!;
     expect(partial.refundedMinor).toBe(half);
 
@@ -156,7 +156,7 @@ test.describe("Subscriptions — refund a renewal's charge (admin_recurring_char
     await expect(row).toContainText("Refunded", { timeout: 15_000 });
     await expect(row).not.toContainText("Partially refunded");
     await expect(row.getByRole("button", { name: /^refund$/i })).toHaveCount(0);
-    await capture(page, "renewal-charge-refunded");
+    await capture(history, "renewal-charge-refunded");
     const full = (await detail(request, subscriptionId!)).renewals.find((r) => r.chargeReference === reference)!;
     expect(full.refundedMinor).toBe(charge.amountMinor);
     expect(full.paymentStatus).toBe(PAYMENT_REFUNDED);
