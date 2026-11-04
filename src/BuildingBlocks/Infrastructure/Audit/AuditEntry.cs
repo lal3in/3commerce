@@ -47,6 +47,15 @@ public sealed record AuditEntry
     public required string PrevHash { get; init; }
     public required string Hash { get; init; }
 
+    /// <summary>
+    /// <paramref name="time"/> truncated to whole microseconds — the precision Postgres <c>timestamptz</c> stores
+    /// (Npgsql drops the seventh fractional digit on write). <see cref="AuditChain.Append"/> stamps entries at this
+    /// precision BEFORE hashing, so the hash is over the same value a reload from Postgres returns (ADR-0029
+    /// amendment 2026-11-04). A Linux clock fills the 100 ns digit; a macOS clock does not.
+    /// </summary>
+    public static DateTimeOffset StoredPrecision(DateTimeOffset time) =>
+        time.AddTicks(-(time.Ticks % TimeSpan.TicksPerMicrosecond));
+
     /// <summary>The canonical content that is hashed (everything except Id and Hash itself).</summary>
     public string CanonicalContent() => string.Join(
         Sep,
