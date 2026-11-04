@@ -500,12 +500,12 @@ JurisdictionProfile { Code ("EU-DE", "EU-FR", "AU", "NZ", "GB", "CA", "CH", "US"
 
 | # | Prerequisite | Owner | Why |
 |---|---|---|---|
-| P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. **Status: persisted on `feature/tax-per-line-breakdown` (2026-10-27, § 9.2)**; publishing them is P5. | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
+| P1 | **Per-line tax facts persisted and published** (category, rate, base, tax, exemption; shipping line; `Σ == TaxMinor`). `ITaxStrategy` returns a breakdown (§ 7.1). Behaviour-preserving for today's single-rate stores. **Status: persisted on `feature/tax-per-line-breakdown` (2026-10-27, § 9.2)**; publishing them is P5 (published 2026-10-29, § 16 P5). | Ordering | Art. 226(8)–(10): per-rate breakdown; shown == invoiced |
 | P1b | **EU OSS-aware tax strategy** (or a tax engine) before **EU cross-border B2C** goes live. Before P1b a storefront charged its single rate regardless of EU destination. **Status: `EuOssTaxStrategy` on `feature/eu-oss-tax-strategy` (2026-10-28, § 16)** — standard rates only; reduced-rate categories, B2B and OSS renewals are follow-ups. | Ordering | Wrong VAT cannot be made right by the invoice |
 | P2 | **Seller identity**: Entity tax-ID schemes + establishments; storefront → jurisdiction + establishment binding | Entity, Catalog | Art. 226(3),(5); profile resolution |
 | P3 | **Buyer identity**: bill-to address (defaults to ship-to), optional business name + tax ID at checkout. **Status: captured on `feature/checkout-bill-to-and-buyer-tax-id` (2026-10-28, § 16)**; the account-profile default business identity is deferred (`tax_p3b_profile_business_identity`). | Ordering, Storefront | Art. 226(4),(5); AU ≥ A$1,000 |
 | P4 | **Renewal and usage charges compute and post tax** (today: tax 0 — an output-tax under-report in inclusive regimes, independent of invoicing) and publish the settled events. **Status: tax half done on `fix/renewal-and-usage-tax` (2026-10-15)** — inclusive regimes post checkout's split at the rate in force; exclusive regimes ADD checkout's tax to the charge and post net + tax (owner decision 2026-10-15, option A, `fix/exclusive-tax-on-renewals-and-usage`; see the ADR-0057 amendments); the settled-event half is **done in P4b** (`feature/settled-charge-events`, 2026-10-28, § 16). | Payments | Correct VAT; renewal and usage invoices |
-| P5 | Additive contract changes (§ 6.2) and `LineId` on `OrderLineInfo` | Contracts | Credit-note line attribution |
+| P5 | Additive contract changes (§ 6.2) and `LineId` on `OrderLineInfo`. **Status: published on `feature/invoicing-contract-facts` (2026-10-29, § 16)** — `OrderConfirmed` carries the P1/P1b/P3 facts; RMA refunds carry their lines, admin amount refunds none. | Contracts | Credit-note line attribution |
 
 ### 9.1 Phase-0 task breakdown (dependency order — each is its own branch and PR)
 
@@ -973,3 +973,46 @@ orders.
   migration `UsageChargeDunning`), duns it on the shared `DunningSchedule`, and publishes `UsageChargeFailed`.
 * **Tests.** `SettledChargeEventTests`, `UsageChargeDunningTests` (Payments), `UsageChargeFeedbackTests` (Usage),
   `SettledChargeContractTests` (unit lane) — e2e-verify **A3u**; `ConsumerEndpointNameTests` (A3d) asserts the new queues.
+### P5 — invoicing contract facts (2026-10-29, `feature/invoicing-contract-facts`, tracker `tax_p5_invoicing_contract_facts`)
+
+* **`OrderConfirmed` appends** (all defaulted): `StorefrontId`, `PublicOrderNumber`, `NetMinor` (pre-discount),
+  `DiscountMinor`, `ShippingMinor`, `TaxMinor`, `TaxInclusive`, `TaxJurisdiction`, `TaxDestinationCountry` (P1b; not in
+  the § 6.2 list, published because the OSS destination is what a document must state), `TaxScheme`, `BillTo?`
+  (`BillToInfo`), `Buyer?` (`BuyerInfo` = company, tax ID, `TaxIdScheme`, jurisdiction — present ⇒ business purchase;
+  no `validationRef` until VIES, phase 2), `ShippingTax?` (`LineTaxInfo` = category, rate, net base, tax, exemption) and
+  `CapturedAt`. `OrderLineInfo` appends `LineId` (Ordering's `OrderLine.Id`), `TaxCategory`, `TaxRateBps`,
+  `TaxableBaseMinor` (net, P1 convention — added beyond § 6.2 because the document needs the net per line), `TaxMinor`,
+  `ExemptionReason`.
+* **Vocabulary.** The tax enums are `BuildingBlocks.Contracts.Tax.Facts` (`TaxCategory`, `TaxExemptionReason`,
+  `TaxScheme`) from P4b (#319), reused unchanged. Ordering's P1 enums cross by numeric value (`OrderConfirmedFactory`),
+  pinned name-for-value by `OrderConfirmedInvoicingFactsTests` and P4b's `SettledChargeContractTests`.
+* **One mapping.** Everything is set in `OrderConfirmedFactory.From`, read verbatim from the persisted order, so the
+  operator backfill (ADR-0060) rebuilds the identical event. Nothing is recomputed.
+  * **`CapturedAt` = `Order.CreatedAt`.** An order is created from its checkout attempt in the transaction that
+    confirms it on `CheckoutCompleted`, i.e. after capture, so its creation time IS the capture time. No new column.
+  * **Not recorded is not guessed.** An order from before P3 publishes `BillTo = null` (never the ship-to), and
+    before P1 `TaxCategory.NotRecorded` / `TaxScheme.NotRecorded`. A consumer must treat that as "facts unknown". By
+    D18 such orders get no documents anyway.
+* **Refunds.** `RefundRequested` / `RefundCompleted` append `Lines?` (`RefundLine` = `LineId`, `Quantity`,
+  `AmountMinor`), `ShippingMinor?` and `Kind?` (`RefundKind`: Return / PriceReduction / Shipping / Cancellation;
+  numbers, append only). When `Lines` is set, `Σ Lines.AmountMinor + ShippingMinor == AmountMinor`.
+  * **Support RMA** (customer `/rma`, admin `/admin/rmas`, every approval path of the saga): the saga publishes
+    through `RequestRmaRefundActivity`, which reads the RMA's recorded lines (`RmaRequestRecord`, same id, written in
+    the request's transaction) and attributes the amount with `RmaRefundAttribution`. Each line gets its discounted
+    value (ADR-0055); if the order's refundable-gross cap made the amount smaller, the amount is spread by value,
+    largest remainder, ties to the earliest line. `ShippingMinor = 0`, `Kind = Return`. Support's snapshot and RMA
+    lines gained `OrderLineId` (migration `RefundLineAttribution`, default `Guid.Empty`). An RMA on a snapshot from
+    before P5 refunds the same amount with `Lines = null` (amount-only).
+  * **Admin refund** (`POST /admin/refunds`, Payments): `Lines = null`, `ShippingMinor = null`,
+    `Kind = PriceReduction` — the amount-only credit of § 5. HTTP unchanged.
+  * **Payments** copies the three fields from the request onto `RefundCompleted`. The ledger reversal is unchanged: it
+    still pro-rates tax and shipping on the amount (ADR-0014). The credit note's per-line split is Invoicing's job.
+* **Unchanged.** No HTTP request or response, no amount and no ledger posting changed. Fulfillment, Notifications,
+  Entitlement, Support's snapshot math and Ordering's refund handling read only pre-P5 fields.
+* **Coordination.** The refund contracts' `ChargeReference` (#318, renewal / usage refunds) comes first; the P5 fields
+  are appended after it, and every P5 call site names them. A refund by charge reference is amount-only (no lines).
+* **Tests.** Unit: `OrderConfirmedInvoicingFactsTests` (Ordering), `RmaRefundAttributionTests` (Support),
+  `InvoicingContractFactsTests` (pre-P5 JSON of all three events → defaults and still applies; round trips with
+  numeric enums), and the backfill tool's `OrderConfirmedMappingTests` (line ids). Integration:
+  `RefundAttributionTests` (customer RMA, admin whole-order RMA, admin amount refund over the real bus; trial
+  balance 0). `e2e-verify.sh` A3v + A4g.

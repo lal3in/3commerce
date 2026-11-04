@@ -112,7 +112,10 @@ public sealed class ExecuteRefundConsumer(
         }
 
         await db.SaveChangesAsync(context.CancellationToken);
+        // The credit-note attribution (ADR-0063 P5) rides through untouched: the ledger above pro-rates on the amount
+        // either way, and the Invoicing service needs to know which lines the money was for.
         await context.Publish(new RefundCompleted(
-            msg.RefundId, payment.OrderId, msg.AmountMinor, fullyRefunded, payment.ChargeReference));
+            msg.RefundId, payment.OrderId, msg.AmountMinor, fullyRefunded, payment.ChargeReference,
+            Lines: msg.Lines, ShippingMinor: msg.ShippingMinor, Kind: msg.Kind));
     }
 }

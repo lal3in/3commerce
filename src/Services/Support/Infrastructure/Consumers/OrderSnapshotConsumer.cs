@@ -39,7 +39,14 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
             return;
         }
 
-        db.OrderSnapshots.Add(new OrderSnapshot
+        db.OrderSnapshots.Add(Snapshot(m));
+        await db.SaveChangesAsync(context.CancellationToken);
+    }
+
+    /// <summary>The read copy an <see cref="OrderConfirmed"/> projects to. Pure, so a replayed pre-change event can be
+    /// checked in the unit lane (ADR-0055 back-compat pattern).</summary>
+    public static OrderSnapshot Snapshot(OrderConfirmed m) =>
+        new()
         {
             OrderId = m.OrderId,
             Email = m.Email,
@@ -49,6 +56,9 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
             {
                 Id = Guid.CreateVersion7(),
                 OrderId = m.OrderId,
+                // Ordering's line id (ADR-0063 P5), so an RMA refund can name the line it credits. A pre-P5 event
+                // reads Guid.Empty, and that snapshot's refunds go out amount-only.
+                OrderLineId = l.LineId,
                 ProductId = l.ProductId,
                 Title = l.Title,
                 UnitPriceMinor = l.UnitPriceMinor,
@@ -58,7 +68,5 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
                 DiscountMinor = l.DiscountMinor,
                 Quantity = l.Quantity,
             }).ToList(),
-        });
-        await db.SaveChangesAsync(context.CancellationToken);
-    }
+        };
 }

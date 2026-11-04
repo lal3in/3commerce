@@ -226,6 +226,13 @@ the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeate
 > `OrderConfirmed` carries the tenant, ship-to, and per-line supply so Fulfillment can consume
 > warehouse stock and auto-forward dropship lines to suppliers.
 
+> **Invoicing facts (ADR-0063 P5, messages only — no HTTP change).** `OrderConfirmed` appends, all defaulted,
+> `StorefrontId`, `PublicOrderNumber`, Net/Discount/Shipping/Tax totals, `TaxInclusive`, `TaxJurisdiction`,
+> `TaxDestinationCountry`, `TaxScheme`, `BillTo?`, `Buyer?`, `ShippingTax?` and `CapturedAt`; each `OrderLineInfo`
+> appends `LineId` and its tax facts (category, rate, net base, tax, exemption). `RefundRequested` / `RefundCompleted`
+> append `Lines?` (`LineId`, `Quantity`, `AmountMinor`), `ShippingMinor?` and `Kind?`: an RMA refund carries its lines
+> (kind Return), `POST /admin/refunds` none (kind PriceReduction). Enums are numbers; pre-P5 messages read defaults.
+
 ## Payments (`/api/payments`)
 
 | Method | Path | Auth | Purpose |

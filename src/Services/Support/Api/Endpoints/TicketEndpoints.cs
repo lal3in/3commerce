@@ -187,6 +187,7 @@ public static class TicketEndpoints
         {
             Id = Guid.CreateVersion7(),
             RmaId = rmaId,
+            OrderLineId = l.OrderLineId,
             ProductId = l.ProductId,
             Title = l.Title,
             Quantity = qty,
