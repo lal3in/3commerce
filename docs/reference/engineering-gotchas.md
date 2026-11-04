@@ -377,6 +377,17 @@ Ledger postings (Payments):
   Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they are
   repeated there).
 
+## Gateway (the public origin)
+
+- **A route's catch-all proxies EVERY path under it — including a service's `/internal/*`.** Each YARP route is
+  `/api/{service}/{**catch-all}` with the prefix stripped, so `/api/identity/internal/introspection` and
+  `/api/identity/internal/authz/decide` (the PDP) answered from the internet until gateway_block_internal_paths:
+  "the gateway has no /internal route" was never true. The early middleware in `src/Gateway/Program.cs` now 404s
+  `/api/{service}/internal[/…]` (and `/api/*/health*`) before the proxy. A new service-to-service endpoint goes
+  under `/internal/` + `.ExcludeFromDescription()` (GatewayConfigTests enforces both); never rely on "no route"
+  for privacy. Live twin: e2e-verify L4/L4b — test with a body the service would reject (400/401), since a 404
+  from the service itself proves nothing.
+
 ## Local dev stack
 
 - **The infra is all-or-nothing — never start/stop individual infra containers by hand; use
