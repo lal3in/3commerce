@@ -98,7 +98,8 @@
 #       admin payment-account lifecycle endpoints (Draft→submit→activate, Live readiness guard — PaymentAccountAdminTests);
 #       admin supplier-payout setup endpoints (masked bank account approval + payout instruction — SupplierPayoutAdminTests);
 #       admin Xero mapping CRUD endpoints (XeroMappingAdminTests);
-#       gateway production YARP config conventions + internal health-route block (GatewayConfigTests);
+#       gateway production YARP config conventions + internal health-route and /api/{service}/internal/* blocks,
+#       every service /internal endpoint excluded from OpenAPI (GatewayConfigTests);
 #       Kafka stream envelope/topic/fake-producer/consumer/outbox-relay/domain-fact/privacy/replay/resilience contract guards (ContractTests, ADR-0034);
 #       Quartz persistent scheduler config guards (ContractTests, msg_11);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
@@ -552,6 +553,9 @@
 #       (an own boot), or any full SHA on a reused stack (reported against HEAD — it was built earlier)
 #   L3  Ping-pong spine flows through the gateway to the Notifications worker
 #   L4  Gateway blocks internal health routes (/api/*/health* → 404)
+#   L4b Gateway blocks service-to-service routes (/api/{service}/internal/* → 404): Identity's session
+#       introspection and the PDP (/internal/authz/decide) never answer from the public origin
+#       (gateway_block_internal_paths; source check GatewayConfigTests, unit lane A3)
 #   L5  Register → 202, identical body on repeat (no user enumeration)
 #   L6  Verification email token delivered; verify-email succeeds
 #   L7  Login sets cookie; /me with cookie → 200, without → 401
@@ -1064,6 +1068,12 @@ run_live() {
     "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if tail -c +$pong_from '$ROOT/.run/notifications.log' 2>/dev/null | grep -aq 'PONG received'; then tail -c +$pong_from '$ROOT/.run/notifications.log' | grep -a 'PONG received' | tail -1; exit 0; fi; sleep 1; done; exit 1"
   check "L4 gateway blocks internal health" "404" bash -c \
     "curl -s -o /dev/null -w '%{http_code}' $GATEWAY/api/ordering/health/ready"
+  check "L4b gateway blocks internal service routes (introspection)" "404" bash -c \
+    "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/internal/introspection -H 'content-type: application/json' -d '{\"token\":\"x\"}'"
+  # Malformed body on purpose: Identity itself would answer 400 here (and 401 to the introspection above), so only
+  # the gateway's block yields 404 — an unknown principal would ALSO be a PDP 404 and prove nothing.
+  check "L4b gateway blocks internal service routes (PDP)" "404" bash -c \
+    "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/internal/authz/decide -H 'content-type: application/json' -d 'not-json'"
 
   stage "L5–L8  Auth lifecycle"
   local jar=/tmp/3c-e2e-cookies.txt; rm -f "$jar"
