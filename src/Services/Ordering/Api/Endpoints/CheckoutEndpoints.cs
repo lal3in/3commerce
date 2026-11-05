@@ -360,20 +360,25 @@ public static class CheckoutEndpoints
             .Select((item, index) => new TaxLineInput(
                 lineTotalsMinor[index],
                 promotionOutcome.LineDiscountsMinor[index] + storefrontLineDiscounts[index],
-                RuleFor(item.ProductId) is { ChargeDestinationTax: false } ? TaxExemptionReason.DestinationShipRule : TaxExemptionReason.None))
+                RuleFor(item.ProductId) is { ChargeDestinationTax: false } ? TaxExemptionReason.DestinationShipRule : TaxExemptionReason.None,
+                Fulfilment: lineOffers[index]?.FulfilmentType ?? FulfilmentType.Unassigned))
             .ToList();
         // THE strategy is chosen by this storefront's tax jurisdiction (ADR-0063 P1b): an EU Member State selects the
         // OSS-aware strategy (destination VAT over the EUR 10,000 threshold), anything else — every non-EU and every
-        // unconfigured store — keeps its single configured rate, unchanged. The place of supply is the ship-to
-        // country (dispatched goods); P3's bill-to may pass another destination through the input. The seller's
-        // running total is read only when it can matter: an EU store selling into another Member State.
-        var taxDestination = shipToCountry;
-        var distanceSales = TaxStrategySelector.NeedsDistanceSalesTurnover(storefrontCopy, taxDestination)
+        // unconfigured store — keeps its single configured rate, unchanged. Each line is supplied where its kind says
+        // (ADR-0063 § 16, PlaceOfSupply): goods at the ship-to country, an electronically supplied service (its offer's
+        // fulfilment type) at the bill-to country. The seller's running total is read only when it can matter: an EU
+        // store with some part of the sale going into another Member State.
+        var taxInput = new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor, shipToCountry, billTo.Country);
+        var distanceSales = TaxStrategySelector.NeedsDistanceSalesTurnover(storefrontCopy, taxInput)
             ? await db.EuDistanceSalesTurnoverAsync(tenantId, now, ct)
             : EuDistanceSalesTurnover.None;
-        var tax = TaxStrategySelector.For(storefrontCopy, distanceSales, now)
-            .TaxFor(new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor, taxDestination));
+        var tax = TaxStrategySelector.For(storefrontCopy, distanceSales, now).TaxFor(taxInput);
         var taxMinor = tax.TaxMinor;
+        // What the strategy taxed each line for. A strategy that does not tax by destination (every non-EU store)
+        // reports none: the sale and its every line are then recorded at the ship-to country, as before.
+        var taxDestination = tax.SaleDestination ?? shipToCountry;
+        string LineTaxDestination(int index) => tax.LineDestinations?[index] ?? shipToCountry;
 
         // Inclusive (AU GST / EU VAT, ADR-0038): the listed price IS the charge and the tax is contained in it.
         // Exclusive (US sales tax): the tax is added on top.
@@ -587,6 +592,7 @@ public static class CheckoutEndpoints
                     TaxableBaseMinor = tax.Lines[index].TaxableBaseMinor,
                     TaxMinor = tax.Lines[index].TaxMinor,
                     ExemptionReason = tax.Lines[index].ExemptionReason,
+                    TaxDestinationCountry = LineTaxDestination(index),
                 };
             }).ToList(),
         };

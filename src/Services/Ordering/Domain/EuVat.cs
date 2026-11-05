@@ -323,39 +323,84 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
 
     public string HomeMemberState => _home;
 
+    /// <remarks>
+    /// Per-line destination (ADR-0063 § 16): each line is taxed where it is supplied (<see cref="PlaceOfSupply"/>) —
+    /// goods at the cart's destination, electronically supplied services at the bill-to country — and the shipping
+    /// line with the goods. A sale whose lines share one destination is taxed exactly as before. The threshold stays
+    /// per SALE: the sale's distance-sale value is Σ of its components supplied into another Member State, and once
+    /// the seller is over the threshold every such component takes its own destination's rate (one rounding per
+    /// destination and rate); the rest keep the home rate.
+    /// </remarks>
     public TaxBreakdown TaxFor(TaxCalculationInput input)
     {
-        var homeDate = EuMemberStates.LocalDate(_home, _supplyTime);
-        var domestic = TaxAtRates(
-            input,
-            line => _rates.CategoryRateFor(_home, line.TaxCategoryCode, homeDate) ?? _homeRateBps,
-            _homeRateBps,
-            TaxScheme.Domestic);
+        var destinations = PlaceOfSupply.LineDestinations(input);
+        var saleDestination = PlaceOfSupply.SaleDestination(input);
+        return Tax(input, destinations, saleDestination) with
+        {
+            LineDestinations = destinations,
+            SaleDestination = saleDestination,
+        };
+    }
 
-        var destination = EuMemberStates.Normalize(input.DestinationCountry ?? input.ShipCountry);
-        if (destination is null || destination == _home || !OssApplies(input.Currency, domestic))
+    private TaxBreakdown Tax(TaxCalculationInput input, IReadOnlyList<string> destinations, string saleDestination)
+    {
+        var lines = input.Lines;
+        var homeDate = EuMemberStates.LocalDate(_home, _supplyTime);
+        int HomeRate(TaxLineInput line) => _rates.CategoryRateFor(_home, line.TaxCategoryCode, homeDate) ?? _homeRateBps;
+        var domestic = TaxAtRates(input, i => (_home, HomeRate(lines[i])), _home, _homeRateBps, TaxScheme.Domestic);
+
+        // The components supplied into ANOTHER Member State — the sale's intra-EU distance sales. Shipping goes where
+        // the goods go: the sale's destination (the shared one, or the cart's for a sale split across countries).
+        var lineCrossBorder = destinations.Select(CrossBorder).ToArray();
+        var shippingCrossBorder = CrossBorder(saleDestination);
+        if (shippingCrossBorder is null && lineCrossBorder.All(d => d is null))
         {
             return domestic;
         }
 
-        var destinationDate = EuMemberStates.LocalDate(destination, _supplyTime);
-        var standard = _rates.StandardRateFor(destination, destinationDate)
-            ?? throw new InvalidOperationException($"No EU VAT rate for {destination} on {destinationDate:yyyy-MM-dd}.");
-        return TaxAtRates(
-            input,
-            line => _rates.CategoryRateFor(destination, line.TaxCategoryCode, destinationDate) ?? standard,
-            standard,
-            TaxScheme.Oss);
+        var distanceSaleValue = (shippingCrossBorder is null ? 0 : domestic.Shipping.TaxableBaseMinor)
+            + Enumerable.Range(0, lines.Count).Where(i => lineCrossBorder[i] is not null).Sum(i => domestic.Lines[i].TaxableBaseMinor);
+        if (!OssApplies(input.Currency, distanceSaleValue))
+        {
+            return domestic;
+        }
+
+        var standards = new Dictionary<string, int>(StringComparer.Ordinal);
+        int StandardIn(string country)
+        {
+            if (!standards.TryGetValue(country, out var rate))
+            {
+                var date = EuMemberStates.LocalDate(country, _supplyTime);
+                standards[country] = rate = _rates.StandardRateFor(country, date)
+                    ?? throw new InvalidOperationException($"No EU VAT rate for {country} on {date:yyyy-MM-dd}.");
+            }
+
+            return rate;
+        }
+
+        (string Key, int Rate) GroupOf(int i) => lineCrossBorder[i] is { } destination
+            ? (destination, _rates.CategoryRateFor(destination, lines[i].TaxCategoryCode, EuMemberStates.LocalDate(destination, _supplyTime))
+                ?? StandardIn(destination))
+            : (_home, HomeRate(lines[i]));
+
+        return shippingCrossBorder is { } shippingDestination
+            ? TaxAtRates(input, GroupOf, shippingDestination, StandardIn(shippingDestination), TaxScheme.Oss)
+            : TaxAtRates(input, GroupOf, _home, _homeRateBps, TaxScheme.Oss);
     }
 
+    /// <summary>The Member State a destination is, when it is one other than home; else null.</summary>
+    private string? CrossBorder(string destination) =>
+        EuMemberStates.Normalize(destination) is { } memberState && memberState != _home ? memberState : null;
+
     /// <summary>
-    /// A sale's value for the threshold: Σ of every line's and the shipping line's base, net of VAT (Art. 59c counts
-    /// the value "exclusive of VAT"). Exempt components count at their discounted amount.
+    /// A single-destination sale's value for the threshold: Σ of every line's and the shipping line's base, net of VAT
+    /// (Art. 59c counts the value "exclusive of VAT"). Exempt components count at their discounted amount. A sale split
+    /// across destinations counts only its components supplied into another Member State (see <see cref="TaxFor"/>).
     /// </summary>
     public static long DistanceSaleValue(TaxBreakdown breakdown) =>
         breakdown.Lines.Sum(l => l.TaxableBaseMinor) + breakdown.Shipping.TaxableBaseMinor;
 
-    private bool OssApplies(string currency, TaxBreakdown domestic)
+    private bool OssApplies(string currency, long distanceSaleValue)
     {
         if (!string.Equals(currency, "EUR", StringComparison.OrdinalIgnoreCase))
         {
@@ -363,59 +408,80 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
         }
 
         return _turnover.PreviousYearMinorEur > ThresholdMinorEur
-            || _turnover.CurrentYearMinorEur + DistanceSaleValue(domestic) > ThresholdMinorEur;
+            || _turnover.CurrentYearMinorEur + distanceSaleValue > ThresholdMinorEur;
     }
 
-    private TaxBreakdown TaxAtRates(TaxCalculationInput input, Func<TaxLineInput, int> rateOf, int defaultRateBps, TaxScheme scheme)
+    /// <summary>
+    /// Taxes the lines per group — a group is a taxing country (<paramref name="groupOf"/>'s key) and a rate — with one
+    /// rounding per group. Lines in one group are taxed exactly as <see cref="StorefrontRateTaxStrategy"/> does. The
+    /// shipping line rides the HIGHEST-rated group of <paramref name="shippingKey"/> (the country the goods go to) that
+    /// has a positive taxable goods value; when that country has no taxable goods at all, shipping follows the exempt
+    /// goods and is not taxed.
+    /// </summary>
+    private TaxBreakdown TaxAtRates(
+        TaxCalculationInput input, Func<int, (string Key, int Rate)> groupOf, string shippingKey, int defaultRateBps, TaxScheme scheme)
     {
         var lines = input.Lines;
-        var rates = new int[lines.Count];
-        var distinct = new SortedSet<int>(Comparer<int>.Create((a, b) => b.CompareTo(a))); // highest first
+        var groups = new (string Key, int Rate)[lines.Count];
+        var distinct = new List<(string Key, int Rate)>();
         for (var i = 0; i < lines.Count; i++)
         {
             if (lines[i].Exemption == TaxExemptionReason.None)
             {
-                rates[i] = rateOf(lines[i]);
-                distinct.Add(rates[i]);
+                groups[i] = groupOf(i);
+                if (!distinct.Contains(groups[i]))
+                {
+                    distinct.Add(groups[i]);
+                }
             }
         }
 
-        if (distinct.Count <= 1)
+        // Highest rate first; between equal rates, by country (ordinal) so the order never depends on the cart's.
+        distinct = [.. distinct.OrderByDescending(g => g.Rate).ThenBy(g => g.Key, StringComparer.Ordinal)];
+        if (distinct.Count == 0 || (distinct.Count == 1 && distinct[0].Key == shippingKey))
         {
-            var rate = distinct.Count == 1 ? distinct.First() : defaultRateBps;
+            var rate = distinct.Count == 1 ? distinct[0].Rate : defaultRateBps;
             return new StorefrontRateTaxStrategy(rate, _taxInclusive).TaxFor(input) with { Scheme = scheme };
         }
 
-        // Mixed rates: one computation per rate group, the other groups' lines masked as exempt (their facts are
-        // taken from their own group). Shipping rides the highest-rated group that has a positive goods value.
-        var shippingRate = distinct.FirstOrDefault(r => Enumerable.Range(0, lines.Count)
-            .Any(i => lines[i].Exemption == TaxExemptionReason.None && rates[i] == r && lines[i].AmountMinor > 0), distinct.First());
+        // Several groups: one computation per group, the other groups' lines masked as exempt (their facts are taken
+        // from their own group).
+        var shippingGroups = distinct.Where(g => g.Key == shippingKey).ToList();
+        (string Key, int Rate)? shippingGroup = shippingGroups.Count == 0
+            ? null
+            : shippingGroups.FirstOrDefault(g => Enumerable.Range(0, lines.Count)
+                .Any(i => lines[i].Exemption == TaxExemptionReason.None && groups[i] == g && lines[i].AmountMinor > 0), shippingGroups[0]);
         var facts = new LineTax[lines.Count];
         LineTax? shipping = null;
-        foreach (var rate in distinct)
+        foreach (var current in distinct)
         {
             var masked = lines
-                .Select((l, i) => l.Exemption == TaxExemptionReason.None && rates[i] != rate
+                .Select((l, i) => l.Exemption == TaxExemptionReason.None && groups[i] != current
                     ? l with { Exemption = TaxExemptionReason.DestinationShipRule }
                     : l)
                 .ToList();
-            var group = new StorefrontRateTaxStrategy(rate, _taxInclusive).TaxFor(
-                input with { Lines = masked, ShippingMinor = rate == shippingRate ? input.ShippingMinor : 0 });
+            var carriesShipping = shippingGroup == current;
+            var group = new StorefrontRateTaxStrategy(current.Rate, _taxInclusive).TaxFor(
+                input with { Lines = masked, ShippingMinor = carriesShipping ? input.ShippingMinor : 0 });
             for (var i = 0; i < lines.Count; i++)
             {
-                if (lines[i].Exemption != TaxExemptionReason.None || rates[i] == rate)
+                if (lines[i].Exemption != TaxExemptionReason.None || groups[i] == current)
                 {
                     facts[i] = group.Lines[i];
                 }
             }
 
-            if (rate == shippingRate)
+            if (carriesShipping)
             {
                 shipping = group.Shipping;
             }
         }
 
-        return new TaxBreakdown(facts, shipping!, scheme, _taxInclusive);
+        // No taxable goods go where the shipping goes: shipping follows those (exempt) goods.
+        shipping ??= input.ShippingMinor > 0
+            ? new LineTax(TaxCategory.Exempt, 0, input.ShippingMinor, 0, TaxExemptionReason.ShippingFollowsExemptGoods)
+            : new LineTax(TaxCategory.Standard, defaultRateBps, 0, 0);
+        return new TaxBreakdown(facts, shipping, scheme, _taxInclusive);
     }
 }
 
@@ -438,6 +504,14 @@ public static class TaxStrategySelector
         EuHomeMemberState(storefront) is { } home
         && EuMemberStates.Normalize(destinationCountry) is { } destination
         && destination != home;
+
+    /// <summary>
+    /// Whether the threshold turnover matters for this sale — some component of it (a line at its own destination,
+    /// <see cref="PlaceOfSupply"/>, or the shipping at the sale's) is supplied into another Member State.
+    /// </summary>
+    public static bool NeedsDistanceSalesTurnover(StorefrontTaxCopy? storefront, TaxCalculationInput input) =>
+        PlaceOfSupply.LineDestinations(input).Append(PlaceOfSupply.SaleDestination(input))
+            .Any(destination => NeedsDistanceSalesTurnover(storefront, destination));
 
     public static ITaxStrategy For(
         StorefrontTaxCopy? storefront,
