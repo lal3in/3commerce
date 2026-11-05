@@ -185,7 +185,9 @@ public class CheckoutAttempt
             WarehouseCity = WarehouseCity,
             WarehousePostcode = WarehousePostcode,
             WarehouseCountry = WarehouseCountry,
-            CreatedAt = now,
+            // At stored precision: OrderConfirmed.CapturedAt is this time, published from the in-memory order AND
+            // rebuilt from the row by the backfill (ADR-0060) — the two must be the same instant (StoredTime).
+            CreatedAt = StoredTime.Of(now),
             Lines = Lines.Select(l => new OrderLine
             {
                 Id = Guid.CreateVersion7(),

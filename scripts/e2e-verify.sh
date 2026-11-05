@@ -266,6 +266,9 @@
 #       enums as numbers (InvoicingContractFactsTests); an RMA refund's lines are their discounted values summing to
 #       the amount (largest remainder under the gross cap, 2,000 random requests), no shipping, kind Return, and an
 #       unattributable one goes out amount-only (RmaRefundAttributionTests)
+#   A3w Unit · stored-precision order times (OrderStoredTimeTests): an order confirmed at …02.5351758 holds
+#       …02.535175 (what Postgres stores), so OrderConfirmed.CapturedAt published from the in-memory order equals the
+#       one the backfill rebuilds from the row (the A4–A6 OrderConfirmedBackfillTests failed on Linux CI without it)
 #   A3x Unit · audit hash at stored precision (audit_chain_timestamp_precision, ADR-0029 amendment 2026-11-04;
 #       AuditStoredPrecisionTests): a clock pinned at …54.1755249 records entries at …54.1755240 that verify EXACTLY after
 #       a Postgres-style reload (0 legacy); a chain written the pre-fix way (hashed over 100 ns ticks 9/0/1/5/3) verifies
@@ -814,6 +817,11 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~InvoicingContractFactsTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3v invoicing contract facts"; else fail "A3v invoicing contract facts"; fi
+
+  stage "A3w Stored-precision order times — microsecond truncation, published CapturedAt == the backfill's rebuild"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OrderStoredTimeTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3w stored-precision order times"; else fail "A3w stored-precision order times"; fi
 
   stage "A3x Audit hash at stored precision (ADR-0029 amendment) — µs before hashing, legacy rows re-verified, tamper still caught"
   if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \
