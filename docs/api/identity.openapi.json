@@ -591,6 +591,87 @@
         }
       }
     },
+    "/me/business-identity": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "The caller's saved default business identity (ADR-0063 P3b) — 204 when none is saved.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessIdentityResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Save the default business identity that prefills checkout's Business purchase block; validated per tax-ID scheme like checkout.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessIdentityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Clear the saved default business identity; placed orders keep their own snapshot.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/rbac/permissions": {
       "get": {
         "tags": [
@@ -1150,6 +1231,13 @@
             "maxLength": 2,
             "minLength": 2,
             "type": "string"
+          },
+          "region": {
+            "maxLength": 120,
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1162,6 +1250,7 @@
           "line1",
           "line2",
           "city",
+          "region",
           "postcode",
           "country"
         ],
@@ -1191,6 +1280,12 @@
           },
           "city": {
             "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "postcode": {
             "type": "string"
@@ -1240,6 +1335,78 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "BusinessIdentityRequest": {
+        "required": [
+          "companyName"
+        ],
+        "type": "object",
+        "properties": {
+          "companyName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxIdScheme": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxIdScheme"
+              }
+            ]
+          },
+          "taxIdJurisdiction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BusinessIdentityResponse": {
+        "required": [
+          "companyName",
+          "taxId",
+          "taxIdScheme",
+          "taxIdJurisdiction"
+        ],
+        "type": "object",
+        "properties": {
+          "companyName": {
+            "type": "string"
+          },
+          "taxId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "taxIdScheme": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxIdScheme"
+              }
+            ]
+          },
+          "taxIdJurisdiction": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1678,6 +1845,16 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "businessIdentity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BusinessIdentityResponse"
+              }
+            ]
           }
         }
       },
@@ -1871,6 +2048,9 @@
             }
           }
         }
+      },
+      "TaxIdScheme": {
+        "type": "integer"
       },
       "TokenRequest": {
         "required": [
