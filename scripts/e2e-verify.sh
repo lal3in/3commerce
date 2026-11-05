@@ -270,6 +270,12 @@
 #   A3w Unit · stored-precision order times (OrderStoredTimeTests): an order confirmed at …02.5351758 holds
 #       …02.535175 (what Postgres stores), so OrderConfirmed.CapturedAt published from the in-memory order equals the
 #       one the backfill rebuilds from the row (the A4–A6 OrderConfirmedBackfillTests failed on Linux CI without it)
+#   A3x Unit · audit hash at stored precision (audit_chain_timestamp_precision, ADR-0029 amendment 2026-11-04;
+#       AuditStoredPrecisionTests): a clock pinned at …54.1755249 records entries at …54.1755240 that verify EXACTLY after
+#       a Postgres-style reload (0 legacy); a chain written the pre-fix way (hashed over 100 ns ticks 9/0/1/5/3) verifies
+#       fully after the reload with 4 legacy entries, and new entries chain onto it; moving a legacy row's stored time by
+#       ±1 µs / −1 ms / +1 s, editing it or dropping one still breaks the chain; a sub-µs time not from Postgres is never
+#       searched; the publish-only AuditEmitter publishes the stored-precision time its hash covers
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -323,6 +329,11 @@
 #       Payments) RefundCompleted with [that line, 1, 4650] + shipping 0 + kind Return; an admin whole-order RMA
 #       attributes every line (9300 + 1900 == 11200); an admin POST /admin/refunds carries no lines, kind
 #       PriceReduction; trial balance 0
+#   A4i Integration · audit chain over Postgres (audit_chain_timestamp_precision, AuditChainPostgresTests, Entity's
+#       entity."AuditEntries"): entries recorded at …54.1755249 come back at …54.1755240 with the same hash and the
+#       chain verifies (0 legacy); pre-fix rows (hashed at 100 ns) come back TRUNCATED (…249/…244 → …240, never
+#       rounded — the legacy window rests on it), verify with 2 legacy rows, and a new entry chains onto them; a
+#       stored time moved by 1 µs in SQL breaks the chain at that row
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -815,6 +826,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OrderStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3w stored-precision order times"; else fail "A3w stored-precision order times"; fi
+
+  stage "A3x Audit hash at stored precision (ADR-0029 amendment) — µs before hashing, legacy rows re-verified, tamper still caught"
+  if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~AuditStoredPrecisionTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3x audit hash at stored precision"; else fail "A3x audit hash at stored precision"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

@@ -121,8 +121,11 @@ you are touching before you push.
   `…02.535175` (`OrderConfirmedBackfillTests`, PR #322 CI) — fixed by `Ordering.Domain.StoredTime.Of` in
   `CheckoutAttempt.ToOrder` and checkout's attempt creation (`OrderStoredTimeTests`). To reproduce on a
   Mac, pin the clock to a sub-microsecond tick (a fixed `TimeProvider` at `….1755249`), never rely on the system
-  clock; EF InMemory/SQLite tests cannot catch it at all. The local audit chain (`AuditChain`, BuildingBlocks) still
-  hashes the untruncated `OccurredAt` — see the tracker's open row before verifying a chain read back from Postgres.
+  clock; EF InMemory/SQLite tests cannot catch it at all. The audit chain is the same pattern: `AuditChain.Append`
+  stamps `OccurredAt` with `AuditEntry.StoredPrecision` before hashing. Rows hashed over a 100 ns time before that fix
+  are re-verified from stored + 1..9 ticks (ADR-0029 amendment 2026-11-04). That works only because Npgsql truncates.
+  A rounding store would need a wider window, and the wider window would admit a 1 µs shift.
+  `AuditChainPostgresTests` pins the truncation.
 
 ## Messaging / consumers
 
