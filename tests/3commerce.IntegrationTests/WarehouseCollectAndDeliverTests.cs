@@ -135,20 +135,15 @@ public class WarehouseCollectAndDeliverTests(Phase3Fixture fixture)
         await fixture.PublishAsync(new SupplierWarehouseChanged(
             new Guid("00000000-0000-0000-0000-000000000001"), supplierId, name, line1, null, city, null, postcode, country));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.SupplierWarehouseCopies.AnyAsync(w => w.SupplierId == supplierId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"SupplierWarehouseCopy for {supplierId} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.SupplierWarehouseCopies.AnyAsync(w => w.SupplierId == supplierId);
+            },
+            () => new TimeoutException($"SupplierWarehouseCopy for {supplierId} did not project."),
+            TimeSpan.FromSeconds(20));
     }
 
     private HttpClient SupplierClient(Guid supplierEntity)
@@ -170,36 +165,26 @@ public class WarehouseCollectAndDeliverTests(Phase3Fixture fixture)
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.CheckoutStates.AnyAsync(s => s.CorrelationId == orderId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} did not start.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.CheckoutStates.AnyAsync(s => s.CorrelationId == orderId);
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} did not start."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

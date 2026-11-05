@@ -91,20 +91,15 @@ public class StorefrontGoLiveReadinessTests(Phase2Fixture fixture) : IAsyncLifet
 
     private async Task WaitForReadinessAsync(Guid storefrontId, Func<Catalog.Domain.StorefrontServiceReadiness, bool> ready)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = _catalog.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-            var row = await db.StorefrontServiceReadiness.AsNoTracking().SingleOrDefaultAsync(r => r.StorefrontId == storefrontId);
-            if (row is not null && ready(row))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new Xunit.Sdk.XunitException($"StorefrontServiceReadiness for {storefrontId} never reached the expected state.");
+                using var scope = _catalog.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+                var row = await db.StorefrontServiceReadiness.AsNoTracking().SingleOrDefaultAsync(r => r.StorefrontId == storefrontId);
+                return row is not null && ready(row);
+            },
+            () => new Xunit.Sdk.XunitException($"StorefrontServiceReadiness for {storefrontId} never reached the expected state."),
+            TimeSpan.FromSeconds(20));
     }
 }

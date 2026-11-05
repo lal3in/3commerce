@@ -42,22 +42,20 @@ public class UsageChargeRevenueTests(Phase4Fixture fixture)
 
     private async Task<List<JournalLine>> PollEntryLinesAsync(string reference)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            var entry = await db.JournalEntries.Include(e => e.Lines).AsNoTracking()
-                .SingleOrDefaultAsync(e => e.Reference == reference);
-            if (entry is not null)
+        List<JournalLine>? lines = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return entry.Lines.ToList();
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new Xunit.Sdk.XunitException($"No ledger entry posted for charge {reference}.");
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                var entry = await db.JournalEntries.Include(e => e.Lines).AsNoTracking()
+                    .SingleOrDefaultAsync(e => e.Reference == reference);
+                lines = entry?.Lines.ToList();
+                return lines is not null;
+            },
+            () => new Xunit.Sdk.XunitException($"No ledger entry posted for charge {reference}."),
+            interval: TimeSpan.FromMilliseconds(300));
+        return lines!;
     }
 
     [Fact]

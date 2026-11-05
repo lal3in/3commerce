@@ -379,20 +379,16 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
         var storefrontId = Guid.CreateVersion7();
         await fixture.PublishAsync(new StorefrontConfigChanged(
             storefrontId, TenantId, $"Coupon Store {currency}", currency, 0, IsLive: true, TaxInclusive: false, DiscountBps: 0));
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.StorefrontTaxCopies.AsNoTracking().AnyAsync(c => c.StorefrontId == storefrontId && c.IsLive))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return storefrontId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Storefront {storefrontId} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.StorefrontTaxCopies.AsNoTracking().AnyAsync(c => c.StorefrontId == storefrontId && c.IsLive);
+            },
+            () => new TimeoutException($"Storefront {storefrontId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return storefrontId;
     }
 
     /// <summary>Publishes a CODE-GATED promotion as Catalog would, and waits for Ordering's copy.</summary>
@@ -410,21 +406,17 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
             Combinable: false, Active: true, ActiveFrom: activeFrom, ActiveUntil: activeUntil,
             Code: code, MaxRedemptions: maxRedemptions, MaxRedemptionsPerCustomer: maxRedemptionsPerCustomer));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.PromotionCopies.AsNoTracking().FirstOrDefaultAsync(p => p.PromotionId == promotionId);
-            if (copy?.Code == code)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return promotionId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Coupon promotion {promotionId} ({code}) did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.PromotionCopies.AsNoTracking().FirstOrDefaultAsync(p => p.PromotionId == promotionId);
+                return copy?.Code == code;
+            },
+            () => new TimeoutException($"Coupon promotion {promotionId} ({code}) did not project."),
+            TimeSpan.FromSeconds(20));
+        return promotionId;
     }
 
     private async Task<int> RedeemedCountAsync(Guid promotionId)
@@ -458,34 +450,24 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
 
     private async Task WaitForRedemptionStatusAsync(Guid orderId, PromotionRedemptionStatus expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await RedemptionStatusAsync(orderId) == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Redemption for order {orderId} did not reach {expected}.");
+                return await RedemptionStatusAsync(orderId) == expected;
+            },
+            () => new TimeoutException($"Redemption for order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 
     private async Task WaitForRedeemedCountAsync(Guid promotionId, int expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await RedeemedCountAsync(promotionId) == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Promotion {promotionId} RedeemedCount did not reach {expected}.");
+                return await RedeemedCountAsync(promotionId) == expected;
+            },
+            () => new TimeoutException($"Promotion {promotionId} RedeemedCount did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 
     private async Task SimulatePaymentAsync(Guid orderId, long gross)
@@ -498,36 +480,26 @@ public class CouponRedemptionTests(Phase3Fixture fixture)
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} did not start.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId);
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} did not start."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

@@ -229,59 +229,44 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForOfferPriceCopyAsync(Guid productId, long priceMinor, Guid storefrontId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            var copy = await db.OfferCopies.AsNoTracking().FirstOrDefaultAsync(o => o.ProductId == productId);
-            if (copy is not null && copy.PriceMinor == priceMinor && copy.StorefrontId == storefrontId
-                && copy.ActiveFrom is not null && copy.ActiveUntil is not null)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new Xunit.Sdk.XunitException($"Offer-price OfferCopy for product {productId} never projected.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                var copy = await db.OfferCopies.AsNoTracking().FirstOrDefaultAsync(o => o.ProductId == productId);
+                return copy is not null && copy.PriceMinor == priceMinor && copy.StorefrontId == storefrontId
+                    && copy.ActiveFrom is not null && copy.ActiveUntil is not null;
+            },
+            () => new Xunit.Sdk.XunitException($"Offer-price OfferCopy for product {productId} never projected."),
+            TimeSpan.FromSeconds(20));
     }
 
     private async Task WaitForOfferCopyAsync(Guid productId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new Xunit.Sdk.XunitException($"OfferCopy for product {productId} never projected.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await db.OfferCopies.AnyAsync(o => o.ProductId == productId);
+            },
+            () => new Xunit.Sdk.XunitException($"OfferCopy for product {productId} never projected."),
+            TimeSpan.FromSeconds(20));
     }
 
     private async Task WaitForPolicyCopyAsync(Guid tenantId, string expectedCsv)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            var copy = await db.ProductTypeShippingPolicyCopies.FirstOrDefaultAsync(p => p.TenantId == tenantId);
-            if (copy is not null && copy.RequiresShippingTypes == expectedCsv)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new Xunit.Sdk.XunitException($"ProductTypeShippingPolicyCopy for tenant {tenantId} never projected.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                var copy = await db.ProductTypeShippingPolicyCopies.FirstOrDefaultAsync(p => p.TenantId == tenantId);
+                return copy is not null && copy.RequiresShippingTypes == expectedCsv;
+            },
+            () => new Xunit.Sdk.XunitException($"ProductTypeShippingPolicyCopy for tenant {tenantId} never projected."),
+            TimeSpan.FromSeconds(20));
     }
 
     [Fact]
@@ -341,21 +326,16 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForLiveTaxCopyAsync(string currency, int bps)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.StorefrontTaxCopies.Where(c => c.Currency == currency && c.IsLive && c.TaxRateBasisPoints == bps)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Live tax copy for {currency} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.StorefrontTaxCopies.Where(c => c.Currency == currency && c.IsLive && c.TaxRateBasisPoints == bps));
+            },
+            () => new TimeoutException($"Live tax copy for {currency} did not project."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     [Fact]
@@ -725,40 +705,30 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForPromotionCopyAsync(Guid promotionId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await db.PromotionCopies.AsNoTracking().AnyAsync(p => p.PromotionId == promotionId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"PromotionCopy {promotionId} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await db.PromotionCopies.AsNoTracking().AnyAsync(p => p.PromotionId == promotionId);
+            },
+            () => new TimeoutException($"PromotionCopy {promotionId} did not project."),
+            TimeSpan.FromSeconds(20));
     }
 
     private async Task WaitForDiscountCopyAsync(Guid storefrontId, int discountBps)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            var copy = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
-                db.StorefrontTaxCopies.Where(c => c.StorefrontId == storefrontId));
-            if (copy is not null && copy.IsLive && copy.DiscountBasisPoints == discountBps)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Discount copy for storefront {storefrontId} (bps {discountBps}) did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                var copy = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                    db.StorefrontTaxCopies.Where(c => c.StorefrontId == storefrontId));
+                return copy is not null && copy.IsLive && copy.DiscountBasisPoints == discountBps;
+            },
+            () => new TimeoutException($"Discount copy for storefront {storefrontId} (bps {discountBps}) did not project."),
+            TimeSpan.FromSeconds(20));
     }
 
     [Fact]
@@ -1266,21 +1236,16 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForEntryAsync(string reference)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.JournalEntries.Where(e => e.Reference == reference)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Journal entry {reference} was not posted.");
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.JournalEntries.Where(e => e.Reference == reference));
+            },
+            () => new TimeoutException($"Journal entry {reference} was not posted."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     private async Task<List<ThreeCommerce.Payments.Domain.Ledger.JournalLine>> EntryLinesAsync(string reference)
@@ -1306,21 +1271,16 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForSupplierPayableAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.SupplierPayables.Where(p => p.OrderId == orderId)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Supplier payable for order {orderId} was not accrued.");
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.SupplierPayables.Where(p => p.OrderId == orderId));
+            },
+            () => new TimeoutException($"Supplier payable for order {orderId} was not accrued."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     private System.Net.Http.HttpClient AdminOrderingClient()
@@ -1406,38 +1366,28 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.CheckoutStates.Where(s => s.CorrelationId == orderId)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} did not start.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.CheckoutStates.Where(s => s.CorrelationId == orderId));
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} did not start."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} did not reach {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} did not reach {expected}."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     [Theory]
@@ -1626,39 +1576,29 @@ public class MoneyFlowTests(Phase3Fixture fixture)
 
     private async Task WaitForRefundAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Payments.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.Refunds.Where(r => r.OrderId == orderId)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Refund for order {orderId} was not processed.");
+                using var scope = fixture.Payments.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.Refunds.Where(r => r.OrderId == orderId));
+            },
+            () => new TimeoutException($"Refund for order {orderId} was not processed."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 
     private async Task WaitForOrderDisputedAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
-            if (await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
-                    db.Orders.Where(o => o.Id == orderId && o.Disputed)))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(300);
-        }
-
-        throw new TimeoutException($"Order {orderId} was not flagged disputed.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ThreeCommerce.Ordering.Infrastructure.OrderingDbContext>();
+                return await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AnyAsync(
+                        db.Orders.Where(o => o.Id == orderId && o.Disputed));
+            },
+            () => new TimeoutException($"Order {orderId} was not flagged disputed."),
+            interval: TimeSpan.FromMilliseconds(300));
     }
 }

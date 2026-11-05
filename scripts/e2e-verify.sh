@@ -98,7 +98,8 @@
 #       admin payment-account lifecycle endpoints (Draft→submit→activate, Live readiness guard — PaymentAccountAdminTests);
 #       admin supplier-payout setup endpoints (masked bank account approval + payout instruction — SupplierPayoutAdminTests);
 #       admin Xero mapping CRUD endpoints (XeroMappingAdminTests);
-#       gateway production YARP config conventions + internal health-route block (GatewayConfigTests);
+#       gateway production YARP config conventions + internal health-route and /api/{service}/internal/* blocks,
+#       every service /internal endpoint excluded from OpenAPI (GatewayConfigTests);
 #       Kafka stream envelope/topic/fake-producer/consumer/outbox-relay/domain-fact/privacy/replay/resilience contract guards (ContractTests, ADR-0034);
 #       Quartz persistent scheduler config guards (ContractTests, msg_11);
 #       Ordering variant-aware cart/projection: ProductCopies carry variants,
@@ -269,7 +270,13 @@
 #   A3w Unit · stored-precision order times (OrderStoredTimeTests): an order confirmed at …02.5351758 holds
 #       …02.535175 (what Postgres stores), so OrderConfirmed.CapturedAt published from the in-memory order equals the
 #       one the backfill rebuilds from the row (the A4–A6 OrderConfirmedBackfillTests failed on Linux CI without it)
-#   A3x Unit · refunds need payment.refund (refund_permission_enforcement, owner decisions 2026-11-04 / 2026-11-05,
+#   A3x Unit · audit hash at stored precision (audit_chain_timestamp_precision, ADR-0029 amendment 2026-11-04;
+#       AuditStoredPrecisionTests): a clock pinned at …54.1755249 records entries at …54.1755240 that verify EXACTLY after
+#       a Postgres-style reload (0 legacy); a chain written the pre-fix way (hashed over 100 ns ticks 9/0/1/5/3) verifies
+#       fully after the reload with 4 legacy entries, and new entries chain onto it; moving a legacy row's stored time by
+#       ±1 µs / −1 ms / +1 s, editing it or dropping one still breaks the chain; a sub-µs time not from Postgres is never
+#       searched; the publish-only AuditEmitter publishes the stored-precision time its hash covers
+#   A3y Unit · refunds need payment.refund (refund_permission_enforcement, owner decisions 2026-11-04 / 2026-11-05,
 #       ADR-0025 amendment): the service PEP (PermissionGateTests) asks the PDP by the caller's sub + tenant (empty principal id),
 #       passes an allowed decision, answers a denied one / a 404 (no principal behind an admin-role user) / a decision
 #       for another permission / a caller without a sub with 403 problem+json (errorCode permission_denied, permission)
@@ -331,6 +338,11 @@
 #       Payments) RefundCompleted with [that line, 1, 4650] + shipping 0 + kind Return; an admin whole-order RMA
 #       attributes every line (9300 + 1900 == 11200); an admin POST /admin/refunds carries no lines, kind
 #       PriceReduction; trial balance 0
+#   A4i Integration · audit chain over Postgres (audit_chain_timestamp_precision, AuditChainPostgresTests, Entity's
+#       entity."AuditEntries"): entries recorded at …54.1755249 come back at …54.1755240 with the same hash and the
+#       chain verifies (0 legacy); pre-fix rows (hashed at 100 ns) come back TRUNCATED (…249/…244 → …240, never
+#       rounded — the legacy window rests on it), verify with 2 legacy rows, and a new entry chains onto them; a
+#       stored time moved by 1 µs in SQL breaks the chain at that row
 #   A4h Integration · refunds need payment.refund through the real PDP (RefundPermissionTests, Phase4 with an
 #       in-process Identity every service host routes its PEP to; every caller carries role=admin): Finance and
 #       Support refund by order and by chargeReference (202); Ops and Merchandiser are refused 403 problem+json on
@@ -571,6 +583,9 @@
 #       (an own boot), or any full SHA on a reused stack (reported against HEAD — it was built earlier)
 #   L3  Ping-pong spine flows through the gateway to the Notifications worker
 #   L4  Gateway blocks internal health routes (/api/*/health* → 404)
+#   L4b Gateway blocks service-to-service routes (/api/{service}/internal/* → 404): Identity's session
+#       introspection and the PDP (/internal/authz/decide) never answer from the public origin
+#       (gateway_block_internal_paths; source check GatewayConfigTests, unit lane A3)
 #   L5  Register → 202, identical body on repeat (no user enumeration)
 #   L6  Verification email token delivered; verify-email succeeds
 #   L7  Login sets cookie; /me with cookie → 200, without → 401
@@ -833,13 +848,18 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~OrderStoredTimeTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3w stored-precision order times"; else fail "A3w stored-precision order times"; fi
 
-  stage "A3x Refunds need payment.refund (ADR-0025 amendment) — PEP 403 + Denied audit, fail-closed 503, role defaults"
+  stage "A3x Audit hash at stored precision (ADR-0029 amendment) — µs before hashing, legacy rows re-verified, tamper still caught"
+  if dotnet test "$ROOT/src/Services/Entity/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~AuditStoredPrecisionTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3x audit hash at stored precision"; else fail "A3x audit hash at stored precision"; fi
+
+  stage "A3y Refunds need payment.refund (ADR-0025 amendment) — PEP 403 + Denied audit, fail-closed 503, role defaults"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PermissionGateTests' 2>&1 \
       | grep -q 'Failed: *0' \
     && dotnet test "$ROOT/src/Services/Identity/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PolicyDecisionServiceTests' 2>&1 \
-      | grep -q 'Failed: *0'; then pass "A3x refunds need payment.refund"; else fail "A3x refunds need payment.refund"; fi
+      | grep -q 'Failed: *0'; then pass "A3y refunds need payment.refund"; else fail "A3y refunds need payment.refund"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -1093,6 +1113,12 @@ run_live() {
     "curl -fsS -X POST $GATEWAY/api/catalog/ping >/dev/null; for _ in \$(seq 1 60); do if tail -c +$pong_from '$ROOT/.run/notifications.log' 2>/dev/null | grep -aq 'PONG received'; then tail -c +$pong_from '$ROOT/.run/notifications.log' | grep -a 'PONG received' | tail -1; exit 0; fi; sleep 1; done; exit 1"
   check "L4 gateway blocks internal health" "404" bash -c \
     "curl -s -o /dev/null -w '%{http_code}' $GATEWAY/api/ordering/health/ready"
+  check "L4b gateway blocks internal service routes (introspection)" "404" bash -c \
+    "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/internal/introspection -H 'content-type: application/json' -d '{\"token\":\"x\"}'"
+  # Malformed body on purpose: Identity itself would answer 400 here (and 401 to the introspection above), so only
+  # the gateway's block yields 404 — an unknown principal would ALSO be a PDP 404 and prove nothing.
+  check "L4b gateway blocks internal service routes (PDP)" "404" bash -c \
+    "curl -s -o /dev/null -w '%{http_code}' -X POST $GATEWAY/api/identity/internal/authz/decide -H 'content-type: application/json' -d 'not-json'"
 
   stage "L5–L8  Auth lifecycle"
   local jar=/tmp/3c-e2e-cookies.txt; rm -f "$jar"
