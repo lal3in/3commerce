@@ -29,7 +29,8 @@ public static class AuthzEndpoints
                 request.PrincipalId,
                 request.TenantId,
                 request.Actions ?? [],
-                request.Fields?.Select(f => new FieldPolicy(f.Field, f.ViewPermission, f.EditPermission, f.Sensitive)).ToArray() ?? []),
+                request.Fields?.Select(f => new FieldPolicy(f.Field, f.ViewPermission, f.EditPermission, f.Sensitive)).ToArray() ?? [],
+                request.UserId),
             cancellationToken);
 
         return response is null
@@ -38,11 +39,17 @@ public static class AuthzEndpoints
     }
 }
 
+/// <summary>
+/// <paramref name="PrincipalId"/> names the principal directly; a service PEP, which only knows the caller's
+/// internal-claims <c>sub</c>, sends an empty PrincipalId plus <paramref name="UserId"/> and the PDP resolves that
+/// user's principal inside <paramref name="TenantId"/> (refund_permission_enforcement).
+/// </summary>
 public sealed record AuthzDecisionRequest(
     [property: Required] Guid PrincipalId,
     Guid? TenantId,
     IReadOnlyList<string>? Actions,
-    IReadOnlyList<FieldPolicyRequest>? Fields);
+    IReadOnlyList<FieldPolicyRequest>? Fields,
+    Guid? UserId = null);
 
 public sealed record FieldPolicyRequest(
     [property: Required] string Field,

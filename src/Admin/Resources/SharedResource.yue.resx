@@ -445,6 +445,7 @@
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>取消呢張未付款嘅訂單（釋放佢）。㩒兩次確認。</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>退款</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>退還整張訂單總額 — 會沖銷賬簿。㩒兩次確認。</value></data>
+  <data name="Common.RefundPermissionRequired.Tip" xml:space="preserve"><value>你冇 payment.refund 權限 — 請管理員加入你其中一個角色（例如 Finance）。</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>訂單已取消。</value></data>
   <data name="Orders.Status.Refunded" xml:space="preserve"><value>已申請退款 — 佢會出現喺 RMA 隊列，完成後訂單會顯示已退款。</value></data>
 

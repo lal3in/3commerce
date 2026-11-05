@@ -1,6 +1,7 @@
 @page "/orders"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
+@inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>@L["Orders.Title"]</h1>
@@ -88,7 +89,9 @@ else
                     }
                     else if (o.Status == "Confirmed")
                     {
-                        <button @onclick="() => Refund(o)" title="@L["Orders.Refund.Tip"]">@(_confirm == $"{o.Id}:refund" ? L["Common.Confirm"] : L["Orders.Refund"])</button>
+                        @* Refunding needs payment.refund (refund_permission_enforcement) — without it the button is
+                           disabled and says why; Support would answer 403 anyway (the PEP decides, this is UX). *@
+                        <button disabled="@(!_canRefund)" @onclick="() => Refund(o)" title="@(_canRefund ? L["Orders.Refund.Tip"] : L["Common.RefundPermissionRequired.Tip"])">@(_confirm == $"{o.Id}:refund" ? L["Common.Confirm"] : L["Orders.Refund"])</button>
                         <button @onclick="() => Return(o)" title="@L["Orders.Return.Tip"]">@(_confirm == $"{o.Id}:return" ? L["Common.Confirm"] : L["Orders.Return"])</button>
                     }
                 </td>
@@ -168,6 +171,7 @@ else
     private string? _error;
     private string? _confirm;
     private bool _loading;
+    private bool _canRefund;
     // Filters (server-side — the endpoint caps at 200 rows, so filtering the full set on the server is what
     // makes the filter meaningful).
     private DateOnly? _start;
@@ -182,6 +186,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        _canRefund = await Permissions.HasAsync(AdminPermissions.PaymentRefund);
         _storefronts = await SafeStorefronts();
         await LoadAsync();
     }
@@ -260,6 +265,7 @@ else
 
     private async Task Refund(OrderDto o)
     {
+        if (!_canRefund) { return; }
         if (_confirm != $"{o.Id}:refund") { _confirm = $"{o.Id}:refund"; return; }
         _confirm = null;
         // Refund through the RMA path (auto-approved, no-return) so it shows in the RMA queue and drives

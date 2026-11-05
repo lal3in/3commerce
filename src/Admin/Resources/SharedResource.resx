@@ -436,6 +436,7 @@
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Cancel this unpaid order (releases it). Click twice to confirm.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Refund</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>Refund the full order total — reverses the ledger. Click twice to confirm.</value></data>
+  <data name="Common.RefundPermissionRequired.Tip" xml:space="preserve"><value>You don't have the payment.refund permission — ask an administrator to add it to one of your roles (e.g. Finance).</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Order cancelled.</value></data>
   <data name="Orders.Status.Refunded" xml:space="preserve"><value>Refund requested — it will appear in the RMA queue and the order will show Refunded once complete.</value></data>
 

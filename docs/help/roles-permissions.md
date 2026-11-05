@@ -26,7 +26,26 @@ so RBAC, service accounts, and MasterGlobal override are positioned with the rig
 3. The service applies the coarse endpoint policy — `CustomerPolicy` (customer|admin) or `AdminPolicy` (admin).
 4. For fine-grained action/field checks, the service (PEP) asks the Identity PDP
    (`PolicyDecisionService.DecideAsync`), which resolves effective permissions from memberships → roles →
-   permissions (ADR-0025).
+   permissions (ADR-0025). The PEP sends the caller's `sub` + `tenant`; the PDP finds the user's principal
+   in that tenant. A MasterGlobal (platform-admin) principal is allowed every permission.
+
+## Enforced permissions
+
+| Permission | Enforced on | Without it |
+|---|---|---|
+| `payment.refund` | Payments `POST /admin/refunds` (an order, or a renewal / usage charge by `chargeReference`); Support `POST /admin/rmas` when it refunds instantly (the default `autoApprove`) and `POST /admin/rmas/{id}/approve` | `403` problem+json (`errorCode: permission_denied`, `permission: payment.refund`) and a **Denied** audit entry (`payments.refund.request` / `support.rma.admin_refund` / `support.rma.approve`) |
+
+Owner decisions 2026-11-04 / 2026-11-05: the `admin` role claim alone never refunds. Who may refund by
+default: the **Administrator** role (every permission), the **Finance** role, the **Support** role (it keeps
+approving returns and instant refunds), and MasterGlobal principals (every bootstrap admin is one) — so existing
+admins keep refunding. **Ops** and **Merchandiser** can't refund; an Ops user may still open a return request,
+which moves no money. Built-in role permissions are re-applied from the code template at every login, so these
+defaults reach existing tenants and can't be edited away on a built-in role — to withhold refunds, give the user a
+custom role without `payment.refund`. If Identity can't be reached the refund is refused with `503`
+(`errorCode: authorization_unavailable`) — never allowed. In the admin console the Orders **Refund** button,
+the RMA queue's **Approve** buttons and the Subscriptions renewal-charge **Refund** / submit buttons are disabled
+with a tooltip for an operator without the permission
+(read from `GET /api/identity/me/permissions`; advisory only — the services decide).
 
 ## Built-in roles
 

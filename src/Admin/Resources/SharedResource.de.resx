@@ -445,6 +445,7 @@
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Stornieren Sie diese unbezahlte Bestellung (gibt sie frei). Zum Bestätigen zweimal klicken.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Erstatten</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>Erstatten Sie den vollen Bestellbetrag — storniert die Hauptbuchbuchung. Zum Bestätigen zweimal klicken.</value></data>
+  <data name="Common.RefundPermissionRequired.Tip" xml:space="preserve"><value>Ihnen fehlt die Berechtigung payment.refund — bitten Sie einen Administrator, sie einer Ihrer Rollen hinzuzufügen (z. B. Finance).</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Bestellung storniert.</value></data>
   <data name="Orders.Status.Refunded" xml:space="preserve"><value>Erstattung angefordert — sie erscheint in der RMA-Warteschlange, und die Bestellung wird nach Abschluss als „Erstattet“ angezeigt.</value></data>
 

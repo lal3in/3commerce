@@ -445,6 +445,7 @@
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Annulez cette commande non payée (la libère). Cliquez deux fois pour confirmer.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Rembourser</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>Remboursez le total de la commande — contre-passe le grand livre. Cliquez deux fois pour confirmer.</value></data>
+  <data name="Common.RefundPermissionRequired.Tip" xml:space="preserve"><value>Vous n'avez pas la permission payment.refund — demandez à un administrateur de l'ajouter à l'un de vos rôles (p. ex. Finance).</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Commande annulée.</value></data>
   <data name="Orders.Status.Refunded" xml:space="preserve"><value>Remboursement demandé — il apparaîtra dans la file RMA et la commande affichera Remboursé une fois terminé.</value></data>
 

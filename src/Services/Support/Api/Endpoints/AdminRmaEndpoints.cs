@@ -6,6 +6,7 @@ using ThreeCommerce.BuildingBlocks.Contracts.Fulfillment;
 using ThreeCommerce.BuildingBlocks.Contracts.Support;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Authz;
 using ThreeCommerce.Support.Domain;
 using ThreeCommerce.Support.Infrastructure;
 using ThreeCommerce.Support.Infrastructure.Sagas;
@@ -19,8 +20,13 @@ public static class AdminRmaEndpoints
         var group = app.MapGroup("/admin/rmas").WithTags("RMA").RequireAuthorization(InternalClaimsAuth.AdminPolicy);
         group.MapGet("/", ListRmas);
         group.MapPost("/", CreateAdminRefund)
-            .WithSummary("Admin-opened RMA for a whole order: auto-approved instant refund (default), or a Requested RMA the operator walks through the lifecycle when AutoApprove=false.");
-        group.MapPost("/{id:guid}/approve", Approve);
+            .WithSummary("Admin-opened RMA for a whole order: auto-approved instant refund (default), or a Requested RMA the operator walks through the lifecycle when AutoApprove=false. The instant refund requires the payment.refund permission (403 without it).")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+        group.MapPost("/{id:guid}/approve", Approve)
+            .WithSummary("Approve a Requested RMA (optionally requiring the goods back first) — it ends in a refund, so it requires the payment.refund permission (403 without it).")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
         group.MapPost("/{id:guid}/deny", Deny);
         group.MapPost("/{id:guid}/return-received", ReturnReceivedAction);
         group.MapPost("/{id:guid}/disposition", SetDisposition)
@@ -56,10 +62,19 @@ public static class AdminRmaEndpoints
     //   AutoApprove=false           → a customer-style Requested RMA the operator then walks through
     //                                 Approve/Approve+Return → AwaitingReturn → Received → refund, so the
     //                                 whole lifecycle is drivable from the admin without a storefront round-trip.
-    private static async Task<Results<Accepted<RmaDto>, NotFound, BadRequest<string>>> CreateAdminRefund(
-        AdminRefundRequest request, SupportDbContext db, IPublishEndpoint publisher,
+    // Refund-issuing actions need payment.refund (refund_permission_enforcement, owner decision 2026-11-04): the
+    // instant refund here and Approve below. A return REQUEST (AutoApprove=false), deny, receipt and disposition move
+    // no money on their own — the refund they lead to was authorised when the RMA was approved.
+    private static async Task<Results<Accepted<RmaDto>, NotFound, BadRequest<string>, ProblemHttpResult>> CreateAdminRefund(
+        AdminRefundRequest request, SupportDbContext db, IPublishEndpoint publisher, PermissionGate permissions,
         IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
+        if (request.AutoApprove && await permissions.DenyUnlessAllowedAsync(
+                user, RefundPermission, "Order", request.OrderId.ToString(), "support.rma.admin_refund", db, ct) is { } denied)
+        {
+            return denied;
+        }
+
         var snapshot = await db.OrderSnapshots.AsNoTracking().Include(o => o.Lines)
             .SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
         if (snapshot is null)
@@ -146,14 +161,20 @@ public static class AdminRmaEndpoints
     }
 
     /// <summary>Idempotent: approving an already-approved RMA is a no-op (FR-10).</summary>
-    private static async Task<Results<Accepted, Conflict<string>, NotFound>> Approve(
-        Guid id, ApproveRequest? request, SupportDbContext db, IPublishEndpoint publisher,
+    private static async Task<Results<Accepted, Conflict<string>, NotFound, ProblemHttpResult>> Approve(
+        Guid id, ApproveRequest? request, SupportDbContext db, IPublishEndpoint publisher, PermissionGate permissions,
         IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
         var rma = await db.Rmas.AsNoTracking().SingleOrDefaultAsync(r => r.CorrelationId == id, ct);
         if (rma is null)
         {
             return TypedResults.NotFound();
+        }
+
+        if (await permissions.DenyUnlessAllowedAsync(
+                user, RefundPermission, "Rma", id.ToString(), "support.rma.approve", db, ct) is { } denied)
+        {
+            return denied;
         }
 
         if (rma.CurrentState != "Requested")
@@ -294,6 +315,9 @@ public static class AdminRmaEndpoints
         return TypedResults.Ok(new RmaDispositionDto(
             kind.ToString(), storageReason?.ToString(), disposition.Comments, disposition.CreatedAt, disposition.UpdatedAt));
     }
+
+    /// <summary>The registry permission every refund-issuing endpoint requires (Identity PermissionRegistry).</summary>
+    public const string RefundPermission = "payment.refund";
 
     // The RMA saga carries no tenant, so entries land under the configured default tenant — the same
     // default the Audit search (and Mission Control) falls back to.

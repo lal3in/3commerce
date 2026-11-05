@@ -35,11 +35,17 @@ public static class PolicyDecisionClientExtensions
     }
 }
 
+/// <summary>
+/// A batched decision request. A service PEP knows the caller only by the internal-claims <c>sub</c> (a tenant
+/// user id), so it sends <paramref name="UserId"/> with an empty <paramref name="PrincipalId"/> and the PDP
+/// resolves that user's principal within <paramref name="TenantId"/> (refund_permission_enforcement).
+/// </summary>
 public sealed record PolicyDecisionRequest(
     Guid PrincipalId,
     Guid? TenantId,
     IReadOnlyList<string> Actions,
-    IReadOnlyList<FieldPolicy> Fields);
+    IReadOnlyList<FieldPolicy> Fields,
+    Guid? UserId = null);
 
 public sealed record FieldPolicy(
     string Field,

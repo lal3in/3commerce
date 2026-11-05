@@ -445,6 +445,7 @@
   <data name="Orders.Cancel.Tip" xml:space="preserve"><value>Cancele este pedido no pagado (lo libera). Haga clic dos veces para confirmar.</value></data>
   <data name="Orders.Refund" xml:space="preserve"><value>Reembolsar</value></data>
   <data name="Orders.Refund.Tip" xml:space="preserve"><value>Reembolse el total completo del pedido: revierte el libro mayor. Haga clic dos veces para confirmar.</value></data>
+  <data name="Common.RefundPermissionRequired.Tip" xml:space="preserve"><value>No tiene el permiso payment.refund: pida a un administrador que lo añada a uno de sus roles (p. ej., Finance).</value></data>
   <data name="Orders.Status.Cancelled" xml:space="preserve"><value>Pedido cancelado.</value></data>
   <data name="Orders.Status.Refunded" xml:space="preserve"><value>Reembolso solicitado: aparecerá en la cola de RMA y el pedido mostrará Reembolsado una vez completado.</value></data>
 

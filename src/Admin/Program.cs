@@ -43,6 +43,8 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpClient("gateway", c =>
     c.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:8080"));
 builder.Services.AddScoped<GatewayClient>();
+// The operator's effective permissions, once per circuit — hides actions they can't take (advisory, ADR-0025).
+builder.Services.AddScoped<AdminPermissions>();
 // Mission-control live bus stats (def_6): RabbitMQ management API, read-only + best-effort.
 builder.Services.AddHttpClient("rabbitmq-mgmt", c =>
 {

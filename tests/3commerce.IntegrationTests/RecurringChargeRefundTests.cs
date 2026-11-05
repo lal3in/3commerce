@@ -145,7 +145,7 @@ public class RecurringChargeRefundTests(Phase3Fixture fixture)
     private HttpClient Admin()
     {
         var client = fixture.Payments.CreateClient();
-        client.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.MintInternalClaims(Guid.CreateVersion7(), "admin"));
+        client.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.RefundAdminClaims());
         return client;
     }
 

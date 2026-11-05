@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Audit;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Authz;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Domain.Ledger;
 using ThreeCommerce.Payments.Infrastructure;
@@ -22,7 +23,10 @@ public static class AdminEndpoints
         group.MapGet("/ledger/entries", ListEntries);
         group.MapGet("/ledger/balances", ListBalances);
         group.MapGet("/ledger/storefronts/{storefrontId:guid}/chart", StorefrontChart);
-        group.MapPost("/refunds", RequestRefund);
+        group.MapPost("/refunds", RequestRefund)
+            .WithSummary("Refund an order's payment, or a renewal / usage charge by chargeReference. Requires the payment.refund permission (403 without it).")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
         return app;
     }
 
@@ -149,9 +153,11 @@ public static class AdminEndpoints
     /// <summary>
     /// Admin-initiated refund — publishes the single RefundRequested contract that the
     /// ExecuteRefundConsumer acts on (same path the Phase-4 RMA will use). Idempotency-Key required.
+    /// The caller must hold <c>payment.refund</c> (refund_permission_enforcement, owner decision 2026-11-04): the
+    /// admin role alone is not enough — the Identity PDP decides, and a denial is a 403 + a Denied audit entry.
     /// </summary>
-    private static async Task<Results<Accepted<RefundResponse>, BadRequest<string>>> RequestRefund(
-        RefundRequest request, HttpContext http, IPublishEndpoint publisher,
+    private static async Task<Results<Accepted<RefundResponse>, BadRequest<string>, ProblemHttpResult>> RequestRefund(
+        RefundRequest request, HttpContext http, IPublishEndpoint publisher, PermissionGate permissions, PaymentsDbContext db,
         IIdempotencyGuard idempotency, IAuditRecorder audit, ClaimsPrincipal user, IConfiguration config, CancellationToken ct)
     {
         var key = http.Request.Headers["Idempotency-Key"].ToString();
@@ -165,6 +171,15 @@ public static class AdminEndpoints
         if (request.OrderId == Guid.Empty && string.IsNullOrWhiteSpace(request.ChargeReference))
         {
             return TypedResults.BadRequest("orderId or chargeReference is required.");
+        }
+
+        // Before the idempotency guard, so a replayed key never returns a stored refund to a caller who lost the
+        // permission since.
+        var target = string.IsNullOrWhiteSpace(request.ChargeReference) ? request.OrderId.ToString() : request.ChargeReference.Trim();
+        if (await permissions.DenyUnlessAllowedAsync(
+                user, RefundPermission, "Refund", target, "payments.refund.request", db, ct) is { } denied)
+        {
+            return denied;
         }
 
         // Uniform replay protection via the shared guard (plan item 12): the same key returns the
@@ -193,6 +208,9 @@ public static class AdminEndpoints
 
         return TypedResults.Accepted((string?)null, response);
     }
+
+    /// <summary>The registry permission every refund-issuing endpoint requires (Identity PermissionRegistry).</summary>
+    public const string RefundPermission = "payment.refund";
 
     private static Guid DefaultTenantId(IConfiguration config) =>
         Guid.TryParse(config["Tenancy:DefaultTenantId"], out var tenantId)

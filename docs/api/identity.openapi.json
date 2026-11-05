@@ -462,6 +462,26 @@
         }
       }
     },
+    "/me/permissions": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "The caller's effective permission keys in their tenant (advisory UI capability metadata, ADR-0025; services re-decide every action).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyPermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/addresses": {
       "get": {
         "tags": [
@@ -1472,6 +1492,24 @@
           },
           "required": {
             "type": "boolean"
+          }
+        }
+      },
+      "MyPermissionsResponse": {
+        "required": [
+          "isPlatformAdmin",
+          "permissions"
+        ],
+        "type": "object",
+        "properties": {
+          "isPlatformAdmin": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -1,6 +1,7 @@
 @page "/rmas"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
+@inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>@L["Rma.Title"]</h1>
@@ -40,8 +41,10 @@ else
                     }
                     else if (r.State == "Requested")
                     {
-                        <button disabled="@_busy" @onclick="() => Approve(r.Id, false)" title="@L["Rma.Approve.Tip"]">@L["Rma.Approve"]</button>
-                        <button disabled="@_busy" @onclick="() => Approve(r.Id, true)" title="@L["Rma.ApproveReturn.Tip"]">@L["Rma.ApproveReturn"]</button>
+                        @* Approving ends in a refund, so it needs payment.refund (refund_permission_enforcement);
+                           without it both approvals are disabled and say why. Deny moves no money. *@
+                        <button disabled="@(_busy || !_canRefund)" @onclick="() => Approve(r.Id, false)" title="@(_canRefund ? L["Rma.Approve.Tip"] : L["Common.RefundPermissionRequired.Tip"])">@L["Rma.Approve"]</button>
+                        <button disabled="@(_busy || !_canRefund)" @onclick="() => Approve(r.Id, true)" title="@(_canRefund ? L["Rma.ApproveReturn.Tip"] : L["Common.RefundPermissionRequired.Tip"])">@L["Rma.ApproveReturn"]</button>
                         <button disabled="@_busy" @onclick="() => Post(r.Id, DenyAction, null)" title="@L["Rma.Deny.Tip"]">@L["Rma.Deny"]</button>
                     }
                     else if (r.State == "AwaitingReturn")
@@ -188,8 +191,13 @@ else
     private readonly HashSet<Guid> _editing = [];
     private List<LocationDto> _locations = [];
     private bool _locationsLoaded;
+    private bool _canRefund;
 
-    protected override Task OnInitializedAsync() => Refresh();
+    protected override async Task OnInitializedAsync()
+    {
+        _canRefund = await Permissions.HasAsync(AdminPermissions.PaymentRefund);
+        await Refresh();
+    }
 
     private async Task Refresh()
     {
@@ -214,7 +222,8 @@ else
         _ => reason ?? "",
     };
 
-    private Task Approve(Guid id, bool requireReturn) => Post(id, "approve", new { requireReturn });
+    private Task Approve(Guid id, bool requireReturn) =>
+        _canRefund ? Post(id, "approve", new { requireReturn }) : Task.CompletedTask;
 
     private void StartEdit(RmaDto r)
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain.Authz;
 
 namespace ThreeCommerce.Identity.Infrastructure;
@@ -35,9 +36,40 @@ public sealed class PolicyDecisionService(IdentityDbContext db)
         return new AuthorizationContext(permissions.ToHashSet(StringComparer.Ordinal), isPlatformAdmin: false);
     }
 
+    /// <summary>
+    /// The principal behind a tenant user (the internal-claims <c>sub</c>), or null when the user does not exist in
+    /// that tenant. Users is a FORCE-RLS table, so the lookup runs in the caller's tenant scope (ADR-0024) — a user
+    /// id from another tenant resolves to nothing.
+    /// </summary>
+    public async Task<Guid?> ResolvePrincipalForUserAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken) =>
+        await db.RunInTenantScopeAsync(TenantContext.ForTenant(tenantId), () => db.Users.AsNoTracking()
+            .Where(u => u.Id == userId && u.TenantId == tenantId)
+            .Select(u => u.PrincipalId)
+            .SingleOrDefaultAsync(cancellationToken), cancellationToken);
+
+    /// <summary>The effective authorization context of a tenant user (see <see cref="ResolvePrincipalForUserAsync"/>).</summary>
+    public async Task<AuthorizationContext?> ResolveUserContextAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var principalId = await ResolvePrincipalForUserAsync(userId, tenantId, cancellationToken);
+        return principalId is { } id ? await ResolveContextAsync(id, tenantId, cancellationToken) : null;
+    }
+
     public async Task<PolicyDecisionResponse?> DecideAsync(PolicyDecisionRequest request, CancellationToken cancellationToken)
     {
-        var context = await ResolveContextAsync(request.PrincipalId, request.TenantId, cancellationToken);
+        // A service PEP knows only the user id (sub); resolve its principal inside the claimed tenant. A user-keyed
+        // request without a tenant resolves nothing (fail closed).
+        AuthorizationContext? context;
+        if (request.PrincipalId == Guid.Empty && request.UserId is { } userId)
+        {
+            context = request.TenantId is { } tenantId
+                ? await ResolveUserContextAsync(userId, tenantId, cancellationToken)
+                : null;
+        }
+        else
+        {
+            context = await ResolveContextAsync(request.PrincipalId, request.TenantId, cancellationToken);
+        }
+
         if (context is null)
         {
             return null;
@@ -53,7 +85,8 @@ public sealed record PolicyDecisionRequest(
     Guid PrincipalId,
     Guid? TenantId,
     IReadOnlyList<string> Actions,
-    IReadOnlyList<FieldPolicy> Fields);
+    IReadOnlyList<FieldPolicy> Fields,
+    Guid? UserId = null);
 
 public sealed record PolicyDecisionResponse(
     Guid DecisionId,

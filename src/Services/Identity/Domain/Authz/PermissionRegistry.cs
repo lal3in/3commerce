@@ -74,8 +74,11 @@ public static class PermissionRegistry
             ["order.view", "order.manage", "fulfillment.view", "fulfillment.manage", "mission_control.view", "support.ticket.view"]),
         new("finance", "Finance", "Payments, refunds, ledger, and audit.", IsBuiltIn: true,
             ["payment.view", "payment.refund", "ledger.view", "audit.view", "order.view"]),
-        new("support", "Support", "Support tickets and returns.", IsBuiltIn: true,
-            ["support.ticket.view", "support.ticket.manage", "rma.manage", "order.view"]),
+        // Support keeps refunding (owner decision 2026-11-05): approving a return / an instant RMA refund needs
+        // payment.refund since refund_permission_enforcement. Built-in role permissions are re-applied from this
+        // template on every seed (SeedPermissionRegistryAsync), so existing tenants' Support role gains it too.
+        new("support", "Support", "Support tickets, returns and refunds.", IsBuiltIn: true,
+            ["support.ticket.view", "support.ticket.manage", "rma.manage", "payment.refund", "order.view"]),
         new("merchandiser", "Merchandiser", "Catalog and product publishing.", IsBuiltIn: true,
             ["catalog.product.view", "catalog.product.edit", "catalog.product.publish"]),
         // Built-in storefront shopper role; no back-office permissions.

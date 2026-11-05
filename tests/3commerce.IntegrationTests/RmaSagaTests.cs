@@ -30,7 +30,7 @@ public class RmaSagaTests(Phase4Fixture fixture)
     private HttpClient Admin()
     {
         var c = fixture.Support.CreateClient();
-        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("admin"));
+        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.RefundAdminClaims());
         return c;
     }
 
