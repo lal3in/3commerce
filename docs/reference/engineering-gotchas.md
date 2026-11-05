@@ -114,7 +114,12 @@ you are touching before you push.
   (`SubscriptionRenewalDunningTests`, PR #311 → fix PR below). It is not only a test problem: anything derived from
   the time — a key `renew-{id}-{periodEnd:O}`, a hash over `OccurredAt.ToString("O")` — differs between the aggregate
   that set it and the row reloaded. Truncate at the domain boundary where such a time is SET
-  (`Payments.Domain.StoredTime.Of`, used by `Subscription`), so memory and DB hold the same value. To reproduce on a
+  (`Payments.Domain.StoredTime.Of`, used by `Subscription`), so memory and DB hold the same value. **The rule applies
+  to every service whose times reach a hash, an idempotency key, or an event the ADR-0060 backfill rebuilds from the
+  row** — each keeps its own `StoredTime` (shared code is plumbing only). It bit again in Ordering: P5's
+  `OrderConfirmed.CapturedAt = order.CreatedAt` was published at `…02.5351758` but rebuilt by the backfill at
+  `…02.535175` (`OrderConfirmedBackfillTests`, PR #322 CI) — fixed by `Ordering.Domain.StoredTime.Of` in
+  `CheckoutAttempt.ToOrder` and checkout's attempt creation (`OrderStoredTimeTests`). To reproduce on a
   Mac, pin the clock to a sub-microsecond tick (a fixed `TimeProvider` at `….1755249`), never rely on the system
   clock; EF InMemory/SQLite tests cannot catch it at all. The local audit chain (`AuditChain`, BuildingBlocks) still
   hashes the untruncated `OccurredAt` — see the tracker's open row before verifying a chain read back from Postgres.

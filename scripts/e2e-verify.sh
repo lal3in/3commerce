@@ -266,6 +266,9 @@
 #       enums as numbers (InvoicingContractFactsTests); an RMA refund's lines are their discounted values summing to
 #       the amount (largest remainder under the gross cap, 2,000 random requests), no shipping, kind Return, and an
 #       unattributable one goes out amount-only (RmaRefundAttributionTests)
+#   A3w Unit · stored-precision order times (OrderStoredTimeTests): an order confirmed at …02.5351758 holds
+#       …02.535175 (what Postgres stores), so OrderConfirmed.CapturedAt published from the in-memory order equals the
+#       one the backfill rebuilds from the row (the A4–A6 OrderConfirmedBackfillTests failed on Linux CI without it)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -803,6 +806,11 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~InvoicingContractFactsTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3v invoicing contract facts"; else fail "A3v invoicing contract facts"; fi
+
+  stage "A3w Stored-precision order times — microsecond truncation, published CapturedAt == the backfill's rebuild"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OrderStoredTimeTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3w stored-precision order times"; else fail "A3w stored-precision order times"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
