@@ -422,7 +422,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
         {billingId === "same" && <p className="text-sm text-neutral-500">{t("usingShippingForBilling")}</p>}
       </section>
 
-      <BusinessPurchase errorField={state.field} />
+      <BusinessPurchase errorField={state.field} defaults={profile?.businessIdentity ?? null} />
 
       <button
         type="submit"

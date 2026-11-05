@@ -242,7 +242,8 @@
         "taxId": "This tax ID doesn't match the format of the selected type. Check the number, or the type.",
         "taxIdScheme": "Select which type of tax ID this is.",
         "taxIdJurisdiction": "Enter the US state that issued this tax ID, e.g. US-CA."
-      }
+      },
+      "prefilled": "Filled in from the business details saved in your account. Any change here applies to this order only."
     },
     "methods": {
       "creditCard": "Credit card",
@@ -473,7 +474,27 @@
     "accessStatus": "Status",
     "accessGranted": "Granted",
     "accessExpires": "Expires",
-    "noAccess": "You don't have any digital access yet."
+    "noAccess": "You don't have any digital access yet.",
+    "businessIdentity": {
+      "heading": "Business details",
+      "intro": "Save the company you usually buy for. Checkout fills in its Business purchase section with these details, and you can still change them for each order.",
+      "none": "No business details saved.",
+      "jurisdiction": "Jurisdiction (optional, e.g. US-CA)",
+      "jurisdictionLine": "Jurisdiction: {jurisdiction}",
+      "save": "Save business details",
+      "clear": "Clear business details",
+      "saved": "Business details saved.",
+      "cleared": "Business details cleared.",
+      "error": "Could not save the business details. Check them and try again.",
+      "tips": {
+        "companyName": "The legal name of the company you buy for. It is printed on your invoices.",
+        "taxId": "The company's tax registration number, if it has one. Optional.",
+        "taxIdScheme": "Which register the tax ID belongs to — it decides how the number is checked.",
+        "jurisdiction": "The country or state that issued the tax ID. Needed for a US state sales-tax ID (e.g. US-CA); other types fill it in themselves.",
+        "save": "Save these details so checkout fills them in next time.",
+        "clear": "Remove the saved business details. Orders you already placed keep theirs."
+      }
+    }
   },
   "support": {
     "title": "Order support",

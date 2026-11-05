@@ -242,7 +242,8 @@
         "taxId": "Diese Steuernummer entspricht nicht dem Format der gewählten Art. Prüfen Sie die Nummer oder die Art.",
         "taxIdScheme": "Wählen Sie aus, welche Art von Steuernummer dies ist.",
         "taxIdJurisdiction": "Geben Sie den US-Bundesstaat ein, der diese Steuernummer ausgestellt hat, z. B. US-CA."
-      }
+      },
+      "prefilled": "Aus den in Ihrem Konto gespeicherten Firmendaten übernommen. Änderungen hier gelten nur für diese Bestellung."
     },
     "methods": {
       "creditCard": "Kreditkarte",
@@ -465,7 +466,27 @@
     "discount": "Rabatt",
     "shipping": "Versand",
     "tax": "Steuer",
-    "total": "Gesamt"
+    "total": "Gesamt",
+    "businessIdentity": {
+      "heading": "Firmendaten",
+      "intro": "Speichern Sie das Unternehmen, für das Sie üblicherweise einkaufen. Beim Bezahlen wird der Bereich „Geschäftskauf“ damit ausgefüllt; Sie können die Angaben für jede Bestellung ändern.",
+      "none": "Keine Firmendaten gespeichert.",
+      "jurisdiction": "Rechtsraum (optional, z. B. US-CA)",
+      "jurisdictionLine": "Rechtsraum: {jurisdiction}",
+      "save": "Firmendaten speichern",
+      "clear": "Firmendaten löschen",
+      "saved": "Firmendaten gespeichert.",
+      "cleared": "Firmendaten gelöscht.",
+      "error": "Die Firmendaten konnten nicht gespeichert werden. Bitte prüfen Sie sie und versuchen Sie es erneut.",
+      "tips": {
+        "companyName": "Der rechtliche Name des Unternehmens, für das Sie einkaufen. Er erscheint auf Ihren Rechnungen.",
+        "taxId": "Die Steuernummer des Unternehmens, falls vorhanden. Optional.",
+        "taxIdScheme": "Zu welchem Register die Steuernummer gehört – danach richtet sich die Prüfung der Nummer.",
+        "jurisdiction": "Das Land oder der Bundesstaat, der die Steuernummer vergeben hat. Für eine US-Sales-Tax-ID erforderlich (z. B. US-CA); andere Arten ergänzen ihn selbst.",
+        "save": "Speichern Sie diese Angaben, damit sie beim nächsten Bezahlen ausgefüllt sind.",
+        "clear": "Die gespeicherten Firmendaten entfernen. Bereits aufgegebene Bestellungen behalten ihre Angaben."
+      }
+    }
   },
   "support": {
     "title": "Bestellsupport",
