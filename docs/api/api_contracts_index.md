@@ -51,7 +51,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST/DELETE | `/admin/rbac/memberships/{membershipId}/roles/{roleId}` | admin | Grant/revoke a role on a tenant membership |
 | GET | `/admin/rbac/principals/{principalId}/effective-permissions` | admin | Effective-permission introspection |
 
-> `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly. MFA-pending sessions introspect 401, so they hold no claims anywhere; internal-claims JWTs carry `amr` (`pwd` / `pwd otp`) and `auth_time` once a factor is verified.
+> `POST /internal/introspection` exists but is **gateway-only** and excluded from OpenAPI — never routed publicly. Like `POST /internal/authz/decide` (the PDP, ADR-0025), it is service-to-service only: the gateway answers **404** for any `/api/{service}/internal[/…]` path (gateway_block_internal_paths — before that fix the identity route's catch-all proxied both from the public origin). MFA-pending sessions introspect 401, so they hold no claims anywhere; internal-claims JWTs carry `amr` (`pwd` / `pwd otp`) and `auth_time` once a factor is verified.
 
 ## Catalog (`/api/catalog`)
 

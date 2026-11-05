@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.Ordering.Domain;
@@ -119,20 +118,18 @@ public class PromotionProjectionTests(Phase3Fixture fixture)
 
     private async Task<PromotionCopy> WaitForCopyAsync(Guid promotionId, Func<PromotionCopy, bool> matches)
     {
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < TimeSpan.FromSeconds(20))
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.PromotionCopies.FindAsync(promotionId);
-            if (copy is not null && matches(copy))
+        PromotionCopy? found = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return copy;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"PromotionCopy {promotionId} did not reach the expected state.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.PromotionCopies.FindAsync(promotionId);
+                found = copy is not null && matches(copy) ? copy : null;
+                return found is not null;
+            },
+            () => new TimeoutException($"PromotionCopy {promotionId} did not reach the expected state."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
+        return found!;
     }
 }

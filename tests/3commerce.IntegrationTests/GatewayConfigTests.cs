@@ -55,6 +55,39 @@ public sealed class GatewayConfigTests
         Assert.Contains("StatusCodes.Status404NotFound", program);
     }
 
+    // Every route's catch-all strips /api/{service}, so /api/identity/internal/introspection and
+    // /api/identity/internal/authz/decide (the PDP) used to answer from the public origin. The live twin is
+    // e2e-verify L4b.
+    [Fact]
+    public void Gateway_program_keeps_service_internal_endpoints_off_the_public_origin()
+    {
+        var root = FindRepositoryRoot();
+        var program = File.ReadAllText(Path.Combine(root, "src", "Gateway", "Program.cs"));
+
+        Assert.Contains("Service-to-service endpoints are internal-only too", program);
+        Assert.Contains("path.Split('/', StringSplitOptions.RemoveEmptyEntries)", program);
+        Assert.Contains("string.Equals(segments[2], \"internal\", StringComparison.OrdinalIgnoreCase)", program);
+
+        // The block must run before the proxy, in the same early middleware as the health guard.
+        Assert.True(
+            program.IndexOf("Service-to-service endpoints are internal-only too", StringComparison.Ordinal)
+                < program.IndexOf("app.MapReverseProxy()", StringComparison.Ordinal),
+            "the /internal block must precede MapReverseProxy");
+
+        // Only Identity serves /internal routes today; none is meant to be public.
+        foreach (var service in Directory.GetDirectories(Path.Combine(root, "src", "Services")))
+        {
+            foreach (var file in Directory.GetFiles(Path.Combine(service, "Api"), "*.cs", SearchOption.AllDirectories))
+            {
+                var source = File.ReadAllText(file);
+                if (source.Contains("\"/internal/", StringComparison.Ordinal))
+                {
+                    Assert.Contains(".ExcludeFromDescription()", source);
+                }
+            }
+        }
+    }
+
     private static JsonDocument LoadGatewayJson(string fileName)
     {
         var root = FindRepositoryRoot();

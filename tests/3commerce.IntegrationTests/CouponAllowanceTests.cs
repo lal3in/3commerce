@@ -292,19 +292,14 @@ public class CouponAllowanceTests(Phase3Fixture fixture)
 
     private async Task WaitAsync(Func<OrderingDbContext, Task<bool>> projected, string what)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await projected(db))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"{what} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await projected(db);
+            },
+            () => new TimeoutException($"{what} did not project."),
+            TimeSpan.FromSeconds(20));
     }
 }

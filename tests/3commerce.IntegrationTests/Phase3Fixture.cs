@@ -97,20 +97,16 @@ public sealed class Phase3Fixture : IAsyncLifetime
             SupplierCostMinor: 0,
             Currency: currency));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.PricingModel == PricingModel.Subscription))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return productId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Recurring OfferCopy for product {productId} did not project.");
+                using var scope = Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.PricingModel == PricingModel.Subscription);
+            },
+            () => new TimeoutException($"Recurring OfferCopy for product {productId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return productId;
     }
 
     public WebApplicationFactory<ThreeCommerce.Ordering.Api.IApiMarker> Ordering { get; private set; } = null!;
@@ -164,20 +160,15 @@ public sealed class Phase3Fixture : IAsyncLifetime
         var tenantId = new Guid("00000000-0000-0000-0000-000000000001");
         await PublishAsync(new SupplierApprovalChanged(tenantId, supplierId, approved));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.SupplierApprovalCopies.AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"SupplierApprovalCopy for supplier {supplierId} did not project (approved={approved}).");
+                using var scope = Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.SupplierApprovalCopies.AnyAsync(s => s.SupplierId == supplierId && s.Approved == approved);
+            },
+            () => new TimeoutException($"SupplierApprovalCopy for supplier {supplierId} did not project (approved={approved})."),
+            TimeSpan.FromSeconds(20));
     }
 
     /// <summary>
@@ -337,20 +328,16 @@ public sealed class Phase3Fixture : IAsyncLifetime
             Currency: costCurrency));
 
         // Wait for the projection so checkout resolves the supplier and the accrual can read the cost.
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.SupplierCostMinor == supplierCostMinor))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return (productId, supplierId);
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"OfferCopy for product {productId} did not project.");
+                using var scope = Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.SupplierCostMinor == supplierCostMinor);
+            },
+            () => new TimeoutException($"OfferCopy for product {productId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return (productId, supplierId);
     }
 
     /// <summary>
@@ -382,22 +369,18 @@ public sealed class Phase3Fixture : IAsyncLifetime
             PriceMinor: priceMinor,
             StorefrontId: storefrontId));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.OfferCopies.AnyAsync(o => o.OfferId == id && o.SupplierCostMinor == supplierCostMinor
-                    && o.Priority == priority && o.Active == active && o.StorefrontId == storefrontId && o.Currency == currency
-                    && o.PriceMinor == priceMinor))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return id;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"OfferCopy {id} for product {productId} did not project.");
+                using var scope = Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.OfferCopies.AnyAsync(o => o.OfferId == id && o.SupplierCostMinor == supplierCostMinor
+                        && o.Priority == priority && o.Active == active && o.StorefrontId == storefrontId && o.Currency == currency
+                        && o.PriceMinor == priceMinor);
+            },
+            () => new TimeoutException($"OfferCopy {id} for product {productId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return id;
     }
 
     public async Task<long> TrialBalanceAsync()

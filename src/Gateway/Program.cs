@@ -85,6 +85,19 @@ app.Use(async (context, next) =>
         return;
     }
 
+    // Service-to-service endpoints are internal-only too: never proxy /api/{service}/internal[/...]. Each route's
+    // catch-all strips /api/{service}, so without this /api/identity/internal/introspection and
+    // /api/identity/internal/authz/decide (the PDP) answered from the public origin. Matched on the segment right
+    // after the service, so an ordinary path that merely contains "internal" elsewhere is untouched.
+    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    if (segments.Length >= 3
+        && string.Equals(segments[0], "api", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(segments[2], "internal", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
     await next();
 });
 

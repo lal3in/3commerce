@@ -466,17 +466,9 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
 
     private static async Task WaitAsync(Func<Task<bool>> settled, string what)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (await settled())
-            {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"{what}.");
+        await Eventually.UntilAsync(
+            settled,
+            () => new TimeoutException($"{what}."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 }

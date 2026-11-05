@@ -177,60 +177,43 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         await fixture.PublishAsync(new StorefrontConfigChanged(
             storefrontId, tenantId, $"EU store {jurisdiction}", "EUR", taxBps, IsLive: true, TaxInclusive: inclusive,
             DiscountBps: 0, TaxJurisdiction: jurisdiction));
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
-            if (copy is { IsLive: true } && copy.TaxJurisdiction == jurisdiction && copy.TaxRateBasisPoints == taxBps)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return storefrontId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Storefront copy {storefrontId} never projected.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
+                return copy is { IsLive: true } && copy.TaxJurisdiction == jurisdiction && copy.TaxRateBasisPoints == taxBps;
+            },
+            () => new TimeoutException($"Storefront copy {storefrontId} never projected."),
+            TimeSpan.FromSeconds(20));
+        return storefrontId;
     }
 
     private async Task SettleAsync(HttpClient shopper, CheckoutResponseDto order)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (true)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == order.OrderId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                break;
-            }
-
-            if (DateTimeOffset.UtcNow > deadline)
-            {
-                throw new TimeoutException($"Checkout saga for {order.OrderId} never started.");
-            }
-
-            await Task.Delay(250);
-        }
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == order.OrderId);
+            },
+            () => new TimeoutException($"Checkout saga for {order.OrderId} never started."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
 
         using var payments = fixture.Payments.CreateClient();
         (await payments.PostAsync($"/dev/simulate-payment/pi_fake_{order.OrderId:N}?amountMinor={order.GrossMinor}", null))
             .EnsureSuccessStatusCode();
 
-        var statusDeadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < statusDeadline)
-        {
-            var status = await shopper.GetFromJsonAsync<StatusDto>($"/orders/{order.OrderId}/status");
-            if (status?.Status == "Confirmed")
+        await Eventually.UntilAsync(
+            async () =>
             {
-                Assert.Equal(0, await fixture.TrialBalanceAsync());
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Order {order.OrderId} never reached Confirmed.");
+                var status = await shopper.GetFromJsonAsync<StatusDto>($"/orders/{order.OrderId}/status");
+                return status?.Status == "Confirmed";
+            },
+            () => new TimeoutException($"Order {order.OrderId} never reached Confirmed."),
+            interval: TimeSpan.FromMilliseconds(250));
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 }
