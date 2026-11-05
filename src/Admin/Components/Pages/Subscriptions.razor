@@ -1,6 +1,7 @@
 @page "/subscriptions"
 @attribute [Authorize(Roles = "admin")]
 @inject GatewayClient Gateway
+@inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
 <h1>@L["Subs.Title"]</h1>
@@ -159,7 +160,9 @@ else
                                                     }
                                                     else if (_refundForm?.ChargeReference != chargeRef)
                                                     {
-                                                        <button disabled="@_busy" @onclick="() => OpenRefund(detail, r)" title="@L["Subs.Refund.Tip"]">@L["Subs.Refund"]</button>
+                                                        @* Refunding a renewal charge needs payment.refund (refund_permission_enforcement); without it the
+                                                           button is disabled and says why — Payments would answer 403 anyway (the PEP decides). *@
+                                                        <button disabled="@(_busy || !_canRefund)" @onclick="() => OpenRefund(detail, r)" title="@(_canRefund ? L["Subs.Refund.Tip"] : L["Common.RefundPermissionRequired.Tip"])">@L["Subs.Refund"]</button>
                                                     }
                                                 }
                                             </td>
@@ -177,7 +180,7 @@ else
                                                         <input type="text" maxlength="200" @bind="form.Reason" @bind:after="ResetRefundConfirm" disabled="@_busy"
                                                                title="@L["Subs.Refund.Reason.Tip"]" style="width:18rem; padding:.3rem;" />
                                                     </label>
-                                                    <button disabled="@_busy" @onclick="() => SubmitRefundAsync(detail.OrderId)" title="@L["Subs.Refund.Submit.Tip"]"
+                                                    <button disabled="@(_busy || !_canRefund)" @onclick="() => SubmitRefundAsync(detail.OrderId)" title="@(_canRefund ? L["Subs.Refund.Submit.Tip"] : L["Common.RefundPermissionRequired.Tip"])"
                                                             style="color:#b91c1c;">@(form.Confirming ? L["Subs.Refund.Confirm", Money.WithCode(Money.ToMinor(form.Amount, form.Currency), form.Currency)] : L["Subs.Refund.Submit"])</button>
                                                     <button disabled="@_busy" @onclick="CloseRefund" title="@L["Subs.Refund.Close.Tip"]">@L["Common.Cancel"]</button>
                                                 </div>
@@ -210,6 +213,7 @@ else
     private Dictionary<Guid, string> _storefrontNames = [];
     private string _filter = "";
     private bool _busy;
+    private bool _canRefund;
     private string? _error;
     private string? _status;
     // Expanded rows → their lazily-loaded detail (null while the fetch is in flight).
@@ -225,7 +229,11 @@ else
     private List<SubscriptionDto> Filtered =>
         (_subs ?? []).Where(s => _filter.Length == 0 || s.Status == _filter).ToList();
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _canRefund = await Permissions.HasAsync(AdminPermissions.PaymentRefund);
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -371,6 +379,11 @@ else
 
     private void OpenRefund(SubscriptionDetailDto detail, RenewalDto r)
     {
+        if (!_canRefund)
+        {
+            return;
+        }
+
         _error = _status = null;
         _refundForm = new RefundForm
         {
@@ -398,7 +411,7 @@ else
 
     private async Task SubmitRefundAsync(Guid orderId)
     {
-        if (_refundForm is not { } form)
+        if (_refundForm is not { } form || !_canRefund)
         {
             return;
         }

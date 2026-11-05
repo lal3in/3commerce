@@ -38,7 +38,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/convert-guest` | anon | Attach verified-email guest orders to a new account (BL-1) |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |
 | GET/PUT | `/me` | session | Customer member profile: title/first/middle/last/preferred name, phone, date of birth, marketing consent (mem_1) |
-| GET | `/me/permissions` | session | The caller's effective permission keys in their tenant (`isPlatformAdmin` + `permissions[]`, registry order; a platform admin gets every key; no principal → empty). Advisory UI capability metadata (ADR-0025) — the admin disables Refund / Approve without `payment.refund`; services re-decide every action (refund_permission_enforcement) |
+| GET | `/me/permissions` | session | The caller's effective permission keys in their tenant (`isPlatformAdmin` + `permissions[]`, registry order; a platform admin gets every key; no principal → empty). Advisory UI capability metadata (ADR-0025) — the admin disables Orders Refund, RMA Approve and the Subscriptions renewal-charge Refund without `payment.refund`; services re-decide every action (refund_permission_enforcement) |
 | GET/POST/PUT/DELETE | `/me/addresses[/{id}]` | session | Typed saved addresses (`Billing`, `Shipping`, `Both`) with purpose-aware defaults; ownership-scoped |
 | GET | `/mfa/status` | cookie | `{enrolled, pending, required}` for the session's account (mt6_10) |
 | POST | `/mfa/enroll/begin` · `/mfa/enroll/confirm` | cookie | TOTP enrollment: begin returns secret + otpauth URI; confirm proves possession and returns the one-time recovery codes. A confirmed factor cannot be reset here (support flow) |

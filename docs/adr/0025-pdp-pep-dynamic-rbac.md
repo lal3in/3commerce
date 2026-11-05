@@ -114,7 +114,7 @@ first action the PEP path actually enforces; until now every admin endpoint reli
   not stick (withhold refunds with a custom role instead).
 - **Not enforced here:** the decision's `RequiresApproval` (maker-checker for High-risk staff actions) and
   `RequiresReason` (MasterGlobal) flags — refunds still execute on one human's say-so, as before.
-- **UI:** Identity `GET /me/permissions` returns the caller's effective keys; the admin disables Refund / Approve
-  without `payment.refund` (advisory only). The PDP stays service-to-service only: the gateway 404s every
+- **UI:** Identity `GET /me/permissions` returns the caller's effective keys; the admin disables the Orders Refund,
+  RMA Approve and Subscriptions renewal-charge Refund actions without `payment.refund` (advisory only). The PDP stays service-to-service only: the gateway 404s every
   `/api/{service}/internal/*` path (shipped separately as gateway_block_internal_paths — the identity route's
   catch-all had exposed the PDP and introspection publicly).

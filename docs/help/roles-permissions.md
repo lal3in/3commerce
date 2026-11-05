@@ -42,8 +42,9 @@ admins keep refunding. **Ops** and **Merchandiser** can't refund; an Ops user ma
 which moves no money. Built-in role permissions are re-applied from the code template at every login, so these
 defaults reach existing tenants and can't be edited away on a built-in role — to withhold refunds, give the user a
 custom role without `payment.refund`. If Identity can't be reached the refund is refused with `503`
-(`errorCode: authorization_unavailable`) — never allowed. In the admin console the Orders **Refund** button
-and the RMA queue's **Approve** buttons are disabled with a tooltip for an operator without the permission
+(`errorCode: authorization_unavailable`) — never allowed. In the admin console the Orders **Refund** button,
+the RMA queue's **Approve** buttons and the Subscriptions renewal-charge **Refund** / submit buttons are disabled
+with a tooltip for an operator without the permission
 (read from `GET /api/identity/me/permissions`; advisory only — the services decide).
 
 ## Built-in roles
