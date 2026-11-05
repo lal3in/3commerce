@@ -539,21 +539,17 @@ public class PromotionMatrixTests(Phase3Fixture fixture)
         await fixture.PublishAsync(new StorefrontConfigChanged(
             storefrontId, TenantId, name, currency, taxBps, IsLive: true, TaxInclusive: false, DiscountBps: discountBps));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
-            if (copy is { IsLive: true } && copy.DiscountBasisPoints == discountBps)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return storefrontId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"Storefront copy {storefrontId} did not project.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.StorefrontTaxCopies.AsNoTracking().FirstOrDefaultAsync(c => c.StorefrontId == storefrontId);
+                return copy is { IsLive: true } && copy.DiscountBasisPoints == discountBps;
+            },
+            () => new TimeoutException($"Storefront copy {storefrontId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return storefrontId;
     }
 
     private async Task<Guid> SeedPromotionAsync(
@@ -569,55 +565,41 @@ public class PromotionMatrixTests(Phase3Fixture fixture)
             combinable, Active: true, ActiveFrom: null, ActiveUntil: null,
             Code: code, MaxRedemptions: null, MaxRedemptionsPerCustomer: null));
 
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope2 = fixture.Ordering.Services.CreateScope();
-            var db = scope2.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.PromotionCopies.AsNoTracking().AnyAsync(p => p.PromotionId == promotionId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return promotionId;
-            }
-
-            await Task.Delay(200);
-        }
-
-        throw new TimeoutException($"PromotionCopy {promotionId} did not project.");
+                using var scope2 = fixture.Ordering.Services.CreateScope();
+                var db = scope2.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.PromotionCopies.AsNoTracking().AnyAsync(p => p.PromotionId == promotionId);
+            },
+            () => new TimeoutException($"PromotionCopy {promotionId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return promotionId;
     }
 
     private async Task WaitForSagaAsync(Guid orderId)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            if (await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId))
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Checkout saga for {orderId} did not start.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.CheckoutStates.AsNoTracking().AnyAsync(s => s.CorrelationId == orderId);
+            },
+            () => new TimeoutException($"Checkout saga for {orderId} did not start."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
     }
 
     private static async Task WaitForStatusAsync(HttpClient client, Guid orderId, string expected)
     {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
-            if (status?.Status == expected)
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"Order {orderId} never reached {expected}.");
+                var status = await client.GetFromJsonAsync<StatusDto>($"/orders/{orderId}/status");
+                return status?.Status == expected;
+            },
+            () => new TimeoutException($"Order {orderId} never reached {expected}."),
+            interval: TimeSpan.FromMilliseconds(250));
     }
 
     private sealed record StatusDto(Guid Id, string Status);

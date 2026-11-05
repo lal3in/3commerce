@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
 using ThreeCommerce.Ordering.Infrastructure;
@@ -133,21 +132,19 @@ public class StorefrontTaxProjectionTests(Phase3Fixture fixture)
     private async Task<ThreeCommerce.Ordering.Domain.ProductCopy> WaitForProductCopyAsync(
         Guid productId, Func<ThreeCommerce.Ordering.Domain.ProductCopy, bool> matches)
     {
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < TimeSpan.FromSeconds(20))
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.ProductCopies.FindAsync(productId);
-            if (copy is not null && matches(copy))
+        ThreeCommerce.Ordering.Domain.ProductCopy? found = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return copy;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"ProductCopy {productId} did not reach the expected state.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.ProductCopies.FindAsync(productId);
+                found = copy is not null && matches(copy) ? copy : null;
+                return found is not null;
+            },
+            () => new TimeoutException($"ProductCopy {productId} did not reach the expected state."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
+        return found!;
     }
 
     private async Task PublishAsync(StorefrontConfigChanged message)
@@ -162,20 +159,18 @@ public class StorefrontTaxProjectionTests(Phase3Fixture fixture)
     private async Task<ThreeCommerce.Ordering.Domain.StorefrontTaxCopy> WaitForCopyAsync(
         Guid storefrontId, Func<ThreeCommerce.Ordering.Domain.StorefrontTaxCopy, bool> matches)
     {
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < TimeSpan.FromSeconds(20))
-        {
-            using var scope = fixture.Ordering.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-            var copy = await db.StorefrontTaxCopies.FindAsync(storefrontId);
-            if (copy is not null && matches(copy))
+        ThreeCommerce.Ordering.Domain.StorefrontTaxCopy? found = null;
+        await Eventually.UntilAsync(
+            async () =>
             {
-                return copy;
-            }
-
-            await Task.Delay(250);
-        }
-
-        throw new TimeoutException($"StorefrontTaxCopy {storefrontId} did not reach the expected state.");
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                var copy = await db.StorefrontTaxCopies.FindAsync(storefrontId);
+                found = copy is not null && matches(copy) ? copy : null;
+                return found is not null;
+            },
+            () => new TimeoutException($"StorefrontTaxCopy {storefrontId} did not reach the expected state."),
+            TimeSpan.FromSeconds(20), interval: TimeSpan.FromMilliseconds(250));
+        return found!;
     }
 }
