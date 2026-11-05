@@ -17,6 +17,12 @@ public enum UsageChargeStatus
 
     /// <summary>The final retry did not settle: no more retries. Money arriving later for one of its attempts still settles it.</summary>
     Abandoned = 4,
+
+    /// <summary>
+    /// An auto-load top-up that was never attempted: the customer has no default saved card (owner decision 2026-11-06,
+    /// <c>jobmgr_3_settlement</c>). Nothing charged, nothing owed, not dunned — final for this reference.
+    /// </summary>
+    Skipped = 5,
 }
 
 /// <summary>What started a usage charge attempt.</summary>
@@ -77,6 +83,18 @@ public sealed class UsageCharge
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    /// <summary>
+    /// The customer's provider customer + default saved card this charge is made on, off-session (owner decision 2026-11-06,
+    /// <c>jobmgr_3_settlement</c>) — the same instrument fields a renewal charges (<see cref="Subscription"/>). Resolved when the
+    /// charge is recorded and again for every NEW attempt key (a retry charges the card that is the default by then); an
+    /// unanswered attempt retried under its own key keeps the card it was sent with. Null: the customer has no default card
+    /// (an overage then goes to the host account as before; an auto-load is <see cref="UsageChargeStatus.Skipped"/>).
+    /// </summary>
+    public string? ProviderCustomerId { get; private set; }
+
+    /// <inheritdoc cref="ProviderCustomerId"/>
+    public string? ProviderPaymentMethodId { get; private set; }
+
     /// <summary>The provider idempotency key of the NEXT attempt.</summary>
     public string NextAttemptKey => DunningSchedule.AttemptKey(Reference, AttemptCount);
 
@@ -106,6 +124,29 @@ public sealed class UsageCharge
             CreatedAt = now,
             UpdatedAt = now,
         };
+    }
+
+    /// <summary>Charge the customer's default saved card (off-session) from the next attempt key on.</summary>
+    public void UseInstrument(string? providerCustomerId, string providerPaymentMethodId, DateTimeOffset now)
+    {
+        ProviderCustomerId = providerCustomerId;
+        ProviderPaymentMethodId = providerPaymentMethodId;
+        UpdatedAt = StoredTime.Of(now);
+    }
+
+    /// <summary>
+    /// An auto-load top-up the customer has no card for: never attempted (owner decision 2026-11-06). Only a charge nothing
+    /// was attempted for can be skipped.
+    /// </summary>
+    public void Skip(DateTimeOffset now)
+    {
+        if (Kind != UsageChargeKind.AutoLoad || Status != UsageChargeStatus.Pending || AttemptCount > 0)
+        {
+            throw new InvalidOperationException($"Usage charge {Reference} cannot be skipped ({Kind}, {Status}, {AttemptCount} attempts).");
+        }
+
+        Status = UsageChargeStatus.Skipped;
+        UpdatedAt = StoredTime.Of(now);
     }
 
     /// <summary>A new attempt key was issued (<see cref="NextAttemptKey"/> moves on).</summary>

@@ -31,6 +31,60 @@ internal static class UsageBilling
             new PaymentModeResolver(PaymentTestSupport.Config(("Payments:Mode", "Sandbox")), PaymentTestSupport.Env(Environments.Development)),
             time ?? TimeProvider.System, log ?? new ListLogger<UsageChargeBilling>(), publisher ?? new RecordingPublisher());
 
+    /// <summary>
+    /// Give the usage customer a saved card (owner decision 2026-11-06: an auto top-up charges the DEFAULT saved card, and
+    /// is skipped without one). Returns the card row.
+    /// </summary>
+    public static SavedPaymentMethod AddCard(
+        PaymentsDbContext db, string pm = "pm_usage_default", bool isDefault = true, string email = "usage@example.com",
+        string customerId = "cus_usage")
+    {
+        var customer = db.PaymentCustomers.Local.SingleOrDefault(c => c.ProviderCustomerId == customerId)
+            ?? db.PaymentCustomers.SingleOrDefault(c => c.ProviderCustomerId == customerId);
+        if (customer is null)
+        {
+            customer = new PaymentCustomer
+            {
+                Id = Guid.CreateVersion7(),
+                TenantId = TenantId,
+                UserId = Guid.CreateVersion7(),
+                Provider = "stripe",
+                ProviderCustomerId = customerId,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            customer.RecordEmail(email);
+            db.PaymentCustomers.Add(customer);
+        }
+
+        var card = new SavedPaymentMethod
+        {
+            Id = Guid.CreateVersion7(),
+            PaymentCustomerId = customer.Id,
+            TenantId = TenantId,
+            UserId = customer.UserId,
+            Provider = "stripe",
+            ProviderPaymentMethodId = pm,
+            Brand = "visa",
+            Last4 = "4242",
+            ExpMonth = 12,
+            ExpYear = 2030,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        if (isDefault)
+        {
+            foreach (var other in db.SavedPaymentMethods.Where(m => m.PaymentCustomerId == customer.Id && m.IsDefault))
+            {
+                other.ClearDefault(DateTimeOffset.UtcNow);
+            }
+
+            card.MakeDefault(DateTimeOffset.UtcNow);
+        }
+
+        db.SavedPaymentMethods.Add(card);
+        db.SaveChanges();
+        return card;
+    }
+
     public static UsageChargeRequest Request(
         Guid? storefrontId, long amountMinor, string reference, UsageChargeKind kind = UsageChargeKind.Overage, long quantity = 20,
         string currency = "USD") =>

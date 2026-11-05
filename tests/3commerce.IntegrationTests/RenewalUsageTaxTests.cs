@@ -225,6 +225,7 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
         var store = await StoreAsync(currency, bps: 600, inclusive: false);
         var reference = $"autoload-{Guid.NewGuid():N}";
 
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, TenantId, "meter@example.com"); // auto top-ups charge the default card
         await fixture.PublishAsync(new UsageAutoLoadCharge(
             TenantId, "meter@example.com", MeterType.Token, ReloadQuantity: 100, ChargeMinor: 1_999, currency, reference, store));
 
@@ -301,6 +302,7 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
         var store = await StoreAsync(currency, bps: 2000, inclusive: true);
         var reference = $"autoload-{Guid.NewGuid():N}";
 
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, TenantId, "meter@example.com"); // auto top-ups charge the default card
         await fixture.PublishAsync(new UsageAutoLoadCharge(
             TenantId, "meter@example.com", MeterType.Token, ReloadQuantity: 100, ChargeMinor: 1_200, currency, reference, store));
 

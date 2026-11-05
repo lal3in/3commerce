@@ -38,6 +38,9 @@ public static class NotificationReferences
         $"usage-charge-failed:{reference}:"
         + (nextRetryAt is { } next ? next.ToUniversalTime().ToString("yyyyMMddTHHmmssZ", System.Globalization.CultureInfo.InvariantCulture) : "final");
 
+    /// <summary>The "add a card — your automatic top-up was skipped" email of one auto-load top-up (jobmgr_3_settlement).</summary>
+    public static string UsageAutoLoadSkipped(string reference) => $"usage-autoload-skipped:{reference}";
+
     /// <summary>The cancellation-for-non-payment email of one subscription period.</summary>
     public static string SubscriptionCancelledForNonPayment(Guid subscriptionId, DateTimeOffset periodEnd) =>
         $"subscription-cancelled-non-payment:{subscriptionId:D}:{periodEnd.ToUniversalTime():yyyyMMddTHHmmssZ}";

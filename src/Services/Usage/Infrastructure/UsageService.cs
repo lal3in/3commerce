@@ -91,8 +91,12 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
     /// </summary>
     public async Task<int> SweepAutoLoadsAsync(CancellationToken ct)
     {
+        // ShouldAutoLoad's rules, in SQL: no held balance (a declined top-up is not followed by another on the same card)
+        // and none paused for want of a card (it would only be skipped — and email the customer — again; it resumes when
+        // Payments reports a card, owner decision 2026-11-06).
         var due = await db.UsageBalances
-            .Where(b => b.AutoLoadEnabled && b.AutoLoadReloadQuantity > 0 && b.PrepaidRemainingQuantity <= b.AutoLoadThresholdQuantity)
+            .Where(b => b.AutoLoadEnabled && b.AutoLoadReloadQuantity > 0 && b.PrepaidRemainingQuantity <= b.AutoLoadThresholdQuantity
+                && b.PaymentHold == UsagePaymentHold.None && b.AutoLoadAwaitingPaymentMethodSince == null)
             .ToListAsync(ct);
         foreach (var balance in due)
         {
@@ -235,6 +239,56 @@ public sealed class UsageService(UsageDbContext db, IPublishEndpoint publisher, 
 
         await RefreshHoldAsync(balance, charge, now, ct);
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Payments skipped an auto top-up — the customer has no default saved card (<see cref="UsageAutoLoadSkipped"/>, owner
+    /// decision 2026-11-06): its optimistic credit is taken back once and auto-load pauses until a card is reported. Nothing
+    /// is owed, so no hold. Idempotent per reference.
+    /// </summary>
+    public async Task ApplySkippedAsync(UsageAutoLoadSkipped m, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var (charge, balance) = await ChargeForAsync(
+            m.TenantId, m.CustomerEmail, m.Meter, m.Reference, UsageChargeKind.AutoLoad, m.Quantity, m.AmountMinor, m.Currency, ct);
+        if (charge is null || balance is null)
+        {
+            return;
+        }
+
+        if (charge.Skip(now))
+        {
+            balance.ReverseAutoLoad(charge.Quantity, now);
+            balance.PauseAutoLoadForPaymentMethod(m.SkippedAt, now);
+        }
+
+        await RefreshHoldAsync(balance, charge, now, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Payments reports the customer has a default card (<see cref="CustomerPaymentMethodReady"/>): every auto-load of theirs
+    /// paused for want of one resumes, and one sitting at its threshold tops up now (charged to that card). Idempotent.
+    /// </summary>
+    public async Task ApplyPaymentMethodReadyAsync(CustomerPaymentMethodReady m, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var normalized = m.CustomerEmail.Trim().ToLowerInvariant();
+        var balances = await db.UsageBalances
+            .Where(b => b.TenantId == m.TenantId && b.CustomerEmail == normalized)
+            .ToListAsync(ct);
+        foreach (var balance in balances)
+        {
+            if (balance.PaymentMethodReady(m.ReadyAt, now) && balance.ShouldAutoLoad())
+            {
+                await PublishAutoLoadAsync(balance, ct);
+            }
+        }
+
+        if (balances.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>The recorded charge and its balance. A charge published before charges were recorded is recorded now

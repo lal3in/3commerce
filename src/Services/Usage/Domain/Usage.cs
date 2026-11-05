@@ -75,6 +75,20 @@ public sealed class UsageBalance
     /// </summary>
     public UsagePaymentHold PaymentHold { get; private set; }
 
+    /// <summary>
+    /// When an auto top-up was skipped because the customer has no default saved card (owner decision 2026-11-06,
+    /// <c>jobmgr_3_settlement</c>); null while auto-load is not paused for that. While set, no further top-up is made (it
+    /// would only be skipped again — and email the customer again) until Payments reports a card
+    /// (<see cref="PaymentMethodReady"/>) or the auto-load is configured again.
+    /// </summary>
+    public DateTimeOffset? AutoLoadAwaitingPaymentMethodSince { get; private set; }
+
+    /// <summary>The latest time Payments reported the customer has a default card (<c>CustomerPaymentMethodReady</c>).</summary>
+    public DateTimeOffset? PaymentMethodReadyAt { get; private set; }
+
+    /// <summary>Auto-load is paused until the customer has a card to charge.</summary>
+    public bool AutoLoadAwaitingPaymentMethod => AutoLoadAwaitingPaymentMethodSince is not null;
+
     /// <summary>A bounded period is due for close once its end has passed.</summary>
     public bool IsDueForClose(DateTimeOffset now) => PeriodEnd is { } end && end <= now;
 
@@ -98,7 +112,8 @@ public sealed class UsageBalance
         {
             UsagePaymentHold.Suspended => false,
             UsagePaymentHold.Unpaid => OverageAllowed,
-            _ => OverageAllowed || AutoLoadEnabled,
+            // No card to top up with (owner decision 2026-11-06): beyond the credit, only allowed overage accrues.
+            _ => OverageAllowed || (AutoLoadEnabled && !AutoLoadAwaitingPaymentMethod),
         };
     }
 
@@ -106,10 +121,11 @@ public sealed class UsageBalance
     public long AutoLoadChargeMinor => AutoLoadReloadQuantity * OverageUnitPriceMinor;
 
     /// <summary>Enabled, configured to reload, the prepaid credit has reached the customer's threshold, and no charge is
-    /// held — a declined top-up is not followed by another one on the same card (usage_charge_failure_feedback).</summary>
+    /// held — a declined top-up is not followed by another one on the same card (usage_charge_failure_feedback) — and the
+    /// customer has a card to charge (a top-up skipped for want of one pauses auto-load, owner decision 2026-11-06).</summary>
     public bool ShouldAutoLoad() =>
         AutoLoadEnabled && AutoLoadReloadQuantity > 0 && PrepaidRemainingQuantity <= AutoLoadThresholdQuantity
-        && PaymentHold == UsagePaymentHold.None;
+        && PaymentHold == UsagePaymentHold.None && !AutoLoadAwaitingPaymentMethod;
 
     private UsageBalance() { }
 
@@ -200,7 +216,46 @@ public sealed class UsageBalance
         AutoLoadEnabled = enabled;
         AutoLoadThresholdQuantity = thresholdQuantity;
         AutoLoadReloadQuantity = reloadQuantity;
+        AutoLoadAwaitingPaymentMethodSince = null; // configuring again is the customer's (or operator's) retry
         UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// An auto top-up was skipped at <paramref name="skippedAt"/> because the customer had no default card: pause auto-load
+    /// until one is reported. A card reported AFTER that moment (the events crossed) means there is one now: no pause.
+    /// </summary>
+    public void PauseAutoLoadForPaymentMethod(DateTimeOffset skippedAt, DateTimeOffset now)
+    {
+        skippedAt = StoredTime.Of(skippedAt);
+        if (PaymentMethodReadyAt is { } ready && ready > skippedAt)
+        {
+            return;
+        }
+
+        AutoLoadAwaitingPaymentMethodSince = AutoLoadAwaitingPaymentMethodSince is { } since && since > skippedAt ? since : skippedAt;
+        UpdatedAt = StoredTime.Of(now);
+    }
+
+    /// <summary>
+    /// Payments reports the customer has a default card (at <paramref name="readyAt"/>). Resumes a pause that began before
+    /// it — never one from a later skip (a stale or redelivered report). Returns whether auto-load resumed.
+    /// </summary>
+    public bool PaymentMethodReady(DateTimeOffset readyAt, DateTimeOffset now)
+    {
+        readyAt = StoredTime.Of(readyAt);
+        if (PaymentMethodReadyAt is null || readyAt > PaymentMethodReadyAt)
+        {
+            PaymentMethodReadyAt = readyAt;
+            UpdatedAt = StoredTime.Of(now);
+        }
+
+        if (AutoLoadAwaitingPaymentMethodSince is { } since && readyAt > since)
+        {
+            AutoLoadAwaitingPaymentMethodSince = null;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Draw usage down against the prepaid credit (never below zero).</summary>
@@ -272,6 +327,10 @@ public enum UsageChargeState
 
     /// <summary>The final retry failed: abandoned. The balance is suspended until it is paid.</summary>
     Abandoned = 4,
+
+    /// <summary>An auto top-up Payments never attempted — the customer has no default saved card (owner decision
+    /// 2026-11-06). Its credit was taken back; nothing is owed, so it holds nothing.</summary>
+    Skipped = 5,
 }
 
 /// <summary>
@@ -337,6 +396,22 @@ public sealed class UsageCharge
         NextRetryAt = final ? null : nextRetryAt;
         UpdatedAt = now;
         return wasOpen;
+    }
+
+    /// <summary>
+    /// Payments skipped it (no card, owner decision 2026-11-06). Returns whether it was still open — the one time its
+    /// optimistic credit is taken back. Only an open charge can be skipped (Payments never attempted it).
+    /// </summary>
+    public bool Skip(DateTimeOffset now)
+    {
+        if (State != UsageChargeState.Open)
+        {
+            return false;
+        }
+
+        State = UsageChargeState.Skipped;
+        UpdatedAt = StoredTime.Of(now);
+        return true;
     }
 
     /// <summary>Settled. Returns whether it had been failed — the one time a reversed credit is re-granted.</summary>

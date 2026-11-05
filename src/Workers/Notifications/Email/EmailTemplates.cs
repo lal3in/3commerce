@@ -105,6 +105,20 @@ public sealed class EmailTemplates(string storefrontBaseUrl)
             NotificationReferences.UsageChargeFailed(e.Reference, e.NextRetryAt));
     }
 
+    /// <summary>
+    /// An automatic top-up was skipped because the customer has no default saved card (owner decision 2026-11-06,
+    /// jobmgr_3_settlement): nothing was charged, no credit was added, and top-ups resume once a card is saved — in the
+    /// account's saved cards.
+    /// </summary>
+    public EmailMessage UsageAutoLoadSkipped(UsageAutoLoadSkipped e) => new(
+        e.CustomerEmail,
+        $"Add a card to keep your {e.Meter} credit topped up",
+        $"Your prepaid {e.Meter} credit reached its top-up level, but we couldn't top it up automatically "
+            + $"({e.Quantity} units, {Money.Amount(e.AmountMinor, e.Currency)} {e.Currency}) because there is no saved card on your account. "
+            + "Nothing was charged and no credit was added. "
+            + $"Add a card under Saved cards at {storefrontBaseUrl}/account and automatic top-ups will resume.",
+        NotificationReferences.UsageAutoLoadSkipped(e.Reference));
+
     private static string UsageSchedule(string meter, DateTimeOffset? nextRetryAt, DateTimeOffset? abandonsAfter) =>
         (nextRetryAt is { } next ? $" We will try again on {next.UtcDateTime.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)} (UTC)." : string.Empty)
         + (abandonsAfter is { } end ? $" If it is still unpaid after {end.UtcDateTime.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)} (UTC), billable {meter} usage will be suspended." : string.Empty);
