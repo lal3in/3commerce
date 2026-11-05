@@ -42,6 +42,11 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
             user.Property(u => u.Phone).HasMaxLength(32);
             user.Ignore(u => u.DisplayName);
             user.Ignore(u => u.FullName);
+            // ADR-0063 P3b: same bounds as Ordering's buyer snapshot, so a saved identity always fits an order.
+            user.Ignore(u => u.BusinessIdentity);
+            user.Property(u => u.BusinessCompanyName).HasMaxLength(BusinessIdentityRules.CompanyNameMaxLength);
+            user.Property(u => u.BusinessTaxId).HasMaxLength(BusinessIdentityRules.TaxIdMaxLength);
+            user.Property(u => u.BusinessTaxIdJurisdiction).HasMaxLength(BusinessIdentityRules.TaxIdJurisdictionMaxLength);
             user.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
             user.HasIndex(u => u.PrincipalId).IsUnique();
             user.HasMany(u => u.Addresses).WithOne().HasForeignKey(a => a.UserId);

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { ThemeTokens } from "@/lib/theme";
+import type { BusinessIdentityDto } from "@/lib/business-identity";
 
 // The browser and server components talk ONLY to the YARP gateway (ADR-0011).
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
@@ -185,7 +186,12 @@ export type ProfileDto = {
   dateOfBirth: string | null;
   marketingConsent: boolean;
   emailVerified: boolean;
+  // ADR-0063 P3b: the saved default business identity that prefills checkout's Business purchase block. Absent from
+  // an older Identity → treated as none.
+  businessIdentity?: BusinessIdentityDto | null;
 };
+
+export type { BusinessIdentityDto };
 
 export type AddressPurpose = "Billing" | "Shipping" | "Both";
 
