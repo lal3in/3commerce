@@ -554,7 +554,7 @@ public static class CheckoutEndpoints
             WarehouseCity = collectWarehouse?.City,
             WarehousePostcode = collectWarehouse?.Postcode,
             WarehouseCountry = collectWarehouse?.CountryCode,
-            CreatedAt = now,
+            CreatedAt = StoredTime.Of(now), // what Postgres will hold (StoredTime): the in-memory attempt == its row
             Lines = cart.Items.Select((i, index) =>
             {
                 var offer = lineOffers[index];
