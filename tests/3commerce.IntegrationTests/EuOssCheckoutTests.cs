@@ -185,6 +185,54 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         Assert.Equal([("AT", 10_000L + 499), ("IT", 5_000L)], (await SalesAsync(order.OrderId)).Select(s => (s.DestinationCountry, s.NetMinor)));
     }
 
+    [Fact]
+    public async Task Goods_shipped_to_the_Canary_Islands_are_an_export_zero_rated_and_never_counted()
+    {
+        // ADR-0063 § 16, special territories: a postcode 35xxx address is in Spain but outside the EU VAT area. A German
+        // inclusive store charges the shelf price with no VAT in it; nothing counts toward the threshold.
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = await SeedStorefrontAsync(tenantId, "DE", taxBps: 1_900, inclusive: true);
+        var productId = await fixture.SeedProductAsync(11_900, "EUR");
+
+        using var shopper = Shopper(tenantId, storefrontId);
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = await CheckoutAsync(shopper, "ES", postcode: "35001");
+
+        Assert.Equal((12_399L, 0L), (order.GrossMinor, order.TaxMinor));
+        await SettleAsync(shopper, order);
+
+        var (persisted, _) = await LoadAsync(order.OrderId);
+        Assert.Equal((TaxScheme.Export, "ES"), (persisted.TaxScheme, persisted.TaxDestinationCountry));
+        var line = Assert.Single(persisted.Lines);
+        Assert.Equal((TaxCategory.Exempt, TaxExemptionReason.OutsideEuVatArea, 11_900L), (line.TaxCategory, line.ExemptionReason, line.TaxableBaseMinor));
+        Assert.Equal((TaxExemptionReason.OutsideEuVatArea, 499L), (persisted.ShippingExemptionReason, persisted.ShippingTaxableBaseMinor));
+        Assert.Empty(await SalesAsync(order.OrderId));
+    }
+
+    [Fact]
+    public async Task Goods_shipped_to_Northern_Ireland_are_an_OSS_distance_sale_at_the_UK_rate_under_XI()
+    {
+        // A BT postcode is Northern Ireland: inside the EU VAT area for goods (XI). Over the threshold an exclusive
+        // German store adds the UK's 20 % on 10000 + 499 shipping = 2099.8 → 2100, and the sale counts under XI.
+        var tenantId = Guid.CreateVersion7();
+        await SeedTurnoverAsync(tenantId, DateTimeOffset.UtcNow.Year - 1, EuOssTaxStrategy.ThresholdMinorEur + 1);
+        var storefrontId = await SeedStorefrontAsync(tenantId, "DE", taxBps: 1_900, inclusive: false);
+        var productId = await fixture.SeedProductAsync(10_000, "EUR");
+
+        using var shopper = Shopper(tenantId, storefrontId);
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = await CheckoutAsync(shopper, "GB", postcode: "BT1 1AA");
+
+        Assert.Equal((2_100L, 10_499L + 2_100), (order.TaxMinor, order.GrossMinor));
+        await SettleAsync(shopper, order);
+
+        var (persisted, _) = await LoadAsync(order.OrderId);
+        Assert.Equal((TaxScheme.Oss, "XI"), (persisted.TaxScheme, persisted.TaxDestinationCountry));
+        Assert.Equal(("XI", 2_000), (Assert.Single(persisted.Lines).TaxDestinationCountry, persisted.ShippingTaxRateBps));
+        var sale = Assert.Single(await SalesAsync(order.OrderId));
+        Assert.Equal(("XI", 10_499L), (sale.DestinationCountry, sale.NetMinor));
+    }
+
     /// <summary>A product whose offer (in THIS tenant) is an electronically supplied download — no shipping.</summary>
     private async Task<Guid> SeedDigitalProductAsync(Guid tenantId, long priceMinor)
     {
@@ -232,12 +280,13 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         return client;
     }
 
-    private static async Task<CheckoutResponseDto> CheckoutAsync(HttpClient shopper, string country, string? billTo = null)
+    private static async Task<CheckoutResponseDto> CheckoutAsync(
+        HttpClient shopper, string country, string? billTo = null, string postcode = "75001")
     {
         var response = await shopper.PostAsJsonAsync("/checkout", new
         {
             email = "eu-buyer@example.com",
-            shippingAddress = new { name = "B", line1 = "1 Rue", city = "Somewhere", postcode = "75001", country },
+            shippingAddress = new { name = "B", line1 = "1 Rue", city = "Somewhere", postcode, country },
             billingAddress = billTo is null ? null : new { name = "B", line1 = "2 Via", city = "Elsewhere", postcode = "00100", country = billTo },
         });
         response.EnsureSuccessStatusCode();

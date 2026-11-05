@@ -293,7 +293,9 @@ Checkout tax (Ordering, ADR-0063 P1):
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Destinations are PER LINE (ADR-0063 § 16):
   pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; record
-  `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Renewals still use the storefront's own
+  `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Pass
+  the ship-to/bill-to REGION and POSTCODE too: a country alone cannot tell the Canaries (export, zero-rated) from
+  Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). Renewals still use the storefront's own
   rate in Payments (an OSS subscription's renewal is a known gap, ADR-0063 § 16 P1b).
 - **The invoicing facts travel on the events (ADR-0063 P5) — never rebuild them by hand.** `OrderConfirmed` is built
   only by `OrderConfirmedFactory.From` (line ids, P1 tax facts, bill-to, buyer, `CapturedAt` = the order's
