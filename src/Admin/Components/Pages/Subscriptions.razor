@@ -44,7 +44,7 @@ else
         <tbody>
         @foreach (var s in Filtered)
         {
-            <tr style="border-bottom:1px solid #f3f4f6;">
+            <tr style="border-bottom:1px solid #f3f4f6;" data-subscription="@s.Id">
                 <td style="padding:.4rem; text-align:center;">
                     <button @onclick="() => ToggleAsync(s.Id)" title="@L["Subs.Expand.Tip"]" style="border:0; background:none; cursor:pointer; font-size:.9rem;">@(_expanded.ContainsKey(s.Id) ? "▾" : "▸")</button>
                 </td>
@@ -103,7 +103,7 @@ else
                                 </dl>
                             </section>
                         </div>
-                        <section style="margin-top:1rem; max-width:820px;">
+                        <section style="margin-top:1rem; max-width:1040px;">
                             <h3 style="margin:0 0 .5rem; font-size:.95rem;">@L["Subs.Detail.History"]</h3>
                             @if (detail.Renewals.Count == 0)
                             {
@@ -117,16 +117,73 @@ else
                                         <th>@L["Subs.History.Period"]</th>
                                         <th>@L["Subs.History.Amount"]</th>
                                         <th>@L["Subs.History.Recorded"]</th>
+                                        <th title="@L["Subs.History.Charge.Tip"]">@L["Subs.History.Charge"]</th>
+                                        <th title="@L["Subs.History.Refunds.Tip"]">@L["Subs.History.Refunds"]</th>
+                                        <th>@L["Common.Actions"]</th>
                                     </tr></thead>
                                     <tbody>
                                     @foreach (var r in detail.Renewals)
                                     {
-                                        <tr style="border-bottom:1px solid #f3f4f6;">
+                                        <tr style="border-bottom:1px solid #f3f4f6;" data-charge="@(r.ChargeReference ?? "")">
                                             <td style="padding:.3rem;">#@r.Sequence</td>
                                             <td>@Period(r.PeriodStart, r.PeriodEnd)</td>
                                             <td>@Money.WithCode(r.AmountMinor, r.Currency)</td>
                                             <td>@r.RecordedAt.LocalDateTime.ToString("dd MMM yyyy HH:mm")</td>
+                                            <td>
+                                                @if (r.ChargeReference is { } reference)
+                                                {
+                                                    <code title="@L["Subs.Charge.Reference.Tip", reference, r.PaymentIntentId ?? "—"]" style="font-size:.75rem;">@ShortReference(reference)</code>
+                                                }
+                                                else
+                                                {
+                                                    <span title="@(r.Sequence == 1 ? L["Subs.Charge.ByOrder.Tip"] : L["Subs.Charge.None.Tip"])" style="color:#9ca3af;">@(r.Sequence == 1 ? L["Subs.Charge.ByOrder"] : "—")</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (r.ChargeReference is not null)
+                                                {
+                                                    var state = ChargeState(r);
+                                                    <span title="@ChargeStateTip(r, state)" style="display:inline-block; padding:.05rem .4rem; border-radius:999px; font-size:.7rem; font-weight:600; color:@ChargeStateColor(state); background:@ChargeStateBackground(state);">@ChargeStateLabel(state)</span>
+                                                    @if (r.RefundedMinor is > 0 && state != ChargeRefundState.Refunded)
+                                                    {
+                                                        <span style="margin-left:.3rem; color:#6b7280;">@L["Subs.Charge.RefundedSoFar", Money.WithCode(r.RefundedMinor.Value, r.Currency)]</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (r.ChargeReference is { } chargeRef && Refundable(r))
+                                                {
+                                                    if (_refundPending.Contains(chargeRef))
+                                                    {
+                                                        <span style="color:#6b7280;" title="@L["Subs.Refund.Pending.Tip"]">@L["Subs.Refund.Pending"]</span>
+                                                    }
+                                                    else if (_refundForm?.ChargeReference != chargeRef)
+                                                    {
+                                                        <button disabled="@_busy" @onclick="() => OpenRefund(detail, r)" title="@L["Subs.Refund.Tip"]">@L["Subs.Refund"]</button>
+                                                    }
+                                                }
+                                            </td>
                                         </tr>
+                                        @if (_refundForm is { } form && form.ChargeReference == r.ChargeReference)
+                                        {
+                                            <tr style="background:#f9fafb;"><td colspan="7" class="charge-refund-form" style="padding:.6rem .5rem;">
+                                                <div style="display:flex; gap:.6rem; align-items:end; flex-wrap:wrap;">
+                                                    <label style="font-size:.8rem; color:#6b7280;">@L["Subs.Refund.Amount", form.Currency]<br />
+                                                        <input type="number" min="@AmountStep(form.Currency)" max="@Money.ToMajor(form.RemainingMinor, form.Currency).ToString(System.Globalization.CultureInfo.InvariantCulture)" step="@AmountStep(form.Currency)"
+                                                               @bind="form.Amount" @bind:after="ResetRefundConfirm" disabled="@_busy"
+                                                               title="@L["Subs.Refund.Amount.Tip", Money.WithCode(form.RemainingMinor, form.Currency)]" style="width:8rem; padding:.3rem;" />
+                                                    </label>
+                                                    <label style="font-size:.8rem; color:#6b7280;">@L["Subs.Refund.Reason"]<br />
+                                                        <input type="text" maxlength="200" @bind="form.Reason" @bind:after="ResetRefundConfirm" disabled="@_busy"
+                                                               title="@L["Subs.Refund.Reason.Tip"]" style="width:18rem; padding:.3rem;" />
+                                                    </label>
+                                                    <button disabled="@_busy" @onclick="() => SubmitRefundAsync(detail.OrderId)" title="@L["Subs.Refund.Submit.Tip"]"
+                                                            style="color:#b91c1c;">@(form.Confirming ? L["Subs.Refund.Confirm", Money.WithCode(Money.ToMinor(form.Amount, form.Currency), form.Currency)] : L["Subs.Refund.Submit"])</button>
+                                                    <button disabled="@_busy" @onclick="CloseRefund" title="@L["Subs.Refund.Close.Tip"]">@L["Common.Cancel"]</button>
+                                                </div>
+                                                @if (form.Error is not null) { <p role="alert" style="color:#b91c1c; margin:.4rem 0 0; font-size:.8rem;">@form.Error</p> }
+                                            </td></tr>
+                                        }
                                     }
                                     </tbody>
                                 </table>
@@ -160,6 +217,10 @@ else
     // Rows whose renew/cancel was accepted; buttons stay suppressed until the next reload (mirrors the
     // eventually-consistent guard the RMA queue uses against a double-click landing a stale-state error).
     private readonly HashSet<Guid> _acted = [];
+    // The one open renewal-charge refund form (admin_recurring_charge_refund_action), and the charges whose refund was
+    // accepted (202) but has not yet shown in the detail — their Refund button stays suppressed until the next reload.
+    private RefundForm? _refundForm;
+    private readonly HashSet<string> _refundPending = [];
 
     private List<SubscriptionDto> Filtered =>
         (_subs ?? []).Where(s => _filter.Length == 0 || s.Status == _filter).ToList();
@@ -197,6 +258,7 @@ else
                 catch { /* leave unresolved; ProductLabel falls back to the short id */ }
             }
             _acted.Clear();
+            _refundPending.Clear();
             // Refresh any open detail panel so its history reflects a renewal just performed.
             foreach (var id in _expanded.Keys.ToList())
             {
@@ -238,6 +300,206 @@ else
         }
 
         _busy = false;
+    }
+
+    // ── Refunding a renewal's own charge (admin_recurring_charge_refund_action) ──────────────────────────────────────
+    // POST /admin/refunds with the charge's chargeReference (renewal_usage_refund_path): the single refund consumer
+    // refunds that charge's intent and reverses its own tax. Period 1 has no reference — the order paid it, so it is
+    // refunded from the Orders page. Same safeguards as the order refund: an explicit confirm step, an Idempotency-Key,
+    // the button disabled while the request is in flight, then the charge's state re-read from the server.
+
+    // PaymentStatus crosses as a NUMBER (Payments' enum): 2 Succeeded, 4 Refunded, 5 Disputed, 6 Chargeback.
+    private const int PaymentSucceeded = 2, PaymentRefunded = 4, PaymentDisputed = 5, PaymentChargeback = 6;
+
+    private enum ChargeRefundState { NotRefunded, PartiallyRefunded, Refunded, Disputed }
+
+    private static long Remaining(RenewalDto r) => Math.Max(0, r.AmountMinor - (r.RefundedMinor ?? 0));
+
+    private static ChargeRefundState ChargeState(RenewalDto r) => r.PaymentStatus switch
+    {
+        PaymentDisputed or PaymentChargeback => ChargeRefundState.Disputed,
+        PaymentRefunded => ChargeRefundState.Refunded,
+        _ when r.RefundedMinor is > 0 && Remaining(r) == 0 => ChargeRefundState.Refunded,
+        _ when r.RefundedMinor is > 0 => ChargeRefundState.PartiallyRefunded,
+        _ => ChargeRefundState.NotRefunded,
+    };
+
+    // Only a settled, undisputed charge with money left on it is refundable — the rule the refund consumer enforces
+    // (a captured payment, amount ≤ what is left); a disputed charge is returned through its dispute instead.
+    private static bool Refundable(RenewalDto r) => r.PaymentStatus == PaymentSucceeded && Remaining(r) > 0;
+
+    private string ChargeStateLabel(ChargeRefundState state) => state switch
+    {
+        ChargeRefundState.Refunded => L["Subs.Charge.Refunded"],
+        ChargeRefundState.PartiallyRefunded => L["Subs.Charge.PartiallyRefunded"],
+        ChargeRefundState.Disputed => L["Subs.Charge.Disputed"],
+        _ => L["Subs.Charge.NotRefunded"],
+    };
+
+    private string ChargeStateTip(RenewalDto r, ChargeRefundState state) => state switch
+    {
+        ChargeRefundState.Refunded => L["Subs.Charge.Refunded.Tip", Money.WithCode(r.RefundedMinor ?? r.AmountMinor, r.Currency)],
+        ChargeRefundState.PartiallyRefunded => L["Subs.Charge.PartiallyRefunded.Tip",
+            Money.WithCode(r.RefundedMinor ?? 0, r.Currency), Money.WithCode(r.AmountMinor, r.Currency), Money.WithCode(Remaining(r), r.Currency)],
+        ChargeRefundState.Disputed => L["Subs.Charge.Disputed.Tip"],
+        _ => L["Subs.Charge.NotRefunded.Tip"],
+    };
+
+    private static string ChargeStateColor(ChargeRefundState state) => state switch
+    {
+        ChargeRefundState.Refunded => "#374151",
+        ChargeRefundState.PartiallyRefunded => "#b45309",
+        ChargeRefundState.Disputed => "#b91c1c",
+        _ => "#047857",
+    };
+
+    private static string ChargeStateBackground(ChargeRefundState state) => state switch
+    {
+        ChargeRefundState.Refunded => "#e5e7eb",
+        ChargeRefundState.PartiallyRefunded => "#fef3c7",
+        ChargeRefundState.Disputed => "#fee2e2",
+        _ => "#d1fae5",
+    };
+
+    // renew-{subscription id}-{sequence} is long; show its head and tail (the full reference is in the tooltip).
+    private static string ShortReference(string reference) =>
+        reference.Length <= 22 ? reference : $"{reference[..14]}…{reference[^6..]}";
+
+    // The input's step + minimum: one minor unit at the currency's decimals (0.01 USD, 1 JPY, 0.001 KWD).
+    private static string AmountStep(string currency) =>
+        Money.Digits(currency) == 0 ? "1" : "0." + new string('0', Money.Digits(currency) - 1) + "1";
+
+    private void OpenRefund(SubscriptionDetailDto detail, RenewalDto r)
+    {
+        _error = _status = null;
+        _refundForm = new RefundForm
+        {
+            SubscriptionId = detail.Id,
+            ChargeReference = r.ChargeReference!,
+            Currency = r.Currency,
+            RemainingMinor = Remaining(r),
+            RefundedBeforeMinor = r.RefundedMinor ?? 0,
+            Amount = Money.ToMajor(Remaining(r), r.Currency), // defaults to a full refund of what is left
+        };
+    }
+
+    private void CloseRefund() => _refundForm = null;
+
+    // Any edit re-arms the confirm step and takes a fresh Idempotency-Key — the key guards one confirmed request, and
+    // the server answers a reused key with a different body as a 409 conflict.
+    private void ResetRefundConfirm()
+    {
+        if (_refundForm is { } form)
+        {
+            form.Confirming = false;
+            form.IdempotencyKey = RefundForm.NewKey();
+        }
+    }
+
+    private async Task SubmitRefundAsync(Guid orderId)
+    {
+        if (_refundForm is not { } form)
+        {
+            return;
+        }
+
+        form.Error = null;
+        var amountMinor = Money.ToMinor(form.Amount, form.Currency);
+        if (amountMinor <= 0 || amountMinor > form.RemainingMinor)
+        {
+            form.Confirming = false;
+            form.Error = L["Subs.Refund.AmountInvalid", Money.WithCode(form.RemainingMinor, form.Currency)];
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(form.Reason))
+        {
+            form.Confirming = false;
+            form.Error = L["Subs.Refund.ReasonRequired"];
+            return;
+        }
+
+        if (!form.Confirming)
+        {
+            form.Confirming = true; // first click arms; the button now reads "Confirm refund of …"
+            return;
+        }
+
+        _error = _status = null;
+        _busy = true;
+        try
+        {
+            // orderId pins the charge to this subscription's order: the consumer refuses a reference of another order.
+            var response = await Gateway.PostAsync(
+                "/api/payments/admin/refunds",
+                new { orderId, amountMinor, reason = form.Reason.Trim(), chargeReference = form.ChargeReference },
+                idempotencyKey: form.IdempotencyKey);
+            if (!response.IsSuccessStatusCode)
+            {
+                form.Confirming = false;
+                form.Error = L["Subs.Refund.Failed", (int)response.StatusCode, await GatewayError.ReadAsync(response)];
+                return;
+            }
+
+            _refundForm = null;
+            _refundPending.Add(form.ChargeReference);
+            _status = L["Subs.Refund.Requested", Money.WithCode(amountMinor, form.Currency), form.ChargeReference];
+            await AwaitRefundAsync(form.SubscriptionId, form.ChargeReference, form.RefundedBeforeMinor, amountMinor, form.Currency);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // The refund is executed asynchronously (202 → RefundRequested → the refund consumer), so re-read the detail until the
+    // charge shows the refund — usually well under a second — and render that state. If it has not landed after a few
+    // seconds, say so and leave the button suppressed; Refresh re-reads it (a declined refund leaves the charge as it was).
+    private async Task AwaitRefundAsync(Guid subscriptionId, string chargeReference, long refundedBefore, long amountMinor, string currency)
+    {
+        for (var attempt = 0; attempt < 12; attempt++)
+        {
+            await Task.Delay(500);
+            var detail = await Gateway.GetAsync<SubscriptionDetailDto>($"/api/payments/admin/subscriptions/{subscriptionId}?tenantId={TenantId}");
+            if (detail is null)
+            {
+                return;
+            }
+
+            if (_expanded.ContainsKey(subscriptionId))
+            {
+                _expanded[subscriptionId] = detail;
+            }
+
+            if (detail.Renewals.FirstOrDefault(x => x.ChargeReference == chargeReference) is { } charge && (charge.RefundedMinor ?? 0) > refundedBefore)
+            {
+                _refundPending.Remove(chargeReference);
+                _status = L["Subs.Refund.Done", Money.WithCode(amountMinor, currency), chargeReference];
+                return;
+            }
+        }
+
+        _status = L["Subs.Refund.NotYet", chargeReference];
+    }
+
+    private sealed class RefundForm
+    {
+        public required Guid SubscriptionId { get; init; }
+        public required string ChargeReference { get; init; }
+        public required string Currency { get; init; }
+        public required long RemainingMinor { get; init; }
+        public required long RefundedBeforeMinor { get; init; }
+        public decimal Amount { get; set; }
+        public string Reason { get; set; } = "";
+        public bool Confirming { get; set; }
+        public string? Error { get; set; }
+        public string IdempotencyKey { get; set; } = NewKey();
+
+        public static string NewKey() => $"charge-refund-{Guid.CreateVersion7():N}";
     }
 
     private string Short(Guid id) => id.ToString()[..8];
@@ -287,7 +549,13 @@ else
     // Minimal projection of Catalog's admin storefront list — only what the Storefront column needs.
     private record StorefrontRow(Guid Id, string Name);
 
-    private record RenewalDto(int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt);
+    // A settled renewal (period 2 on) carries its own payment (renewal_usage_refund_path): the chargeReference POST
+    // /admin/refunds names, how much is already refunded, and the payment's status (a number). Null for period 1 (the
+    // order paid it) and for renewals settled before payments were recorded per charge.
+    private record RenewalDto(
+        int Sequence, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, long AmountMinor, string Currency, DateTimeOffset RecordedAt,
+        string? ChargeReference = null, string? PaymentIntentId = null, long? TaxMinor = null, long? RefundedMinor = null,
+        int? PaymentStatus = null, int? DisputeStatus = null);
 
     private record SubscriptionDetailDto(
         Guid Id, Guid TenantId, Guid OrderId, Guid? StorefrontId, string CustomerEmail, Guid ProductId, Guid? VariantId, string BillingPeriod, long PriceMinor,

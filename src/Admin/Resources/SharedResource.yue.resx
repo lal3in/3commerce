@@ -1302,6 +1302,41 @@
   <data name="Subs.History.Amount" xml:space="preserve"><value>金額</value></data>
   <data name="Subs.History.Recorded" xml:space="preserve"><value>記錄時間</value></data>
   <data name="Subs.History.Empty" xml:space="preserve"><value>暫時未有續訂記錄。</value></data>
+  <data name="Subs.History.Charge" xml:space="preserve"><value>扣款</value></data>
+  <data name="Subs.History.Charge.Tip" xml:space="preserve"><value>結清呢個週期嘅付款。退呢個週期嘅款時會引用佢嘅參考編號。</value></data>
+  <data name="Subs.History.Refunds" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.History.Refunds.Tip" xml:space="preserve"><value>呢個週期嘅扣款有冇全數或者部分退款。</value></data>
+  <data name="Subs.Charge.Reference.Tip" xml:space="preserve"><value>扣款參考編號 {0} · 支付商付款 {1}。退呢個週期嘅款時會引用呢個參考編號。</value></data>
+  <data name="Subs.Charge.ByOrder" xml:space="preserve"><value>訂單</value></data>
+  <data name="Subs.Charge.ByOrder.Tip" xml:space="preserve"><value>第 1 期係由訂閱嘅訂單支付——請喺「訂單」頁面退款。</value></data>
+  <data name="Subs.Charge.None.Tip" xml:space="preserve"><value>呢次續訂喺逐筆記錄扣款之前已經結清，唔可以喺呢度退款。</value></data>
+  <data name="Subs.Charge.NotRefunded" xml:space="preserve"><value>未退款</value></data>
+  <data name="Subs.Charge.NotRefunded.Tip" xml:space="preserve"><value>已結清；呢筆扣款未有退款。</value></data>
+  <data name="Subs.Charge.PartiallyRefunded" xml:space="preserve"><value>部分退款</value></data>
+  <data name="Subs.Charge.PartiallyRefunded.Tip" xml:space="preserve"><value>已退 {0}（共 {1}）；仲可以退 {2}。</value></data>
+  <data name="Subs.Charge.Refunded" xml:space="preserve"><value>已退款</value></data>
+  <data name="Subs.Charge.Refunded.Tip" xml:space="preserve"><value>已全數退款（{0}）——冇剩低可以退嘅金額。</value></data>
+  <data name="Subs.Charge.Disputed" xml:space="preserve"><value>爭議中</value></data>
+  <data name="Subs.Charge.Disputed.Tip" xml:space="preserve"><value>客人對呢筆扣款提出爭議；款項經爭議流程退返，唔係經退款。</value></data>
+  <data name="Subs.Charge.RefundedSoFar" xml:space="preserve"><value>已退 {0}</value></data>
+  <data name="Subs.Refund" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.Refund.Tip" xml:space="preserve"><value>將呢個週期嘅扣款全數或者部分退返去原本扣款嘅卡。會要求填金額、原因同埋確認。</value></data>
+  <data name="Subs.Refund.Pending" xml:space="preserve"><value>已申請退款…</value></data>
+  <data name="Subs.Refund.Pending.Tip" xml:space="preserve"><value>退款已經受理，執行緊；撳「重新整理」睇結果。</value></data>
+  <data name="Subs.Refund.Amount" xml:space="preserve"><value>金額（{0}）</value></data>
+  <data name="Subs.Refund.Amount.Tip" xml:space="preserve"><value>呢筆扣款要退幾多，以主單位計——最多 {0}，即係剩低嘅金額。價錢係最終價錢，所以呢個係退返俾客人嘅含稅金額；稅額按比例沖回。</value></data>
+  <data name="Subs.Refund.Reason" xml:space="preserve"><value>原因</value></data>
+  <data name="Subs.Refund.Reason.Tip" xml:space="preserve"><value>點解要退呢筆扣款——必填，會記錄喺審計日誌。</value></data>
+  <data name="Subs.Refund.Submit" xml:space="preserve"><value>退款</value></data>
+  <data name="Subs.Refund.Submit.Tip" xml:space="preserve"><value>退呢個金額。第一次撳會要求確認。</value></data>
+  <data name="Subs.Refund.Confirm" xml:space="preserve"><value>確認退款 {0}</value></data>
+  <data name="Subs.Refund.Close.Tip" xml:space="preserve"><value>閂咗退款表格，唔退款。</value></data>
+  <data name="Subs.Refund.AmountInvalid" xml:space="preserve"><value>請輸入大過零而且唔超過 {0} 嘅金額。</value></data>
+  <data name="Subs.Refund.ReasonRequired" xml:space="preserve"><value>請輸入退款原因。</value></data>
+  <data name="Subs.Refund.Failed" xml:space="preserve"><value>退款被拒（{0}）：{1}</value></data>
+  <data name="Subs.Refund.Requested" xml:space="preserve"><value>已為扣款 {1} 申請退款 {0}。</value></data>
+  <data name="Subs.Refund.Done" xml:space="preserve"><value>已從扣款 {1} 退款 {0}。</value></data>
+  <data name="Subs.Refund.NotYet" xml:space="preserve"><value>扣款 {0} 嘅退款已經受理，但未顯示——請撳「重新整理」睇下。被拒嘅退款唔會改變扣款。</value></data>
   <data name="Subs.Msg.Renewed" xml:space="preserve"><value>訂閱已續訂。</value></data>
   <data name="Subs.Msg.Cancelled" xml:space="preserve"><value>訂閱已取消。</value></data>
   <data name="Subs.Msg.Failed" xml:space="preserve"><value>{0} 失敗（{1}）：{2}</value></data>

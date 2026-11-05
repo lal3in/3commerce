@@ -27,7 +27,9 @@ GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screens
   storefront-wide **Discount %** field/column), catalog editor,
   **currencies** (the managed registry with per-currency decimals), offers, **promotions**
   (threshold promotions and coupon codes — Code, Threshold, Reward, Combinable, Window and
-  Redemptions columns), payment accounts, supplier
+  Redemptions columns), payment accounts, **subscriptions** (renewal history with each period's
+  charge, its refund state and a **Refund** action — full or partial, with a reason and a confirm
+  step; `admin-subscription-charge-refund.png`), supplier
   payouts, and **security** (MFA enrollment, tenant MFA policy, webhook signing secrets).
 
 Pricing-related screens are explained end-to-end in
