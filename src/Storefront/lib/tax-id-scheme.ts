@@ -39,18 +39,24 @@ export function taxIdSchemeLabelKey(value: number | null | undefined): string | 
 }
 
 /**
- * The request field a refused business block names (Ordering's problem+json `field`, ADR-0063 P3) → the
- * `checkout.business.errors.*` key that explains it in the shopper's language. Null for any other field.
+ * The request field a refused business block names → the `checkout.business.errors.*` key that explains it in the
+ * shopper's language. Checkout's refusal (Ordering, ADR-0063 P3) names `buyer.<field>`; the account's saved default
+ * business identity (Identity, P3b) names the bare `<field>` — the same four inputs, the same rules. Null for any
+ * other field.
  */
 export function businessFieldErrorKey(field: string | null | undefined): string | null {
   switch (field) {
     case "buyer.companyName":
+    case "companyName":
       return "companyName";
     case "buyer.taxId":
+    case "taxId":
       return "taxId";
     case "buyer.taxIdScheme":
+    case "taxIdScheme":
       return "taxIdScheme";
     case "buyer.taxIdJurisdiction":
+    case "taxIdJurisdiction":
       return "taxIdJurisdiction";
     default:
       return null;

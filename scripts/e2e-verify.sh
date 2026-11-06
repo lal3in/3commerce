@@ -235,8 +235,9 @@
 #       takes a US bill-to's state) and each malformed one is refused naming buyer.companyName / buyer.taxId /
 #       buyer.taxIdScheme / buyer.taxIdJurisdiction; the order copies bill-to + block verbatim with its money
 #       untouched; CheckoutBlock 17 InvalidBuyerIdentity is a 400 (BuyerIdentityTests, OrderingProblemsTests);
-#       Ordering's copy of the per-scheme format rules agrees with Entity's on every scheme × value × jurisdiction
-#       of a corpus that both accepts and rejects (BuyerTaxIdFormatParityTests)
+#       Ordering's AND Identity's (P3b) copies of the per-scheme format rules agree with Entity's on every scheme ×
+#       value × jurisdiction of a corpus that both accepts and rejects, and the profile's bounds + field names equal
+#       checkout's (BuyerTaxIdFormatParityTests)
 #   A3t Unit · renewal + usage charges are payments (renewal_usage_refund_path, RecurringChargePaymentTests): a
 #       settled renewal / usage / 3-D Secure-settled renewal records its own Payment (kind, renew-{id}-{seq} /
 #       overage-… reference, its intent, 1083 with tax 83 == Ledger.TaxOf(its entry)); an unsettled one records none;
@@ -285,6 +286,11 @@
 #       finance/admin/support are allowed while ops/merchandiser are not; Support's default survives repeated re-seeds
 #       (what every login runs) and a pre-2026-11-05 Support role gains it; a user-keyed decide request without a
 #       tenant resolves nothing (PolicyDecisionServiceTests)
+#   A3z Unit · saved default business identity (ADR-0063 P3b, BusinessIdentityTests): a company without a tax ID is
+#       kept trimmed; each scheme's ID is normalized with its jurisdiction (EL→GR, ABN→AU, CA BN narrowed to CA-QC,
+#       a US state ID with its US-XX); a missing company / tax ID without scheme / scheme without tax ID / malformed
+#       ID / mismatched or missing jurisdiction / unknown scheme is refused naming CompanyName / TaxId / TaxIdScheme /
+#       TaxIdJurisdiction; values past the column bounds are refused, never truncated; save + clear on the User
 #   A3zd Unit · per-line tax destination (ADR-0063 § 16, tax_p1b_followups_per_line_destination,
 #       PerLineTaxDestinationTests): download/subscription/usage lines go to the bill-to country, every other line
 #       (and the shipping) to the ship-to; over the threshold a mixed cart taxes each destination at its own rate (AT
@@ -379,6 +385,13 @@
 #       its return REQUEST is accepted, and Support's approval reaches RefundIssued with the trial balance 0;
 #       GET /me/permissions lists payment.refund for Finance and Support, not Ops, nothing for an unknown user. The other refund suites (A4e,
 #       A6d, RefundIdempotencyTests …) refund as the seeded bootstrap admin
+#   A4j Integration · saved default business identity (ADR-0063 P3b): over HTTP (ProfileBusinessIdentityEndpointTests)
+#       GET /me/business-identity is 204 until a PUT stores the identity normalized (DE123456789 / DE, scheme a
+#       NUMBER, also on GET /me), a PUT without a tax ID drops the old one, DELETE clears it; six malformed bodies
+#       are 400 problem+json naming the field (field + errors key) and leave the saved one untouched; no claims →
+#       401, another member sees and deletes nothing of it. FORCE RLS as a NON-superuser role
+#       (IdentityBusinessIdentityRlsTests): the owning tenant saves/reads/clears it, another tenant's scope can
+#       neither read nor overwrite it (0 rows), and with no scope a read is empty and an update touches nothing
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -675,7 +688,13 @@
 #       fixed ID + a separate billing address place the order, read back via the admin API normalized (DE123456789,
 #       scheme 5); a guest without the block is billed to the shipping address; a member orders without and
 #       with an ABN block and the account order history shows both bill-tos and one "Australian ABN:
-#       51824753556 (AU)" (e2e/checkout-business-purchase.spec.ts; needs --data full)
+#       51824753556 (AU)" (e2e/checkout-business-purchase.spec.ts; needs --data full);
+#       saved business details (ADR-0063 P3b): a member saves them on /account, a malformed EU VAT ID is refused
+#       with the localized reason (aria-invalid, input kept), the fixed one shows as "EU VAT number: DE123456789",
+#       survives a reload and clears; with details saved, checkout's Business purchase block opens ticked and
+#       prefilled, a company-name change places an order that keeps the change while the profile keeps the saved
+#       name, and after clearing the next checkout's block is unticked (e2e/account-business-identity.spec.ts;
+#       the checkout half needs --data full)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -840,7 +859,7 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~EuOssTaxStrategyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3r EU OSS tax strategy"; else fail "A3r EU OSS tax strategy"; fi
 
-  stage "A3s Buyer identity at checkout (ADR-0063 P3) — bill-to default, business block, per-scheme format parity with Entity"
+  stage "A3s Buyer identity at checkout (ADR-0063 P3) — bill-to default, business block, per-scheme format parity (Entity, Ordering, Identity)"
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~BuyerIdentityTests|FullyQualifiedName~OrderingProblemsTests)' 2>&1 \
       | grep -q 'Failed: *0' \
@@ -892,6 +911,11 @@ run_automated() {
     && dotnet test "$ROOT/src/Services/Identity/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PolicyDecisionServiceTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3y refunds need payment.refund"; else fail "A3y refunds need payment.refund"; fi
+
+  stage "A3z Saved default business identity (ADR-0063 P3b) — checkout's per-scheme rules, refusals name the field, bounds"
+  if dotnet test "$ROOT/src/Services/Identity/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~BusinessIdentityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3z saved default business identity"; else fail "A3z saved default business identity"; fi
 
   stage "A3zd Per-line tax destination (ADR-0063 § 16) — goods at the ship-to, e-services at the bill-to, threshold per sale"
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \

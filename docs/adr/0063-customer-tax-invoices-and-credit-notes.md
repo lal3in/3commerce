@@ -939,6 +939,41 @@ orders.
   a member reading the block back with a numeric scheme, and five refusals returning 400 with nothing booked.
   Browser: `e2e/checkout-business-purchase.spec.ts` (`capture()`). `e2e-verify.sh` A3s + A6j.
 
+### P3b — saved default business identity (2026-11-05, `feature/profile-business-identity`, tracker `tax_p3b_profile_business_identity`)
+
+* **Scope.** The § 9.1 line P3 deferred: "the account profile can store a default business identity". A member saves
+  one company (name, optional tax ID + scheme + jurisdiction) that **prefills** checkout's Business purchase block.
+  It is a convenience only: the shopper can change or untick the block per order, and the order keeps its own
+  snapshot (P3's `Buyer*` columns), so editing or clearing the profile never rewrites an order.
+* **Owner and storage.** Identity, on the member's `identity."Users"` row: `BusinessCompanyName` (200),
+  `BusinessTaxId` (80), `BusinessTaxIdScheme` (int, the shared `TaxIdScheme`), `BusinessTaxIdJurisdiction` (10) —
+  migration `ProfileBusinessIdentity`, all nullable, the same bounds as Ordering's buyer columns, so a saved value
+  always fits an order. The row is under FORCE RLS (ADR-0024), so the identity is tenant-isolated with the rest of
+  the member's PII; the endpoints run in the member's tenant scope. A separate table was not needed: it is one value
+  per member and has no history.
+* **Validation — a third copy.** `Identity.Domain.BusinessIdentityRules` applies P3's rules (company required ≤ 200; a
+  tax ID needs its scheme and a scheme its tax ID) and `BusinessTaxIdFormats` is a copy of the per-scheme format
+  rules, for the same reason Ordering has one (no shared domain logic). `BuyerTaxIdFormatParityTests` now compares
+  all three copies (Entity, Ordering, Identity) over the corpus, and pins that Identity's bounds and field names equal
+  Ordering's — a saved identity is always one checkout accepts. One difference: a profile has no bill-to, so a US
+  state sales-tax ID must carry its `taxIdJurisdiction` (checkout can borrow the state from a US bill-to).
+* **HTTP.** `GET /me/business-identity` (200, or 204 when none), `PUT` (validated, returns the normalized identity;
+  400 problem+json with `field` = `companyName` / `taxId` / `taxIdScheme` / `taxIdJurisdiction` and an `errors`
+  entry, nothing saved), `DELETE` (204). `GET /me` appends `businessIdentity`; `PUT /me` does not touch it. Customer
+  self-service only — there is no admin mutation, so no audit entry (the audit rule covers admin mutations).
+* **Storefront.** `/account` has a "Business details" section (`components/account/BusinessIdentityForm.tsx`, server
+  actions in `lib/business-identity-actions.ts`) to view, save and clear it; a refusal reuses checkout's localized
+  `checkout.business.errors.*` message and marks the input `aria-invalid`, keeping what was typed. Checkout's
+  `BusinessPurchase` takes the profile's identity as `defaults`: ticked and filled, with a "filled in from your
+  account" note. A saved jurisdiction narrower than the scheme's (CA-QC) is posted while the number and type are
+  still the saved ones. All new strings in the six locales. Ordering is unchanged.
+* **Amount unchanged.** Nothing here reaches tax or the charge; P3's byte-identical-charge test still holds.
+* **Tests.** Unit: `BusinessIdentityTests` (Identity) and the extended `BuyerTaxIdFormatParityTests`. Integration:
+  `ProfileBusinessIdentityEndpointTests` (save/read/replace/clear, six refusals naming the field, 401, another member
+  sees nothing) and `IdentityBusinessIdentityRlsTests` (non-superuser FORCE RLS: owner reads/clears, another tenant
+  can neither read nor overwrite, no scope fails closed). Browser: `e2e/account-business-identity.spec.ts`
+  (`capture()`). `e2e-verify.sh` A3s + A3z + A4j.
+
 ### P4b — settled-charge events (2026-10-28, `feature/settled-charge-events`, tracker `tax_p4b_settled_charge_events`)
 
 * **Contracts.** `SubscriptionRenewalSettled` and `UsageChargeSettled` (`Contracts/Payments`), each with `Lines` of

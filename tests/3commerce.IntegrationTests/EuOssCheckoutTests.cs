@@ -179,7 +179,7 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         Assert.Equal(2_945, order.TaxMinor);
         await SettleAsync(shopper, order);
 
-        var (persisted, _) = await LoadAsync(order.OrderId);
+        var persisted = await OrderAsync(order.OrderId);
         Assert.Equal((TaxScheme.Domestic, "AT"), (persisted.TaxScheme, persisted.TaxDestinationCountry));
         Assert.Equal(["AT", "IT"], persisted.Lines.OrderBy(l => l.ProductId == ebook).Select(l => l.TaxDestinationCountry));
         Assert.Equal([("AT", 10_000L + 499), ("IT", 5_000L)], (await SalesAsync(order.OrderId)).Select(s => (s.DestinationCountry, s.NetMinor)));
@@ -293,13 +293,22 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         return (await response.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
     }
 
+    /// <summary>
+    /// The order and its ONE running-total row (or none) — for a single-destination sale. A sale split across
+    /// destinations has a row per destination (ADR-0063 § 16): read those with <see cref="SalesAsync"/>.
+    /// </summary>
     private async Task<(Order Order, EuDistanceSale? Sale)> LoadAsync(Guid orderId)
+    {
+        var sales = await SalesAsync(orderId);
+        return (await OrderAsync(orderId), sales.Count <= 1 ? sales.SingleOrDefault()
+            : throw new InvalidOperationException($"Order {orderId} has {sales.Count} running-total rows; read them with SalesAsync."));
+    }
+
+    private async Task<Order> OrderAsync(Guid orderId)
     {
         using var scope = fixture.Ordering.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-        var order = await db.Orders.AsNoTracking().Include(o => o.Lines).SingleAsync(o => o.Id == orderId);
-        var sale = await db.EuDistanceSales.AsNoTracking().SingleOrDefaultAsync(s => s.OrderId == orderId);
-        return (order, sale);
+        return await db.Orders.AsNoTracking().Include(o => o.Lines).SingleAsync(o => o.Id == orderId);
     }
 
     /// <summary>A prior sale of the tenant's, recorded as the confirming consumer would have.</summary>
