@@ -59,7 +59,10 @@ public class Order
 
     /// <summary>
     /// ADR-0063 P1b: the country the tax strategy treated as the place of supply — the ship-to country unless the
-    /// caller passed another destination; <c>""</c> on rows written before P1b.
+    /// caller passed another destination; <c>""</c> on rows written before P1b. Since the per-line destination
+    /// (ADR-0063 § 16) it is the SALE's destination: the one every line shares, or — when the lines go to different
+    /// countries — the cart's (the goods' and the shipping's, so always the shipping line's); each line records its own
+    /// (<see cref="OrderLine.TaxDestinationCountry"/>).
     /// </summary>
     public string TaxDestinationCountry { get; set; } = string.Empty;
 
@@ -204,6 +207,18 @@ public class OrderLine
     public long TaxableBaseMinor { get; init; }
     public long TaxMinor { get; init; }
     public TaxExemptionReason ExemptionReason { get; init; }
+
+    /// <summary>
+    /// Where this line was supplied for tax (ADR-0063 § 16, per-line destination; <see cref="PlaceOfSupply"/>): the
+    /// ship-to country for goods, the bill-to country for an electronically supplied service on an EU storefront.
+    /// <c>""</c> on a line written before it was recorded — its destination is the order's
+    /// <see cref="Order.TaxDestinationCountry"/> (<see cref="DestinationOr"/>).
+    /// </summary>
+    public string TaxDestinationCountry { get; init; } = string.Empty;
+
+    /// <summary>This line's destination, or the order's when the line has none recorded.</summary>
+    public string DestinationOr(string orderDestination) =>
+        string.IsNullOrEmpty(TaxDestinationCountry) ? orderDestination : TaxDestinationCountry;
 }
 
 /// <summary>

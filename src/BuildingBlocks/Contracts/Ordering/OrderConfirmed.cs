@@ -25,7 +25,11 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 /// <param name="TaxMinor">The tax charged (inside the prices on an inclusive store, added on an exclusive one — ADR-0038).</param>
 /// <param name="TaxInclusive">Whether the storefront's prices contain the tax.</param>
 /// <param name="TaxJurisdiction">The storefront's tax jurisdiction as applied (<c>""</c> | <c>CC</c> | <c>CC-RRR</c>, ADR-0063 P2/P1b).</param>
-/// <param name="TaxDestinationCountry">The destination country the tax was resolved for (ISO-2; <c>""</c> when not recorded, P1b).</param>
+/// <param name="TaxDestinationCountry">
+/// The destination country the tax was resolved for (ISO-2; <c>""</c> when not recorded, P1b) — the SALE's: the one
+/// every line shares, or for a sale split across countries the cart's (the goods' and the shipping's). Each line's
+/// own is <see cref="OrderLineInfo.TaxDestinationCountry"/> (ADR-0063 § 16).
+/// </param>
 /// <param name="TaxScheme">The scheme the sale fell under (<see cref="TaxScheme.Domestic"/> / <see cref="TaxScheme.Oss"/> …).</param>
 /// <param name="BillTo">The bill-to (invoice) address (P3); null on orders placed before it was captured.</param>
 /// <param name="Buyer">The business purchase block (P3); null for a consumer purchase.</param>
@@ -94,6 +98,13 @@ public record LineTaxInfo(
 /// note attributes a returned line to (refunds carry it back in <c>RefundLine.LineId</c>) — and the line's P1 tax
 /// facts. A pre-P5 event reads <see cref="Guid.Empty"/> and <see cref="TaxCategory.NotRecorded"/>.
 /// </para>
+/// <para>
+/// APPENDED for the per-line destination (ADR-0063 § 16): <paramref name="TaxDestinationCountry"/> is where THIS line
+/// was supplied for tax — the ship-to country for goods, the bill-to country for an electronically supplied service
+/// on an EU storefront — so a sale split across countries can be documented line by line. <c>""</c> = not recorded
+/// per line (an order placed before it, or a pre-change event): the line's destination is then the order's
+/// <see cref="OrderConfirmed.TaxDestinationCountry"/>.
+/// </para>
 /// </summary>
 /// <param name="TaxableBaseMinor">The line's base, NET of its tax (P1 convention).</param>
 public record OrderLineInfo(
@@ -105,4 +116,5 @@ public record OrderLineInfo(
     int TaxRateBps = 0,
     long TaxableBaseMinor = 0,
     long TaxMinor = 0,
-    TaxExemptionReason ExemptionReason = TaxExemptionReason.None);
+    TaxExemptionReason ExemptionReason = TaxExemptionReason.None,
+    string TaxDestinationCountry = "");

@@ -32,7 +32,9 @@ public static class OrderConfirmedFactory
                 TaxRateBps: l.TaxRateBps,
                 TaxableBaseMinor: l.TaxableBaseMinor,
                 TaxMinor: l.TaxMinor,
-                ExemptionReason: Reason(l.ExemptionReason))).ToList(),
+                ExemptionReason: Reason(l.ExemptionReason),
+                // Where this line was supplied for tax (ADR-0063 § 16), verbatim: "" on a line recorded before it.
+                TaxDestinationCountry: l.TaxDestinationCountry)).ToList(),
             StorefrontId: order.StorefrontId,
             PublicOrderNumber: order.PublicOrderNumber,
             NetMinor: order.NetMinor,

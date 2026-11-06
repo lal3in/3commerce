@@ -6,8 +6,9 @@ namespace ThreeCommerce.Ordering.Domain;
 /// destination is ANOTHER Member State. Written once per order, in the same transaction as the order itself, so
 /// the running total per tenant (the seller, ADR-0063 D1) per calendar year is exactly Σ of these rows — never a
 /// shared counter row, which the confirming consumer's REPEATABLE READ transaction would turn into 40001s under
-/// concurrent confirmations (see <c>OrderNumberAllocator</c>). Append-only; the key is the order, so a redelivered
-/// confirmation can never count a sale twice.
+/// concurrent confirmations (see <c>OrderNumberAllocator</c>). Append-only; the key is (order, destination) — one row
+/// per Member State the sale crossed into (ADR-0063 § 16: a sale whose lines go to different countries records each
+/// destination's share) — so a redelivered confirmation can never count a sale twice.
 /// </summary>
 public class EuDistanceSale
 {
@@ -30,29 +31,50 @@ public class EuDistanceSale
     public DateTimeOffset RecordedAt { get; init; }
 
     /// <summary>
-    /// The contribution of <paramref name="order"/>, or null when it is not an intra-EU distance sale (a domestic,
-    /// non-EU or pre-P1b order — whose <see cref="Order.TaxJurisdiction"/> is empty — counts nothing).
+    /// The contributions of <paramref name="order"/>: one row per Member State OTHER than home that some component
+    /// of the sale was supplied into (ADR-0063 § 16, per-line destination), carrying Σ of those components' net
+    /// bases — each line at its own <see cref="OrderLine.TaxDestinationCountry"/>, the shipping line at the order's
+    /// destination (where the goods go). A sale with one destination is one row with the whole sale, exactly as
+    /// before; a sale split across destinations counts only its cross-border parts, each under its own country.
+    /// Empty when nothing crossed a border (a domestic, non-EU or pre-P1b order — whose
+    /// <see cref="Order.TaxJurisdiction"/> is empty — counts nothing).
     /// </summary>
-    public static EuDistanceSale? For(Order order, DateTimeOffset suppliedAt, DateTimeOffset now)
+    public static IReadOnlyList<EuDistanceSale> For(Order order, DateTimeOffset suppliedAt, DateTimeOffset now)
     {
         var home = EuMemberStates.OfJurisdiction(order.TaxJurisdiction);
-        var destination = EuMemberStates.Normalize(order.TaxDestinationCountry);
-        if (home is null || destination is null || home == destination)
+        if (home is null)
         {
-            return null;
+            return [];
         }
 
-        return new EuDistanceSale
+        string? CrossBorder(string destination) =>
+            EuMemberStates.Normalize(destination) is { } memberState && memberState != home ? memberState : null;
+
+        var net = new Dictionary<string, long>(StringComparer.Ordinal);
+        if (CrossBorder(order.TaxDestinationCountry) is { } shippingDestination)
+        {
+            net[shippingDestination] = order.ShippingTaxableBaseMinor;
+        }
+
+        foreach (var line in order.Lines)
+        {
+            if (CrossBorder(line.DestinationOr(order.TaxDestinationCountry)) is { } destination)
+            {
+                net[destination] = net.GetValueOrDefault(destination) + line.TaxableBaseMinor;
+            }
+        }
+
+        return net.OrderBy(n => n.Key, StringComparer.Ordinal).Select(n => new EuDistanceSale
         {
             OrderId = order.Id,
             TenantId = order.TenantId,
             Year = suppliedAt.UtcDateTime.Year,
             HomeCountry = home,
-            DestinationCountry = destination,
+            DestinationCountry = n.Key,
             Currency = order.Currency.ToUpperInvariant(),
-            NetMinor = order.Lines.Sum(l => l.TaxableBaseMinor) + order.ShippingTaxableBaseMinor,
+            NetMinor = n.Value,
             TaxScheme = order.TaxScheme,
             RecordedAt = now,
-        };
+        }).ToList();
     }
 }

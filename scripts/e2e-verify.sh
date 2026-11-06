@@ -291,6 +291,15 @@
 #       a US state ID with its US-XX); a missing company / tax ID without scheme / scheme without tax ID / malformed
 #       ID / mismatched or missing jurisdiction / unknown scheme is refused naming CompanyName / TaxId / TaxIdScheme /
 #       TaxIdJurisdiction; values past the column bounds are refused, never truncated; save + clear on the User
+#   A3zd Unit · per-line tax destination (ADR-0063 § 16, tax_p1b_followups_per_line_destination,
+#       PerLineTaxDestinationTests): download/subscription/usage lines go to the bill-to country, every other line
+#       (and the shipping) to the ship-to; over the threshold a mixed cart taxes each destination at its own rate (AT
+#       goods 20 % + HU e-book 27 %), shipping rides the goods even when a service abroad has the higher rate, two
+#       destinations at one rate round separately, exempt goods take the shipping with them; the threshold counts
+#       only the cross-border components (home goods do not push a sale over); 10,000 random single-destination carts
+#       byte-identical to an oracle copy of the pre-split strategy, non-EU stores ignore the bill-to; 5,000 split carts
+#       well-formed; EuDistanceSale writes one row per destination crossed into (a pre-change line falls back to the
+#       order's destination); the line destination reaches Order and OrderConfirmed ("" from a pre-change event)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -325,7 +334,11 @@
 #       confirmed order writes its EuDistanceSale row (net 10419, Domestic); over the threshold the same cart is
 #       12399 with French VAT 2067 under OSS (every line + shipping at 2000 bps, Σ == TaxMinor); the sale that takes
 #       the current year over is itself OSS (Italy 22 % added: 2310); a domestic sale and a store with no
-#       jurisdiction charge as before and count nothing; trial balance 0 throughout
+#       jurisdiction charge as before and count nothing; trial balance 0 throughout. Per-line destination (ADR-0063
+#       § 16): a book shipped home + an e-book billed to France (OSS) carry 1980 German + 2000 French VAT, shipping
+#       German, and only the e-book counts (one EuDistanceSale row, FR, net 10000); a cart split between Austria
+#       (goods + shipping) and Italy (e-book) below the threshold charges 2945 as before and writes two rows (AT
+#       10499, IT 5000)
 #   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
 #       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
 #       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
@@ -890,6 +903,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Identity/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~BusinessIdentityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3z saved default business identity"; else fail "A3z saved default business identity"; fi
+
+  stage "A3zd Per-line tax destination (ADR-0063 § 16) — goods at the ship-to, e-services at the bill-to, threshold per sale"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~PerLineTaxDestinationTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zd per-line tax destination"; else fail "A3zd per-line tax destination"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
