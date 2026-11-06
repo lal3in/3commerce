@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { LocalTime } from "@/components/LocalTime";
 import { logout } from "@/lib/auth-actions";
 import { AddressForms } from "@/components/account/AccountForms";
+import { BusinessIdentityForm } from "@/components/account/BusinessIdentityForm";
 import { CardEntryForm } from "@/components/account/CardEntryForm";
 import { OrderHistory } from "@/components/account/OrderHistory";
 
@@ -54,6 +55,10 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <dd>{profile.emailVerified ? tc("yes") : tc("pending")}</dd>
         </div>
       </dl>
+
+      {/* ADR-0063 P3b: the default business identity that prefills checkout's Business purchase block. */}
+      <h2 className="mt-8 text-lg font-semibold">{t("businessIdentity.heading")}</h2>
+      <BusinessIdentityForm identity={profile.businessIdentity ?? null} />
 
       <h2 className="mt-8 text-lg font-semibold">{t("addressBook")}</h2>
       <AddressForms addresses={addresses} addressStatus={status.address} />

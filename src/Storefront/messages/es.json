@@ -242,7 +242,8 @@
         "taxId": "Este número fiscal no coincide con el formato del tipo seleccionado. Revise el número o el tipo.",
         "taxIdScheme": "Seleccione qué tipo de número fiscal es.",
         "taxIdJurisdiction": "Introduzca el estado de EE. UU. que emitió este número fiscal, p. ej. US-CA."
-      }
+      },
+      "prefilled": "Completado con los datos de empresa guardados en su cuenta. Los cambios aquí solo se aplican a este pedido."
     },
     "methods": {
       "creditCard": "Tarjeta de crédito",
@@ -465,7 +466,27 @@
     "discount": "Descuento",
     "shipping": "Envío",
     "tax": "Impuesto",
-    "total": "Total"
+    "total": "Total",
+    "businessIdentity": {
+      "heading": "Datos de empresa",
+      "intro": "Guarde la empresa para la que suele comprar. Al pagar, la sección «Compra de empresa» se completa con estos datos y puede cambiarlos en cada pedido.",
+      "none": "No hay datos de empresa guardados.",
+      "jurisdiction": "Jurisdicción (opcional, p. ej. US-CA)",
+      "jurisdictionLine": "Jurisdicción: {jurisdiction}",
+      "save": "Guardar datos de empresa",
+      "clear": "Borrar datos de empresa",
+      "saved": "Datos de empresa guardados.",
+      "cleared": "Datos de empresa borrados.",
+      "error": "No se pudieron guardar los datos de empresa. Revíselos e inténtelo de nuevo.",
+      "tips": {
+        "companyName": "El nombre legal de la empresa para la que compra. Aparece en sus facturas.",
+        "taxId": "El número de registro fiscal de la empresa, si lo tiene. Opcional.",
+        "taxIdScheme": "A qué registro pertenece el número fiscal: determina cómo se comprueba.",
+        "jurisdiction": "El país o estado que emitió el número fiscal. Necesario para un ID de impuesto sobre ventas de un estado de EE. UU. (p. ej. US-CA); los demás tipos lo completan solos.",
+        "save": "Guarde estos datos para que el pago los complete la próxima vez.",
+        "clear": "Eliminar los datos de empresa guardados. Los pedidos ya realizados conservan los suyos."
+      }
+    }
   },
   "support": {
     "title": "Soporte de pedidos",

@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { businessFieldErrorKey, TAX_ID_SCHEME_OPTIONS, TaxIdScheme } from "@/lib/tax-id-scheme";
+import type { BusinessIdentityDto } from "@/lib/business-identity";
 
 interface BusinessPurchaseProps {
   // The request field Ordering's last refusal named (problem+json `field`, e.g. "buyer.taxId"), if any.
   errorField?: string;
+  // The signed-in member's saved default business identity (ADR-0063 P3b), if any. It PREFILLS the block (ticked,
+  // fields filled); the shopper can still change or untick it for this order, and the order keeps what is posted.
+  defaults?: BusinessIdentityDto | null;
 }
 
 /**
@@ -20,15 +24,21 @@ interface BusinessPurchaseProps {
  * hidden input's value alone) and the visible controls carry no `name`; on the form's `reset` event they are
  * remounted, so what the shopper sees is what is posted.
  */
-export function BusinessPurchase({ errorField }: BusinessPurchaseProps) {
+export function BusinessPurchase({ errorField, defaults }: BusinessPurchaseProps) {
   const t = useTranslations("checkout");
-  const [enabled, setEnabled] = useState(false);
-  const [companyName, setCompanyName] = useState("");
-  const [taxId, setTaxId] = useState("");
-  const [scheme, setScheme] = useState("");
-  const [jurisdiction, setJurisdiction] = useState("");
+  const [enabled, setEnabled] = useState(Boolean(defaults));
+  const [companyName, setCompanyName] = useState(defaults?.companyName ?? "");
+  const [taxId, setTaxId] = useState(defaults?.taxId ?? "");
+  const [scheme, setScheme] = useState(defaults?.taxIdScheme != null ? String(defaults.taxIdScheme) : "");
+  const [jurisdiction, setJurisdiction] = useState(defaults?.taxIdJurisdiction ?? "");
   const invalid = businessFieldErrorKey(errorField);
   const usState = scheme === String(TaxIdScheme.UsStateSalesTaxId);
+  // A saved identity's jurisdiction can be narrower than the one its scheme implies (a Canadian BN for CA-QC). While
+  // the number and its type are still the saved ones it is posted too, so the order snapshot matches the profile.
+  const savedJurisdiction = Boolean(defaults?.taxIdJurisdiction)
+    && scheme === String(defaults?.taxIdScheme ?? "")
+    && taxId === (defaults?.taxId ?? "");
+  const postJurisdiction = usState || savedJurisdiction;
   const sectionRef = useRef<HTMLElement>(null);
   const [mount, setMount] = useState(0);
   useEffect(() => {
@@ -48,7 +58,7 @@ export function BusinessPurchase({ errorField }: BusinessPurchaseProps) {
           <input type="hidden" name="buyerCompanyName" value={companyName} />
           <input type="hidden" name="buyerTaxId" value={taxId} />
           <input type="hidden" name="buyerTaxIdScheme" value={scheme} />
-          {usState && <input type="hidden" name="buyerTaxIdJurisdiction" value={jurisdiction} />}
+          {postJurisdiction && <input type="hidden" name="buyerTaxIdJurisdiction" value={jurisdiction} />}
         </>
       )}
       <h2 id="business-purchase-heading" className="font-medium">{t("business.title")}</h2>
@@ -64,6 +74,9 @@ export function BusinessPurchase({ errorField }: BusinessPurchaseProps) {
       </label>
       {enabled && (
         <div key={`fields-${mount}`} className="space-y-3" data-testid="business-purchase">
+          {defaults && (
+            <p className="text-sm text-neutral-600" data-testid="business-purchase-prefilled">{t("business.prefilled")}</p>
+          )}
           <TextInput
             name="buyerCompanyName"
             label={t("business.companyName")}

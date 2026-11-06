@@ -242,7 +242,8 @@
         "taxId": "Ce numéro fiscal ne correspond pas au format du type sélectionné. Vérifiez le numéro ou le type.",
         "taxIdScheme": "Sélectionnez le type de ce numéro fiscal.",
         "taxIdJurisdiction": "Saisissez l'État américain qui a délivré ce numéro fiscal, par ex. US-CA."
-      }
+      },
+      "prefilled": "Rempli à partir des coordonnées d'entreprise enregistrées dans votre compte. Toute modification ici ne vaut que pour cette commande."
     },
     "methods": {
       "creditCard": "Carte de crédit",
@@ -465,7 +466,27 @@
     "discount": "Remise",
     "shipping": "Livraison",
     "tax": "Taxe",
-    "total": "Total"
+    "total": "Total",
+    "businessIdentity": {
+      "heading": "Coordonnées d'entreprise",
+      "intro": "Enregistrez l'entreprise pour laquelle vous achetez habituellement. Au paiement, la section « Achat professionnel » est remplie avec ces informations, que vous pouvez modifier pour chaque commande.",
+      "none": "Aucune coordonnée d'entreprise enregistrée.",
+      "jurisdiction": "Juridiction (facultatif, p. ex. US-CA)",
+      "jurisdictionLine": "Juridiction : {jurisdiction}",
+      "save": "Enregistrer les coordonnées d'entreprise",
+      "clear": "Effacer les coordonnées d'entreprise",
+      "saved": "Coordonnées d'entreprise enregistrées.",
+      "cleared": "Coordonnées d'entreprise effacées.",
+      "error": "Impossible d'enregistrer les coordonnées d'entreprise. Vérifiez-les et réessayez.",
+      "tips": {
+        "companyName": "La raison sociale de l'entreprise pour laquelle vous achetez. Elle figure sur vos factures.",
+        "taxId": "Le numéro d'immatriculation fiscale de l'entreprise, s'il existe. Facultatif.",
+        "taxIdScheme": "Le registre auquel appartient le numéro fiscal : il détermine la façon dont il est vérifié.",
+        "jurisdiction": "Le pays ou l'État qui a délivré le numéro fiscal. Requis pour un identifiant de taxe de vente d'un État américain (p. ex. US-CA) ; les autres types le renseignent eux-mêmes.",
+        "save": "Enregistrez ces informations pour qu'elles soient remplies au prochain paiement.",
+        "clear": "Supprimer les coordonnées d'entreprise enregistrées. Les commandes déjà passées conservent les leurs."
+      }
+    }
   },
   "support": {
     "title": "Support de commande",
