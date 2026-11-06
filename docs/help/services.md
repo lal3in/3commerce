@@ -48,5 +48,13 @@ Usage were extracted out of Fulfillment (which now ships only physical lines).
 > (`GET/PUT/DELETE /me/business-identity`, also on `GET /me`), on the FORCE-RLS `Users` row, validated with the
 > same per-scheme format rules (Identity's own copy, pinned by the same parity test). Checkout's Business purchase
 > block opens prefilled from it; a change there applies to that order only, and each order keeps its own snapshot.
+>
+> **A billing address per saved card (mem_2).** Each saved card can have its own billing address. Payments stores
+> it on the card (`PUT/DELETE /payment-methods/{id}/billing-address`, listed with each card), and the shopper edits
+> it on the account page. At checkout, paying with a saved card that has an address preselects "Billing address of
+> <card>" and fills the bill-to from it. The shopper can still edit it, and the order keeps what is posted. A
+> signed-in shopper typing a new shipping or billing address can tick **Save this address to my account**, and it
+> is added to the address book once the order is placed. The address is prefill data only: it never reaches the
+> charge, so no amount changes, and no card data touches the servers (SAQ-A).
 
 For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

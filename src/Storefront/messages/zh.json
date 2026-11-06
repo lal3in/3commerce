@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "美国州销售税号：签发该税号的州，例如 US-CA。默认为美国账单地址所在的州。",
       "quantity": "修改此商品的订购数量。",
       "placeOrder": "授权支付并下单。随后您将看到确认页面。",
-      "collectAtWarehouse": "在供应商仓库自提你的订单，而非快递配送 — 不收取运费。"
+      "collectAtWarehouse": "在供应商仓库自提你的订单，而非快递配送 — 不收取运费。",
+      "saveAddressToAccount": "下单后将此地址加入您的地址簿，下次结账时可供选择。"
     },
     "selectCountry": "选择国家/地区",
     "collectAtWarehouse": "到仓库自提（免费）",
@@ -299,7 +300,10 @@
         "usageLimitReached": "优惠码 {code} 已达使用上限。",
         "customerLimitReached": "您已使用过优惠码 {code}。"
       }
-    }
+    },
+    "cardBillingOption": "{brand} 尾号 {last4} 的账单地址",
+    "cardBillingNote": "已使用所选卡片填写。此处的修改仅适用于本订单。",
+    "saveAddressToAccount": "将此地址保存到我的账户"
   },
   "confirmation": {
     "noOrder": "未指定订单。",
@@ -485,6 +489,22 @@
         "jurisdiction": "签发税号的国家或州。美国州销售税号必填（例如 US-CA）；其他类型会自动填写。",
         "save": "保存这些信息，下次结账时自动填写。",
         "clear": "删除已保存的企业信息。已下的订单保留各自的信息。"
+      }
+    },
+    "cardBilling": {
+      "heading": "账单地址",
+      "none": "此卡尚未设置账单地址。",
+      "add": "添加账单地址",
+      "edit": "编辑账单地址",
+      "save": "保存账单地址",
+      "clear": "删除账单地址",
+      "saved": "卡片账单地址已保存。",
+      "cleared": "卡片账单地址已删除。",
+      "error": "无法保存卡片账单地址。请检查后重试。",
+      "tips": {
+        "edit": "此卡账单寄送的地址。使用此卡付款时，订单的账单地址会自动填写为该地址。",
+        "save": "仅为此卡保存该账单地址。",
+        "clear": "删除此卡的账单地址。已下的订单保留各自的地址。"
       }
     }
   },

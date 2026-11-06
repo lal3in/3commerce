@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "美國州銷售稅號：簽發嘅州，例如 US-CA。預設係美國帳單地址所在嘅州。",
       "quantity": "更改呢件貨品訂購嘅數量。",
       "placeOrder": "授權付款並下單。之後你會見到確認。",
-      "collectAtWarehouse": "喺供應商倉庫自取你嘅訂單，唔使快遞送貨 — 唔收運費。"
+      "collectAtWarehouse": "喺供應商倉庫自取你嘅訂單，唔使快遞送貨 — 唔收運費。",
+      "saveAddressToAccount": "落單之後將呢個地址加入你嘅地址簿，下次結帳就可以揀。"
     },
     "selectCountry": "揀選國家/地區",
     "collectAtWarehouse": "喺倉庫自取（免費）",
@@ -299,7 +300,10 @@
         "usageLimitReached": "優惠碼 {code} 已達使用上限。",
         "customerLimitReached": "你已經用咗優惠碼 {code}。"
       }
-    }
+    },
+    "cardBillingOption": "{brand} 尾號 {last4} 嘅帳單地址",
+    "cardBillingNote": "已經用你揀嘅卡填好。喺呢度改嘅只會用喺呢張訂單。",
+    "saveAddressToAccount": "將呢個地址儲存到我嘅帳戶"
   },
   "confirmation": {
     "noOrder": "冇指定訂單。",
@@ -485,6 +489,22 @@
         "jurisdiction": "簽發稅號嘅國家或者州。美國州銷售稅號一定要填（例如 US-CA）；其他類型會自動填。",
         "save": "儲存呢啲資料，下次結帳就會自動填好。",
         "clear": "刪除已儲存嘅公司資料。已經落咗嘅訂單會保留佢哋自己嘅資料。"
+      }
+    },
+    "cardBilling": {
+      "heading": "帳單地址",
+      "none": "呢張卡仲未有帳單地址。",
+      "add": "加帳單地址",
+      "edit": "改帳單地址",
+      "save": "儲存帳單地址",
+      "clear": "刪除帳單地址",
+      "saved": "卡嘅帳單地址已經儲存。",
+      "cleared": "卡嘅帳單地址已經刪除。",
+      "error": "儲存唔到卡嘅帳單地址。請檢查一下再試。",
+      "tips": {
+        "edit": "呢張卡月結單寄去嘅地址。用呢張卡俾錢嗰陣，訂單嘅帳單地址會用佢自動填好。",
+        "save": "只係為呢張卡儲存呢個帳單地址。",
+        "clear": "刪除呢張卡嘅帳單地址。已經落咗嘅訂單會保留佢哋自己嘅地址。"
       }
     }
   },

@@ -82,3 +82,22 @@ self-service query surfaces that bypass the gateway's tenant claims.
 `tenantId` must verify it against the caller's `tenant` claim unless the caller holds the
 platform-scope `master` role (`InternalClaimsAuth.CanActForTenant`, first applied to the
 master-admin user endpoints — rev_9).
+
+## Amendment (2026-11-06, mem_2): a billing address on Payments' saved cards — revisit trigger considered
+
+mem_2 gives each `payments."SavedPaymentMethods"` row its own billing address (name + street + city + region +
+postcode + country). That is the first direct PII in Payments, which is the revisit trigger named above. We
+reviewed it and **keep application-level filtering** for this table, for these reasons:
+
+- Every read and write of the address is **owner-scoped**: `UserId == sub` from the gateway-minted claims, and a
+  card that is not the caller's is a 404. The ids are UUIDv7 and are never enumerable from the public surface.
+- The table is also read **outside any request scope**, by subscription renewals and dunning (`SubscriptionService`
+  charges a saved card) and by the checkout payment consumer. FORCE RLS would mean tenant-scoping each of those
+  consumer transactions, and that code is owned by other in-flight work. The address never goes into those paths:
+  `SnapshotForCharge` does not carry it, and a unit test pins that.
+- The same address already exists, with the same sensitivity, in Ordering's bill-to snapshot (app-level filtered)
+  and in Identity's address book (RLS'd).
+
+**Revisit trigger (narrowed):** if Payments gains any tenant-facing query surface over saved cards that is not keyed
+by the caller's own `sub` (an admin card search, an export), enable FORCE RLS on `SavedPaymentMethods` with the
+Identity pattern and scope the renewal and checkout consumers then.
