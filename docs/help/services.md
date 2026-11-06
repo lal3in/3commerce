@@ -42,5 +42,11 @@ Usage were extracted out of Fulfillment (which now ships only physical lines).
 > order detail. They **never change the amount charged** — reverse charge is phase 2 — and they are
 > printed on the invoice once the Invoicing service exists. The storefront checkout shows them as the
 > "Billing address" and "Business purchase" sections; the account's order history shows them back.
+>
+> **Saved business details (ADR-0063 P3b).** A member can save a default business identity on the account
+> page (company name, tax ID, type, and the issuing state for a US state ID). Identity owns it
+> (`GET/PUT/DELETE /me/business-identity`, also on `GET /me`), on the FORCE-RLS `Users` row, validated with the
+> same per-scheme format rules (Identity's own copy, pinned by the same parity test). Checkout's Business purchase
+> block opens prefilled from it; a change there applies to that order only, and each order keeps its own snapshot.
 
 For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

@@ -242,7 +242,8 @@
         "taxId": "该税号与所选类型的格式不符。请检查号码或类型。",
         "taxIdScheme": "请选择该税号的类型。",
         "taxIdJurisdiction": "请填写签发该税号的美国州，例如 US-CA。"
-      }
+      },
+      "prefilled": "已使用您账户中保存的企业信息填写。此处的修改仅适用于本订单。"
     },
     "methods": {
       "creditCard": "信用卡",
@@ -465,7 +466,27 @@
     "discount": "折扣",
     "shipping": "运费",
     "tax": "税费",
-    "total": "合计"
+    "total": "合计",
+    "businessIdentity": {
+      "heading": "企业信息",
+      "intro": "保存您通常为其采购的公司。结账时“企业采购”部分会自动填写这些信息，每个订单您仍可修改。",
+      "none": "尚未保存企业信息。",
+      "jurisdiction": "管辖区（可选，例如 US-CA）",
+      "jurisdictionLine": "管辖区：{jurisdiction}",
+      "save": "保存企业信息",
+      "clear": "清除企业信息",
+      "saved": "企业信息已保存。",
+      "cleared": "企业信息已清除。",
+      "error": "无法保存企业信息。请检查后重试。",
+      "tips": {
+        "companyName": "您为其采购的公司的法定名称，会显示在您的发票上。",
+        "taxId": "公司的税务登记号（如有）。可选。",
+        "taxIdScheme": "税号所属的登记册——决定如何校验该号码。",
+        "jurisdiction": "签发税号的国家或州。美国州销售税号必填（例如 US-CA）；其他类型会自动填写。",
+        "save": "保存这些信息，下次结账时自动填写。",
+        "clear": "删除已保存的企业信息。已下的订单保留各自的信息。"
+      }
+    }
   },
   "support": {
     "title": "订单支持",
