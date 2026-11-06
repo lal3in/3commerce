@@ -278,6 +278,7 @@ public class RecurringChargeAmountTests
         await using var db = NewDb();
         var store = AddStore(db, 825, inclusive: false);
         var provider = new RecordingProvider { Outcome = PaymentOutcome.Failed };
+        UsageBilling.AddCard(db); // an auto top-up charges the default saved card (else it is skipped)
 
         await UsageBilling.For(db, provider).ChargeAsync(UsageBilling.Request(store, 1000, "autoload-x-1", UsageChargeKind.AutoLoad), default);
 

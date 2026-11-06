@@ -139,6 +139,7 @@ public class SettledChargeEventTests
         var publisher = new RecordingPublisher();
         var provider = new RecordingProvider();
         const string reference = "autoload-sce-1";
+        UsageBilling.AddCard(db); // an auto top-up charges the default saved card (else it is skipped)
 
         for (var delivery = 0; delivery < 2; delivery++) // a redelivered request never charges, posts or announces twice
         {
