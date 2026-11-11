@@ -184,7 +184,7 @@ public static class CustomerPaymentMethodEndpoints
     private static async Task PublishReadyIfDefaultAsync(
         PaymentCustomer customer, PaymentsDbContext db, IPublishEndpoint publisher, DateTimeOffset now, CancellationToken ct)
     {
-        if (await DefaultSavedCard.ExistsForCustomerAsync(db, customer.Id, ct))
+        if (await DefaultSavedCard.ExistsForCustomerAsync(db, customer.TenantId, customer.Id, ct))
         {
             await PublishReadyAsync(customer, publisher, now, ct);
         }

@@ -77,6 +77,54 @@ public class UsageAutoLoadSavedCardIntegrationTests(Phase4Fixture fixture)
         }
     }
 
+    [Fact]
+    public async Task The_default_card_is_read_inside_the_charges_tenant_scope()
+    {
+        // Saved cards go under FORCE RLS (owner decision 2026-11-07): a consumer / job has no request scope, so the read
+        // must open its own tenant scope — set_config('app.tenant_id', <tenant>, true) in the SAME transaction as the query.
+        var tenant = Guid.NewGuid();
+        const string email = "rls-scope@example.com";
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, email, pm: "pm_scoped");
+        var recorder = new CommandRecorder();
+        await using var scope = fixture.Payments.Services.CreateAsyncScope();
+        var options = scope.ServiceProvider.GetRequiredService<DbContextOptions<PaymentsDbContext>>();
+        await using var db = new PaymentsDbContext(new DbContextOptionsBuilder<PaymentsDbContext>(options).AddInterceptors(recorder).Options);
+
+        var card = await DefaultSavedCard.FindAsync(db, tenant, email, default);
+
+        Assert.Equal("pm_scoped", card?.ProviderPaymentMethodId);
+        var setScope = Assert.Single(recorder.Commands, c => c.Text.Contains("set_config('app.tenant_id'", StringComparison.Ordinal));
+        Assert.Equal(tenant.ToString(), setScope.FirstParameter);
+        var read = Assert.Single(recorder.Commands, c => c.Text.Contains("SavedPaymentMethods", StringComparison.Ordinal));
+        Assert.NotNull(read.Transaction);
+        Assert.Same(setScope.Transaction, read.Transaction);
+        Assert.Null(db.Database.CurrentTransaction); // committed and closed: nothing leaks into the caller's unit of work
+    }
+
+    private sealed class CommandRecorder : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public List<(string Text, string? FirstParameter, System.Data.Common.DbTransaction? Transaction)> Commands { get; } = [];
+
+        private void Record(System.Data.Common.DbCommand command) =>
+            Commands.Add((command.CommandText, command.Parameters.Count > 0 ? command.Parameters[0].Value?.ToString() : null, command.Transaction));
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
+    }
+
     private async Task<List<UsageChargeRow>> ChargesAsync(Guid tenant)
     {
         await using var scope = fixture.Usage.Services.CreateAsyncScope();

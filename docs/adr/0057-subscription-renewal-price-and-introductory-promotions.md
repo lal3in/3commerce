@@ -403,6 +403,10 @@ enters the usage dunning path** (the 2026-10-28 follow-up above).
   make default a card. The migration backfills it from a subscription that charged the vault, but only when exactly one
   email did. `DefaultSavedCard.FindAsync(tenant, email)` returns the vault's **active card marked default**. A
   non-default card is never charged in its place.
+  * **Tenant-scoped reads.** Saved cards go under FORCE RLS (owner decision 2026-11-07, `feature/saved-card-billing-address`).
+    A consumer or a job has no request scope, so the read opens its own: `RunInTenantScopeAsync(TenantContext.ForTenant(charge.TenantId))`
+    (ADR-0024). The tenant comes from the usage charge (Usage's message), never from configuration. Inside a transaction
+    the caller already opened, the read joins it, and that caller owns the scope.
 * **The charge.** `UsageChargeBilling` resolves the card when it records the charge. It stores the card on the
   `UsageCharge` (`ProviderCustomerId`, `ProviderPaymentMethodId`) and sends it on the `PaymentRequest` with
   `CustomerPresent = false`. This is the renewal machinery of `pay_disp_5` (#206): Stripe confirms the intent off-session,
