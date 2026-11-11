@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Identity.Domain;
@@ -26,6 +27,12 @@ public static class ProfileEndpoints
         group.MapPost("/addresses", AddAddress);
         group.MapPut("/addresses/{id:guid}", UpdateAddress);
         group.MapDelete("/addresses/{id:guid}", DeleteAddress);
+        group.MapGet("/business-identity", GetBusinessIdentity)
+            .WithSummary("The caller's saved default business identity (ADR-0063 P3b) — 204 when none is saved.");
+        group.MapPut("/business-identity", SaveBusinessIdentity)
+            .WithSummary("Save the default business identity that prefills checkout's Business purchase block; validated per tax-ID scheme like checkout.");
+        group.MapDelete("/business-identity", ClearBusinessIdentity)
+            .WithSummary("Clear the saved default business identity; placed orders keep their own snapshot.");
 
         return app;
     }
@@ -48,7 +55,8 @@ public static class ProfileEndpoints
             ? TypedResults.NotFound()
             : TypedResults.Ok(new ProfileResponse(
                 user.Id, user.Email, user.Title, user.FirstName, user.MiddleName, user.LastName, user.PreferredName,
-                user.Phone, user.DateOfBirth, user.MarketingConsent, user.EmailVerified, user.CreatedAt));
+                user.Phone, user.DateOfBirth, user.MarketingConsent, user.EmailVerified, user.CreatedAt,
+                BusinessIdentityResponse.From(user.BusinessIdentity)));
     }
 
     /// <summary>
@@ -211,6 +219,87 @@ public static class ProfileEndpoints
         }
     }
 
+    /// <summary>
+    /// The caller's saved default business identity (ADR-0063 P3b): 200 with it, or 204 when none is saved.
+    /// </summary>
+    private static async Task<Results<Ok<BusinessIdentityResponse>, NoContent, NotFound>> GetBusinessIdentity(
+        ClaimsPrincipal principal, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        var userId = UserId(principal);
+        var user = await db.RunInTenantScopeAsync(Scope(principal),
+            () => db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, cancellationToken));
+        if (user is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        return BusinessIdentityResponse.From(user.BusinessIdentity) is { } identity
+            ? TypedResults.Ok(identity)
+            : TypedResults.NoContent();
+    }
+
+    /// <summary>
+    /// Saves the caller's default business identity, validated and normalized with the same per-scheme rules checkout
+    /// applies (ADR-0063 P3b). Returns the normalized identity, or 400 problem+json whose <c>field</c> extension and
+    /// <c>errors</c> key name the refused input (<c>companyName</c> / <c>taxId</c> / <c>taxIdScheme</c> /
+    /// <c>taxIdJurisdiction</c>). Nothing is saved on a refusal.
+    /// </summary>
+    private static async Task<Results<Ok<BusinessIdentityResponse>, ValidationProblem, NotFound>> SaveBusinessIdentity(
+        BusinessIdentityRequest request, ClaimsPrincipal principal, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        BusinessIdentity identity;
+        try
+        {
+            identity = BusinessIdentityRules.Resolve(request.CompanyName, request.TaxId, request.TaxIdScheme, request.TaxIdJurisdiction);
+        }
+        catch (BusinessIdentityException ex)
+        {
+            var field = JsonFieldName(ex.Field);
+            return TypedResults.ValidationProblem(
+                new Dictionary<string, string[]> { [field] = [ex.Message] },
+                detail: ex.Message,
+                title: "The business identity is invalid.",
+                extensions: new Dictionary<string, object?> { ["field"] = field });
+        }
+
+        var userId = UserId(principal);
+        return await db.RunInTenantScopeAsync(Scope(principal), async () =>
+        {
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            if (user is null)
+            {
+                return (Results<Ok<BusinessIdentityResponse>, ValidationProblem, NotFound>)TypedResults.NotFound();
+            }
+
+            user.SetBusinessIdentity(identity);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(BusinessIdentityResponse.From(identity)!);
+        });
+    }
+
+    /// <summary>Clears the caller's default business identity (ADR-0063 P3b). Orders already placed keep their own snapshot.</summary>
+    private static async Task<Results<NoContent, NotFound>> ClearBusinessIdentity(
+        ClaimsPrincipal principal, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        var userId = UserId(principal);
+        return await db.RunInTenantScopeAsync(Scope(principal), async () =>
+        {
+            var user = await db.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            if (user is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
+
+            user.SetBusinessIdentity(null);
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.NoContent();
+        });
+    }
+
+    // The domain names a field in PascalCase (BusinessIdentityRules.*Field); the wire uses the request's camelCase.
+    private static string JsonFieldName(string field) =>
+        field.Length == 0 ? field : char.ToLowerInvariant(field[0]) + field[1..];
+
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -233,7 +322,27 @@ public record ProfileRequest(
 
 public record ProfileResponse(
     Guid Id, string Email, string? Title, string? FirstName, string? MiddleName, string? LastName, string? PreferredName,
-    string? Phone, DateOnly? DateOfBirth, bool MarketingConsent, bool EmailVerified, DateTimeOffset CreatedAt);
+    string? Phone, DateOnly? DateOfBirth, bool MarketingConsent, bool EmailVerified, DateTimeOffset CreatedAt,
+    // ADR-0063 P3b (appended): the saved default business identity, null when none.
+    BusinessIdentityResponse? BusinessIdentity = null);
+
+/// <summary>
+/// A default business identity to save (ADR-0063 P3b) — the shape of checkout's <c>buyer</c> block. The scheme is the
+/// shared <see cref="TaxIdScheme"/> and crosses HTTP as a number. Bounds are checked by <see cref="BusinessIdentityRules"/>
+/// so a refusal names the field (400 problem+json), never a generic validation error.
+/// </summary>
+public record BusinessIdentityRequest(
+    string? CompanyName,
+    string? TaxId = null,
+    TaxIdScheme? TaxIdScheme = null,
+    string? TaxIdJurisdiction = null);
+
+/// <summary>The saved default business identity, normalized (tax ID compacted, jurisdiction the scheme implies).</summary>
+public record BusinessIdentityResponse(string CompanyName, string? TaxId, TaxIdScheme? TaxIdScheme, string? TaxIdJurisdiction)
+{
+    public static BusinessIdentityResponse? From(BusinessIdentity? identity) =>
+        identity is null ? null : new(identity.CompanyName, identity.TaxId, identity.TaxIdScheme, identity.TaxIdJurisdiction);
+}
 
 public record AddressRequest(
     AddressPurpose Purpose,

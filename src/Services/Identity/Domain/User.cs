@@ -22,6 +22,29 @@ public class User
 
     public bool EmailVerified { get; set; }
 
+    // Default business identity (ADR-0063 P3b): prefills checkout's "Business purchase" block. Stored on the
+    // FORCE-RLS Users row (ADR-0024), so it is tenant-isolated with the rest of the member's PII. All null = none.
+    // Set ONLY through SetBusinessIdentity, which takes an already-validated BusinessIdentity.
+    public string? BusinessCompanyName { get; private set; }
+    public string? BusinessTaxId { get; private set; }
+    public BuildingBlocks.Contracts.Tax.TaxIdScheme? BusinessTaxIdScheme { get; private set; }
+    public string? BusinessTaxIdJurisdiction { get; private set; }
+
+    /// <summary>The saved default business identity, or null when the member has none.</summary>
+    public BusinessIdentity? BusinessIdentity =>
+        BusinessCompanyName is null
+            ? null
+            : new BusinessIdentity(BusinessCompanyName, BusinessTaxId, BusinessTaxIdScheme, BusinessTaxIdJurisdiction);
+
+    /// <summary>Saves (or, with null, clears) the default business identity. Validate with <see cref="BusinessIdentityRules.Resolve"/> first.</summary>
+    public void SetBusinessIdentity(BusinessIdentity? identity)
+    {
+        BusinessCompanyName = identity?.CompanyName;
+        BusinessTaxId = identity?.TaxId;
+        BusinessTaxIdScheme = identity?.TaxIdScheme;
+        BusinessTaxIdJurisdiction = identity?.TaxIdJurisdiction;
+    }
+
     /// <summary>Display name — preferred name if set, else "First Last", else the email local part.</summary>
     public string DisplayName =>
         !string.IsNullOrWhiteSpace(PreferredName) ? PreferredName!

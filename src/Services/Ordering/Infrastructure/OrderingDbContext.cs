@@ -198,6 +198,12 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
             attempt.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.CheckoutAttemptId);
         });
 
+        // ADR-0063 § 16 per-line destination; '' on lines written before it (read the order's destination then).
+        modelBuilder.Entity<OrderLine>(line =>
+            line.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty));
+        modelBuilder.Entity<CheckoutAttemptLine>(line =>
+            line.Property(x => x.TaxDestinationCountry).HasMaxLength(2).HasDefaultValue(string.Empty));
+
         modelBuilder.Entity<OrderNumberSequence>(sequence =>
         {
             sequence.HasKey(x => x.StorefrontId);
@@ -205,9 +211,10 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
 
         // ADR-0063 P1b: one row per confirmed intra-EU distance sale; the threshold's running total is the Σ per
         // (tenant, year, currency), which this index serves without touching the rows' other columns.
+        // A sale split across destinations (ADR-0063 § 16, per-line destination) has one row per destination.
         modelBuilder.Entity<EuDistanceSale>(sale =>
         {
-            sale.HasKey(x => x.OrderId);
+            sale.HasKey(x => new { x.OrderId, x.DestinationCountry });
             sale.Property(x => x.HomeCountry).HasMaxLength(2);
             sale.Property(x => x.DestinationCountry).HasMaxLength(2);
             sale.Property(x => x.Currency).HasMaxLength(3);

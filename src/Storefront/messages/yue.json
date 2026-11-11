@@ -242,7 +242,8 @@
         "taxId": "呢個稅號唔啱所揀類型嘅格式。請檢查號碼或者類型。",
         "taxIdScheme": "請揀呢個稅號嘅類型。",
         "taxIdJurisdiction": "請填簽發呢個稅號嘅美國州，例如 US-CA。"
-      }
+      },
+      "prefilled": "已經用你帳戶入面儲存嘅公司資料填好。喺呢度改嘅只會用喺呢張訂單。"
     },
     "methods": {
       "creditCard": "信用卡",
@@ -465,7 +466,27 @@
     "discount": "折扣",
     "shipping": "運費",
     "tax": "稅項",
-    "total": "總計"
+    "total": "總計",
+    "businessIdentity": {
+      "heading": "公司資料",
+      "intro": "儲存你平時幫佢採購嘅公司。結帳嗰陣「公司採購」部分會自動填好呢啲資料，每張訂單你都仲可以改。",
+      "none": "未儲存公司資料。",
+      "jurisdiction": "管轄區（選填，例如 US-CA）",
+      "jurisdictionLine": "管轄區：{jurisdiction}",
+      "save": "儲存公司資料",
+      "clear": "清除公司資料",
+      "saved": "公司資料已經儲存。",
+      "cleared": "公司資料已經清除。",
+      "error": "儲存唔到公司資料。請檢查一下再試。",
+      "tips": {
+        "companyName": "你幫佢採購嘅公司嘅法定名稱，會印喺你嘅發票上面。",
+        "taxId": "公司嘅稅務登記號碼（如果有）。選填。",
+        "taxIdScheme": "稅號屬於邊個登記冊——決定點樣檢查個號碼。",
+        "jurisdiction": "簽發稅號嘅國家或者州。美國州銷售稅號一定要填（例如 US-CA）；其他類型會自動填。",
+        "save": "儲存呢啲資料，下次結帳就會自動填好。",
+        "clear": "刪除已儲存嘅公司資料。已經落咗嘅訂單會保留佢哋自己嘅資料。"
+      }
+    }
   },
   "support": {
     "title": "訂單支援",

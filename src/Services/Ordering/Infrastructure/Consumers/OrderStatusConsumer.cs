@@ -189,11 +189,9 @@ public sealed class OrderStatusConsumer(
 
             // ADR-0063 P1b: an intra-EU distance sale counts toward its seller's EUR 10,000 threshold from the moment
             // it is confirmed — in THIS transaction, so the running total can neither miss a confirmed sale nor count
-            // one that rolled back, and keyed by the order, so a redelivery cannot count it twice.
-            if (EuDistanceSale.For(order, attempt.CreatedAt, DateTimeOffset.UtcNow) is { } distanceSale)
-            {
-                db.EuDistanceSales.Add(distanceSale);
-            }
+            // one that rolled back, and keyed by (order, destination), so a redelivery cannot count it twice. A sale whose
+            // lines go to different Member States records one row per destination (ADR-0063 § 16).
+            db.EuDistanceSales.AddRange(EuDistanceSale.For(order, attempt.CreatedAt, DateTimeOffset.UtcNow));
 
             await db.SaveChangesAsync(context.CancellationToken);
         }

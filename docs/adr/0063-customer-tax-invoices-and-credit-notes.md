@@ -884,7 +884,7 @@ orders.
     rule.
   * Reduced-rate categories need a Catalog product VAT category projected to Ordering.
   * A cart that mixes physical goods and digital services needs a per-line destination: ship-to for the goods,
-    bill-to for the services.
+    bill-to for the services. *(Done 2026-11-06 — see "P1b follow-up — per-line destination" below.)*
 * **Tests.**
   * Unit: `EuOssTaxStrategyTests` covers the EU-27 fixture (typed independently of the table), the
     at/over/crossing threshold, the preceding year, non-EUR, an explicit destination, local-midnight effective dates
@@ -938,6 +938,41 @@ orders.
   `BuyerIdentityCheckoutTests` covers a guest and a member, each with and without a block, an unchanged charge,
   a member reading the block back with a numeric scheme, and five refusals returning 400 with nothing booked.
   Browser: `e2e/checkout-business-purchase.spec.ts` (`capture()`). `e2e-verify.sh` A3s + A6j.
+
+### P3b — saved default business identity (2026-11-05, `feature/profile-business-identity`, tracker `tax_p3b_profile_business_identity`)
+
+* **Scope.** The § 9.1 line P3 deferred: "the account profile can store a default business identity". A member saves
+  one company (name, optional tax ID + scheme + jurisdiction) that **prefills** checkout's Business purchase block.
+  It is a convenience only: the shopper can change or untick the block per order, and the order keeps its own
+  snapshot (P3's `Buyer*` columns), so editing or clearing the profile never rewrites an order.
+* **Owner and storage.** Identity, on the member's `identity."Users"` row: `BusinessCompanyName` (200),
+  `BusinessTaxId` (80), `BusinessTaxIdScheme` (int, the shared `TaxIdScheme`), `BusinessTaxIdJurisdiction` (10) —
+  migration `ProfileBusinessIdentity`, all nullable, the same bounds as Ordering's buyer columns, so a saved value
+  always fits an order. The row is under FORCE RLS (ADR-0024), so the identity is tenant-isolated with the rest of
+  the member's PII; the endpoints run in the member's tenant scope. A separate table was not needed: it is one value
+  per member and has no history.
+* **Validation — a third copy.** `Identity.Domain.BusinessIdentityRules` applies P3's rules (company required ≤ 200; a
+  tax ID needs its scheme and a scheme its tax ID) and `BusinessTaxIdFormats` is a copy of the per-scheme format
+  rules, for the same reason Ordering has one (no shared domain logic). `BuyerTaxIdFormatParityTests` now compares
+  all three copies (Entity, Ordering, Identity) over the corpus, and pins that Identity's bounds and field names equal
+  Ordering's — a saved identity is always one checkout accepts. One difference: a profile has no bill-to, so a US
+  state sales-tax ID must carry its `taxIdJurisdiction` (checkout can borrow the state from a US bill-to).
+* **HTTP.** `GET /me/business-identity` (200, or 204 when none), `PUT` (validated, returns the normalized identity;
+  400 problem+json with `field` = `companyName` / `taxId` / `taxIdScheme` / `taxIdJurisdiction` and an `errors`
+  entry, nothing saved), `DELETE` (204). `GET /me` appends `businessIdentity`; `PUT /me` does not touch it. Customer
+  self-service only — there is no admin mutation, so no audit entry (the audit rule covers admin mutations).
+* **Storefront.** `/account` has a "Business details" section (`components/account/BusinessIdentityForm.tsx`, server
+  actions in `lib/business-identity-actions.ts`) to view, save and clear it; a refusal reuses checkout's localized
+  `checkout.business.errors.*` message and marks the input `aria-invalid`, keeping what was typed. Checkout's
+  `BusinessPurchase` takes the profile's identity as `defaults`: ticked and filled, with a "filled in from your
+  account" note. A saved jurisdiction narrower than the scheme's (CA-QC) is posted while the number and type are
+  still the saved ones. All new strings in the six locales. Ordering is unchanged.
+* **Amount unchanged.** Nothing here reaches tax or the charge; P3's byte-identical-charge test still holds.
+* **Tests.** Unit: `BusinessIdentityTests` (Identity) and the extended `BuyerTaxIdFormatParityTests`. Integration:
+  `ProfileBusinessIdentityEndpointTests` (save/read/replace/clear, six refusals naming the field, 401, another member
+  sees nothing) and `IdentityBusinessIdentityRlsTests` (non-superuser FORCE RLS: owner reads/clears, another tenant
+  can neither read nor overwrite, no scope fails closed). Browser: `e2e/account-business-identity.spec.ts`
+  (`capture()`). `e2e-verify.sh` A3s + A3z + A4j.
 
 ### P4b — settled-charge events (2026-10-28, `feature/settled-charge-events`, tracker `tax_p4b_settled_charge_events`)
 
@@ -1016,3 +1051,58 @@ orders.
   numeric enums), and the backfill tool's `OrderConfirmedMappingTests` (line ids). Integration:
   `RefundAttributionTests` (customer RMA, admin whole-order RMA, admin amount refund over the real bus; trial
   balance 0). `e2e-verify.sh` A3v + A4g.
+
+### P1b follow-up — per-line destination (2026-11-06, `feature/oss-per-line-destination`, tracker `tax_p1b_followups_per_line_destination`)
+
+* **Owner decision 2026-11-06 (final).** In a cart that mixes physical goods and digital services, the goods are taxed
+  by the **ship-to** country and the digital lines by the **bill-to** country.
+* **What is digital.** The line's resolved offer's fulfilment type (ADR-0028), carried on `TaxLineInput.Fulfilment`:
+  `DigitalDownload`, `Subscription` and `Usage` are electronically supplied services (Art. 58, where the customer
+  belongs = the bill-to country, P3). Every other line — `Warehouse`, `Dropship`, `Unassigned` (no offer) — is goods
+  dispatched to the customer (Art. 33, the ship-to). `ManualService` keeps the ship-to as before: its general-rule
+  place of supply (Art. 45, the supplier's establishment) is a separate decision, listed under the known gaps below.
+  `PlaceOfSupply` (Ordering domain) is the one place this is decided. A digital line with no bill-to falls back to the
+  ship-to.
+* **The seam.** `TaxCalculationInput.DestinationCountry` is now the **cart's** destination (the goods' and the
+  shipping's, default the ship-to); `BillCountry` is new. `EuOssTaxStrategy` resolves each line's destination and
+  reports it on `TaxBreakdown.LineDestinations` and the sale's on `SaleDestination`. `StorefrontRateTaxStrategy`
+  (every non-EU and unconfigured store) reports none, and checkout then records the ship-to on the order and every
+  line exactly as before.
+* **How a split sale is taxed.**
+  * Each line takes its own destination's rate when that is another Member State and the seller is over the
+    threshold; otherwise the home rate.
+  * Rounding is per **(destination, rate)** group: France and Austria are both 20 %, but each country's VAT is
+    rounded on its own.
+  * **Shipping follows the goods**: it rides the highest-rated group of the cart's destination that has taxable
+    goods. When no taxable goods go there (e.g. the goods are exempt by a ship rule), shipping is
+    `ShippingFollowsExemptGoods` — it no longer rides an unrelated higher-rated service abroad.
+  * The scheme is `Oss` when the threshold applies to some cross-border component; the lines' destinations say which.
+* **Decision — the threshold stays per sale, and a split sale records each destination.**
+  * The value tested against EUR 10,000 is Σ of the sale's components supplied into **another** Member State (net of
+    VAT, at the home computation, as before). German goods staying in Germany do not push a sale with a French
+    e-book over the threshold.
+  * `ordering."EuDistanceSales"` is now keyed by **(OrderId, DestinationCountry)**: one row per Member State the sale
+    crossed into, carrying that destination's lines (each at its `OrderLine.TaxDestinationCountry`) plus the shipping
+    when the sale's destination is that country. Still written in the order's transaction; the composite key keeps a
+    redelivery from counting twice; the per-tenant-per-year Σ and its index are unchanged.
+  * Why rows per destination rather than one row with a "mixed" marker: the total is the same either way, but an OSS
+    return is filed per Member State of consumption, so the per-destination split is what a later report needs.
+* **Order-level `TaxDestinationCountry`** is the **sale's** destination: the one every line shares, or — for a split
+  sale — the cart's (where the goods and shipping go). It is therefore always the shipping line's destination. A
+  digital-only cart billed to France and shipped to Germany now records `FR` (before: `DE`, taxed at the German
+  destination — the gap this closes).
+* **Facts persisted and published.** `OrderLine`/`CheckoutAttemptLine.TaxDestinationCountry` (`varchar(2)`, default
+  `""`; migration `PerLineTaxDestination`, which also re-keys `EuDistanceSales`). `""` on a line written before =
+  the order's destination (`OrderLine.DestinationOr`), no backfill (D18). `OrderLineInfo` appends
+  `TaxDestinationCountry = ""` (additive; published verbatim by `OrderConfirmedFactory`, so the ADR-0060 backfill
+  rebuilds it).
+* **Byte-identical where nothing is split.** Single-destination carts (no digital line, bill-to = ship-to, no
+  bill-to, or a digital-only cart compared against the old strategy asked for the bill-to country) reproduce an
+  oracle copy of the pre-split strategy field for field over 10,000 seeded random carts. Non-EU stores ignore the
+  bill-to and report no line destinations.
+* **Coordination.** The OSS-renewals follow-up (Payments, `tax_p1b_followups_oss_renewals`) should take a
+  subscription's destination from its **line** (`OrderLine.TaxDestinationCountry`, the bill-to for a digital
+  subscription), not the order's.
+* **Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.
+* **Tests.** Unit `PerLineTaxDestinationTests` (e2e-verify **A3zd**); integration `EuOssCheckoutTests` gains a mixed
+  cart over the threshold and a cart split between two other Member States (A4d).
