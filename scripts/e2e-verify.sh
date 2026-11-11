@@ -699,7 +699,7 @@
 #       a billing address per saved card (mem_2): a member saves two cards and gives the Visa its own billing
 #       address on /account (the Mastercard shows none); at checkout the default Visa preselects "Billing address
 #       of VISA ending 4242" and fills the bill-to, the Mastercard falls back to the shipping address, and the
-#       summary never moves; an edited bill-to with "Save this address to my account" ticked becomes the order's
+#       summary never moves; an edited bill-to with "Save to my account for next time" ticked becomes the order's
 #       bill-to and joins the address book while the card keeps its own; the card's address then clears
 #       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full)
 # ─────────────────────────────────────────────────────────────────────────────

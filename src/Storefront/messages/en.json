@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "Billing address of {brand} ending {last4}",
     "cardBillingNote": "Filled in from the card you chose. Changes here apply to this order only.",
-    "saveAddressToAccount": "Save this address to my account"
+    "saveAddressToAccount": "Save to my account for next time"
   },
   "confirmation": {
     "noOrder": "No order specified.",

@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "Dirección de facturación de {brand} terminada en {last4}",
     "cardBillingNote": "Completada con la tarjeta elegida. Los cambios aquí solo se aplican a este pedido.",
-    "saveAddressToAccount": "Guardar esta dirección en mi cuenta"
+    "saveAddressToAccount": "Guardar en mi cuenta para la próxima vez"
   },
   "confirmation": {
     "noOrder": "No se especificó ningún pedido.",

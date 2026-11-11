@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "Rechnungsadresse der {brand} mit Endziffern {last4}",
     "cardBillingNote": "Aus der gewählten Karte übernommen. Änderungen hier gelten nur für diese Bestellung.",
-    "saveAddressToAccount": "Diese Adresse in meinem Konto speichern"
+    "saveAddressToAccount": "Für das nächste Mal in meinem Konto speichern"
   },
   "confirmation": {
     "noOrder": "Keine Bestellung angegeben.",

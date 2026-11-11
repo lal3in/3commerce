@@ -200,7 +200,7 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     return { error: detail || "Checkout failed. Please review your cart and details.", field };
   }
   const result = (await response.json()) as { orderId: string };
-  // mem_2: "Save this address to my account" — only once the order is placed, only for a signed-in shopper.
+  // mem_2: "Save to my account for next time" — only once the order is placed, only for a signed-in shopper.
   // Best effort: the order is already placed, so a refused save never turns it into an error.
   if (profile) {
     await saveCheckoutAddresses(formData, body.shippingAddress, body.billingAddress, headers as Record<string, string>);

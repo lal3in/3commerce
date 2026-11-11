@@ -5,7 +5,7 @@ import { capture } from "../e2e-support/screenshots";
 /**
  * mem_2 — a billing address per saved card, in a real browser. A member saves two cards on /account and gives the
  * Visa its own billing address (the Mastercard has none). At checkout the Visa (the default card) fills the billing
- * section from its address; the shopper edits it for this order and ticks "Save this address to my account": the
+ * section from its address; the shopper edits it for this order and ticks "Save to my account for next time": the
  * order is billed to the edited address, the address book gains it, and the card keeps its own. Choosing the
  * Mastercard falls back to billing to the shipping address. The amount is never touched — the summary is the same
  * whichever card or address is chosen. The checkout half needs a demo storefront (dev-up --data full).
@@ -57,7 +57,7 @@ test.describe("Saved card billing address (mem_2)", () => {
 
     // Edit for this order and save it to the account.
     await billing.getByLabel("Address", { exact: true }).fill("11 Ledger Road");
-    await billing.getByLabel("Save this address to my account").check();
+    await billing.getByLabel("Save to my account for next time").check();
     await placeAndPay(page);
 
     await page.goto("/account");

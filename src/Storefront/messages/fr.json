@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "Adresse de facturation de la {brand} se terminant par {last4}",
     "cardBillingNote": "Remplie à partir de la carte choisie. Les modifications ici ne valent que pour cette commande.",
-    "saveAddressToAccount": "Enregistrer cette adresse dans mon compte"
+    "saveAddressToAccount": "Enregistrer dans mon compte pour la prochaine fois"
   },
   "confirmation": {
     "noOrder": "Aucune commande spécifiée.",

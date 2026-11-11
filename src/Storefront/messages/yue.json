@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "{brand} 尾號 {last4} 嘅帳單地址",
     "cardBillingNote": "已經用你揀嘅卡填好。喺呢度改嘅只會用喺呢張訂單。",
-    "saveAddressToAccount": "將呢個地址儲存到我嘅帳戶"
+    "saveAddressToAccount": "儲存到我嘅帳戶，下次用"
   },
   "confirmation": {
     "noOrder": "冇指定訂單。",

@@ -303,7 +303,7 @@
     },
     "cardBillingOption": "{brand} 尾号 {last4} 的账单地址",
     "cardBillingNote": "已使用所选卡片填写。此处的修改仅适用于本订单。",
-    "saveAddressToAccount": "将此地址保存到我的账户"
+    "saveAddressToAccount": "保存到我的账户，下次使用"
   },
   "confirmation": {
     "noOrder": "未指定订单。",

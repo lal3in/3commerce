@@ -53,7 +53,7 @@ Usage were extracted out of Fulfillment (which now ships only physical lines).
 > it on the card (`PUT/DELETE /payment-methods/{id}/billing-address`, listed with each card), and the shopper edits
 > it on the account page. At checkout, paying with a saved card that has an address preselects "Billing address of
 > <card>" and fills the bill-to from it. The shopper can still edit it, and the order keeps what is posted. A
-> signed-in shopper typing a new shipping or billing address can tick **Save this address to my account**, and it
+> signed-in shopper typing a new shipping or billing address can tick **Save to my account for next time**, and it
 > is added to the address book once the order is placed. The address is prefill data only: it never reaches the
 > charge, so no amount changes, and no card data touches the servers (SAQ-A). The saved cards are
 > tenant-isolated by the database (FORCE row-level security, ADR-0024 amendment 2026-11-07).
