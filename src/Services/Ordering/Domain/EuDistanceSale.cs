@@ -37,7 +37,9 @@ public class EuDistanceSale
     /// destination (where the goods go). A sale with one destination is one row with the whole sale, exactly as
     /// before; a sale split across destinations counts only its cross-border parts, each under its own country.
     /// Empty when nothing crossed a border (a domestic, non-EU or pre-P1b order — whose
-    /// <see cref="Order.TaxJurisdiction"/> is empty — counts nothing).
+    /// <see cref="Order.TaxJurisdiction"/> is empty — counts nothing). Goods into Northern Ireland count under
+    /// <c>XI</c>; a component exported to a territory outside the EU VAT area
+    /// (<see cref="TaxExemptionReason.OutsideEuVatArea"/>) is not a distance sale and never counts.
     /// </summary>
     public static IReadOnlyList<EuDistanceSale> For(Order order, DateTimeOffset suppliedAt, DateTimeOffset now)
     {
@@ -47,18 +49,18 @@ public class EuDistanceSale
             return [];
         }
 
-        string? CrossBorder(string destination) =>
-            EuMemberStates.Normalize(destination) is { } memberState && memberState != home ? memberState : null;
+        string? CrossBorder(string destination, TaxExemptionReason exemption) =>
+            exemption != TaxExemptionReason.OutsideEuVatArea && EuVatArea.Normalize(destination) is { } area && area != home ? area : null;
 
         var net = new Dictionary<string, long>(StringComparer.Ordinal);
-        if (CrossBorder(order.TaxDestinationCountry) is { } shippingDestination)
+        if (CrossBorder(order.TaxDestinationCountry, order.ShippingExemptionReason) is { } shippingDestination)
         {
             net[shippingDestination] = order.ShippingTaxableBaseMinor;
         }
 
         foreach (var line in order.Lines)
         {
-            if (CrossBorder(line.DestinationOr(order.TaxDestinationCountry)) is { } destination)
+            if (CrossBorder(line.DestinationOr(order.TaxDestinationCountry), line.ExemptionReason) is { } destination)
             {
                 net[destination] = net.GetValueOrDefault(destination) + line.TaxableBaseMinor;
             }
