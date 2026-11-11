@@ -857,11 +857,19 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.Property<Guid?>("StorefrontId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TaxDestinationCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
                     b.Property<bool>("TaxExempt")
                         .HasColumnType("boolean");
 
                     b.Property<bool?>("TaxInclusive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("TaxScheme")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");

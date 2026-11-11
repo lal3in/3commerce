@@ -1,4 +1,6 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using Facts = ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts;
+using ThreeCommerce.Payments.Domain.Ledger;
 
 namespace ThreeCommerce.Payments.Domain;
 
@@ -47,6 +49,22 @@ public sealed class Subscription
 
     /// <summary>The line was destination-exempt at purchase (ProductShipRule for the order's ship-to): renewals post no tax.</summary>
     public bool TaxExempt { get; init; }
+
+    /// <summary>
+    /// The scheme the line was taxed under at purchase (ADR-0063 § 16, OSS renewals): <see cref="Facts.TaxScheme.Oss"/>
+    /// when it was an intra-EU distance sale taxed at its destination — its renewals then take that destination's standard
+    /// rate in force at each charge (<see cref="OssDestination"/>). Null for a subscription set up before it was carried
+    /// (the storefront's rate, as before).
+    /// </summary>
+    public Facts.TaxScheme? TaxScheme { get; init; }
+
+    /// <summary>The line's place of supply at purchase (ISO alpha-2): the ship-to for goods, the bill-to for an
+    /// electronically supplied service. Informational unless <see cref="TaxScheme"/> is Oss.</summary>
+    public string? TaxDestinationCountry { get; init; }
+
+    /// <summary>The Member State an OSS subscription is taxed in, or null when its renewals take the storefront's rate.</summary>
+    public string? OssDestination =>
+        TaxScheme == Facts.TaxScheme.Oss ? EuStandardVatRates.Normalize(TaxDestinationCountry) : null;
     public SubscriptionStatus Status { get; private set; } = SubscriptionStatus.Active;
     public DateTimeOffset CurrentPeriodStart { get; private set; }
     public DateTimeOffset CurrentPeriodEnd { get; private set; }
@@ -107,7 +125,8 @@ public sealed class Subscription
         Guid tenantId, Guid orderId, string email, Guid productId, Guid? variantId,
         BillingPeriod period, long priceMinor, string currency, DateTimeOffset now,
         string? providerCustomerId = null, string? providerPaymentMethodId = null, Guid? storefrontId = null,
-        bool? taxInclusive = null, bool taxExempt = false, int quantity = 1)
+        bool? taxInclusive = null, bool taxExempt = false, int quantity = 1, Facts.TaxScheme? taxScheme = null,
+        string? taxDestinationCountry = null)
     {
         if (period == BillingPeriod.Once)
         {
@@ -137,6 +156,8 @@ public sealed class Subscription
             Currency = currency.ToUpperInvariant(),
             TaxInclusive = taxInclusive,
             TaxExempt = taxExempt,
+            TaxScheme = taxScheme,
+            TaxDestinationCountry = string.IsNullOrWhiteSpace(taxDestinationCountry) ? null : taxDestinationCountry.Trim().ToUpperInvariant(),
             CurrentPeriodStart = now,
             CurrentPeriodEnd = Advance(now, period),
             ProviderCustomerId = providerCustomerId,

@@ -1,4 +1,5 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+using ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts;
 
 namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 
@@ -19,8 +20,17 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// that decision it was one unit's price whatever the quantity. <see cref="Quantity"/> (appended, default 1) is the
 /// number of units the subscription covers; it is informational — the price already includes it.
 /// </para>
+/// <para>
+/// Appended (ADR-0063 § 16, OSS renewals, owner decision 2026-11-06): <see cref="TaxScheme"/> — the scheme the LINE was
+/// taxed under at purchase (<see cref="Tax.Facts.TaxScheme.Oss"/> when it was an intra-EU distance sale taxed at the
+/// destination, else Domestic / NotRecorded) — and <see cref="TaxDestinationCountry"/>, the line's place of supply (ISO
+/// alpha-2; the ship-to for goods, the bill-to for an electronically supplied service). An OSS subscription renews at
+/// the DESTINATION's standard rate in force at each renewal (Payments), not the storefront's. Null from an older
+/// publisher: the renewal keeps the storefront's rate, as before.
+/// </para>
 /// </summary>
 public record SubscriptionRequested(
     Guid TenantId, Guid OrderId, string CustomerEmail, Guid ProductId, Guid? VariantId,
     BillingPeriod BillingPeriod, long PriceMinor, string Currency, Guid? StorefrontId = null,
-    bool? TaxInclusive = null, bool TaxExempt = false, int Quantity = 1);
+    bool? TaxInclusive = null, bool TaxExempt = false, int Quantity = 1,
+    TaxScheme? TaxScheme = null, string? TaxDestinationCountry = null);

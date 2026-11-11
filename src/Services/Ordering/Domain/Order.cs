@@ -66,6 +66,28 @@ public class Order
     /// </summary>
     public string TaxDestinationCountry { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The scheme and place of supply ONE line was taxed under (ADR-0063 § 16, OSS renewals): the line's own destination
+    /// (<see cref="OrderLine.DestinationOr"/> — a line written before per-line destinations takes the order's), and
+    /// <see cref="TaxScheme.Oss"/> only when the sale was taxed under OSS AND this line went to a Member State other than
+    /// the storefront's home one (<see cref="TaxJurisdiction"/>) — a mixed OSS sale's home-country lines were taxed at the
+    /// home rate, so they are Domestic. Any other sale reports its own scheme. What a subscription line's renewals are
+    /// taxed by.
+    /// </summary>
+    public (TaxScheme Scheme, string Destination) LineTaxTerms(OrderLine line)
+    {
+        var destination = line.DestinationOr(TaxDestinationCountry);
+        if (TaxScheme != TaxScheme.Oss)
+        {
+            return (TaxScheme, destination);
+        }
+
+        var memberState = EuMemberStates.Normalize(destination);
+        return memberState is not null && memberState != EuMemberStates.OfJurisdiction(TaxJurisdiction)
+            ? (TaxScheme.Oss, memberState)
+            : (TaxScheme.Domestic, destination);
+    }
+
     public long ShippingMinor { get; set; }
     public long DiscountMinor { get; set; }
 

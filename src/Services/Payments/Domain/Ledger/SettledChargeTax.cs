@@ -4,7 +4,7 @@ namespace ThreeCommerce.Payments.Domain.Ledger;
 
 /// <summary>The tax facts of one settled renewal / usage charge, in the P1 shape the settled-charge events publish.</summary>
 /// <param name="Line">The charged line with its category, rate, base, tax and exemption.</param>
-/// <param name="Scheme">Domestic (Payments charges the storefront's own single rate), NotRecorded when the rate was unknown.</param>
+/// <param name="Scheme">Domestic (the storefront's own rate), Oss (an OSS subscription at its destination's rate), NotRecorded when the rate was unknown.</param>
 /// <param name="TaxInclusive">Whether the price contains the tax.</param>
 /// <param name="NetMinor">Revenue posted (gross − tax).</param>
 /// <param name="TaxMinor">Tax posted.</param>
@@ -37,8 +37,13 @@ public static class SettledChargeTax
     /// The rate to report when the pin predates recorded rates (<see cref="RecurringChargeTaxResult.RateBps"/> null on a
     /// taxed split): the storefront's projected rate now. Only splits pinned before P4b and settled after it take it.
     /// </param>
+    /// <param name="oss">
+    /// The charge was taxed under OSS at its destination's rate (ADR-0063 § 16): the scheme reports Oss instead of
+    /// Domestic (an untaxed / exempt / unknown-rate split keeps its own category; only a recorded scheme becomes Oss).
+    /// </param>
     public static SettledChargeTaxFacts For(
-        RecurringChargeTaxResult tax, string description, long quantity, bool exempt, bool taxInclusive, int? fallbackRateBps)
+        RecurringChargeTaxResult tax, string description, long quantity, bool exempt, bool taxInclusive, int? fallbackRateBps,
+        bool oss = false)
     {
         var gross = tax.ChargeMinor;
         var net = tax.NetMinor;
@@ -63,7 +68,7 @@ public static class SettledChargeTax
                 new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Standard, tax.RateBps ?? fallbackRateBps ?? 0, net, tax.TaxMinor),
         };
 
-        var scheme = line.TaxCategory == TaxCategory.NotRecorded ? TaxScheme.NotRecorded : TaxScheme.Domestic;
+        var scheme = line.TaxCategory == TaxCategory.NotRecorded ? TaxScheme.NotRecorded : oss ? TaxScheme.Oss : TaxScheme.Domestic;
         return new SettledChargeTaxFacts(line, scheme, inclusive, net, tax.TaxMinor, gross);
     }
 }
