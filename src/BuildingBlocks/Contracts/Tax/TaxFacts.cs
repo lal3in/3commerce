@@ -33,6 +33,12 @@ public enum TaxExemptionReason
 
     /// <summary>The product's own exempt tax mode.</summary>
     ProductTaxMode = 3,
+
+    /// <summary>
+    /// Supplied into a territory outside the EU VAT area although inside a Member State (Directive 2006/112/EC Art. 6,
+    /// e.g. the Canary Islands, Åland, the French outermost regions): an export, zero-rated (UNCL5305 <c>G</c>).
+    /// </summary>
+    OutsideEuVatArea = 4,
 }
 
 /// <summary>The tax scheme a sale or charge falls under.</summary>

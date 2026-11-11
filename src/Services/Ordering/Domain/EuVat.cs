@@ -3,9 +3,9 @@ namespace ThreeCommerce.Ordering.Domain;
 /// <summary>
 /// The 27 EU Member States as ISO 3166-1 alpha-2 codes (ADR-0063 P1b), with the time zone each one's law changes
 /// its rates in. Greece is <c>GR</c> here (ISO, as ship-to and storefront jurisdictions are written); its VAT prefix
-/// <c>EL</c> is accepted as an alias. Special VAT territories (Canary Islands, Åland, Mount Athos, the French
-/// outermost regions, Büsingen, Heligoland, Livigno, Campione, Ceuta/Melilla) and Northern Ireland (<c>XI</c>) are
-/// NOT modelled: they need a postcode/region rule, which is a separate decision.
+/// <c>EL</c> is accepted as an alias. The special VAT territories (Canary Islands, Åland, Mount Athos, the French
+/// outermost regions, …) and Northern Ireland (<c>XI</c>) are decided from the whole address by
+/// <see cref="EuVatTerritories"/>; <see cref="EuVatArea"/> adds <c>XI</c> as a destination for goods.
 /// </summary>
 public static class EuMemberStates
 {
@@ -111,6 +111,45 @@ public static class EuMemberStates
 }
 
 /// <summary>
+/// The destinations inside the EU VAT area that a supply can be taxed in (ADR-0063 § 16): the 27 Member States
+/// (<see cref="EuMemberStates"/>) plus Northern Ireland for goods (<c>XI</c>, Windsor Framework Art. 8 — taxed at the UK
+/// rate, its rate changes on UK local time). <c>XI</c> is never a HOME Member State: a storefront's jurisdiction is read
+/// by <see cref="EuMemberStates.OfJurisdiction"/>, which does not know it.
+/// </summary>
+public static class EuVatArea
+{
+    private const string NorthernIrelandTimeZone = "Europe/London";
+
+    /// <summary>The destination code (a Member State, <c>EL</c> → <c>GR</c>, or <c>XI</c>), or null when it is not one.</summary>
+    public static string? Normalize(string? code) =>
+        EuMemberStates.Normalize(code)
+        ?? (string.Equals(code?.Trim(), EuVatTerritories.NorthernIreland, StringComparison.OrdinalIgnoreCase) ? EuVatTerritories.NorthernIreland : null);
+
+    /// <summary>The calendar date at <paramref name="instant"/> where <paramref name="code"/>'s rates change.</summary>
+    public static DateOnly LocalDate(string code, DateTimeOffset instant)
+    {
+        if (Normalize(code) != EuVatTerritories.NorthernIreland)
+        {
+            return EuMemberStates.LocalDate(code, instant);
+        }
+
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(NorthernIrelandTimeZone);
+            return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, zone).DateTime);
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return DateOnly.FromDateTime(instant.UtcDateTime);
+        }
+    }
+
+    /// <summary>Whether the host resolves Northern Ireland's time zone too (pinned by a unit test).</summary>
+    public static bool AllTimeZonesResolve() =>
+        EuMemberStates.AllTimeZonesResolve() && TimeZoneInfo.TryFindSystemTimeZoneById(NorthernIrelandTimeZone, out _);
+}
+
+/// <summary>
 /// One row of the versioned EU VAT rate table: from <see cref="EffectiveFrom"/> (a local date in that Member State)
 /// until the next row of the same country and category, <see cref="RateBps"/> applies. <see cref="CategoryCode"/>
 /// <c>""</c> is the standard rate; any other code is a product category with its own (reduced, super-reduced, zero)
@@ -137,8 +176,8 @@ public sealed class EuVatRateTable
         var grouped = new Dictionary<(string, string), List<EuVatRate>>();
         foreach (var row in rows)
         {
-            var country = EuMemberStates.Normalize(row.Country)
-                ?? throw new ArgumentException($"'{row.Country}' is not an EU Member State.", nameof(rows));
+            var country = EuVatArea.Normalize(row.Country)
+                ?? throw new ArgumentException($"'{row.Country}' is not an EU Member State (or XI).", nameof(rows));
             if (row.RateBps is < 0 or > 10_000)
             {
                 throw new ArgumentException($"{country} rate {row.RateBps} bps is outside 0..10000.", nameof(rows));
@@ -169,6 +208,11 @@ public sealed class EuVatRateTable
     /// are deliberately NOT seeded: no product carries a VAT category yet, and an unverified reduced rate in a money
     /// path is worse than none (a category without a row is taxed at the standard rate — never under-collected).
     /// Re-verify against TEDB before EU cross-border B2C goes live and on every change of law.
+    /// <para>
+    /// <c>XI</c> (Northern Ireland, goods only — ADR-0063 § 16) is taxed at the UK standard rate, 20 % since
+    /// 4 January 2011 (VAT Act 1994 s. 2 as amended by Finance (No. 2) Act 2010); its row is on the same launch-gate
+    /// verification as the Member States' (against HMRC rather than TEDB).
+    /// </para>
     /// </summary>
     public static EuVatRateTable Current { get; } = new(
     [
@@ -206,6 +250,7 @@ public sealed class EuVatRateTable
         new("SI", "", OssStart, 2_200),
         new("ES", "", OssStart, 2_100),
         new("SE", "", OssStart, 2_500),
+        new(EuVatTerritories.NorthernIreland, "", OssStart, 2_000),
     ]);
 
     /// <summary>The standard rate in force in <paramref name="country"/> on <paramref name="onDate"/>, or null if none.</summary>
@@ -235,7 +280,7 @@ public sealed class EuVatRateTable
 
     private int? InForce(string country, string category, DateOnly onDate)
     {
-        var code = EuMemberStates.Normalize(country);
+        var code = EuVatArea.Normalize(country);
         if (code is null || !_rows.TryGetValue((code, category), out var rows))
         {
             return null;
@@ -330,29 +375,66 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
     /// per SALE: the sale's distance-sale value is Σ of its components supplied into another Member State, and once
     /// the seller is over the threshold every such component takes its own destination's rate (one rounding per
     /// destination and rate); the rest keep the home rate.
+    /// <para>
+    /// Territories (ADR-0063 § 16, <see cref="EuVatTerritories"/>): a component supplied into a special territory outside
+    /// the EU VAT area (the Canary Islands, Åland, …) is an export — zero-rated with
+    /// <see cref="TaxExemptionReason.OutsideEuVatArea"/> whatever the threshold, never counted toward it; the shipping
+    /// follows the sale's place. A sale wholly outside is scheme <see cref="TaxScheme.Export"/>. Goods into Northern
+    /// Ireland are destination <c>XI</c> (an intra-EU distance sale at the UK rate); services there follow the UK.
+    /// </para>
     /// </remarks>
     public TaxBreakdown TaxFor(TaxCalculationInput input)
     {
-        var destinations = PlaceOfSupply.LineDestinations(input);
-        var saleDestination = PlaceOfSupply.SaleDestination(input);
-        return Tax(input, destinations, saleDestination) with
+        var places = PlaceOfSupply.LinePlaces(input);
+        var salePlace = PlaceOfSupply.SalePlace(input);
+        var anyOutside = salePlace.IsOutsideEuVatArea || places.Any(p => p.IsOutsideEuVatArea);
+
+        // An export from the EU VAT area is zero-rated, taking precedence over any other exemption; the shipping is
+        // taken out of the computation when the sale's place is outside, and recorded as exported below.
+        var effective = anyOutside
+            ? input with
+            {
+                Lines = input.Lines
+                    .Select((line, i) => places[i].IsOutsideEuVatArea ? line with { Exemption = TaxExemptionReason.OutsideEuVatArea } : line)
+                    .ToList(),
+                ShippingMinor = salePlace.IsOutsideEuVatArea ? 0 : input.ShippingMinor,
+            }
+            : input;
+
+        var breakdown = Tax(effective, places, salePlace);
+        if (salePlace.IsOutsideEuVatArea)
         {
-            LineDestinations = destinations,
-            SaleDestination = saleDestination,
+            // Recorded as exported even when nothing was charged, so the order says where its shipping went.
+            breakdown = breakdown with
+            {
+                Shipping = new LineTax(TaxCategory.Exempt, 0, input.ShippingMinor, 0, TaxExemptionReason.OutsideEuVatArea),
+            };
+        }
+
+        if (places.Count > 0 && places.All(p => p.IsOutsideEuVatArea))
+        {
+            breakdown = breakdown with { Scheme = TaxScheme.Export };
+        }
+
+        return breakdown with
+        {
+            LineDestinations = places.Select(p => p.Destination).ToList(),
+            SaleDestination = salePlace.Destination,
         };
     }
 
-    private TaxBreakdown Tax(TaxCalculationInput input, IReadOnlyList<string> destinations, string saleDestination)
+    private TaxBreakdown Tax(TaxCalculationInput input, IReadOnlyList<TaxPlace> places, TaxPlace salePlace)
     {
         var lines = input.Lines;
         var homeDate = EuMemberStates.LocalDate(_home, _supplyTime);
         int HomeRate(TaxLineInput line) => _rates.CategoryRateFor(_home, line.TaxCategoryCode, homeDate) ?? _homeRateBps;
         var domestic = TaxAtRates(input, i => (_home, HomeRate(lines[i])), _home, _homeRateBps, TaxScheme.Domestic);
 
-        // The components supplied into ANOTHER Member State — the sale's intra-EU distance sales. Shipping goes where
-        // the goods go: the sale's destination (the shared one, or the cart's for a sale split across countries).
-        var lineCrossBorder = destinations.Select(CrossBorder).ToArray();
-        var shippingCrossBorder = CrossBorder(saleDestination);
+        // The components supplied into ANOTHER Member State (or XI, goods) — the sale's intra-EU distance sales. Shipping
+        // goes where the goods go: the sale's place (the shared one, or the cart's for a sale split across places). A
+        // component outside the EU VAT area is an export, not a distance sale.
+        var lineCrossBorder = places.Select(CrossBorder).ToArray();
+        var shippingCrossBorder = CrossBorder(salePlace);
         if (shippingCrossBorder is null && lineCrossBorder.All(d => d is null))
         {
             return domestic;
@@ -370,7 +452,7 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
         {
             if (!standards.TryGetValue(country, out var rate))
             {
-                var date = EuMemberStates.LocalDate(country, _supplyTime);
+                var date = EuVatArea.LocalDate(country, _supplyTime);
                 standards[country] = rate = _rates.StandardRateFor(country, date)
                     ?? throw new InvalidOperationException($"No EU VAT rate for {country} on {date:yyyy-MM-dd}.");
             }
@@ -379,7 +461,7 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
         }
 
         (string Key, int Rate) GroupOf(int i) => lineCrossBorder[i] is { } destination
-            ? (destination, _rates.CategoryRateFor(destination, lines[i].TaxCategoryCode, EuMemberStates.LocalDate(destination, _supplyTime))
+            ? (destination, _rates.CategoryRateFor(destination, lines[i].TaxCategoryCode, EuVatArea.LocalDate(destination, _supplyTime))
                 ?? StandardIn(destination))
             : (_home, HomeRate(lines[i]));
 
@@ -388,9 +470,12 @@ public sealed class EuOssTaxStrategy : ITaxStrategy
             : TaxAtRates(input, GroupOf, _home, _homeRateBps, TaxScheme.Oss);
     }
 
-    /// <summary>The Member State a destination is, when it is one other than home; else null.</summary>
-    private string? CrossBorder(string destination) =>
-        EuMemberStates.Normalize(destination) is { } memberState && memberState != _home ? memberState : null;
+    /// <summary>
+    /// The EU VAT area destination (a Member State, or <c>XI</c>) a place is, when it is one other than home and not a
+    /// territory outside the EU VAT area; else null.
+    /// </summary>
+    private string? CrossBorder(TaxPlace place) =>
+        !place.IsOutsideEuVatArea && EuVatArea.Normalize(place.Destination) is { } destination && destination != _home ? destination : null;
 
     /// <summary>
     /// A single-destination sale's value for the threshold: Σ of every line's and the shipping line's base, net of VAT
@@ -502,16 +587,17 @@ public static class TaxStrategySelector
     /// </summary>
     public static bool NeedsDistanceSalesTurnover(StorefrontTaxCopy? storefront, string? destinationCountry) =>
         EuHomeMemberState(storefront) is { } home
-        && EuMemberStates.Normalize(destinationCountry) is { } destination
+        && EuVatArea.Normalize(destinationCountry) is { } destination
         && destination != home;
 
     /// <summary>
-    /// Whether the threshold turnover matters for this sale — some component of it (a line at its own destination,
-    /// <see cref="PlaceOfSupply"/>, or the shipping at the sale's) is supplied into another Member State.
+    /// Whether the threshold turnover matters for this sale — some component of it (a line at its own place,
+    /// <see cref="PlaceOfSupply"/>, or the shipping at the sale's) is supplied into another Member State (or, goods, into
+    /// Northern Ireland). A component outside the EU VAT area is an export and never needs it.
     /// </summary>
     public static bool NeedsDistanceSalesTurnover(StorefrontTaxCopy? storefront, TaxCalculationInput input) =>
-        PlaceOfSupply.LineDestinations(input).Append(PlaceOfSupply.SaleDestination(input))
-            .Any(destination => NeedsDistanceSalesTurnover(storefront, destination));
+        PlaceOfSupply.LinePlaces(input).Append(PlaceOfSupply.SalePlace(input))
+            .Any(place => !place.IsOutsideEuVatArea && NeedsDistanceSalesTurnover(storefront, place.Destination));
 
     public static ITaxStrategy For(
         StorefrontTaxCopy? storefront,

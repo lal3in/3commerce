@@ -52,6 +52,34 @@ blocks automated fetching, so read the live consolidated text before relying on 
 | **Reverse charge wording** | The invoice must say **"Reverse charge"** and show the customer's VAT ID. | Art. 226(4), (11a) | V |
 | **OSS / IOSS** | Above the **EUR 10,000** EU-wide threshold for intra-EU distance sales, VAT is due in the customer's Member State, declared through the Union OSS. IOSS covers imported consignments of **≤ EUR 150**. When the Union OSS is used, an invoice is **not** mandatory for Art. 33 distance sales; if one is issued, the invoicing rules of the **Member State of identification** apply. **Electronic interfaces** that facilitate imports of ≤ EUR 150, or intra-EU sales by non-EU sellers, are **deemed suppliers** (Art. 14a). | Arts. 14a, 33, 59c, 369a–369x; [EC OSS portal](https://vat-one-stop-shop.ec.europa.eu/) | S |
 
+### 2.0 Territorial scope: special territories and Northern Ireland (added 2026-11-06, ADR-0063 § 16)
+
+Some territories of Member States are **outside the EU VAT area** ([Art. 6](https://www.legislation.gov.uk/eudr/2006/112/article/6)).
+A supply into one of them is an export from the EU VAT area, so no EU VAT is charged. Art. 7 says which
+neighbouring territories are **not** third territories. The platform's list is `EuVatTerritories` (Ordering).
+Its identifiers are ISO 3166-1/-2 codes and postcode prefixes. A prefix marked **to verify** is recognised but not
+applied, so the address is still taxed as the Member State until someone confirms it. Those prefixes are on the
+`eu_vat_rate_table_tedb_verification` launch-gate tracker row.
+
+| Territory | Member State | Directive | Identifiers used | Conf. |
+|---|---|---|---|---|
+| Canary Islands | ES | Art. 6(1)(b) | `IC`; `ES-CN`/`ES-GC`/`ES-TF`; postcodes 35, 38 (owner list) | K (article letter); owner (postcodes) |
+| Ceuta / Melilla | ES | Art. 6(2)(c)/(d) | `EA`; `ES-CE` / `ES-ML`; postcodes 51 / 52 (owner list) | K; owner |
+| Åland Islands | FI | Art. 6(1)(d) | `AX`; `FI-01`; postcodes 22xxx (owner list) | K; owner |
+| Mount Athos | GR | Art. 6(1)(a) | `GR-69`; postcode 630 86 **to verify** | K |
+| French outermost regions (Guadeloupe, Martinique, French Guiana, Réunion, Mayotte, Saint-Martin; Art. 349 TFEU) | FR | Art. 6(1)(c) | `GP` `MQ` `GF` `RE` `YT` `MF`; `FR-971`…`FR-976`, `FR-MF`; postcodes 971–974, 976 | K |
+| Heligoland | DE | Art. 6(2)(a) | postcode 27498 **to verify** | K |
+| Büsingen | DE | Art. 6(2)(b) | postcode 78266 **to verify** | K |
+| Livigno | IT | Art. 6(2)(e) | postcode 23041 **to verify** | K |
+| Campione d'Italia; Italian waters of Lake Lugano | IT | Art. 6(1)(f)/(g) since Directive (EU) 2019/475 — **to verify** | postcode 22061 **to verify** (the lake has no addresses) | K |
+| Monaco | (FR) | Art. 7(1): not a third territory; taxed as France | `MC` → `FR` | K |
+| UK Sovereign Base Areas (Akrotiri, Dhekelia) | (CY) | Art. 7(1): taxed as Cyprus | addresses already carry `CY` | K |
+| Northern Ireland (`XI`) | (UK) | Withdrawal Agreement, Protocol on Ireland/Northern Ireland (Windsor Framework) Art. 8: EU VAT rules for **goods** only; services follow the UK | `XI`; `GB` + `GB-NIR`; `GB` + postcode `BT…` | K |
+
+Goods into Northern Ireland are taxed at the UK rate (20 % standard) under the Union OSS and count toward the
+EUR 10,000 threshold. Some outermost regions are nonetheless INSIDE the EU VAT area: Madeira and the Azores (PT) are
+not listed in Art. 6, so they are taxed as Portugal.
+
 ### 2.1 Gaplessness: what the EU actually requires
 
 The Directive requires a **sequential** number that **uniquely** identifies the invoice, and it allows

@@ -300,6 +300,17 @@
 #       byte-identical to an oracle copy of the pre-split strategy, non-EU stores ignore the bill-to; 5,000 split carts
 #       well-formed; EuDistanceSale writes one row per destination crossed into (a pre-change line falls back to the
 #       order's destination); the line destination reaches Order and OrderConfirmed ("" from a pre-change event)
+#   A3zt Unit · EU special VAT territories + Northern Ireland (ADR-0063 § 16, tax_p1b_followups_special_territories,
+#       EuVatSpecialTerritoriesTests): every Art. 6 territory found by each identifier (ISO code IC/EA/AX/GP/MQ/GF/RE/
+#       YT/MF, ISO 3166-2 ES-CN/GC/TF/CE/ML, FI-01, GR-69, FR-971..976/FR-MF, verified postcodes 35/38/51/52/22/971..976,
+#       AX-/FI- prefixes dropped) and applied; mainland addresses (Madrid, Marburg 35037, Helsinki, Paris, Monaco 98000
+#       in FR, Athens, Rome, Berlin, Madeira) are not; unverified postcodes (Heligoland 27498, Büsingen 78266, Livigno
+#       23041, Campione 22061, Athos 63086) are recognised but taxed as the Member State; XI (code, GB-NIR, BT postcode)
+#       is XI for goods and GB for services, negative controls SW1A/B1/BTX/IE; Monaco is France; exports are
+#       zero-rated (OutsideEuVatArea over a ship rule, shipping too, scheme Export) at any turnover, ES store to its
+#       own Canaries/Ceuta/Melilla too; an e-book billed to Tenerife is exported while Madrid goods are taxed; Canaries
+#       goods + French e-book split export/OSS; XI goods at 20 % OSS / home under the threshold; exports never need or
+#       count toward the threshold; non-EU stores unchanged
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -338,7 +349,9 @@
 #       § 16): a book shipped home + an e-book billed to France (OSS) carry 1980 German + 2000 French VAT, shipping
 #       German, and only the e-book counts (one EuDistanceSale row, FR, net 10000); a cart split between Austria
 #       (goods + shipping) and Italy (e-book) below the threshold charges 2945 as before and writes two rows (AT
-#       10499, IT 5000)
+#       10499, IT 5000). Territories: goods shipped to a 35001 (Canaries) address are an export — 12399 charged with
+#       0 VAT, scheme Export, line + shipping OutsideEuVatArea, no EuDistanceSale row; goods to a BT1 postcode are XI —
+#       UK 20 % added under OSS (2100) and one row under XI (net 10499)
 #   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
 #       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
 #       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
@@ -908,6 +921,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PerLineTaxDestinationTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zd per-line tax destination"; else fail "A3zd per-line tax destination"; fi
+
+  stage "A3zt EU special VAT territories + Northern Ireland (ADR-0063 § 16) — Art. 6 exports zero-rated, XI goods OSS, Monaco = FR"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuVatSpecialTerritoriesTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zt EU special VAT territories"; else fail "A3zt EU special VAT territories"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
