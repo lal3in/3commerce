@@ -670,5 +670,71 @@
       "completePayment": "支付此订阅逾期的续订款项。"
     },
     "tryAgain": "重试"
+  },
+  "usageCharges": {
+    "heading": "待付的用量款项",
+    "completePaymentLink": "完成付款",
+    "pageTitle": "完成用量付款",
+    "intro": "这笔用量费用尚未支付。目前未收取任何费用。",
+    "creditOnHold": "本次充值的预付额度在付款前将被冻结，且不会再进行自动充值。",
+    "suspended": "计费用量（{meter}）已暂停，直至付款。套餐内用量和剩余预付额度仍可使用。",
+    "item": "费用",
+    "kind": {
+      "Overage": "超出套餐的用量（{meter}）",
+      "AutoLoad": "自动充值（{meter}）"
+    },
+    "units": "{quantity, plural, other {# 单位}}",
+    "chargedOn": "收费日期",
+    "amountDue": "应付金额",
+    "status": {
+      "Pending": "处理中",
+      "Settled": "已支付",
+      "PastDue": "待付款",
+      "Abandoned": "已暂停——待付款",
+      "Skipped": "未收费"
+    },
+    "reason": {
+      "RequiresAction": "您的银行需要您确认这笔付款。",
+      "Failed": "您的银行卡被拒绝。",
+      "Cancelled": "付款已取消。",
+      "Error": "我们无法联系支付服务商。"
+    },
+    "nextRetry": "如果您不采取任何操作，我们将在 <date></date> 重试。",
+    "abandonsAfter": "如果在 <date></date> 之后仍未付款，计费用量将被暂停。",
+    "card": "支付方式",
+    "currentCard": "您的默认卡",
+    "savedCard": "{brand} 尾号 {last4}",
+    "cardHint": "在此选择的卡仅用于支付这笔费用——您的默认卡保持不变。可在账户页面添加新卡。",
+    "pay": "立即支付 {amount}",
+    "paying": "正在付款…",
+    "paid": "谢谢——您的付款已成功。因这笔费用而暂停的用量已恢复。",
+    "authenticateTitle": "向您的银行确认付款",
+    "authenticateBody": "您的银行要求您验证这笔付款（3-D Secure）。",
+    "authenticate": "完成银行验证（测试）",
+    "authenticating": "正在验证…",
+    "declined": "付款被拒绝。请重试或选择另一张卡。",
+    "unavailable": "我们无法联系支付服务商。未收取任何费用——请重试。",
+    "notPayable": "这笔用量费用无需支付。",
+    "unknownCard": "这张卡不是您保存的卡。",
+    "failed": "出了点问题。未收取任何费用——请重试。",
+    "notDue": "这笔用量费用无需支付。",
+    "notFound": "找不到这笔用量费用。",
+    "backToAccount": "返回您的账户",
+    "loading": "正在加载您的用量费用…",
+    "tips": {
+      "pay": "立即收取应付金额。这笔费用每次尝试的金额都相同。",
+      "card": "仅用于本次付款的卡——您的默认卡不会改变。",
+      "authenticate": "测试模式：模拟您在银行 App 中批准付款。",
+      "completePayment": "支付这笔未付的用量费用。"
+    },
+    "tryAgain": "重试",
+    "meter": {
+      "Token": "令牌",
+      "Transaction": "交易",
+      "Request": "请求",
+      "Minute": "分钟",
+      "Seat": "席位",
+      "StorageGb": "存储空间（GB）"
+    }
   }
 }

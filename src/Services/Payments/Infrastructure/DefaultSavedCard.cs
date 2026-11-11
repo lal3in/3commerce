@@ -35,6 +35,20 @@ public sealed record DefaultSavedCard(string ProviderCustomerId, string Provider
             .FirstOrDefaultAsync(ct), ct);
     }
 
+    /// <summary>
+    /// One of the signed-in customer's own active saved cards (any, not only the default) — the card they chose on a
+    /// "complete payment" page — or null when it is not theirs, not in this tenant, or removed.
+    /// </summary>
+    public static Task<DefaultSavedCard?> FindOwnedAsync(PaymentsDbContext db, Guid tenantId, Guid userId, Guid methodId, CancellationToken ct) =>
+        InTenantScopeAsync(db, tenantId, () => (
+                from method in db.SavedPaymentMethods.AsNoTracking()
+                where method.Id == methodId && method.UserId == userId && method.TenantId == tenantId
+                    && method.State == SavedPaymentMethodState.Active
+                from customer in db.PaymentCustomers.AsNoTracking()
+                where customer.Id == method.PaymentCustomerId
+                select new DefaultSavedCard(customer.ProviderCustomerId, method.ProviderPaymentMethodId))
+            .SingleOrDefaultAsync(ct), ct);
+
     /// <summary>Whether the customer of this vault (in its tenant) has an active default card.</summary>
     public static Task<bool> ExistsForCustomerAsync(PaymentsDbContext db, Guid tenantId, Guid paymentCustomerId, CancellationToken ct) =>
         InTenantScopeAsync(db, tenantId, () => db.SavedPaymentMethods.AsNoTracking()

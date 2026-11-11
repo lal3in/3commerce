@@ -678,5 +678,71 @@
       "completePayment": "Pay the overdue renewal of this subscription."
     },
     "tryAgain": "Try again"
+  },
+  "usageCharges": {
+    "heading": "Usage payments due",
+    "completePaymentLink": "Complete payment",
+    "pageTitle": "Complete your usage payment",
+    "intro": "This usage charge has not been paid yet. Nothing has been charged for it.",
+    "creditOnHold": "The prepaid credit from this top-up is on hold until it is paid, and no further automatic top-ups are made.",
+    "suspended": "Billable {meter} usage is suspended until this is paid. Usage within your plan and any prepaid credit left still work.",
+    "item": "Charge",
+    "kind": {
+      "Overage": "Usage beyond your plan ({meter})",
+      "AutoLoad": "Automatic top-up ({meter})"
+    },
+    "units": "{quantity, plural, one {# unit} other {# units}}",
+    "chargedOn": "Charged on",
+    "amountDue": "Amount due",
+    "status": {
+      "Pending": "Processing",
+      "Settled": "Paid",
+      "PastDue": "Payment due",
+      "Abandoned": "Suspended — payment due",
+      "Skipped": "Not charged"
+    },
+    "reason": {
+      "RequiresAction": "Your bank needs you to confirm this payment.",
+      "Failed": "Your card was declined.",
+      "Cancelled": "The payment was cancelled.",
+      "Error": "We could not reach the payment provider."
+    },
+    "nextRetry": "If you do nothing we will try again on <date></date>.",
+    "abandonsAfter": "If it is still unpaid after <date></date>, billable usage will be suspended.",
+    "card": "Pay with",
+    "currentCard": "Your default card",
+    "savedCard": "{brand} ending {last4}",
+    "cardHint": "A card you choose here pays only this charge — your default card stays the same. Add a new card on your account page.",
+    "pay": "Pay {amount} now",
+    "paying": "Paying…",
+    "paid": "Thank you — your payment went through. Usage held for it is released.",
+    "authenticateTitle": "Confirm the payment with your bank",
+    "authenticateBody": "Your bank asked you to authenticate this payment (3-D Secure).",
+    "authenticate": "Complete bank authentication (test)",
+    "authenticating": "Authenticating…",
+    "declined": "The payment was declined. Try again or choose another card.",
+    "unavailable": "We could not reach the payment provider. Nothing was charged — please try again.",
+    "notPayable": "This usage charge has nothing to pay.",
+    "unknownCard": "That card is not one of your saved cards.",
+    "failed": "Something went wrong. Nothing was charged — please try again.",
+    "notDue": "There is nothing to pay on this usage charge.",
+    "notFound": "We couldn't find that usage charge.",
+    "backToAccount": "Back to your account",
+    "loading": "Loading your usage charge…",
+    "tips": {
+      "pay": "Charges the amount due now. It is the same amount on every attempt for this charge.",
+      "card": "The card to charge for this payment only — your default card does not change.",
+      "authenticate": "Test mode: simulates you approving the payment in your banking app.",
+      "completePayment": "Pay this unpaid usage charge."
+    },
+    "tryAgain": "Try again",
+    "meter": {
+      "Token": "tokens",
+      "Transaction": "transactions",
+      "Request": "requests",
+      "Minute": "minutes",
+      "Seat": "seats",
+      "StorageGb": "storage (GB)"
+    }
   }
 }

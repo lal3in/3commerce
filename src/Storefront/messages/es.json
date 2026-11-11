@@ -670,5 +670,71 @@
       "completePayment": "Paga la renovación vencida de esta suscripción."
     },
     "tryAgain": "Intentar de nuevo"
+  },
+  "usageCharges": {
+    "heading": "Pagos de uso pendientes",
+    "completePaymentLink": "Completar el pago",
+    "pageTitle": "Completa el pago de tu uso",
+    "intro": "Este cargo por uso aún no se ha pagado. No se ha cobrado nada por él.",
+    "creditOnHold": "El crédito prepago de esta recarga queda retenido hasta que se pague, y no se hacen más recargas automáticas.",
+    "suspended": "El uso facturable ({meter}) está suspendido hasta que se pague. El uso incluido en tu plan y el crédito prepago restante siguen funcionando.",
+    "item": "Cargo",
+    "kind": {
+      "Overage": "Uso por encima de tu plan ({meter})",
+      "AutoLoad": "Recarga automática ({meter})"
+    },
+    "units": "{quantity, plural, one {# unidad} other {# unidades}}",
+    "chargedOn": "Cobrado el",
+    "amountDue": "Importe pendiente",
+    "status": {
+      "Pending": "En proceso",
+      "Settled": "Pagado",
+      "PastDue": "Pago pendiente",
+      "Abandoned": "Suspendido: pago pendiente",
+      "Skipped": "No cobrado"
+    },
+    "reason": {
+      "RequiresAction": "Tu banco necesita que confirmes este pago.",
+      "Failed": "Tu tarjeta fue rechazada.",
+      "Cancelled": "El pago se canceló.",
+      "Error": "No pudimos contactar con el proveedor de pagos."
+    },
+    "nextRetry": "Si no haces nada, lo intentaremos de nuevo el <date></date>.",
+    "abandonsAfter": "Si sigue sin pagarse después del <date></date>, se suspenderá el uso facturable.",
+    "card": "Pagar con",
+    "currentCard": "Tu tarjeta predeterminada",
+    "savedCard": "{brand} terminada en {last4}",
+    "cardHint": "La tarjeta que elijas aquí solo paga este cargo; tu tarjeta predeterminada no cambia. Añade una tarjeta nueva en la página de tu cuenta.",
+    "pay": "Pagar {amount} ahora",
+    "paying": "Pagando…",
+    "paid": "Gracias: tu pago se ha realizado. El uso retenido por este cargo queda liberado.",
+    "authenticateTitle": "Confirma el pago con tu banco",
+    "authenticateBody": "Tu banco te ha pedido que autentiques este pago (3-D Secure).",
+    "authenticate": "Completar la autenticación bancaria (prueba)",
+    "authenticating": "Autenticando…",
+    "declined": "El pago fue rechazado. Inténtalo de nuevo o elige otra tarjeta.",
+    "unavailable": "No pudimos contactar con el proveedor de pagos. No se ha cobrado nada; inténtalo de nuevo.",
+    "notPayable": "Este cargo por uso no tiene nada que pagar.",
+    "unknownCard": "Esa tarjeta no es una de tus tarjetas guardadas.",
+    "failed": "Algo salió mal. No se ha cobrado nada; inténtalo de nuevo.",
+    "notDue": "No hay nada que pagar en este cargo por uso.",
+    "notFound": "No encontramos ese cargo por uso.",
+    "backToAccount": "Volver a tu cuenta",
+    "loading": "Cargando tu cargo por uso…",
+    "tips": {
+      "pay": "Cobra ahora el importe pendiente. Es el mismo importe en cada intento de este cargo.",
+      "card": "La tarjeta que se cobra solo para este pago; tu tarjeta predeterminada no cambia.",
+      "authenticate": "Modo de prueba: simula que apruebas el pago en la app de tu banco.",
+      "completePayment": "Pagar este cargo por uso pendiente."
+    },
+    "tryAgain": "Intentar de nuevo",
+    "meter": {
+      "Token": "tokens",
+      "Transaction": "transacciones",
+      "Request": "solicitudes",
+      "Minute": "minutos",
+      "Seat": "plazas",
+      "StorageGb": "almacenamiento (GB)"
+    }
   }
 }

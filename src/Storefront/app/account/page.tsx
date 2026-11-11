@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getAddresses, getProfile, getMyOrders, getMySubscriptions, getSavedPaymentMethods } from "@/lib/gateway";
+import { getAddresses, getProfile, getMyOrders, getMySubscriptions, getMyUsageCharges, getSavedPaymentMethods } from "@/lib/gateway";
 import { formatMoney } from "@/lib/money";
 import { LocalTime } from "@/components/LocalTime";
 import { logout } from "@/lib/auth-actions";
@@ -9,18 +9,21 @@ import { AddressForms } from "@/components/account/AccountForms";
 import { BusinessIdentityForm } from "@/components/account/BusinessIdentityForm";
 import { CardEntryForm } from "@/components/account/CardEntryForm";
 import { OrderHistory } from "@/components/account/OrderHistory";
+import { MeterKeys, UsageChargeKind } from "@/lib/usage-charge-pay";
 
 export const metadata = { title: "Account" };
 
 // Dynamic, cookie-dependent page — never cached (components.md §1 rendering table).
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ address?: string; card?: string }> }) {
-  const [t, tc, ts] = await Promise.all([getTranslations("account"), getTranslations("common"), getTranslations("subscriptions")]);
+  const [t, tc, ts, tu] = await Promise.all([
+    getTranslations("account"), getTranslations("common"), getTranslations("subscriptions"), getTranslations("usageCharges"),
+  ]);
   const profile = await getProfile();
   if (!profile) {
     redirect("/login");
   }
-  const [orders, addresses, paymentMethods, subscriptions, status] = await Promise.all([
-    getMyOrders(), getAddresses(), getSavedPaymentMethods(), getMySubscriptions(), searchParams,
+  const [orders, addresses, paymentMethods, subscriptions, usageCharges, status] = await Promise.all([
+    getMyOrders(), getAddresses(), getSavedPaymentMethods(), getMySubscriptions(), getMyUsageCharges(), searchParams,
   ]);
   const statusKey = (s: string) => (["Active", "Trialing", "PastDue", "Cancelled"] as const).find((k) => k === s) ?? "Active";
 
@@ -154,6 +157,36 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Unpaid usage charges (usage_charge_pay_page): shown only when one is owed, each linking its "complete payment" page. */}
+      {usageCharges.length > 0 && (
+        <>
+          <h2 className="mt-8 text-lg font-semibold">{tu("heading")}</h2>
+          <ul className="mt-2 divide-y divide-neutral-100 text-sm" data-testid="account-usage-charges">
+            {usageCharges.map((c) => {
+              const meter = tu(`meter.${MeterKeys[c.meter] ?? "Token"}`);
+              return (
+                <li key={c.reference} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div>
+                    <span>{tu(c.kind === UsageChargeKind.AutoLoad ? "kind.AutoLoad" : "kind.Overage", { meter })}</span>
+                    <span className="ml-2">{formatMoney(c.amountDueMinor ?? c.priceMinor, c.currency)}</span>
+                    <span className={c.status === "Abandoned" ? "ml-2 font-medium text-red-700" : "ml-2 font-medium text-amber-700"}>
+                      {tu(c.status === "Abandoned" ? "status.Abandoned" : "status.PastDue")}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/account/usage-charges/${encodeURIComponent(c.reference)}/pay`}
+                    title={tu("tips.completePayment")}
+                    className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white"
+                  >
+                    {tu("completePaymentLink")}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       <h2 className="mt-8 text-lg font-semibold">{t("myAccess")}</h2>

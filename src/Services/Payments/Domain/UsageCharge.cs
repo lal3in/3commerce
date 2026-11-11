@@ -33,6 +33,10 @@ public enum UsageChargeTrigger
 
     /// <summary>A scheduled dunning retry (days 1, 3 and 7 after the first failure).</summary>
     ScheduledRetry = 2,
+
+    /// <summary>The customer's own attempt on the storefront "complete payment" page (<c>usage_charge_pay_page</c>):
+    /// on-session, and its failure is shown on the page instead of emailed.</summary>
+    Customer = 3,
 }
 
 /// <summary>
