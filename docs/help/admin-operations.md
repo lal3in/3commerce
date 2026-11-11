@@ -288,6 +288,12 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**
   when overage is off and the allowance is spent), then **bill-overage** to charge the
   unbilled overage via the rail (idempotent — re-billing without new usage is a no-op).
+  Overage and automatic top-ups are charged to the customer's **default saved card**. A top-up
+  with no saved card is skipped, and the customer is emailed to add one. A **declined** usage
+  charge is retried on days 1, 3 and 7. Each time, the customer is emailed a link to the storefront
+  **complete payment** page (`/account/usage-charges/{reference}/pay`). On that page they can
+  authenticate (3-D Secure) or pay with another saved card. Unpaid usage charges are also listed
+  on their account page. Paying one releases the credit and the hold on their usage.
 
 ### Ship-to allowlist & per-country ship rules
 
