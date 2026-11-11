@@ -31,15 +31,20 @@ public static class CustomerPaymentMethodEndpoints
 
     private static Guid TenantId(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue("tenant")!);
 
+    // SavedPaymentMethods is under FORCE RLS (ADR-0024, owner decision 2026-11-07): every read and write — including
+    // its SaveChanges — runs in the caller's tenant scope, taken from the internal claims.
+    private static Task<T> InCallerScope<T>(ClaimsPrincipal principal, PaymentsDbContext db, Func<Task<T>> work, CancellationToken ct) =>
+        SavedCardTenantScope.RunAsync(db, TenantId(principal), work, ct, UserId(principal));
+
     private static async Task<Ok<List<SavedPaymentMethodDto>>> List(
         ClaimsPrincipal principal, PaymentsDbContext db, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var methods = await db.SavedPaymentMethods.AsNoTracking()
+        var methods = await InCallerScope(principal, db, () => db.SavedPaymentMethods.AsNoTracking()
             .Where(m => m.UserId == userId && m.State == SavedPaymentMethodState.Active)
             .OrderByDescending(m => m.IsDefault)
             .ThenByDescending(m => m.CreatedAt)
-            .ToListAsync(ct);
+            .ToListAsync(ct), ct);
         return TypedResults.Ok(methods.Select(ToDto).ToList());
     }
 
@@ -57,15 +62,18 @@ public static class CustomerPaymentMethodEndpoints
         }
 
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<Ok<SavedPaymentMethodDto>, ValidationProblem, NotFound>)TypedResults.NotFound();
+            }
 
-        method.SetBillingAddress(address, time.GetUtcNow());
-        await db.SaveChangesAsync(ct);
-        return TypedResults.Ok(ToDto(method));
+            method.SetBillingAddress(address, time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.Ok(ToDto(method));
+        }, ct);
     }
 
     /// <summary>Removes the caller's card's billing address (mem_2); 404 for a card that is not the caller's.</summary>
@@ -73,15 +81,18 @@ public static class CustomerPaymentMethodEndpoints
         Guid id, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
 
-        method.SetBillingAddress(null, time.GetUtcNow());
-        await db.SaveChangesAsync(ct);
-        return TypedResults.NoContent();
+            method.SetBillingAddress(null, time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
     }
 
     // Validates a requested billing address; on refusal returns the 400 problem+json whose `field` (and `errors` key)
@@ -139,6 +150,21 @@ public static class CustomerPaymentMethodEndpoints
         var customer = await GetOrCreateCustomerAsync(principal, request.Email, db, provider, time, ct);
         var details = await provider.GetPaymentMethodAsync(request.ProviderPaymentMethodId, ct);
         var now = time.GetUtcNow();
+        // The card belongs to the customer's tenant; its row is written in that tenant's scope (FORCE RLS WITH CHECK).
+        var saved = await SavedCardTenantScope.RunAsync(db, customer.TenantId,
+            () => UpsertSavedMethodAsync(db, customer, details, billingAddress, request.MakeDefault, now, ct), ct, customer.UserId);
+        return TypedResults.Created($"/payment-methods/{saved.Id}", saved);
+    }
+
+    private static async Task<SavedPaymentMethodDto> UpsertSavedMethodAsync(
+        PaymentsDbContext db,
+        PaymentCustomer customer,
+        SavedPaymentMethodDetails details,
+        CardBillingAddress? billingAddress,
+        bool makeDefault,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
         var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(
             m => m.PaymentCustomerId == customer.Id && m.ProviderPaymentMethodId == details.ProviderPaymentMethodId,
             ct);
@@ -173,46 +199,52 @@ public static class CustomerPaymentMethodEndpoints
             method.SetBillingAddress(billingAddress, now);
         }
 
-        if (request.MakeDefault || !await db.SavedPaymentMethods.AnyAsync(m => m.UserId == customer.UserId && m.State == SavedPaymentMethodState.Active && m.Id != method.Id, ct))
+        if (makeDefault || !await db.SavedPaymentMethods.AnyAsync(m => m.UserId == customer.UserId && m.State == SavedPaymentMethodState.Active && m.Id != method.Id, ct))
         {
             await ClearDefaultsAsync(db, customer.UserId, now, ct);
             method.MakeDefault(now);
         }
 
         await db.SaveChangesAsync(ct);
-        return TypedResults.Created($"/payment-methods/{method.Id}", ToDto(method));
+        return ToDto(method);
     }
 
     private static async Task<Results<NoContent, NotFound>> Remove(
         Guid id, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
 
-        method.Remove(time.GetUtcNow());
-        await db.SaveChangesAsync(ct);
-        return TypedResults.NoContent();
+            method.Remove(time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
     }
 
     private static async Task<Results<NoContent, NotFound>> MakeDefault(
         Guid id, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
 
-        var now = time.GetUtcNow();
-        await ClearDefaultsAsync(db, userId, now, ct);
-        method.MakeDefault(now);
-        await db.SaveChangesAsync(ct);
-        return TypedResults.NoContent();
+            var now = time.GetUtcNow();
+            await ClearDefaultsAsync(db, userId, now, ct);
+            method.MakeDefault(now);
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
     }
 
     private static async Task<PaymentCustomer> GetOrCreateCustomerAsync(

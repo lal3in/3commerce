@@ -55,6 +55,7 @@ Usage were extracted out of Fulfillment (which now ships only physical lines).
 > <card>" and fills the bill-to from it. The shopper can still edit it, and the order keeps what is posted. A
 > signed-in shopper typing a new shipping or billing address can tick **Save this address to my account**, and it
 > is added to the address book once the order is placed. The address is prefill data only: it never reaches the
-> charge, so no amount changes, and no card data touches the servers (SAQ-A).
+> charge, so no amount changes, and no card data touches the servers (SAQ-A). The saved cards are
+> tenant-isolated by the database (FORCE row-level security, ADR-0024 amendment 2026-11-07).
 
 For audience-specific positioning of these capabilities — shoppers, tenants, suppliers, admins, technical evaluators, and finance/compliance reviewers — see [Selling information](./selling-information.md).

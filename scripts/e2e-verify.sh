@@ -388,7 +388,11 @@
 #       card's address without touching the other's; UpdatedAt reloads at µs precision; four malformed addresses
 #       are 400 problem+json naming the field and leave the saved one; a card saved with a malformed address is
 #       refused as billingAddress.country and not saved; another member's PUT/DELETE and an unknown card are 404,
-#       no claims is 401
+#       no claims is 401. FORCE RLS as a NON-superuser owner with the REAL migrations (SavedPaymentMethodsRlsTests,
+#       ADR-0024 amendment 2026-11-07): through SavedCardTenantScope the owning tenant writes/reads/updates its card,
+#       another tenant reads nothing, updates 0 rows and cannot insert for it, no scope reads nothing and an insert
+#       is rejected, platform scope reads, and inside an open (outbox) transaction the scope applies to it and is gone
+#       after the commit
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
