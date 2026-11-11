@@ -505,6 +505,13 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<int>("TaxCategory")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TaxDestinationCountry")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("");
+
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");
 
@@ -537,18 +544,16 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
             modelBuilder.Entity("ThreeCommerce.Ordering.Domain.EuDistanceSale", b =>
                 {
                     b.Property<Guid>("OrderId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
 
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
-
-                    b.Property<string>("DestinationCountry")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("character varying(2)");
 
                     b.Property<string>("HomeCountry")
                         .IsRequired()
@@ -570,7 +575,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<int>("Year")
                         .HasColumnType("integer");
 
-                    b.HasKey("OrderId");
+                    b.HasKey("OrderId", "DestinationCountry");
 
                     b.HasIndex("TenantId", "Year", "Currency");
 
@@ -900,6 +905,13 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
 
                     b.Property<int>("TaxCategory")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TaxDestinationCountry")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasDefaultValue("");
 
                     b.Property<long>("TaxMinor")
                         .HasColumnType("bigint");

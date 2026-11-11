@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.Ordering.Domain;
 using ThreeCommerce.Ordering.Infrastructure;
 
@@ -123,6 +124,106 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         Assert.Null(plainSale);
     }
 
+    [Fact]
+    public async Task A_mixed_cart_taxes_the_goods_at_the_ship_to_and_the_e_book_at_the_bill_to_and_counts_only_the_e_book()
+    {
+        // ADR-0063 § 16, per-line destination. A German inclusive store over the threshold; a book shipped to a German
+        // address and an e-book billed to a French one. The book (+ shipping) carries German VAT, the e-book French.
+        var tenantId = Guid.CreateVersion7();
+        await SeedTurnoverAsync(tenantId, DateTimeOffset.UtcNow.Year - 1, EuOssTaxStrategy.ThresholdMinorEur + 1);
+        var storefrontId = await SeedStorefrontAsync(tenantId, "DE", taxBps: 1_900, inclusive: true);
+        var book = await fixture.SeedProductAsync(11_900, "EUR");
+        var ebook = await SeedDigitalProductAsync(tenantId, 12_000);
+
+        using var shopper = Shopper(tenantId, storefrontId);
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = book, quantity = 1 })).EnsureSuccessStatusCode();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = ebook, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = await CheckoutAsync(shopper, "DE", billTo: "FR");
+
+        // Inclusive: the shelf prices + 499 shipping are charged unchanged. German VAT in (11900 + 499) = 1980;
+        // French VAT in 12000 = 2000.
+        Assert.Equal(11_900 + 12_000 + 499, order.GrossMinor);
+        Assert.Equal(1_980 + 2_000, order.TaxMinor);
+        await SettleAsync(shopper, order);
+
+        var (persisted, _) = await LoadAsync(order.OrderId);
+        Assert.Equal((TaxScheme.Oss, "DE"), (persisted.TaxScheme, persisted.TaxDestinationCountry));
+        var bookLine = persisted.Lines.Single(l => l.ProductId == book);
+        var ebookLine = persisted.Lines.Single(l => l.ProductId == ebook);
+        Assert.Equal(("DE", 1_900), (bookLine.TaxDestinationCountry, bookLine.TaxRateBps));
+        Assert.Equal(("FR", 2_000, 2_000L), (ebookLine.TaxDestinationCountry, ebookLine.TaxRateBps, ebookLine.TaxMinor));
+        Assert.Equal(1_900, persisted.ShippingTaxRateBps);
+        Assert.Equal(persisted.TaxMinor, persisted.Lines.Sum(l => l.TaxMinor) + persisted.ShippingTaxMinor);
+
+        // The running total counts only the part supplied into another Member State: the e-book, net of its VAT.
+        var sale = Assert.Single(await SalesAsync(order.OrderId));
+        Assert.Equal(("FR", 10_000L, TaxScheme.Oss), (sale.DestinationCountry, sale.NetMinor, sale.TaxScheme));
+    }
+
+    [Fact]
+    public async Task A_cart_split_across_two_other_member_states_records_one_running_total_row_per_destination()
+    {
+        // Below the threshold: home (German) VAT throughout, but both cross-border parts count, each under its own
+        // destination — the book (+ shipping) shipped to Austria, the e-book billed to Italy.
+        var tenantId = Guid.CreateVersion7();
+        var storefrontId = await SeedStorefrontAsync(tenantId, "DE", taxBps: 1_900, inclusive: false);
+        var book = await fixture.SeedProductAsync(10_000, "EUR");
+        var ebook = await SeedDigitalProductAsync(tenantId, 5_000);
+
+        using var shopper = Shopper(tenantId, storefrontId);
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = book, quantity = 1 })).EnsureSuccessStatusCode();
+        (await shopper.PostAsJsonAsync("/cart/items", new { productId = ebook, quantity = 1 })).EnsureSuccessStatusCode();
+        var order = await CheckoutAsync(shopper, "AT", billTo: "IT");
+
+        // Exclusive 19 % added on 10000 + 5000 + 499 = 15499 → 2944.81 → 2945: the same charge as before the split.
+        Assert.Equal(2_945, order.TaxMinor);
+        await SettleAsync(shopper, order);
+
+        var persisted = await OrderAsync(order.OrderId);
+        Assert.Equal((TaxScheme.Domestic, "AT"), (persisted.TaxScheme, persisted.TaxDestinationCountry));
+        Assert.Equal(["AT", "IT"], persisted.Lines.OrderBy(l => l.ProductId == ebook).Select(l => l.TaxDestinationCountry));
+        Assert.Equal([("AT", 10_000L + 499), ("IT", 5_000L)], (await SalesAsync(order.OrderId)).Select(s => (s.DestinationCountry, s.NetMinor)));
+    }
+
+    /// <summary>A product whose offer (in THIS tenant) is an electronically supplied download — no shipping.</summary>
+    private async Task<Guid> SeedDigitalProductAsync(Guid tenantId, long priceMinor)
+    {
+        var productId = await fixture.SeedProductAsync(priceMinor, "EUR");
+        var supplierId = Guid.CreateVersion7();
+        await fixture.ApproveSupplierAsync(supplierId);
+        await fixture.PublishAsync(new OfferChanged(
+            OfferId: Guid.CreateVersion7(),
+            TenantId: tenantId,
+            ProductId: productId,
+            VariantId: null,
+            SupplierId: supplierId,
+            SupplyCategory: SupplyCategory.Digital,
+            FulfilmentType: FulfilmentType.DigitalDownload,
+            PricingModel: PricingModel.OneTime,
+            BillingPeriod: BillingPeriod.Once,
+            Priority: 0,
+            Active: true,
+            Currency: "EUR",
+            ProductType: ProductType.Digital));
+        await Eventually.UntilAsync(
+            async () =>
+            {
+                using var scope = fixture.Ordering.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+                return await db.OfferCopies.AnyAsync(o => o.ProductId == productId && o.TenantId == tenantId);
+            },
+            () => new TimeoutException($"Digital OfferCopy for product {productId} did not project."),
+            TimeSpan.FromSeconds(20));
+        return productId;
+    }
+
+    private async Task<List<EuDistanceSale>> SalesAsync(Guid orderId)
+    {
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        return await db.EuDistanceSales.AsNoTracking().Where(s => s.OrderId == orderId).OrderBy(s => s.DestinationCountry).ToListAsync();
+    }
+
     private HttpClient Shopper(Guid tenantId, Guid storefrontId)
     {
         var client = fixture.Ordering.CreateClient();
@@ -131,24 +232,34 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         return client;
     }
 
-    private static async Task<CheckoutResponseDto> CheckoutAsync(HttpClient shopper, string country)
+    private static async Task<CheckoutResponseDto> CheckoutAsync(HttpClient shopper, string country, string? billTo = null)
     {
         var response = await shopper.PostAsJsonAsync("/checkout", new
         {
             email = "eu-buyer@example.com",
             shippingAddress = new { name = "B", line1 = "1 Rue", city = "Somewhere", postcode = "75001", country },
+            billingAddress = billTo is null ? null : new { name = "B", line1 = "2 Via", city = "Elsewhere", postcode = "00100", country = billTo },
         });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<CheckoutResponseDto>())!;
     }
 
+    /// <summary>
+    /// The order and its ONE running-total row (or none) — for a single-destination sale. A sale split across
+    /// destinations has a row per destination (ADR-0063 § 16): read those with <see cref="SalesAsync"/>.
+    /// </summary>
     private async Task<(Order Order, EuDistanceSale? Sale)> LoadAsync(Guid orderId)
+    {
+        var sales = await SalesAsync(orderId);
+        return (await OrderAsync(orderId), sales.Count <= 1 ? sales.SingleOrDefault()
+            : throw new InvalidOperationException($"Order {orderId} has {sales.Count} running-total rows; read them with SalesAsync."));
+    }
+
+    private async Task<Order> OrderAsync(Guid orderId)
     {
         using var scope = fixture.Ordering.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
-        var order = await db.Orders.AsNoTracking().Include(o => o.Lines).SingleAsync(o => o.Id == orderId);
-        var sale = await db.EuDistanceSales.AsNoTracking().SingleOrDefaultAsync(s => s.OrderId == orderId);
-        return (order, sale);
+        return await db.Orders.AsNoTracking().Include(o => o.Lines).SingleAsync(o => o.Id == orderId);
     }
 
     /// <summary>A prior sale of the tenant's, recorded as the confirming consumer would have.</summary>

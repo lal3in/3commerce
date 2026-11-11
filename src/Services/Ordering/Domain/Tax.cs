@@ -1,3 +1,5 @@
+using ThreeCommerce.BuildingBlocks.Contracts.Supply;
+
 namespace ThreeCommerce.Ordering.Domain;
 
 /// <summary>
@@ -69,25 +71,82 @@ public enum TaxScheme
 /// The product's VAT category code (ADR-0063 § 7.1, P1b), or null for the standard rate. Only the EU strategy reads
 /// it (a category with its own rate in the taxing Member State); no product carries one yet, so checkout passes null.
 /// </param>
+/// <param name="Fulfilment">
+/// How the line is supplied — its resolved offer's fulfilment type (ADR-0028), <see cref="FulfilmentType.Unassigned"/>
+/// without one. It decides the line's place of supply (<see cref="PlaceOfSupply"/>): an electronically supplied line
+/// (download, subscription, usage) is supplied where the customer belongs, the bill-to country; every other line
+/// where it is dispatched to, the cart's destination (ADR-0063 § 16, per-line destination).
+/// </param>
 public sealed record TaxLineInput(
     long AmountMinor,
     long DiscountMinor,
     TaxExemptionReason Exemption = TaxExemptionReason.None,
-    string? TaxCategoryCode = null);
+    string? TaxCategoryCode = null,
+    FulfilmentType Fulfilment = FulfilmentType.Unassigned);
 
 /// <summary>What a tax strategy is asked to tax. Every amount is in minor units of <see cref="Currency"/>.</summary>
 /// <param name="ShippingMinor">The shipping actually charged (after free-shipping promotions and waivers).</param>
 /// <param name="DestinationCountry">
-/// The country the supply is taxed in when the destination decides it (ADR-0063 P1b: EU OSS), or null for the
-/// ship-to country — the place of supply of dispatched goods. A caller that knows better passes it: digital
-/// services are supplied where the customer belongs, which the bill-to country (P3) answers.
+/// The CART's destination (ADR-0063 P1b) — where its goods and its shipping are supplied — or null for the ship-to
+/// country, the place of supply of dispatched goods. Every line that is not electronically supplied takes it.
+/// </param>
+/// <param name="BillCountry">
+/// The bill-to country (ADR-0063 P3), or null when unknown. An electronically supplied line
+/// (<see cref="TaxLineInput.Fulfilment"/>) is supplied there rather than at the cart's destination; without a bill-to
+/// it falls back to the cart's destination.
 /// </param>
 public sealed record TaxCalculationInput(
     string Currency,
     string? ShipCountry,
     IReadOnlyList<TaxLineInput> Lines,
     long ShippingMinor = 0,
-    string? DestinationCountry = null);
+    string? DestinationCountry = null,
+    string? BillCountry = null);
+
+/// <summary>
+/// Where each component of a sale is supplied — the country whose VAT applies when the destination decides it
+/// (ADR-0063 § 16, per-line destination; Directive 2006/112/EC):
+/// <list type="bullet">
+/// <item><b>Goods</b> dispatched to the customer, and the shipping charged for them: the cart's destination (the
+/// ship-to country, Art. 33).</item>
+/// <item><b>Electronically supplied services</b> — a digital download, a subscription, usage (ADR-0028 fulfilment
+/// types): where the customer belongs (Art. 58), which the bill-to country answers.</item>
+/// </list>
+/// A manual service is left with the cart's destination (as before): its place of supply under the general rule
+/// (Art. 45, the supplier's establishment) is a separate decision.
+/// </summary>
+public static class PlaceOfSupply
+{
+    /// <summary>Whether a line of this fulfilment type is an electronically supplied service (Art. 58).</summary>
+    public static bool IsElectronicallySupplied(FulfilmentType fulfilment) =>
+        fulfilment is FulfilmentType.DigitalDownload or FulfilmentType.Subscription or FulfilmentType.Usage;
+
+    /// <summary>The cart's destination — the goods' and the shipping's — upper-cased ISO code, or <c>""</c>.</summary>
+    public static string CartDestination(TaxCalculationInput input) => Code(input.DestinationCountry ?? input.ShipCountry);
+
+    /// <summary>The destination of one line of <paramref name="input"/>.</summary>
+    public static string LineDestination(TaxCalculationInput input, TaxLineInput line) =>
+        IsElectronicallySupplied(line.Fulfilment) && Code(input.BillCountry) is { Length: > 0 } billTo
+            ? billTo
+            : CartDestination(input);
+
+    /// <summary>Every line's destination, index-aligned with <see cref="TaxCalculationInput.Lines"/>.</summary>
+    public static IReadOnlyList<string> LineDestinations(TaxCalculationInput input) =>
+        input.Lines.Select(line => LineDestination(input, line)).ToList();
+
+    /// <summary>
+    /// The sale's destination as one value: the destination every line shares, or — for a sale whose lines go to
+    /// different countries — the cart's (where the goods and the shipping go). Each line records its own.
+    /// </summary>
+    public static string SaleDestination(TaxCalculationInput input)
+    {
+        var destinations = LineDestinations(input);
+        return destinations.Count > 0 && destinations.All(d => d == destinations[0]) ? destinations[0] : CartDestination(input);
+    }
+
+    private static string Code(string? country) =>
+        string.IsNullOrWhiteSpace(country) ? string.Empty : country.Trim().ToUpperInvariant();
+}
 
 /// <summary>
 /// The tax facts of one line or of the shipping line (ADR-0063 § 7.1).
@@ -124,6 +183,16 @@ public sealed record TaxBreakdown(
 {
     /// <summary>The order's whole tax — Σ line tax + shipping tax.</summary>
     public long TaxMinor => Lines.Sum(l => l.TaxMinor) + Shipping.TaxMinor;
+
+    /// <summary>
+    /// Each line's destination as the strategy resolved it (<see cref="PlaceOfSupply"/>), index-aligned with
+    /// <see cref="Lines"/> — set by a strategy that taxes by destination (<see cref="EuOssTaxStrategy"/>); null from
+    /// one that does not, whose every line is then recorded at the cart's destination, as before.
+    /// </summary>
+    public IReadOnlyList<string>? LineDestinations { get; init; }
+
+    /// <summary>The sale's destination as one value (<see cref="PlaceOfSupply.SaleDestination"/>), or null with no <see cref="LineDestinations"/>.</summary>
+    public string? SaleDestination { get; init; }
 
     /// <summary>
     /// The per-rate summary (Art. 226(8)–(10)): Σ of the lines — and of the shipping line when shipping was charged —

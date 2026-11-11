@@ -412,19 +412,18 @@ public class EuOssTaxStrategyTests
     public void A_confirmed_cross_border_EU_order_contributes_its_net_value_and_nothing_else_does()
     {
         var crossBorder = Order("DE", "FR", "EUR", TaxScheme.Domestic);
-        var sale = EuDistanceSale.For(crossBorder, new DateTimeOffset(2026, 12, 31, 23, 30, 0, TimeSpan.Zero), Now);
-        Assert.NotNull(sale);
+        var sale = Assert.Single(EuDistanceSale.For(crossBorder, new DateTimeOffset(2026, 12, 31, 23, 30, 0, TimeSpan.Zero), Now));
         Assert.Equal((crossBorder.Id, crossBorder.TenantId, 2026, "DE", "FR", "EUR"),
             (sale.OrderId, sale.TenantId, sale.Year, sale.HomeCountry, sale.DestinationCountry, sale.Currency));
         Assert.Equal(10_000 + 2_521 + 420, sale.NetMinor); // Σ line bases (net of VAT) + shipping base
 
-        Assert.Equal("DE", EuDistanceSale.For(Order("de-BY", "at", "eur", TaxScheme.Oss), Now, Now)?.HomeCountry);
+        Assert.Equal("DE", Assert.Single(EuDistanceSale.For(Order("de-BY", "at", "eur", TaxScheme.Oss), Now, Now)).HomeCountry);
 
         // Negative controls: domestic, non-EU store, non-EU destination, pre-P1b order (no jurisdiction recorded).
-        Assert.Null(EuDistanceSale.For(Order("DE", "DE", "EUR", TaxScheme.Domestic), Now, Now));
-        Assert.Null(EuDistanceSale.For(Order("AU", "FR", "EUR", TaxScheme.Domestic), Now, Now));
-        Assert.Null(EuDistanceSale.For(Order("DE", "US", "EUR", TaxScheme.Domestic), Now, Now));
-        Assert.Null(EuDistanceSale.For(Order("", "", "EUR", TaxScheme.NotRecorded), Now, Now));
+        Assert.Empty(EuDistanceSale.For(Order("DE", "DE", "EUR", TaxScheme.Domestic), Now, Now));
+        Assert.Empty(EuDistanceSale.For(Order("AU", "FR", "EUR", TaxScheme.Domestic), Now, Now));
+        Assert.Empty(EuDistanceSale.For(Order("DE", "US", "EUR", TaxScheme.Domestic), Now, Now));
+        Assert.Empty(EuDistanceSale.For(Order("", "", "EUR", TaxScheme.NotRecorded), Now, Now));
     }
 
     [Fact]
