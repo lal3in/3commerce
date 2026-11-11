@@ -22,6 +22,9 @@ export function CardEntryForm({ email, cardStatus }: CardEntryFormProps) {
       {cardStatus === "saved" && <p className="rounded-md bg-green-50 p-2 text-green-700">{t("cardSaved")}</p>}
       {cardStatus === "deleted" && <p className="rounded-md bg-green-50 p-2 text-green-700">{t("cardDeleted")}</p>}
       {cardStatus === "default" && <p className="rounded-md bg-green-50 p-2 text-green-700">{t("cardDefaultUpdated")}</p>}
+      {cardStatus === "billing-saved" && <p role="status" className="rounded-md bg-green-50 p-2 text-green-700">{t("cardBilling.saved")}</p>}
+      {cardStatus === "billing-cleared" && <p role="status" className="rounded-md bg-green-50 p-2 text-green-700">{t("cardBilling.cleared")}</p>}
+      {cardStatus === "billing-error" && <p role="alert" className="rounded-md bg-red-50 p-2 text-red-700">{t("cardBilling.error")}</p>}
       <input type="hidden" name="email" value={email} />
       <label className="block font-medium" title={t("tips.cardNumber")}>
         {t("cardNumber")}

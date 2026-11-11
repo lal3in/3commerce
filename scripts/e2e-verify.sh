@@ -311,6 +311,10 @@
 #       own Canaries/Ceuta/Melilla too; an e-book billed to Tenerife is exported while Madrid goods are taxed; Canaries
 #       goods + French e-book split export/OSS; XI goods at 20 % OSS / home under the threshold; exports never need or
 #       count toward the threshold; non-EU stores unchanged
+#   A3ze Unit · saved card billing address (mem_2, CardBillingAddressTests): trimmed, country upper-cased, blank region
+#       dropped; a missing name / street / city / postcode or a country that is not 2 letters is refused naming the
+#       part; oversize parts are refused, never truncated; a card sets + clears it with UpdatedAt at stored (µs)
+#       precision; a removed card cannot take one; the charge snapshot never carries it (money path unchanged)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -392,6 +396,16 @@
 #       401, another member sees and deletes nothing of it. FORCE RLS as a NON-superuser role
 #       (IdentityBusinessIdentityRlsTests): the owning tenant saves/reads/clears it, another tenant's scope can
 #       neither read nor overwrite it (0 rows), and with no scope a read is empty and an update touches nothing
+#   A4k Integration · saved card billing address (mem_2, SavedCardBillingAddressTests, Phase3 Payments over Postgres):
+#       a card saved with an address lists it normalized next to one without; PUT replaces and DELETE clears one
+#       card's address without touching the other's; UpdatedAt reloads at µs precision; four malformed addresses
+#       are 400 problem+json naming the field and leave the saved one; a card saved with a malformed address is
+#       refused as billingAddress.country and not saved; another member's PUT/DELETE and an unknown card are 404,
+#       no claims is 401. FORCE RLS as a NON-superuser owner with the REAL migrations (SavedPaymentMethodsRlsTests,
+#       ADR-0024 amendment 2026-11-07): through SavedCardTenantScope the owning tenant writes/reads/updates its card,
+#       another tenant reads nothing, updates 0 rows and cannot insert for it, no scope reads nothing and an insert
+#       is rejected, platform scope reads, and inside an open (outbox) transaction the scope applies to it and is gone
+#       after the commit
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -694,7 +708,13 @@
 #       survives a reload and clears; with details saved, checkout's Business purchase block opens ticked and
 #       prefilled, a company-name change places an order that keeps the change while the profile keeps the saved
 #       name, and after clearing the next checkout's block is unticked (e2e/account-business-identity.spec.ts;
-#       the checkout half needs --data full)
+#       the checkout half needs --data full);
+#       a billing address per saved card (mem_2): a member saves two cards and gives the Visa its own billing
+#       address on /account (the Mastercard shows none); at checkout the default Visa preselects "Billing address
+#       of VISA ending 4242" and fills the bill-to, the Mastercard falls back to the shipping address, and the
+#       summary never moves; an edited bill-to with "Save to my account for next time" ticked becomes the order's
+#       bill-to and joins the address book while the card keeps its own; the card's address then clears
+#       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -926,6 +946,11 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuVatSpecialTerritoriesTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zt EU special VAT territories"; else fail "A3zt EU special VAT territories"; fi
+
+  stage "A3ze Saved card billing address (mem_2) — normalized, refusals name the part, stored-precision UpdatedAt, charge snapshot unchanged"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~CardBillingAddressTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3ze saved card billing address"; else fail "A3ze saved card billing address"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

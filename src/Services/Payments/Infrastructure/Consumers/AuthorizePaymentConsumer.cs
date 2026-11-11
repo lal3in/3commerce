@@ -68,8 +68,15 @@ public sealed class AuthorizePaymentConsumer(
         var customer = msg.UserId is { } userId
             ? await db.PaymentCustomers.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", context.CancellationToken)
             : null;
-        var savedMethod = msg.SavedPaymentMethodId is { } methodId
-            ? await db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(m => m.Id == methodId && m.UserId == msg.UserId && m.State == SavedPaymentMethodState.Active, context.CancellationToken)
+        // SavedPaymentMethods is under FORCE RLS (ADR-0024, owner decision 2026-11-07). AuthorizePayment carries no tenant,
+        // so the card is read in the tenant of the member's payment customer — the row every saved card hangs off (no
+        // customer ⇒ no saved card). This runs inside the consumer's EF outbox transaction; the scope is applied to it.
+        var savedMethod = msg.SavedPaymentMethodId is { } methodId && customer is not null
+            ? await SavedCardTenantScope.RunAsync(db, customer.TenantId,
+                () => db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(
+                    m => m.Id == methodId && m.UserId == msg.UserId && m.PaymentCustomerId == customer.Id && m.State == SavedPaymentMethodState.Active,
+                    context.CancellationToken),
+                context.CancellationToken, msg.UserId)
             : null;
         var providerCustomerId = customer?.ProviderCustomerId;
         var providerPaymentMethodId = savedMethod?.ProviderPaymentMethodId;
