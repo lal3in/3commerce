@@ -137,8 +137,12 @@ public class UsageAutoLoadSavedCardTests
     {
         var customer = new PaymentCustomer
         {
-            Id = Guid.CreateVersion7(), TenantId = UsageBilling.TenantId, UserId = Guid.CreateVersion7(), Provider = "stripe",
-            ProviderCustomerId = "cus_x", CreatedAt = Now,
+            Id = Guid.CreateVersion7(),
+            TenantId = UsageBilling.TenantId,
+            UserId = Guid.CreateVersion7(),
+            Provider = "stripe",
+            ProviderCustomerId = "cus_x",
+            CreatedAt = Now,
         };
 
         Assert.True(customer.RecordEmail("  Usage@Example.COM "));

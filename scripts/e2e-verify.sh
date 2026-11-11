@@ -300,6 +300,16 @@
 #       byte-identical to an oracle copy of the pre-split strategy, non-EU stores ignore the bill-to; 5,000 split carts
 #       well-formed; EuDistanceSale writes one row per destination crossed into (a pre-change line falls back to the
 #       order's destination); the line destination reaches Order and OrderConfirmed ("" from a pre-change event)
+#   A3zu Unit · auto top-ups charge the default saved card (jobmgr_3_settlement, owner decision 2026-11-06,
+#       UsageAutoLoadSavedCardTests in Payments + Usage, UsageAutoLoadSkippedContractTests): an auto-load is charged
+#       off-session on the customer's DEFAULT card (never a non-default one); with no default card (no vault, only a
+#       non-default card, the default removed, another customer's card, a vault whose email is unknown) it is SKIPPED —
+#       no provider call, no pin, no attempt, no posting, never dunned — and UsageAutoLoadSkipped is announced once; an
+#       overage with no card is charged as before; a retry under a fresh key charges the card that is default now, an
+#       unanswered one keeps its key and card. Usage takes the skipped credit back once, pauses auto-load (no top-up
+#       from usage or the sweep, billable usage beyond the credit refused without overage, no hold) and resumes on a
+#       later CustomerPaymentMethodReady (topping up at once) — never on a stale report, never paused by a crossed skip;
+#       the add-a-card email and both events round-trip with numeric enums; ConsumerEndpointNameTests sees the new queues
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -379,6 +389,13 @@
 #       401, another member sees and deletes nothing of it. FORCE RLS as a NON-superuser role
 #       (IdentityBusinessIdentityRlsTests): the owning tenant saves/reads/clears it, another tenant's scope can
 #       neither read nor overwrite it (0 rows), and with no scope a read is empty and an update touches nothing
+#   A4ku Integration · auto top-ups and the saved card over the broker (jobmgr_3_settlement,
+#       UsageAutoLoadSavedCardIntegrationTests, Payments + Usage on one RabbitMQ): a top-up for a vault with no email and
+#       no default card is skipped (Payments: Skipped, no attempt, no entry; Usage: credit back to 0, paused, no hold);
+#       making the card the default over HTTP as the customer records the vault's email and publishes
+#       CustomerPaymentMethodReady, Usage resumes and tops up, and Payments charges THAT card and settles it (credit 100);
+#       the card read runs set_config('app.tenant_id', <tenant>) in the same transaction as the query (RLS-ready). The
+#       other auto-load suites (A4b, A4f, UsageAutoLoadTests, UsageChargeRevenueTests) seed a default card
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -908,6 +925,15 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PerLineTaxDestinationTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zd per-line tax destination"; else fail "A3zd per-line tax destination"; fi
+
+  stage "A3zu Auto top-ups charge the default saved card (jobmgr_3_settlement) — skipped without one, paused, resumed"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~UsageAutoLoadSavedCardTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Usage/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~UsageAutoLoadSavedCardTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~UsageAutoLoadSkippedContractTests|FullyQualifiedName~ConsumerEndpointNameTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zu auto top-ups charge the default saved card"; else fail "A3zu auto top-ups charge the default saved card"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

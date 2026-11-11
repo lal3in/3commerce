@@ -152,6 +152,9 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 and holds the balance (no further top-ups; billable usage suspended once the charge is abandoned after its day-7 retry).
 Balance DTOs append `paymentHold` (numeric: 0 none, 1 unpaid, 2 suspended). An overage charge's reference now includes
 the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeated overage level in a later period is charged.
+Auto top-ups charge the customer's DEFAULT saved card off-session (owner decision 2026-11-06, jobmgr_3_settlement); with no
+default card Payments skips the top-up (`UsageAutoLoadSkipped`): Usage takes the credit back and pauses auto-load until
+Payments reports a card (`CustomerPaymentMethodReady`). Balance DTOs append `autoLoadAwaitingPaymentMethod` (bool).
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
@@ -256,7 +259,7 @@ the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeate
 | GET/POST/PUT/DELETE | `/admin/xero/mappings[/{id}]` | admin | Xero account mapping CRUD with tenant/storefront/category/supplier/product precedence |
 | GET/POST | `/admin/webhook-secrets` · POST `/{id}/deactivate` | admin | Provider webhook signing-secret registry (def_2): write-only (responses always masked), rotation-safe — verification tries every active secret newest-first, then the `Stripe:WebhookSecret` config fallback |
 | GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
-| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
+| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout — and the card usage auto top-ups charge off-session (jobmgr_3_settlement). The `/payment-methods` calls record the vault's email from the customer's claims and, when a default card exists, publish `CustomerPaymentMethodReady` (shapes unchanged) |
 | GET | `/admin/jobs/runs?job=` | admin | Payments-local scheduled-job run history (renewals, Xero sync) |
 
 Payment account lifecycle data is Payments-owned: tenant defaults plus storefront overrides, provider mode (`Test`/`Live`), readiness/activation state, and checkout snapshots. Saved card data is Payments-owned: Stripe Customer IDs and PaymentMethod IDs stay in Payments; storefronts see only brand/last4/expiry and use Payment Element client secrets (SAQ-A). Supplier payout data is also Payments-owned: approved bank-account tokens/masked display values, payout instructions, payable policies, and supplier payable accruals; the admin API accepts only token refs and masked values, never raw bank details. Xero mappings are Payments-owned with tenant defaults plus storefront/category/supplier/product overrides for ledger-account to Xero-account resolution and an admin CRUD surface.

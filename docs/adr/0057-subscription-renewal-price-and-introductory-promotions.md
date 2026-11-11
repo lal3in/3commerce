@@ -440,7 +440,9 @@ enters the usage dunning path** (the 2026-10-28 follow-up above).
 * **API.** Usage `BalanceDto` appends `autoLoadAwaitingPaymentMethod` (bool). No Payments HTTP shape changed.
 
 Verification: `UsageAutoLoadSavedCardTests` (Payments and Usage), `UsageAutoLoadSkippedContractTests` and
-`ConsumerEndpointNameTests` (unit lane) are e2e-verify **A3z**. `UsageAutoLoadSavedCardIntegrationTests` (integration,
-**A4h**) covers a vault with no email and no default card: the top-up is skipped end to end. Making the card the default
-over HTTP then resumes the top-up, and that card is charged and settled. The auto-load integration suites now seed a
-default card.
+`ConsumerEndpointNameTests` (unit lane) are e2e-verify **A3zu**. `UsageAutoLoadSavedCardIntegrationTests` (integration,
+**A4ku**) covers a vault with no email and no default card: the top-up is skipped end to end. Making the card the default
+over HTTP then resumes the top-up, and that card is charged and settled. It also pins the tenant scope: the card read
+runs `set_config('app.tenant_id', <the charge's tenant>)` in the same transaction as the query. The auto-load integration
+suites now seed a default card. Each new unit test was shown to fail with its fix reverted (no skip, no instrument, no
+pause).
