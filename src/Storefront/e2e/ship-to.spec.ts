@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "../e2e-support/fixtures";
 
 /**
  * Ship-to-country allowlist (Stage 1): a storefront can restrict which countries it ships to. When the

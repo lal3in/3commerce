@@ -221,7 +221,8 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5113 (scripts/lib/services.sh)
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
 │   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ e2e-supplier/ Playwright suites;
-│   │                              #   e2e-support/ = capture() + the screenshot-history reporter)
+│   │                              #   e2e-support/ = capture() + the screenshot-history reporter + fixtures.ts,
+│   │                              #   the shared hermetic base `test` every spec imports)
 │   ├── Admin/                     # Blazor Server operator console (:5200)
 │   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
 │   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)

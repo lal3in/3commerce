@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // Guards PR1 admin correctness: action buttons must succeed and always surface feedback

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // Offer-as-price (ADR-0028): the Offers & pricing page exposes a per-offer STOREFRONT scope and an ACTIVE

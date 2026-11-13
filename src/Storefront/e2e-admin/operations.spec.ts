@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin, seedPaidOrder, seedPaidOrderWithRma, demoStorefrontId } from "./helpers";
 
 const operationalPages = [

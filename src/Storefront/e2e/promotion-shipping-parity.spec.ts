@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test, expect, type Page, type APIRequestContext } from "../e2e-support/fixtures";
 import { capture } from "../e2e-support/screenshots";
 
 /**

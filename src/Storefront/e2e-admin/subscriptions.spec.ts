@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // Subscriptions management (mt7_3): the operator page lists recurring subscriptions with their status

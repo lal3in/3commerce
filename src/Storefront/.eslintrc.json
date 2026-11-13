@@ -1,3 +1,27 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "overrides": [
+    {
+      "files": ["e2e/**/*.ts", "e2e-admin/**/*.ts", "e2e-supplier/**/*.ts", "e2e-support/**/*.ts"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@playwright/test",
+                "importNames": ["test"],
+                "message": "Import `test` from e2e-support/fixtures (or e2e/fixtures): it keeps external seed-image hosts hermetic."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["e2e-support/fixtures.ts", "e2e-support/screenshots.ts"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ]
 }

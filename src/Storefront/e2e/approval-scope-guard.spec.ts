@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { pinStorefront } from "./fixtures";
 import { capture } from "../e2e-support/screenshots";
 
