@@ -39,6 +39,14 @@ public enum TaxExemptionReason
 
     /// <summary>The product's own <see cref="TaxMode.Exempt"/> (the pricing engine's vocabulary; checkout never sets it).</summary>
     ProductTaxMode = 3,
+
+    /// <summary>
+    /// Supplied into a territory outside the EU VAT area although inside a Member State (Directive 2006/112/EC Art. 6 —
+    /// the Canary Islands, Ceuta, Melilla, Åland, the French outermost regions…, see <see cref="EuVatTerritories"/>):
+    /// treated as an export from the EU VAT area, zero-rated (an invoice prints UNCL5305 <c>G</c>). Takes precedence
+    /// over a ship-rule exemption, and such a component never counts toward the EUR 10,000 threshold.
+    /// </summary>
+    OutsideEuVatArea = 4,
 }
 
 /// <summary>
@@ -95,13 +103,21 @@ public sealed record TaxLineInput(
 /// (<see cref="TaxLineInput.Fulfilment"/>) is supplied there rather than at the cart's destination; without a bill-to
 /// it falls back to the cart's destination.
 /// </param>
+/// <param name="ShipRegion">The ship-to region (ISO 3166-2, <c>ES-CN</c> or <c>CN</c>), for the territorial rules (<see cref="EuVatTerritories"/>).</param>
+/// <param name="ShipPostcode">The ship-to postcode, for the territorial rules.</param>
+/// <param name="BillRegion">The bill-to region, for the territorial rules.</param>
+/// <param name="BillPostcode">The bill-to postcode, for the territorial rules.</param>
 public sealed record TaxCalculationInput(
     string Currency,
     string? ShipCountry,
     IReadOnlyList<TaxLineInput> Lines,
     long ShippingMinor = 0,
     string? DestinationCountry = null,
-    string? BillCountry = null);
+    string? BillCountry = null,
+    string? ShipRegion = null,
+    string? ShipPostcode = null,
+    string? BillRegion = null,
+    string? BillPostcode = null);
 
 /// <summary>
 /// Where each component of a sale is supplied — the country whose VAT applies when the destination decides it
@@ -114,6 +130,11 @@ public sealed record TaxCalculationInput(
 /// </list>
 /// A manual service is left with the cart's destination (as before): its place of supply under the general rule
 /// (Art. 45, the supplier's establishment) is a separate decision.
+/// <para>
+/// The address — not just its country — then decides the territory (<see cref="EuVatTerritories"/>): a special
+/// territory outside the EU VAT area (the Canary Islands, Åland, …), Northern Ireland (<c>XI</c> for goods, the UK
+/// for services) and Monaco (France).
+/// </para>
 /// </summary>
 public static class PlaceOfSupply
 {
@@ -121,28 +142,49 @@ public static class PlaceOfSupply
     public static bool IsElectronicallySupplied(FulfilmentType fulfilment) =>
         fulfilment is FulfilmentType.DigitalDownload or FulfilmentType.Subscription or FulfilmentType.Usage;
 
-    /// <summary>The cart's destination — the goods' and the shipping's — upper-cased ISO code, or <c>""</c>.</summary>
-    public static string CartDestination(TaxCalculationInput input) => Code(input.DestinationCountry ?? input.ShipCountry);
+    /// <summary>
+    /// The cart's place — the goods' and the shipping's: its destination country (the ship-to unless the caller
+    /// passed another), with the ship-to's region and postcode when it is the ship-to country.
+    /// </summary>
+    public static TaxPlace CartPlace(TaxCalculationInput input, bool goods = true)
+    {
+        var destination = Code(input.DestinationCountry ?? input.ShipCountry);
+        var atShipTo = destination == Code(input.ShipCountry);
+        return EuVatTerritories.Place(destination, atShipTo ? input.ShipRegion : null, atShipTo ? input.ShipPostcode : null, goods);
+    }
+
+    /// <summary>The place of one line of <paramref name="input"/>.</summary>
+    public static TaxPlace LinePlace(TaxCalculationInput input, TaxLineInput line) =>
+        IsElectronicallySupplied(line.Fulfilment) && Code(input.BillCountry) is { Length: > 0 } billTo
+            ? EuVatTerritories.Place(billTo, input.BillRegion, input.BillPostcode, goods: false)
+            : CartPlace(input, goods: line.Fulfilment.RequiresShipping());
+
+    /// <summary>Every line's place, index-aligned with <see cref="TaxCalculationInput.Lines"/>.</summary>
+    public static IReadOnlyList<TaxPlace> LinePlaces(TaxCalculationInput input) =>
+        input.Lines.Select(line => LinePlace(input, line)).ToList();
+
+    /// <summary>
+    /// The sale's place as one value — the shipping line's: the place every line shares, or — for a sale whose lines
+    /// go to different places — the cart's (where the goods and the shipping go). Each line records its own.
+    /// </summary>
+    public static TaxPlace SalePlace(TaxCalculationInput input)
+    {
+        var places = LinePlaces(input);
+        return places.Count > 0 && places.All(p => p == places[0]) ? places[0] : CartPlace(input);
+    }
+
+    /// <summary>The cart's destination — the goods' and the shipping's — as an upper-cased code, or <c>""</c>.</summary>
+    public static string CartDestination(TaxCalculationInput input) => CartPlace(input).Destination;
 
     /// <summary>The destination of one line of <paramref name="input"/>.</summary>
-    public static string LineDestination(TaxCalculationInput input, TaxLineInput line) =>
-        IsElectronicallySupplied(line.Fulfilment) && Code(input.BillCountry) is { Length: > 0 } billTo
-            ? billTo
-            : CartDestination(input);
+    public static string LineDestination(TaxCalculationInput input, TaxLineInput line) => LinePlace(input, line).Destination;
 
     /// <summary>Every line's destination, index-aligned with <see cref="TaxCalculationInput.Lines"/>.</summary>
     public static IReadOnlyList<string> LineDestinations(TaxCalculationInput input) =>
-        input.Lines.Select(line => LineDestination(input, line)).ToList();
+        LinePlaces(input).Select(p => p.Destination).ToList();
 
-    /// <summary>
-    /// The sale's destination as one value: the destination every line shares, or — for a sale whose lines go to
-    /// different countries — the cart's (where the goods and the shipping go). Each line records its own.
-    /// </summary>
-    public static string SaleDestination(TaxCalculationInput input)
-    {
-        var destinations = LineDestinations(input);
-        return destinations.Count > 0 && destinations.All(d => d == destinations[0]) ? destinations[0] : CartDestination(input);
-    }
+    /// <summary>The sale's destination as one value (<see cref="SalePlace"/>). Each line records its own.</summary>
+    public static string SaleDestination(TaxCalculationInput input) => SalePlace(input).Destination;
 
     private static string Code(string? country) =>
         string.IsNullOrWhiteSpace(country) ? string.Empty : country.Trim().ToUpperInvariant();

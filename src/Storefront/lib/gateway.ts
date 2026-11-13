@@ -235,6 +235,18 @@ export type SavedPaymentMethodDto = {
   expMonth: number;
   expYear: number;
   isDefault: boolean;
+  // mem_2: this card's own billing address (checkout's bill-to prefill). Absent from an older Payments → none.
+  billingAddress?: CardBillingAddressDto | null;
+};
+
+/** A saved card's billing address (Payments, mem_2) — the bill-to shape. */
+export type CardBillingAddressDto = {
+  name: string;
+  line1: string;
+  city: string;
+  region: string | null;
+  postcode: string;
+  country: string;
 };
 
 export async function getSavedPaymentMethods(): Promise<SavedPaymentMethodDto[]> {

@@ -63,6 +63,18 @@ public static class WebhookEndpoints
             return TypedResults.NotFound();
         }
 
+        // The storefront's dev "complete test payment" button only knows the order, so it sends pi_fake_{order}. A checkout
+        // paid with a SAVED card gets pi_fake_{order}_{paymentMethod} from the fake provider (mem_2 made that path
+        // testable): resolve the order's own intent so the button completes it too.
+        if (!await db.Payments.AnyAsync(p => p.PaymentIntentId == intentId, ct)
+            && await db.Payments
+                .Where(p => p.PaymentIntentId.StartsWith(intentId + "_"))
+                .Select(p => p.PaymentIntentId)
+                .FirstOrDefaultAsync(ct) is { } savedCardIntent)
+        {
+            intentId = savedCardIntent;
+        }
+
         // Use the explicit amount if given, else the pending payment's gross.
         var amount = amountMinor ?? await db.Payments
             .Where(p => p.PaymentIntentId == intentId)

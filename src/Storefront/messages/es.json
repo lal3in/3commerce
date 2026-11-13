@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "Para un número de impuesto sobre ventas de un estado de EE. UU.: el estado que lo emitió, p. ej. US-CA. Por defecto, el estado de una dirección de facturación en EE. UU.",
       "quantity": "Cambiar cuántas unidades de este artículo está pidiendo.",
       "placeOrder": "Autorizar el pago y realizar el pedido. A continuación verá la confirmación.",
-      "collectAtWarehouse": "Recoge tu pedido en el almacén del proveedor en lugar de recibirlo por mensajería, sin gastos de envío."
+      "collectAtWarehouse": "Recoge tu pedido en el almacén del proveedor en lugar de recibirlo por mensajería, sin gastos de envío.",
+      "saveAddressToAccount": "Añade esta dirección a su libreta cuando se realice el pedido, para ofrecérsela la próxima vez."
     },
     "selectCountry": "Selecciona un país",
     "collectAtWarehouse": "Recoger en el almacén (gratis)",
@@ -299,7 +300,10 @@
         "usageLimitReached": "El código {code} ha alcanzado su límite de usos.",
         "customerLimitReached": "Ya has usado el código {code}."
       }
-    }
+    },
+    "cardBillingOption": "Dirección de facturación de {brand} terminada en {last4}",
+    "cardBillingNote": "Completada con la tarjeta elegida. Los cambios aquí solo se aplican a este pedido.",
+    "saveAddressToAccount": "Guardar en mi cuenta para la próxima vez"
   },
   "confirmation": {
     "noOrder": "No se especificó ningún pedido.",
@@ -485,6 +489,22 @@
         "jurisdiction": "El país o estado que emitió el número fiscal. Necesario para un ID de impuesto sobre ventas de un estado de EE. UU. (p. ej. US-CA); los demás tipos lo completan solos.",
         "save": "Guarde estos datos para que el pago los complete la próxima vez.",
         "clear": "Eliminar los datos de empresa guardados. Los pedidos ya realizados conservan los suyos."
+      }
+    },
+    "cardBilling": {
+      "heading": "Dirección de facturación",
+      "none": "Esta tarjeta aún no tiene dirección de facturación.",
+      "add": "Añadir dirección de facturación",
+      "edit": "Editar dirección de facturación",
+      "save": "Guardar dirección de facturación",
+      "clear": "Eliminar dirección de facturación",
+      "saved": "Dirección de facturación de la tarjeta guardada.",
+      "cleared": "Dirección de facturación de la tarjeta eliminada.",
+      "error": "No se pudo guardar la dirección de facturación de la tarjeta. Revísela e inténtelo de nuevo.",
+      "tips": {
+        "edit": "La dirección a la que llegan los extractos de esta tarjeta. Al pagar con esta tarjeta, la dirección de facturación del pedido se completa con ella.",
+        "save": "Guardar esta dirección de facturación solo en esta tarjeta.",
+        "clear": "Quitar la dirección de facturación de esta tarjeta. Los pedidos ya realizados conservan la suya."
       }
     }
   },

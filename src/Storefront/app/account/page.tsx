@@ -8,6 +8,7 @@ import { logout } from "@/lib/auth-actions";
 import { AddressForms } from "@/components/account/AccountForms";
 import { BusinessIdentityForm } from "@/components/account/BusinessIdentityForm";
 import { CardEntryForm } from "@/components/account/CardEntryForm";
+import { CardBillingAddressForm } from "@/components/account/CardBillingAddressForm";
 import { OrderHistory } from "@/components/account/OrderHistory";
 import { MeterKeys, UsageChargeKind } from "@/lib/usage-charge-pay";
 
@@ -72,7 +73,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       ) : (
         <ul className="mt-2 divide-y divide-neutral-100 text-sm">
           {paymentMethods.map((method) => (
-            <li key={method.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+            <li key={method.id} className="flex flex-wrap items-center justify-between gap-3 py-2" data-testid="saved-card">
               <div>
                 <span>{t("cardSummary", { brand: method.brand.toUpperCase(), last4: method.last4 })}</span>
                 <span className="ml-2 text-neutral-500">
@@ -107,6 +108,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                   </form>
                 )}
               </div>
+              {/* mem_2: this card's own billing address — checkout's bill-to prefill when paying with it. */}
+              <CardBillingAddressForm methodId={method.id} address={method.billingAddress ?? null} />
             </li>
           ))}
         </ul>

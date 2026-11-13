@@ -200,6 +200,11 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     return { error: detail || "Checkout failed. Please review your cart and details.", field };
   }
   const result = (await response.json()) as { orderId: string };
+  // mem_2: "Save to my account for next time" — only once the order is placed, only for a signed-in shopper.
+  // Best effort: the order is already placed, so a refused save never turns it into an error.
+  if (profile) {
+    await saveCheckoutAddresses(formData, body.shippingAddress, body.billingAddress, headers as Record<string, string>);
+  }
   // Remember only guest email so the confirmation page can offer account creation (FR-7).
   const cookieStore = await cookies();
   if (profile) {
@@ -212,6 +217,33 @@ export async function submitCheckout(_prev: CheckoutState, formData: FormData): 
     cookieStore.set("3c_guest_details", details, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
   }
   redirect(`/checkout/confirmation?order=${result.orderId}`);
+}
+
+type CheckoutAddress = { name: string; line1: string; city: string; region: string | null; postcode: string; country: string };
+
+// Identity's AddressPurpose crosses HTTP as a NUMBER: 1 Billing · 2 Shipping.
+async function saveCheckoutAddresses(
+  formData: FormData,
+  shipping: CheckoutAddress,
+  billing: CheckoutAddress | null,
+  headers: Record<string, string>,
+): Promise<void> {
+  const saves: { address: CheckoutAddress; purpose: number }[] = [];
+  if (formData.get("shippingSaveToAccount") === "on") saves.push({ address: shipping, purpose: 2 });
+  if (billing && formData.get("billingSaveToAccount") === "on") saves.push({ address: billing, purpose: 1 });
+  for (const { address, purpose } of saves) {
+    try {
+      const response = await fetch(`${GATEWAY_URL}/api/identity/me/addresses`, {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify({ ...address, line2: null, purpose, isDefault: false, country: address.country.toUpperCase() }),
+        cache: "no-store",
+      });
+      if (!response.ok) console.warn(`checkout: saving the address to the account failed (${response.status})`);
+    } catch (error) {
+      console.warn("checkout: saving the address to the account failed", error);
+    }
+  }
 }
 
 function businessBuyer(formData: FormData) {

@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "Pour un numéro de taxe de vente d'un État américain : l'État qui l'a délivré, par ex. US-CA. Par défaut, l'État d'une adresse de facturation américaine.",
       "quantity": "Modifiez le nombre d'exemplaires de cet article que vous commandez.",
       "placeOrder": "Autorisez le paiement et passez la commande. Vous verrez ensuite la confirmation.",
-      "collectAtWarehouse": "Retirez votre commande à l'entrepôt du fournisseur au lieu d'une livraison par transporteur — aucuns frais de port."
+      "collectAtWarehouse": "Retirez votre commande à l'entrepôt du fournisseur au lieu d'une livraison par transporteur — aucuns frais de port.",
+      "saveAddressToAccount": "Ajoute cette adresse à votre carnet une fois la commande passée, pour vous la proposer la prochaine fois."
     },
     "selectCountry": "Sélectionnez un pays",
     "collectAtWarehouse": "Retrait à l'entrepôt (gratuit)",
@@ -299,7 +300,10 @@
         "usageLimitReached": "Le code {code} a atteint sa limite d'utilisation.",
         "customerLimitReached": "Vous avez déjà utilisé le code {code}."
       }
-    }
+    },
+    "cardBillingOption": "Adresse de facturation de la {brand} se terminant par {last4}",
+    "cardBillingNote": "Remplie à partir de la carte choisie. Les modifications ici ne valent que pour cette commande.",
+    "saveAddressToAccount": "Enregistrer dans mon compte pour la prochaine fois"
   },
   "confirmation": {
     "noOrder": "Aucune commande spécifiée.",
@@ -485,6 +489,22 @@
         "jurisdiction": "Le pays ou l'État qui a délivré le numéro fiscal. Requis pour un identifiant de taxe de vente d'un État américain (p. ex. US-CA) ; les autres types le renseignent eux-mêmes.",
         "save": "Enregistrez ces informations pour qu'elles soient remplies au prochain paiement.",
         "clear": "Supprimer les coordonnées d'entreprise enregistrées. Les commandes déjà passées conservent les leurs."
+      }
+    },
+    "cardBilling": {
+      "heading": "Adresse de facturation",
+      "none": "Aucune adresse de facturation pour cette carte.",
+      "add": "Ajouter une adresse de facturation",
+      "edit": "Modifier l'adresse de facturation",
+      "save": "Enregistrer l'adresse de facturation",
+      "clear": "Supprimer l'adresse de facturation",
+      "saved": "Adresse de facturation de la carte enregistrée.",
+      "cleared": "Adresse de facturation de la carte supprimée.",
+      "error": "Impossible d'enregistrer l'adresse de facturation de la carte. Vérifiez-la et réessayez.",
+      "tips": {
+        "edit": "L'adresse à laquelle sont envoyés les relevés de cette carte. Quand vous payez avec cette carte, l'adresse de facturation de la commande en est remplie.",
+        "save": "Enregistrer cette adresse de facturation sur cette carte uniquement.",
+        "clear": "Retirer l'adresse de facturation de cette carte. Les commandes déjà passées conservent la leur."
       }
     }
   },

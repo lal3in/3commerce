@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "Für eine US-Bundesstaats-Umsatzsteuernummer: der ausstellende Bundesstaat, z. B. US-CA. Standard ist der Bundesstaat einer US-Rechnungsadresse.",
       "quantity": "Ändern Sie, wie viele dieses Artikels Sie bestellen.",
       "placeOrder": "Zahlung autorisieren und Bestellung aufgeben. Anschließend sehen Sie die Bestätigung.",
-      "collectAtWarehouse": "Holen Sie Ihre Bestellung im Lager des Lieferanten ab, statt sie liefern zu lassen — keine Versandkosten."
+      "collectAtWarehouse": "Holen Sie Ihre Bestellung im Lager des Lieferanten ab, statt sie liefern zu lassen — keine Versandkosten.",
+      "saveAddressToAccount": "Fügt diese Adresse nach der Bestellung Ihrem Adressbuch hinzu, damit sie beim nächsten Bezahlen zur Auswahl steht."
     },
     "selectCountry": "Land auswählen",
     "collectAtWarehouse": "Abholung im Lager (kostenlos)",
@@ -299,7 +300,10 @@
         "usageLimitReached": "Der Code {code} hat sein Einlöselimit erreicht.",
         "customerLimitReached": "Sie haben den Code {code} bereits eingelöst."
       }
-    }
+    },
+    "cardBillingOption": "Rechnungsadresse der {brand} mit Endziffern {last4}",
+    "cardBillingNote": "Aus der gewählten Karte übernommen. Änderungen hier gelten nur für diese Bestellung.",
+    "saveAddressToAccount": "Für das nächste Mal in meinem Konto speichern"
   },
   "confirmation": {
     "noOrder": "Keine Bestellung angegeben.",
@@ -485,6 +489,22 @@
         "jurisdiction": "Das Land oder der Bundesstaat, der die Steuernummer vergeben hat. Für eine US-Sales-Tax-ID erforderlich (z. B. US-CA); andere Arten ergänzen ihn selbst.",
         "save": "Speichern Sie diese Angaben, damit sie beim nächsten Bezahlen ausgefüllt sind.",
         "clear": "Die gespeicherten Firmendaten entfernen. Bereits aufgegebene Bestellungen behalten ihre Angaben."
+      }
+    },
+    "cardBilling": {
+      "heading": "Rechnungsadresse",
+      "none": "Für diese Karte ist noch keine Rechnungsadresse hinterlegt.",
+      "add": "Rechnungsadresse hinzufügen",
+      "edit": "Rechnungsadresse bearbeiten",
+      "save": "Rechnungsadresse speichern",
+      "clear": "Rechnungsadresse entfernen",
+      "saved": "Rechnungsadresse der Karte gespeichert.",
+      "cleared": "Rechnungsadresse der Karte entfernt.",
+      "error": "Die Rechnungsadresse der Karte konnte nicht gespeichert werden. Bitte prüfen Sie sie und versuchen Sie es erneut.",
+      "tips": {
+        "edit": "Die Adresse, an die die Abrechnungen dieser Karte gehen. Beim Bezahlen mit dieser Karte wird die Rechnungsadresse der Bestellung daraus übernommen.",
+        "save": "Diese Rechnungsadresse nur für diese Karte speichern.",
+        "clear": "Die Rechnungsadresse von dieser Karte entfernen. Bereits aufgegebene Bestellungen behalten ihre."
       }
     }
   },

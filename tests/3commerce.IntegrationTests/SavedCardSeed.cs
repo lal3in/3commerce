@@ -43,6 +43,13 @@ internal static class SavedCardSeed
             customer.RecordEmail(normalized);
         }
 
+        // Saved cards are under FORCE RLS (ADR-0024 amendment 2026-11-07): write them in the tenant's scope.
+        return await SavedCardTenantScope.RunAsync(db, tenantId, () => UpsertCardAsync(db, customer, tenantId, pm, isDefault), default);
+    }
+
+    private static async Task<(Guid UserId, Guid CardId)> UpsertCardAsync(
+        PaymentsDbContext db, PaymentCustomer customer, Guid tenantId, string pm, bool isDefault)
+    {
         var card = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.PaymentCustomerId == customer.Id && m.ProviderPaymentMethodId == pm);
         if (card is null)
         {
