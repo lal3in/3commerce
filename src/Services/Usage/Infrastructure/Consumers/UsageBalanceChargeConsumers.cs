@@ -24,3 +24,23 @@ public sealed class UsageBalanceChargeFailedConsumer(UsageService usage) : ICons
 {
     public Task Consume(ConsumeContext<UsageChargeFailed> context) => usage.ApplyFailedAsync(context.Message, context.CancellationToken);
 }
+
+/// <summary>
+/// Payments skipped an auto top-up because the customer has no default saved card (owner decision 2026-11-06,
+/// jobmgr_3_settlement): the top-up's credit is taken back and auto-load pauses until a card is reported. Unique name
+/// (ADR-0060) — Notifications consumes the same event for the "add a card" email.
+/// </summary>
+public sealed class UsageBalanceAutoLoadSkippedConsumer(UsageService usage) : IConsumer<UsageAutoLoadSkipped>
+{
+    public Task Consume(ConsumeContext<UsageAutoLoadSkipped> context) => usage.ApplySkippedAsync(context.Message, context.CancellationToken);
+}
+
+/// <summary>
+/// The customer has a default saved card again (owner decision 2026-11-06): auto-load paused for want of one resumes, and
+/// a balance at its threshold tops up now. Named for the Usage balance it updates (ADR-0060).
+/// </summary>
+public sealed class UsageBalancePaymentMethodReadyConsumer(UsageService usage) : IConsumer<CustomerPaymentMethodReady>
+{
+    public Task Consume(ConsumeContext<CustomerPaymentMethodReady> context) =>
+        usage.ApplyPaymentMethodReadyAsync(context.Message, context.CancellationToken);
+}

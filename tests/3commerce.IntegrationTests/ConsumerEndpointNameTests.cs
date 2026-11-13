@@ -68,6 +68,11 @@ public sealed class ConsumerEndpointNameTests
         Assert.Contains("usage-balance-charge-failed", byService["usage"]);
         Assert.Contains("usage-balance-charge-settled", byService["usage"]);
         Assert.Contains("usage-charge-failed-email", byService["notifications"]);
+        // jobmgr_3_settlement: UsageAutoLoadSkipped reaches Usage (take the credit back) AND Notifications (add-a-card email);
+        // CustomerPaymentMethodReady resumes Usage's paused auto-load.
+        Assert.Contains("usage-balance-auto-load-skipped", byService["usage"]);
+        Assert.Contains("usage-auto-load-skipped-email", byService["notifications"]);
+        Assert.Contains("usage-balance-payment-method-ready", byService["usage"]);
     }
 
     [Fact]

@@ -251,6 +251,9 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("AutoLoadAwaitingPaymentMethodSince")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<long>("AutoLoadCount")
                         .HasColumnType("bigint");
 
@@ -296,6 +299,9 @@ namespace ThreeCommerce.Usage.Infrastructure.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("character varying(12)")
                         .HasDefaultValue("None");
+
+                    b.Property<DateTimeOffset?>("PaymentMethodReadyAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("PeriodEnd")
                         .HasColumnType("timestamp with time zone");

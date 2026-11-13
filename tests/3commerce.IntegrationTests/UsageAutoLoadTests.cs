@@ -21,6 +21,7 @@ public class UsageAutoLoadTests(Phase4Fixture fixture)
     public async Task Recording_usage_tops_up_prepaid_credit_when_it_hits_the_threshold()
     {
         var tenant = Guid.NewGuid();
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, Email); // top-ups charge the default card (else skipped)
 
         await using (var scope = fixture.Usage.Services.CreateAsyncScope())
         {
@@ -51,6 +52,7 @@ public class UsageAutoLoadTests(Phase4Fixture fixture)
     {
         var tenant = Guid.NewGuid();
         const string email = "sweep-autoload@example.com";
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, email);
 
         await using var scope = fixture.Usage.Services.CreateAsyncScope();
         var svc = Service(scope);

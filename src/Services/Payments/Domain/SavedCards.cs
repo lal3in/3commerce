@@ -17,8 +17,29 @@ public class PaymentCustomer
     public Guid UserId { get; init; }
     public required string Provider { get; init; }
     public required string ProviderCustomerId { get; set; }
+
+    /// <summary>
+    /// The customer's email (normalized), from the signed-in customer's claims — how a charge that knows only the customer's
+    /// email (a metered usage charge: Usage balances are keyed by tenant + email) finds the customer's default saved card
+    /// (owner decision 2026-11-06, <c>jobmgr_3_settlement</c>). Null on a row created before it was recorded until the
+    /// customer next manages their cards (or the migration backfilled it from a subscription that charged this customer).
+    /// </summary>
+    public string? Email { get; private set; }
     public DateTimeOffset CreatedAt { get; init; }
     public List<SavedPaymentMethod> PaymentMethods { get; init; } = [];
+
+    /// <summary>Record the customer's email; returns whether it changed (a new or different address).</summary>
+    public bool RecordEmail(string email)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        if (normalized.Length == 0 || normalized == Email)
+        {
+            return false;
+        }
+
+        Email = normalized;
+        return true;
+    }
 }
 
 public class SavedPaymentMethod

@@ -48,6 +48,7 @@ builder.Services.AddServiceBus(builder.Configuration, bus =>
     bus.AddConsumer<SubscriptionPaymentFailedConsumer>();         // dunning: a declined renewal will be retried
     bus.AddConsumer<SubscriptionCancelledForNonPaymentConsumer>(); // dunning: the final retry failed
     bus.AddConsumer<UsageChargeFailedEmailConsumer>();            // usage_charge_failure_feedback: a usage charge was declined / abandoned
+    bus.AddConsumer<UsageAutoLoadSkippedEmailConsumer>();         // jobmgr_3_settlement: an auto top-up had no saved card to charge
     bus.AddConsumer<MockPaymentCapturedConsumer>(); // pay_3: TEST-ONLY mock-payment payload email
 });
 builder.Services.AddServiceHealth<NotificationsDbContext>();

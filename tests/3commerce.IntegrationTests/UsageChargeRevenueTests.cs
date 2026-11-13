@@ -81,9 +81,11 @@ public class UsageChargeRevenueTests(Phase4Fixture fixture)
         var store = Guid.NewGuid();
         await SeedLedgerAccountsAsync(store);
         var reference = $"autoload-{Guid.NewGuid():N}";
+        var tenant = Guid.NewGuid();
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, "buyer@example.com"); // an auto top-up charges the default card
 
         await PublishAsync(new UsageAutoLoadCharge(
-            Guid.NewGuid(), "buyer@example.com", MeterType.Token, ReloadQuantity: 100, ChargeMinor: 500, "EUR", reference, store));
+            tenant, "buyer@example.com", MeterType.Token, ReloadQuantity: 100, ChargeMinor: 500, "EUR", reference, store));
 
         var lines = await PollEntryLinesAsync(reference);
         Assert.Equal(500, lines.Where(l => l.AccountCode == $"revenue.store-{store:N}").Sum(l => l.CreditMinor));

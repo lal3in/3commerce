@@ -115,7 +115,8 @@ public static class UsageEndpoints
     private static BalanceDto ToDto(UsageBalance b) =>
         new(b.Id, b.CustomerEmail, b.Meter.ToString(), b.IncludedQuantity, b.UsedQuantity, b.RemainingQuantity,
             b.OverageQuantity, b.OverageAllowed, b.OverageUnitPriceMinor, b.UnbilledOverageChargeMinor, b.Currency, b.PeriodStart, b.PeriodEnd,
-            b.AutoLoadEnabled, b.AutoLoadThresholdQuantity, b.AutoLoadReloadQuantity, b.PrepaidRemainingQuantity, b.PaymentHold);
+            b.AutoLoadEnabled, b.AutoLoadThresholdQuantity, b.AutoLoadReloadQuantity, b.PrepaidRemainingQuantity, b.PaymentHold,
+            b.AutoLoadAwaitingPaymentMethod);
 }
 
 public record ProvisionRequest(
@@ -138,4 +139,5 @@ public record BalanceDto(
     long OverageQuantity, bool OverageAllowed, long OverageUnitPriceMinor, long UnbilledOverageChargeMinor, string Currency,
     DateTimeOffset PeriodStart, DateTimeOffset? PeriodEnd,
     bool AutoLoadEnabled, long AutoLoadThresholdQuantity, long AutoLoadReloadQuantity, long PrepaidRemainingQuantity,
-    UsagePaymentHold PaymentHold = UsagePaymentHold.None); // appended (usage_charge_failure_feedback): 0 none, 1 unpaid, 2 suspended
+    UsagePaymentHold PaymentHold = UsagePaymentHold.None, // appended (usage_charge_failure_feedback): 0 none, 1 unpaid, 2 suspended
+    bool AutoLoadAwaitingPaymentMethod = false); // appended (jobmgr_3_settlement): a top-up was skipped for want of a saved card
