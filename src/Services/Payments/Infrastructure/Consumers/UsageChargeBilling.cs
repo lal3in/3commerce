@@ -25,6 +25,9 @@ public sealed record UsageChargeRequest(
 /// inclusive / 0% / unknown-rate store and the amount + the added tax on an exclusive (US) store (owner decision
 /// 2026-10-15, option A) — PINNED to the reference on the first attempt (<see cref="RecurringChargePin"/>), so every
 /// attempt sends the same amount;</item>
+/// <item>charge the customer's DEFAULT saved card off-session (owner decision 2026-11-06, <c>jobmgr_3_settlement</c> —
+/// <see cref="DefaultSavedCard"/>); an auto top-up with no card is skipped (<see cref="UsageAutoLoadSkipped"/>), never
+/// attempted;</item>
 /// <item>on a settled charge, post a receivable-bridged <see cref="Ledger.Sale"/> attributed to the storefront (net to
 /// <c>revenue.store-{id}</c>, tax to <c>tax.store-{id}</c>, gross to <c>cash.store-{id}.{provider}</c>) and publish
 /// <see cref="UsageChargeSettled"/> with its tax facts (ADR-0063 P4b) in the SAME unit of work;</item>
@@ -45,7 +48,7 @@ public sealed class UsageChargeBilling(
     /// unless the last attempt was never answered by the provider (then it is retried under the SAME key, which the
     /// provider de-duplicates).
     /// </summary>
-    public async Task ChargeAsync(UsageChargeRequest request, CancellationToken ct)
+    public async Task ChargeAsync(UsageChargeRequest request, CancellationToken ct, MockScenario? scenario = null)
     {
         if (await db.JournalEntries.AnyAsync(e => e.Reference == request.Reference, ct))
         {
@@ -55,10 +58,27 @@ public sealed class UsageChargeBilling(
         var charge = await db.UsageCharges.SingleOrDefaultAsync(c => c.Reference == request.Reference, ct);
         if (charge is null)
         {
+            var now = time.GetUtcNow();
             charge = UsageCharge.Record(
                 request.TenantId, request.StorefrontId, request.CustomerEmail, request.Kind, request.Meter, request.Quantity,
-                request.UnitPriceMinor, request.PriceMinor, request.Currency, request.Reference, request.Description, time.GetUtcNow());
+                request.UnitPriceMinor, request.PriceMinor, request.Currency, request.Reference, request.Description, now);
             db.UsageCharges.Add(charge);
+
+            // The customer's DEFAULT saved card, charged off-session (owner decision 2026-11-06, jobmgr_3_settlement). An
+            // auto top-up with no card is SKIPPED — never attempted, never dunned (nothing is owed) — and Usage takes back
+            // its credit while the customer is emailed to add a card. An overage with no card is charged as before
+            // (the host account, no instrument): the usage was consumed and the amount is owed either way.
+            var card = await DefaultSavedCard.FindAsync(db, charge.TenantId, charge.CustomerEmail, ct);
+            if (card is not null)
+            {
+                charge.UseInstrument(card.ProviderCustomerId, card.ProviderPaymentMethodId, now);
+            }
+            else if (charge.Kind == UsageChargeKind.AutoLoad)
+            {
+                await SkipAsync(charge, now, ct);
+                return;
+            }
+
             await db.SaveChangesAsync(ct);
         }
         else if (!(charge.Status == UsageChargeStatus.Pending
@@ -70,7 +90,7 @@ public sealed class UsageChargeBilling(
             return;
         }
 
-        await AttemptAsync(charge, UsageChargeTrigger.Initial, finalRetry: false, ct);
+        await AttemptAsync(charge, UsageChargeTrigger.Initial, finalRetry: false, ct, scenario: scenario);
         await db.SaveChangesAsync(ct);
     }
 
@@ -136,13 +156,86 @@ public sealed class UsageChargeBilling(
         return true;
     }
 
+    /// <summary>The customer's own usage charge (tenant + email), or null — someone else's is never found (404, not 403).</summary>
+    public Task<UsageCharge?> GetForCustomerAsync(Guid tenantId, string email, string reference, CancellationToken ct)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        return db.UsageCharges.AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Reference == reference && c.TenantId == tenantId && c.CustomerEmail == normalized, ct);
+    }
+
+    /// <summary>The customer's usage charges that are owed and can be paid now (past due, or abandoned), oldest first.</summary>
+    public Task<List<UsageCharge>> ListPayableForCustomerAsync(Guid tenantId, string email, CancellationToken ct)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        return db.UsageCharges.AsNoTracking()
+            .Where(c => c.TenantId == tenantId && c.CustomerEmail == normalized
+                && (c.Status == UsageChargeStatus.PastDue || c.Status == UsageChargeStatus.Abandoned))
+            .OrderBy(c => c.CreatedAt)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>What the charge asks for: its pinned amount (price + any added tax) once attempted, else its shelf price.</summary>
+    public async Task<long> AmountDueAsync(UsageCharge charge, CancellationToken ct) =>
+        (await RecurringChargePin.PinnedAsync(db, charge.Reference, ct))?.ChargeMinor ?? charge.PriceMinor;
+
+    /// <summary>
+    /// The customer's own attempt from the storefront "complete payment" page (<c>usage_charge_pay_page</c>): charge a past-due
+    /// (or abandoned — the usage was consumed and the money is owed) usage charge now, ON-SESSION, so the bank may ask for
+    /// 3-D Secure; optionally on another of the customer's saved cards. A fresh attempt key, the reference's pinned amount;
+    /// a decline sends no email (the customer sees it on the page). Settling it posts once and publishes
+    /// <see cref="UsageChargeSettled"/>, so Usage re-grants a taken-back credit and lifts the balance's hold. Returns null
+    /// when the charge is not the customer's.
+    /// </summary>
+    public async Task<UsageChargePayResult?> PayAsync(
+        Guid tenantId, string email, Guid userId, string reference, Guid? savedPaymentMethodId, CancellationToken ct,
+        MockScenario? scenario = null)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        var charge = await db.UsageCharges
+            .SingleOrDefaultAsync(c => c.Reference == reference && c.TenantId == tenantId && c.CustomerEmail == normalized, ct);
+        if (charge is null)
+        {
+            return null;
+        }
+
+        if (charge.Status is not (UsageChargeStatus.PastDue or UsageChargeStatus.Abandoned))
+        {
+            return new UsageChargePayResult(charge, UsageChargePayOutcome.NotPayable, null, null);
+        }
+
+        DefaultSavedCard? chosen = null;
+        if (savedPaymentMethodId is { } methodId)
+        {
+            chosen = await DefaultSavedCard.FindOwnedAsync(db, tenantId, userId, methodId, ct);
+            if (chosen is null)
+            {
+                return new UsageChargePayResult(charge, UsageChargePayOutcome.UnknownPaymentMethod, null, null);
+            }
+        }
+
+        var response = await AttemptAsync(charge, UsageChargeTrigger.Customer, finalRetry: false, ct, chosen, scenario);
+        await db.SaveChangesAsync(ct);
+        var outcome = response?.Outcome switch
+        {
+            PaymentOutcome.Succeeded => UsageChargePayOutcome.Paid,
+            PaymentOutcome.RequiresAction => UsageChargePayOutcome.RequiresAction,
+            null => UsageChargePayOutcome.ProviderUnavailable,
+            _ => UsageChargePayOutcome.Declined,
+        };
+        return new UsageChargePayResult(
+            charge, outcome, response?.PaymentIntentId, outcome == UsageChargePayOutcome.RequiresAction ? response?.ClientSecret : null);
+    }
+
     /// <summary>
     /// One attempt: pin → attempt row (committed before the provider call) → the provider → settle or dun. An attempt the
     /// provider never answered (it threw) duns silently (reason <c>Error</c>, no event — no customer-visible failure) and
     /// keeps its key for the next try. Recording a SETTLED charge happens outside the catch, so a failure to record money
     /// that moved aborts (and is retried under the same key) instead of dunning a customer who paid.
     /// </summary>
-    private async Task AttemptAsync(UsageCharge charge, UsageChargeTrigger trigger, bool finalRetry, CancellationToken ct)
+    private async Task<PaymentResponse?> AttemptAsync(
+        UsageCharge charge, UsageChargeTrigger trigger, bool finalRetry, CancellationToken ct, DefaultSavedCard? chosenCard = null,
+        MockScenario? scenario = null)
     {
         var now = time.GetUtcNow();
         RecurringChargeTaxResult tax;
@@ -154,17 +247,25 @@ public sealed class UsageChargeBilling(
             // Computed once per reference and PINNED (persisted before the provider call): every attempt — a retry after a
             // failure, a redelivery, a rate change in between — charges the same amount.
             tax = await RecurringChargePin.PinAsync(db, time, charge.Reference, () => ComputeTax(charge, accounts), ct);
-            attempt = await BeginAttemptAsync(charge, trigger, tax, now, ct);
+            attempt = await BeginAttemptAsync(charge, trigger, tax, now, ct, chosenCard);
 
+            // The customer's default saved card, MERCHANT-INITIATED (off-session: CustomerPresent stays false), exactly as a
+            // renewal charges its stored instrument (pay_disp_5). No card (an overage only) → the host account, as before.
+            // The customer's own attempt on the "complete payment" page is ON-SESSION (usage_charge_pay_page): the bank may
+            // ask for 3-D Secure, and the customer is there to answer it.
             var account = modeResolver.DefaultAccountForHost();
             response = await registry.Resolve(account).AuthorizeAsync(
-                new PaymentRequest(Guid.Empty, tax.ChargeMinor, charge.Currency, attempt.IdempotencyKey, PaymentMethodKind.Card, account), ct);
+                new PaymentRequest(
+                    Guid.Empty, tax.ChargeMinor, charge.Currency, attempt.IdempotencyKey, PaymentMethodKind.Card, account,
+                    charge.ProviderCustomerId, charge.ProviderPaymentMethodId,
+                    Scenario: scenario, CustomerPresent: trigger == UsageChargeTrigger.Customer),
+                ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Usage charge {Reference} could not be charged; marked past-due and retried on schedule", charge.Reference);
             charge.MarkPastDue(now, SubscriptionChargeOutcomes.Error);
-            return;
+            return null;
         }
 
         attempt.PaymentIntentId = response.PaymentIntentId;
@@ -172,17 +273,19 @@ public sealed class UsageChargeBilling(
         charge.AttemptAnswered(now);
         if (response.Outcome != PaymentOutcome.Succeeded)
         {
-            await DunAsync(charge, attempt, response, tax, finalRetry, now, ct);
-            return;
+            await DunAsync(charge, attempt, response, tax, finalRetry, now, ct, announce: trigger != UsageChargeTrigger.Customer);
+            return response;
         }
 
         await SettleAsync(charge, attempt, tax, response, ct);
+        return response;
     }
 
     /// <summary>The attempt this charge is made under, COMMITTED before the provider is asked: the last one again when the
     /// provider never answered it (same key), else a new one with a fresh key.</summary>
     private async Task<UsageChargeAttempt> BeginAttemptAsync(
-        UsageCharge charge, UsageChargeTrigger trigger, RecurringChargeTaxResult tax, DateTimeOffset now, CancellationToken ct)
+        UsageCharge charge, UsageChargeTrigger trigger, RecurringChargeTaxResult tax, DateTimeOffset now, CancellationToken ct,
+        DefaultSavedCard? chosenCard = null)
     {
         var last = await db.UsageChargeAttempts
             .Where(a => a.UsageChargeId == charge.Id)
@@ -190,7 +293,18 @@ public sealed class UsageChargeBilling(
             .FirstOrDefaultAsync(ct);
         if (last is { Outcome: SubscriptionChargeOutcomes.Pending })
         {
-            return last;
+            return last; // same key → the same card it was sent with (a provider rejects a reused key with other parameters)
+        }
+
+        // A retry under a NEW key charges the card that is the customer's default NOW (they may have replaced the card that
+        // declined); with none left it keeps the card the charge was last made on.
+        // A card the customer chose on the "complete payment" page is used for this attempt (and stays the charge's card
+        // until a later retry finds another default).
+        var card = chosenCard
+            ?? (charge.AttemptCount > 0 ? await DefaultSavedCard.FindAsync(db, charge.TenantId, charge.CustomerEmail, ct) : null);
+        if (card is not null)
+        {
+            charge.UseInstrument(card.ProviderCustomerId, card.ProviderPaymentMethodId, now);
         }
 
         var attempt = new UsageChargeAttempt
@@ -219,7 +333,7 @@ public sealed class UsageChargeBilling(
     /// </summary>
     private async Task DunAsync(
         UsageCharge charge, UsageChargeAttempt attempt, PaymentResponse response, RecurringChargeTaxResult tax, bool finalRetry,
-        DateTimeOffset now, CancellationToken ct)
+        DateTimeOffset now, CancellationToken ct, bool announce = true)
     {
         charge.MarkPastDue(now, response.Outcome.ToString());
         if (finalRetry)
@@ -232,10 +346,33 @@ public sealed class UsageChargeBilling(
             charge.Reference, charge.StorefrontId, response.Outcome, response.Error?.Code, attempt.Attempt,
             finalRetry ? "abandoned after its final retry" : $"retried at {charge.NextRetryAt:O}");
 
+        if (!announce)
+        {
+            return; // the customer's own attempt: they see the answer on the page — no email; Usage already holds the balance
+        }
+
         await publisher.Publish(new UsageChargeFailed(
             charge.TenantId, charge.StorefrontId, charge.CustomerEmail, charge.Kind, charge.Meter, charge.Quantity, charge.Reference,
             tax.ChargeMinor, charge.Currency, FailureReason(response.Outcome), attempt.Attempt, StoredTime.Of(now),
             charge.NextRetryAt, charge.AbandonsAfter, finalRetry), ct);
+    }
+
+    /// <summary>
+    /// An auto top-up the customer has no default card for (owner decision 2026-11-06): recorded as Skipped — no pin, no
+    /// attempt, no provider call, no posting, no dunning — and <see cref="UsageAutoLoadSkipped"/> published in the same
+    /// SaveChanges (bus outbox): Usage takes back the credit and pauses auto-load until a card is ready, Notifications asks
+    /// the customer to add one.
+    /// </summary>
+    private async Task SkipAsync(UsageCharge charge, DateTimeOffset now, CancellationToken ct)
+    {
+        charge.Skip(now);
+        logger.LogWarning(
+            "Usage auto-load {Reference} for storefront {StorefrontId} skipped: the customer has no default saved card; nothing charged",
+            charge.Reference, charge.StorefrontId);
+        await publisher.Publish(new UsageAutoLoadSkipped(
+            charge.TenantId, charge.StorefrontId, charge.CustomerEmail, charge.Meter, charge.Quantity, charge.Reference, charge.PriceMinor,
+            charge.Currency, UsageAutoLoadSkipReason.NoSavedCard, StoredTime.Of(now)), ct);
+        await db.SaveChangesAsync(ct);
     }
 
     private static ChargeFailureReason FailureReason(PaymentOutcome outcome) => outcome switch

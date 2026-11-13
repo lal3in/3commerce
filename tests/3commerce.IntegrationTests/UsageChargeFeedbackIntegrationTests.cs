@@ -30,6 +30,7 @@ public class UsageChargeFeedbackIntegrationTests(Phase4Fixture fixture)
     {
         var tenant = Guid.NewGuid();
         const string email = "settled-feedback@example.com";
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, email); // an auto top-up charges the default card
         await using (var scope = fixture.Usage.Services.CreateAsyncScope())
         {
             var usage = scope.ServiceProvider.GetRequiredService<UsageService>();
@@ -54,6 +55,7 @@ public class UsageChargeFeedbackIntegrationTests(Phase4Fixture fixture)
         var tenant = Guid.NewGuid();
         const string email = "declined-feedback@example.com";
         var reference = $"autoload-it-{Guid.NewGuid():N}";
+        await SavedCardSeed.AddCardAsync(fixture.Payments.Services, tenant, email, pm: "pm_declining");
 
         await using (var scope = fixture.Usage.Services.CreateAsyncScope())
         {
@@ -93,6 +95,7 @@ public class UsageChargeFeedbackIntegrationTests(Phase4Fixture fixture)
         var ours = provider.Requests.Where(r => r.IdempotencyKey.StartsWith(reference, StringComparison.Ordinal)).ToList();
         Assert.Equal([reference, $"{reference}-a1"], ours.Select(r => r.IdempotencyKey)); // a fresh key for the retry
         Assert.All(ours, r => Assert.Equal(500, r.AmountMinor));                            // the same pinned amount
+        Assert.All(ours, r => Assert.Equal(("pm_declining", false), (r.ProviderPaymentMethodId, r.CustomerPresent))); // the default card, off-session
         Assert.Equal(UsageChargeState.Settled, (await UsageChargeAsync(tenant))!.State);
     }
 

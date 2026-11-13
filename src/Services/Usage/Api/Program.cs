@@ -24,6 +24,10 @@ builder.Services.AddServiceBus<UsageDbContext>(builder.Configuration, bus =>
     // Payments' outcome of each overage / auto-load charge (usage_charge_failure_feedback).
     bus.AddConsumer<UsageBalanceChargeSettledConsumer>();
     bus.AddConsumer<UsageBalanceChargeFailedConsumer>();
+
+    // An auto top-up with no saved card is skipped; a card reported resumes it (owner decision 2026-11-06, jobmgr_3_settlement).
+    bus.AddConsumer<UsageBalanceAutoLoadSkippedConsumer>();
+    bus.AddConsumer<UsageBalancePaymentMethodReadyConsumer>();
 });
 builder.Services.AddServiceHealth<UsageDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

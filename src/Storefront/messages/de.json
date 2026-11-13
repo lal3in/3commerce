@@ -690,5 +690,71 @@
       "completePayment": "Die überfällige Verlängerung dieses Abonnements bezahlen."
     },
     "tryAgain": "Erneut versuchen"
+  },
+  "usageCharges": {
+    "heading": "Fällige Nutzungszahlungen",
+    "completePaymentLink": "Zahlung abschließen",
+    "pageTitle": "Zahlung für Ihre Nutzung abschließen",
+    "intro": "Diese Nutzungsgebühr ist noch nicht bezahlt. Dafür wurde nichts abgebucht.",
+    "creditOnHold": "Das Prepaid-Guthaben aus dieser Aufladung ist bis zur Zahlung gesperrt, und es erfolgen keine weiteren automatischen Aufladungen.",
+    "suspended": "Kostenpflichtige Nutzung ({meter}) ist bis zur Zahlung gesperrt. Die Nutzung innerhalb Ihres Tarifs und verbleibendes Prepaid-Guthaben funktionieren weiter.",
+    "item": "Gebühr",
+    "kind": {
+      "Overage": "Nutzung über Ihren Tarif hinaus ({meter})",
+      "AutoLoad": "Automatische Aufladung ({meter})"
+    },
+    "units": "{quantity, plural, one {# Einheit} other {# Einheiten}}",
+    "chargedOn": "Berechnet am",
+    "amountDue": "Fälliger Betrag",
+    "status": {
+      "Pending": "In Bearbeitung",
+      "Settled": "Bezahlt",
+      "PastDue": "Zahlung fällig",
+      "Abandoned": "Gesperrt – Zahlung fällig",
+      "Skipped": "Nicht berechnet"
+    },
+    "reason": {
+      "RequiresAction": "Ihre Bank möchte, dass Sie diese Zahlung bestätigen.",
+      "Failed": "Ihre Karte wurde abgelehnt.",
+      "Cancelled": "Die Zahlung wurde abgebrochen.",
+      "Error": "Der Zahlungsanbieter war nicht erreichbar."
+    },
+    "nextRetry": "Wenn Sie nichts tun, versuchen wir es am <date></date> erneut.",
+    "abandonsAfter": "Ist der Betrag nach dem <date></date> noch offen, wird die kostenpflichtige Nutzung gesperrt.",
+    "card": "Bezahlen mit",
+    "currentCard": "Ihre Standardkarte",
+    "savedCard": "{brand} mit Endziffern {last4}",
+    "cardHint": "Eine hier gewählte Karte bezahlt nur diese Gebühr – Ihre Standardkarte bleibt unverändert. Neue Karten fügen Sie auf Ihrer Kontoseite hinzu.",
+    "pay": "Jetzt {amount} bezahlen",
+    "paying": "Zahlung läuft…",
+    "paid": "Vielen Dank – Ihre Zahlung war erfolgreich. Dafür gesperrte Nutzung ist wieder freigegeben.",
+    "authenticateTitle": "Zahlung bei Ihrer Bank bestätigen",
+    "authenticateBody": "Ihre Bank hat Sie gebeten, diese Zahlung zu bestätigen (3-D Secure).",
+    "authenticate": "Bankbestätigung abschließen (Test)",
+    "authenticating": "Bestätigung läuft…",
+    "declined": "Die Zahlung wurde abgelehnt. Versuchen Sie es erneut oder wählen Sie eine andere Karte.",
+    "unavailable": "Der Zahlungsanbieter war nicht erreichbar. Es wurde nichts abgebucht – bitte versuchen Sie es erneut.",
+    "notPayable": "Für diese Nutzungsgebühr ist nichts zu bezahlen.",
+    "unknownCard": "Diese Karte gehört nicht zu Ihren gespeicherten Karten.",
+    "failed": "Etwas ist schiefgelaufen. Es wurde nichts abgebucht – bitte versuchen Sie es erneut.",
+    "notDue": "Für diese Nutzungsgebühr ist nichts zu bezahlen.",
+    "notFound": "Diese Nutzungsgebühr wurde nicht gefunden.",
+    "backToAccount": "Zurück zu Ihrem Konto",
+    "loading": "Ihre Nutzungsgebühr wird geladen…",
+    "tips": {
+      "pay": "Bucht den fälligen Betrag jetzt ab. Für diese Gebühr ist es bei jedem Versuch derselbe Betrag.",
+      "card": "Die Karte, die nur für diese Zahlung belastet wird – Ihre Standardkarte ändert sich nicht.",
+      "authenticate": "Testmodus: simuliert Ihre Freigabe der Zahlung in Ihrer Banking-App.",
+      "completePayment": "Diese offene Nutzungsgebühr bezahlen."
+    },
+    "tryAgain": "Erneut versuchen",
+    "meter": {
+      "Token": "Tokens",
+      "Transaction": "Transaktionen",
+      "Request": "Anfragen",
+      "Minute": "Minuten",
+      "Seat": "Plätze",
+      "StorageGb": "Speicher (GB)"
+    }
   }
 }

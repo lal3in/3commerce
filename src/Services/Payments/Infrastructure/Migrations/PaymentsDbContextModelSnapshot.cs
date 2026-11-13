@@ -614,6 +614,10 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -631,6 +635,8 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Email");
 
                     b.HasIndex("TenantId", "UserId", "Provider")
                         .IsUnique();
@@ -1193,6 +1199,14 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.Property<long>("PriceMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("ProviderCustomerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ProviderPaymentMethodId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<long>("Quantity")
                         .HasColumnType("bigint");

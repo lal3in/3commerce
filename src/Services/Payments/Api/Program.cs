@@ -132,6 +132,7 @@ app.MapCustomerPaymentMethods();
 app.MapMandates();
 app.MapBillingSchedules();
 app.MapSubscriptions();
+app.MapUsageCharges(); // usage_charge_pay_page: the customer's "complete payment" page for an unpaid usage charge
 app.MapJobRuns();
 if (app.Configuration.GetValue("Scheduling:Enabled", true))
 {

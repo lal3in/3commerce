@@ -690,5 +690,71 @@
       "completePayment": "支付呢個訂閱逾期嘅續期款項。"
     },
     "tryAgain": "再試一次"
+  },
+  "usageCharges": {
+    "heading": "待付嘅用量款項",
+    "completePaymentLink": "完成付款",
+    "pageTitle": "完成用量付款",
+    "intro": "呢筆用量收費仲未付。暫時未收過任何費用。",
+    "creditOnHold": "今次增值嘅預付額度會暫停，直至付款為止，期間唔會再自動增值。",
+    "suspended": "收費用量（{meter}）已暫停，直至付款為止。計劃內嘅用量同剩餘預付額度照用得。",
+    "item": "收費",
+    "kind": {
+      "Overage": "超出計劃嘅用量（{meter}）",
+      "AutoLoad": "自動增值（{meter}）"
+    },
+    "units": "{quantity, plural, other {# 單位}}",
+    "chargedOn": "收費日期",
+    "amountDue": "應付金額",
+    "status": {
+      "Pending": "處理中",
+      "Settled": "已付",
+      "PastDue": "待付款",
+      "Abandoned": "已暫停－待付款",
+      "Skipped": "未收費"
+    },
+    "reason": {
+      "RequiresAction": "你嘅銀行要你確認呢筆付款。",
+      "Failed": "你張卡被拒絕。",
+      "Cancelled": "付款已取消。",
+      "Error": "我哋聯絡唔到支付服務商。"
+    },
+    "nextRetry": "如果你唔做任何嘢，我哋會喺 <date></date> 再試。",
+    "abandonsAfter": "如果過咗 <date></date> 仍未付款，收費用量會被暫停。",
+    "card": "付款方式",
+    "currentCard": "你嘅預設卡",
+    "savedCard": "{brand} 尾號 {last4}",
+    "cardHint": "喺度揀嘅卡只會用嚟付呢筆收費－你嘅預設卡唔會變。新卡可以喺帳戶頁面加。",
+    "pay": "即刻付 {amount}",
+    "paying": "付款中…",
+    "paid": "多謝－你已經付款成功。因呢筆款而暫停嘅用量已經恢復。",
+    "authenticateTitle": "同你嘅銀行確認付款",
+    "authenticateBody": "你嘅銀行要你驗證呢筆付款（3-D Secure）。",
+    "authenticate": "完成銀行驗證（測試）",
+    "authenticating": "驗證中…",
+    "declined": "付款被拒絕。請再試或者揀另一張卡。",
+    "unavailable": "我哋聯絡唔到支付服務商。冇收任何費用－請再試。",
+    "notPayable": "呢筆用量收費冇嘢要付。",
+    "unknownCard": "呢張卡唔係你儲存咗嘅卡。",
+    "failed": "出咗啲問題。冇收任何費用－請再試。",
+    "notDue": "呢筆用量收費冇嘢要付。",
+    "notFound": "搵唔到呢筆用量收費。",
+    "backToAccount": "返去你嘅帳戶",
+    "loading": "載入緊你嘅用量收費…",
+    "tips": {
+      "pay": "即刻收取應付金額。呢筆收費每次嘗試都係同一個金額。",
+      "card": "只用嚟付今次款項嘅卡－你嘅預設卡唔會變。",
+      "authenticate": "測試模式：模擬你喺銀行 App 批准付款。",
+      "completePayment": "付呢筆未付嘅用量收費。"
+    },
+    "tryAgain": "再試",
+    "meter": {
+      "Token": "代幣",
+      "Transaction": "交易",
+      "Request": "請求",
+      "Minute": "分鐘",
+      "Seat": "席位",
+      "StorageGb": "儲存空間（GB）"
+    }
   }
 }

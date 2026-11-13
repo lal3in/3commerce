@@ -93,6 +93,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             charge.Property(x => x.Reference).HasMaxLength(160);
             charge.Property(x => x.Description).HasMaxLength(256);
             charge.Property(x => x.LastFailureReason).HasMaxLength(24);
+            charge.Property(x => x.ProviderCustomerId).HasMaxLength(200);
+            charge.Property(x => x.ProviderPaymentMethodId).HasMaxLength(200);
             charge.HasIndex(x => x.Reference).IsUnique(); // one charge per Usage reference, whatever the redelivery
             charge.HasIndex(x => new { x.Status, x.DunningStartedAt }); // the retry sweep
         });
@@ -238,7 +240,9 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
         {
             customer.Property(x => x.Provider).HasMaxLength(40);
             customer.Property(x => x.ProviderCustomerId).HasMaxLength(200);
+            customer.Property(x => x.Email).HasMaxLength(256);
             customer.HasIndex(x => new { x.TenantId, x.UserId, x.Provider }).IsUnique();
+            customer.HasIndex(x => new { x.TenantId, x.Email }); // a usage charge finds the customer's default card by email
             customer.HasMany(x => x.PaymentMethods).WithOne().HasForeignKey(x => x.PaymentCustomerId);
         });
 

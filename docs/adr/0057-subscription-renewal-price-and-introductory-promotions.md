@@ -389,3 +389,109 @@ Delivered with ADR-0063 P4b on `feature/settled-charge-events`.
 
 Verification: `UsageChargeDunningTests` + `SettledChargeEventTests` (Payments), `UsageChargeFeedbackTests` (Usage),
 `SettledChargeContractTests` (emails, contracts) — e2e-verify **A3u**; each was shown to fail with its fix reverted.
+
+## Amendment (2026-11-06) — owner decision: auto top-ups charge the default saved card (`jobmgr_3_settlement`)
+
+Until now a usage charge went to the host's default account with **no customer and no payment method**, so a real
+provider could never collect it off-session. The owner decided (2026-11-06): **an auto top-up charges the customer's
+DEFAULT saved card off-session. With no saved card the top-up is skipped and the customer is emailed to add one. A decline
+enters the usage dunning path** (the 2026-10-28 follow-up above).
+
+* **Which card.** Usage knows a customer only by tenant + email, while saved cards are keyed by the Identity user.
+  `PaymentCustomer` (the card vault) therefore records the customer's **email** (`Email`, normalized; migration
+  `UsageAutoLoadSavedCard`). It is taken from the signed-in customer's gateway claims whenever they list, set up, save or
+  make default a card. The migration backfills it from a subscription that charged the vault, but only when exactly one
+  email did. `DefaultSavedCard.FindAsync(tenant, email)` returns the vault's **active card marked default**. A
+  non-default card is never charged in its place.
+  * **Tenant-scoped reads.** Saved cards go under FORCE RLS (owner decision 2026-11-07, `feature/saved-card-billing-address`).
+    A consumer or a job has no request scope, so the read opens its own: `RunInTenantScopeAsync(TenantContext.ForTenant(charge.TenantId))`
+    (ADR-0024). The tenant comes from the usage charge (Usage's message), never from configuration. Inside a transaction
+    the caller already opened, the read joins it, and that caller owns the scope.
+* **The charge.** `UsageChargeBilling` resolves the card when it records the charge. It stores the card on the
+  `UsageCharge` (`ProviderCustomerId`, `ProviderPaymentMethodId`) and sends it on the `PaymentRequest` with
+  `CustomerPresent = false`. This is the renewal machinery of `pay_disp_5` (#206): Stripe confirms the intent off-session,
+  and a decline or 3-D Secure request is an answered failure that is dunned (days 1, 3, 7, fresh keys, the same pinned amount).
+  * A retry under a **new** key charges the card that is the default **then**, because the customer may have replaced
+    the declining card.
+  * An unanswered attempt is retried under its **own** key with the card it was sent with, because a provider rejects
+    a reused key that comes with different parameters.
+* **No card: skipped, not attempted.** The auto top-up's `UsageCharge` becomes `Skipped`. That means no pinned amount,
+  no attempt, no provider call, no posting and no dunning, since nothing is owed. Payments publishes
+  `UsageAutoLoadSkipped` (`Reason` 1 = `NoSavedCard`) through the bus outbox, once per reference, and a redelivery does
+  nothing.
+  * **Usage** (`UsageBalanceAutoLoadSkippedConsumer`) takes the optimistic credit back once. It marks the charge
+    `Skipped`, which holds nothing. It then pauses the balance's auto-load (`AutoLoadAwaitingPaymentMethodSince`): no
+    top-up from usage or from the daily sweep, because each one would only be skipped again and email again. Beyond the
+    remaining credit, billable usage then needs overage to be allowed.
+  * **Notifications** (`UsageAutoLoadSkippedEmailConsumer`) emails the customer that nothing was charged or credited
+    and to add a card under Saved cards at `/account`. The delivery-log reference is `usage-autoload-skipped:{reference}`.
+* **Resuming.** Payments publishes `CustomerPaymentMethodReady` (tenant, email, time; no card details) in these cases:
+  * a card is saved or made the default;
+  * the vault's email is first learnt while a default card exists.
+
+  Usage (`UsageBalancePaymentMethodReadyConsumer`) lifts a pause that began **before** that time and tops up at once if
+  the balance is at its threshold. A stale report (older than the skip) does not resume. A skip older than a report
+  already seen (the two events crossed) does not pause. Both times are microsecond-truncated (`Usage.Domain.StoredTime`).
+  Configuring auto-load again also lifts the pause.
+* **The overage is unchanged without a card.** The usage was consumed and is owed, so an arrears overage with no default
+  card is charged as before (the host account, no instrument). With a card, it is charged to that card like a top-up.
+* **Also fixed.** The daily auto-load sweep ignored `PaymentHold`, so it topped up again on a card that was being
+  dunned. It now applies `ShouldAutoLoad`'s rules: no held balance, and no balance paused for a card.
+* **API.** Usage `BalanceDto` appends `autoLoadAwaitingPaymentMethod` (bool). No Payments HTTP shape changed.
+
+Verification: `UsageAutoLoadSavedCardTests` (Payments and Usage), `UsageAutoLoadSkippedContractTests` and
+`ConsumerEndpointNameTests` (unit lane) are e2e-verify **A3zu**. `UsageAutoLoadSavedCardIntegrationTests` (integration,
+**A4ku**) covers a vault with no email and no default card: the top-up is skipped end to end. Making the card the default
+over HTTP then resumes the top-up, and that card is charged and settled. It also pins the tenant scope: the card read
+runs `set_config('app.tenant_id', <the charge's tenant>)` in the same transaction as the query. The auto-load integration
+suites now seed a default card. Each new unit test was shown to fail with its fix reverted (no skip, no instrument, no
+pause).
+
+### Follow-up delivered — the usage "complete payment" page (`usage_charge_pay_page`, 2026-11-07)
+
+This mirrors the subscription pay page (2026-10-27 follow-up, #315) for an unpaid usage charge (an overage or an
+auto top-up).
+
+* **API (Payments).** The endpoints find a charge by its reference **and** the signed-in customer's tenant + email
+  claims. Anyone else's charge is a 404.
+  * `GET /me/usage-charges` lists the customer's owed charges: `PastDue`, and `Abandoned` (the usage was consumed and
+    the money is owed).
+  * `GET /me/usage-charges/{reference}` returns the kind and meter (both numbers), the amount due (the pinned charge),
+    the failure reason, the next retry and the abandon date.
+  * `POST /me/usage-charges/{reference}/pay` requires an Idempotency-Key. A replay returns the stored answer and
+    never the client secret. The outcomes are numbers: 1 Paid, 2 RequiresAction + intent id + client secret,
+    3 Declined, 4 ProviderUnavailable. It returns 409 when nothing is owed (settled, in flight, or a skipped top-up)
+    and 422 for a card that is not the customer's.
+* **The attempt.** It is a new `UsageChargeTrigger.Customer` attempt, using the same machinery as every other attempt:
+  * a fresh key `{reference}-a{n}` and the reference's **pinned** amount;
+  * charged **on-session** (`CustomerPresent`), so the bank may ask for 3-D Secure;
+  * optionally on another of the customer's saved cards, read in the tenant scope. That card pays this charge only.
+    Unlike a subscription's, the customer's default card does not change, because the default card is what auto
+    top-ups charge.
+
+  The attempt counts as an attempt for the retry schedule. A customer's own decline publishes **no**
+  `UsageChargeFailed`: the customer sees the answer on the page, and Usage already holds the balance.
+* **Settling.** A paid charge posts once and publishes `UsageChargeSettled`. Usage then re-grants a taken-back credit
+  and lifts the `PaymentHold`, including **Suspended** for an abandoned charge. A RequiresAction attempt is settled
+  once by the provider's later success event (`SettleAttemptAsync`). The dev simulate endpoint reads a usage
+  attempt's amount for that event.
+* **Emails.** The usage decline and final-failure emails now link `/account/usage-charges/{reference}/pay` instead of
+  `/account`.
+* **Storefront.**
+  * The `/account/usage-charges/[reference]/pay` page has loading and error states. It shows the reason, the kind and
+    units, the amount due, the next retry and the suspension date, and offers a card choice.
+  * The account page lists unpaid usage charges under "Usage payments due" (shown only when there is one).
+  * Every string is in all six locales (`usageCharges.*`).
+  * Three bugs from #315 are not repeated:
+    * the date messages use a `<date></date>` tag for `t.rich`;
+    * nothing calls `revalidatePath` or `router.refresh` after paying;
+    * once paid, only the confirmation shows, never the stale amount due.
+* **Dev only.** `POST /dev/usage-charges` records and charges a usage charge with a LocalMock scenario, so the
+  Playwright spec has a past-due charge. The storefront's `/api/dev-pay-intent` also accepts a usage attempt's
+  `pi_fake_charge_…` intent.
+
+Verification: `UsageChargePayTests` (Payments unit) and the updated usage-email assertions in
+`SettledChargeContractTests`, e2e-verify **A3zv**. `UsageChargePayPageIntegrationTests` (integration, **A4kv**) runs a
+declined top-up through to Usage's Unpaid hold, then the HTTP list, 404s, missing key, pay, replay and 409. Usage
+re-grants the credit and lifts the hold, with exactly one customer attempt. `e2e/usage-charge-pay-page.spec.ts`
+(Playwright, **L20**, `capture()`) goes from the account list to the page, pays, and shows only the confirmation.

@@ -59,6 +59,7 @@ public class UsageChargeDunningTests
         provider.Outcomes.Enqueue(PaymentOutcome.Failed);
         var published = new List<object>();
         const string reference = "autoload-ucd-2";
+        UsageBilling.AddCard(db); // an auto top-up charges the default saved card (else it is skipped)
 
         await Billing(name, provider, published, FirstFailure).ChargeAsync(UsageBilling.Request(store, 1000, reference, UsageChargeKind.AutoLoad), default);
         await Billing(name, provider, published, FirstFailure.AddDays(1).AddHours(1)).RetryDueAsync(default);
@@ -105,6 +106,7 @@ public class UsageChargeDunningTests
         var provider = new RecordingProvider { Outcome = PaymentOutcome.RequiresAction };
         var published = new List<object>();
         const string reference = "autoload-ucd-4";
+        UsageBilling.AddCard(db); // an auto top-up charges the default saved card (else it is skipped)
 
         await Billing(name, provider, published, FirstFailure).ChargeAsync(UsageBilling.Request(store, 1000, reference, UsageChargeKind.AutoLoad), default);
         foreach (var day in new[] { 1, 3, 7 })

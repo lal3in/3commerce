@@ -344,6 +344,11 @@ Ledger postings (Payments):
   are recorded before the provider call (`SubscriptionChargeAttempt`, `Pending`): a Pending attempt is retried under
   its own key, an answered one is followed by `{periodKey}-a{n}` — and every attempt charges the amount pinned to the
   period, never re-priced (ADR-0057 amendment 2026-10-27).
+- **A usage charge pays with the customer's DEFAULT saved card, found by tenant + email** (owner decision 2026-11-06,
+  ADR-0057 amendment). Usage knows customers only by email, so `PaymentCustomer.Email` (learnt from the customer's
+  claims on `/payment-methods`) is the join: a vault whose email is unknown has "no card". An auto top-up with no default
+  card is SKIPPED (never attempted, never dunned), not charged to the host account. Read saved cards inside the charge's
+  tenant scope (`DefaultSavedCard`, `RunInTenantScopeAsync`): they are under FORCE RLS, and a consumer has no request scope.
 - **A per-LINE discount is subtracted from the LINE total, never from a unit price.** `RenewalDiscountMinor` (like
   `DiscountMinor`) is allocated per line, so a renewal is `UnitPriceMinor × Quantity − RenewalDiscountMinor`
   (`OrderLine.RenewalPriceMinor()`); `UnitPriceMinor − RenewalDiscountMinor` under-bills every multi-unit line and

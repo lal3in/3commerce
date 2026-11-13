@@ -300,6 +300,33 @@ export async function getMySubscription(id: string): Promise<MySubscriptionDto |
   return response.ok ? ((await response.json()) as MySubscriptionDto) : null;
 }
 
+// A usage charge the signed-in customer owes (usage_charge_pay_page) — Payments MyUsageChargeDto. `kind` (1 Overage,
+// 2 AutoLoad) and `meter` cross as NUMBERS; `amountDueMinor` is the pinned charge (price + any added tax) while owed.
+export type MyUsageChargeDto = {
+  reference: string;
+  kind: number;
+  meter: number;
+  quantity: number;
+  priceMinor: number;
+  currency: string;
+  status: string;
+  amountDueMinor: number | null;
+  failureReason: string | null;
+  nextRetryAt: string | null;
+  abandonsAfter: string | null;
+  createdAt: string;
+};
+
+export async function getMyUsageCharges(): Promise<MyUsageChargeDto[]> {
+  const response = await gatewayFetch(`/api/payments/me/usage-charges`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as MyUsageChargeDto[]) : [];
+}
+
+export async function getMyUsageCharge(reference: string): Promise<MyUsageChargeDto | null> {
+  const response = await gatewayFetch(`/api/payments/me/usage-charges/${encodeURIComponent(reference)}`, { cache: "no-store" });
+  return response.ok ? ((await response.json()) as MyUsageChargeDto) : null;
+}
+
 export type CartItemDto = {
   productId: string;
   variantId: string | null;

@@ -152,6 +152,9 @@ Metered usage + overage billing (mt7_4/7_5), extracted from Fulfillment. Publish
 and holds the balance (no further top-ups; billable usage suspended once the charge is abandoned after its day-7 retry).
 Balance DTOs append `paymentHold` (numeric: 0 none, 1 unpaid, 2 suspended). An overage charge's reference now includes
 the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeated overage level in a later period is charged.
+Auto top-ups charge the customer's DEFAULT saved card off-session (owner decision 2026-11-06, jobmgr_3_settlement); with no
+default card Payments skips the top-up (`UsageAutoLoadSkipped`): Usage takes the credit back and pauses auto-load until
+Payments reports a card (`CustomerPaymentMethodReady`). Balance DTOs append `autoLoadAwaitingPaymentMethod` (bool).
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
@@ -256,7 +259,7 @@ the period start (`overage-{balanceId}-{periodStartUnix}-{level}`), so a repeate
 | GET/POST/PUT/DELETE | `/admin/xero/mappings[/{id}]` | admin | Xero account mapping CRUD with tenant/storefront/category/supplier/product precedence |
 | GET/POST | `/admin/webhook-secrets` · POST `/{id}/deactivate` | admin | Provider webhook signing-secret registry (def_2): write-only (responses always masked), rotation-safe — verification tries every active secret newest-first, then the `Stripe:WebhookSecret` config fallback |
 | GET/POST/DELETE | `/payment-methods[/setup-intent|/{id}]` | session | Stripe Customer-backed saved card setup/list/save/remove; server stores only provider refs + brand/last4 |
-| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout |
+| POST | `/payment-methods/{id}/default` | session | Mark a saved card as the default for one-click checkout — and the card usage auto top-ups charge off-session (jobmgr_3_settlement). The `/payment-methods` calls record the vault's email from the customer's claims and, when a default card exists, publish `CustomerPaymentMethodReady` (shapes unchanged) |
 | PUT/DELETE | `/payment-methods/{id}/billing-address` | session | mem_2: the card's **own billing address** `{ name, line1, city, region?, postcode, country }` (the checkout bill-to shape, ADR-0063 P3). `PUT` returns the card (`SavedPaymentMethodDto`); `DELETE` → 204. 404 for a card that is not the caller's or not active. A malformed address is **400** problem+json with `field` = `name` / `line1` / `city` / `region` / `postcode` / `country` and an `errors` entry, and nothing is saved. `POST /payment-methods` also takes an optional `billingAddress` (refused as `billingAddress.<field>`, before the provider is called), and `GET /payment-methods` appends `billingAddress` (null when none) to every card. The storefront fills the order's bill-to from the chosen card's address. It is prefill data only: it never reaches the charge snapshot or a provider, so no amount changes. No card data is involved (SAQ-A). `SavedPaymentMethods` is under FORCE RLS (ADR-0024 amendment 2026-11-07): every read and write runs in the caller's tenant scope. |
 | GET | `/admin/jobs/runs?job=` | admin | Payments-local scheduled-job run history (renewals, Xero sync) |
 
@@ -311,6 +314,9 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | GET | `/me/subscriptions` | customer | The signed-in customer's own subscriptions |
 | GET | `/me/subscriptions/{id}` | customer | The customer's own subscription for the storefront "complete payment" page: `amountDueMinor` (past due: the pinned charge), `failureReason`, `nextRetryAt`, `cancelsAfter`; 404 when not theirs |
 | POST | `/me/subscriptions/{id}/pay` | customer | Pay a past-due renewal now, ON-SESSION (3-D Secure possible), optionally `savedPaymentMethodId` (becomes the renewal card); **Idempotency-Key required** (replay returns the stored answer, never the client secret). 200 `outcome` 1 Paid / 2 RequiresAction (+ `paymentIntentId`, `clientSecret`) / 3 Declined / 4 ProviderUnavailable; 409 not past due; 422 unknown card; 404 not theirs. The provider's later `payment_intent.succeeded` for a RequiresAction attempt settles the period once (ADR-0057 amendment 2026-10-27) |
+| GET | `/me/usage-charges` | customer | The signed-in customer's usage charges that are owed (`PastDue` / `Abandoned`), oldest first — the account page lists them (usage_charge_pay_page) |
+| GET | `/me/usage-charges/{reference}` | customer | One of the customer's usage charges for the storefront "complete payment" page: `kind` (1 Overage / 2 AutoLoad) and `meter` as NUMBERS, `status`, `amountDueMinor` (while owed: the pinned charge), `failureReason`, `nextRetryAt`, `abandonsAfter`; 404 when not theirs |
+| POST | `/me/usage-charges/{reference}/pay` | customer | Pay an unpaid (past-due or abandoned) usage charge now, ON-SESSION (3-D Secure possible), optionally `savedPaymentMethodId` (for this charge only); **Idempotency-Key required**. 200 `outcome` 1 Paid / 2 RequiresAction (+ `paymentIntentId`, `clientSecret`) / 3 Declined / 4 ProviderUnavailable; 409 nothing to pay; 422 unknown card; 404 not theirs. A decline sends no email; settling publishes `UsageChargeSettled` (Usage re-grants the credit, lifts the hold); a RequiresAction attempt settles once from the provider's success event |
 
 > Phase 7 bus contracts: `OfferChanged` carries `pricing_model` + `billing_period`; Ordering publishes
 > `SubscriptionRequested` per recurring line on confirm (→ Payments; `PriceMinor` = unit × qty − the line's renewal
