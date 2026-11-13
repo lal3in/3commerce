@@ -322,8 +322,9 @@
 #       rate changed charges the pinned 1220; a Domestic / pre-change subscription keeps the store's rate; an exempt OSS
 #       line adds nothing; an unknown destination falls back to the store's rate with an error. The subscription request
 #       carries the LINE's scheme + destination (the order's for a pre-#329 line; Domestic for a home-country line of an
-#       OSS sale; never OSS outside the EU). Payments' copy of the EU standard rates equals Ordering's EuVatRateTable on
-#       every day and every local-midnight edge
+#       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
+#       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
+#       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)

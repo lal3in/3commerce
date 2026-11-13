@@ -37,7 +37,22 @@ public class OssSubscriptionTermsTests
         Assert.Equal((int)order.LineTaxTerms(line).Scheme, (int)request.TaxScheme!.Value); // numeric value crosses unchanged
     }
 
-    private static OrderLine Line(string destination) => new()
+    [Fact]
+    public void An_exported_line_renews_zero_rated_with_scheme_export()
+    {
+        // #330: a line to the Canaries is zero-rated as an export (OutsideEuVatArea), whatever the sale's scheme.
+        var order = Order(TaxScheme.Oss, "ES", "IC");
+        var exported = Line("IC", TaxExemptionReason.OutsideEuVatArea);
+
+        var request = OrderStatusConsumer.SubscriptionRequestFor(order, exported, taxInclusive: false, taxExempt: false);
+
+        Assert.Equal((Facts.TaxScheme.Export, "IC", true), (request.TaxScheme, request.TaxDestinationCountry, request.TaxExempt));
+        // Negative control: the same line without the export reason is not exempt.
+        var taxed = OrderStatusConsumer.SubscriptionRequestFor(Order(TaxScheme.Domestic, "ES", "ES"), Line("ES"), false, false);
+        Assert.Equal((Facts.TaxScheme.Domestic, false), (taxed.TaxScheme, taxed.TaxExempt));
+    }
+
+    private static OrderLine Line(string destination, TaxExemptionReason reason = TaxExemptionReason.None) => new()
     {
         Id = Guid.CreateVersion7(),
         ProductId = Guid.CreateVersion7(),
@@ -47,6 +62,7 @@ public class OssSubscriptionTermsTests
         BillingMode = BillingMode.Recurring,
         BillingPeriod = BillingPeriod.Monthly,
         TaxDestinationCountry = destination,
+        ExemptionReason = reason,
     };
 
     private static Order Order(TaxScheme scheme, string jurisdiction, string destination) => new()

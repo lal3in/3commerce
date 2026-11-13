@@ -1228,11 +1228,15 @@ under-reported French VAT.
     needs it by country; the settled event carries the destination for that.
   * **Existing subscriptions.** Those set up before this change renew at the storefront's rate until re-sent. Production
     has no live customers yet.
-  * **Exported subscriptions renew at the home rate** (found while merging the special-territories change, #330). A line
-    zero-rated as an export (`TaxExemptionReason.OutsideEuVatArea`, e.g. Canaries) reaches Payments as scheme `Export`.
-    Payments acts only on `Oss`, and `TaxExempt` still comes only from ship rules, so its renewals charge the
-    storefront's rate. Fixing that needs a decision on how Payments reports a zero-rated export: the contract
-    `TaxExemptionReason` has no `OutsideEuVatArea` member. Raised separately.
+* **Exported subscriptions renew zero-rated (gap found merging #330, closed here).** A line zero-rated at checkout as an
+  export from the EU VAT area (`TaxExemptionReason.OutsideEuVatArea`, for example the Canaries) reaches Payments as
+  scheme `Export` with `TaxExempt` set (`Order.LineTaxTerms`). The renewal is zero-rated too, because renewal tax
+  follows the regime the line was sold under: what was shown is what is charged (ADR-0057/0063). Its settled facts read
+  `Exempt` / `OutsideEuVatArea` (the shared contract value from #330), scheme `Export`, with the destination.
+  `Subscription.ExportedFromEuVatArea` applies this even when an older message set no exempt flag. Pinned by
+  `OssRenewalTaxTests.An_exported_subscription_renews_zero_rated_with_reason_outside_the_eu_vat_area` (a Tenerife
+  subscription renews at 1000 with no tax; the domestic negative control renews at 1210) and
+  `OssSubscriptionTermsTests.An_exported_line_renews_zero_rated_with_scheme_export`.
 * **Northern Ireland.** `XI` (Northern Ireland goods, #330) is an EU VAT area destination. An OSS line to `XI` renews at
   the UK standard rate on UK local time. Payments' copy carries the `XI` row, and the parity test compares through
   `EuVatArea.Normalize` / `LocalDate`.

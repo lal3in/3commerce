@@ -71,12 +71,19 @@ public class Order
     /// (<see cref="OrderLine.DestinationOr"/> — a line written before per-line destinations takes the order's), and
     /// <see cref="TaxScheme.Oss"/> only when the sale was taxed under OSS AND this line went to an EU VAT area destination
     /// (a Member State, or <c>XI</c> for Northern Ireland goods) other than the storefront's home one (<see cref="TaxJurisdiction"/>) — a mixed OSS sale's home-country lines were taxed at the
-    /// home rate, so they are Domestic. Any other sale reports its own scheme. What a subscription line's renewals are
-    /// taxed by.
+    /// home rate, so they are Domestic. A line zero-rated as an export (<see cref="TaxExemptionReason.OutsideEuVatArea"/>,
+    /// the Art. 6 territories) is <see cref="TaxScheme.Export"/> whatever the sale. Any other sale reports its own scheme.
+    /// What a subscription line's renewals are taxed by.
     /// </summary>
     public (TaxScheme Scheme, string Destination) LineTaxTerms(OrderLine line)
     {
         var destination = line.DestinationOr(TaxDestinationCountry);
+        if (line.ExemptionReason == TaxExemptionReason.OutsideEuVatArea)
+        {
+            // Zero-rated as an export from the EU VAT area (Art. 6 territories, #330): it renews zero-rated too.
+            return (TaxScheme.Export, destination);
+        }
+
         if (TaxScheme != TaxScheme.Oss)
         {
             return (TaxScheme, destination);

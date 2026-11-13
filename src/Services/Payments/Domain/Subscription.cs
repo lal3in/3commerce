@@ -62,6 +62,10 @@ public sealed class Subscription
     /// electronically supplied service. Informational unless <see cref="TaxScheme"/> is Oss.</summary>
     public string? TaxDestinationCountry { get; init; }
 
+    /// <summary>The line was zero-rated as an export from the EU VAT area at purchase (ADR-0063 § 16, the Art. 6
+    /// territories): its renewals are zero-rated too, whatever the exempt flag says.</summary>
+    public bool ExportedFromEuVatArea => TaxScheme == Facts.TaxScheme.Export;
+
     /// <summary>The Member State an OSS subscription is taxed in, or null when its renewals take the storefront's rate.</summary>
     public string? OssDestination =>
         TaxScheme == Facts.TaxScheme.Oss ? EuStandardVatRates.Normalize(TaxDestinationCountry) : null;

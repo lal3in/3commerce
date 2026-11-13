@@ -482,15 +482,18 @@ public sealed class SubscriptionService(
                 $"Subscription renewal — {subscription.Quantity} units, {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}")
             : FormattableString.Invariant($"Subscription renewal — {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}");
         var oss = subscription.OssDestination is not null;
+        var export = subscription.ExportedFromEuVatArea;
         var facts = SettledChargeTax.For(
-            tax, description, subscription.Quantity, subscription.TaxExempt,
-            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, oss ? null : accounts?.TaxRateBasisPoints, oss);
+            tax, description, subscription.Quantity, subscription.TaxExempt || export,
+            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, oss ? null : accounts?.TaxRateBasisPoints, oss, export);
         return publisher.Publish(new SubscriptionRenewalSettled(
             subscription.TenantId, subscription.StorefrontId, subscription.Id, subscription.OrderId, subscription.CustomerEmail,
             subscription.ProductId, subscription.VariantId, renewal.Sequence, renewal.PeriodStart, renewal.PeriodEnd,
             $"renew-{subscription.Id}-{renewal.Sequence}", subscription.Currency, facts.NetMinor, facts.TaxMinor, facts.GrossMinor,
             facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId,
-            facts.Scheme == BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss ? subscription.OssDestination : null), ct);
+            facts.Scheme is BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss or BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Export
+                ? subscription.OssDestination ?? subscription.TaxDestinationCountry
+                : null), ct);
     }
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>
@@ -506,7 +509,8 @@ public sealed class SubscriptionService(
     private RecurringChargeTaxResult RenewalTax(Subscription subscription, StorefrontLedgerAccounts? accounts)
     {
         var taxInclusive = subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false;
-        var tax = RecurringChargeTax.For(subscription.PriceMinor, RenewalRate(subscription, accounts), taxInclusive, subscription.TaxExempt);
+        var tax = RecurringChargeTax.For(
+            subscription.PriceMinor, RenewalRate(subscription, accounts), taxInclusive, subscription.TaxExempt || subscription.ExportedFromEuVatArea);
         LogUnknownRate(logger, tax, taxInclusive, $"renew-{subscription.Id}", subscription.StorefrontId);
         return tax;
     }

@@ -111,6 +111,33 @@ public class OssRenewalTaxTests
     }
 
     [Fact]
+    public async Task An_exported_subscription_renews_zero_rated_with_reason_outside_the_eu_vat_area()
+    {
+        // A Spanish store (21 %, exclusive) sold a subscription to Tenerife: zero-rated as an export at checkout (#330).
+        // Its renewal is zero-rated too, reported as OutsideEuVatArea / Export — never the store's 21 % (1210).
+        await using var db = NewDb();
+        var store = AddStore(db, 2_100, inclusive: false);
+        var exported = await StartAsync(db, store, 1_000, inclusive: false, TaxScheme.Export, "IC");
+        var publisher = new RecordingPublisher();
+        var provider = new RecordingProvider();
+
+        await Renewals(db, provider, publisher, Start.AddMonths(1)).RenewAsync(TenantId, exported.Id, default);
+
+        Assert.Equal(1_000, Assert.Single(provider.Requests).AmountMinor);
+        var settled = Assert.IsType<SubscriptionRenewalSettled>(Assert.Single(publisher.Published));
+        var line = Assert.Single(settled.Lines);
+        Assert.Equal((TaxScheme.Export, "IC", 0L), (settled.TaxScheme, settled.TaxDestinationCountry, settled.TaxMinor));
+        Assert.Equal((TaxCategory.Exempt, TaxExemptionReason.OutsideEuVatArea, 0), (line.TaxCategory, line.ExemptionReason, line.TaxRateBps));
+        var entry = await db.JournalEntries.AsNoTracking().Include(e => e.Lines).SingleAsync();
+        Assert.Equal(0, Credit(entry, $"tax.store-{store:N}"));
+
+        // Negative control: the same subscription sold domestically renews at the store's 21 %.
+        var domestic = await StartAsync(db, store, 1_000, inclusive: false, TaxScheme.Domestic, "ES");
+        await Renewals(db, provider, new RecordingPublisher(), Start.AddMonths(1)).RenewAsync(TenantId, domestic.Id, default);
+        Assert.Equal(1_210, provider.Requests[^1].AmountMinor);
+    }
+
+    [Fact]
     public void The_scheme_reported_is_oss_only_for_a_recorded_split()
     {
         var taxed = RecurringChargeTax.For(1_200, 2_000, taxInclusive: true);

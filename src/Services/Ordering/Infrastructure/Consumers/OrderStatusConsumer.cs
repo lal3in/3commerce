@@ -244,8 +244,11 @@ public sealed class OrderStatusConsumer(
         // The LINE's scheme and place of supply (ADR-0063 § 16, OSS renewals, owner decision 2026-11-06): an OSS line
         // renews at its destination's rate. Ordering's enum crosses by numeric value (pinned by SettledChargeContractTests).
         var (scheme, destination) = order.LineTaxTerms(line);
+        // A line zero-rated as an export at purchase renews zero-rated (renewal tax follows the regime the line was sold
+        // under: shown == charged, ADR-0057/0063).
+        var exempt = taxExempt || scheme == TaxScheme.Export;
         return new(order.TenantId, order.Id, order.Email, line.ProductId, line.VariantId, line.BillingPeriod, line.RenewalPriceMinor(), order.Currency,
-            order.StorefrontId, taxInclusive, taxExempt, line.Quantity,
+            order.StorefrontId, taxInclusive, exempt, line.Quantity,
             (BuildingBlocks.Contracts.Tax.Facts.TaxScheme)(int)scheme, destination.Length == 0 ? null : destination);
     }
 

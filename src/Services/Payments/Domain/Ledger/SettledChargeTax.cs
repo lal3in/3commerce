@@ -37,14 +37,18 @@ public static class SettledChargeTax
     /// The rate to report when the pin predates recorded rates (<see cref="RecurringChargeTaxResult.RateBps"/> null on a
     /// taxed split): the storefront's projected rate now. Only splits pinned before P4b and settled after it take it.
     /// </param>
+    /// <param name="export">The line was zero-rated as an export from the EU VAT area: exempt with reason
+    /// <see cref="TaxExemptionReason.OutsideEuVatArea"/>, scheme Export.</param>
     /// <param name="oss">
     /// The charge was taxed under OSS at its destination's rate (ADR-0063 § 16): the scheme reports Oss instead of
     /// Domestic (an untaxed / exempt / unknown-rate split keeps its own category; only a recorded scheme becomes Oss).
     /// </param>
     public static SettledChargeTaxFacts For(
         RecurringChargeTaxResult tax, string description, long quantity, bool exempt, bool taxInclusive, int? fallbackRateBps,
-        bool oss = false)
+        bool oss = false, bool export = false)
     {
+        // An export from the EU VAT area (ADR-0063 § 16, #330) is exempt for that reason, not a ship rule.
+        var exemptReason = export ? TaxExemptionReason.OutsideEuVatArea : TaxExemptionReason.DestinationShipRule;
         var gross = tax.ChargeMinor;
         var net = tax.NetMinor;
         var inclusive = tax.Basis switch
@@ -57,18 +61,19 @@ public static class SettledChargeTax
         var line = tax.Basis switch
         {
             RecurringChargeTaxBasis.Unknown when exempt =>
-                new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Exempt, 0, gross, 0, TaxExemptionReason.DestinationShipRule),
+                new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Exempt, 0, gross, 0, exemptReason),
             RecurringChargeTaxBasis.Unknown =>
                 new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.NotRecorded, 0, gross, 0),
             RecurringChargeTaxBasis.Untaxed when exempt =>
-                new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Exempt, 0, gross, 0, TaxExemptionReason.DestinationShipRule),
+                new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Exempt, 0, gross, 0, exemptReason),
             RecurringChargeTaxBasis.Untaxed =>
                 new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Standard, tax.RateBps ?? fallbackRateBps ?? 0, gross, 0),
             _ =>
                 new SettledChargeLine(description, quantity, tax.PriceMinor, TaxCategory.Standard, tax.RateBps ?? fallbackRateBps ?? 0, net, tax.TaxMinor),
         };
 
-        var scheme = line.TaxCategory == TaxCategory.NotRecorded ? TaxScheme.NotRecorded : oss ? TaxScheme.Oss : TaxScheme.Domestic;
+        var scheme = line.TaxCategory == TaxCategory.NotRecorded ? TaxScheme.NotRecorded
+            : export ? TaxScheme.Export : oss ? TaxScheme.Oss : TaxScheme.Domestic;
         return new SettledChargeTaxFacts(line, scheme, inclusive, net, tax.TaxMinor, gross);
     }
 }
