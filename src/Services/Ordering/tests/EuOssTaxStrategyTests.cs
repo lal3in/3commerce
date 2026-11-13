@@ -61,7 +61,9 @@ public class EuOssTaxStrategyTests
     {
         Assert.Equal(27, StandardRates2026.Count);
         Assert.Equal(StandardRates2026.Keys.Order(), EuMemberStates.Codes.Order());
-        Assert.Equal(StandardRates2026.Keys.Order(), EuVatRateTable.Current.Rows.Select(r => r.Country).Distinct().Order());
+        // The table's countries: the 27 plus XI — Northern Ireland for goods at the UK's 20 % (ADR-0063 § 16).
+        Assert.Equal(StandardRates2026.Keys.Append("XI").Order(), EuVatRateTable.Current.Rows.Select(r => r.Country).Distinct().Order());
+        Assert.Equal(2_000, EuVatRateTable.Current.StandardRateFor("xi", DateOnly.FromDateTime(Now.UtcDateTime)));
 
         var onDate = DateOnly.FromDateTime(Now.UtcDateTime);
         foreach (var (country, bps) in StandardRates2026)

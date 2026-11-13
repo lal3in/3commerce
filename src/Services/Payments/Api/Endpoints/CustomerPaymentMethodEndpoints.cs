@@ -22,6 +22,10 @@ public static class CustomerPaymentMethodEndpoints
         group.MapPost("/", Save);
         group.MapDelete("/{id:guid}", Remove);
         group.MapPost("/{id:guid}/default", MakeDefault);
+        group.MapPut("/{id:guid}/billing-address", SetBillingAddress)
+            .WithSummary("Save this card's own billing address (mem_2); checkout fills the order's bill-to from it. Never changes an amount.");
+        group.MapDelete("/{id:guid}/billing-address", ClearBillingAddress)
+            .WithSummary("Remove this card's billing address (mem_2); orders already placed keep their own bill-to.");
         return app;
     }
 
@@ -29,28 +33,102 @@ public static class CustomerPaymentMethodEndpoints
 
     private static Guid TenantId(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue("tenant")!);
 
+    // SavedPaymentMethods is under FORCE RLS (ADR-0024, owner decision 2026-11-07): every read and write — including
+    // its SaveChanges — runs in the caller's tenant scope, taken from the internal claims.
+    private static Task<T> InCallerScope<T>(ClaimsPrincipal principal, PaymentsDbContext db, Func<Task<T>> work, CancellationToken ct) =>
+        SavedCardTenantScope.RunAsync(db, TenantId(principal), work, ct, UserId(principal));
+
     private static async Task<Ok<List<SavedPaymentMethodDto>>> List(
         ClaimsPrincipal principal, PaymentsDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-
-        // A vault created before the customer's email was recorded learns it here (the account page lists the cards), so a
-        // usage auto top-up can find the customer's default card (jobmgr_3_settlement) — and top-ups paused for want of one
-        // resume when that card already exists.
-        var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", ct);
-        if (customer is not null && CustomerClaims.TryRead(principal, out _, out var email) && customer.RecordEmail(email))
+        var methods = await InCallerScope(principal, db, async () =>
         {
-            await PublishReadyIfDefaultAsync(customer, db, publisher, time.GetUtcNow(), ct);
-            await db.SaveChangesAsync(ct);
+            // A vault created before the customer's email was recorded learns it here (the account page lists the cards),
+            // so a usage auto top-up can find the customer's default card (jobmgr_3_settlement) — and top-ups paused for
+            // want of one resume when that card already exists.
+            var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", ct);
+            if (customer is not null && CustomerClaims.TryRead(principal, out _, out var email) && customer.RecordEmail(email))
+            {
+                await PublishReadyIfDefaultAsync(customer, db, publisher, time.GetUtcNow(), ct);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return await db.SavedPaymentMethods.AsNoTracking()
+                .Where(m => m.UserId == userId && m.State == SavedPaymentMethodState.Active)
+                .OrderByDescending(m => m.IsDefault)
+                .ThenByDescending(m => m.CreatedAt)
+                .ToListAsync(ct);
+        }, ct);
+        return TypedResults.Ok(methods.Select(ToDto).ToList());
+    }
+
+    /// <summary>
+    /// Saves the caller's card's own billing address (mem_2). 404 for a card that is not the caller's or not active (no
+    /// existence leak); 400 problem+json naming the field (<c>name</c> / <c>line1</c> / <c>city</c> / <c>region</c> /
+    /// <c>postcode</c> / <c>country</c>) for a malformed address, nothing saved.
+    /// </summary>
+    private static async Task<Results<Ok<SavedPaymentMethodDto>, ValidationProblem, NotFound>> SetBillingAddress(
+        Guid id, CardBillingAddressRequest request, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        if (TryCreateAddress(request, fieldPrefix: string.Empty, out var address) is { } refused)
+        {
+            return refused;
         }
 
-        var methods = await db.SavedPaymentMethods.AsNoTracking()
-            .Where(m => m.UserId == userId && m.State == SavedPaymentMethodState.Active)
-            .OrderByDescending(m => m.IsDefault)
-            .ThenByDescending(m => m.CreatedAt)
-            .Select(m => new SavedPaymentMethodDto(m.Id, m.Brand, m.Last4, m.ExpMonth, m.ExpYear, m.IsDefault))
-            .ToListAsync(ct);
-        return TypedResults.Ok(methods);
+        var userId = UserId(principal);
+        return await InCallerScope(principal, db, async () =>
+        {
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<Ok<SavedPaymentMethodDto>, ValidationProblem, NotFound>)TypedResults.NotFound();
+            }
+
+            method.SetBillingAddress(address, time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.Ok(ToDto(method));
+        }, ct);
+    }
+
+    /// <summary>Removes the caller's card's billing address (mem_2); 404 for a card that is not the caller's.</summary>
+    private static async Task<Results<NoContent, NotFound>> ClearBillingAddress(
+        Guid id, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var userId = UserId(principal);
+        return await InCallerScope(principal, db, async () =>
+        {
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
+
+            method.SetBillingAddress(null, time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
+    }
+
+    // Validates a requested billing address; on refusal returns the 400 problem+json whose `field` (and `errors` key)
+    // names the part at fault in the request's camelCase, under `fieldPrefix` (e.g. "billingAddress.").
+    private static ValidationProblem? TryCreateAddress(CardBillingAddressRequest request, string fieldPrefix, out CardBillingAddress? address)
+    {
+        try
+        {
+            address = CardBillingAddress.Create(request.Name, request.Line1, request.City, request.Region, request.Postcode, request.Country);
+            return null;
+        }
+        catch (CardBillingAddressException ex)
+        {
+            address = null;
+            var field = fieldPrefix + char.ToLowerInvariant(ex.Field[0]) + ex.Field[1..];
+            return TypedResults.ValidationProblem(
+                new Dictionary<string, string[]> { [field] = [ex.Message] },
+                detail: ex.Message,
+                title: "The billing address is invalid.",
+                extensions: new Dictionary<string, object?> { ["field"] = field });
+        }
     }
 
     private static async Task<Ok<SetupIntentDto>> CreateSetupIntent(
@@ -68,7 +146,7 @@ public static class CustomerPaymentMethodEndpoints
         return TypedResults.Ok(new SetupIntentDto(intent.SetupIntentId, intent.ClientSecret));
     }
 
-    private static async Task<Created<SavedPaymentMethodDto>> Save(
+    private static async Task<Results<Created<SavedPaymentMethodDto>, ValidationProblem>> Save(
         SavePaymentMethodRequest request,
         ClaimsPrincipal principal,
         PaymentsDbContext db,
@@ -77,10 +155,34 @@ public static class CustomerPaymentMethodEndpoints
         TimeProvider time,
         CancellationToken ct)
     {
+        // mem_2: an optional billing address for this card, checked before anything reaches the provider.
+        CardBillingAddress? billingAddress = null;
+        if (request.BillingAddress is { } requested
+            && TryCreateAddress(requested, fieldPrefix: "billingAddress.", out billingAddress) is { } refused)
+        {
+            return refused;
+        }
+
         var provider = registry.ResolveDefault();
         var customer = await GetOrCreateCustomerAsync(principal, request.Email, db, provider, time, ct);
         var details = await provider.GetPaymentMethodAsync(request.ProviderPaymentMethodId, ct);
         var now = time.GetUtcNow();
+        // The card belongs to the customer's tenant; its row is written in that tenant's scope (FORCE RLS WITH CHECK).
+        var saved = await SavedCardTenantScope.RunAsync(db, customer.TenantId,
+            () => UpsertSavedMethodAsync(db, publisher, customer, details, billingAddress, request.MakeDefault, now, ct), ct, customer.UserId);
+        return TypedResults.Created($"/payment-methods/{saved.Id}", saved);
+    }
+
+    private static async Task<SavedPaymentMethodDto> UpsertSavedMethodAsync(
+        PaymentsDbContext db,
+        IPublishEndpoint publisher,
+        PaymentCustomer customer,
+        SavedPaymentMethodDetails details,
+        CardBillingAddress? billingAddress,
+        bool makeDefault,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
         var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(
             m => m.PaymentCustomerId == customer.Id && m.ProviderPaymentMethodId == details.ProviderPaymentMethodId,
             ct);
@@ -110,12 +212,18 @@ public static class CustomerPaymentMethodEndpoints
             method.ExpYear = details.ExpYear;
         }
 
-        if (request.MakeDefault || !await db.SavedPaymentMethods.AnyAsync(m => m.UserId == customer.UserId && m.State == SavedPaymentMethodState.Active && m.Id != method.Id, ct))
+        if (billingAddress is not null)
+        {
+            method.SetBillingAddress(billingAddress, now);
+        }
+
+        if (makeDefault || !await db.SavedPaymentMethods.AnyAsync(m => m.UserId == customer.UserId && m.State == SavedPaymentMethodState.Active && m.Id != method.Id, ct))
         {
             await ClearDefaultsAsync(db, customer.UserId, now, ct);
             method.MakeDefault(now);
         }
 
+        // jobmgr_3_settlement: the customer has a default card to charge — usage top-ups paused for want of one resume.
         if (method.IsDefault)
         {
             await PublishReadyAsync(customer, publisher, now, ct);
@@ -126,46 +234,52 @@ public static class CustomerPaymentMethodEndpoints
         }
 
         await db.SaveChangesAsync(ct); // the card and CustomerPaymentMethodReady commit together (bus outbox)
-        return TypedResults.Created($"/payment-methods/{method.Id}", ToDto(method));
+        return ToDto(method);
     }
 
     private static async Task<Results<NoContent, NotFound>> Remove(
         Guid id, ClaimsPrincipal principal, PaymentsDbContext db, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
 
-        method.Remove(time.GetUtcNow());
-        await db.SaveChangesAsync(ct);
-        return TypedResults.NoContent();
+            method.Remove(time.GetUtcNow());
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
     }
 
     private static async Task<Results<NoContent, NotFound>> MakeDefault(
         Guid id, ClaimsPrincipal principal, PaymentsDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
     {
         var userId = UserId(principal);
-        var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
-        if (method is null)
+        return await InCallerScope(principal, db, async () =>
         {
-            return TypedResults.NotFound();
-        }
+            var method = await db.SavedPaymentMethods.SingleOrDefaultAsync(m => m.Id == id && m.UserId == userId && m.State == SavedPaymentMethodState.Active, ct);
+            if (method is null)
+            {
+                return (Results<NoContent, NotFound>)TypedResults.NotFound();
+            }
 
-        var now = time.GetUtcNow();
-        await ClearDefaultsAsync(db, userId, now, ct);
-        method.MakeDefault(now);
-        var customer = await db.PaymentCustomers.SingleAsync(c => c.Id == method.PaymentCustomerId, ct);
-        if (CustomerClaims.TryRead(principal, out _, out var email))
-        {
-            customer.RecordEmail(email);
-        }
+            var now = time.GetUtcNow();
+            await ClearDefaultsAsync(db, userId, now, ct);
+            method.MakeDefault(now);
+            var customer = await db.PaymentCustomers.SingleAsync(c => c.Id == method.PaymentCustomerId, ct);
+            if (CustomerClaims.TryRead(principal, out _, out var email))
+            {
+                customer.RecordEmail(email);
+            }
 
-        await PublishReadyAsync(customer, publisher, now, ct);
-        await db.SaveChangesAsync(ct);
-        return TypedResults.NoContent();
+            await PublishReadyAsync(customer, publisher, now, ct);
+            await db.SaveChangesAsync(ct);
+            return TypedResults.NoContent();
+        }, ct);
     }
 
     /// <summary>
@@ -234,10 +348,24 @@ public static class CustomerPaymentMethodEndpoints
     }
 
     private static SavedPaymentMethodDto ToDto(SavedPaymentMethod method) =>
-        new(method.Id, method.Brand, method.Last4, method.ExpMonth, method.ExpYear, method.IsDefault);
+        new(method.Id, method.Brand, method.Last4, method.ExpMonth, method.ExpYear, method.IsDefault,
+            method.BillingAddress is { } a ? new CardBillingAddressDto(a.Name, a.Line1, a.City, a.Region, a.Postcode, a.Country) : null);
 }
 
 public record SetupIntentRequest([property: Required, EmailAddress] string Email);
 public record SetupIntentDto(string SetupIntentId, string ClientSecret);
-public record SavePaymentMethodRequest([property: Required] string ProviderPaymentMethodId, [property: Required, EmailAddress] string Email, bool MakeDefault = false);
-public record SavedPaymentMethodDto(Guid Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault);
+
+// mem_2 (appended): an optional billing address for the card being saved.
+public record SavePaymentMethodRequest(
+    [property: Required] string ProviderPaymentMethodId,
+    [property: Required, EmailAddress] string Email,
+    bool MakeDefault = false,
+    CardBillingAddressRequest? BillingAddress = null);
+
+/// <summary>A card's billing address (mem_2) — the bill-to shape. Validated by <see cref="CardBillingAddress.Create"/> so a refusal names the field.</summary>
+public record CardBillingAddressRequest(string? Name, string? Line1, string? City, string? Postcode, string? Country, string? Region = null);
+
+public record CardBillingAddressDto(string Name, string Line1, string City, string? Region, string Postcode, string Country);
+
+// mem_2 (appended): the card's own billing address, null when it has none.
+public record SavedPaymentMethodDto(Guid Id, string Brand, string Last4, int ExpMonth, int ExpYear, bool IsDefault, CardBillingAddressDto? BillingAddress = null);

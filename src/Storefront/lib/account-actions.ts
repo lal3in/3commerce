@@ -15,6 +15,10 @@ export function formText(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
 }
 
-export function accountStatusRedirect(request: Request, queryName: "address" | "card", status: "saved" | "updated" | "deleted" | "default" | "error") {
+export function accountStatusRedirect(
+  request: Request,
+  queryName: "address" | "card",
+  status: "saved" | "updated" | "deleted" | "default" | "error" | "billing-saved" | "billing-cleared" | "billing-error",
+) {
   return NextResponse.redirect(new URL(`/account?${queryName}=${status}`, request.url), { status: 303 });
 }

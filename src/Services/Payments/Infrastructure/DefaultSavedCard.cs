@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 using ThreeCommerce.Payments.Domain;
 
 namespace ThreeCommerce.Payments.Infrastructure;
@@ -8,10 +7,11 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// A customer's DEFAULT saved card, as the instrument an off-session charge is made on (owner decision 2026-11-06,
 /// <c>jobmgr_3_settlement</c>: usage auto top-ups charge it).
 /// <para>
-/// Saved cards are tenant-owned and go under FORCE RLS (owner decision 2026-11-07, ADR-0024), so every read here runs
-/// inside the charge's TENANT scope (<see cref="TenantDatabaseExtensions.RunInTenantScopeAsync{T}"/>) — a message
-/// consumer and a job have no request scope to inherit. Inside a transaction the caller already opened, the read joins it
-/// (that caller owns the scope). A non-relational provider (the unit tests' InMemory) has neither transactions nor RLS.
+/// Saved cards are tenant-owned and under FORCE RLS (owner decision 2026-11-07, ADR-0024), so every read here runs inside
+/// the charge's TENANT scope through <see cref="SavedCardTenantScope"/> — a message consumer and a job have no request
+/// scope to inherit, so the tenant comes from the charge (Usage's message). Inside a transaction the caller already opened
+/// (a consumer's outbox transaction) the tenant settings are applied to that transaction. A non-relational provider (the
+/// unit tests' InMemory) has neither transactions nor RLS.
 /// </para>
 /// </summary>
 public sealed record DefaultSavedCard(string ProviderCustomerId, string ProviderPaymentMethodId)
@@ -41,8 +41,8 @@ public sealed record DefaultSavedCard(string ProviderCustomerId, string Provider
             .AnyAsync(m => m.TenantId == tenantId && m.PaymentCustomerId == paymentCustomerId && m.IsDefault
                 && m.State == SavedPaymentMethodState.Active, ct), ct);
 
+    // The one way into SavedPaymentMethods (ADR-0024 amendment 2026-11-07): its own tenant-scoped transaction, or the
+    // tenant settings applied to the caller's open (outbox) transaction.
     private static Task<T> InTenantScopeAsync<T>(PaymentsDbContext db, Guid tenantId, Func<Task<T>> read, CancellationToken ct) =>
-        !db.Database.IsRelational() || db.Database.CurrentTransaction is not null
-            ? read()
-            : db.RunInTenantScopeAsync(TenantContext.ForTenant(tenantId), read, ct);
+        SavedCardTenantScope.RunAsync(db, tenantId, read, ct);
 }

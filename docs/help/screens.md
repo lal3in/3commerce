@@ -18,7 +18,7 @@ GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screens
 - **Storefront** (`:3000`): home, search, product detail, cart (with discount / promotion /
   free-shipping rows), checkout (with selectable payment methods, the **coupon-code box**, the billing address and the
   optional **business purchase** block — company name + tax ID, ADR-0063 P3, prefilled from the account's saved
-  business details, P3b), sign in, register, account (incl. the **Business details** section, ADR-0063 P3b),
+  business details, P3b), sign in, register, account (incl. the **Business details** section, ADR-0063 P3b, and each saved card's **billing address**, mem_2 — which also fills checkout's billing),
   privacy/consent settings.
 - **Admin** (`:5200`): sign in, dashboard, orders, ledger (per-currency balances + a filterable
   Journal-entries feed — full date/time, Start/End date, Storefront, Currency), RMA queue, entities &

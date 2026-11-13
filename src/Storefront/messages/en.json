@@ -276,7 +276,8 @@
       "taxIdJurisdiction": "For a US state sales-tax ID: the state it was issued by, e.g. US-CA. Defaults to the state of a US billing address.",
       "quantity": "Change how many of this item you're ordering.",
       "placeOrder": "Authorize payment and place the order. You'll see the confirmation next.",
-      "collectAtWarehouse": "Collect your order from the supplier's warehouse instead of carrier delivery — no shipping charge."
+      "collectAtWarehouse": "Collect your order from the supplier's warehouse instead of carrier delivery — no shipping charge.",
+      "saveAddressToAccount": "Add this address to your address book once the order is placed, so checkout can offer it next time."
     },
     "selectCountry": "Select a country",
     "collectAtWarehouse": "Collect at warehouse (free)",
@@ -299,7 +300,10 @@
         "usageLimitReached": "The code {code} has reached its usage limit.",
         "customerLimitReached": "You've already used the code {code}."
       }
-    }
+    },
+    "cardBillingOption": "Billing address of {brand} ending {last4}",
+    "cardBillingNote": "Filled in from the card you chose. Changes here apply to this order only.",
+    "saveAddressToAccount": "Save to my account for next time"
   },
   "confirmation": {
     "noOrder": "No order specified.",
@@ -493,6 +497,22 @@
         "jurisdiction": "The country or state that issued the tax ID. Needed for a US state sales-tax ID (e.g. US-CA); other types fill it in themselves.",
         "save": "Save these details so checkout fills them in next time.",
         "clear": "Remove the saved business details. Orders you already placed keep theirs."
+      }
+    },
+    "cardBilling": {
+      "heading": "Billing address",
+      "none": "No billing address on this card yet.",
+      "add": "Add billing address",
+      "edit": "Edit billing address",
+      "save": "Save billing address",
+      "clear": "Remove billing address",
+      "saved": "Card billing address saved.",
+      "cleared": "Card billing address removed.",
+      "error": "Could not save the card's billing address. Check it and try again.",
+      "tips": {
+        "edit": "The address this card's statements go to. Checkout fills in the order's billing address from it when you pay with this card.",
+        "save": "Save this billing address on this card only.",
+        "clear": "Remove the billing address from this card. Orders you already placed keep theirs."
       }
     }
   },

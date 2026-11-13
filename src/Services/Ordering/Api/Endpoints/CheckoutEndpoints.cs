@@ -368,8 +368,13 @@ public static class CheckoutEndpoints
         // unconfigured store — keeps its single configured rate, unchanged. Each line is supplied where its kind says
         // (ADR-0063 § 16, PlaceOfSupply): goods at the ship-to country, an electronically supplied service (its offer's
         // fulfilment type) at the bill-to country. The seller's running total is read only when it can matter: an EU
-        // store with some part of the sale going into another Member State.
-        var taxInput = new TaxCalculationInput(currency, shipToCountry, taxLines, shippingMinor, shipToCountry, billTo.Country);
+        // store with some part of the sale going into another Member State. The addresses' regions and postcodes decide
+        // the territory (EuVatTerritories): a special territory outside the EU VAT area is an export, zero-rated, and
+        // Northern Ireland is XI for goods.
+        var taxInput = new TaxCalculationInput(
+            currency, shipToCountry, taxLines, shippingMinor, shipToCountry, billTo.Country,
+            ShipRegion: request.ShippingAddress.Region, ShipPostcode: request.ShippingAddress.Postcode,
+            BillRegion: billTo.Region, BillPostcode: billTo.Postcode);
         var distanceSales = TaxStrategySelector.NeedsDistanceSalesTurnover(storefrontCopy, taxInput)
             ? await db.EuDistanceSalesTurnoverAsync(tenantId, now, ct)
             : EuDistanceSalesTurnover.None;
