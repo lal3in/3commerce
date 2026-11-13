@@ -881,7 +881,7 @@ orders.
   * ~~Renewals of an OSS-taxed subscription still use the storefront's rate in Payments (§ 7.1: the terms snapshot
     must carry the scheme and destination).~~ Delivered: see "P1b follow-up — OSS renewals" below.
   * Special VAT territories (Canaries, Åland, the French DOM…) and Northern Ireland (`XI`) need a postcode or region
-    rule.
+    rule. *(Done 2026-11-06 — see "P1b follow-up — special VAT territories and Northern Ireland" below.)*
   * Reduced-rate categories need a Catalog product VAT category projected to Ordering.
   * A cart that mixes physical goods and digital services needs a per-line destination: ship-to for the goods,
     bill-to for the services. *(Done 2026-11-06 — see "P1b follow-up — per-line destination" below.)*
@@ -1106,6 +1106,69 @@ orders.
 * **Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.
 * **Tests.** Unit `PerLineTaxDestinationTests` (e2e-verify **A3zd**); integration `EuOssCheckoutTests` gains a mixed
   cart over the threshold and a cart split between two other Member States (A4d).
+
+### P1b follow-up — special VAT territories and Northern Ireland (2026-11-06, `feature/eu-vat-special-territories`, tracker `tax_p1b_followups_special_territories`)
+
+* **Owner decision 2026-11-06 (final).** Model Northern Ireland (`XI`: in the EU VAT area for goods only; services
+  follow the UK) and the EU special VAT territories, which are inside a Member State but outside the EU VAT area.
+  A supply into a special territory is an export from the EU VAT area: zero-rated, with an exemption reason.
+* **The list.** `EuVatTerritories.All` (Ordering domain). It is based on Directive 2006/112/EC Art. 6/7 and
+  `docs/reference/tax-invoicing-research.md` § 2.0, which now holds the table with confidence keys:
+  * Canary Islands, Ceuta, Melilla (ES);
+  * Åland (FI);
+  * Mount Athos (GR);
+  * the French outermost regions: Guadeloupe, Martinique, French Guiana, Réunion, Mayotte, Saint-Martin (FR);
+  * Heligoland, Büsingen (DE);
+  * Livigno, Campione d'Italia (IT).
+  * **Art. 7.** Monaco is taxed as France (`MC` → `FR`). The UK Sovereign Base Areas are taxed as Cyprus, and their
+    addresses already carry `CY`.
+* **Detection needs the address, not just the country.** `TaxCalculationInput` adds `ShipRegion`, `ShipPostcode`,
+  `BillRegion` and `BillPostcode`, and checkout passes them. Detection order:
+  1. **The ISO 3166-1 code.** Assigned codes are `AX GP MQ GF RE YT MF`; ISO's exceptionally reserved codes are
+     `IC` and `EA`.
+  2. **The ISO 3166-2 subdivision**, given as `ES-CN` or `CN`: `ES-CN/GC/TF/CE/ML`, `FI-01`, `GR-69`,
+     `FR-971`…`FR-976`, `FR-MF`.
+  3. **The postcode prefix.** Spaces and dashes are removed and a leading country prefix (`AX-22100`) is dropped. The
+     owner's list is Canaries 35/38, Ceuta 51, Melilla 52 and Åland 22xxx; the French overseas departments add
+     971–974 and 976.
+
+  A prefix applies only inside its own Member State, so Marburg 35037 in Germany is not the Canaries.
+* **Decision — an unverified identifier is recognised but NOT applied.** These postcodes appear in neither the
+  research nor the Directive: Heligoland 27498, Büsingen 78266, Livigno 23041, Campione 22061 and Mount Athos 630 86.
+  They are marked **TO VERIFY**, and `Match` reports them with `Applies = false`. The address is taxed as its Member
+  State until the entry is flipped to verified. That direction can over-collect but never under-collects, which is
+  the same principle as the unseeded reduced rates. All five, together with Campione's Art. 6 paragraph letter and
+  the XI rate row, are on the launch-gate tracker row `eu_vat_rate_table_tedb_verification`.
+* **What an export does to the tax.**
+  * Lines are zero-rated and their shipping is zero-rated too. Every component supplied into a territory outside the
+    EU VAT area takes `TaxCategory.Exempt` with the new `TaxExemptionReason.OutsideEuVatArea = 4`, appended to both
+    Ordering's enum and `Contracts.Tax.Facts` (parity is pinned). This reason wins over a ship-rule exemption.
+  * The shipping is recorded as exported when the sale's place is outside, even when nothing was charged for it.
+  * A sale wholly outside is scheme `Export`. A sale split between an export and an OSS e-book is `Oss`, and its
+    lines say which part is which.
+  * The rule applies at **any** turnover, and to a domestic sale too: a Spanish store selling to Tenerife exports.
+  * On an inclusive store the shelf price is charged unchanged with no VAT in it (ADR-0038). An invoice prints
+    UNCL5305 `G` for the reason.
+  * Exports are not distance sales. They never need the running total, and `EuDistanceSale.For` skips every line and
+    shipping component with the export reason.
+  * The persisted destination stays the Member State (`ES`); the reason and the address carry the territory.
+* **Northern Ireland.**
+  * **Goods.** A goods line, i.e. one whose fulfilment type requires shipping, shipped to `XI`, to `GB` with region
+    `GB-NIR`, or to a `BT` postcode has destination `XI`.
+  * **`EuVatArea`** is the 27 Member States plus `XI`; its rate changes on Europe/London time. `XI` is never a home
+    state.
+  * **Rate.** `EuVatRateTable` has `XI` at the UK standard rate, 20 %.
+  * **Tax and turnover.** Goods to `XI` are an intra-EU distance sale under the Union OSS: they count toward the
+    threshold and are recorded under `XI`.
+  * **Services.** Electronically supplied services and manual services there are destination `GB`, outside the EU,
+    and keep the existing non-EU behaviour (the home rate, left to ship rules).
+* **Non-EU storefronts are unchanged.** `StorefrontRateTaxStrategy` ignores all of this.
+* **Tests.**
+  * Unit: `EuVatSpecialTerritoriesTests` (e2e-verify **A3zt**) covers every identifier of every territory, mainland
+    negative controls, unverified postcodes, `XI` and Monaco, and exports at any turnover. It also covers an e-book
+    billed to Tenerife and a Canaries plus OSS split, plus the threshold exclusion and the non-EU identity.
+  * Integration: `EuOssCheckoutTests` adds a Canaries checkout (Export, 0 VAT, no row) and a Belfast checkout (`XI`,
+    20 % under OSS, one `XI` row), under A4d.
 
 ### P1b follow-up — OSS renewals (2026-11-11, `feature/oss-renewals`, tracker `tax_p1b_followups_oss_renewals`)
 

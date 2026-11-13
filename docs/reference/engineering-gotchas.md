@@ -293,7 +293,9 @@ Checkout tax (Ordering, ADR-0063 P1):
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Destinations are PER LINE (ADR-0063 § 16):
   pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; record
-  `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). An OSS subscription renews at its
+  `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Pass
+  the ship-to/bill-to REGION and POSTCODE too: a country alone cannot tell the Canaries (export, zero-rated) from
+  Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). An OSS subscription renews at its
   DESTINATION's standard rate in Payments (ADR-0063 § 16, OSS renewals): `SubscriptionRequested` carries the LINE's scheme +
   destination (`Order.LineTaxTerms`), and Payments rates it from `EuStandardVatRates` — its own COPY of Ordering's table.
   A change of law goes into BOTH tables (`EuStandardVatRateParityTests` fails otherwise).

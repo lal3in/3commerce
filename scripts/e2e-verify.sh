@@ -300,6 +300,21 @@
 #       byte-identical to an oracle copy of the pre-split strategy, non-EU stores ignore the bill-to; 5,000 split carts
 #       well-formed; EuDistanceSale writes one row per destination crossed into (a pre-change line falls back to the
 #       order's destination); the line destination reaches Order and OrderConfirmed ("" from a pre-change event)
+#   A3zt Unit · EU special VAT territories + Northern Ireland (ADR-0063 § 16, tax_p1b_followups_special_territories,
+#       EuVatSpecialTerritoriesTests): every Art. 6 territory found by each identifier (ISO code IC/EA/AX/GP/MQ/GF/RE/
+#       YT/MF, ISO 3166-2 ES-CN/GC/TF/CE/ML, FI-01, GR-69, FR-971..976/FR-MF, verified postcodes 35/38/51/52/22/971..976,
+#       AX-/FI- prefixes dropped) and applied; mainland addresses (Madrid, Marburg 35037, Helsinki, Paris, Monaco 98000
+#       in FR, Athens, Rome, Berlin, Madeira) are not; unverified postcodes (Heligoland 27498, Büsingen 78266, Livigno
+#       23041, Campione 22061, Athos 63086) are recognised but taxed as the Member State; XI (code, GB-NIR, BT postcode)
+#       is XI for goods and GB for services, negative controls SW1A/B1/BTX/IE; Monaco is France; exports are
+#       zero-rated (OutsideEuVatArea over a ship rule, shipping too, scheme Export) at any turnover, ES store to its
+#       own Canaries/Ceuta/Melilla too; an e-book billed to Tenerife is exported while Madrid goods are taxed; Canaries
+#       goods + French e-book split export/OSS; XI goods at 20 % OSS / home under the threshold; exports never need or
+#       count toward the threshold; non-EU stores unchanged
+#   A3ze Unit · saved card billing address (mem_2, CardBillingAddressTests): trimmed, country upper-cased, blank region
+#       dropped; a missing name / street / city / postcode or a country that is not 2 letters is refused naming the
+#       part; oversize parts are refused, never truncated; a card sets + clears it with UpdatedAt at stored (µs)
+#       precision; a removed card cannot take one; the charge snapshot never carries it (money path unchanged)
 #   A3zw Unit · OSS renewals (ADR-0063 § 16, owner decision 2026-11-06; OssRenewalTaxTests, OssSubscriptionTermsTests,
 #       EuStandardVatRateParityTests): an OSS subscription on a German 19 % store renews at its destination's rate (FR
 #       20 % contained: 200 of 1200) and announces scheme Oss + rate 2000 + destination FR; the rate is the one in force
@@ -349,7 +364,9 @@
 #       § 16): a book shipped home + an e-book billed to France (OSS) carry 1980 German + 2000 French VAT, shipping
 #       German, and only the e-book counts (one EuDistanceSale row, FR, net 10000); a cart split between Austria
 #       (goods + shipping) and Italy (e-book) below the threshold charges 2945 as before and writes two rows (AT
-#       10499, IT 5000)
+#       10499, IT 5000). Territories: goods shipped to a 35001 (Canaries) address are an export — 12399 charged with
+#       0 VAT, scheme Export, line + shipping OutsideEuVatArea, no EuDistanceSale row; goods to a BT1 postcode are XI —
+#       UK 20 % added under OSS (2100) and one row under XI (net 10499)
 #   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
 #       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
 #       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
@@ -390,6 +407,16 @@
 #       401, another member sees and deletes nothing of it. FORCE RLS as a NON-superuser role
 #       (IdentityBusinessIdentityRlsTests): the owning tenant saves/reads/clears it, another tenant's scope can
 #       neither read nor overwrite it (0 rows), and with no scope a read is empty and an update touches nothing
+#   A4k Integration · saved card billing address (mem_2, SavedCardBillingAddressTests, Phase3 Payments over Postgres):
+#       a card saved with an address lists it normalized next to one without; PUT replaces and DELETE clears one
+#       card's address without touching the other's; UpdatedAt reloads at µs precision; four malformed addresses
+#       are 400 problem+json naming the field and leave the saved one; a card saved with a malformed address is
+#       refused as billingAddress.country and not saved; another member's PUT/DELETE and an unknown card are 404,
+#       no claims is 401. FORCE RLS as a NON-superuser owner with the REAL migrations (SavedPaymentMethodsRlsTests,
+#       ADR-0024 amendment 2026-11-07): through SavedCardTenantScope the owning tenant writes/reads/updates its card,
+#       another tenant reads nothing, updates 0 rows and cannot insert for it, no scope reads nothing and an insert
+#       is rejected, platform scope reads, and inside an open (outbox) transaction the scope applies to it and is gone
+#       after the commit
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -692,7 +719,13 @@
 #       survives a reload and clears; with details saved, checkout's Business purchase block opens ticked and
 #       prefilled, a company-name change places an order that keeps the change while the profile keeps the saved
 #       name, and after clearing the next checkout's block is unticked (e2e/account-business-identity.spec.ts;
-#       the checkout half needs --data full)
+#       the checkout half needs --data full);
+#       a billing address per saved card (mem_2): a member saves two cards and gives the Visa its own billing
+#       address on /account (the Mastercard shows none); at checkout the default Visa preselects "Billing address
+#       of VISA ending 4242" and fills the bill-to, the Mastercard falls back to the shipping address, and the
+#       summary never moves; an edited bill-to with "Save to my account for next time" ticked becomes the order's
+#       bill-to and joins the address book while the card keeps its own; the card's address then clears
+#       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -920,6 +953,15 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~PerLineTaxDestinationTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zd per-line tax destination"; else fail "A3zd per-line tax destination"; fi
 
+  stage "A3zt EU special VAT territories + Northern Ireland (ADR-0063 § 16) — Art. 6 exports zero-rated, XI goods OSS, Monaco = FR"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuVatSpecialTerritoriesTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zt EU special VAT territories"; else fail "A3zt EU special VAT territories"; fi
+
+  stage "A3ze Saved card billing address (mem_2) — normalized, refusals name the part, stored-precision UpdatedAt, charge snapshot unchanged"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~CardBillingAddressTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3ze saved card billing address"; else fail "A3ze saved card billing address"; fi
   stage "A3zw OSS renewals (ADR-0063 § 16) — the destination's rate on the charge's local date, pinned, rate-table parity"
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OssRenewalTaxTests' 2>&1 | grep -q 'Failed: *0' \

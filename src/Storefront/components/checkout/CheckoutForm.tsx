@@ -62,7 +62,14 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
   const [state, action, pending] = useActionState<CheckoutState, FormData>(submitCheckout, {});
   const businessError = businessFieldErrorKey(state.field);
   const [shippingId, setShippingId] = useState(defaultAddress(addresses, "Shipping")?.id ?? "new");
-  const [billingId, setBillingId] = useState(defaultAddress(addresses, "Billing")?.id ?? "same");
+  // mem_2: a saved card carries its own billing address. While the shopper pays with such a card, billing offers a
+  // "Billing address of <card>" choice — preselected — that fills the bill-to fields from it (still editable; the
+  // order keeps what is posted). The card select is uncontrolled (defaultValue), so its choice is mirrored here.
+  const defaultCardId = profile ? (paymentMethods.find((method) => method.isDefault)?.id ?? "new") : "new";
+  const [savedCardId, setSavedCardId] = useState(defaultCardId);
+  const initialBillingId = defaultAddress(addresses, "Billing")?.id ?? "same";
+  const [billingId, setBillingId] = useState(
+    paymentMethods.find((method) => method.id === defaultCardId)?.billingAddress ? "card" : initialBillingId);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   // The promotion verdict currently on screen (ADR-0054). The SERVER's verdict is the baseline; picking a
@@ -111,8 +118,27 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
     const checked = paymentGroupRef.current?.querySelector<HTMLInputElement>('input[name="paymentOption"]:checked');
     if (checked) setPaymentOption((current) => (checked.value === current ? current : checked.value));
   }, []);
+  // React resets the form after every action, putting the uncontrolled card select back on the default card —
+  // follow it, so the billing choice derived from the card matches what is on screen.
+  useEffect(() => {
+    const form = paymentGroupRef.current?.closest("form");
+    if (!form) return;
+    const reset = () => setSavedCardId(defaultCardId);
+    form.addEventListener("reset", reset);
+    return () => form.removeEventListener("reset", reset);
+  }, [defaultCardId]);
+  const chosenCard = profile && paymentOption === "CreditCard"
+    ? paymentMethods.find((method) => method.id === savedCardId)
+    : undefined;
+  const cardBilling = chosenCard?.billingAddress ?? null;
+  // The card's choice exists only while the chosen card has an address; otherwise billing falls back.
+  const effectiveBillingId = billingId === "card" && !cardBilling ? initialBillingId : billingId;
+  const chooseSavedCard = (id: string) => {
+    setSavedCardId(id);
+    if (paymentMethods.find((method) => method.id === id)?.billingAddress) setBillingId("card");
+  };
   const shipping = addresses.find((address) => address.id === shippingId);
-  const billing = addresses.find((address) => address.id === billingId);
+  const billing = effectiveBillingId === "card" ? (cardBilling ?? undefined) : addresses.find((address) => address.id === effectiveBillingId);
   const name = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
   // Tax from the storefront's configured rate — the same math Ordering charges (ADR-0038):
   // inclusive regimes extract the contained portion; exclusive regimes add on goods + shipping.
@@ -267,7 +293,7 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
             onChange={setShippingId}
           />
         )}
-        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} allowedCountries={shipToCountries} />
+        <AddressFields key={`shipping-${shippingId}`} prefix="shipping" defaults={shipping} fallbackName={name} allowedCountries={shipToCountries} offerSave={Boolean(profile) && shippingId === "new"} />
       </section>
 
       <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -371,7 +397,8 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
               id="savedPaymentMethodId"
               name="savedPaymentMethodId"
               title={t("tips.savedCard")}
-              defaultValue={paymentMethods.find((method) => method.isDefault)?.id ?? "new"}
+              defaultValue={defaultCardId}
+              onChange={(event) => chooseSavedCard(event.currentTarget.value)}
               className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
             >
               <option value="new">{t("newCard")}</option>
@@ -413,13 +440,28 @@ export function CheckoutForm({ cart, profile, addresses, paymentMethods, taxRate
           id="billingAddressId"
           label={t("billingAddress")}
           title={t("tips.billingAddress")}
-          value={billingId}
+          value={effectiveBillingId}
           addresses={addresses.filter((address) => canUse(address, "Billing"))}
           includeSame
+          extraOption={chosenCard && cardBilling ? {
+            value: "card",
+            label: t("cardBillingOption", { brand: chosenCard.brand.toUpperCase(), last4: chosenCard.last4 }),
+          } : undefined}
           onChange={setBillingId}
         />
-        {billingId !== "same" && <AddressFields key={`billing-${billingId}`} prefix="billing" defaults={billing} fallbackName={name} />}
-        {billingId === "same" && <p className="text-sm text-neutral-500">{t("usingShippingForBilling")}</p>}
+        {effectiveBillingId === "card" && (
+          <p className="text-sm text-neutral-500" data-testid="card-billing-note">{t("cardBillingNote")}</p>
+        )}
+        {effectiveBillingId !== "same" && (
+          <AddressFields
+            key={effectiveBillingId === "card" ? `billing-card-${savedCardId}` : `billing-${effectiveBillingId}`}
+            prefix="billing"
+            defaults={billing}
+            fallbackName={name}
+            offerSave={Boolean(profile) && (effectiveBillingId === "new" || effectiveBillingId === "card")}
+          />
+        )}
+        {effectiveBillingId === "same" && <p className="text-sm text-neutral-500">{t("usingShippingForBilling")}</p>}
       </section>
 
       <BusinessPurchase errorField={state.field} defaults={profile?.businessIdentity ?? null} />
@@ -487,7 +529,17 @@ function CheckoutLine({ item }: { item: CartDto["items"][number] }) {
   );
 }
 
-function AddressFields({ prefix, defaults, fallbackName, allowedCountries = [] }: { prefix: "shipping" | "billing"; defaults?: AddressDto; fallbackName: string; allowedCountries?: string[] }) {
+// What an address form is prefilled from: a saved address-book entry or a saved card's billing address (mem_2).
+type AddressDefaults = Pick<AddressDto, "name" | "line1" | "city" | "region" | "postcode" | "country">;
+
+function AddressFields({ prefix, defaults, fallbackName, allowedCountries = [], offerSave = false }: {
+  prefix: "shipping" | "billing";
+  defaults?: AddressDefaults;
+  fallbackName: string;
+  allowedCountries?: string[];
+  // mem_2: a signed-in shopper entering an address that is not in their address book can save it there.
+  offerSave?: boolean;
+}) {
   const t = useTranslations("checkout");
   // Country is controlled so the region field's label adapts to the selected country (State/Province/…).
   // When an allowlist is set, the initial value must be a member of it (a saved default outside the
@@ -507,6 +559,12 @@ function AddressFields({ prefix, defaults, fallbackName, allowedCountries = [] }
         <Field name={`${prefix}Postcode`} label={t("postcode")} autoComplete="postal-code" defaultValue={defaults?.postcode ?? ""} required title={t("tips.postcode")} />
         <CountryField name={`${prefix}Country`} label={t("country")} value={country} onChange={setCountry} title={t("tips.country")} allowedCountries={allowedCountries} />
       </div>
+      {offerSave && (
+        <label className="flex items-center gap-2 text-sm text-neutral-700" title={t("tips.saveAddressToAccount")}>
+          <input name={`${prefix}SaveToAccount`} type="checkbox" className="h-4 w-4" title={t("tips.saveAddressToAccount")} />
+          {t("saveAddressToAccount")}
+        </label>
+      )}
     </div>
   );
 }
@@ -547,13 +605,15 @@ function CountryField({ name, label, value, onChange, title, allowedCountries = 
   );
 }
 
-function AddressSelect({ id, label, title, value, addresses, includeSame, onChange }: {
+function AddressSelect({ id, label, title, value, addresses, includeSame, extraOption, onChange }: {
   id: string;
   label: string;
   title: string;
   value: string;
   addresses: AddressDto[];
   includeSame: boolean;
+  // mem_2: the chosen saved card's own billing address, offered right after "Same as shipping".
+  extraOption?: { value: string; label: string };
   onChange: (value: string) => void;
 }) {
   const t = useTranslations("checkout");
@@ -569,6 +629,7 @@ function AddressSelect({ id, label, title, value, addresses, includeSame, onChan
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
       >
         {includeSame && <option value="same">{t("sameAsShipping")}</option>}
+        {extraOption && <option value={extraOption.value}>{extraOption.label}</option>}
         {addresses.map((address) => (
           <option key={address.id} value={address.id}>
             {t(address.isDefault ? "savedAddressOptionDefault" : "savedAddressOption", {

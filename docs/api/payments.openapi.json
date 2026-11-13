@@ -32,6 +32,84 @@
         }
       }
     },
+    "/me/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "The signed-in customer's subscription with what its current period owes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySubscriptionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/me/subscriptions/{id}/pay": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Pay a past-due renewal now (Idempotency-Key required)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaySubscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaySubscriptionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/admin/jobs/runs": {
       "get": {
         "tags": [
@@ -304,6 +382,7 @@
         "tags": [
           "Admin"
         ],
+        "summary": "Refund an order's payment, or a renewal / usage charge by chargeReference. Requires the payment.refund permission (403 without it).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -336,7 +415,7 @@
             }
           },
           "403": {
-            "description": "Forbidden — the caller lacks payment.refund (errorCode permission_denied)",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -346,7 +425,7 @@
             }
           },
           "503": {
-            "description": "Service Unavailable — the Identity PDP could not be reached; nothing changed (errorCode authorization_unavailable)",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -355,8 +434,7 @@
               }
             }
           }
-        },
-        "summary": "Refund an order's payment, or a renewal / usage charge by chargeReference. Requires the payment.refund permission (403 without it)."
+        }
       }
     },
     "/admin/xero/sync-runs": {
@@ -1420,6 +1498,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1484,6 +1572,85 @@
         "tags": [
           "Payment methods"
         ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/payment-methods/{id}/billing-address": {
+      "put": {
+        "tags": [
+          "Payment methods"
+        ],
+        "summary": "Save this card's own billing address (mem_2); checkout fills the order's bill-to from it. Never changes an amount.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBillingAddressRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPaymentMethodDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Payment methods"
+        ],
+        "summary": "Remove this card's billing address (mem_2); orders already placed keep their own bill-to.",
         "parameters": [
           {
             "name": "id",
@@ -2008,108 +2175,6 @@
           }
         }
       }
-    },
-    "/me/subscriptions/{id}": {
-      "get": {
-        "tags": [
-          "Subscriptions"
-        ],
-        "summary": "The signed-in customer's subscription with what its current period owes",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MySubscriptionDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Not Found (not the customer's)"
-          }
-        }
-      }
-    },
-    "/me/subscriptions/{id}/pay": {
-      "post": {
-        "tags": [
-          "Subscriptions"
-        ],
-        "summary": "Pay a past-due renewal now (Idempotency-Key required)",
-        "description": "The customer's own attempt (owner decision 2026-10-27, ADR-0057 amendment): charges the past-due period ON-SESSION (3-D Secure possible) with a fresh attempt key and the period's pinned amount, optionally on another saved card, which then renews the subscription. A replayed Idempotency-Key returns the stored answer without the client secret.",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaySubscriptionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaySubscriptionResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Idempotency-Key missing"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "Not Found (not the customer's)"
-          },
-          "409": {
-            "description": "Not past due — nothing to pay (outcome 5)"
-          },
-          "422": {
-            "description": "The card is not one of the customer's saved cards (outcome 6)"
-          }
-        }
-      }
     }
   },
   "components": {
@@ -2200,6 +2265,88 @@
               "string"
             ],
             "format": "date"
+          }
+        }
+      },
+      "CardBillingAddressDto": {
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "region",
+          "postcode",
+          "country"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "CardBillingAddressRequest": {
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postcode",
+          "country"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "line1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "city": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postcode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "country": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2385,6 +2532,9 @@
           }
         }
       },
+      "DisputeStatus": {
+        "type": "integer"
+      },
       "EntryDto": {
         "required": [
           "id",
@@ -2417,6 +2567,53 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LineDto"
+            }
+          }
+        }
+      },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         }
@@ -2546,6 +2743,109 @@
           }
         }
       },
+      "MySubscriptionDto": {
+        "required": [
+          "id",
+          "orderId",
+          "productId",
+          "variantId",
+          "billingPeriod",
+          "priceMinor",
+          "quantity",
+          "currency",
+          "status",
+          "currentPeriodStart",
+          "currentPeriodEnd",
+          "amountDueMinor",
+          "failureReason",
+          "nextRetryAt",
+          "cancelsAfter"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "billingPeriod": {
+            "type": "string"
+          },
+          "priceMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentPeriodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentPeriodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amountDueMinor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextRetryAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelsAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "PaymentAccountDto": {
         "required": [
           "id",
@@ -2621,6 +2921,9 @@
       "PaymentProviderMode": {
         "type": "integer"
       },
+      "PaymentStatus": {
+        "type": "integer"
+      },
       "PayoutCadence": {
         "type": "integer"
       },
@@ -2675,6 +2978,88 @@
           }
         }
       },
+      "PaySubscriptionRequest": {
+        "required": [
+          "savedPaymentMethodId"
+        ],
+        "type": "object",
+        "properties": {
+          "savedPaymentMethodId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PaySubscriptionResponse": {
+        "required": [
+          "outcome",
+          "paymentIntentId",
+          "status",
+          "clientSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/SubscriptionPayOutcome"
+          },
+          "paymentIntentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RefundRequest": {
         "required": [
           "orderId",
@@ -2704,8 +3089,7 @@
             "type": [
               "null",
               "string"
-            ],
-            "description": "renewal_usage_refund_path: refund this renewal / usage charge (renew-{subscriptionId}-{sequence}, overage-…, autoload-…) instead of the order's checkout payment. orderId may then be the empty uuid (a usage charge has no order); when set it must be the charge's order. 400 when neither orderId nor chargeReference is given."
+            ]
           }
         }
       },
@@ -2767,8 +3151,7 @@
             "type": [
               "null",
               "string"
-            ],
-            "description": "renewal_usage_refund_path: the settled renewal's own payment — what POST /admin/refunds names to refund this period. Null for period 1 (the order paid it) and renewals settled before payments were recorded per charge."
+            ]
           },
           "paymentIntentId": {
             "type": [
@@ -2783,8 +3166,7 @@
               "integer",
               "string"
             ],
-            "format": "int64",
-            "description": "The tax this renewal's journal entry booked (what a refund of it reverses)."
+            "format": "int64"
           },
           "refundedMinor": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -2796,18 +3178,24 @@
             "format": "int64"
           },
           "paymentStatus": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "description": "PaymentStatus as a number: 2 Succeeded, 4 Refunded, 5 Disputed, 6 Chargeback."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
           },
           "disputeStatus": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "description": "DisputeStatus as a number (0 None … 6 Lost)."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DisputeStatus"
+              }
+            ]
           }
         }
       },
@@ -2861,6 +3249,16 @@
           },
           "isDefault": {
             "type": "boolean"
+          },
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CardBillingAddressDto"
+              }
+            ]
           }
         }
       },
@@ -2880,6 +3278,16 @@
           "makeDefault": {
             "type": "boolean",
             "default": false
+          },
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CardBillingAddressRequest"
+              }
+            ]
           }
         }
       },
@@ -3003,8 +3411,7 @@
               "integer",
               "string"
             ],
-            "format": "int64",
-            "description": "Each renewal's price for the WHOLE line (all quantity units) in minor units, before any tax an exclusive store adds at the renewal (ADR-0057)."
+            "format": "int64"
           },
           "currency": {
             "type": "string"
@@ -3035,32 +3442,33 @@
             }
           },
           "quantity": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32",
-            "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
+            "default": 1
           },
           "failureReason": {
             "type": [
               "null",
               "string"
-            ],
-            "description": "Appended (dunning, 2026-10-27): why the current period is past due — RequiresAction | Failed | Cancelled | Error."
+            ]
           },
           "nextRetryAt": {
             "type": [
               "null",
               "string"
             ],
-            "format": "date-time",
-            "description": "Appended: the next scheduled dunning retry (days 1, 3, 7 after the first failure)."
+            "format": "date-time"
           },
           "cancelsAfter": {
             "type": [
               "null",
               "string"
             ],
-            "format": "date-time",
-            "description": "Appended: when an unpaid period cancels the subscription."
+            "format": "date-time"
           }
         }
       },
@@ -3121,8 +3529,7 @@
               "integer",
               "string"
             ],
-            "format": "int64",
-            "description": "Each renewal's price for the WHOLE line (all quantity units) in minor units, before any tax an exclusive store adds at the renewal (ADR-0057)."
+            "format": "int64"
           },
           "currency": {
             "type": "string"
@@ -3147,34 +3554,38 @@
             "format": "date-time"
           },
           "quantity": {
-            "type": "integer",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int32",
-            "description": "Appended (default 1). Units the subscription covers; priceMinor is already the renewal price for all of them — unit × quantity less the line's renewal discount (owner decision 2026-10-27, ADR-0057 amendment). 1 for a subscription set up before quantity was carried."
+            "default": 1
           },
           "failureReason": {
             "type": [
               "null",
               "string"
-            ],
-            "description": "Appended (dunning, 2026-10-27): why the current period is past due — RequiresAction | Failed | Cancelled | Error."
+            ]
           },
           "nextRetryAt": {
             "type": [
               "null",
               "string"
             ],
-            "format": "date-time",
-            "description": "Appended: the next scheduled dunning retry (days 1, 3, 7 after the first failure)."
+            "format": "date-time"
           },
           "cancelsAfter": {
             "type": [
               "null",
               "string"
             ],
-            "format": "date-time",
-            "description": "Appended: when an unpaid period cancels the subscription."
+            "format": "date-time"
           }
         }
+      },
+      "SubscriptionPayOutcome": {
+        "type": "integer"
       },
       "SupplierBankAccountDto": {
         "required": [
@@ -3521,192 +3932,6 @@
       },
       "XeroMappingScope": {
         "type": "integer"
-      },
-      "MySubscriptionDto": {
-        "type": "object",
-        "description": "The customer's own subscription for the 'complete payment' page (ADR-0057 amendment 2026-10-27).",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "productId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "variantId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "billingPeriod": {
-            "type": "string"
-          },
-          "priceMinor": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "quantity": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "currency": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "currentPeriodStart": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "currentPeriodEnd": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "amountDueMinor": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int64",
-            "description": "Past due only: what the unpaid period charges — the pinned price + any added tax, the same for every attempt."
-          },
-          "failureReason": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "RequiresAction | Failed | Cancelled | Error."
-          },
-          "nextRetryAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time",
-            "description": "The next scheduled retry (days 1, 3 and 7 after the first failure); null when none is left."
-          },
-          "cancelsAfter": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time",
-            "description": "When an unpaid period cancels the subscription (the day-7 retry)."
-          }
-        },
-        "required": [
-          "id",
-          "orderId",
-          "productId",
-          "variantId",
-          "billingPeriod",
-          "priceMinor",
-          "quantity",
-          "currency",
-          "status",
-          "currentPeriodStart",
-          "currentPeriodEnd",
-          "amountDueMinor",
-          "failureReason",
-          "nextRetryAt",
-          "cancelsAfter"
-        ]
-      },
-      "PaySubscriptionRequest": {
-        "type": "object",
-        "properties": {
-          "savedPaymentMethodId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid",
-            "description": "Optional: pay with (and from now on renew on) another of the customer's saved cards."
-          }
-        }
-      },
-      "PaySubscriptionResponse": {
-        "type": "object",
-        "properties": {
-          "outcome": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-              1,
-              2,
-              3,
-              4
-            ],
-            "description": "1 Paid, 2 RequiresAction, 3 Declined, 4 ProviderUnavailable (numbers on the wire)."
-          },
-          "paymentIntentId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "description": "The subscription's status after the attempt."
-          },
-          "clientSecret": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "description": "RequiresAction only, first answer only: confirm the intent (3-D Secure) with it. Never returned on an idempotent replay."
-          }
-        },
-        "required": [
-          "outcome",
-          "paymentIntentId",
-          "status",
-          "clientSecret"
-        ]
-      },
-      "ProblemDetails": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "title": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
-          },
-          "detail": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "instance": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
       }
     }
   },

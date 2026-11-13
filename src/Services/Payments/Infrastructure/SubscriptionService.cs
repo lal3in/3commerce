@@ -172,14 +172,15 @@ public sealed class SubscriptionService(
         var now = clock.GetUtcNow();
         if (savedPaymentMethodId is { } methodId)
         {
-            var method = await db.SavedPaymentMethods.AsNoTracking()
+            // SavedPaymentMethods is under FORCE RLS (ADR-0024): read the card in the customer's tenant scope.
+            var method = await SavedCardTenantScope.RunAsync(db, tenantId, () => db.SavedPaymentMethods.AsNoTracking()
                 .Where(m => m.Id == methodId && m.UserId == userId && m.TenantId == tenantId && m.State == SavedPaymentMethodState.Active)
                 .Select(m => new
                 {
                     m.ProviderPaymentMethodId,
                     ProviderCustomerId = db.PaymentCustomers.Where(c => c.Id == m.PaymentCustomerId).Select(c => c.ProviderCustomerId).FirstOrDefault(),
                 })
-                .SingleOrDefaultAsync(ct);
+                .SingleOrDefaultAsync(ct), ct, userId);
             if (method is null)
             {
                 return new SubscriptionPayResult(subscription, SubscriptionPayOutcome.UnknownPaymentMethod, null, null);

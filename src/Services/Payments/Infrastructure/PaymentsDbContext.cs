@@ -248,6 +248,14 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             method.Property(x => x.ProviderPaymentMethodId).HasMaxLength(200);
             method.Property(x => x.Brand).HasMaxLength(40);
             method.Property(x => x.Last4).HasMaxLength(4);
+            // mem_2: the card's own billing address — the address book's bounds (CardBillingAddress).
+            method.Ignore(x => x.BillingAddress);
+            method.Property(x => x.BillingName).HasMaxLength(CardBillingAddress.NameMaxLength);
+            method.Property(x => x.BillingLine1).HasMaxLength(CardBillingAddress.Line1MaxLength);
+            method.Property(x => x.BillingCity).HasMaxLength(CardBillingAddress.CityMaxLength);
+            method.Property(x => x.BillingRegion).HasMaxLength(CardBillingAddress.RegionMaxLength);
+            method.Property(x => x.BillingPostcode).HasMaxLength(CardBillingAddress.PostcodeMaxLength);
+            method.Property(x => x.BillingCountry).HasMaxLength(2);
             method.HasIndex(x => new { x.TenantId, x.UserId, x.State });
             method.HasIndex(x => new { x.PaymentCustomerId, x.ProviderPaymentMethodId }).IsUnique();
         });
