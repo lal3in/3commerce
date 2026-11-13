@@ -49,7 +49,8 @@ public sealed class SubscriptionService(
         var subscription = Subscription.Start(
             m.TenantId, m.OrderId, m.CustomerEmail, m.ProductId, m.VariantId, m.BillingPeriod, m.PriceMinor, m.Currency, clock.GetUtcNow(),
             instrument?.ProviderCustomerId, instrument?.ProviderPaymentMethodId, m.StorefrontId, m.TaxInclusive, m.TaxExempt,
-            Math.Max(1, m.Quantity)); // an older message omits Quantity (default 1); never fewer than one unit
+            Math.Max(1, m.Quantity), // an older message omits Quantity (default 1); never fewer than one unit
+            m.TaxScheme, m.TaxDestinationCountry); // ADR-0063 § 16: an OSS line renews at its destination's rate
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync(ct);
         return subscription;
@@ -480,14 +481,19 @@ public sealed class SubscriptionService(
             ? FormattableString.Invariant(
                 $"Subscription renewal — {subscription.Quantity} units, {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}")
             : FormattableString.Invariant($"Subscription renewal — {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}");
+        var oss = subscription.OssDestination is not null;
+        var export = subscription.ExportedFromEuVatArea;
         var facts = SettledChargeTax.For(
-            tax, description, subscription.Quantity, subscription.TaxExempt,
-            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, accounts?.TaxRateBasisPoints);
+            tax, description, subscription.Quantity, subscription.TaxExempt || export,
+            subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false, oss ? null : accounts?.TaxRateBasisPoints, oss, export);
         return publisher.Publish(new SubscriptionRenewalSettled(
             subscription.TenantId, subscription.StorefrontId, subscription.Id, subscription.OrderId, subscription.CustomerEmail,
             subscription.ProductId, subscription.VariantId, renewal.Sequence, renewal.PeriodStart, renewal.PeriodEnd,
             $"renew-{subscription.Id}-{renewal.Sequence}", subscription.Currency, facts.NetMinor, facts.TaxMinor, facts.GrossMinor,
-            facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId), ct);
+            facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId,
+            facts.Scheme is BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss or BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Export
+                ? subscription.OssDestination ?? subscription.TaxDestinationCountry
+                : null), ct);
     }
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>
@@ -503,9 +509,37 @@ public sealed class SubscriptionService(
     private RecurringChargeTaxResult RenewalTax(Subscription subscription, StorefrontLedgerAccounts? accounts)
     {
         var taxInclusive = subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false;
-        var tax = RecurringChargeTax.For(subscription.PriceMinor, accounts?.TaxRateBasisPoints, taxInclusive, subscription.TaxExempt);
+        var tax = RecurringChargeTax.For(
+            subscription.PriceMinor, RenewalRate(subscription, accounts), taxInclusive, subscription.TaxExempt || subscription.ExportedFromEuVatArea);
         LogUnknownRate(logger, tax, taxInclusive, $"renew-{subscription.Id}", subscription.StorefrontId);
         return tax;
+    }
+
+    /// <summary>
+    /// The rate a renewal is charged at (ADR-0063 § 7.1: the rate in force at the charge, never the purchase rate). The
+    /// storefront's projected rate — unless the line was sold under OSS (ADR-0063 § 16, owner decision 2026-11-06): then
+    /// its DESTINATION's standard rate on the charge's local date (<see cref="EuStandardVatRates"/>, Payments' copy of
+    /// Ordering's table). It is resolved before the first attempt and pinned with the period's amount, so a retry or a
+    /// rate change in between never re-prices the period. A destination the table does not know falls back to the
+    /// storefront's rate with an error (never a guessed rate; it would have been caught at checkout).
+    /// </summary>
+    private int? RenewalRate(Subscription subscription, StorefrontLedgerAccounts? accounts)
+    {
+        if (subscription.TaxScheme != BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss)
+        {
+            return accounts?.TaxRateBasisPoints;
+        }
+
+        if (subscription.OssDestination is { } destination
+            && EuStandardVatRates.StandardRateAt(destination, clock.GetUtcNow()) is { } destinationRate)
+        {
+            return destinationRate;
+        }
+
+        logger.LogError(
+            "Renewal of OSS subscription {SubscriptionId}: destination {Destination} has no EU standard rate; charging the storefront's rate",
+            subscription.Id, subscription.TaxDestinationCountry);
+        return accounts?.TaxRateBasisPoints;
     }
 
     /// <summary>

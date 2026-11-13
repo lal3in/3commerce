@@ -18,10 +18,15 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Payments;
 /// <param name="TaxMinor">The tax posted to <c>tax.store-{id}</c> (Σ of the lines' tax).</param>
 /// <param name="GrossMinor">What the customer was charged.</param>
 /// <param name="TaxInclusive">Whether the price contains the tax (inclusive regime) or the tax was added (exclusive).</param>
-/// <param name="TaxScheme">The scheme (Domestic: Payments charges the storefront's own rate), NotRecorded when the rate was unknown.</param>
+/// <param name="TaxScheme">The scheme: Domestic (the storefront's own rate), Oss (an OSS subscription renewed at its destination's rate, ADR-0063 § 16), NotRecorded when the rate was unknown.</param>
 /// <param name="Lines">The charged lines with their tax facts (one: the subscription line).</param>
 /// <param name="SettledAt">When the charge settled (the ledger entry's time).</param>
 /// <param name="PaymentIntentId">The provider's intent that settled it.</param>
+/// <param name="TaxDestinationCountry">
+/// Appended (ADR-0063 § 16, OSS renewals): the country the renewal was taxed in when <see cref="TaxScheme"/> is
+/// <c>Oss</c> (the destination Member State whose rate the line carries); null for a Domestic renewal (the storefront's
+/// jurisdiction) and from an older publisher.
+/// </param>
 public record SubscriptionRenewalSettled(
     Guid TenantId,
     Guid? StorefrontId,
@@ -42,4 +47,5 @@ public record SubscriptionRenewalSettled(
     TaxScheme TaxScheme,
     IReadOnlyList<SettledChargeLine> Lines,
     DateTimeOffset SettledAt,
-    string? PaymentIntentId = null);
+    string? PaymentIntentId = null,
+    string? TaxDestinationCountry = null);

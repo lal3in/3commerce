@@ -51,6 +51,8 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             // Units covered (ADR-0057 amendment 2026-10-27); existing rows were priced for one unit, so they default to 1.
             subscription.Property(x => x.Quantity).HasDefaultValue(1);
             subscription.Property(x => x.CustomerEmail).HasMaxLength(256);
+            subscription.Property(x => x.TaxScheme).HasConversion<string>().HasMaxLength(16); // ADR-0063 § 16: OSS renewals
+            subscription.Property(x => x.TaxDestinationCountry).HasMaxLength(2);
             subscription.Property(x => x.ProviderCustomerId).HasMaxLength(255);
             subscription.Property(x => x.ProviderPaymentMethodId).HasMaxLength(255);
             subscription.HasIndex(x => new { x.OrderId, x.ProductId, x.VariantId }).IsUnique();

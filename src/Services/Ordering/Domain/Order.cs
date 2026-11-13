@@ -66,6 +66,36 @@ public class Order
     /// </summary>
     public string TaxDestinationCountry { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The scheme and place of supply ONE line was taxed under (ADR-0063 § 16, OSS renewals): the line's own destination
+    /// (<see cref="OrderLine.DestinationOr"/> — a line written before per-line destinations takes the order's), and
+    /// <see cref="TaxScheme.Oss"/> only when the sale was taxed under OSS AND this line went to an EU VAT area destination
+    /// (a Member State, or <c>XI</c> for Northern Ireland goods) other than the storefront's home one (<see cref="TaxJurisdiction"/>) — a mixed OSS sale's home-country lines were taxed at the
+    /// home rate, so they are Domestic. A line zero-rated as an export (<see cref="TaxExemptionReason.OutsideEuVatArea"/>,
+    /// the Art. 6 territories) is <see cref="TaxScheme.Export"/> whatever the sale. Any other sale reports its own scheme.
+    /// What a subscription line's renewals are taxed by.
+    /// </summary>
+    public (TaxScheme Scheme, string Destination) LineTaxTerms(OrderLine line)
+    {
+        var destination = line.DestinationOr(TaxDestinationCountry);
+        if (line.ExemptionReason == TaxExemptionReason.OutsideEuVatArea)
+        {
+            // Zero-rated as an export from the EU VAT area (Art. 6 territories, #330): it renews zero-rated too.
+            return (TaxScheme.Export, destination);
+        }
+
+        if (TaxScheme != TaxScheme.Oss)
+        {
+            return (TaxScheme, destination);
+        }
+
+        // The EU VAT area: a Member State, or XI (Northern Ireland goods, taxed under OSS at the UK rate since #330).
+        var memberState = EuVatArea.Normalize(destination);
+        return memberState is not null && memberState != EuMemberStates.OfJurisdiction(TaxJurisdiction)
+            ? (TaxScheme.Oss, memberState)
+            : (TaxScheme.Domestic, destination);
+    }
+
     public long ShippingMinor { get; set; }
     public long DiscountMinor { get; set; }
 
