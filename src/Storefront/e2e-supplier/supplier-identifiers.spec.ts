@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "../e2e-support/fixtures";
 import { capture } from "../e2e-support/screenshots";
 
 // Drives the SupplierPortal "My details" identifiers (ABN/ACN) end-to-end against the running stack

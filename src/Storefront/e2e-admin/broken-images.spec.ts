@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 import { capture } from "../e2e-support/screenshots";
 
@@ -8,6 +8,12 @@ import { capture } from "../e2e-support/screenshots";
  * swaps in the bundled /img/image-placeholder.svg, so an offline/unreachable image host renders a neutral
  * placeholder instead of the browser's broken-link icon. The unreachable host is simulated deterministically
  * by aborting the image request with page.route. Skips when the admin app isn't up.
+ *
+ * Hermetic: the shared fixture (e2e-support/fixtures.ts) answers the external seed-image hosts (picsum.photos,
+ * placehold.co) with a local stand-in, so the first guard no longer depends on those hosts being up — a hung
+ * host never fires onerror and used to count every seed thumbnail as broken. The admin's own images (the
+ * placeholder included) still come from the real app, so a broken internal image still fails it. The
+ * unreachable-host cases register their own page.route, which takes precedence over the fixture's.
  */
 const PLACEHOLDER = "/img/image-placeholder.svg";
 

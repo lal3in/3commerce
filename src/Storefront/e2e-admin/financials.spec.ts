@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // Financials (fin_tax): the per-storefront table exposes Gross / Net revenue / Tax, and each row must

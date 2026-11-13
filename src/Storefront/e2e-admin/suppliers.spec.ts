@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page, type Locator } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page, type Locator } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 import { capture } from "../e2e-support/screenshots";
 

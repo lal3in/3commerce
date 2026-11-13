@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect, type APIRequestContext, type Locator } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Locator } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 import { capture } from "../e2e-support/screenshots";
 

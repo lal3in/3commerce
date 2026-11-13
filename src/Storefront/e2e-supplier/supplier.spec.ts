@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from "@playwright/test";
+import { test, expect, type Locator } from "../e2e-support/fixtures";
 
 const ADMIN_EMAIL = "admin@3commerce.local";
 const ADMIN_PASSWORD = "dev-admin-password-1";

@@ -724,7 +724,13 @@
 #       --data full);
 #       broken-image guards: zero broken images on the storefront (e2e/broken-images.spec.ts) and the
 #       admin Catalog (e2e-admin/broken-images.spec.ts), where a thumbnail or image-URL preview whose
-#       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg;
+#       host is unreachable (request aborted) degrades to the bundled /img/image-placeholder.svg, and a
+#       storefront product image whose seed host is unreachable degrades to SafeImage's inline placeholder;
+#       every Playwright project is HERMETIC — the shared e2e-support/fixtures.ts answers the external seed-image
+#       hosts (picsum.photos, placehold.co; direct or via /_next/image) with a local stand-in, so no spec or
+#       networkidle wait depends on a third-party host being up, while a spec's own page.route still wins
+#       (e2e/hermetic-images.spec.ts pins the fixture, needs no stack; lint forbids importing `test` from
+#       @playwright/test in the e2e dirs);
 #       Commerce ops duplicate → Manage on the copy shows "Duplicated from: <source>" whose link opens
 #       the source (which shows none), the admin API returning the same read-only id
 #       (e2e-admin/commerce-ops-duplicated-from.spec.ts);

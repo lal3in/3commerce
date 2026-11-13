@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // The admin Orders page has a Storefront column (between Order and Status) and a top filter bar

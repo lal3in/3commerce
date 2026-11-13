@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 
 /**
  * Storefront currency + tax journey (review remediation rev_12, ADR-0038): entering /au pins the
