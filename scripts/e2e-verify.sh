@@ -300,6 +300,15 @@
 #       byte-identical to an oracle copy of the pre-split strategy, non-EU stores ignore the bill-to; 5,000 split carts
 #       well-formed; EuDistanceSale writes one row per destination crossed into (a pre-change line falls back to the
 #       order's destination); the line destination reaches Order and OrderConfirmed ("" from a pre-change event)
+#   A3zw Unit · OSS renewals (ADR-0063 § 16, owner decision 2026-11-06; OssRenewalTaxTests, OssSubscriptionTermsTests,
+#       EuStandardVatRateParityTests): an OSS subscription on a German 19 % store renews at its destination's rate (FR
+#       20 % contained: 200 of 1200) and announces scheme Oss + rate 2000 + destination FR; the rate is the one in force
+#       on the charge's LOCAL date (Tallinn: 22 % at 23:30 on 30 June 2025, 24 % at 00:30 on 1 July); a retry after the
+#       rate changed charges the pinned 1220; a Domestic / pre-change subscription keeps the store's rate; an exempt OSS
+#       line adds nothing; an unknown destination falls back to the store's rate with an error. The subscription request
+#       carries the LINE's scheme + destination (the order's for a pre-#329 line; Domestic for a home-country line of an
+#       OSS sale; never OSS outside the EU). Payments' copy of the EU standard rates equals Ordering's EuVatRateTable on
+#       every day and every local-midnight edge
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -315,7 +324,9 @@
 #       add nothing, two exclusive stores sharing a currency add their own rate (83 / 89); two stores sharing a
 #       currency each book their own tax; usage overage + auto-load split net + tax (inclusive) and ADD it
 #       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
-#       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0
+#       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0; an OSS subscription
+#       (German 19 % store, non-EUR, shipped to France) checks out at FR 20 % (200 of 1200), carries scheme Oss + FR to
+#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals)
 #   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
@@ -908,6 +919,15 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PerLineTaxDestinationTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zd per-line tax destination"; else fail "A3zd per-line tax destination"; fi
+
+  stage "A3zw OSS renewals (ADR-0063 § 16) — the destination's rate on the charge's local date, pinned, rate-table parity"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssRenewalTaxTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssSubscriptionTermsTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zw OSS renewals"; else fail "A3zw OSS renewals"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

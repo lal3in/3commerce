@@ -878,8 +878,8 @@ orders.
   `TaxDestinationCountry`, both defaulting to `""`. The scheme lands in the existing `TaxScheme` column (`Oss`). The
   migration is `EuOssTaxStrategy`. No contract and no HTTP shape changed; P5 publishes the facts.
 * **Known gaps (follow-ups, not P1b; tracker `tax_p1b_followups`):**
-  * Renewals of an OSS-taxed subscription still use the storefront's rate in Payments (§ 7.1: the terms snapshot
-    must carry the scheme and destination).
+  * ~~Renewals of an OSS-taxed subscription still use the storefront's rate in Payments (§ 7.1: the terms snapshot
+    must carry the scheme and destination).~~ Delivered: see "P1b follow-up — OSS renewals" below.
   * Special VAT territories (Canaries, Åland, the French DOM…) and Northern Ireland (`XI`) need a postcode or region
     rule.
   * Reduced-rate categories need a Catalog product VAT category projected to Ordering.
@@ -1106,3 +1106,72 @@ orders.
 * **Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.
 * **Tests.** Unit `PerLineTaxDestinationTests` (e2e-verify **A3zd**); integration `EuOssCheckoutTests` gains a mixed
   cart over the threshold and a cart split between two other Member States (A4d).
+
+### P1b follow-up — OSS renewals (2026-11-11, `feature/oss-renewals`, tracker `tax_p1b_followups_oss_renewals`)
+
+Owner decision 2026-11-06: **an OSS-taxed subscription renews at the destination country's rate.** Before this, every
+renewal took the storefront's projected rate (§ 7.1). For a subscription that checkout taxed under OSS, that was the
+home rate. A German store selling an e-service to France at France's 20 % then renewed at Germany's 19 %, so it
+under-reported French VAT.
+
+* **What travels.** `SubscriptionRequested` appends `TaxScheme` (the shared `Contracts.Tax.Facts` enum, a number) and
+  `TaxDestinationCountry`. Both default to null, so an older publisher keeps the storefront's rate.
+  * Both come from the **line**, via `Order.LineTaxTerms`. The destination is `OrderLine.DestinationOr(order's)`:
+    the line's own place of supply since the per-line destination change, or the order's for a line written before
+    it. That is the bill-to country for a subscription (an electronically supplied service).
+  * The scheme is `Oss` only when the sale was taxed under OSS **and** this line went to a Member State other than the
+    storefront's home (`TaxJurisdiction`). A home-country line of a mixed OSS sale was taxed at the home rate, so it
+    is `Domestic`. Any other sale passes its own scheme on.
+  * The operator backfill (ADR-0060) builds the request with the same factory, so it carries the same terms.
+* **What is stored.** `Subscription.TaxScheme` and `TaxDestinationCountry` (migration `SubscriptionOssTaxTerms`, both
+  nullable). Existing subscriptions read null and keep the storefront's rate.
+* **Decision: Payments keeps a minimal copy of the rate table.** Payments must not reference Ordering's domain, and
+  BuildingBlocks holds no domain logic (AGENTS.md). So `Payments.Domain.Ledger.EuStandardVatRates` copies the
+  **standard** rows of `EuVatRateTable.Current` and `EuMemberStates.LocalDate` (each Member State's time zone; the
+  `EL` → `GR` alias). Two alternatives were rejected:
+  * **Passing the purchase rate on the contract.** § 7.1 says each period is a new supply taxed at the rate in force
+    at the charge, and a frozen rate would miss a change of law (EE 22 → 24 %, 1 July 2025).
+  * **Moving the table to BuildingBlocks.** That is shared domain logic.
+
+  The cost of the copy is keeping two tables in step. `EuStandardVatRateParityTests` (unit lane of the integration
+  project, the one project that references both) compares:
+  * the Member States and their aliases;
+  * every standard row;
+  * every country's rate on every day from the OSS start to a year past the last change;
+  * the local date at every hour around a mid-year midnight and a year-end midnight.
+
+  A change of law is added to **both** tables with its effective date. The TEDB launch gate
+  (`eu_vat_rate_table_tedb_verification`) covers both.
+* **The charge.** `SubscriptionService.RenewalRate`: an OSS subscription takes its destination's standard rate on the
+  **local** date of the charge (a renewal at 21:30 UTC on 30 June 2025 is a 1 July supply in Tallinn). Every other
+  subscription takes the storefront's projected rate, as before. The rest is unchanged:
+  * `RecurringChargeTax` (inclusive extracts, exclusive adds);
+  * `RecurringChargePin`: the period's amount and rate are pinned at the first attempt, so a retry after a rate change
+    charges the same amount;
+  * fresh attempt keys, dunning, the pay page, and the ledger posting to `tax.store-{id}`.
+
+  A destination the table does not know falls back to the storefront's rate and logs an error. It never guesses: the
+  destination came from a checkout that already found it in Ordering's table.
+* **The facts.** `SettledChargeTax.For(…, oss: true)` reports scheme `Oss` with the pinned destination rate.
+  `SubscriptionRenewalSettled` appends `TaxDestinationCountry` (set only for `Oss`), so an invoice states the Member
+  State of consumption.
+* **Known gaps.**
+  * **Reduced-rate categories.** Renewals use the destination's standard rate, because no product carries a VAT
+    category yet (tracked as `tax_p1b_followups_reduced_rates`).
+  * **The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
+    crosses it. Art. 59c applies per supply, so a renewal after the crossing should be OSS. That needs the seller's
+    running total in Payments, a separate decision.
+  * **OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
+    needs it by country; the settled event carries the destination for that.
+  * **Existing subscriptions.** Those set up before this change renew at the storefront's rate until re-sent. Production
+    has no live customers yet.
+* **Tests.**
+  * Unit, e2e-verify **A3zw**:
+    * `OssRenewalTaxTests` (Payments): FR 20 % on a DE store, the Tallinn local-midnight edge, the rate pinned across
+      a retry, Domestic and older subscriptions unchanged, an exempt line, an unknown destination, the scheme
+      reported;
+    * `OssSubscriptionTermsTests` (Ordering): the line's scheme and destination in eight cases;
+    * `EuStandardVatRateParityTests`.
+  * Integration, **A4b**: `RenewalUsageTaxTests` covers an OSS subscription bought through checkout (a German store in
+    a non-EUR currency, shipped to France). Checkout charges FR 20 %, Payments stores `Oss` / `FR`, and the renewal
+    books 200, not 192.

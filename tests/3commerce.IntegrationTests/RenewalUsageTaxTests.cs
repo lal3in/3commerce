@@ -64,6 +64,32 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
     }
 
     [Fact]
+    public async Task An_OSS_subscription_renews_at_its_destinations_rate_through_the_whole_path()
+    {
+        // ADR-0063 § 16, OSS renewals (owner decision 2026-11-06). A German store (19 %, inclusive) in a currency that
+        // cannot measure the EUR threshold sells cross-border to France, so checkout taxes it under OSS at France's 20 %.
+        // OrderStatusConsumer snapshots the LINE's scheme + destination, Payments stores them, and the renewal takes
+        // France's rate on the charge date — not the store's 19 % (which would book 192).
+        const string currency = "RTV";
+        var store = await StoreAsync(currency, bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var productId = await fixture.SeedRecurringProductAsync(1_200, currency);
+
+        var order = await SubscribeAsync(store, productId, "oss-renew@example.com", shipTo: "FR");
+        Assert.Equal((1_200L, 200L), (order.GrossMinor, order.TaxMinor)); // checkout: FR 20 % contained
+
+        var subscription = await SubscriptionOfAsync(order.OrderId);
+        Assert.Equal((ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss, "FR"), (subscription.TaxScheme, subscription.TaxDestinationCountry));
+
+        var lines = await RenewAndReadAsync(subscription);
+
+        Assert.Equal(200, Credit(lines, Tax(store)));     // FR 20 %: the same VAT checkout charged, not DE's 192
+        Assert.Equal(1_000, Credit(lines, Rev(store)));
+        Assert.Equal(1_200, CashDebits(lines));           // the gross never moves
+        AssertWellFormed(lines, currency);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
     public async Task An_EU_VAT_renewal_extracts_VAT_the_same_way()
     {
         const string currency = "RTE";
@@ -329,13 +355,13 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
     }
 
     /// <summary>A live storefront projected into BOTH Ordering (checkout tax) and Payments (ledger codes + rate).</summary>
-    private async Task<Guid> StoreAsync(string currency, int bps, bool inclusive, Guid? storefrontId = null)
+    private async Task<Guid> StoreAsync(string currency, int bps, bool inclusive, Guid? storefrontId = null, string? jurisdiction = null)
     {
         var id = storefrontId ?? Guid.CreateVersion7();
         await fixture.PublishAsync(new StorefrontConfigChanged(
             id, TenantId, $"Tax Store {currency}", currency, bps, IsLive: true, TaxInclusive: inclusive,
             ReceivableAccountCode: $"receivable.store-{id:N}", RevenueAccountCode: Rev(id), TaxAccountCode: Tax(id),
-            ShippingAccountCode: $"shipping.store-{id:N}"));
+            ShippingAccountCode: $"shipping.store-{id:N}", TaxJurisdiction: jurisdiction ?? ""));
         await WaitAsync(async () =>
         {
             using var ordering = fixture.Ordering.Services.CreateScope();
@@ -345,6 +371,7 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
             var accounts = await payments.ServiceProvider.GetRequiredService<PaymentsDbContext>().StorefrontLedgerAccounts.AsNoTracking()
                 .SingleOrDefaultAsync(a => a.StorefrontId == id);
             return copy is { IsLive: true } && copy.TaxRateBasisPoints == bps && copy.TaxInclusive == inclusive
+                && (jurisdiction is null || copy.TaxJurisdiction == jurisdiction)
                 && accounts is not null && accounts.TaxRateBasisPoints == bps && accounts.TaxInclusive == inclusive;
         }, $"Storefront {id} did not project its tax terms");
         return id;
@@ -432,7 +459,7 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
     }
 
     /// <summary>A verified member with a stored instrument buys the subscription; the payment then settles.</summary>
-    private async Task<CheckoutResponseDto> SubscribeAsync(Guid storefrontId, Guid productId, string email)
+    private async Task<CheckoutResponseDto> SubscribeAsync(Guid storefrontId, Guid productId, string email, string shipTo = "DE")
     {
         using var client = fixture.Ordering.CreateClient();
         client.DefaultRequestHeaders.Add("X-3C-Storefront-Id", storefrontId.ToString());
@@ -444,7 +471,7 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
         var response = await client.PostAsJsonAsync("/checkout", new
         {
             email,
-            shippingAddress = new { name = "M", line1 = "1 St", city = "Berlin", postcode = "10115", country = "DE" },
+            shippingAddress = new { name = "M", line1 = "1 St", city = "Berlin", postcode = "10115", country = shipTo },
             savedPaymentMethodId = Guid.NewGuid(),
         });
         response.EnsureSuccessStatusCode();

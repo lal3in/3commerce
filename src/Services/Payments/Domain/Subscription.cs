@@ -1,6 +1,6 @@
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
-using Facts = ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts;
 using ThreeCommerce.Payments.Domain.Ledger;
+using Facts = ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts;
 
 namespace ThreeCommerce.Payments.Domain;
 
