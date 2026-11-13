@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "../e2e-support/fixtures";
 import { provisionApprovedSupplier, suspendSupplier } from "./approved-supplier";
 
 // Approval-gated availability (DECISION A, strict): a product whose only covering offer is from an

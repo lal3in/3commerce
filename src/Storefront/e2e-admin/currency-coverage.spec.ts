@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 const CURRENCIES = ["AUD", "CAD", "CNY", "EUR", "GBP", "USD"];

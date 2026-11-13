@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // The Dashboard's per-currency "How this adds up" disclosure must reconcile: Net revenue + Shipping income

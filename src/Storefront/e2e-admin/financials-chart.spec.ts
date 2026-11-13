@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // ledger_sf_4: the Financials page surfaces each storefront's OWN chart of accounts. Selecting a store

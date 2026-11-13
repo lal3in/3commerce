@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 import { execSync } from "node:child_process";
 import { driveCheckout, reachable } from "./portal-helpers";
 import { capture } from "../e2e-support/screenshots";

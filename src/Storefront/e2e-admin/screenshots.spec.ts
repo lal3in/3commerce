@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 import { capture } from "../e2e-support/screenshots";
 
@@ -7,8 +7,13 @@ import { capture } from "../e2e-support/screenshots";
 //   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screenshots
 //   node ../../scripts/screenshots/shots.cjs promote <runId>
 
+// "networkidle" is a settle hint, not a gate: the shared fixture stubs the external seed-image hosts so it
+// normally arrives at once, but any other request that hangs must cost a few seconds, not the whole test
+// (unbounded, it waited out the 60 s test timeout while picsum.photos was down).
+const NETWORK_IDLE_MS = 10_000;
+
 async function shot(page: import("@playwright/test").Page, name: string) {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_MS }).catch(() => {});
   await page.waitForTimeout(500);
   await capture(page, name, { docName: `admin-${name}.png` });
 }
@@ -17,7 +22,7 @@ async function shot(page: import("@playwright/test").Page, name: string) {
 // auto-load in OnInitializedAsync from the pre-filled seed tenant once the Blazor circuit
 // connects, so allow extra time for the interactive render before capturing.
 async function shotInteractive(page: import("@playwright/test").Page, name: string) {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_MS }).catch(() => {});
   await page.waitForTimeout(2000);
   await capture(page, name, { docName: `admin-${name}.png` });
 }
