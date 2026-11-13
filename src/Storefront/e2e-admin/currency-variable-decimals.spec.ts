@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin, unusedCurrencyCode } from "./helpers";
 
 // currency_4: prove a 0-decimal currency (JPY) behaves end-to-end. A JPY demo storefront with JPY-priced

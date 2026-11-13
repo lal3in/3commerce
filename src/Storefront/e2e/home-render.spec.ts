@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 
 /**
  * Home + storefront-scoped listing render (fix/storefront-home-eu-500).

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 import { capture } from "../e2e-support/screenshots";
 
 // Drives the SupplierPortal "Orders" → "mark delivered" action against the running stack. Uses the

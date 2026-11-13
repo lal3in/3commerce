@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Page } from "../e2e-support/fixtures";
 
 // rev_5/F5: the bare storefront root lists nothing until a storefront is pinned — locally that happens
 // by entering a /{slug} demo landing (middleware sets the 3c_storefront cookie), in production by Host.
@@ -18,7 +18,8 @@ export async function pinStorefront(page: Page): Promise<boolean> {
 
 // Storefront e2e fixture (mt5_5): pre-seed a consent decision so the fixed, bottom cookie banner does
 // not overlay page controls (e.g. the place-order button) during automated runs. The banner still
-// appears for real first-time visitors — this only affects the test browser.
+// appears for real first-time visitors — this only affects the test browser. Built on the shared base
+// (e2e-support/fixtures.ts), so storefront specs also get the hermetic external-image stand-in.
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(() => {

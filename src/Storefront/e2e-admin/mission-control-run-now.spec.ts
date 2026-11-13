@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin } from "./helpers";
 
 // Mission Control → Scheduled jobs: the "Run now" action triggers a job on demand. Verifies the full
