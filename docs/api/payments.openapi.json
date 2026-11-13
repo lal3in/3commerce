@@ -2175,6 +2175,135 @@
           }
         }
       }
+    },
+    "/me/usage-charges": {
+      "get": {
+        "tags": [
+          "Usage charges"
+        ],
+        "summary": "The signed-in customer's usage charges that are owed (past due or abandoned)",
+        "description": "usage_charge_pay_page: the account page lists these with a 'complete payment' link. Oldest first.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyUsageChargeDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/me/usage-charges/{reference}": {
+      "get": {
+        "tags": [
+          "Usage charges"
+        ],
+        "summary": "One of the signed-in customer's usage charges with what it owes",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The usage charge's reference (overage-\u2026 / autoload-\u2026), as the dunning email links it."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyUsageChargeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found (not the customer's)"
+          }
+        }
+      }
+    },
+    "/me/usage-charges/{reference}/pay": {
+      "post": {
+        "tags": [
+          "Usage charges"
+        ],
+        "summary": "Pay an unpaid usage charge now (Idempotency-Key required)",
+        "description": "usage_charge_pay_page: the customer's own attempt charges a past-due (or abandoned) usage charge ON-SESSION (3-D Secure possible) with a fresh attempt key and the charge's pinned amount, optionally on another of the customer's saved cards (for this charge only; the default card does not change). A decline sends no email. Settling it publishes UsageChargeSettled, so Usage re-grants a taken-back credit and lifts the balance's hold. A replayed Idempotency-Key returns the stored answer without the client secret.",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The usage charge's reference (overage-\u2026 / autoload-\u2026), as the dunning email links it."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayUsageChargeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayUsageChargeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Idempotency-Key missing"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found (not the customer's)"
+          },
+          "409": {
+            "description": "Nothing to pay: settled, in flight or skipped (outcome 5)"
+          },
+          "422": {
+            "description": "The card is not one of the customer's saved cards (outcome 6)"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3932,6 +4061,145 @@
       },
       "XeroMappingScope": {
         "type": "integer"
+      },
+      "MyUsageChargeDto": {
+        "type": "object",
+        "description": "The customer's own usage charge for the 'complete payment' page (usage_charge_pay_page).",
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "1 Overage, 2 AutoLoad (numbers on the wire)."
+          },
+          "meter": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MeterType as a number: 1 Token, 2 Transaction, 3 Request, 4 Minute, 5 Seat, 6 StorageGb."
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "priceMinor": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The shelf price asked for (before any tax an exclusive store adds)."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Pending, Settled, PastDue, Abandoned or Skipped."
+          },
+          "amountDueMinor": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64",
+            "description": "While owed (PastDue / Abandoned): the pinned charge, price + any added tax, the same for every attempt."
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "RequiresAction, Failed, Cancelled or Error."
+          },
+          "nextRetryAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "abandonsAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time",
+            "description": "Past due only: when an unpaid charge is abandoned and billable usage suspended."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "reference",
+          "kind",
+          "meter",
+          "quantity",
+          "priceMinor",
+          "currency",
+          "status",
+          "amountDueMinor",
+          "failureReason",
+          "nextRetryAt",
+          "abandonsAfter",
+          "createdAt"
+        ]
+      },
+      "PayUsageChargeRequest": {
+        "type": "object",
+        "properties": {
+          "savedPaymentMethodId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid",
+            "description": "Optional: pay this charge with another of the customer's saved cards (the default card does not change)."
+          }
+        }
+      },
+      "PayUsageChargeResponse": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "description": "1 Paid, 2 RequiresAction, 3 Declined, 4 ProviderUnavailable (numbers on the wire)."
+          },
+          "paymentIntentId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "The charge's status after the attempt."
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "RequiresAction only, first answer only: confirm the intent (3-D Secure) with it. Never returned on an idempotent replay."
+          }
+        },
+        "required": [
+          "outcome",
+          "paymentIntentId",
+          "status",
+          "clientSecret"
+        ]
       }
     }
   },

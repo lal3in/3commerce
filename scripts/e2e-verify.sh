@@ -325,6 +325,14 @@
 #       from usage or the sweep, billable usage beyond the credit refused without overage, no hold) and resumes on a
 #       later CustomerPaymentMethodReady (topping up at once) — never on a stale report, never paused by a crossed skip;
 #       the add-a-card email and both events round-trip with numeric enums; ConsumerEndpointNameTests sees the new queues
+#   A3zv Unit · usage "complete payment" page (usage_charge_pay_page, UsageChargePayTests): the customer pays a past-due
+#       usage charge ON-SESSION under a fresh key (-a1) with the pinned amount (1083), it settles and announces once and a
+#       second visit pays nothing (NotPayable); the customer's own decline publishes no UsageChargeFailed (no email) and
+#       counts as an attempt; a 3-D Secure answer settles once from the provider's success event (delivered twice); an
+#       abandoned charge is still payable; a settled / skipped charge is NotPayable and another customer's or tenant's
+#       charge is not found (no provider call); the customer may choose another of their own cards, never someone else's
+#       (UnknownPaymentMethod). The usage decline / final emails link /account/usage-charges/{reference}/pay
+#       (SettledChargeContractTests)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -423,6 +431,12 @@
 #       CustomerPaymentMethodReady, Usage resumes and tops up, and Payments charges THAT card and settles it (credit 100);
 #       the card read runs set_config('app.tenant_id', <tenant>) in the same transaction as the query (RLS-ready). The
 #       other auto-load suites (A4b, A4f, UsageAutoLoadTests, UsageChargeRevenueTests) seed a default card
+#   A4kv Integration · the usage pay page over HTTP + the broker (usage_charge_pay_page, UsageChargePayPageIntegrationTests,
+#       Phase4): a declined top-up reaches Usage (credit 0, Unpaid); GET /me/usage-charges lists it (kind a NUMBER,
+#       amount due 500, reason Failed); another customer gets 404 on GET and POST; a POST without Idempotency-Key is 400;
+#       paying returns outcome 1 / Settled, the replayed key the same answer with no second attempt, a new key 409;
+#       Usage re-grants the 100 credit and lifts the hold; the attempts are Initial + Customer, keys {ref} and {ref}-a1,
+#       both 500, one journal entry
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -698,6 +712,10 @@
 #       the demo customer's monthly subscription put past due (dev renew, LocalMock "3-D Secure required") shows as
 #       "Payment due" with a "Complete payment" link on /account; the pay page names the reason and amount, paying
 #       makes it active again (owner decision 2026-10-27, e2e/subscription-pay-page.spec.ts; needs --data full);
+#       a usage overage for the demo customer charged past due (dev usage charge, LocalMock "3-D Secure required") is
+#       listed under "Usage payments due" with a "Complete payment" link on /account; the pay page names the reason,
+#       the kind + units and the amount; paying shows ONLY the confirmation (no stale amount due), a second visit reads
+#       "Paid" and /account no longer links it (usage_charge_pay_page, e2e/usage-charge-pay-page.spec.ts; needs --data full);
 #       a seeded subscription renewed on the LocalMock rail is refunded from the admin Subscriptions renewal history:
 #       period 1 reads "Order" (no Refund), the new period "Not refunded"; Refund prefills the full amount, more than
 #       the charge is refused in the form, half + a reason → "Confirm refund of …" → "Partially refunded", the rest →
@@ -982,6 +1000,13 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&(FullyQualifiedName~UsageAutoLoadSkippedContractTests|FullyQualifiedName~ConsumerEndpointNameTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zu auto top-ups charge the default saved card"; else fail "A3zu auto top-ups charge the default saved card"; fi
+
+  stage "A3zv Usage complete-payment page (usage_charge_pay_page) — on-session, fresh key, pinned amount, settled once"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~UsageChargePayTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~SettledChargeContractTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zv usage complete-payment page"; else fail "A3zv usage complete-payment page"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

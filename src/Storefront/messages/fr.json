@@ -690,5 +690,71 @@
       "completePayment": "Payer le renouvellement en retard de cet abonnement."
     },
     "tryAgain": "Réessayer"
+  },
+  "usageCharges": {
+    "heading": "Paiements d’utilisation dus",
+    "completePaymentLink": "Finaliser le paiement",
+    "pageTitle": "Finalisez le paiement de votre utilisation",
+    "intro": "Ces frais d’utilisation ne sont pas encore payés. Rien n’a été débité.",
+    "creditOnHold": "Le crédit prépayé de cette recharge est bloqué jusqu’au paiement, et aucune autre recharge automatique n’est effectuée.",
+    "suspended": "L’utilisation facturable ({meter}) est suspendue jusqu’au paiement. L’utilisation incluse dans votre forfait et le crédit prépayé restant fonctionnent toujours.",
+    "item": "Frais",
+    "kind": {
+      "Overage": "Utilisation au-delà de votre forfait ({meter})",
+      "AutoLoad": "Recharge automatique ({meter})"
+    },
+    "units": "{quantity, plural, one {# unité} other {# unités}}",
+    "chargedOn": "Facturé le",
+    "amountDue": "Montant dû",
+    "status": {
+      "Pending": "En cours",
+      "Settled": "Payé",
+      "PastDue": "Paiement dû",
+      "Abandoned": "Suspendu – paiement dû",
+      "Skipped": "Non facturé"
+    },
+    "reason": {
+      "RequiresAction": "Votre banque vous demande de confirmer ce paiement.",
+      "Failed": "Votre carte a été refusée.",
+      "Cancelled": "Le paiement a été annulé.",
+      "Error": "Nous n’avons pas pu joindre le prestataire de paiement."
+    },
+    "nextRetry": "Sans action de votre part, nous réessaierons le <date></date>.",
+    "abandonsAfter": "S’il reste impayé après le <date></date>, l’utilisation facturable sera suspendue.",
+    "card": "Payer avec",
+    "currentCard": "Votre carte par défaut",
+    "savedCard": "{brand} se terminant par {last4}",
+    "cardHint": "La carte choisie ici ne paie que ces frais – votre carte par défaut reste la même. Ajoutez une nouvelle carte sur la page de votre compte.",
+    "pay": "Payer {amount} maintenant",
+    "paying": "Paiement en cours…",
+    "paid": "Merci – votre paiement a été accepté. L’utilisation bloquée pour ces frais est libérée.",
+    "authenticateTitle": "Confirmez le paiement auprès de votre banque",
+    "authenticateBody": "Votre banque vous demande d’authentifier ce paiement (3-D Secure).",
+    "authenticate": "Terminer l’authentification bancaire (test)",
+    "authenticating": "Authentification…",
+    "declined": "Le paiement a été refusé. Réessayez ou choisissez une autre carte.",
+    "unavailable": "Nous n’avons pas pu joindre le prestataire de paiement. Rien n’a été débité – veuillez réessayer.",
+    "notPayable": "Ces frais d’utilisation n’ont rien à payer.",
+    "unknownCard": "Cette carte ne fait pas partie de vos cartes enregistrées.",
+    "failed": "Un problème est survenu. Rien n’a été débité – veuillez réessayer.",
+    "notDue": "Il n’y a rien à payer sur ces frais d’utilisation.",
+    "notFound": "Nous n’avons pas trouvé ces frais d’utilisation.",
+    "backToAccount": "Retour à votre compte",
+    "loading": "Chargement de vos frais d’utilisation…",
+    "tips": {
+      "pay": "Débite maintenant le montant dû. C’est le même montant à chaque tentative pour ces frais.",
+      "card": "La carte débitée pour ce seul paiement – votre carte par défaut ne change pas.",
+      "authenticate": "Mode test : simule votre approbation du paiement dans votre application bancaire.",
+      "completePayment": "Payer ces frais d’utilisation impayés."
+    },
+    "tryAgain": "Réessayer",
+    "meter": {
+      "Token": "jetons",
+      "Transaction": "transactions",
+      "Request": "requêtes",
+      "Minute": "minutes",
+      "Seat": "sièges",
+      "StorageGb": "stockage (Go)"
+    }
   }
 }

@@ -82,6 +82,9 @@ public static class WebhookEndpoints
             .FirstOrDefaultAsync(ct) ?? await db.SubscriptionChargeAttempts // a renewal attempt awaiting 3-D Secure
             .Where(a => a.PaymentIntentId == intentId)
             .Select(a => (long?)a.AmountMinor)
+            .FirstOrDefaultAsync(ct) ?? await db.UsageChargeAttempts // a usage charge attempt awaiting 3-D Secure (usage_charge_pay_page)
+            .Where(a => a.PaymentIntentId == intentId)
+            .Select(a => (long?)a.AmountMinor)
             .FirstOrDefaultAsync(ct) ?? 0;
 
         var ev = new PaymentWebhookEvent(

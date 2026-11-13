@@ -93,7 +93,7 @@ public sealed class SettledChargeContractTests
         Assert.Contains("on hold", email.Body, StringComparison.Ordinal);
         Assert.Contains("try again on 29 October 2026", email.Body, StringComparison.Ordinal);
         Assert.Contains("unpaid after 4 November 2026", email.Body, StringComparison.Ordinal);
-        Assert.Contains("https://shop.example/account", email.Body, StringComparison.Ordinal);
+        Assert.Contains("complete the payment now at https://shop.example/account/usage-charges/autoload-x-1/pay", email.Body, StringComparison.Ordinal); // usage_charge_pay_page
         Assert.Equal("usage-charge-failed:autoload-x-1:20261029T093000Z", email.Reference);
 
         var asked = templates.UsageChargeFailed(Failed(ChargeFailureReason.RequiresAction, final: false) with { Kind = UsageChargeKind.Overage });
@@ -114,6 +114,7 @@ public sealed class SettledChargeContractTests
         Assert.Contains("suspended", email.Subject, StringComparison.Ordinal);
         Assert.Contains("allowance", email.Body, StringComparison.Ordinal);
         Assert.DoesNotContain("try again", email.Body, StringComparison.Ordinal);
+        Assert.Contains("Pay it at https://shop.example/account/usage-charges/autoload-x-1/pay", email.Body, StringComparison.Ordinal);
         Assert.Equal("usage-charge-failed:autoload-x-1:final", email.Reference);
     }
 
