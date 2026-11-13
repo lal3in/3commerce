@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "../e2e-support/fixtures";
 
 /**
  * Per-product ship rules (Stage 2): a tenant feature switch makes per-country ship rules mandatory at

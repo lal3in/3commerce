@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin, seedPaidOrderWithRma, rmaState, demoStorefrontId } from "./helpers";
 
 const GATEWAY = process.env.GATEWAY_URL ?? "http://localhost:8080";

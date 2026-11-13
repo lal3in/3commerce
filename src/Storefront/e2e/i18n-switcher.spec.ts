@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../e2e-support/fixtures";
 
 /**
  * Storefront language switcher (i18n_1). Proves the header switcher changes VISIBLE UI text for the

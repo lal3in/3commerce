@@ -7,8 +7,12 @@ import { capture } from "../e2e-support/screenshots";
 //   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=storefront -g screenshots
 //   node ../../scripts/screenshots/shots.cjs promote <runId>
 
+// "networkidle" is a settle hint, not a gate: the shared fixture stubs the external seed-image hosts so it
+// normally arrives at once, but any other request that hangs must cost a few seconds, not the whole test.
+const NETWORK_IDLE_MS = 10_000;
+
 async function shot(page: import("@playwright/test").Page, name: string) {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_MS }).catch(() => {});
   await page.waitForTimeout(400);
   await capture(page, name, { docName: `storefront-${name}.png` });
 }

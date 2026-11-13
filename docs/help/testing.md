@@ -171,6 +171,16 @@ npm run test:e2e:headed              # headed (debugging)
 - **`supplier.spec.ts`** — unauthenticated redirect to supplier sign-in, login,
   readiness check, stock-feed request, and supplier change-request submission.
 
+### Specs never depend on an external image host
+
+Every spec imports `test` from **`src/Storefront/e2e-support/fixtures.ts`** (storefront specs may use
+`e2e/fixtures.ts`, which builds on it), never from `@playwright/test`, and `npm run lint` enforces this. The
+shared fixture answers the demo seed's external image hosts (`picsum.photos`, `placehold.co`, listed in
+`lib/image-hosts.ts`) with a local stand-in image. It covers direct requests and requests through
+`/_next/image`, so image loading and `networkidle` no longer depend on those hosts. Our own images still come
+from the real app. To test the "host is down" path, a spec aborts the requests with `abortExternalImages(page)`;
+a page route takes precedence over the fixture.
+
 ### Screenshots are a history, not a file you overwrite
 
 Every screenshot a spec takes goes through **`capture(page | locator, name, { docName? })`**

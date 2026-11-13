@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../e2e-support/fixtures";
 import { loginAsAdmin, unusedCurrencyCode } from "./helpers";
 
 // Currency registry admin page (currency_1): lists the managed currencies and adds a new one, which the

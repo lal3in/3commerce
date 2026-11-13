@@ -266,6 +266,15 @@ you are touching before you push.
   server component crashes ("Functions cannot be passed directly to Client Components", the page shows only an
   error digest). Typecheck and lint pass, so only a browser test sees it (`subscription-pay-page.spec.ts` caught the
   account page). Fix it in all six locale files.
+- **Import `test` from `e2e-support/fixtures` (or `e2e/fixtures`), never from `@playwright/test`.** The demo seed's
+  product images live on third-party hosts (picsum.photos, placehold.co). When picsum's TCP connect hung, `onerror`
+  never fired, so the admin broken-image guard counted 45 "broken" thumbnails and `waitForLoadState("networkidle")`
+  in the screenshot spec waited out the 60 s test timeout. Neither failure had anything to do with our code. The
+  shared fixture answers those hosts (and `/_next/image?url=<seed host>`) with a local stand-in, so image loads and
+  network idle don't depend on them; lint rejects the bare import. To exercise the failure path, register a
+  `page.route` that aborts (`abortExternalImages`): page routes beat the fixture's context route. A new external
+  seed host goes in `lib/image-hosts.ts`, which the fixture reads. Also give every `networkidle` wait a timeout.
+  Routing turns off Chromium's HTTP cache for the context, which is harmless against localhost.
 
 ## Money
 
