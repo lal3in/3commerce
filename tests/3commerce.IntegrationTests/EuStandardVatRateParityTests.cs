@@ -17,12 +17,12 @@ public sealed class EuStandardVatRateParityTests
     public void Both_copies_know_the_same_member_states()
     {
         Assert.Equal(
-            OrderingVat.EuMemberStates.Codes.OrderBy(c => c, StringComparer.Ordinal),
+            OrderingVat.EuMemberStates.Codes.Append(OrderingVat.EuVatTerritories.NorthernIreland).OrderBy(c => c, StringComparer.Ordinal),
             EuStandardVatRates.Codes.OrderBy(c => c, StringComparer.Ordinal));
         Assert.Equal(OrderingVat.EuVatRateTable.OssStart, EuStandardVatRates.OssStart);
-        foreach (var alias in new[] { "EL", "el", " gr ", "CH", "XI", "", null })
+        foreach (var alias in new[] { "EL", "el", " gr ", "CH", "XI", "xi", "GB", "IC", "", null })
         {
-            Assert.Equal(OrderingVat.EuMemberStates.Normalize(alias), EuStandardVatRates.Normalize(alias));
+            Assert.Equal(OrderingVat.EuVatArea.Normalize(alias), EuStandardVatRates.Normalize(alias));
         }
     }
 
@@ -55,7 +55,7 @@ public sealed class EuStandardVatRateParityTests
             {
                 foreach (var instant in new[] { new DateTimeOffset(2025, 6, 30, hour, 30, 0, TimeSpan.Zero), new DateTimeOffset(2025, 12, 31, hour, 59, 0, TimeSpan.Zero) })
                 {
-                    Assert.Equal(OrderingVat.EuMemberStates.LocalDate(country, instant), EuStandardVatRates.LocalDate(country, instant));
+                    Assert.Equal(OrderingVat.EuVatArea.LocalDate(country, instant), EuStandardVatRates.LocalDate(country, instant));
                 }
             }
         }

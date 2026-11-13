@@ -5,7 +5,8 @@ namespace ThreeCommerce.Payments.Domain.Ledger;
 /// (ADR-0063 § 16, OSS renewals, owner decision 2026-11-06): its DESTINATION's standard rate in force on the charge's
 /// local date, not the storefront's.
 /// <para>
-/// A deliberate COPY of Ordering's <c>EuVatRateTable.Current</c> (standard rows only) and <c>EuMemberStates.LocalDate</c>:
+/// A deliberate COPY of Ordering's <c>EuVatRateTable.Current</c> (standard rows only, <c>XI</c> included) and
+/// <c>EuVatArea.Normalize</c> / <c>EuVatArea.LocalDate</c>:
 /// Payments cannot reference Ordering's domain and BuildingBlocks holds no domain logic (AGENTS.md), and a rate is a law
 /// fact both services must apply identically. <c>EuStandardVatRateParityTests</c> (the integration project's unit lane,
 /// the one project that sees both) compares every country's rate on every day from the OSS start to the last row + 1
@@ -48,12 +49,17 @@ public static class EuStandardVatRates
         ["SI"] = ("Europe/Ljubljana", [(OssStart, 2_200)]),
         ["ES"] = ("Europe/Madrid", [(OssStart, 2_100)]),
         ["SE"] = ("Europe/Stockholm", [(OssStart, 2_500)]),
+
+        // Northern Ireland, goods only (Windsor Framework Art. 8, ADR-0063 § 16): an EU VAT area destination taxed at the
+        // UK standard rate (20 % since 4 January 2011), changing on UK local time. Never a home Member State.
+        ["XI"] = ("Europe/London", [(OssStart, 2_000)]),
     };
 
-    /// <summary>The 27 Member-State codes (ISO alpha-2; Greece is <c>GR</c>).</summary>
+    /// <summary>The destination codes: the 27 Member States (ISO alpha-2; Greece is <c>GR</c>) and <c>XI</c>.</summary>
     public static IReadOnlyCollection<string> Codes => Countries.Keys;
 
-    /// <summary>The ISO code of an EU Member State (upper-cased, <c>EL</c> → <c>GR</c>), or null when it is not one.</summary>
+    /// <summary>The destination code (a Member State upper-cased, <c>EL</c> → <c>GR</c>, or <c>XI</c>), or null when it is
+    /// not one — Ordering's <c>EuVatArea.Normalize</c>.</summary>
     public static string? Normalize(string? country)
     {
         if (string.IsNullOrWhiteSpace(country))

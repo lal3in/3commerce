@@ -21,6 +21,7 @@ public class OssSubscriptionTermsTests
     [InlineData(TaxScheme.Oss, "DE", "FR", "DE", Facts.TaxScheme.Domestic, "DE")]      // a home-country line of an OSS sale
     [InlineData(TaxScheme.Oss, "DE", "FR", "el", Facts.TaxScheme.Oss, "GR")]           // EL is Greece
     [InlineData(TaxScheme.Oss, "DE", "US", "US", Facts.TaxScheme.Domestic, "US")]      // outside the EU: never OSS
+    [InlineData(TaxScheme.Oss, "DE", "XI", "xi", Facts.TaxScheme.Oss, "XI")]           // Northern Ireland goods: OSS at the UK rate
     [InlineData(TaxScheme.Domestic, "DE", "FR", "FR", Facts.TaxScheme.Domestic, "FR")] // under the threshold: home-taxed
     [InlineData(TaxScheme.NotRecorded, "", "", "", Facts.TaxScheme.NotRecorded, null)] // a pre-P1 order
     public void The_request_carries_the_lines_scheme_and_destination(

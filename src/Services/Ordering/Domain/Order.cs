@@ -69,8 +69,8 @@ public class Order
     /// <summary>
     /// The scheme and place of supply ONE line was taxed under (ADR-0063 § 16, OSS renewals): the line's own destination
     /// (<see cref="OrderLine.DestinationOr"/> — a line written before per-line destinations takes the order's), and
-    /// <see cref="TaxScheme.Oss"/> only when the sale was taxed under OSS AND this line went to a Member State other than
-    /// the storefront's home one (<see cref="TaxJurisdiction"/>) — a mixed OSS sale's home-country lines were taxed at the
+    /// <see cref="TaxScheme.Oss"/> only when the sale was taxed under OSS AND this line went to an EU VAT area destination
+    /// (a Member State, or <c>XI</c> for Northern Ireland goods) other than the storefront's home one (<see cref="TaxJurisdiction"/>) — a mixed OSS sale's home-country lines were taxed at the
     /// home rate, so they are Domestic. Any other sale reports its own scheme. What a subscription line's renewals are
     /// taxed by.
     /// </summary>
@@ -82,7 +82,8 @@ public class Order
             return (TaxScheme, destination);
         }
 
-        var memberState = EuMemberStates.Normalize(destination);
+        // The EU VAT area: a Member State, or XI (Northern Ireland goods, taxed under OSS at the UK rate since #330).
+        var memberState = EuVatArea.Normalize(destination);
         return memberState is not null && memberState != EuMemberStates.OfJurisdiction(TaxJurisdiction)
             ? (TaxScheme.Oss, memberState)
             : (TaxScheme.Domestic, destination);
