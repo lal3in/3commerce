@@ -10,7 +10,7 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations;
 /// database as well as by the owner checks. Same policy shape as Entity's (EntityTenantTablesRls): platform scope
 /// bypasses; an empty app.tenant_id reads as NULL (no 22P02) and so matches no row. FORCE because payments_svc owns the
 /// table (a non-superuser, non-BYPASSRLS role — infra/postgres/init-databases.sql). Every reader and writer runs in a
-/// tenant scope through <c>SavedCardTenantScope</c>.
+/// tenant scope through <c>PaymentsTenantScope</c>.
 /// </summary>
 public partial class SavedPaymentMethodsRls : Migration
 {
