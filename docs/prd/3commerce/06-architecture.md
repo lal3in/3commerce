@@ -42,6 +42,7 @@ Six C# microservices cut along **business capability seams** (not entities), com
 | **Payments** | double-entry ledger (source of truth), payment intents, refunds, Stripe webhook inbox, Xero sync state | authorize/capture/refund, webhook reconciliation, nightly Xero journals |
 | **Fulfillment** | shipments, supplier order forwarding, tracking numbers | reacts to `OrderConfirmed`, emits `ShipmentDispatched`/`TrackingAssigned` |
 | **Support** | tickets, RMA state machine | RMA: requested → approved/denied → (return shipped) → refund issued (kicks refund saga) |
+| **Invoicing** *(post-MVP, [ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md) phase 1 — not built yet)* | customer tax documents (invoices, credit notes), numbering series, jurisdiction profiles, rendered artifacts | issue on capture/settlement/refund, render + deliver, register export, reconciliation to ledger |
 
 Notifications/email is a **shared worker** consuming events, not a seventh service.
 

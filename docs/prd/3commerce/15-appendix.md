@@ -24,10 +24,11 @@
 | 18 | Support: order-linked tickets + **RMA state machine**, refund saga; no chat/KB | Mailto-only; external helpdesk; full helpdesk | Integrates every service; bounded scope |
 | 19 | **Blazor Server admin** behind gateway, admin role + subdomain/IP allowlist | Admin in Next.js; Retool-style; curl-only | All-C# internal tooling where Blazor's weaknesses don't matter |
 | 20 | **Postgres FTS + pg_trgm** behind `ISearchProvider` | Meilisearch/Typesense day one; Elastic; SQL LIKE | No new infra at 10k-SKU scale; swap path preserved |
+| 21 | **Customer tax invoices** in a dedicated Invoicing service; gapless per-series numbering allocated in the issuing transaction; credit notes only; data-driven jurisdiction profiles ([ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md), accepted 2026-10-11; in PRD scope 2026-11-15) | Order number as invoice number; DB sequences; invoices in Xero; full outsourcing | EU Art. 226/219/233; FR/ES strict numbering; any-jurisdiction by configuration |
 
 ## B. Open business blockers (launch gates, not build gates)
 
-1. **Company registration** — country unknown → blocks Stripe live keys, Xero production org, real tax strategy, payout currency, privacy policy/imprint.
+1. **Company registration** — country unknown → blocks Stripe live keys, Xero production org, real tax strategy, payout currency, privacy policy/imprint, and the home EU Member State, whose `EU-<MS>` invoicing profile is configured (not coded) once it is known ([ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md) D2).
 2. **Supplier contract** — blocks real catalog data and forces the dropship-vs-warehouse decision.
 3. **Operator MFA enrollment** — the TOTP capability shipped 2026-07-04 (def_1: enrollment + login challenge + step-up; Admin → Security). The remaining gate is operational: every operator account enrolls, and the tenant policy is set to *Required for privileged*, before real tenants.
 4. **External penetration test / security review** — the ASVS L1 self-audit (`docs/security/asvs-l1-audit.md`, refreshed 2026-07-11) is not a substitute; run after MFA enrollment and before live traffic.
@@ -62,3 +63,7 @@
 | **MoR** | Merchant of Record — platform (e.g. Polar) that legally resells and handles tax; digital goods only |
 | **DAP** | Delivered At Place — Incoterm: customer pays import duties; how v1 ships worldwide |
 | **SAQ-A** | Lightest PCI DSS scope — card data never touches our servers (Stripe Elements) |
+| **Credit note** | Amending document referencing an issued invoice (EU Art. 219) |
+| **OSS/IOSS** | EU One-Stop-Shop schemes |
+| **VIES** | EU VAT-ID validation service |
+| **EN 16931** | EU semantic e-invoice standard |
