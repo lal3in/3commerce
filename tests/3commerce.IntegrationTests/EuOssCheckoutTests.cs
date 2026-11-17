@@ -46,6 +46,19 @@ public class EuOssCheckoutTests(Phase3Fixture fixture)
         Assert.Equal((tenantId, "DE", "FR", "EUR", TaxScheme.Domestic), (sale.TenantId, sale.HomeCountry, sale.DestinationCountry, sale.Currency, sale.TaxScheme));
         Assert.Equal(12_399 - 1_980, sale.NetMinor); // net of VAT
         Assert.Equal(DateTimeOffset.UtcNow.Year, sale.Year);
+
+        // ADR-0063 § 16, OSS threshold crossing: the row travels to Payments' copy, which re-decides renewals.
+        await Eventually.UntilAsync(
+            async () =>
+            {
+                using var scope = fixture.Payments.Services.CreateScope();
+                return await scope.ServiceProvider.GetRequiredService<ThreeCommerce.Payments.Infrastructure.PaymentsDbContext>()
+                    .EuDistanceSaleCopies.AsNoTracking()
+                    .AnyAsync(c => c.OrderId == order.OrderId && c.SourceReference == "" && c.DestinationCountry == "FR" && c.TenantId == tenantId
+                        && c.NetMinor == 12_399 - 1_980);
+            },
+            () => new TimeoutException($"The running-total row of {order.OrderId} never reached Payments' copy."),
+            TimeSpan.FromSeconds(20));
     }
 
     [Fact]

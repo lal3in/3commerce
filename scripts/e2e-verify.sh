@@ -343,6 +343,16 @@
 #       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
 #       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
 #       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
+#   A3zx Unit · OSS threshold crossing (ADR-0063 § 16, oss_renewal_threshold_crossing; OssRenewalThresholdTests,
+#       RenewalDistanceSaleTests, EuStandardVatRateParityTests): a Domestic subscription sold from a German 19 % store to
+#       France renews at FR 20 % (1200, scheme Oss + FR) once the seller's copied running total is over EUR 10,000 — the
+#       preceding year strictly over (1,000,001; at 1,000,000 it stays 1190 Domestic) or the current year plus this
+#       renewal over (999,001 + 1,000; 999,000 + 1,000 stays home); only this seller's EUR rows of the preceding + current
+#       year count; a non-EUR renewal takes the destination rate as checkout does; home-country, non-EU, unconfigured,
+#       non-EU-seller, pre-scheme and exempt subscriptions are never re-decided; an OSS one is never downgraded; a declined
+#       period retried after the crossing keeps its pinned 1190 Domestic and the NEXT period is OSS. A settled renewal of a
+#       cross-border line adds its own running-total row (keyed by its reference; nothing for home, non-EU, exported,
+#       non-EU-store or zero-net renewals). The threshold and the home-state rule equal Ordering's
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -360,7 +370,11 @@
 #       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
 #       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0; an OSS subscription
 #       (German 19 % store, non-EUR, shipped to France) checks out at FR 20 % (200 of 1200), carries scheme Oss + FR to
-#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals)
+#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals); a Domestic
+#       subscription (German EUR store, inclusive, sold to France under the threshold) renews at FR 20 % (198 of 1190) once
+#       a prior-year row over EUR 10,000 reaches Payments' copy (EuDistanceSaleRecorded), and the renewal itself adds a
+#       running-total row in Ordering (renew-{id}-2, FR, net 992) that reaches Payments' copy (ADR-0063 § 16, OSS
+#       threshold crossing)
 #   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
@@ -385,7 +399,8 @@
 #       (goods + shipping) and Italy (e-book) below the threshold charges 2945 as before and writes two rows (AT
 #       10499, IT 5000). Territories: goods shipped to a 35001 (Canaries) address are an export — 12399 charged with
 #       0 VAT, scheme Export, line + shipping OutsideEuVatArea, no EuDistanceSale row; goods to a BT1 postcode are XI —
-#       UK 20 % added under OSS (2100) and one row under XI (net 10499)
+#       UK 20 % added under OSS (2100) and one row under XI (net 10499); every running-total row is published
+#       (EuDistanceSaleRecorded) and lands in Payments' copy (ADR-0063 § 16, OSS threshold crossing)
 #   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
 #       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
 #       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
@@ -1027,6 +1042,14 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zw OSS renewals"; else fail "A3zw OSS renewals"; fi
+  stage "A3zx OSS threshold crossing (ADR-0063 § 16) — a Domestic cross-border renewal re-decided against the seller's turnover"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssRenewalThresholdTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RenewalDistanceSaleTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zx OSS threshold crossing"; else fail "A3zx OSS threshold crossing"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

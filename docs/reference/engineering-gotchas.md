@@ -307,7 +307,11 @@ Checkout tax (Ordering, ADR-0063 P1):
   Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). An OSS subscription renews at its
   DESTINATION's standard rate in Payments (ADR-0063 § 16, OSS renewals): `SubscriptionRequested` carries the LINE's scheme +
   destination (`Order.LineTaxTerms`), and Payments rates it from `EuStandardVatRates` — its own COPY of Ordering's table.
-  A change of law goes into BOTH tables (`EuStandardVatRateParityTests` fails otherwise).
+  A change of law goes into BOTH tables (`EuStandardVatRateParityTests` fails otherwise). A `Domestic` cross-border
+  subscription is RE-DECIDED at each renewal against Payments' COPY of the running total (ADR-0063 § 16, OSS threshold
+  crossing): every `EuDistanceSales` row must also publish `EuDistanceSaleRecorded` (`EuDistanceSaleEvents.Recorded`) in
+  the same transaction, or Payments' total under-counts; a settled renewal adds its own row (`SourceReference` =
+  `renew-{id}-{seq}`).
 - **The invoicing facts travel on the events (ADR-0063 P5) — never rebuild them by hand.** `OrderConfirmed` is built
   only by `OrderConfirmedFactory.From` (line ids, P1 tax facts, bill-to, buyer, `CapturedAt` = the order's
   `CreatedAt`). A new refund-requesting path states its attribution: `Lines` (order-line ids, amounts summing with
