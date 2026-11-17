@@ -4,6 +4,7 @@
 @inject SupplierGatewayClient Gateway
 @rendermode InteractiveServer
 
+<LoggingErrorBoundary>
 <PageTitle>@L["Home_Title"] — @L["App_Title"]</PageTitle>
 
 <h1>@L["Home_Title"]</h1>
@@ -66,6 +67,7 @@ else if (self is not null)
         }
     </section>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string entityId = string.Empty;

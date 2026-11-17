@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Sec.Title"]</h1>
 <p style="color:#6b7280;">@L["Sec.Intro"]</p>
 
@@ -125,6 +126,7 @@
         </div>
     }
 </section>
+</LoggingErrorBoundary>
 
 @code {
     private MfaStatusDto? _mfa;

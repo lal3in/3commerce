@@ -4,6 +4,7 @@
 @inject SupplierGatewayClient Gateway
 @rendermode InteractiveServer
 
+<LoggingErrorBoundary>
 <PageTitle>@L["Warehouse_Title"] — @L["App_Title"]</PageTitle>
 
 <h1>@L["Warehouse_Title"]</h1>
@@ -89,6 +90,7 @@ else
         </section>
     }
 }
+</LoggingErrorBoundary>
 
 @code {
     private const int WarehouseAddressType = 5; // SupplierChangeRequestType.WarehouseAddress

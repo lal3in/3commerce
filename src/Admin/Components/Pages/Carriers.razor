@@ -4,6 +4,7 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 @using System.Net.Http.Json
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:baseline; gap:1rem;">
     <h1 style="margin:0;">@L["Carr.Title"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">@L["Carr.Subtitle"]</span>
@@ -114,6 +115,7 @@
         </div>
     </section>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string _tenantId = "00000000-0000-0000-0000-000000000001";

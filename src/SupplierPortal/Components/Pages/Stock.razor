@@ -3,6 +3,7 @@
 @inject IStringLocalizer<SharedResource> L
 @rendermode InteractiveServer
 
+<LoggingErrorBoundary>
 <PageTitle>@L["Stock_Title"] — @L["App_Title"]</PageTitle>
 
 <h1>@L["Stock_Title"]</h1>
@@ -42,6 +43,7 @@
 {
     <p style="color:#047857;">@L["Stock_Submitted"]</p>
 }
+</LoggingErrorBoundary>
 
 @code {
     private readonly List<string> errors = [];
