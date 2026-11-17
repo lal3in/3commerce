@@ -20,6 +20,8 @@ public sealed class StreamOutboxStager
         CancellationToken cancellationToken = default)
     {
         StreamPrivacyGuard.ValidateForPublication(topic, envelope);
+        // Capture the committing operation's trace context NOW: the relay publishes later from its own loop.
+        envelope = StreamTracing.WithCurrentTraceContext(envelope);
         var message = StreamOutboxMessage.Stage(
             topic,
             envelope.PartitionKey,

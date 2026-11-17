@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
 using ThreeCommerce.SupplierPortal.Components;
 using ThreeCommerce.SupplierPortal.Services;
+using ThreeCommerce.BuildingBlocks.Observability.Blazor;
 
 var builder = WebApplication.CreateBuilder(args);
 if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
@@ -25,6 +26,10 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     // the supplier picks the language explicitly via the switcher.
     options.RequestCultureProviders = [new CookieRequestCultureProvider()];
 });
+
+// Traces/metrics/logs with the ADR-0064 release identity (audit P1-4) + circuit lifecycle logs with tenant/user ids.
+// Light helper: no MassTransit/EF. Supplier actions become one trace portal → gateway → services.
+builder.AddBlazorServerTelemetry("supplier-portal");
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

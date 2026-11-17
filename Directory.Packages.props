@@ -32,6 +32,14 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="$(OtelVersion)" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="$(OtelVersion)" />
+    <!-- DB spans (audit P1-1, owner-approved 2026-11-15): Npgsql's own OTel bridge, versioned in lock-step with
+         Npgsql (10.0.3 = the Npgsql the EF provider resolves). Stable, and it sees EVERY command — EF, raw SQL,
+         the MassTransit outbox/inbox, Quartz — where the EF Core instrumentation is still beta, sees only EF and
+         would double-count each command. -->
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+    <!-- Valkey spans (audit P2-4): beta upstream, so it is OFF unless Telemetry:Redis:Tracing=true. Pinned to the
+         beta built against OpenTelemetry $(OtelVersion) (later betas require a newer OTel API). -->
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.16.0-beta.1" />
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <!-- Web -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />

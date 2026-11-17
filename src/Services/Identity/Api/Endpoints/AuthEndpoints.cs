@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ThreeCommerce.Identity.Domain;
 
@@ -19,6 +20,9 @@ public static class AuthEndpoints
         group.MapPost("/verify-email", VerifyEmail);
         group.MapPost("/password-reset/request", RequestPasswordReset);
         group.MapPost("/password-reset/confirm", ConfirmPasswordReset);
+        group.MapGet("/session", GetSessionContext)
+            .RequireAuthorization()
+            .WithSummary("The signed-in principal's opaque ids (user + tenant) from the gateway's internal claims, for any role. Read once at sign-in by the Admin / Supplier Portal so their telemetry names the tenant and user without PII (audit P1-4).");
 
         return app;
     }
@@ -68,6 +72,12 @@ public static class AuthEndpoints
             ? new LoginResponse("Enter your authenticator code to finish signing in.", MfaRequired: true)
             : new LoginResponse("Logged in.", MfaRequired: false));
     }
+
+    private static Results<Ok<SessionContextResponse>, UnauthorizedHttpResult> GetSessionContext(ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue("sub"), out var userId)
+            ? TypedResults.Ok(new SessionContextResponse(
+                userId, Guid.TryParse(principal.FindFirstValue("tenant"), out var tenantId) ? tenantId : null))
+            : TypedResults.Unauthorized();
 
     private static async Task<NoContent> Logout(
         IAuthService auth, HttpContext httpContext, CancellationToken cancellationToken)
@@ -142,3 +152,6 @@ public record MessageResponse(string Message);
 
 /// <summary>MfaRequired: password accepted but the session is pending POST /mfa/challenge.</summary>
 public record LoginResponse(string Message, bool MfaRequired);
+
+/// <summary>Opaque ids only — never the email or name (telemetry-safe).</summary>
+public record SessionContextResponse(Guid UserId, Guid? TenantId);

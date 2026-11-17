@@ -24,6 +24,11 @@ internal static class StreamHeaders
             headers["causation-id"] = envelope.CausationId;
         if (!string.IsNullOrWhiteSpace(envelope.TraceId))
             headers["trace-id"] = envelope.TraceId;
+        // W3C names, so Kafka tooling and any future OTel Kafka instrumentation read the same context.
+        if (!string.IsNullOrWhiteSpace(envelope.TraceParent))
+            headers["traceparent"] = envelope.TraceParent;
+        if (!string.IsNullOrWhiteSpace(envelope.TraceState))
+            headers["tracestate"] = envelope.TraceState;
 
         return headers;
     }

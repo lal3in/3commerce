@@ -43,6 +43,9 @@ public sealed class KafkaStreamEventProducer : IStreamEventProducer, IDisposable
         CancellationToken cancellationToken = default)
     {
         StreamPrivacyGuard.ValidateForPublication(topic, envelope);
+        // A direct publish carries the caller's context; a relayed one already carries the committing operation's.
+        envelope = StreamTracing.WithCurrentTraceContext(envelope);
+        using var activity = StreamTracing.StartPublish(topic, envelope);
 
         var message = new Message<string, string>
         {
@@ -51,7 +54,19 @@ public sealed class KafkaStreamEventProducer : IStreamEventProducer, IDisposable
             Headers = ToKafkaHeaders(StreamHeaders.FromEnvelope(envelope)),
         };
 
-        var result = await producer.ProduceAsync(topic, message, cancellationToken);
+        DeliveryResult<string, string> result;
+        try
+        {
+            result = await producer.ProduceAsync(topic, message, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            StreamTracing.RecordFailure(activity, ex);
+            throw;
+        }
+
+        activity?.SetTag("messaging.destination.partition.id", result.Partition.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        activity?.SetTag("messaging.kafka.offset", result.Offset.Value);
         StreamMetrics.RecordPublished(result.Topic);
         logger.LogInformation(
             "Published stream event {EventType} v{EventVersion} to {Topic} partition {Partition} offset {Offset}",
