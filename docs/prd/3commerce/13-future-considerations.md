@@ -10,7 +10,7 @@ Deliberately deferred. Each item lists its trigger — the signal that it's time
 | **Kubernetes deployment** (kind/k3d → managed) | MVP demo complete; Dockerfiles already maintained — this is the planned deployment-learning phase |
 | **First real supplier importer** | Supplier contract signed; plugs into `ISupplierImporter`; also forces the dropship-vs-warehouse decision the per-line `FulfillmentSource` field has kept open |
 | **Pen test / external security review of Identity** | Before first live customer; `IAuthService` seam exists precisely so a failed audit can swap in ASP.NET Identity or an IdP without redesign |
-| **Stripe Tax or OSS-aware `ITaxStrategy`** | Registration country known; cross-border B2C thresholds approached |
+| ~~**Stripe Tax or OSS-aware `ITaxStrategy`**~~ — **OSS-aware strategy delivered 2026-10-28 (follow-ups to 2026-11-11)** | Shipped as `EuOssTaxStrategy` ([ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md) P1b and its follow-ups: per-line destination, special VAT territories + Northern Ireland, OSS renewals). The home Member State stays per-storefront configuration until company registration. Still open: reduced-rate categories, re-deciding a subscription's scheme after the threshold is crossed, and the TEDB rate-table verification that gates EU cross-border B2C go-live. A tax engine (Stripe Tax etc.) is revisited only if the rate/category catalogue becomes a burden (ADR-0063 D17) |
 
 ## Product enhancements
 
@@ -33,6 +33,9 @@ Deliberately deferred. Each item lists its trigger — the signal that it's time
 | Event sourcing for the ledger | Audit/replay requirements grow; scoped refit of Payments only — never the whole domain |
 | Redis: gateway session cache + cart storage | Gateway introspection cache or cart write volume becomes measurable bottleneck |
 | Marketplace capabilities (third-party sellers, Stripe Connect) | Explicit business pivot — known ~3× scope expansion, not drift-in-by-accident |
+| **Structured e-invoicing & clearance** (Peppol BIS 3.0, Factur-X/ZUGFeRD, SdI, KSeF, FR PA, VeriFactu) | Selling B2B in BE/PL/FR/DE, any sale in IT, ES VeriFactu (2027) — [ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md) phase 3 |
+| **ViDA digital reporting (intra-EU B2B)** | 1 Jul 2030 |
+| **Marketplace / deemed-supplier invoicing** | Only with the marketplace pivot |
 | Second payment rail (PayPal/Adyen/Mollie) | Checkout data shows abandoned payments wanting other methods; `IPaymentProvider` seam ready |
 
 ## Integration opportunities

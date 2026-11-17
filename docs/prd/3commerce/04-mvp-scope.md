@@ -42,7 +42,23 @@
 - ✅ `ITaxStrategy` interface with flat home-rate placeholder implementation
 - ❌ Polar adapter (digital-only MoR — cannot process physical goods; future digital line only)
 - ❌ Second live payment rail (PayPal/Adyen/Mollie)
-- ❌ Stripe Tax / OSS / multi-jurisdiction tax logic
+- ❌ Stripe Tax / multi-jurisdiction tax engine (an OSS-aware `ITaxStrategy` is a prerequisite of EU cross-border invoicing — ADR-0063 P1b) *(the OSS-aware strategy is **delivered post-MVP** — `EuOssTaxStrategy`, configured per storefront by its home Member State: home rate up to the EUR 10,000 EU-wide threshold, destination rate above it, per-line destination for mixed goods/digital carts, special VAT territories and Northern Ireland, OSS subscriptions renewing at the destination's rate; standard rates only, and EU cross-border B2C go-live is gated on verifying the rate table against the Commission's TEDB)*
+
+### Tax documents (post-MVP, [ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md))
+
+> **Status (2026-11-15):** in scope by owner approval. The phase-0 prerequisites are delivered — per-line tax facts, the
+> OSS-aware tax strategy, seller tax identity and establishments, buyer identity at checkout (bill-to, optional business
+> name + tax ID, a saved default on the account), renewal and usage tax with settled-charge events, and the invoicing
+> facts on the order and refund events. The Invoicing service itself (phase 1) is not built yet, so no document is
+> issued today.
+
+- ✅ Customer tax invoices (full / simplified per jurisdiction) issued at payment capture, for orders, renewals and usage charges
+- ✅ Credit notes for refunds / RMA referencing the original invoice; issued documents immutable
+- ✅ Gapless, chronological numbering per series (seller × establishment × document type × year) — distinct from the gap-tolerant order number
+- ✅ Jurisdiction profiles: EU-BASE (VAT Directive common rule set) + Australia + generic; home Member State profile configured after company registration; readiness gate per storefront
+- ✅ PDF delivery via account page / signed link; 10-year WORM retention
+- ❌ Structured e-invoicing / clearance (Peppol, SdI, KSeF, FR PA, VeriFactu) — phase 3
+- ❌ Reverse charge / VIES B2B — phase 2;  ❌ marketplace / deemed-supplier model
 
 ### Support & RMA
 - ✅ Order-linked support tickets with typed reasons (where-is-it, damaged, refund request)

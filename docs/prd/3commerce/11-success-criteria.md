@@ -20,6 +20,13 @@ The MVP is done when a shopper can find a product among ≥ 10,000 seeded SKUs, 
 - ✅ **FR-12** Admin (Blazor) supports catalog CRUD, order inspection, import monitoring, RMA queue, refund issuing — gated by admin role.
 - ✅ **FR-13** Transactional emails fire on: verification, reset, order confirmation, tracking assignment, RMA state changes.
 
+*Post-MVP — customer tax documents ([ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md), in scope since 2026-11-15; ⬜ = not met yet):*
+
+- ⬜ **FR-14** Every confirmed order / settled renewal / usage charge produces exactly one tax document at capture.
+- ⬜ **FR-15** Every completed refund produces one credit note referencing the original invoice, never exceeding the remainder; chargebacks flag, never auto-credit.
+- ⬜ **FR-16** Shoppers download their tax documents; operators search/re-send/export; series/profile changes audited.
+- ⬜ **FR-17** A storefront cannot go live in an invoice-requiring jurisdiction without seller tax ID + profile.
+
 ## Non-functional requirements
 
 - ✅ **NFR-1 (Ledger invariant)** Every ledger transaction balances; enforced by DB constraint and tests. Zero unbalanced entries, ever.
@@ -30,6 +37,12 @@ The MVP is done when a shopper can find a product among ≥ 10,000 seeded SKUs, 
 - ✅ **NFR-6 (Security)** Cookie flags (`Secure/HttpOnly/SameSite`), Argon2id parameters, gateway header-stripping, and rate limiting verified by tests; Identity self-audited against OWASP ASVS L1 before any live traffic.
 - ✅ **NFR-7 (Observability)** One checkout = one OpenTelemetry trace spanning gateway → Ordering → Payments → Notifications.
 - ✅ **NFR-8 (Revocation)** Logout/password-reset invalidates sessions within ≤ 60 s everywhere (gateway cache bound).
+
+*Post-MVP — customer tax documents ([ADR-0063](../../adr/0063-customer-tax-invoices-and-credit-notes.md)):*
+
+- ⬜ **NFR-9 (Gapless numbering)** unique, gapless, chronological per series under concurrency/redelivery/crash.
+- ⬜ **NFR-10 (Immutability & retention)** issued content immutable (DB-enforced), hash-chained, retained per profile (default 10 y).
+- ⬜ **NFR-11 (Reconciliation)** invoice/credit totals reconcile to ledger and tax accounts per storefront/currency/day.
 
 ## Quality indicators
 
