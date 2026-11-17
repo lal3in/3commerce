@@ -214,7 +214,10 @@ public class OrderingDbContext(DbContextOptions<OrderingDbContext> options) : Db
         // A sale split across destinations (ADR-0063 § 16, per-line destination) has one row per destination.
         modelBuilder.Entity<EuDistanceSale>(sale =>
         {
-            sale.HasKey(x => new { x.OrderId, x.DestinationCountry });
+            // A settled renewal counts too (ADR-0063 § 16, OSS threshold crossing): one row per (order, destination,
+            // supply) — "" for the checkout sale, the renewal's ledger reference for each renewed period.
+            sale.HasKey(x => new { x.OrderId, x.DestinationCountry, x.SourceReference });
+            sale.Property(x => x.SourceReference).HasMaxLength(200);
             sale.Property(x => x.HomeCountry).HasMaxLength(2);
             sale.Property(x => x.DestinationCountry).HasMaxLength(2);
             sale.Property(x => x.Currency).HasMaxLength(3);
