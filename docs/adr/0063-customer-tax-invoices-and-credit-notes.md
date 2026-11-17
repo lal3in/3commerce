@@ -1,6 +1,6 @@
 # 0063 — Customer tax invoices and credit notes (EU VAT-compliant, any currency, any jurisdiction)
 
-Status: **Accepted** — 2026-10-11. The owner's decisions are recorded in § 12. This ADR is design only; implementation starts with phase 0 (§ 9.1). The PRD update in § 14 remains **pending the owner's separate approval** of the scope change.
+Status: **Accepted** — 2026-10-11. The owner's decisions are recorded in § 12. This ADR is design only; implementation starts with phase 0 (§ 9.1). The PRD update in § 14 (the scope change) was **applied 2026-11-15 (owner approval)**.
 Date: 2026-10-11 (proposed and accepted)
 Area: Invoicing (new) / Ordering / Payments / Support / Catalog / Entity / Notifications
 Relates to: [0014](./0014-stripe-only-v1-double-entry-ledger.md) (ledger as money truth), [0017](./0017-xero-nightly-summary-journals.md) (Xero summary journals — unchanged), [0023](./0023-strict-multi-tenancy.md) (tenant = one legal business), [0024](./0024-tenant-isolation-postgres-rls.md) (RLS), [0028](./0028-product-supply-profiles-composable-supply.md) (offers / suppliers / dropship), [0030](./0030-deferred-services-extracted.md) (service extraction rules), [0038](./0038-per-currency-shelf-prices-and-tax-entry.md) (inclusive/exclusive tax entry), [0041](./0041-per-store-order-costs-chargebacks-and-estimated-margin.md) (chargebacks, no-FX posture), [0043](./0043-storefront-scoped-carriers-payments-and-go-live-gate.md) (go-live gate), [0045](./0045-mandatory-per-storefront-ledger-attribution.md) (per-store ledger), [0055](./0055-discounted-refund-basis-and-storefront-scoped-tax.md) (refund basis, storefront-scoped tax), [0056](./0056-a-refunded-order-keeps-its-redemption.md), [0057](./0057-subscription-renewal-price-and-introductory-promotions.md) (renewal price), [0058](./0058-branching-and-release-promotion.md), [0059](./0059-checkout-enforces-storefront-currency-and-catalog-offer-gate.md)
@@ -716,10 +716,16 @@ orders.
 
 ---
 
-## 14. Proposed PRD diff (NOT applied — PRD update pending the owner's separate approval)
+## 14. PRD diff (applied 2026-11-15 (owner approval))
 
-> Accepting this ADR does **not** apply the scope change. Per the PRD rule, the PRD is edited only once
-> the owner approves this diff separately; until then the PRD stays as is.
+> Accepting this ADR did **not** apply the scope change: per the PRD rule, the PRD is edited only once the
+> owner approves this diff separately. The owner approved it on 2026-11-15 and it was applied to
+> `docs/prd/` (tracker `tax_invoicing_prd_diff`). The diff below is kept as proposed. The applied text
+> differs where § 16 changed the picture since: the OSS-aware strategy is recorded as delivered (P1b and
+> its follow-ups — per-line destination, special territories and Northern Ireland, OSS renewals) in
+> §§ 4 and 13; § 4 notes that the phase-0 prerequisites are delivered and the Invoicing service is not
+> built yet; the § 6 row and the new FR/NFR are marked as not built / not met; Appendix B #1 gains the
+> home Member State (D2, configuration); and the glossary entries are rows of the PRD's glossary table.
 
 ```diff
 --- docs/prd/3commerce/04-mvp-scope.md

@@ -2,8 +2,9 @@
 
 - **PRD:** 3commerce — microservices e-commerce platform (storefront, custom auth, ledger-backed payments, RMA support, Xero sync)
 - **Status:** MVP on dev/test rails — conformance A−→A (16/21 FR/NFR met after FR-7; see `docs/reviews/prd-vs-implementation.md`). Known gaps tracked as backlog (admin catalog CRUD, NFR-2/5/7 tests). Pending external review & launch gates.
+- **Scope change 2026-11-15 (owner approval):** customer tax invoices + credit notes are in post-MVP scope ([ADR-0063](../adr/0063-customer-tax-invoices-and-credit-notes.md) § 14) — §§ 4, 6, 11 (FR-14–17, NFR-9–11, not met yet), 13 and 15 updated. Phase-0 prerequisites delivered; the Invoicing service (phase 1) is not built yet.
 - **Owner:** lehn
-- **Last updated:** 2026-06-15
+- **Last updated:** 2026-11-15
 
 ---
 
