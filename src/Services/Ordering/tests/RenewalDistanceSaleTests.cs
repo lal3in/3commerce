@@ -51,7 +51,11 @@ public class RenewalDistanceSaleTests
     {
         var line = new OrderLine
         {
-            Title = "S", Quantity = 1, UnitPriceMinor = 1_000, TaxableBaseMinor = 1_000, TaxDestinationCountry = "ES",
+            Title = "S",
+            Quantity = 1,
+            UnitPriceMinor = 1_000,
+            TaxableBaseMinor = 1_000,
+            TaxDestinationCountry = "ES",
             ExemptionReason = TaxExemptionReason.OutsideEuVatArea,
         };
         Assert.Null(EuDistanceSale.ForRenewal(Order("DE", "ES", line), line, "renew-x-2", "EUR", 1_000, TaxScheme.Domestic, Now, Now));
