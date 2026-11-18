@@ -16,7 +16,6 @@ import type { Instrumentation } from "next";
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { registerOTel } = await import("@vercel/otel");
-  const { randomUUID } = await import("node:crypto");
   const { ENVIRONMENT_KEY, SERVICE_NAME, SERVICE_NAMESPACE, resolveEnvironment, serviceVersion, vcsRevision } =
     await import("./lib/telemetry/release");
 
@@ -27,7 +26,7 @@ export async function register() {
     "service.namespace": SERVICE_NAMESPACE,
     "service.version": serviceVersion(),
     [ENVIRONMENT_KEY]: environment,
-    "service.instance.id": randomUUID(),
+    "service.instance.id": globalThis.crypto.randomUUID(),
   };
   if (revision) attributes["vcs.ref.head.revision"] = revision;
 

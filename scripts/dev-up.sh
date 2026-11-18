@@ -84,7 +84,13 @@ if (( WITH_FRONTENDS )); then
   # process kept writing to an unlinked file nobody could read). Absolute path: the storefront line runs
   # after `cd`. The pid redirection is set up by the parent shell, so `.run/...` still resolves there.
   local_run="$(pwd)/.run"
-  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
+  # Storefront telemetry (audit P1-2/P1-3): SSR spans go to the collector's OTLP/HTTP port (:4318 — @vercel/otel
+  # speaks http/protobuf, not the gRPC :4317 the .NET services use); the /rum relay forwards browser RUM to the
+  # collector's faro receiver (:8027). `-` keeps an explicitly-empty value (opt out) as is.
+  ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 \
+      OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
+      FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027}" \
+      nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
   nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid
   nohup env ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
