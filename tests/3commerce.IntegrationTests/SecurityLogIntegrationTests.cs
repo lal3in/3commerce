@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -20,9 +19,11 @@ public class SecurityLogIntegrationTests(Phase2Fixture fixture)
     public async Task Failed_logins_and_the_lockout_are_security_logged_by_id_never_by_email()
     {
         var sink = new SinkProvider();
-        using var identity = fixture.CreateIdentityFactory().WithWebHostBuilder(web =>
-            web.ConfigureServices(services => services.AddSingleton<ILoggerProvider>(sink)));
+        using var identity = fixture.CreateIdentityFactory();
         using var client = identity.CreateClient(new() { HandleCookies = false });
+        // Added to the running host (no WithWebHostBuilder: a derived factory escapes the fixture's host tracking);
+        // LoggerFactory.AddProvider attaches to loggers created before it too.
+        identity.Services.GetRequiredService<ILoggerFactory>().AddProvider(sink);
         var email = $"seclog-{Guid.NewGuid():N}@example.com";
         await client.PostAsJsonAsync("/register", new { email, password = "a-strong-password" });
 
