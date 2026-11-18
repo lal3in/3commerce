@@ -171,7 +171,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(dotnet_gc_heap_total_allocated_bytes_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name) (rate(dotnet_gc_heap_allocated_bytes_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "{{service_name}}"
         }
       ],
@@ -199,7 +199,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (dotnet_thread_pool_queue_length{service_name=~\"$service\"})",
+          "expr": "sum by (service_name) (dotnet_thread_pool_queue_length_total{service_name=~\"$service\"})",
           "legendFormat": "{{service_name}}"
         }
       ],
@@ -227,7 +227,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (dotnet_thread_pool_thread_count{service_name=~\"$service\"})",
+          "expr": "sum by (service_name) (dotnet_thread_pool_thread_count_total{service_name=~\"$service\"})",
           "legendFormat": "{{service_name}}"
         }
       ],

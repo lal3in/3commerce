@@ -1606,7 +1606,7 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
     curl -s -m 10 -o /dev/null -X POST "$GATEWAY/api/identity/login" -H 'content-type: application/json' \
       -d "{\"email\":\"l20b-nobody-$(date +%s)@example.com\",\"password\":\"not-a-real-password\"}" || true
     if tel_poll tel_loki '{log_category="security"} |= "Security: "'; then pass "L20b security logs in Loki (log_category=security)"; else fail "L20b security logs in Loki"; fi
-    if tel_poll tel_mimir 'sum(messaging_masstransit_consume_total)'; then pass "L20b MassTransit metrics in Mimir"; else fail "L20b MassTransit metrics in Mimir"; fi
+    if tel_poll tel_mimir 'sum(messaging_masstransit_consume_ea_total)'; then pass "L20b MassTransit metrics in Mimir"; else fail "L20b MassTransit metrics in Mimir"; fi
     if tel_poll tel_mimir 'sum(dotnet_gc_collections_total)'; then pass "L20b .NET runtime metrics in Mimir"; else fail "L20b .NET runtime metrics in Mimir"; fi
     if tel_poll tel_tempo '{span.db.system.name="postgresql"}'; then pass "L20b DB (Npgsql) spans in Tempo"; else fail "L20b DB spans in Tempo"; fi
     if tel_poll tel_tempo '{resource.service.name="admin"}'; then pass "L20b Admin traces in Tempo"; else fail "L20b Admin traces in Tempo"; fi

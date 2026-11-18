@@ -35,10 +35,10 @@
           "value": "$__all"
         },
         "query": {
-          "query": "label_values(messaging_masstransit_receive_total, service_name)",
+          "query": "label_values(messaging_masstransit_receive_ea_total, service_name)",
           "refId": "service"
         },
-        "definition": "label_values(messaging_masstransit_receive_total, service_name)"
+        "definition": "label_values(messaging_masstransit_receive_ea_total, service_name)"
       }
     ]
   },
@@ -60,7 +60,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name, messaging_masstransit_consumer_type) (rate(messaging_masstransit_consume_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name, messaging_masstransit_consumer_type) (rate(messaging_masstransit_consume_ea_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "{{service_name}} {{messaging_masstransit_consumer_type}}"
         }
       ],
@@ -88,7 +88,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name, messaging_masstransit_message_type, messaging_masstransit_exception_type) (rate(messaging_masstransit_consume_errors_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name, messaging_masstransit_message_type, messaging_masstransit_exception_type) (rate(messaging_masstransit_consume_errors_ea_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "{{service_name}} {{messaging_masstransit_message_type}} {{messaging_masstransit_exception_type}}"
         }
       ],
@@ -149,7 +149,7 @@
         },
         {
           "refId": "B",
-          "expr": "sum by (service_name) (rate(messaging_masstransit_consume_retries_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_consume_retries_ea_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "retries {{service_name}}"
         }
       ],
@@ -177,7 +177,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, service_name, messaging_masstransit_consumer_type) (rate({__name__=~\"messaging_masstransit_consume_duration(_milliseconds)?_bucket\", service_name=~\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name, messaging_masstransit_consumer_type) (rate(messaging_masstransit_consume_duration_milliseconds_bucket{service_name=~\"$service\"}[5m])))",
           "legendFormat": "{{service_name}} {{messaging_masstransit_consumer_type}}"
         }
       ],
@@ -205,12 +205,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (rate(messaging_masstransit_send_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_send_ea_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "send {{service_name}}"
         },
         {
           "refId": "B",
-          "expr": "sum by (service_name) (rate(messaging_masstransit_outbox_delivery_total{service_name=~\"$service\"}[5m]))",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_outbox_delivery_ea_total{service_name=~\"$service\"}[5m]))",
           "legendFormat": "outbox {{service_name}}"
         }
       ],
@@ -266,7 +266,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (messaging_masstransit_consume_active{service_name=~\"$service\"})",
+          "expr": "sum by (service_name) (messaging_masstransit_consume_active_ea_total{service_name=~\"$service\"})",
           "legendFormat": "{{service_name}}"
         }
       ],

@@ -201,7 +201,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (service_name) (db_client_connection_npgsql_pending_requests{service_name=~\"$service\"})",
+          "expr": "sum by (service_name) ({__name__=~\"db_client_connection_npgsql_pending_requests(_total)?\", service_name=~\"$service\"})",
           "legendFormat": "{{service_name}}"
         }
       ],
