@@ -361,6 +361,9 @@ Ledger postings (Payments):
   claims on `/payment-methods`) is the join: a vault whose email is unknown has "no card". An auto top-up with no default
   card is SKIPPED (never attempted, never dunned), not charged to the host account. Read saved cards inside the charge's
   tenant scope (`DefaultSavedCard`, `RunInTenantScopeAsync`): they are under FORCE RLS, and a consumer has no request scope.
+  Vaults opened before #332 have no email until the member revisits their saved cards — on an environment that ran a
+  pre-#332 build, run the backfill tool's `payment-customer-email` command (`payment_customer_email_backfill`, runbook
+  `order-confirmed-backfill.md`). It only FILLS a null email: a vault whose email differs from Identity's keeps it.
 - **Payments' vaults and cards are under FORCE RLS: take the tenant from the caller, never from the tables** (ADR-0024
   amendment, owner decision 2026-11-15). `PaymentCustomers` and `SavedPaymentMethods` are read and written only through
   `PaymentsTenantScope` with the tenant the caller already holds (the `tenant` claim, the charge/subscription row,

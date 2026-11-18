@@ -132,7 +132,7 @@
 #       re-sent request is the live SubscriptionRequestFor mapping with the subscription's own tax terms; --limit caps
 #       sends not counts; Payments applies it once (a redelivery is a no-op) and a re-run selects 0; safe CLI, queue
 #       subscription-requested, deterministic message id; SubscriptionTests: CorrectLegacyQuantity never downgrades
-#       or re-prices a carried quantity
+#       or re-prices a carried quantity; payment-customer-email command (PaymentCustomerEmailBackfillTests — see A3zp)
 #   A3f Unit · services wait for their bus (BusStartupTests): both AddServiceBus overloads set
 #       MassTransitHostOptions.WaitUntilStarted with a bounded StartTimeout (Messaging:StartTimeoutSeconds, default
 #       120; non-positive refused); a host whose broker is unreachable fails its start at the bound with
@@ -385,6 +385,15 @@
 #       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
 #       under OSS); installed in France over the threshold it is FR 20 % OSS, under it the home 19 %; in Northern Ireland it
 #       follows the UK (GB) while goods are XI
+#   A3zp Unit · payment vaults learn their member's email (payment_customer_email_backfill, ADR-0060 amendment
+#       2026-11-19; PaymentCustomerEmailRecordTests in Payments + PaymentCustomerEmailBackfillTests in the tool, A3e):
+#       a vault with no email learns the (normalized) account email and, with a default card, announces
+#       CustomerPaymentMethodReady and the card becomes findable by email; without a card nothing is announced; a known
+#       email is never overwritten; another tenant's vault is untouched; invalid commands do nothing; through the real
+#       PaymentCustomerEmailConsumer (test harness) a redelivery changes nothing and announces once. Tool: selects only
+#       vaults with NO email whose account is in the vault's tenant (Recorded / Differs / NoAccount never sent), one
+#       command per member, --limit caps sends not counts, a re-run selects 0, the report never prints an email, safe
+#       CLI, queue payment-customer-email, deterministic message id per (tenant, member)
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -512,6 +521,12 @@
 #       finds the existing vault without a provider call and saves the learnt email, and opens tenant B's own vault;
 #       CheckoutInstrument (AuthorizePaymentConsumer) finds vault + card in the order's tenant inside an open
 #       transaction and nothing in another; DefaultSavedCard finds the default/owned card in its tenant only
+#   A4kx Integration · payment-customer email backfill under FORCE RLS (payment_customer_email_backfill,
+#       PaymentCustomerEmailBackfillRlsTests, NON-superuser owner + the REAL migrations): a vault with no email learns
+#       it in the command's tenant scope, CustomerPaymentMethodReady is announced and DefaultSavedCard then finds the
+#       card by email; a known email is left alone and nothing announced; inside an open (outbox) transaction the email
+#       is recorded and a redelivery is a no-op; a command naming another tenant reaches no vault; the tool's
+#       PaymentsVaultSource lists tenants in platform scope and each tenant's vaults in its own scope
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -1114,6 +1129,12 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
+  stage "A3zp Payment vaults learn their member's email (payment_customer_email_backfill) — never overwritten, idempotent"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~PaymentCustomerEmailRecordTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tools/order-confirmed-backfill/tests" --no-build \
+      --filter 'FullyQualifiedName~PaymentCustomerEmailBackfillTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zp payment vaults learn their member's email"; else fail "A3zp payment vaults learn their member's email"; fi
 
   stage "A3zo .NET instrumentation — exceptions on spans, DB/messaging/stream spans, runtime meter, Kafka traceparent, Blazor ids"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \

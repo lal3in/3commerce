@@ -109,3 +109,27 @@ only the colliding side changes two queue names, both NEW, and leaves no stale q
   the [runbook](../runbooks/order-confirmed-backfill.md#storefront-duplications-storefront-duplicated-command).
 * A new consumer of an already-consumed event must carry a service-specific name. The guard says so in its
   failure message.
+
+## Amendment (2026-11-19) — the backfill tool's `payment-customer-email` command (`payment_customer_email_backfill`)
+
+Since #332 (owner decision 2026-11-06) a usage auto top-up charges the member's default saved card, which Payments
+finds by tenant + the email recorded on the member's vault (`payments."PaymentCustomers"`). A vault opened before #332
+learnt that email only when the member next opened their saved cards, so its card was invisible and the "add a card"
+email could not reach the member. The data to fix it lives in another service (Identity owns the account email), so —
+as for every other one-off repair this ADR's tool performs — the fix is an **operator-run command of the same tool**, not
+a new standing event: a `UserEmailChanged`-style feed would carry PII on the bus for every member forever to repair a
+finite, pre-#332 population that the saved-cards page already self-heals on the member's next visit.
+
+* `payment-customer-email` reads Payments' vaults (tenants in platform scope, each tenant's vaults in its RLS scope)
+  and Identity's `Users` (per tenant, in its RLS scope), and selects only vaults with **no** email whose user exists
+  in the vault's tenant. It **Sends** one `RecordPaymentCustomerEmail(TenantId, UserId, Email)` per member to
+  `queue:payment-customer-email` — Payments' own `PaymentCustomerEmailConsumer` (a name unique across services,
+  checked by `ConsumerEndpointNameTests`; the queue name is derived from the type, never typed) — with a deterministic
+  message id per (tenant, member), the `3c-backfill` header, and the usual broker preflight. Dry run is the default
+  posture (exactly one of `--dry-run` / `--execute`); neither the report nor any log prints an email.
+* Payments applies it in the command's tenant scope (`PaymentsTenantScope`, ADR-0024): the email is written **only to
+  the member's vaults that have none** — an email learnt from the member's own claims is never overwritten — and when
+  the member already has a default card `CustomerPaymentMethodReady` is published in the same outbox commit, so Usage
+  resumes the top-ups it paused. A redelivery or re-run is a no-op. Proven against FORCE RLS as a non-superuser by
+  `PaymentCustomerEmailBackfillRlsTests`; see the [README](../../tools/order-confirmed-backfill/README.md#payment-customer-email--give-old-payment-vaults-their-members-email)
+  and [runbook](../runbooks/order-confirmed-backfill.md#payment-vaults-without-an-email-payment-customer-email-command).
