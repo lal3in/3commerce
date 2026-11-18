@@ -153,3 +153,24 @@ Grafana SSO/ingress for production Grafana (reached by port-forward until then).
 - Running Mimir's ingest-storage Kafka and Loki/Tempo on object storage is now ours to operate (runbook).
 - `doctor.sh`, `host-check.sh` and the infra readiness probe check the collector's health endpoint, the Faro
   receiver and the count of provisioned alert rules.
+
+## Amendment 2026-11-19 — Loki ingest limits and oversized records
+
+A seeded `dev-up` lost logs in two ways. (1) Loki's default ingest limits (4 MB/s per tenant, burst 6 MB, 3 MB/s
+per stream) answered the catalog import's burst with **429** — the collector retried, so the logs landed minutes
+late. (2) A single ~577 KB EF command record from that import failed its **whole push with a 400**, first for the
+line (`max_line_size` 256 KB) and then for the structured metadata (64 KB): the exporter treats 400 as permanent,
+so 25–31k unrelated records were dropped per run.
+
+Decision:
+
+- **Limits:** dev and the in-chart (kind) Loki `ingestion_rate_mb: 16`, `ingestion_burst_size_mb: 32`,
+  `per_stream_rate_limit: 8MB`, `per_stream_rate_limit_burst: 32MB`; production (`values-loki.yaml`) double that
+  (32 / 64 / 16 MB / 64 MB), because the platform writes as one tenant. Bounded on purpose: 64 MB/s once got the
+  dev Loki OOM-killed in a 6 GB VM.
+- **Oversized records are truncated, never rejected:** Loki `max_line_size_truncate: true` (body), and a collector
+  processor `transform/truncate_attributes` (`truncate_all(log.attributes, 8192)`) in the logs pipeline after
+  `transform/redact` — after, so a cut never leaves part of an email or token unredacted. Identical in dev and Helm.
+
+Measured on a seeded `dev-up` (existing volumes): no 429 and no dropped record; numbers in the PR. Runbook:
+"Logs missing or late in Loki".

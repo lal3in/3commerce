@@ -58,14 +58,16 @@ limits_config:
   # and retries, so logs landed minutes late). 16 MB/s with a 32 MB burst admits that burst; the per-stream limit
   # (one stream = one service instance) follows so a single chatty service (catalog during the import) is not the
   # bottleneck instead. Bounded on purpose: 64 MB/s once let a `--data full` seed land everything at once and Loki
-  # was OOM-killed (~3 GB RSS) in a 6 GB Colima VM — measured at these values Loki stays well under 1 GB.
+  # was OOM-killed (~3 GB RSS) in a 6 GB Colima VM. Measured at these values: Loki peaks ~1.15 GB during a seeded
+  # dev-up, with no 429 and no dropped record (VM peak 3.6 GB used of 5.8 GB).
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 32
   per_stream_rate_limit: 8MB
   per_stream_rate_limit_burst: 32MB
   # A single log line over max_line_size (256 KB default) used to fail the WHOLE push with a 400, and the collector
   # drops a 400 as permanent: one 576 KB EF SQL line from the catalog import cost 25k unrelated log records. Truncate
-  # the oversized line instead; the rest of the batch lands.
+  # the oversized line instead; the rest of the batch lands. (Its attributes — structured metadata, 64 KB limit — are
+  # capped by the collector: transform/truncate_attributes.)
   max_line_size_truncate: true
 
 # The compactor applies retention_period (above) and processes delete requests. Loki 3 requires a
