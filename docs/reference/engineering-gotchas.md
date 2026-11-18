@@ -301,7 +301,9 @@ Checkout tax (Ordering, ADR-0063 P1):
   threshold's running total is Σ `ordering."EuDistanceSales"` per tenant per UTC year, written in the SAME
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Destinations are PER LINE (ADR-0063 § 16):
-  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; record
+  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; a `ManualService` line
+  (installation, assembly) is taxed WHERE PERFORMED — the ship-to, never the bill-to (owner decision 2026-11-15, final;
+  `ManualServicePlaceOfSupplyTests`); record
   `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Pass
   the ship-to/bill-to REGION and POSTCODE too: a country alone cannot tell the Canaries (export, zero-rated) from
   Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). An OSS subscription renews at its
