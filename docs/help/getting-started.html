@@ -136,6 +136,15 @@ npm run dev                       <span class="cmt"># next dev -p 3000</span></c
 npm run build
 GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         <p>The storefront reads <code>GATEWAY_URL</code> (default <code>http://localhost:8080</code>) — see <code>src/Storefront/.env.example</code>. It talks <strong>only</strong> to the gateway.</p>
+        <h4 id="storefront-telemetry">Storefront telemetry (ADR-0065)</h4>
+        <ul>
+          <li><code>OTEL_EXPORTER_OTLP_ENDPOINT</code> — SSR spans over OTLP <strong>http/protobuf</strong>; use the collector's <code>http://localhost:4318</code> (not the gRPC <code>:4317</code>). Unset = nothing exported. <code>dev-up.sh</code> sets it (<code>STOREFRONT_OTLP_ENDPOINT=</code> opts out).</li>
+          <li><code>FARO_RECEIVER_URL</code> (default <code>http://localhost:8027</code>) — where the same-origin <code>/rum</code> relay forwards browser RUM (the collector's internal <code>faro</code> receiver). No receiver = batches dropped silently.</li>
+          <li><code>FARO_ENABLED=false</code> turns browser RUM off; <code>PUBLIC_GATEWAY_URL</code> lists extra browser-facing origins that may receive <code>traceparent</code>.</li>
+          <li><code>OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=…</code> — a production server with none counts as <code>prod</code>, which also turns the <code>/probe/*</code> error probes off.</li>
+        </ul>
+        <p>Browser telemetry is anonymous by design (owner decision 2026-11-15): no session or user ids, no IP, no replay; query strings and tokens are scrubbed in the browser <strong>and</strong> in <code>/rum</code>. Error pages show a <strong>support reference</strong> (server digest or SSR trace id) — find it in <code>.run/storefront.log</code> (<code>"msg":"storefront request error"</code>, with the <code>traceId</code>) or in Grafana.</p>
+        <p><strong>Source maps.</strong> <code>npm run build</code> builds browser source maps and its <code>postbuild</code> step moves them to <code>&lt;distDir&gt;/sourcemaps/</code> (never served; the image copies only <code>static/</code>). To symbolicate Faro stack traces, upload that folder as a build step — e.g. Grafana Cloud: <code>npx @grafana/faro-cli upload --endpoint &lt;url&gt; --app-id &lt;id&gt; --api-key $FARO_API_KEY --bundle-id &lt;service.version&gt; .next/sourcemaps</code> — or keep it as a CI artifact and resolve frames locally. Never copy it into <code>public/</code> or <code>static/</code>.</p>
 
         <h3 id="step-5">5 · Start the admin console (<code>:5200</code>)</h3>
         <pre><code>ASPNETCORE_URLS="http://localhost:5200" dotnet run --project src/Admin</code></pre>

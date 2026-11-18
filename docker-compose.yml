@@ -175,6 +175,8 @@ services:
       NODE_ENV: production
       GATEWAY_URL: http://gateway:8080
       PORT: "3000"
+      # Browser RUM relay target (ADR-0065): the collector's internal faro receiver. Fails soft when absent.
+      FARO_RECEIVER_URL: http://otel-collector:8027
     ports:
       - "3000:3000"
     depends_on:

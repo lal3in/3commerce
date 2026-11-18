@@ -57,7 +57,7 @@ const nextConfig: NextConfig = {
   // Browser source maps are BUILT (so a Faro stack trace can be symbolicated) but never SERVED: the postbuild
   // step (scripts/move-sourcemaps.mjs) moves every .map out of <distDir>/static into <distDir>/sourcemaps for
   // upload, and middleware.ts answers /_next/static/**.map with 404 in production as a second guard.
-  // Upload step: docs/help/observability.md ("Storefront source maps").
+  // Upload step: docs/help/getting-started.md ("Storefront source maps").
   productionBrowserSourceMaps: true,
   env: {
     NEXT_PUBLIC_SERVICE_VERSION: release.serviceVersion,

@@ -18,7 +18,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG GIT_SHA=""
 ARG VERSION=""
 # The postbuild step moves browser source maps to .next/sourcemaps; only .next/static is copied below, so they
-# never reach the runtime image (upload them from the build stage — docs/help/observability.md).
+# never reach the runtime image (upload them from the build stage — docs/help/getting-started.md).
 RUN GIT_SHA="$GIT_SHA" VERSION="$VERSION" npm run build
 
 FROM node:22-alpine AS runtime

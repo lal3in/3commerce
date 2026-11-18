@@ -3,7 +3,7 @@
 // next.config.ts builds them (productionBrowserSourceMaps) so a Faro stack trace can be symbolicated, but they must
 // never be public — they are the readable source. Everything under <distDir>/static is served at /_next/static and
 // copied into the container image, so the maps go to <distDir>/sourcemaps/<same relative path> instead: a build
-// artifact for the upload step (docs/help/observability.md, "Storefront source maps"). middleware.ts 404s any
+// artifact for the upload step (docs/help/getting-started.md, "Storefront source maps"). middleware.ts 404s any
 // /_next/static/**.map request in production as a second guard.
 
 import { mkdirSync, readdirSync, renameSync, statSync } from "node:fs";

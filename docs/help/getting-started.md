@@ -125,6 +125,27 @@ GATEWAY_URL=http://localhost:8080 npm run start
 The storefront reads `GATEWAY_URL` (default `http://localhost:8080`) — see
 `src/Storefront/.env.example`. It talks **only** to the gateway.
 
+#### Storefront telemetry (ADR-0065)
+
+| Variable | Default | What it does |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset (no export) | SSR spans over OTLP **http/protobuf** — use the collector's `http://localhost:4318` (not the gRPC `:4317` the .NET services use). `dev-up.sh` sets it (`STOREFRONT_OTLP_ENDPOINT=` opts out). |
+| `FARO_RECEIVER_URL` | `http://localhost:8027` | Where the same-origin `/rum` relay forwards browser RUM (the collector's internal `faro` receiver). Missing receiver = batches dropped silently, the page is unaffected. |
+| `FARO_ENABLED` | `true` | `false` turns browser RUM off. |
+| `PUBLIC_GATEWAY_URL` | unset | Comma-separated browser-facing origins that may receive `traceparent` besides the storefront's own. |
+| `OTEL_RESOURCE_ATTRIBUTES` | — | `deployment.environment.name=dev\|test\|prod\|ci`; a production server with none counts as `prod`, which also turns the `/probe/*` error probes off. |
+
+Browser telemetry is anonymous by design (owner decision 2026-11-15): no session or user ids, no IP, no replay,
+query strings and tokens scrubbed in the browser **and** in `/rum`. Error pages show a **support reference** (the
+server digest or the SSR trace id); find it in `.run/storefront.log` (`"msg":"storefront request error"`, with the
+`traceId`) or in Grafana.
+
+**Source maps.** `npm run build` builds browser source maps and its `postbuild` step moves them to
+`<distDir>/sourcemaps/` (never served; the image only copies `static/`). To symbolicate Faro stack traces, upload
+that folder as a build step — e.g. Grafana Cloud: `npx @grafana/faro-cli upload --endpoint <url> --app-id <id>
+--api-key $FARO_API_KEY --bundle-id <service.version> .next/sourcemaps` — or keep it as a CI artifact and resolve
+frames locally (`npx source-map-cli resolve <file>.map <line> <col>`). Never copy it into `public/` or `static/`.
+
 ### 5. Start the admin console (`:5200`)
 
 ```bash
