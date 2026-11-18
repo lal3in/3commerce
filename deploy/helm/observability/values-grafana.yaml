@@ -1,0 +1,112 @@
+# Grafana for production (ADR-0065) — chart grafana-community/grafana 14.5.0 (Grafana 13.3.1), installed by
+# install-lgtm.sh into namespace `observability`. Never exposed publicly: no ingress here; reach it with
+# `kubectl -n observability port-forward svc/grafana 3001:80` or put it behind the platform's SSO/VPN.
+#
+# Provisioning comes from the SAME files as dev (one source):
+#   alerting   ConfigMap grafana-alerting   ← deploy/observability/grafana/provisioning/alerting/*.yml
+#   dashboards ConfigMap grafana-dashboards ← deploy/observability/grafana/provisioning/dashboards/*
+# (install-lgtm.sh creates both). Datasources below keep dev's fixed uids (mimir, loki, tempo) so the rules and
+# dashboards resolve unchanged, but point at the upstream gateways with the 3commerce tenant header.
+#
+# Secrets (create before installing; nothing real is committed):
+#   grafana-admin     admin-user / admin-password
+#   grafana-alerting  GF_SMTP_HOST (host:port),
+#                     GF_SMTP_USER, GF_SMTP_PASSWORD, GF_SMTP_FROM_ADDRESS
+# Alert recipient(s): NOT a secret — install-lgtm.sh sets env.ALERT_EMAIL_TO from deploy/observability/alerting.env.
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+envFromSecret: grafana-alerting
+
+grafana.ini:
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+  users:
+    allow_sign_up: false
+  smtp:
+    enabled: true           # host/user/password/from come from grafana-alerting (GF_SMTP_* env)
+  unified_alerting:
+    enabled: true
+
+persistence:
+  enabled: true             # alert state + silences survive restarts
+  size: 5Gi
+
+extraConfigmapMounts:
+  - name: grafana-alerting
+    configMap: grafana-alerting
+    mountPath: /etc/grafana/provisioning/alerting
+    readOnly: true
+  - name: grafana-dashboards
+    configMap: grafana-dashboards
+    mountPath: /etc/grafana/provisioning/dashboards
+    readOnly: true
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Mimir
+        type: prometheus
+        uid: mimir
+        access: proxy
+        url: http://mimir-gateway.observability.svc/prometheus
+        isDefault: true
+        editable: false
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
+        secureJsonData:
+          httpHeaderValue1: 3commerce
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki-gateway.observability.svc
+        editable: false
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          derivedFields:
+            - name: TraceID
+              matcherType: label
+              matcherRegex: trace_id
+              datasourceUid: tempo
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: 3commerce
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo.observability.svc:3200
+        editable: false
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags: [{ key: "service.name", value: "service_name" }]
+            filterByTraceID: true
+          serviceMap:
+            datasourceUid: mimir
+          nodeGraph:
+            enabled: true
+        secureJsonData:
+          httpHeaderValue1: 3commerce
+      # Dev's dashboards also reference uid `prometheus` (the local scrape view); alias it to Mimir in production.
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://mimir-gateway.observability.svc/prometheus
+        editable: false
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
+        secureJsonData:
+          httpHeaderValue1: 3commerce

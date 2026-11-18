@@ -75,6 +75,17 @@ public class Payment
     public long TaxMinor { get; init; }
     /// <summary>Shipping portion of <see cref="AmountMinor"/> — booked to income.shipping (its own P&amp;L line).</summary>
     public long ShippingMinor { get; init; }
+
+    /// <summary>
+    /// The part of <see cref="TaxMinor"/> charged under the Union OSS scheme, by Member State of consumption (ADR-0063 § 16,
+    /// per-destination OSS tax accounts), in <see cref="Ledger.OssTaxSplit"/>'s persisted form (<c>FR:200,IT:150</c>). The
+    /// sale posts each share to its destination's OSS account, and every refund or chargeback takes the tax back from the
+    /// same accounts. Null = no OSS part (every non-EU and domestic charge, and every row written before it).
+    /// </summary>
+    public string? OssTax { get; init; }
+
+    /// <summary><see cref="OssTax"/> read back (empty when there is none).</summary>
+    public OssTaxSplit OssTaxShares => OssTaxSplit.Parse(OssTax);
     public required string Currency { get; init; }
     public PaymentStatus Status { get; set; }
 
@@ -141,6 +152,7 @@ public class Payment
             PaymentIntentId = paymentIntentId,
             AmountMinor = grossMinor,
             TaxMinor = Ledger.Ledger.TaxOf(entry, taxAccount),
+            OssTax = Ledger.Ledger.OssTaxOf(entry, taxAccount).Serialize(),
             Currency = currency,
             Status = PaymentStatus.Succeeded,
             MethodKind = PaymentMethodKind.Card,

@@ -108,17 +108,31 @@ HTTP in + out) via OTLP whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set. An opt-in
 the backend:
 
 ```bash
-# set OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317 in deploy/.env.dev, then:
-docker compose --profile observability up otel-collector prometheus grafana
+# deploy/.env.dev already sets OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317 (ADR-0065); bare-run gets
+# http://localhost:4317 from run-all.sh. dev-up.sh starts the whole LGTM set; by hand:
+docker compose --profile observability up -d otel-collector loki tempo mimir prometheus grafana
 ```
 
-- **OTel Collector** receives OTLP and re-exports a Prometheus scrape target.
-- **Prometheus** scrapes the collector.
-- **Grafana** (`:3001`, admin/admin by default — change `GRAFANA_ADMIN_PASSWORD`) auto-provisions the
-  Prometheus datasource and the **Services (RED)** dashboard (`deploy/observability/`).
+- **OTel Collector** (`otel/opentelemetry-collector-contrib:0.165.0`, ADR-0065): OTLP on `:4317`/`:4318`,
+  the **Faro receiver** for browser RUM on `:8027` (the storefront's `/rum` route relays to it; anonymised —
+  no identifiers, IP or replay), health on `:13133`. Traces → Tempo, logs → Loki, metrics → Mimir + a
+  Prometheus scrape target. Redacts secrets/emails, drops background noise, and labels authentication /
+  permission-denied logs `log_category=security` (kept 12 months; other logs 30 days).
+- **Grafana** (`:3001`, admin/admin by default — change `GRAFANA_ADMIN_PASSWORD`) provisions the datasources,
+  dashboards and **alert rules** (5xx > 1 %, p95 latency, `_error` queues, error-log spikes, Valkey, collector
+  heartbeat). Alerts go by email to `ALERT_EMAIL_TO`, set in `deploy/observability/alerting.env` (placeholder `test@test.com`);
+  enable sending with `GRAFANA_SMTP_ENABLED=true GRAFANA_SMTP_HOST=host:port GRAFANA_SMTP_USER=…
+  GRAFANA_SMTP_PASSWORD=… GRAFANA_SMTP_FROM=…` in your shell before `dev-up.sh`.
 
-Metrics are ops data, never financial truth; keep Grafana behind admin auth / a private network. Helm
-wiring for the stack is launch-gated.
+**Production (Helm, ADR-0065):** install the self-hosted LGTM set first —
+`S3_ENDPOINT=… S3_REGION=… deploy/helm/observability/install-lgtm.sh` (upstream Loki/Tempo/Mimir on object
+storage + Grafana with the same dashboards and alert rules; needs the Secrets `lgtm-object-storage`,
+`grafana-admin`, `grafana-alerting` — see the script header). `values-prod.yaml` turns on the chart's
+collector with `observability.backend=external` and tail sampling (errors, > 800 ms, checkout/payment
+routes, 15 % of the rest). `--template` renders the four charts for review without a cluster. Operating
+it: [`docs/runbooks/observability.md`](../runbooks/observability.md).
+
+Metrics are ops data, never financial truth; keep Grafana behind admin auth / a private network.
 
 **Publishing preview links (def_5):** signed with `Publishing:PreviewSecret` (Marketing service; dev
 default `dev-preview-secret`) — set a real secret in any deployed environment. The `scheduled-publish`

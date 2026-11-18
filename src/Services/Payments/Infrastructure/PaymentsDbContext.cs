@@ -37,6 +37,9 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
     public DbSet<WebhookSecret> WebhookSecrets => Set<WebhookSecret>();
     public DbSet<StorefrontLedgerAccounts> StorefrontLedgerAccounts => Set<StorefrontLedgerAccounts>();
 
+    /// <summary>Payments' copy of the seller's EU distance-sales running total (ADR-0063 § 16, OSS threshold crossing).</summary>
+    public DbSet<EuDistanceSaleCopy> EuDistanceSaleCopies => Set<EuDistanceSaleCopy>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -151,6 +154,19 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             s.Property(x => x.ReceivableAccountCode).HasMaxLength(80);
             s.Property(x => x.RevenueAccountCode).HasMaxLength(80);
             s.Property(x => x.TaxAccountCode).HasMaxLength(80);
+            s.Property(x => x.TaxJurisdiction).HasMaxLength(6).HasDefaultValue(string.Empty);
+        });
+
+        // ADR-0063 § 16, OSS threshold crossing: Ordering's running-total rows, keyed like the source so a redelivery counts
+        // once; a renewal sums them per (tenant, year, currency), which the index serves without touching the other columns.
+        modelBuilder.Entity<EuDistanceSaleCopy>(sale =>
+        {
+            sale.HasKey(x => new { x.OrderId, x.DestinationCountry, x.SourceReference });
+            sale.Property(x => x.DestinationCountry).HasMaxLength(2);
+            sale.Property(x => x.SourceReference).HasMaxLength(200);
+            sale.Property(x => x.HomeCountry).HasMaxLength(2);
+            sale.Property(x => x.Currency).HasMaxLength(3);
+            sale.HasIndex(x => new { x.TenantId, x.Year, x.Currency }).IncludeProperties(x => x.NetMinor);
         });
 
         modelBuilder.Entity<Payment>(p =>
@@ -160,6 +176,9 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             p.Property(x => x.Kind).HasDefaultValue(PaymentKind.Order);
             p.HasIndex(x => x.OrderId).IsUnique().HasFilter("\"Kind\" = 1");
             p.HasIndex(x => x.ChargeReference).IsUnique().HasFilter("\"ChargeReference\" IS NOT NULL");
+            // ADR-0063 § 16: the OSS part of the tax by destination (FR:200,IT:150); null = none.
+            p.Property(x => x.OssTax).HasMaxLength(400);
+            p.Ignore(x => x.OssTaxShares);
             p.Property(x => x.ChargeReference).HasMaxLength(200);
             p.HasIndex(x => x.SubscriptionId);
             p.HasIndex(x => x.PaymentIntentId);

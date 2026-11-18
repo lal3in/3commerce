@@ -384,6 +384,9 @@ public static class CheckoutEndpoints
         // reports none: the sale and its every line are then recorded at the ship-to country, as before.
         var taxDestination = tax.SaleDestination ?? shipToCountry;
         string LineTaxDestination(int index) => tax.LineDestinations?[index] ?? shipToCountry;
+        // ADR-0063 § 16, per-destination OSS tax accounts: the OSS part of the tax by Member State of consumption, so Payments
+        // posts each destination's VAT to its own liability account (an OSS return is filed per destination).
+        var ossTax = OssTaxShares.Of(tax, storefrontCopy?.TaxJurisdiction, shipToCountry);
 
         // Inclusive (AU GST / EU VAT, ADR-0038): the listed price IS the charge and the tax is contained in it.
         // Exclusive (US sales tax): the tax is added on top.
@@ -477,7 +480,8 @@ public static class CheckoutEndpoints
         try
         {
             var response = await authorize.GetResponse<AuthorizePaymentResult>(
-                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor), ct);
+                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor, TenantId: tenantId,
+                    OssTax: ossTax.Count == 0 ? null : ossTax.Select(s => new OssTaxDestination(s.Country, s.TaxMinor)).ToArray()), ct);
             intent = response.Message;
         }
         catch (RequestTimeoutException)

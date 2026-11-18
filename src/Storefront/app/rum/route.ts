@@ -13,7 +13,7 @@ import { scrubTelemetry } from "@/lib/telemetry/scrub";
 // Fail-soft: a missing, slow or failing receiver is answered 202 with nothing relayed, so Faro never retries in a
 // loop and the page never notices. Cross-site posts are refused.
 //
-// FARO_RECEIVER_URL — the receiver's URL (it accepts POSTs at "/"); dev default http://localhost:8027.
+// FARO_RECEIVER_URL — the receiver's URL (it accepts POSTs at "/"); dev default http://localhost:8027/ (compose/k8s: http://otel-collector:8027/). It needs Content-Type application/json and answers 202; the receiver is alpha (ADR-0065).
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ const MAX_BYTES = 256 * 1024;
 const FORWARD_TIMEOUT_MS = 3_000;
 
 function receiverUrl(): string {
-  return (process.env.FARO_RECEIVER_URL ?? "").trim() || "http://localhost:8027";
+  return (process.env.FARO_RECEIVER_URL ?? "").trim() || "http://localhost:8027/";
 }
 
 /** Reads at most MAX_BYTES of the body; null when it is larger. */

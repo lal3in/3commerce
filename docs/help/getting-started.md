@@ -58,7 +58,7 @@ bash -c 'source scripts/lib/infra.sh && infra_up'           # the infra step of 
 This starts the **whole infra set** defined in `scripts/lib/infra.sh`: every service of
 `docker-compose.infra.yml` under the `portals` profile (Postgres 18, RabbitMQ 4, Valkey, redis-exporter,
 Kafka, Kafka UI, pgAdmin) plus the observability services bare-run borrows from `docker-compose.yml`
-(OTel collector, Prometheus, Grafana, Loki, Tempo, Mimir). It waits on every healthcheck and readiness probe
+(OTel collector — OTLP :4317/:4318, Faro browser-RUM receiver :8027, health :13133 — Prometheus, Grafana with the provisioned alert rules, Loki, Tempo, Mimir; ADR-0065). It waits on every healthcheck and readiness probe
 and fails, naming the container, if any member is not ready in time. On first run,
 `infra/postgres/init-databases.sql` creates the **service databases**, roles, and extensions (FTS + `pg_trgm`).
 
@@ -125,12 +125,12 @@ GATEWAY_URL=http://localhost:8080 npm run start
 The storefront reads `GATEWAY_URL` (default `http://localhost:8080`) — see
 `src/Storefront/.env.example`. It talks **only** to the gateway.
 
-#### Storefront telemetry (ADR-0065)
+#### Storefront telemetry (ADR-0066)
 
 | Variable | Default | What it does |
 |---|---|---|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset (no export) | SSR spans over OTLP **http/protobuf** — use the collector's `http://localhost:4318` (not the gRPC `:4317` the .NET services use). `dev-up.sh` sets it (`STOREFRONT_OTLP_ENDPOINT=` opts out). |
-| `FARO_RECEIVER_URL` | `http://localhost:8027` | Where the same-origin `/rum` relay forwards browser RUM (the collector's internal `faro` receiver). Missing receiver = batches dropped silently, the page is unaffected. |
+| `FARO_RECEIVER_URL` | `http://localhost:8027/` (compose/k8s `http://otel-collector:8027/`) | Where the same-origin `/rum` relay forwards browser RUM (the collector's internal `faro` receiver). Missing receiver = batches dropped silently, the page is unaffected. |
 | `FARO_ENABLED` | `true` | `false` turns browser RUM off. |
 | `PUBLIC_GATEWAY_URL` | unset | Comma-separated browser-facing origins that may receive `traceparent` besides the storefront's own. |
 | `OTEL_RESOURCE_ATTRIBUTES` | — | `deployment.environment.name=dev\|test\|prod\|ci`; a production server with none counts as `prod`, which also turns the `/probe/*` error probes off. |

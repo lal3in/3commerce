@@ -1065,8 +1065,8 @@ orders.
 * **What is digital.** The line's resolved offer's fulfilment type (ADR-0028), carried on `TaxLineInput.Fulfilment`:
   `DigitalDownload`, `Subscription` and `Usage` are electronically supplied services (Art. 58, where the customer
   belongs = the bill-to country, P3). Every other line — `Warehouse`, `Dropship`, `Unassigned` (no offer) — is goods
-  dispatched to the customer (Art. 33, the ship-to). `ManualService` keeps the ship-to as before: its general-rule
-  place of supply (Art. 45, the supplier's establishment) is a separate decision, listed under the known gaps below.
+  dispatched to the customer (Art. 33, the ship-to). `ManualService` keeps the ship-to as before — the
+  rule since the owner decision of 2026-11-15 (taxed where performed; see "P1b follow-up — manual-service place of supply").
   `PlaceOfSupply` (Ordering domain) is the one place this is decided. A digital line with no bill-to falls back to the
   ship-to.
 * **The seam.** `TaxCalculationInput.DestinationCountry` is now the **cart's** destination (the goods' and the
@@ -1109,7 +1109,8 @@ orders.
 * **Coordination.** The OSS-renewals follow-up (Payments, `tax_p1b_followups_oss_renewals`) should take a
   subscription's destination from its **line** (`OrderLine.TaxDestinationCountry`, the bill-to for a digital
   subscription), not the order's.
-* **Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.
+* ~~**Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.~~
+  Decided 2026-11-15: taxed where performed, the ship-to — see "P1b follow-up — manual-service place of supply" below.
 * **Tests.** Unit `PerLineTaxDestinationTests` (e2e-verify **A3zd**); integration `EuOssCheckoutTests` gains a mixed
   cart over the threshold and a cart split between two other Member States (A4d).
 
@@ -1227,11 +1228,12 @@ under-reported French VAT.
 * **Known gaps.**
   * **Reduced-rate categories.** Renewals use the destination's standard rate, because no product carries a VAT
     category yet (tracked as `tax_p1b_followups_reduced_rates`).
-  * **The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
+  * ~~**The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
     crosses it. Art. 59c applies per supply, so a renewal after the crossing should be OSS. That needs the seller's
-    running total in Payments, a separate decision.
-  * **OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
-    needs it by country; the settled event carries the destination for that.
+    running total in Payments, a separate decision.~~ Delivered: see "P1b follow-up — OSS threshold crossing" below.
+  * ~~**OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
+    needs it by country; the settled event carries the destination for that.~~ Delivered: see "P1b follow-up —
+    per-destination OSS tax accounts" below.
   * **Existing subscriptions.** Those set up before this change renew at the storefront's rate until re-sent. Production
     has no live customers yet.
 * **Exported subscriptions renew zero-rated (gap found merging #330, closed here).** A line zero-rated at checkout as an
@@ -1256,3 +1258,193 @@ under-reported French VAT.
   * Integration, **A4b**: `RenewalUsageTaxTests` covers an OSS subscription bought through checkout (a German store in
     a non-EUR currency, shipped to France). Checkout charges FR 20 %, Payments stores `Oss` / `FR`, and the renewal
     books 200, not 192.
+
+### P1b follow-up — OSS threshold crossing (2026-11-18, `fix/oss-renewal-threshold-crossing`, tracker `oss_renewal_threshold_crossing`)
+
+A subscription sold into another Member State while the seller was at or under the EUR 10,000 threshold was taxed at the
+home rate (scheme `Domestic`). It kept renewing at the home rate after the seller crossed the threshold. Art. 59c applies
+**per supply**, and each renewal period is a new supply (§ 7.1). A renewal after the crossing is therefore an OSS supply
+at the destination's rate.
+
+* **Decision — the turnover reaches Payments as events; Ordering stays the one owner of the total.**
+  * Ordering publishes **`EuDistanceSaleRecorded`** (new contract, `Contracts.Ordering`) for every row of
+    `ordering."EuDistanceSales"`. It goes through the bus outbox, in the transaction that writes the row.
+    `OrderStatusConsumer` publishes it for a confirmed sale, and the new `EuDistanceRenewalConsumer` for a renewal (see
+    below).
+  * Payments keeps a copy, `payments."EuDistanceSaleCopies"` (`EuDistanceSaleCopyConsumer`). It is keyed exactly like
+    the source, so a redelivered row is stored once and the copy's Σ equals Ordering's. A renewal sums the copy per tenant
+    per UTC year, EUR only (D13), as checkout sums Ordering's table.
+  * **Why per-row facts and not a "threshold crossed" event.** The rows are written in REPEATABLE READ consumer
+    transactions. Two concurrent confirmations each miss the other's row, so a total computed inside either can be stale.
+    Both could then miss the crossing. Rows are commutative and idempotent, and a crossing flag is neither. The copy also
+    answers the previous-year test without a second event type.
+  * **Why not a synchronous query.** Payments must not read Ordering's database. A renewal is a background money path,
+    and it should not depend on another service being up.
+* **Decision — renewals count toward the total.** Ordering consumes `SubscriptionRenewalSettled`
+  (`EuDistanceRenewalConsumer`). It finds the order line by order, product and variant, and adds a row with
+  `EuDistanceSale.ForRenewal`:
+  * the destination is the line's place of supply at purchase (`OrderLine.DestinationOr`, the bill-to for an e-service);
+  * the home is the order's recorded `TaxJurisdiction`;
+  * the value is the renewal's `NetMinor` as charged (net of VAT);
+  * the year is the UTC year of `SettledAt`.
+
+  These renewals add nothing:
+  * home-country renewals;
+  * non-EU renewals (a service "to Northern Ireland" is `GB`);
+  * exported renewals (`Export` or `OutsideEuVatArea`);
+  * renewals from a non-EU store;
+  * zero-net renewals.
+
+  `EuDistanceSales` gains `SourceReference`. It is `""` for the checkout sale and the renewal's `renew-{id}-{seq}`
+  reference for a renewal. The key becomes (order, destination, source); the migration is `EuDistanceSaleSource`.
+  Existing rows read `""`. Checkout's Σ and its index are unchanged.
+* **The re-decision** (`SubscriptionService.ThresholdOssDestinationAsync`, rule in `Payments.Domain.Ledger.OssThreshold`):
+  * **Which subscriptions.** Only one with scheme `Domestic`, not exempt, whose destination is in the EU VAT area and
+    differs from the store's home Member State.
+  * **The home.** It is the storefront's `TaxJurisdiction`, now projected into `StorefrontLedgerAccounts` (migration
+    `OssThresholdTurnoverCopy`). It reads `""` until the store's config is re-published, and nothing is re-decided while
+    it is empty.
+  * **The test.** The renewal is OSS when the preceding year is **strictly over** EUR 10,000, or the current year
+    **plus this renewal** is over it (the crossing supply is itself OSS). The renewal's value is its net at the home
+    rate, the way checkout measures a sale.
+  * **Non-EUR renewals** take the destination rate, mirroring checkout: they cannot measure the threshold, and opting in
+    is lawful (Art. 59c(3)).
+  * **Parity.** `EuStandardVatRateParityTests` pins the threshold and the home-state rule against Ordering's.
+  * **The rate.** The destination's standard rate on the charge's local date then applies, exactly as for an OSS-sold
+    subscription.
+* **The decision is pinned with the period.**
+  * `RecurringChargeTaxResult.OssDestination` (appended) is persisted in the period's pin. Every attempt of the period
+    therefore charges the same amount; a provider rejects a reused key with another amount.
+  * The settled facts report the scheme the amount was computed under. A period first attempted under the threshold and
+    retried after the crossing stays `Domestic`. The next period is decided afresh.
+  * Older pins read null and fall back to the subscription's own scheme.
+* **Not re-decided downwards.** An `Oss` subscription stays OSS even if the seller later falls back under the threshold.
+  Dropping out of OSS is a separate decision, and so is the two-year commitment of an Art. 59c(3) opt-in.
+  Never-under-collect does not settle it, because either rate can be the higher one.
+* **Known gaps.**
+  * **Older rows.** Rows recorded before this change are not in Payments' copy. Production has no live customers, so
+    the copy is complete from its first sale. A dev database can re-send them with the ADR-0060 backfill pattern if
+    needed.
+  * **Usage charges.** They do not yet count toward the total and are not re-decided, because usage has no OSS terms
+    yet.
+  * **In-flight tolerance.** It is the same as checkout's: a row reaches the copy a few seconds after its sale.
+* **Tests.**
+  * Unit, e2e-verify **A3zx**: `OssRenewalThresholdTests` (Payments), `RenewalDistanceSaleTests` (Ordering) and
+    `EuStandardVatRateParityTests`.
+  * Integration **A4b** (`RenewalUsageTaxTests`): a Domestic FR subscription renews at FR 20 % once a prior-year row
+    reaches the copy. The renewal's own row then reaches both totals.
+  * Integration **A4d** (`EuOssCheckoutTests`): a confirmed sale's row reaches Payments' copy.
+
+### P1b follow-up — manual-service place of supply (2026-11-18, `docs/manual-service-place-of-supply`, tracker `manual_service_place_of_supply`)
+
+* **Owner decision 2026-11-15 (final).** A manual-service line (fulfilment type `ManualService`: on-site installation,
+  assembly and similar work done at the customer's premises) is taxed **where it is performed**. That is the customer's
+  address, i.e. the **ship-to** country. The code already did this: `PlaceOfSupply.LineDestination` sends every
+  non-electronically-supplied line, `ManualService` included, to the cart's destination (the ship-to). This note makes
+  it the rule rather than a known gap, so the per-line-destination note's "Known gap" is closed by decision, not by a
+  code change.
+* **Why ship-to and not Art. 45.** Art. 45 (B2C general rule: the supplier's establishment) would tax an installation
+  in France by a German seller at German VAT. Services physically performed at the customer's premises follow the
+  place they are carried out: Art. 54(1) for work on movable goods and ancillary services, and Art. 47 when the work is
+  connected with immovable property. For the services this platform sells, that is the delivery address. The owner
+  chose ship-to as the single rule; there is no per-product override.
+* **What follows.**
+  * A manual-service line shipped to another Member State counts toward the EUR 10,000 threshold, and over it is taxed
+    at the destination's rate under OSS, exactly like goods.
+  * One shipped to Northern Ireland follows the UK (`GB`, outside the EU VAT area): only goods are `XI`.
+  * One shipped to a special territory (the Canaries…) is outside the EU VAT area and is zero-rated as for goods.
+  * The bill-to never moves it. An installation billed to a French company but performed in Germany is German.
+* **Adviser check.** The rule is final for the code. Before EU cross-border B2C goes live, a tax adviser should confirm
+  it for the service types actually sold, notably for work on immovable property (Art. 47) and any B2B case (phase 2).
+  This is recorded on the launch-gate row `eu_vat_rate_table_tedb_verification`.
+* **Tests.** Unit `ManualServicePlaceOfSupplyTests` (Ordering, e2e-verify **A3zz**) covers:
+  * a manual-service line billed to France and shipped to Germany is German, both as its place of supply and in the OSS
+    strategy's line destinations and rate;
+  * over the threshold, shipped to France, it takes France's rate under OSS;
+  * negative control: the same line as a digital download goes to the bill-to;
+  * shipped to Belfast it is `GB`, never `XI`.
+
+### P1b follow-up — per-destination OSS tax accounts (2026-11-18, `feature/oss-per-destination-tax-accounts`, tracker `oss_per_destination_tax_accounts`)
+
+OSS VAT used to land in the storefront's single tax account (`tax.store-{id}`), mixed with the home country's VAT. An
+OSS return is filed **per Member State of consumption**, so the ledger now books the OSS part of every charge to one
+liability account per destination. Every refund and chargeback takes the tax back from the same accounts.
+
+* **Decision — the account is a sub-account of the store's tax account: `{tax account}.oss.{CC}`.** For example,
+  `tax.store-{id}.oss.FR`, or `tax.store-{id}.oss.XI` for Northern Ireland goods (`Accounts.OssTaxFor`).
+  * It works within ADR-0045. The store's tax code stays operator-configurable (the projection), and the country
+    dimension is derived from it, never stored, like every other derived code. No migration is needed for the codes.
+  * Every report that sums a store's tax by prefix (admin Financials, Home, Ledger: `tax.`) still sees the OSS
+    accounts, so totals do not move. The OSS return reads one account per country.
+  * The unattributed fallback (`liability.tax_collected.oss.{CC}`) is a shared code (`Accounts.IsSharedCode`), so
+    `NoSharedAccountPostingTests` still guards attribution. OSS needs a storefront jurisdiction, so it never fires.
+  * The per-store chart (`GET /admin/ledger/storefronts/{id}/chart`) lists one "OSS VAT — {CC}" row per destination the
+    store has posted to. Destinations are open-ended, so the rows are derived from the postings.
+* **What is OSS.** The split (`OssTaxSplit`, Payments domain) carries only the OSS part, by destination. The rest of the
+  tax is domestic and stays on `tax.store-{id}`. A charge with no OSS part is posted byte-identically to before: one tax
+  line on the store's account (pinned by a unit test). Each entry still balances, because the split's lines sum to the
+  entry's tax (`OssTaxSplit.Lines`). A split that does not fit inside the tax is never posted, and the store's account
+  then takes the whole tax.
+* **At checkout.**
+  * Ordering computes the split from the strategy's breakdown (`OssTaxShares.Of`): with scheme `Oss`, each line whose
+    destination is in the EU VAT area and not home, at its own destination, plus the shipping at the sale's destination.
+    These are exactly the components the strategy taxed at a destination's rate.
+  * `AuthorizePayment` appends `OssTax` (`OssTaxDestination[]`, additive, null for no OSS part).
+  * Payments stores it on the `Payment` as `FR:200,IT:150` (`Payment.OssTax`, migration `PaymentOssTaxSplit`). The sale
+    posts each share to its destination's account.
+* **At renewal.** An OSS renewal's whole tax is the destination's (`OssTaxSplit.Single`), so it goes to that
+  destination's account. The renewal's `Payment` reads the split back from its own entry (`Ledger.OssTaxOf`), and
+  `Ledger.TaxOf` counts the OSS sub-accounts, so a renewal refund reverses from there.
+  * **Which destination.** The one **pinned with the period** (`RecurringChargeTaxResult.OssDestination`, see "OSS
+    threshold crossing" above), falling back to the subscription's own OSS destination for a pin written before it was
+    pinned (`SubscriptionService.RenewalOssDestination`). The posting and the settled facts read the same value, so they
+    never disagree.
+  * **A renewal re-decided under OSS** (a `Domestic` cross-border subscription renewing after the seller crossed the
+    threshold) is therefore posted to its destination's account like an OSS-sold one, and refunded from it. A period
+    pinned `Domestic` before the crossing and retried after it stays on the store's account; the next period goes to the
+    destination's.
+* **Usage charges.** Usage has no OSS terms yet: no destination and no scheme, and it is always taxed at the storefront's
+  rate. It posts to the store's account as before through the same `Ledger.Sale` seam. When usage gains OSS terms, it
+  passes a split and nothing else changes.
+* **Reversals** (`OssTaxSplit.Reversal`, `OssTaxReversals`).
+  * The refund's tax portion is pro-rated on the amount, unchanged. It is then allocated across the booked buckets
+    (domestic plus each destination) in proportion to what each was booked, by largest remainder, so the parts sum
+    exactly.
+  * No destination is ever reversed past what it still holds; the remainder is read from the payment's earlier refund
+    entries.
+  * The final reversal (the refund that completes the payment, or a chargeback) returns each destination's exact
+    remainder, so a sale refunded in parts nets every OSS account to zero.
+  * A reinstated chargeback mirrors its entry, as before.
+  * A line-attributed refund is still pro-rated on the amount, as the whole ledger does today (P5). A refund of only
+    the French line of a split DE/FR sale therefore takes some German VAT back too, and the credit note (Invoicing, from
+    the lines) is what is exact. Precise per-line reversal needs the line → destination map in Payments, which is a
+    follow-up.
+* **Xero mapping implications (note for the D-Xero work, § 6.7).**
+  * The daily summary journal (`XeroJournalBuilder`) groups by ledger code, so each `tax.store-{id}.oss.{CC}` arrives
+    as its own line.
+  * `XeroAccountMapping` matches the ledger code **exactly**. A mapping of the store's tax account does **not** cover
+    its OSS sub-accounts: each destination needs its own mapping.
+  * Recommended target: one Xero liability account per Member State, for example "OSS VAT payable — FR", or one OSS
+    account with a country tracking category. Either way, the OSS return's per-country boxes come straight from Xero.
+  * Before EU cross-border B2C goes live, the operator must create the mappings for every destination the store sells
+    into. An unmapped code must fail loudly rather than fall into a default account. That check belongs with the Xero
+    launch gate (live Xero credentials), not here.
+  * The OSS return is quarterly and in EUR. A non-EUR store's OSS accounts are in its own currency, and conversion at
+    the ECB rate of the period's last day is the return's job (D13).
+* **Tests.**
+  * Unit, e2e-verify **A3zy**:
+    * `OssTaxAccountTests` (Payments): the split, a sale's lines, byte-identity without a split, refunds in three
+      parts, a chargeback after a partial refund, and an OSS renewal and its refund;
+    * `OssTaxSharesTests` (Ordering): mixed, home, XI, none, and Σ ≤ tax over 3,000 carts;
+    * `OssRenewalTaxTests` now expects the FR account;
+    * `OssTaxAccountTests.A_renewal_re_decided_to_oss_after_the_threshold_crossing_posts_to_the_destinations_account_and_refunds_from_it`:
+      a `Domestic` FR subscription of a German store over the threshold renews with France's 200 on
+      `tax.store-{id}.oss.FR` (payment `FR:200`), and two half refunds reverse 100 + 100 from it, the store's account
+      untouched. Negative control: a seller under the threshold books DE's 192 on the store's account, no OSS line;
+    * `OssRenewalThresholdTests` (B1's) now also asserts the account: OSS cases on `oss.FR`, `Domestic` cases on the
+      store's; the pinned retry stays on the store's, the next period on `oss.FR`.
+  * Integration **A4b** (`RenewalUsageTaxTests`): the OSS subscription's checkout and renewal post France's VAT to
+    `tax.store-{id}.oss.FR`, none to the store's account. Two half refunds of the order and a refund of the renewal net
+    that account to zero, with trial balance 0. The threshold-crossing renewal posts its 198 to `oss.FR` (payment
+    `FR:198`) and its refund nets that account to zero without touching the store's; the negative control (a seller under
+    the threshold) books 190 on the store's account.

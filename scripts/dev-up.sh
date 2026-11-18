@@ -89,7 +89,7 @@ if (( WITH_FRONTENDS )); then
   # collector's faro receiver (:8027). `-` keeps an explicitly-empty value (opt out) as is.
   ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 \
       OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
-      FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027}" \
+      FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
       nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
   nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid

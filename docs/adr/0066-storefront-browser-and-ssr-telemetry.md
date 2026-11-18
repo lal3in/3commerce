@@ -1,8 +1,8 @@
-# 0065 — Storefront telemetry: anonymous browser RUM (Faro) through a same-origin relay, and SSR tracing
+# 0066 — Storefront telemetry: anonymous browser RUM (Faro) through a same-origin relay, and SSR tracing
 
 Status: Accepted — implemented
 Area: Observability / Storefront / privacy
-Extends: [0064](./0064-release-identity-on-telemetry.md) (release identity), [0010](./0010-nextjs-ssr-storefront.md) (Next.js storefront)
+Extends: [0064](./0064-release-identity-on-telemetry.md) (release identity), [0065](./0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md) (the collector faro receiver), [0010](./0010-nextjs-ssr-storefront.md) (Next.js storefront)
 Source: observability capability audit (`docs/reviews/observability-capability-audit.md`) roadmap **P1-2** and **P1-3**;
 owner decisions 2026-11-15 (Q3, Q4, Q7)
 

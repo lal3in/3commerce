@@ -35,7 +35,8 @@ emptyDir storage, has **no Grafana**, and whose collector lacks the dev Loki-noi
 containerized launch exports nothing by default: `OTEL_EXPORTER_OTLP_ENDPOINT` is commented out in
 `deploy/.env.dev:11`. There is no test or prod telemetry backend and no alert rule anywhere.
 `host-check.sh --logs` only tails provider-managed logs when `CW_LOG_GROUP`/`GCP_PROJECT`/`AZ_WORKSPACE`
-are set.
+are set. *(2026-11-15: production backend, alerting, sampling and k8s attributes decided and built — see
+[ADR-0065](../adr/0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md); OTLP is on in `deploy/.env.dev`.)*
 
 ---
 
@@ -244,20 +245,20 @@ noted. Rows marked **(new dep)** need the AGENTS.md justification.
 | P0-1 | **Stamp releases:** `service.version` + `vcs.ref.head.revision` (commit SHA) + `deployment.environment.name` on every resource, via build args → `OTEL_RESOURCE_ATTRIBUTES` (or `AddService(name, serviceVersion: …)` + `AddAttributes`). Add OCI image labels. | S | §8/§9. No new package. Unlocks "which release broke it". **Addressed 2026-10-15 — [ADR-0064](../adr/0064-release-identity-on-telemetry.md)** (all four attributes + OCI labels; `service.instance.id` shared by all signals; Admin/SupplierPortal/storefront OTel stays P1-4/P1-2, annotations P2-2). |
 | P0-2 | **Stop logging email bodies** (`LoggingEmailSender`). Add a collector `redaction`/`transform` processor for emails, tokens and `Authorization`/cookie values, and set Loki/Mimir retention. | S | §9. Privacy and secret-leak blocker. **Addressed 2026-10-15** (`fix/email-log-leak-and-log-retention`): full email bodies are logged in Development only (metadata + recipient hash elsewhere), `EmailSenderGuard` refuses a non-Development boot without `Notifications:Email:AllowLoggingSender=true`, collector `transform/redact` (tokens, passwords, bearer, emails, Authorization/Cookie attributes; dev + Helm), explicit retention: Loki 30 d, Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months prod, Prometheus 15 d. Open: the prod backend itself (P0-5). |
 | P0-3 | **Record exceptions on spans:** `AddAspNetCoreInstrumentation(o => o.RecordException = true)` and the same for HttpClient, so Tempo error spans carry `exception.type/message/stacktrace` events. Bring the gateway's OTLP **logs** pipeline in line, ideally by making the gateway call `AddServiceTelemetry`. | S | §1/§2. Removes a hop and closes the gateway log gap. |
-| P0-4 | **Alerting** on ADR-0029 SLOs: Grafana-provisioned alert rules for 5xx rate > 1 %, p95 latency, `_error` queue depth > 0 (needs RabbitMQ metrics in Mimir, see P1-5), error-log spikes, and Valkey/collector down. Add a contact point (email/Slack/webhook). | M | ADR-0029 says alerting is "launch-gated". Make it a launch gate item explicitly. |
-| P0-5 | **Prod telemetry backend decision** (see Q1): managed Grafana Cloud (OTLP endpoint, free tier) vs self-hosted upstream LGTM Helm charts on object storage, plus Helm values to point `OTEL_EXPORTER_OTLP_ENDPOINT` and headers at it. Re-enable OTLP in `deploy/.env.dev`, and bring the Helm collector config in line with the dev one (noise filter). | M | There is no prod observability today. |
+| P0-4 | **Alerting** on ADR-0029 SLOs: Grafana-provisioned alert rules for 5xx rate > 1 %, p95 latency, `_error` queue depth > 0 (needs RabbitMQ metrics in Mimir, see P1-5), error-log spikes, and Valkey/collector down. Add a contact point (email/Slack/webhook). | M | ADR-0029 says alerting is "launch-gated". Make it a launch gate item explicitly. **Addressed 2026-11-15 ([ADR-0065](../adr/0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md)):** 8 Grafana-provisioned rules (dev + prod from one folder), email contact point from `ALERT_EMAIL_TO` + SMTP config. |
+| P0-5 | **Prod telemetry backend decision** (see Q1): managed Grafana Cloud (OTLP endpoint, free tier) vs self-hosted upstream LGTM Helm charts on object storage, plus Helm values to point `OTEL_EXPORTER_OTLP_ENDPOINT` and headers at it. Re-enable OTLP in `deploy/.env.dev`, and bring the Helm collector config in line with the dev one (noise filter). | M | There is no prod observability today. **Addressed 2026-11-15 (ADR-0065, Q1 = self-hosted):** `deploy/helm/observability` install set, `observability.backend: external` in values-prod, OTLP on in `.env.dev`, Helm collector aligned (noise filter + redaction). |
 
 ### P1: high value
 
 | # | Item | Effort | Notes |
 |---|---|---|---|
 | P1-1 | **DB spans:** add `Npgsql.OpenTelemetry` (`AddNpgsql()`) and/or `OpenTelemetry.Instrumentation.EntityFrameworkCore` (beta). Add an N+1 view: a TraceQL/Tempo query or a span-metrics panel counting `db` spans per trace, alerting on more than N same-statement spans. Fix the misleading comment at `OtelExtensions.cs:17`. | M | **(new dep)**, justified: DB time is the dominant latency source and is invisible today. |
-| P1-2 | **(Addressed 2026-11-19 — [ADR-0065](../adr/0065-storefront-browser-and-ssr-telemetry.md): Faro via the same-origin `/rum` relay, anonymous per Q3, no replay per Q4; P1-3 in the same change.)** **Storefront RUM + errors:** **Grafana Faro Web SDK** (`@grafana/faro-web-sdk` + `faro-web-tracing`) sending to a collector `faro` receiver or Grafana Alloy. Captures uncaught errors and rejections, console, fetch, Web Vitals, page views and breadcrumbs, and injects `traceparent` so browser → gateway traces join. Upload source maps (Faro CLI or Alloy source-map store), with `productionBrowserSourceMaps` built but **not served publicly**. Consent: see Q3. | M | **(new dep)**. Fits the LGTM direction better than Sentry (below). |
+| P1-2 | **(Addressed 2026-11-19 — [ADR-0066](../adr/0066-storefront-browser-and-ssr-telemetry.md): Faro via the same-origin `/rum` relay, anonymous per Q3, no replay per Q4; P1-3 in the same change.)** **Storefront RUM + errors:** **Grafana Faro Web SDK** (`@grafana/faro-web-sdk` + `faro-web-tracing`) sending to a collector `faro` receiver or Grafana Alloy. Captures uncaught errors and rejections, console, fetch, Web Vitals, page views and breadcrumbs, and injects `traceparent` so browser → gateway traces join. Upload source maps (Faro CLI or Alloy source-map store), with `productionBrowserSourceMaps` built but **not served publicly**. Consent: see Q3. | M | **(new dep)**. Fits the LGTM direction better than Sentry (below). |
 | P1-3 | **Next.js SSR tracing:** `instrumentation.ts` with `@vercel/otel` (or `@opentelemetry/sdk-node`) exporting OTLP. Next 15 emits built-in spans for render, route and fetch, and `fetch` propagates `traceparent` to the gateway. Add `app/error.tsx` + `app/global-error.tsx` that show the `traceId` / digest and log server-side. | M | **(new dep)**. Closes the SSR → gateway gap. |
 | P1-4 | **Blazor Admin + SupplierPortal telemetry:** neither project references BuildingBlocks today, so add the OTel `PackageReference`s already pinned in `Directory.Packages.props` (no new dependency for the solution) and the same tracing/metrics/logs setup, or extract a light `AddServiceTelemetry` that does not drag in MassTransit/EF. Then wrap layouts in `<ErrorBoundary>` that logs. Optionally add a `CircuitHandler` that logs circuit open/close/unhandled events with tenant and user ids (no PII). | S | §1/§5 |
 | P1-5 | **Messaging metrics:** `AddMeter("MassTransit")`, the RabbitMQ Prometheus plugin (`rabbitmq_prometheus`, built into the image) scraped by the collector, and a "Messaging" dashboard (consume rate, fault rate, `_error` depth, redeliveries). Consider `UseDelayedRedelivery` before `_error` and a generic `Fault<T>` observer that emits a metric per message type. | M | Makes dead letters alertable (P0-4). |
 | P1-6 | **Runtime metrics:** `AddMeter("System.Runtime")` (built into .NET 9+, no package) plus a ".NET runtime" dashboard (GC pause, heap, threadpool queue, exceptions). | S | |
-| P1-7 | **Sampling policy:** collector `tail_sampling` (keep errors, latency > p95 and 100 % of checkout/payment routes; sample the rest at 10–20 % in prod), plus `ParentBased(TraceIdRatio)` in the SDK as a guard. | S | Cost and volume control before prod |
+| P1-7 | **Sampling policy:** collector `tail_sampling` (keep errors, latency > p95 and 100 % of checkout/payment routes; sample the rest at 10–20 % in prod), plus `ParentBased(TraceIdRatio)` in the SDK as a guard. | S | Cost and volume control before prod **Addressed 2026-11-15 (ADR-0065):** Helm `tail_sampling` (15 % baseline in prod, dev 100 %); SDK guard not added (one collector sees every trace). |
 
 ### P2: later / nice to have
 
@@ -267,8 +268,8 @@ noted. Rows marked **(new dep)** need the AGENTS.md justification.
 | P2-2 | **Release annotations:** `promote.sh` posts Grafana annotations and pushes `release/*` tags. Add a "deploys" panel overlay. | S | Builds on P0-1 |
 | P2-3 | **SLO dashboards:** recording rules + burn-rate panels (or Grafana SLO / Sloth-generated rules) for ADR-0029 targets. Apdex panel from span-metrics. | M | |
 | P2-4 | **Valkey/Kafka spans:** StackExchange.Redis instrumentation (`OpenTelemetry.Instrumentation.StackExchangeRedis`, beta) and manual Kafka producer/consumer spans with `traceparent` in the stream envelope | M | **(new dep)** for Redis |
-| P2-5 | **Resource detectors / k8s attributes:** collector `k8sattributes` + `resourcedetection` processors in the Helm collector | S | |
-| P2-6 | **Session replay (only if approved):** error-triggered, mask-all, checkout and Stripe excluded, consent-gated | M | See §6 and Q4 |
+| P2-5 | **Resource detectors / k8s attributes:** collector `k8sattributes` + `resourcedetection` processors in the Helm collector | S | **Addressed 2026-11-15 (ADR-0065):** Helm collector, namespace-scoped Role. |
+| P2-6 | **Session replay (only if approved):** error-triggered, mask-all, checkout and Stripe excluded, consent-gated | M | See §6 and Q4 **Closed 2026-11-15: Q4 = no session replay.** |
 | P2-7 | **GenAI conventions** when an AI feature lands | S | §10 |
 
 ### Faro + LGTM vs a Sentry-compatible tracker (brief comparison)
@@ -290,6 +291,15 @@ low-effort managed path for test/prod if self-hosting is not wanted (Q1).
 ---
 
 ## Open questions for the owner
+
+> **All eight answered by the owner on 2026-11-15 (final)** — recorded in
+> [ADR-0065](../adr/0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md):
+> **Q1** self-hosted LGTM (upstream charts on object storage, operated by us) · **Q2** traces 14 d, logs 30 d,
+> metrics 13 months, security logs (authentication, permission denied) 12 months · **Q3** browser telemetry is
+> strictly necessary and anonymised — no consent gate, no identifiers, no IP, no replay · **Q4** no session replay
+> · **Q5** GlitchTip (built later, separate branch) · **Q6** Kafka envelope carries `traceparent` (separate branch)
+> · **Q7** Npgsql/EF OTel, Faro, `@vercel/otel` and Pyroscope approved · **Q8** alerts by email, address is
+> configuration only (`ALERT_EMAIL_TO` + SMTP). The questions below are kept as asked.
 
 1. **Q1: prod telemetry backend.** Managed Grafana Cloud (OTLP plus an API key, data leaves our infra and goes to the US or EU region), or self-hosted upstream LGTM Helm charts on object storage (we operate them)? This decides P0-5 and the retention and GDPR posture.
 2. **Q2: retention targets.** Suggested: traces 7–14 days, logs 30 days (security logs longer?), metrics 13 months. Is there a legal hold for audit-adjacent logs? The business audit trail stays in the Audit service.

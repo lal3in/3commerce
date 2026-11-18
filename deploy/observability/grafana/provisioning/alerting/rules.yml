@@ -1,0 +1,266 @@
+# Grafana-managed alert rules (observability audit P0-4, ADR-0065; SLOs from ADR-0029). Provisioned from files,
+# so they are versioned here and read-only in the UI. The SAME file is mounted by the production Grafana
+# (deploy/helm/observability/install-lgtm.sh turns this folder into a ConfigMap) — one source, dev == prod.
+# Datasource uids are the fixed ones of provisioning/datasources/lgtm.yml (mimir, loki); the prod Grafana values
+# provision the same uids against the upstream gateways. Notifications: contact-points.yml (email, configuration-only).
+#
+# Every rule is labelled severity=page|ticket and carries a runbook link (docs/runbooks/observability.md).
+# Templates use plain `$labels` / `$values`: Grafana expands $VARS only in contact-point settings (that is how
+# contact-points.yml gets $ALERT_EMAIL_TO), not in rule annotations — a `$$labels` there stays literally `$$labels`
+# (verified on Grafana 11.2 via /api/v1/provisioning/alert-rules).
+# noDataState is chosen per rule: a metric that only exists when something is wrong (or that another branch
+# provides, like the RabbitMQ queue metrics) is OK on no data; a heartbeat (the collector's own uptime) alerts.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: slo-http
+    folder: 3commerce alerts
+    interval: 1m
+    rules:
+      # ADR-0029: 5xx rate < 1 % per service over 5 min. Ignores near-idle services (< ~15 requests / 5 min) so one
+      # failed request on a quiet dev stack does not page.
+      - uid: tc-http-5xx-rate
+        title: HTTP 5xx rate above 1 %
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+                / sum by (service_name) (rate(http_server_request_duration_seconds_count[5m])))
+                and on (service_name) (sum by (service_name) (rate(http_server_request_duration_seconds_count[5m])) > 0.05)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.01] }
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: page, slo: errors }
+        annotations:
+          summary: "{{ $labels.service_name }}: {{ humanizePercentage $values.A.Value }} of requests return 5xx (SLO < 1 %)"
+          runbook_url: docs/runbooks/observability.md#http-5xx-rate-above-1-percent
+      # ADR-0029 / NFR-5: catalog search + product detail p95 < 500 ms.
+      - uid: tc-p95-catalog-reads
+        title: Catalog read p95 latency above 500 ms
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                histogram_quantile(0.95, sum by (le, service_name, http_route)
+                (rate(http_server_request_duration_seconds_bucket{service_name="catalog", http_request_method="GET"}[5m])))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.5] }
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: ticket, slo: latency }
+        annotations:
+          summary: "catalog {{ $labels.http_route }}: p95 {{ humanizeDuration $values.A.Value }} (SLO < 500 ms)"
+          runbook_url: docs/runbooks/observability.md#p95-latency
+      # ADR-0029: every other read p95 < 800 ms.
+      - uid: tc-p95-other-reads
+        title: Read p95 latency above 800 ms
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                histogram_quantile(0.95, sum by (le, service_name, http_route)
+                (rate(http_server_request_duration_seconds_bucket{service_name!="catalog", http_request_method="GET"}[5m])))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.8] }
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: ticket, slo: latency }
+        annotations:
+          summary: "{{ $labels.service_name }} {{ $labels.http_route }}: p95 {{ humanizeDuration $values.A.Value }} (SLO < 800 ms)"
+          runbook_url: docs/runbooks/observability.md#p95-latency
+
+  - orgId: 1
+    name: messaging
+    folder: 3commerce alerts
+    interval: 1m
+    rules:
+      # A message in a MassTransit `_error` queue is a fault nobody retries (ADR-0060). The RabbitMQ per-queue metrics
+      # come from the rabbitmq_prometheus plugin (audit P1-5, another branch): per-object `rabbitmq_queue_messages`
+      # or the detailed endpoint's `rabbitmq_detailed_queue_messages` — either name matches. No data = OK until then.
+      - uid: tc-error-queue-depth
+        title: Messages in an _error queue
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: 'max by (queue) ({__name__=~"rabbitmq_(detailed_)?queue_messages", queue=~".+_error"})'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.queue }} holds {{ $values.A.Value }} faulted message(s)"
+          runbook_url: docs/runbooks/observability.md#messages-in-an-_error-queue
+
+  - orgId: 1
+    name: logs
+    folder: 3commerce alerts
+    interval: 1m
+    rules:
+      # A burst of Error/Critical log records from one service (same level detection as the Logs overview dashboard).
+      - uid: tc-error-log-spike
+        title: Error log spike
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: 'sum by (service_name) (count_over_time({service_name=~".+"} | detected_level =~ "error|critical" [5m]))'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [20] }
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: ticket }
+        annotations:
+          summary: "{{ $labels.service_name }} logged {{ $values.A.Value }} errors in 5 min"
+          runbook_url: docs/runbooks/observability.md#error-log-spike
+
+  - orgId: 1
+    name: platform
+    folder: 3commerce alerts
+    interval: 1m
+    rules:
+      # redis_exporter's own view of Valkey (ADR-0044). Where no exporter is scraped there is no series: OK.
+      - uid: tc-valkey-down
+        title: Valkey down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: 'min(redis_up)'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: page }
+        annotations:
+          summary: "redis_exporter reports Valkey down"
+          runbook_url: docs/runbooks/observability.md#valkey-down
+      # The services' own view (3commerce.redis meter): a Valkey call failed and the caller fell back / failed closed.
+      # Works without the exporter, e.g. against a managed Valkey in production.
+      - uid: tc-valkey-unreachable
+        title: Valkey unreachable from services
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: 'sum by (service_name, concern) (rate(redis_unavailable_total[5m]))'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.service_name }} cannot reach Valkey ({{ $labels.concern }})"
+          runbook_url: docs/runbooks/observability.md#valkey-down
+      # Heartbeat: the collector pushes its own otelcol_* metrics through itself into Mimir every 30 s
+      # (service.telemetry in the collector config). No uptime series for 5 min = the telemetry door is shut.
+      # absent_over_time returns 1 only when the series is gone, so here "no data" is the healthy state.
+      - uid: tc-collector-down
+        title: OTel collector down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: 'absent_over_time({__name__=~"otelcol_process_uptime.*"}[5m])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 2m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: page }
+        annotations:
+          summary: "No collector heartbeat for 5 min — no traces, logs or metrics are being stored"
+          runbook_url: docs/runbooks/observability.md#otel-collector-down

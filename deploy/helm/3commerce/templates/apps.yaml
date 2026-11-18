@@ -31,10 +31,7 @@ spec:
               value: "true"
             {{- end }}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
-            {{- if .Values.observability.enabled }}
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector:4317
-            {{- end }}
+            {{- include "3commerce.otlpEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 ---
@@ -170,6 +167,18 @@ spec:
               value: http://gateway:8080
             - name: PORT
               value: "3000"
+            {{- /* ADR-0066: deployment.environment.name (also keeps the /probe/* error probes off in prod), SSR
+                   spans over OTLP http/protobuf (:4318 — @vercel/otel does not speak the gRPC :4317 the .NET
+                   processes use) and the /rum relay target (the collector's internal faro receiver). */}}
+            {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
+            {{- if .Values.observability.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4318"
+            {{- if .Values.observability.collector.faro.enabled }}
+            - name: FARO_RECEIVER_URL
+              value: "http://otel-collector:8027/"
+            {{- end }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /

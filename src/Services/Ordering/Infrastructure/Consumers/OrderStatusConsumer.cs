@@ -191,9 +191,17 @@ public sealed class OrderStatusConsumer(
             // it is confirmed — in THIS transaction, so the running total can neither miss a confirmed sale nor count
             // one that rolled back, and keyed by (order, destination), so a redelivery cannot count it twice. A sale whose
             // lines go to different Member States records one row per destination (ADR-0063 § 16).
-            db.EuDistanceSales.AddRange(EuDistanceSale.For(order, attempt.CreatedAt, DateTimeOffset.UtcNow));
+            var distanceSales = EuDistanceSale.For(order, attempt.CreatedAt, DateTimeOffset.UtcNow);
+            db.EuDistanceSales.AddRange(distanceSales);
 
             await db.SaveChangesAsync(context.CancellationToken);
+
+            // ADR-0063 § 16, OSS threshold crossing: each row travels (bus outbox, this transaction) so Payments' copy of the
+            // running total can re-decide a renewal's scheme once the seller crosses the threshold.
+            foreach (var sale in distanceSales)
+            {
+                await context.Publish(EuDistanceSaleEvents.Recorded(sale));
+            }
         }
 
         // CONFIRM the coupon redemption (ADR-0052): the hold taken at checkout is now spent for good.

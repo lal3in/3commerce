@@ -14,6 +14,17 @@ namespace ThreeCommerce.IntegrationTests;
 public sealed class EuStandardVatRateParityTests
 {
     [Fact]
+    public void Both_services_apply_the_same_EUR_threshold_and_home_states()
+    {
+        // ADR-0063 § 16, OSS threshold crossing: Payments re-decides a renewal with the rule checkout applies.
+        Assert.Equal(OrderingVat.EuOssTaxStrategy.ThresholdMinorEur, OssThreshold.ThresholdMinorEur);
+        foreach (var jurisdiction in new[] { "DE", "de-by", "EL", "GR", "XI", "GB", "CH", "US-CA", "", "FR-971" })
+        {
+            Assert.Equal(OrderingVat.EuMemberStates.OfJurisdiction(jurisdiction), OssThreshold.HomeOf(jurisdiction));
+        }
+    }
+
+    [Fact]
     public void Both_copies_know_the_same_member_states()
     {
         Assert.Equal(

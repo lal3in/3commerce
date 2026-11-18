@@ -98,11 +98,16 @@ public sealed class ExecuteRefundConsumer(
         var accounts = payment.StorefrontId is { } sid
             ? await db.StorefrontLedgerAccounts.AsNoTracking().SingleOrDefaultAsync(x => x.StorefrontId == sid, context.CancellationToken)
             : null;
+        // ADR-0063 § 16: an OSS sale's tax comes back from each destination's OSS account (the last refund closes them exactly).
+        var ossReversal = await OssTaxReversals.ForAsync(
+            db, payment, accounts?.TaxAccountCode, taxPortion, payment.RefundedMinor + msg.AmountMinor >= payment.AmountMinor,
+            context.CancellationToken);
         db.JournalEntries.Add(Ledger.Refund(
             msg.RefundId, payment.OrderId, msg.AmountMinor, taxPortion, payment.Currency, time.GetUtcNow(),
             payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             shippingPortion, accounts?.ShippingAccountCode, payment.StorefrontId,
-            payment.Kind == PaymentKind.Order ? null : $"Refund {msg.RefundId} of charge {payment.ChargeReference} via {payment.MethodKind}"));
+            payment.Kind == PaymentKind.Order ? null : $"Refund {msg.RefundId} of charge {payment.ChargeReference} via {payment.MethodKind}",
+            ossReversal));
 
         payment.RefundedMinor += msg.AmountMinor;
         var fullyRefunded = payment.RefundedMinor >= payment.AmountMinor;

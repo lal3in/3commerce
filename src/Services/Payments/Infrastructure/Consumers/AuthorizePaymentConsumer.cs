@@ -65,21 +65,13 @@ public sealed class AuthorizePaymentConsumer(
         }
 
         var grossMinor = msg.NetMinor;
-        var customer = msg.UserId is { } userId
-            ? await db.PaymentCustomers.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", context.CancellationToken)
-            : null;
-        // SavedPaymentMethods is under FORCE RLS (ADR-0024, owner decision 2026-11-07). AuthorizePayment carries no tenant,
-        // so the card is read in the tenant of the member's payment customer — the row every saved card hangs off (no
-        // customer ⇒ no saved card). This runs inside the consumer's EF outbox transaction; the scope is applied to it.
-        var savedMethod = msg.SavedPaymentMethodId is { } methodId && customer is not null
-            ? await SavedCardTenantScope.RunAsync(db, customer.TenantId,
-                () => db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(
-                    m => m.Id == methodId && m.UserId == msg.UserId && m.PaymentCustomerId == customer.Id && m.State == SavedPaymentMethodState.Active,
-                    context.CancellationToken),
-                context.CancellationToken, msg.UserId)
-            : null;
-        var providerCustomerId = customer?.ProviderCustomerId;
-        var providerPaymentMethodId = savedMethod?.ProviderPaymentMethodId;
+        // PaymentCustomers and SavedPaymentMethods are under FORCE RLS (ADR-0024, owner decisions 2026-11-07 + 2026-11-15),
+        // so the member's vault and card are read in the ORDER's tenant, carried on the message — never derived from the
+        // tables themselves (a scope-less read of them returns nothing).
+        var instrument = await CheckoutInstrument.FindAsync(
+            db, msg.TenantId ?? DefaultTenantId(), msg.UserId, msg.SavedPaymentMethodId, context.CancellationToken);
+        var providerCustomerId = instrument.ProviderCustomerId;
+        var providerPaymentMethodId = instrument.ProviderPaymentMethodId;
         var intent = await provider.AuthorizeAsync(
             new PaymentRequest(
                 msg.OrderId,
@@ -102,6 +94,8 @@ public sealed class AuthorizePaymentConsumer(
             AmountMinor = grossMinor,
             TaxMinor = msg.TaxMinor, // tax portion of the charge → ledger books it as a tax liability (not revenue)
             ShippingMinor = msg.ShippingMinor, // shipping portion → ledger books it as its own income line
+            // ADR-0063 § 16: the OSS part of the tax by destination → each posted to its own OSS liability account.
+            OssTax = OssTaxSplit.Of(msg.OssTax?.Select(d => ((string?)d.Country, d.TaxMinor))).Within(msg.TaxMinor).Serialize(),
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
             // The shopper's chosen method and the settling PSP, both persisted so the ledger can
@@ -131,9 +125,9 @@ public sealed class AuthorizePaymentConsumer(
     /// matches the routed key, else the synthetic <see cref="PaymentModeResolver.AccountForProvider"/>
     /// (the prior behavior).</item>
     /// </list>
-    /// The account lookup is tenant-scoped: <see cref="AuthorizePayment"/> carries no tenant in dev, so
-    /// we resolve it exactly as the rest of Payments does — config <c>Tenancy:DefaultTenantId</c>, else
-    /// the seeded default tenant. Every DB-backed resolution keeps the try/catch degradation to the
+    /// The account lookup is tenant-scoped and (unchanged by the message's newer <c>TenantId</c>, which only
+    /// scopes the FORCE-RLS vault/card read) resolves the tenant exactly as the rest of Payments does —
+    /// config <c>Tenancy:DefaultTenantId</c>, else the seeded default tenant. Every DB-backed resolution keeps the try/catch degradation to the
     /// synthetic default so an unsafe host×account mode combination can never crash checkout; in
     /// LocalMock the mock adapter is returned regardless of the declared provider, while the persisted
     /// provider becomes the routed/acquiring PSP (ledger → cash.{provider}).

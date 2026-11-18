@@ -1,0 +1,38 @@
+# Alert routing (ADR-0065 Q8): every alert goes by EMAIL. The recipient is set in ONE config file,
+# deploy/observability/alerting.env (ALERT_EMAIL_TO; placeholder test@test.com until the real address is known).
+# Grafana expands $ALERT_EMAIL_TO from its environment when it provisions this file (comma-separated list allowed).
+#   dev compose  ALERT_EMAIL_TO via the grafana env_file + GF_SMTP_* from
+#                GRAFANA_SMTP_* in your shell/.env; SMTP is off unless GRAFANA_SMTP_ENABLED=true, so dev alerts show
+#                in Grafana → Alerting and a send attempt is only logged.
+#   production   install-lgtm.sh passes ALERT_EMAIL_TO from the same file; the SMTP credentials come from the
+#                Secret `grafana-alerting` (install-lgtm.sh documents how to create it).
+# Same file in dev and prod (install-lgtm.sh mounts this folder).
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: ops-email
+    receivers:
+      - uid: tc-ops-email
+        type: email
+        settings:
+          addresses: $ALERT_EMAIL_TO
+          singleEmail: true
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: ops-email
+    group_by: [grafana_folder, alertname]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Pages repeat hourly until resolved; tickets every 12 h.
+      - receiver: ops-email
+        object_matchers:
+          - [severity, "=", page]
+        repeat_interval: 1h
+      - receiver: ops-email
+        object_matchers:
+          - [severity, "=", ticket]
+        repeat_interval: 12h

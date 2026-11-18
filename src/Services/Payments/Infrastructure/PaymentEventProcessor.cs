@@ -107,7 +107,8 @@ public sealed class PaymentEventProcessor(
                 var sale = Ledger.Sale(
                     payment.OrderId, payment.AmountMinor, payment.TaxMinor, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
                     payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
-                    payment.ShippingMinor, accounts?.ShippingAccountCode, payment.StorefrontId);
+                    payment.ShippingMinor, accounts?.ShippingAccountCode, payment.StorefrontId,
+                    ossTax: payment.OssTaxShares); // ADR-0063 § 16: each destination's OSS VAT to its own account
                 // A genuinely $0 order (e.g. a usage-metered product with no upfront price and no shipping)
                 // moves no money, so the sale entry has no lines — don't persist an empty journal entry.
                 if (sale.Lines.Count > 0)
@@ -213,11 +214,14 @@ public sealed class PaymentEventProcessor(
             : (long)Math.Round((decimal)payment.TaxMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
         var shipping = payment.AmountMinor == 0 ? 0
             : (long)Math.Round((decimal)payment.ShippingMinor * disputedGross / payment.AmountMinor, MidpointRounding.ToEven);
+        // ADR-0063 § 16: the chargeback reverses everything still standing, so each OSS account gives back exactly its remainder.
+        var ossReversal = await OssTaxReversals.ForAsync(db, payment, accounts?.TaxAccountCode, tax, final: true, ct);
         db.JournalEntries.Add(Ledger.Chargeback(
             payment.OrderId, disputedGross, tax, ev.FeeMinor, payment.Currency, time.GetUtcNow(),
             payment.MethodKind, payment.Provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             shipping, accounts?.ShippingAccountCode, payment.StorefrontId, reference,
-            payment.Kind == PaymentKind.Order ? null : $"Chargeback of charge {payment.ChargeReference} via {payment.MethodKind}"));
+            payment.Kind == PaymentKind.Order ? null : $"Chargeback of charge {payment.ChargeReference} via {payment.MethodKind}",
+            ossReversal));
         payment.Status = PaymentStatus.Disputed;
         await publisher.Publish(new PaymentDisputed(payment.OrderId, payment.PaymentIntentId, disputedGross, payment.ChargeReference), ct);
     }

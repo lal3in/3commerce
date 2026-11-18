@@ -1,0 +1,91 @@
+# Loki for production (ADR-0065 Q1/Q2) — chart grafana-community/loki 21.3.1 (Loki 3.7.10), installed by
+# install-lgtm.sh into namespace `observability`. Monolithic (one binary, up to tens of GB/day) on S3-compatible
+# object storage; scale-out path = deploymentMode Distributed (same storage, no data migration).
+# Object storage: install-lgtm.sh sets loki.storage.s3.{endpoint,region} + bucket names from S3_* env; credentials
+# come from the Secret `lgtm-object-storage` (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) through the S3 SDK's env
+# chain — or leave that Secret out and use workload identity (IRSA / GKE WI).
+deploymentMode: Monolithic
+
+loki:
+  # Multi-tenant: the 3commerce collector pushes with X-Scope-OrgID: 3commerce, Grafana queries with the same header.
+  auth_enabled: true
+  commonConfig:
+    replication_factor: 1
+  schemaConfig:
+    configs:
+      - from: "2026-11-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  storage:
+    type: s3
+    bucketNames:
+      chunks: 3commerce-loki-chunks
+      ruler: 3commerce-loki-ruler
+      admin: 3commerce-loki-admin
+    s3:
+      endpoint: null        # install-lgtm.sh --set (S3_ENDPOINT)
+      region: null          # install-lgtm.sh --set (S3_REGION)
+      s3ForcePathStyle: true
+      insecure: false
+  limits_config:
+    allow_structured_metadata: true
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    max_cache_freshness_per_query: 10m
+    split_queries_by_interval: 15m
+    query_timeout: 300s
+    volume_enabled: true
+    # Q2: logs 30 days, security logs 12 months. The collector labels authentication / permission-denied records
+    # log.category=security; otlp_config indexes it as the stream label log_category (same as dev loki.yaml).
+    retention_period: 720h
+    retention_stream:
+      - selector: '{log_category="security"}'
+        priority: 1
+        period: 8760h
+    otlp_config:
+      resource_attributes:
+        attributes_config:
+          - action: index_label
+            attributes: [log.category]
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+
+defaults:
+  extraEnvFrom:
+    - secretRef:
+        name: lgtm-object-storage
+        optional: true
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 20Gi              # WAL + index cache only — chunks live in object storage
+
+# The SimpleScalable/Distributed targets stay off in Monolithic mode.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# The gateway (nginx) is the in-cluster endpoint: http://loki-gateway.observability.svc/otlp (collector) and
+# http://loki-gateway.observability.svc (Grafana).
+gateway:
+  enabled: true
+
+# No canary/self-test pods in production; caches sized down for a single binary.
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+chunksCache:
+  allocatedMemory: 1024
+resultsCache:
+  allocatedMemory: 512

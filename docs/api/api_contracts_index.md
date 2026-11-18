@@ -324,10 +324,14 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 > customer to authenticate, `SubscriptionPaymentFailed` when one is declined and will be retried, and
 > `SubscriptionCancelledForNonPayment` when the day-7 retry fails (→ Notifications emails linking
 > `/account/subscriptions/{id}/pay`); Usage publishes
-> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). Payments publishes
-> `SubscriptionRenewalSettled` / `UsageChargeSettled` once per SETTLED renewal / usage charge with P1-shaped tax facts
+> `UsageOverageCharge` when overage is billed (→ Payments charges via the rail). `AuthorizePayment` appends `OssTax` (`OssTaxDestination[]`: the OSS
+> part of the tax by Member State, ADR-0063 § 16) so the sale posts each destination's VAT to `tax.store-{id}.oss.{CC}`;
+> `GET /admin/ledger/storefronts/{id}/chart` lists one "OSS VAT — {CC}" row per destination the store has posted to.
+> Payments publishes `SubscriptionRenewalSettled` / `UsageChargeSettled` once per SETTLED renewal / usage charge with P1-shaped tax facts
 > (`Contracts.Tax.Facts`: category, rate, net base, tax, exemption, scheme, inclusive — the split its ledger entry posted;
-> ADR-0063 P4b, consumed by Invoicing in phase 1, and by Usage) and `UsageChargeFailed` per answered failure of a usage
+> ADR-0063 P4b, consumed by Invoicing in phase 1, by Usage, and by Ordering, which counts a cross-border renewal toward the
+> seller's EU distance-sales total; Ordering then publishes `EuDistanceSaleRecorded` per running-total row → Payments' copy,
+> which re-decides a Domestic renewal's scheme once the seller crosses EUR 10,000 — ADR-0063 § 16, OSS threshold crossing) and `UsageChargeFailed` per answered failure of a usage
 > charge, which is dunned like a renewal (days 1/3/7, fresh keys, one pinned amount, then abandoned; job `usage-charge-retry`)
 > → Usage (reversal / hold) + Notifications (email). The dedicated
 > Pricing/Entitlement/Usage services were extracted per ADR-0030 (superseding ADR-0028's
