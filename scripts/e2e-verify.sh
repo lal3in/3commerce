@@ -353,6 +353,11 @@
 #       period retried after the crossing keeps its pinned 1190 Domestic and the NEXT period is OSS. A settled renewal of a
 #       cross-border line adds its own running-total row (keyed by its reference; nothing for home, non-EU, exported,
 #       non-EU-store or zero-net renewals). The threshold and the home-state rule equal Ordering's
+#   A3zz Unit · manual-service place of supply (ADR-0063 § 16, owner decision 2026-11-15; ManualServicePlaceOfSupplyTests):
+#       a ManualService line (installation, assembly) is supplied where performed — the ship-to: billed to France but
+#       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
+#       under OSS); installed in France over the threshold it is FR 20 % OSS, under it the home 19 %; in Northern Ireland it
+#       follows the UK (GB) while goods are XI
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -1050,6 +1055,10 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zx OSS threshold crossing"; else fail "A3zx OSS threshold crossing"; fi
+  stage "A3zz Manual-service place of supply (ADR-0063 § 16) — taxed where performed, the ship-to"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
