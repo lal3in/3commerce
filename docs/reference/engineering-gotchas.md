@@ -423,8 +423,10 @@ Ledger postings (Payments):
 - **Collector 0.165 ids are snake_case** (`otlp_grpc`, `otlp_http`, `prometheus_remote_write`, `k8s_attributes`,
   `resource_detection`). The old ids still load but warn; a release will drop them, so a clean start must log no
   `deprecated` line. OTTL paths need their context prefix (`log.body`, `span.attributes`).
-- **Grafana expands `$VARS` in provisioning files** — that is how `contact-points.yml` gets `$ALERT_EMAIL_TO`, and
-  why alert templates write `$$labels`/`$$values` (an unescaped `$labels` becomes an empty env var).
+- **Grafana expands `$VARS` in contact-point settings, not in alert-rule annotations** — `contact-points.yml` gets
+  `$ALERT_EMAIL_TO` that way, but a rule annotation written `$$labels` stays literally `$$labels` (checked via
+  `/api/v1/provisioning/alert-rules`); templates use plain `$labels`/`$values`. (Datasource files DO expand, hence
+  `$${__value.raw}` in `lgtm.yml`.)
 
 ## Gateway (the public origin)
 

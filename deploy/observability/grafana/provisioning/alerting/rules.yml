@@ -5,8 +5,9 @@
 # provision the same uids against the upstream gateways. Notifications: contact-points.yml (email, configuration-only).
 #
 # Every rule is labelled severity=page|ticket and carries a runbook link (docs/runbooks/observability.md).
-# `$$labels` / `$$values` are escaped on purpose: Grafana expands $VARS from its environment in provisioning files
-# (that is how contact-points.yml gets $ALERT_EMAIL_TO), so a template's `$labels` must be written `$$labels`.
+# Templates use plain `$labels` / `$values`: Grafana expands $VARS only in contact-point settings (that is how
+# contact-points.yml gets $ALERT_EMAIL_TO), not in rule annotations — a `$$labels` there stays literally `$$labels`
+# (verified on Grafana 11.2 via /api/v1/provisioning/alert-rules).
 # noDataState is chosen per rule: a metric that only exists when something is wrong (or that another branch
 # provides, like the RabbitMQ queue metrics) is OK on no data; a heartbeat (the collector's own uptime) alerts.
 apiVersion: 1
@@ -45,7 +46,7 @@ groups:
         execErrState: Error
         labels: { severity: page, slo: errors }
         annotations:
-          summary: "{{ $$labels.service_name }}: {{ humanizePercentage $$values.A.Value }} of requests return 5xx (SLO < 1 %)"
+          summary: "{{ $labels.service_name }}: {{ humanizePercentage $values.A.Value }} of requests return 5xx (SLO < 1 %)"
           runbook_url: docs/runbooks/observability.md#http-5xx-rate-above-1-percent
       # ADR-0029 / NFR-5: catalog search + product detail p95 < 500 ms.
       - uid: tc-p95-catalog-reads
@@ -74,7 +75,7 @@ groups:
         execErrState: Error
         labels: { severity: ticket, slo: latency }
         annotations:
-          summary: "catalog {{ $$labels.http_route }}: p95 {{ humanizeDuration $$values.A.Value }} (SLO < 500 ms)"
+          summary: "catalog {{ $labels.http_route }}: p95 {{ humanizeDuration $values.A.Value }} (SLO < 500 ms)"
           runbook_url: docs/runbooks/observability.md#p95-latency
       # ADR-0029: every other read p95 < 800 ms.
       - uid: tc-p95-other-reads
@@ -103,7 +104,7 @@ groups:
         execErrState: Error
         labels: { severity: ticket, slo: latency }
         annotations:
-          summary: "{{ $$labels.service_name }} {{ $$labels.http_route }}: p95 {{ humanizeDuration $$values.A.Value }} (SLO < 800 ms)"
+          summary: "{{ $labels.service_name }} {{ $labels.http_route }}: p95 {{ humanizeDuration $values.A.Value }} (SLO < 800 ms)"
           runbook_url: docs/runbooks/observability.md#p95-latency
 
   - orgId: 1
@@ -138,7 +139,7 @@ groups:
         execErrState: Error
         labels: { severity: page }
         annotations:
-          summary: "{{ $$labels.queue }} holds {{ $$values.A.Value }} faulted message(s)"
+          summary: "{{ $labels.queue }} holds {{ $values.A.Value }} faulted message(s)"
           runbook_url: docs/runbooks/observability.md#messages-in-an-_error-queue
 
   - orgId: 1
@@ -171,7 +172,7 @@ groups:
         execErrState: Error
         labels: { severity: ticket }
         annotations:
-          summary: "{{ $$labels.service_name }} logged {{ $$values.A.Value }} errors in 5 min"
+          summary: "{{ $labels.service_name }} logged {{ $values.A.Value }} errors in 5 min"
           runbook_url: docs/runbooks/observability.md#error-log-spike
 
   - orgId: 1
@@ -232,7 +233,7 @@ groups:
         execErrState: Error
         labels: { severity: page }
         annotations:
-          summary: "{{ $$labels.service_name }} cannot reach Valkey ({{ $$labels.concern }})"
+          summary: "{{ $labels.service_name }} cannot reach Valkey ({{ $labels.concern }})"
           runbook_url: docs/runbooks/observability.md#valkey-down
       # Heartbeat: the collector pushes its own otelcol_* metrics through itself into Mimir every 30 s
       # (service.telemetry in the collector config). No uptime series for 5 min = the telemetry door is shut.
