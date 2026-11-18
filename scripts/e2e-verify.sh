@@ -343,6 +343,16 @@
 #       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
 #       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
 #       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
+#   A3zx Unit · OSS threshold crossing (ADR-0063 § 16, oss_renewal_threshold_crossing; OssRenewalThresholdTests,
+#       RenewalDistanceSaleTests, EuStandardVatRateParityTests): a Domestic subscription sold from a German 19 % store to
+#       France renews at FR 20 % (1200, scheme Oss + FR) once the seller's copied running total is over EUR 10,000 — the
+#       preceding year strictly over (1,000,001; at 1,000,000 it stays 1190 Domestic) or the current year plus this
+#       renewal over (999,001 + 1,000; 999,000 + 1,000 stays home); only this seller's EUR rows of the preceding + current
+#       year count; a non-EUR renewal takes the destination rate as checkout does; home-country, non-EU, unconfigured,
+#       non-EU-seller, pre-scheme and exempt subscriptions are never re-decided; an OSS one is never downgraded; a declined
+#       period retried after the crossing keeps its pinned 1190 Domestic and the NEXT period is OSS. A settled renewal of a
+#       cross-border line adds its own running-total row (keyed by its reference; nothing for home, non-EU, exported,
+#       non-EU-store or zero-net renewals). The threshold and the home-state rule equal Ordering's
 #   A3zy Unit · per-destination OSS tax accounts (ADR-0063 § 16, oss_per_destination_tax_accounts; OssTaxAccountTests,
 #       OssTaxSharesTests): the OSS part of a charge's tax is posted to tax.store-{id}.oss.{CC} per Member State and the
 #       rest to the store's account (a 1300 sale with 300 tax, FR 200 + IT 50 → 50 / 200 / 50); a charge without an OSS
@@ -351,7 +361,15 @@
 #       on the FR account and its refund reverses it there (negative control: a Domestic renewal stays on the store's);
 #       checkout reports each destination's OSS tax (mixed AT/HU, home goods + FR e-book → FR only, XI goods, none under
 #       the threshold / for an export / a non-EU store; Σ ≤ the tax over 3,000 random carts); the unattributed OSS
-#       fallback is a shared code
+#       fallback is a shared code; a Domestic FR renewal re-decided under OSS after the threshold crossing (the PINNED
+#       destination) books FR's 200 on tax.store-{id}.oss.FR (payment FR:200) and two half refunds reverse it there
+#       (negative control: a seller under the threshold books DE's 192 on the store's account); the pinned retry of a
+#       pre-crossing period stays on the store's account, the next period goes to oss.FR
+#   A3zz Unit · manual-service place of supply (ADR-0063 § 16, owner decision 2026-11-15; ManualServicePlaceOfSupplyTests):
+#       a ManualService line (installation, assembly) is supplied where performed — the ship-to: billed to France but
+#       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
+#       under OSS); installed in France over the threshold it is FR 20 % OSS, under it the home 19 %; in Northern Ireland it
+#       follows the UK (GB) while goods are XI
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -371,7 +389,12 @@
 #       (German 19 % store, non-EUR, shipped to France) checks out at FR 20 % (200 of 1200), carries scheme Oss + FR to
 #       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals) — on tax.store-{id}.oss.FR, checkout
 #       included, none on the store's own tax account; two half refunds of the order + a refund of the renewal net that OSS
-#       account to 0 (ADR-0063 § 16, per-destination OSS tax accounts)
+#       account to 0 (ADR-0063 § 16, per-destination OSS tax accounts); a Domestic
+#       subscription (German EUR store, inclusive, sold to France under the threshold) renews at FR 20 % (198 of 1190) once
+#       a prior-year row over EUR 10,000 reaches Payments' copy (EuDistanceSaleRecorded), and the renewal itself adds a
+#       running-total row in Ordering (renew-{id}-2, FR, net 992) that reaches Payments' copy (ADR-0063 § 16, OSS
+#       threshold crossing) — on tax.store-{id}.oss.FR (payment FR:198, none on the store's account), and its refund
+#       nets that account to 0 (negative control: a seller under the threshold books 190 on the store's account)
 #   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
@@ -396,7 +419,8 @@
 #       (goods + shipping) and Italy (e-book) below the threshold charges 2945 as before and writes two rows (AT
 #       10499, IT 5000). Territories: goods shipped to a 35001 (Canaries) address are an export — 12399 charged with
 #       0 VAT, scheme Export, line + shipping OutsideEuVatArea, no EuDistanceSale row; goods to a BT1 postcode are XI —
-#       UK 20 % added under OSS (2100) and one row under XI (net 10499)
+#       UK 20 % added under OSS (2100) and one row under XI (net 10499); every running-total row is published
+#       (EuDistanceSaleRecorded) and lands in Payments' copy (ADR-0063 § 16, OSS threshold crossing)
 #   A4e Integration · renewal + usage refunds (renewal_usage_refund_path, RecurringChargeRefundTests): a settled
 #       renewal's Payment shares its order with the checkout payment (filtered unique index, real Postgres), admin
 #       GET /admin/subscriptions/{id} shows its chargeReference + tax 83, POST /admin/refunds with chargeReference
@@ -443,7 +467,7 @@
 #       are 400 problem+json naming the field and leave the saved one; a card saved with a malformed address is
 #       refused as billingAddress.country and not saved; another member's PUT/DELETE and an unknown card are 404,
 #       no claims is 401. FORCE RLS as a NON-superuser owner with the REAL migrations (SavedPaymentMethodsRlsTests,
-#       ADR-0024 amendment 2026-11-07): through SavedCardTenantScope the owning tenant writes/reads/updates its card,
+#       ADR-0024 amendment 2026-11-07): through PaymentsTenantScope the owning tenant writes/reads/updates its card,
 #       another tenant reads nothing, updates 0 rows and cannot insert for it, no scope reads nothing and an insert
 #       is rejected, platform scope reads, and inside an open (outbox) transaction the scope applies to it and is gone
 #       after the commit
@@ -460,6 +484,13 @@
 #       paying returns outcome 1 / Settled, the replayed key the same answer with no second attempt, a new key 409;
 #       Usage re-grants the 100 credit and lifts the hold; the attempts are Initial + Customer, keys {ref} and {ref}-a1,
 #       both 500, one journal entry
+#   A4kw Integration · payment customers under FORCE RLS (payment_customers_rls, PaymentCustomersRlsTests, NON-superuser
+#       owner + the REAL migrations, ADR-0024 amendment revised 2026-11-15): the owning tenant reads its vault; another
+#       tenant reads nothing, updates 0 rows and cannot insert for it; no scope reads nothing, an insert is rejected and a
+#       vault saved after its scope ended is a DbUpdateConcurrencyException; platform scope reads; PaymentCustomerVault
+#       finds the existing vault without a provider call and saves the learnt email, and opens tenant B's own vault;
+#       CheckoutInstrument (AuthorizePaymentConsumer) finds vault + card in the order's tenant inside an open
+#       transaction and nothing in another; DefaultSavedCard finds the default/owned card in its tenant only
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -1038,12 +1069,24 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zw OSS renewals"; else fail "A3zw OSS renewals"; fi
+  stage "A3zx OSS threshold crossing (ADR-0063 § 16) — a Domestic cross-border renewal re-decided against the seller's turnover"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssRenewalThresholdTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~RenewalDistanceSaleTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zx OSS threshold crossing"; else fail "A3zx OSS threshold crossing"; fi
   stage "A3zy Per-destination OSS tax accounts (ADR-0063 § 16) — OSS VAT posted and reversed per Member State"
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OssTaxAccountTests' 2>&1 | grep -q 'Failed: *0' \
     && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~OssTaxSharesTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zy per-destination OSS tax accounts"; else fail "A3zy per-destination OSS tax accounts"; fi
+  stage "A3zz Manual-service place of supply (ADR-0063 § 16) — taxed where performed, the ship-to"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

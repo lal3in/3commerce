@@ -269,6 +269,50 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.ToTable("IdempotencyRecords", "payments");
                 });
 
+            modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.EuDistanceSaleCopy", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("HomeCountry")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<long>("NetMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("OrderId", "DestinationCountry", "SourceReference");
+
+                    b.HasIndex("TenantId", "Year", "Currency");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("TenantId", "Year", "Currency"), new[] { "NetMinor" });
+
+                    b.ToTable("EuDistanceSaleCopies", "payments");
+                });
+
             modelBuilder.Entity("ThreeCommerce.Payments.Domain.Ledger.JournalEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -380,6 +424,13 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
 
                     b.Property<bool>("TaxInclusive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("TaxJurisdiction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasDefaultValue("");
 
                     b.Property<int?>("TaxRateBasisPoints")
                         .HasColumnType("integer");

@@ -27,6 +27,10 @@ public record AuthorizePayment(
     // Shipping portion of NetMinor. Persisted on the Payment so the ledger books shipping as its own
     // income line (income.shipping), separate from product revenue. Optional → back-compatible.
     long ShippingMinor = 0,
+    // The order's tenant (owner decision 2026-11-15, ADR-0024 amendment): Payments reads the member's payment customer
+    // and saved card under FORCE RLS in THIS tenant's scope. Optional → back-compatible: a message from an Ordering
+    // that predates it falls back to the host's default tenant.
+    Guid? TenantId = null,
     // ADR-0063 § 16, per-destination OSS tax accounts: the part of TaxMinor charged under the Union OSS scheme, by Member
     // State of consumption (Σ ≤ TaxMinor; the rest is the store's domestic tax). Persisted on the Payment so the sale posts
     // each destination's VAT to its own liability account and refunds reverse from the same ones. A concrete array so

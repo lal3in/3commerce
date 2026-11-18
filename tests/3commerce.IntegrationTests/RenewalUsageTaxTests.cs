@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Catalog;
+using ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.BuildingBlocks.Contracts.Supply;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
@@ -106,6 +107,135 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
             return oss.Count == 5 && oss.Sum(l => l.CreditMinor - l.DebitMinor) == 0;
         }, "France's OSS account did not net to zero after the refunds");
         Assert.Equal(0, await fixture.TrialBalanceAsync());
+    }
+
+    [Fact]
+    public async Task A_domestic_cross_border_subscription_renews_under_OSS_once_the_seller_crosses_the_threshold_and_counts()
+    {
+        // ADR-0063 § 16, OSS threshold crossing. A German EUR store (19 %, inclusive) sold a subscription to France while
+        // the seller (a fresh tenant: its running total is its own) was under the threshold: Domestic, German VAT. The
+        // seller then goes over (a prior-year row, published as Ordering publishes every row). The renewal is re-decided
+        // against Payments' copy of the total: France's 20 %, scheme Oss. And the renewal itself counts: Ordering adds a
+        // row keyed by the renewal's reference and Payments' copy gets it too.
+        var seller = Guid.CreateVersion7();
+        var store = await StoreAsync("EUR", bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var (order, productId) = await SeedOrderAsync(seller, store, "DE", "FR");
+        Subscription subscription;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            subscription = await scope.ServiceProvider.GetRequiredService<SubscriptionService>().StartAsync(new SubscriptionRequested(
+                seller, order, "threshold-renew@example.com", productId, null, BillingPeriod.Monthly, 1_190, "EUR", store, true, false,
+                1, ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Domestic, "FR"), default);
+        }
+
+        await fixture.PublishAsync(new EuDistanceSaleRecorded(
+            seller, Guid.CreateVersion7(), "", "DE", "AT", DateTimeOffset.UtcNow.Year - 1, "EUR", EuOssTaxStrategy.ThresholdMinorEur + 1,
+            DateTimeOffset.UtcNow));
+        await WaitAsync(async () => (await CopiesAsync(seller)).Count == 1, "The prior-year row never reached Payments' copy");
+
+        var lines = await RenewAndReadAsync(subscription);
+
+        // FR 20 % contained in 1190 (was 190: German VAT after the crossing) — and, as an OSS supply, on France's own OSS
+        // account, none on the store's (ADR-0063 § 16, per-destination OSS tax accounts: the posting reads the PINNED
+        // destination, not only the subscription's scheme).
+        Assert.Equal((0L, 198L), (Credit(lines, Tax(store)), Credit(lines, Tax(store) + ".oss.FR")));
+        Assert.Equal(992, Credit(lines, Rev(store)));
+        Assert.Equal(1_190, CashDebits(lines));           // the gross never moves on an inclusive store
+        AssertWellFormed(lines, "EUR");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        var reference = $"renew-{subscription.Id}-2";
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var payment = await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().Payments.AsNoTracking()
+                .SingleAsync(p => p.ChargeReference == reference);
+            Assert.Equal((198L, "FR:198"), (payment.TaxMinor, payment.OssTax));
+        }
+
+        // Negative control: the same sale by a seller still under the threshold renews Domestic — German VAT on the store's
+        // own account, nothing on an OSS account.
+        var underSeller = Guid.CreateVersion7();
+        var underStore = await StoreAsync("EUR", bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var (underOrder, underProduct) = await SeedOrderAsync(underSeller, underStore, "DE", "FR");
+        Subscription under;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            under = await scope.ServiceProvider.GetRequiredService<SubscriptionService>().StartAsync(new SubscriptionRequested(
+                underSeller, underOrder, "threshold-renew@example.com", underProduct, null, BillingPeriod.Monthly, 1_190, "EUR", underStore,
+                true, false, 1, ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Domestic, "FR"), default);
+        }
+
+        var underLines = await RenewAndReadAsync(under);
+        Assert.Equal(190, Credit(underLines, Tax(underStore)));
+        Assert.DoesNotContain(underLines, l => l.AccountCode.Contains(".oss.", StringComparison.Ordinal));
+
+        // The renewal's refund (by its charge reference) takes France's VAT back from France's account: it nets to zero and
+        // the store's own tax account is never touched.
+        await fixture.PublishAsync(new RefundRequested(Guid.CreateVersion7(), order, 1_190, "threshold oss refund", "test", reference));
+        await WaitAsync(async () =>
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var tax = await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().JournalLines.AsNoTracking()
+                .Where(l => l.AccountCode.StartsWith(Tax(store))).ToListAsync();
+            return tax.Count(l => l.AccountCode == Tax(store) + ".oss.FR") == 2
+                && tax.Where(l => l.AccountCode == Tax(store) + ".oss.FR").Sum(l => l.CreditMinor - l.DebitMinor) == 0
+                && tax.All(l => l.AccountCode != Tax(store));
+        }, "France's OSS account did not net to zero after the re-decided renewal's refund");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+        await WaitAsync(async () =>
+        {
+            using var scope = fixture.Ordering.Services.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<OrderingDbContext>().EuDistanceSales.AsNoTracking()
+                .AnyAsync(s => s.OrderId == order && s.SourceReference == reference && s.DestinationCountry == "FR" && s.NetMinor == 992);
+        }, "The renewal never counted toward Ordering's running total");
+        await WaitAsync(async () => (await CopiesAsync(seller)).Any(c => c.SourceReference == reference && c.NetMinor == 992),
+            "The renewal's row never reached Payments' copy");
+    }
+
+    /// <summary>Payments' copy of <paramref name="tenantId"/>'s running total.</summary>
+    private async Task<List<EuDistanceSaleCopy>> CopiesAsync(Guid tenantId)
+    {
+        using var scope = fixture.Payments.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().EuDistanceSaleCopies.AsNoTracking()
+            .Where(c => c.TenantId == tenantId).ToListAsync();
+    }
+
+    /// <summary>A confirmed order of <paramref name="tenantId"/>'s, with one subscription line supplied into <paramref name="destination"/>.</summary>
+    private async Task<(Guid OrderId, Guid ProductId)> SeedOrderAsync(Guid tenantId, Guid store, string jurisdiction, string destination)
+    {
+        using var scope = fixture.Ordering.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<OrderingDbContext>();
+        var productId = Guid.CreateVersion7();
+        var order = new Order
+        {
+            Id = Guid.CreateVersion7(),
+            PublicOrderNumber = Random.Shared.NextInt64(1_000_000, long.MaxValue),
+            TenantId = tenantId,
+            StorefrontId = store,
+            Email = "threshold-renew@example.com",
+            Status = OrderStatus.Confirmed,
+            Currency = "EUR",
+            ShipName = "N",
+            ShipLine1 = "1 Rue",
+            ShipCity = "Paris",
+            ShipPostcode = "75001",
+            ShipCountry = destination,
+            TaxScheme = ThreeCommerce.Ordering.Domain.TaxScheme.Domestic,
+            TaxInclusive = true,
+            TaxJurisdiction = jurisdiction,
+            TaxDestinationCountry = destination,
+            Lines =
+            [
+                new OrderLine
+                {
+                    ProductId = productId, Title = "Plan", Quantity = 1, UnitPriceMinor = 1_190, TaxableBaseMinor = 1_000,
+                    TaxDestinationCountry = destination, BillingMode = BillingMode.Recurring, BillingPeriod = BillingPeriod.Monthly,
+                },
+            ],
+        };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        return (order.Id, productId);
     }
 
     [Fact]

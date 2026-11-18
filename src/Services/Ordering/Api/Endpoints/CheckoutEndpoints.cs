@@ -480,8 +480,8 @@ public static class CheckoutEndpoints
         try
         {
             var response = await authorize.GetResponse<AuthorizePaymentResult>(
-                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor,
-                    ossTax.Count == 0 ? null : ossTax.Select(s => new OssTaxDestination(s.Country, s.TaxMinor)).ToArray()), ct);
+                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor, TenantId: tenantId,
+                    OssTax: ossTax.Count == 0 ? null : ossTax.Select(s => new OssTaxDestination(s.Country, s.TaxMinor)).ToArray()), ct);
             intent = response.Message;
         }
         catch (RequestTimeoutException)

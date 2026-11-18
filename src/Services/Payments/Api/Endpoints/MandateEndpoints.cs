@@ -141,25 +141,11 @@ public static class MandateEndpoints
         CancellationToken ct)
     {
         var userId = UserId(principal);
-        var tenantId = TenantId(principal);
-        var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == provider.ProviderKey, ct);
-        if (customer is not null)
-        {
-            return customer;
-        }
-
-        customer = new PaymentCustomer
-        {
-            Id = Guid.CreateVersion7(),
-            TenantId = tenantId,
-            UserId = userId,
-            Provider = provider.ProviderKey,
-            ProviderCustomerId = await provider.CreateCustomerAsync(userId, email, ct),
-            CreatedAt = time.GetUtcNow(),
-        };
-        db.PaymentCustomers.Add(customer);
-        await db.SaveChangesAsync(ct);
-        return customer;
+        // PaymentCustomers is under FORCE RLS (ADR-0024, owner decision 2026-11-15): the vault is found or created in the
+        // caller's tenant scope. A mandate never records the vault's email (the saved-card endpoints do).
+        return await PaymentCustomerVault.GetOrCreateAsync(
+            db, TenantId(principal), userId, provider.ProviderKey, email: null,
+            token => provider.CreateCustomerAsync(userId, email, token), time.GetUtcNow(), ct);
     }
 
     private static MandateDto ToDto(Mandate m) =>

@@ -199,6 +199,76 @@ public class OssTaxAccountTests
         Assert.Equal((200L, 200L), (lines.Sum(l => l.CreditMinor), lines.Sum(l => l.DebitMinor)));
     }
 
+    [Fact]
+    public async Task A_renewal_re_decided_to_oss_after_the_threshold_crossing_posts_to_the_destinations_account_and_refunds_from_it()
+    {
+        // ADR-0063 § 16: a Domestic subscription sold from a German store to France before the seller crossed the EUR 10,000
+        // threshold renews as an OSS supply once it has crossed (the destination is pinned with the period, not carried by the
+        // subscription's scheme). Its VAT is France's, so it lands on France's OSS account — and its refund takes it back
+        // from there. Negative control: the same sale by a seller still under the threshold stays on the store's account.
+        var name = Db();
+        var store = await SeedStoreAsync(name, bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var otherStore = await SeedStoreAsync(name, bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var underSeller = Guid.CreateVersion7();
+        Subscription crossed, under;
+        await using (var db = NewDb(name))
+        {
+            db.EuDistanceSaleCopies.Add(new EuDistanceSaleCopy
+            {
+                OrderId = Guid.CreateVersion7(),
+                DestinationCountry = "AT",
+                SourceReference = "",
+                TenantId = TenantId,
+                HomeCountry = "DE",
+                Year = Now.Year - 1,
+                Currency = "EUR",
+                NetMinor = OssThreshold.ThresholdMinorEur + 1,
+                RecordedAt = Now,
+            });
+            await db.SaveChangesAsync();
+            crossed = await StartAsync(db, store, Facts.TaxScheme.Domestic, "FR");
+            under = await StartAsync(db, otherStore, Facts.TaxScheme.Domestic, "FR", underSeller);
+        }
+
+        var rail = new RecordingProvider();
+        await using (var db = NewDb(name))
+        {
+            await Service(db, rail).RenewAsync(TenantId, crossed.Id, default);
+            await Service(db, rail).RenewAsync(underSeller, under.Id, default);
+        }
+
+        Assert.Equal([1_200L, 1_200L], rail.Requests.Select(r => r.AmountMinor)); // inclusive: the gross never moves
+        await using (var db = NewDb(name))
+        {
+            var sale = await db.JournalEntries.Include(e => e.Lines).SingleAsync(e => e.Reference == $"renew-{crossed.Id}-2");
+            Assert.Equal((0L, 200L), (Credit(sale, Tax(store)), Credit(sale, Tax(store) + ".oss.FR"))); // FR 20 % of 1200
+            var control = await db.JournalEntries.Include(e => e.Lines).SingleAsync(e => e.Reference == $"renew-{under.Id}-2");
+            Assert.Equal(192, Credit(control, Tax(otherStore)));                                            // DE 19 % of 1200
+            Assert.DoesNotContain(control.Lines, l => l.AccountCode.Contains(".oss.", StringComparison.Ordinal));
+            var payment = await db.Payments.SingleAsync(p => p.ChargeReference == $"renew-{crossed.Id}-2");
+            Assert.Equal((200L, "FR:200"), (payment.TaxMinor, payment.OssTax));
+            Assert.Null((await db.Payments.SingleAsync(p => p.ChargeReference == $"renew-{under.Id}-2")).OssTax);
+        }
+
+        // Two half refunds of the renewal: France's account is reversed 100 + 100 and nets to zero; the store's is never touched.
+        foreach (var amount in new[] { 600L, 600L })
+        {
+            var (completed, failed) = await RefundAsync(name, rail, new RefundRequested(
+                Guid.CreateVersion7(), crossed.OrderId, amount, "r", "admin", $"renew-{crossed.Id}-2"));
+            Assert.Null(failed);
+            Assert.NotNull(completed);
+        }
+
+        await using var check = NewDb(name);
+        var lines = await check.JournalLines.AsNoTracking().ToListAsync();
+        Assert.Equal(
+            [200L, -100L, -100L],
+            lines.Where(l => l.AccountCode == Tax(store) + ".oss.FR").Select(l => l.CreditMinor - l.DebitMinor).OrderByDescending(x => x));
+        Assert.DoesNotContain(lines, l => l.AccountCode == Tax(store));
+        var entries = await check.JournalEntries.Include(e => e.Lines).ToListAsync();
+        Assert.All(entries, e => Assert.Equal(e.Lines.Sum(l => l.DebitMinor), e.Lines.Sum(l => l.CreditMinor)));
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------------
 
     private static string Tax(Guid store) => $"tax.store-{store:N}";
@@ -233,7 +303,7 @@ public class OssTaxAccountTests
         await Processor(db, rail).ProcessAsync(Event($"evt_{intent}", PaymentWebhookKind.PaymentSucceeded, intent), default);
     }
 
-    private static async Task<Guid> SeedStoreAsync(string name, int bps = 2_000, bool inclusive = true)
+    private static async Task<Guid> SeedStoreAsync(string name, int bps = 2_000, bool inclusive = true, string jurisdiction = "")
     {
         await using var db = NewDb(name);
         var id = Guid.CreateVersion7();
@@ -246,6 +316,7 @@ public class OssTaxAccountTests
             ShippingAccountCode = $"shipping.store-{id:N}",
             TaxRateBasisPoints = bps,
             TaxInclusive = inclusive,
+            TaxJurisdiction = jurisdiction,
             UpdatedAt = Now,
         });
         await db.SaveChangesAsync();
@@ -271,10 +342,10 @@ public class OssTaxAccountTests
         await db.SaveChangesAsync();
     }
 
-    private static async Task<Subscription> StartAsync(PaymentsDbContext db, Guid store, Facts.TaxScheme scheme, string destination)
+    private static async Task<Subscription> StartAsync(PaymentsDbContext db, Guid store, Facts.TaxScheme scheme, string destination, Guid? tenantId = null)
     {
         var subscription = Subscription.Start(
-            TenantId, Guid.CreateVersion7(), "oss-tax@example.com", Guid.CreateVersion7(), null, BillingPeriod.Monthly,
+            tenantId ?? TenantId, Guid.CreateVersion7(), "oss-tax@example.com", Guid.CreateVersion7(), null, BillingPeriod.Monthly,
             1_200, "EUR", Now, "cus_1", "pm_1", store, taxInclusive: true, taxScheme: scheme, taxDestinationCountry: destination);
         db.Subscriptions.Add(subscription);
         await db.SaveChangesAsync();
