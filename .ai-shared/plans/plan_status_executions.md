@@ -1,4 +1,5 @@
 # Plan Execution Status
+| observability_dotnet_instrumentation_2026_11_15 | Observability audit P0-3/P1-1/P1-4/P1-5/P1-6/P2-4 + Q6/Q7 + ADR-0065 security log lines: RecordException, gateway OTLP logs, Npgsql DB spans + N+1 view, light BuildingBlocks.Observability for Admin/SupplierPortal (ErrorBoundary, CircuitHandler), MassTransit + System.Runtime meters + RabbitMQ scrape + dashboards, Redis spans (gated), Kafka envelope traceparent, structured security logs | Observability (.NET instrumentation) | in_progress | docs/reviews/observability-capability-audit.md | Branch feature/observability-dotnet-instrumentation. ADR-0034 + ADR-0064 amendments; Identity GET /session (opaque ids for circuit telemetry). Tests A3zo/A4ko/A4kp/L20b. |
 
 Last Modified Date-Time: 2026-10-18
 
