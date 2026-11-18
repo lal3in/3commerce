@@ -455,7 +455,10 @@ public sealed class SubscriptionService(
             subscription.OrderId, tax.ChargeMinor, tax.TaxMinor, 0, subscription.Currency, now,
             PaymentMethodKind.Card, provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             0, accounts?.ShippingAccountCode, subscription.StorefrontId, reference,
-            $"Subscription renewal {subscription.Id} period {sequence}");
+            $"Subscription renewal {subscription.Id} period {sequence}",
+            // ADR-0063 § 16, per-destination OSS tax accounts: an OSS renewal's VAT is the destination's, so it goes to that
+            // destination's OSS account (the payment reads it back from this entry, and refunds reverse from there).
+            OssRenewalTax(subscription, tax));
         if (sale.Lines.Count == 0)
         {
             return null; // a zero charge moves no money: no entry, no payment
@@ -495,6 +498,10 @@ public sealed class SubscriptionService(
                 ? subscription.OssDestination ?? subscription.TaxDestinationCountry
                 : null), ct);
     }
+
+    /// <summary>The OSS part of a renewal's tax: all of it, in the destination it was charged at, when the period is an OSS supply.</summary>
+    private static OssTaxSplit? OssRenewalTax(Subscription subscription, RecurringChargeTaxResult tax) =>
+        subscription.OssDestination is { } destination ? OssTaxSplit.Single(destination, tax.TaxMinor) : null;
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>
     private async Task<StorefrontLedgerAccounts?> AccountsAsync(Guid? storefrontId, CancellationToken ct) =>

@@ -26,6 +26,14 @@ public record AuthorizePayment(
     long TaxMinor = 0,
     // Shipping portion of NetMinor. Persisted on the Payment so the ledger books shipping as its own
     // income line (income.shipping), separate from product revenue. Optional → back-compatible.
-    long ShippingMinor = 0);
+    long ShippingMinor = 0,
+    // ADR-0063 § 16, per-destination OSS tax accounts: the part of TaxMinor charged under the Union OSS scheme, by Member
+    // State of consumption (Σ ≤ TaxMinor; the rest is the store's domestic tax). Persisted on the Payment so the sale posts
+    // each destination's VAT to its own liability account and refunds reverse from the same ones. A concrete array so
+    // MassTransit materializes it. Null = no OSS part (every non-EU and domestic sale) → back-compatible.
+    OssTaxDestination[]? OssTax = null);
+
+/// <summary>One Member State's OSS VAT in a charge (ADR-0063 § 16): ISO alpha-2 (<c>XI</c> for Northern Ireland goods) and the tax in minor units.</summary>
+public record OssTaxDestination(string Country, long TaxMinor);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);
