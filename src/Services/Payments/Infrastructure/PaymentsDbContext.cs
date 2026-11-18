@@ -176,6 +176,9 @@ public class PaymentsDbContext(DbContextOptions<PaymentsDbContext> options) : Db
             p.Property(x => x.Kind).HasDefaultValue(PaymentKind.Order);
             p.HasIndex(x => x.OrderId).IsUnique().HasFilter("\"Kind\" = 1");
             p.HasIndex(x => x.ChargeReference).IsUnique().HasFilter("\"ChargeReference\" IS NOT NULL");
+            // ADR-0063 § 16: the OSS part of the tax by destination (FR:200,IT:150); null = none.
+            p.Property(x => x.OssTax).HasMaxLength(400);
+            p.Ignore(x => x.OssTaxShares);
             p.Property(x => x.ChargeReference).HasMaxLength(200);
             p.HasIndex(x => x.SubscriptionId);
             p.HasIndex(x => x.PaymentIntentId);

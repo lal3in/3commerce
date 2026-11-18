@@ -94,6 +94,8 @@ public sealed class AuthorizePaymentConsumer(
             AmountMinor = grossMinor,
             TaxMinor = msg.TaxMinor, // tax portion of the charge → ledger books it as a tax liability (not revenue)
             ShippingMinor = msg.ShippingMinor, // shipping portion → ledger books it as its own income line
+            // ADR-0063 § 16: the OSS part of the tax by destination → each posted to its own OSS liability account.
+            OssTax = OssTaxSplit.Of(msg.OssTax?.Select(d => ((string?)d.Country, d.TaxMinor))).Within(msg.TaxMinor).Serialize(),
             Currency = msg.Currency,
             Status = PaymentStatus.Pending,
             // The shopper's chosen method and the settling PSP, both persisted so the ledger can

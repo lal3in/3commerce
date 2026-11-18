@@ -83,10 +83,29 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
 
         var lines = await RenewAndReadAsync(subscription);
 
-        Assert.Equal(200, Credit(lines, Tax(store)));     // FR 20 %: the same VAT checkout charged, not DE's 192
+        // FR 20 %: the same VAT checkout charged, not DE's 192 — on France's own OSS account (ADR-0063 § 16), none on the store's.
+        Assert.Equal((0L, 200L), (Credit(lines, Tax(store)), Credit(lines, Tax(store) + ".oss.FR")));
+        var checkoutSale = await EntryLinesAsync(order.OrderId.ToString());
+        Assert.Equal((0L, 200L), (Credit(checkoutSale, Tax(store)), Credit(checkoutSale, Tax(store) + ".oss.FR"))); // checkout too
         Assert.Equal(1_000, Credit(lines, Rev(store)));
         Assert.Equal(1_200, CashDebits(lines));           // the gross never moves
         AssertWellFormed(lines, currency);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        // Refunds reverse from the same account: the order in two halves, the renewal by its charge reference — France's
+        // OSS account nets to exactly zero (ADR-0063 § 16, per-destination OSS tax accounts).
+        foreach (var (amount, charge) in new[] { (600L, (string?)null), (600L, null), (1_200L, $"renew-{subscription.Id}-2") })
+        {
+            await fixture.PublishAsync(new RefundRequested(Guid.CreateVersion7(), order.OrderId, amount, "oss refund", "test", charge));
+        }
+
+        await WaitAsync(async () =>
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var oss = await db.JournalLines.AsNoTracking().Where(l => l.AccountCode == Tax(store) + ".oss.FR").ToListAsync();
+            return oss.Count == 5 && oss.Sum(l => l.CreditMinor - l.DebitMinor) == 0;
+        }, "France's OSS account did not net to zero after the refunds");
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 
@@ -116,13 +135,53 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
 
         var lines = await RenewAndReadAsync(subscription);
 
-        Assert.Equal(198, Credit(lines, Tax(store)));     // FR 20 % contained in 1190 (was 190: German VAT after the crossing)
+        // FR 20 % contained in 1190 (was 190: German VAT after the crossing) — and, as an OSS supply, on France's own OSS
+        // account, none on the store's (ADR-0063 § 16, per-destination OSS tax accounts: the posting reads the PINNED
+        // destination, not only the subscription's scheme).
+        Assert.Equal((0L, 198L), (Credit(lines, Tax(store)), Credit(lines, Tax(store) + ".oss.FR")));
         Assert.Equal(992, Credit(lines, Rev(store)));
         Assert.Equal(1_190, CashDebits(lines));           // the gross never moves on an inclusive store
         AssertWellFormed(lines, "EUR");
         Assert.Equal(0, await fixture.TrialBalanceAsync());
 
         var reference = $"renew-{subscription.Id}-2";
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            var payment = await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().Payments.AsNoTracking()
+                .SingleAsync(p => p.ChargeReference == reference);
+            Assert.Equal((198L, "FR:198"), (payment.TaxMinor, payment.OssTax));
+        }
+
+        // Negative control: the same sale by a seller still under the threshold renews Domestic — German VAT on the store's
+        // own account, nothing on an OSS account.
+        var underSeller = Guid.CreateVersion7();
+        var underStore = await StoreAsync("EUR", bps: 1_900, inclusive: true, jurisdiction: "DE");
+        var (underOrder, underProduct) = await SeedOrderAsync(underSeller, underStore, "DE", "FR");
+        Subscription under;
+        using (var scope = fixture.Payments.Services.CreateScope())
+        {
+            under = await scope.ServiceProvider.GetRequiredService<SubscriptionService>().StartAsync(new SubscriptionRequested(
+                underSeller, underOrder, "threshold-renew@example.com", underProduct, null, BillingPeriod.Monthly, 1_190, "EUR", underStore,
+                true, false, 1, ThreeCommerce.BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Domestic, "FR"), default);
+        }
+
+        var underLines = await RenewAndReadAsync(under);
+        Assert.Equal(190, Credit(underLines, Tax(underStore)));
+        Assert.DoesNotContain(underLines, l => l.AccountCode.Contains(".oss.", StringComparison.Ordinal));
+
+        // The renewal's refund (by its charge reference) takes France's VAT back from France's account: it nets to zero and
+        // the store's own tax account is never touched.
+        await fixture.PublishAsync(new RefundRequested(Guid.CreateVersion7(), order, 1_190, "threshold oss refund", "test", reference));
+        await WaitAsync(async () =>
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var tax = await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().JournalLines.AsNoTracking()
+                .Where(l => l.AccountCode.StartsWith(Tax(store))).ToListAsync();
+            return tax.Count(l => l.AccountCode == Tax(store) + ".oss.FR") == 2
+                && tax.Where(l => l.AccountCode == Tax(store) + ".oss.FR").Sum(l => l.CreditMinor - l.DebitMinor) == 0
+                && tax.All(l => l.AccountCode != Tax(store));
+        }, "France's OSS account did not net to zero after the re-decided renewal's refund");
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
         await WaitAsync(async () =>
         {
             using var scope = fixture.Ordering.Services.CreateScope();

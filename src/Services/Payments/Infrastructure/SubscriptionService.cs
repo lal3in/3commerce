@@ -455,7 +455,11 @@ public sealed class SubscriptionService(
             subscription.OrderId, tax.ChargeMinor, tax.TaxMinor, 0, subscription.Currency, now,
             PaymentMethodKind.Card, provider, accounts?.RevenueAccountCode, accounts?.TaxAccountCode, accounts?.ReceivableAccountCode,
             0, accounts?.ShippingAccountCode, subscription.StorefrontId, reference,
-            $"Subscription renewal {subscription.Id} period {sequence}");
+            $"Subscription renewal {subscription.Id} period {sequence}",
+            // ADR-0063 § 16, per-destination OSS tax accounts: an OSS renewal's VAT is the destination's — sold under OSS or
+            // re-decided after the threshold crossing (the pinned destination) — so it goes to that destination's OSS account
+            // (the payment reads it back from this entry, and refunds reverse from there).
+            OssRenewalTax(subscription, tax));
         if (sale.Lines.Count == 0)
         {
             return null; // a zero charge moves no money: no entry, no payment
@@ -481,9 +485,8 @@ public sealed class SubscriptionService(
             ? FormattableString.Invariant(
                 $"Subscription renewal — {subscription.Quantity} units, {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}")
             : FormattableString.Invariant($"Subscription renewal — {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}");
-        // The scheme the period was PINNED under (ADR-0063 § 16): sold under OSS, or re-decided after the seller crossed the
-        // threshold. A pin written before the destination was pinned falls back to the subscription's own OSS destination.
-        var ossDestination = tax.OssDestination ?? subscription.OssDestination;
+        // The scheme the period was PINNED under (ADR-0063 § 16) — the same destination the sale was posted to.
+        var ossDestination = RenewalOssDestination(subscription, tax);
         var oss = ossDestination is not null;
         var export = subscription.ExportedFromEuVatArea;
         var facts = SettledChargeTax.For(
@@ -498,6 +501,19 @@ public sealed class SubscriptionService(
                 ? ossDestination ?? subscription.TaxDestinationCountry
                 : null), ct);
     }
+
+    /// <summary>
+    /// The Member State a renewal period is an OSS supply in (ADR-0063 § 16), as PINNED with its amount: sold under OSS, or
+    /// re-decided after the seller crossed the EUR 10,000 threshold (<see cref="RecurringChargeTaxResult.OssDestination"/>).
+    /// A pin written before the destination was pinned falls back to the subscription's own OSS destination. Null = the
+    /// period is a domestic supply. The posting and the settled facts both read it here, so they never disagree.
+    /// </summary>
+    private static string? RenewalOssDestination(Subscription subscription, RecurringChargeTaxResult tax) =>
+        tax.OssDestination ?? subscription.OssDestination;
+
+    /// <summary>The OSS part of a renewal's tax: all of it, in the destination it was charged at, when the period is an OSS supply.</summary>
+    private static OssTaxSplit? OssRenewalTax(Subscription subscription, RecurringChargeTaxResult tax) =>
+        RenewalOssDestination(subscription, tax) is { } destination ? OssTaxSplit.Single(destination, tax.TaxMinor) : null;
 
     /// <summary>The storefront's projected ledger accounts + tax terms (null for an unattributed subscription).</summary>
     private async Task<StorefrontLedgerAccounts?> AccountsAsync(Guid? storefrontId, CancellationToken ct) =>

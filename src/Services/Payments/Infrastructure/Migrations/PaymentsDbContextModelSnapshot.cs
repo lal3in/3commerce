@@ -538,6 +538,10 @@ namespace ThreeCommerce.Payments.Infrastructure.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("OssTax")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<string>("PaymentIntentId")
                         .IsRequired()
                         .HasColumnType("text");

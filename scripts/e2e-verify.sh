@@ -353,6 +353,18 @@
 #       period retried after the crossing keeps its pinned 1190 Domestic and the NEXT period is OSS. A settled renewal of a
 #       cross-border line adds its own running-total row (keyed by its reference; nothing for home, non-EU, exported,
 #       non-EU-store or zero-net renewals). The threshold and the home-state rule equal Ordering's
+#   A3zy Unit · per-destination OSS tax accounts (ADR-0063 § 16, oss_per_destination_tax_accounts; OssTaxAccountTests,
+#       OssTaxSharesTests): the OSS part of a charge's tax is posted to tax.store-{id}.oss.{CC} per Member State and the
+#       rest to the store's account (a 1300 sale with 300 tax, FR 200 + IT 50 → 50 / 200 / 50); a charge without an OSS
+#       part posts byte-identically; refunds in three parts and a chargeback after a partial refund net every tax account to
+#       0 (largest-remainder allocation, the final reversal closes each destination exactly); an OSS renewal books FR's 200
+#       on the FR account and its refund reverses it there (negative control: a Domestic renewal stays on the store's);
+#       checkout reports each destination's OSS tax (mixed AT/HU, home goods + FR e-book → FR only, XI goods, none under
+#       the threshold / for an export / a non-EU store; Σ ≤ the tax over 3,000 random carts); the unattributed OSS
+#       fallback is a shared code; a Domestic FR renewal re-decided under OSS after the threshold crossing (the PINNED
+#       destination) books FR's 200 on tax.store-{id}.oss.FR (payment FR:200) and two half refunds reverse it there
+#       (negative control: a seller under the threshold books DE's 192 on the store's account); the pinned retry of a
+#       pre-crossing period stays on the store's account, the next period goes to oss.FR
 #   A3zz Unit · manual-service place of supply (ADR-0063 § 16, owner decision 2026-11-15; ManualServicePlaceOfSupplyTests):
 #       a ManualService line (installation, assembly) is supplied where performed — the ship-to: billed to France but
 #       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
@@ -375,11 +387,14 @@
 #       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
 #       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0; an OSS subscription
 #       (German 19 % store, non-EUR, shipped to France) checks out at FR 20 % (200 of 1200), carries scheme Oss + FR to
-#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals); a Domestic
+#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals) — on tax.store-{id}.oss.FR, checkout
+#       included, none on the store's own tax account; two half refunds of the order + a refund of the renewal net that OSS
+#       account to 0 (ADR-0063 § 16, per-destination OSS tax accounts); a Domestic
 #       subscription (German EUR store, inclusive, sold to France under the threshold) renews at FR 20 % (198 of 1190) once
 #       a prior-year row over EUR 10,000 reaches Payments' copy (EuDistanceSaleRecorded), and the renewal itself adds a
 #       running-total row in Ordering (renew-{id}-2, FR, net 992) that reaches Payments' copy (ADR-0063 § 16, OSS
-#       threshold crossing)
+#       threshold crossing) — on tax.store-{id}.oss.FR (payment FR:198, none on the store's account), and its refund
+#       nets that account to 0 (negative control: a seller under the threshold books 190 on the store's account)
 #   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
@@ -1062,6 +1077,12 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zx OSS threshold crossing"; else fail "A3zx OSS threshold crossing"; fi
+  stage "A3zy Per-destination OSS tax accounts (ADR-0063 § 16) — OSS VAT posted and reversed per Member State"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssTaxAccountTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssTaxSharesTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zy per-destination OSS tax accounts"; else fail "A3zy per-destination OSS tax accounts"; fi
   stage "A3zz Manual-service place of supply (ADR-0063 § 16) — taxed where performed, the ship-to"
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
