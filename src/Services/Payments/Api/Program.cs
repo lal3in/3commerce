@@ -52,6 +52,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<OrderCostsRecognizedConsumer>(); // COGS accrual per supplier (phase 1)
     bus.AddConsumer<ReturnedGoodsValuedConsumer>(); // RMA disposition: COGS reversal / write-off reclass (phase 1)
     bus.AddConsumer<EuDistanceSaleCopyConsumer>(); // the sellers' EU distance-sales running total, for renewals (ADR-0063 § 16)
+    bus.AddConsumer<PaymentCustomerEmailConsumer>(); // backfill tool's payment-customer-email sends (payment_customer_email_backfill)
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);
@@ -65,6 +66,7 @@ builder.Services.AddScoped<WebhookSecretService>();
 builder.Services.AddScoped<WebhookRegistrationService>();
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<UsageChargeBilling>(); // usage charges: charge, post, dun + retry (usage_charge_failure_feedback)
+builder.Services.AddScoped<PaymentCustomerEmailBackfill>(); // records a backfilled vault email (payment_customer_email_backfill)
 
 // Scheduled jobs (mt6_3): Quartz fires the daily Xero journal post; each run is recorded as a JobRun.
 // The scheduler is gated by Scheduling:Enabled (default on) so integration tests — which boot many

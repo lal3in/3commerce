@@ -1,6 +1,6 @@
 # order-confirmed-backfill
 
-> Three commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`; [`subscription-quantity`](#subscription-quantity--re-price-legacy-multi-unit-subscriptions) re-sends `SubscriptionRequested` to re-price legacy multi-unit subscriptions.
+> Four commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`; [`subscription-quantity`](#subscription-quantity--re-price-legacy-multi-unit-subscriptions) re-sends `SubscriptionRequested` to re-price legacy multi-unit subscriptions; [`payment-customer-email`](#payment-customer-email--give-old-payment-vaults-their-members-email) sends `RecordPaymentCustomerEmail` so payment vaults opened before #332 learn their member's email.
 
 Operator tool for [ADR-0060](../../docs/adr/0060-unique-receive-endpoint-per-service.md). Until #288, Fulfillment's
 and Notifications' `OrderConfirmedConsumer`s shared the `order-confirmed` queue, so every `OrderConfirmed` reached
@@ -164,3 +164,40 @@ subscription still at quantity 1 is re-priced, never a downgrade and never one t
 redelivery or a re-run is a no-op. A period already attempted keeps its pinned amount (`RecurringChargePin`); the
 corrected price applies from the next period. The customer's next renewal charges the corrected (higher) amount and nothing is sent to them — **run it before live customers exist; with live customers, send a notice first** (owner decision 2026-10-27).
 
+
+## `payment-customer-email` — give old payment vaults their member's email
+
+`payment_customer_email_backfill` (owner decision 2026-11-06, #332). A usage auto top-up charges the member's
+**default saved card**, which Payments finds by tenant + the vault's email (`DefaultSavedCard.FindAsync`). A Payments
+vault (`payments."PaymentCustomers"`) opened before #332 recorded no email until the member next opened their saved
+cards, so its card was invisible: the top-up was skipped, and the "add a card" email (`UsageAutoLoadSkipped`) could not
+reach them either.
+
+```bash
+dotnet $BIN payment-customer-email --dry-run --list      # every vault + its verdict (ids only, never an email)
+dotnet $BIN payment-customer-email --execute --limit 5   # canary
+dotnet $BIN payment-customer-email --execute
+dotnet $BIN payment-customer-email --dry-run             # after the queue drains: MISSING = 0
+```
+
+Options: `--dry-run` / `--execute` (exactly one), `--tenant <guid>` (repeatable), `--limit <n>` (members),
+`--list`, `--skip-preflight`. Reads Payments (vaults: tenants in platform scope, then each tenant's vaults in its RLS
+scope) and Identity (`identity."Users"`, FORCE RLS — the vault's user id in the vault's tenant). Connection
+`ConnectionStrings:Identity` is new in `backfill.settings.json` (`BACKFILL_ConnectionStrings__Identity`). Each vault
+gets one verdict (`PaymentCustomers/PaymentCustomerEmailPlanner.cs`):
+
+| Verdict | Meaning | Sent |
+|---|---|---|
+| `Missing` | the vault has no email and Identity has the account in the vault's tenant | yes — one command per member |
+| `Recorded` | the vault already holds the account's email (also every vault filled by a previous run) | no |
+| `Differs` | the vault holds a different email (the member changed it since); their next saved-cards visit records the current one | no — listed |
+| `NoAccount` | Identity has no account with that user id in the vault's tenant | no — listed |
+
+The command is `RecordPaymentCustomerEmail(TenantId, UserId, Email)` (`BuildingBlocks.Contracts.Payments`), **sent** to
+`queue:payment-customer-email` — Payments' own `PaymentCustomerEmailConsumer`, the name derived from the type — with a
+deterministic message id per (tenant, member) and the `3c-backfill` header, after the usual broker preflight (only
+consumer `3commerce.Payments.Api`, queue drained). Payments applies it in the command's tenant scope
+(`PaymentsTenantScope`, ADR-0024) through `PaymentCustomerEmailBackfill`: it records the email **only on that member's
+vaults with none** — a known email is never overwritten — and, when the member already has a default card, publishes
+`CustomerPaymentMethodReady` in the same outbox commit, so Usage resumes the top-ups it paused for want of a card. A
+redelivery or a re-run is a no-op. Neither the tool's report nor Payments' log ever prints an email address.
