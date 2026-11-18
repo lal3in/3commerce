@@ -73,7 +73,8 @@ public static class AuthEndpoints
             : new LoginResponse("Logged in.", MfaRequired: false));
     }
 
-    private static Results<Ok<SessionContextResponse>, UnauthorizedHttpResult> GetSessionContext(ClaimsPrincipal principal) =>
+    /// <summary>GET /session — public so the unit lane can pin it (opaque ids only, 401 without a subject).</summary>
+    public static Results<Ok<SessionContextResponse>, UnauthorizedHttpResult> GetSessionContext(ClaimsPrincipal principal) =>
         Guid.TryParse(principal.FindFirstValue("sub"), out var userId)
             ? TypedResults.Ok(new SessionContextResponse(
                 userId, Guid.TryParse(principal.FindFirstValue("tenant"), out var tenantId) ? tenantId : null))

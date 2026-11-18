@@ -54,7 +54,7 @@ public sealed partial class LoggingErrorBoundary : ErrorBoundary
         builder.CloseElement();
     }
 
-    internal static string ReferenceFor(Activity? activity) =>
+    public static string ReferenceFor(Activity? activity) =>
         activity is { TraceId: var traceId } && traceId != default
             ? traceId.ToHexString()
             : Guid.CreateVersion7().ToString("N")[^12..];
