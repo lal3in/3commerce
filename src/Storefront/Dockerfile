@@ -12,7 +12,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY src/Storefront/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# Release identity (ADR-0064) stamped into the bundle by next.config.ts (NEXT_PUBLIC_SERVICE_VERSION /
+# NEXT_PUBLIC_VCS_REVISION): the build has no .git, so it comes from the build args. Declared after the COPY so a
+# new SHA only re-runs the build step, which the new sources re-run anyway.
+ARG GIT_SHA=""
+ARG VERSION=""
+# The postbuild step moves browser source maps to .next/sourcemaps; only .next/static is copied below, so they
+# never reach the runtime image (upload them from the build stage — docs/help/getting-started.md).
+RUN GIT_SHA="$GIT_SHA" VERSION="$VERSION" npm run build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

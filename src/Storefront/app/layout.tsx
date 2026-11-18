@@ -9,6 +9,20 @@ import { organizationJsonLd, siteUrl, webSiteJsonLd } from "@/lib/seo";
 import { ThemeStyle } from "@/components/theme/ThemeStyle";
 import { mergeTheme } from "@/lib/theme";
 import { resolveStorefront } from "@/lib/storefront-context";
+import { FaroInit } from "@/components/telemetry/FaroInit";
+import { resolveEnvironment } from "@/lib/telemetry/release";
+
+/** Browser RUM (lib/telemetry/faro.ts) is on unless FARO_ENABLED=false; runtime config, read per render. */
+function rumConfig(): { enabled: boolean; traceOrigins: string[] } {
+  return {
+    enabled: (process.env.FARO_ENABLED ?? "true").toLowerCase() !== "false",
+    // The browser-facing gateway origin, when it differs from the storefront's own (same-origin always propagates).
+    traceOrigins: (process.env.PUBLIC_GATEWAY_URL ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
+  };
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -22,6 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // client provider once here so client leaves (switcher, cart rows, forms) share one catalog.
   const [locale, messages, t] = await Promise.all([getLocale(), getMessages(), getTranslations("header")]);
   const tf = await getTranslations("footer");
+  const rum = rumConfig();
   // Per-storefront theme overrides (mt5_6): fetch the active storefront's sanitized tokens server-side and
   // merge them over the default. mergeTheme re-sanitizes as defence-in-depth. A gateway hiccup must never
   // 500 a page over a *look* — fall back to the default theme, exactly like the locale resolution does.
@@ -86,6 +101,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {tf("tagline")}
           </footer>
           <ConsentBanner />
+          {rum.enabled && <FaroInit environment={resolveEnvironment()} traceOrigins={rum.traceOrigins} />}
         </NextIntlClientProvider>
       </body>
     </html>

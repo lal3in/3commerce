@@ -25,6 +25,12 @@ you are touching before you push.
   project that pulls it in. Precedents: `Microsoft.OpenApi` (every `*.Api` csproj), `SSH.NET`
   (`tests/3commerce.IntegrationTests`). Verify with `dotnet restore <proj> --force-evaluate`; for
   test-infra packages also run one integration test.
+- **Write `src/Storefront/package-lock.json` with npm 10, not a newer local npm.** CI and the Storefront
+  Dockerfile run Node 22 (npm 10), whose `npm ci` demands lock entries that npm 11 leaves out — e.g. an
+  optional peer (`@swc/helpers >=0.5.17` from `@swc/core`) → `EUSAGE … Missing: @swc/helpers@0.5.24 from
+  lock file`, failing `browser-e2e`, `docker` and `kind-deploy` together (#346). After adding a dependency:
+  `cd src/Storefront && npx -y npm@10 install --package-lock-only`, then prove it with `npx -y npm@10 ci`.
+  Dropped `"libc": [...]` lines in the diff are npm-11-only metadata and harmless.
 
 ## Integration tests (Testcontainers)
 

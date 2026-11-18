@@ -8,15 +8,27 @@ import { NextResponse, type NextRequest } from "next/server";
 // that is one of these must never be mistaken for a storefront and pin the cookie — critically including
 // "privacy" and "preview": Next.js PREFETCHES the in-viewport links (the consent banner links to /privacy),
 // and a prefetch of /privacy would otherwise clobber the shopper's pinned storefront cookie with "privacy",
-// blanking the catalog on the next navigation. Keep this in sync with the app/ route folders.
+// blanking the catalog on the next navigation. "rum" is the browser-telemetry relay (POSTed on every page),
+// "probe" the deliberate-error probe. Keep this in sync with the app/ route folders.
 const RESERVED = new Set([
-  "account", "api", "cart", "checkout", "login", "orders", "preview", "privacy", "products", "register", "search",
+  "account", "api", "cart", "checkout", "login", "orders", "preview", "privacy", "probe", "products", "register", "rum",
+  "search",
 ]);
 
 export const STOREFRONT_COOKIE = "3c_storefront";
 
 export function middleware(request: NextRequest) {
-  const segments = request.nextUrl.pathname.split("/").filter(Boolean);
+  const { pathname } = request.nextUrl;
+
+  // Browser source maps are built for symbolication but never served publicly (next.config.ts). The postbuild
+  // step already moves them out of the served directory; this is the second guard. `next dev` keeps its own.
+  if (pathname.startsWith("/_next/")) {
+    return process.env.NODE_ENV === "production" && pathname.endsWith(".map")
+      ? new NextResponse(null, { status: 404 })
+      : NextResponse.next();
+  }
+
+  const segments = pathname.split("/").filter(Boolean);
   const response = NextResponse.next();
   if (segments.length === 1) {
     const slug = segments[0].toLowerCase();
@@ -29,6 +41,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Only page navigations — skip Next internals, API routes, and static files.
-  matcher: ["/((?!_next|api|.*\\..*).*)"],
+  // Page navigations (skipping Next internals, API routes and static files), plus source-map requests for the
+  // production guard above.
+  matcher: ["/((?!_next|api|.*\\..*).*)", "/_next/static/(.+\\.map)"],
 };
