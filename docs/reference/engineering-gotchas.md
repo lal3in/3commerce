@@ -418,11 +418,21 @@ Ledger postings (Payments):
   `password=` values, `Bearer` credentials and email addresses from log bodies and log/span attributes, and
   deletes `Authorization`/`Cookie` attributes. It only sees OTLP: console output and `.run/*.log` are not
   redacted. Keep its regexes free of backslashes and dollar signs (OTTL string escaping + collector env
-  expansion); validate a change with `otelcol-contrib validate --config=…` on the pinned 0.110.0.
+  expansion); validate a change with `otelcol-contrib validate --config=…` on the pinned 0.165.0 (ADR-0065). A
+  `$` the collector must keep (an OTTL capture group) is written `$$1`.
 - **Retention is explicit:** Loki 30 d (compactor `retention_enabled` + `delete_request_store` — retention is a
-  no-op without both), Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months (`395d`) prod values, the dev
-  Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they are
-  repeated there).
+  no-op without both) and **12 months for `{log_category="security"}`** (`retention_stream`; the label exists only
+  because the collector's `groupbyattrs` lifts `log.category` onto the resource — Loki can index resource
+  attributes, never log attributes), Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months (`395d`) prod values,
+  the dev Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they
+  are repeated there).
+- **Collector 0.165 ids are snake_case** (`otlp_grpc`, `otlp_http`, `prometheus_remote_write`, `k8s_attributes`,
+  `resource_detection`). The old ids still load but warn; a release will drop them, so a clean start must log no
+  `deprecated` line. OTTL paths need their context prefix (`log.body`, `span.attributes`).
+- **Grafana expands `$VARS` in contact-point settings, not in alert-rule annotations** — `contact-points.yml` gets
+  `$ALERT_EMAIL_TO` that way, but a rule annotation written `$$labels` stays literally `$$labels` (checked via
+  `/api/v1/provisioning/alert-rules`); templates use plain `$labels`/`$values`. (Datasource files DO expand, hence
+  `$${__value.raw}` in `lgtm.yml`.)
 
 ## Gateway (the public origin)
 

@@ -19,3 +19,21 @@ Host=postgres;Port=5432;Database={{ . }}_db;Username={{ . }}_svc;Password={{ . }
 - name: OTEL_RESOURCE_ATTRIBUTES
   value: {{ printf "deployment.environment.name=%s" .Values.deploymentEnvironment | quote }}
 {{- end -}}
+
+{{- /* OTLP export (ADR-0065, audit P0-5): every .NET process pushes to the in-chart collector, which owns the
+       backend endpoints, tenant header and auth. `observability.otlp.headersSecret` names a Secret holding
+       OTEL_EXPORTER_OTLP_HEADERS, only for a collector that demands auth from its clients (empty by default — the
+       collector is cluster-internal). Takes the root context; renders nothing when observability is off. */ -}}
+{{- define "3commerce.otlpEnv" -}}
+{{- if .Values.observability.enabled }}
+- name: OTEL_EXPORTER_OTLP_ENDPOINT
+  value: {{ .Values.observability.otlp.endpoint | quote }}
+{{- with .Values.observability.otlp.headersSecret }}
+- name: OTEL_EXPORTER_OTLP_HEADERS
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: OTEL_EXPORTER_OTLP_HEADERS
+{{- end }}
+{{- end }}
+{{- end -}}

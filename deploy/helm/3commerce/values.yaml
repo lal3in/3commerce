@@ -64,30 +64,68 @@ pgadmin:
   service:
     port: 80
 
-# Optional in-cluster LGTM observability stack (mirrors the local docker-compose `observability`
-# profile): one OTel Collector fans OTLP out — traces → Tempo, logs → Loki, metrics → Mimir
-# remote-write (query via Mimir's /prometheus API). OFF by default — flip per environment with
-# `--set observability.enabled=true`. dev/kind convenience only: emptyDir storage and no
-# auth/multitenancy — production wants the upstream Loki/Tempo/Mimir charts with object storage.
-# When enabled, every service/worker/gateway gets OTEL_EXPORTER_OTLP_ENDPOINT injected, which is
-# the switch OtelExtensions keys OTLP export on.
+# Observability (ADR-0065). One in-chart OTel Collector is the telemetry door: every service/worker/gateway gets
+# OTEL_EXPORTER_OTLP_ENDPOINT (the switch OtelExtensions keys OTLP export on), the storefront relays browser RUM to
+# its Faro receiver, and it fans out — traces → Tempo, logs → Loki, metrics → Mimir remote-write. OFF by default
+# (`--set observability.enabled=true`); values-prod.yaml turns it on with backend=external.
+#   backend: inChart   single-binary Loki/Tempo/Mimir in this chart, emptyDir, no auth — dev/kind convenience.
+#   backend: external  the self-hosted upstream LGTM install set (deploy/helm/observability: Loki/Tempo/Mimir on
+#                      S3-compatible object storage + Grafana with the provisioned alert rules), installed separately
+#                      by deploy/helm/observability/install-lgtm.sh; the collector exports to `external.*`.
 observability:
   enabled: false
+  backend: inChart
+  # What the .NET processes export to (OTLP gRPC). Leave as the in-chart collector; `headersSecret` names a Secret
+  # with an OTEL_EXPORTER_OTLP_HEADERS key, only needed if the collector is put behind client auth.
+  otlp:
+    endpoint: http://otel-collector:4317
+    headersSecret: ""
   collector:
-    image: otel/opentelemetry-collector-contrib:0.110.0
+    # Latest contrib release (ADR-0065; same tag as docker-compose.yml). Validate a config change with this binary.
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    replicas: 1           # tail sampling needs every span of a trace on ONE instance — scale out only behind a
+                          # load-balancing exporter tier keyed on trace id (runbook)
+    resources:
+      limits:
+        memory: 1Gi       # memory_limiter keeps the collector at 80 % of this
+    # Browser RUM (Faro receiver, ClusterIP port 8027, internal only): the storefront's /rum route relays to
+    # http://otel-collector:8027/ — never exposed through the ingress.
+    faro:
+      enabled: true
+    # P2-5: k8s_attributes (pod/namespace/deployment/node names from the k8s API, needs the ClusterRole below) and
+    # resource_detection (cluster-wide facts). Add a cloud detector (gcp, eks, aks, ec2, azure) per deployment.
+    k8sAttributes:
+      enabled: true
+    resourceDetectors: [env]
+    clusterName: ""       # k8s.cluster.name on every signal (env detector via OTEL_RESOURCE_ATTRIBUTES)
+  # P1-7 tail sampling at the collector. Off = keep 100 % (dev/kind). Prod keeps every error, every trace slower
+  # than the latency threshold (ADR-0029 p95 for reads: 800 ms), 100 % of checkout/payment/refund routes, and
+  # `percentage` of the rest.
+  sampling:
+    enabled: false
+    percentage: 15
+    latencyThresholdMs: 800
+    alwaysKeepRoutes: "(?i).*(checkout|payment|refund).*"
+  # backend=external: where the collector exports. Defaults match install-lgtm.sh (namespace `observability`).
+  external:
+    tenant: 3commerce     # X-Scope-OrgID on every push (Loki/Tempo/Mimir multi-tenancy is on in the install set)
+    loki: http://loki-gateway.observability.svc/otlp
+    tempo: tempo.observability.svc:4317
+    mimir: http://mimir-gateway.observability.svc/api/v1/push
+    tlsInsecure: true     # cluster-internal plain gRPC/HTTP; set false + mount CAs for a cross-cluster backend
   loki:
     image: grafana/loki:3.3.2
   tempo:
     image: grafana/tempo:2.6.1
   mimir:
     image: grafana/mimir:2.14.1
-  # Explicit retention (observability audit P0-2, Q2). Loki deletes log chunks older than `logs` via its
-  # compactor, Tempo drops trace blocks older than `traces`, Mimir's compactor drops metric blocks older than
-  # `metrics`. Dev keeps metrics short; values-prod.yaml raises metrics to 13 months. (The in-chart stack is
-  # emptyDir-backed, so a pod restart loses everything sooner — these bound a long-lived pod and are the
-  # settings to carry into the production backend, P0-5.)
+  # Retention (ADR-0065 Q2): traces 14 d, logs 30 d, metrics 13 months, security logs (authentication, permission
+  # denied — the collector labels them log_category=security) 12 months. Applied to the in-chart stack here; the
+  # external install set carries the same numbers in deploy/helm/observability/values-*.yaml. Dev keeps metrics
+  # 30 d. (The in-chart stack is emptyDir-backed, so a pod restart loses everything sooner.)
   retention:
     logs: 720h          # 30 days
+    securityLogs: 8760h # 12 months
     traces: 336h        # 14 days
     metrics: 30d        # dev; prod = 395d (~13 months)
 

@@ -68,11 +68,15 @@ for c in \$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E 'postgres|rabb
 done; true
 
 echo "── observability ──"
-for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/; do
+# otel = the collector's health_check extension; faro = its browser-RUM receiver (GET → 405 = listening, ADR-0065);
+# alerts = the Grafana-provisioned alert rules (count; 0 = provisioning failed — see the grafana container log).
+for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/ 8027:faro:/ 3100:loki:/ready 3200:tempo:/ready 9009:mimir:/ready; do
   pt=\${x%%:*}; nm=\$(echo "\$x"|cut -d: -f2); pa=\${x##*:}
   cc=\$(curl -s -o /dev/null -w '%{http_code}' -m2 http://localhost:\$pt\$pa 2>/dev/null); { [ "\$cc" = 000 ] || [ -z "\$cc" ]; } && cc=down
   printf '  %-11s %s\n' "\$nm" "\$cc"
 done
+ar=\$(curl -fs -m3 -u "admin:\${GRAFANA_ADMIN_PASSWORD:-admin}" http://localhost:3001/api/v1/provisioning/alert-rules 2>/dev/null)
+[ -n "\$ar" ] && printf '  %-11s %s provisioned rule(s)\n' alerts "\$(echo "\$ar" | grep -o '"uid":"tc-[a-z0-9-]*"' | wc -l | tr -d ' ')"; true
 
 echo "── compose ──"
 docker compose ls 2>/dev/null | tail -n +2 | sed 's/^/  /' || echo "  (not a compose host)"

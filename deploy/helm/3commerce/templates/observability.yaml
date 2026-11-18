@@ -1,9 +1,14 @@
 {{- if .Values.observability.enabled }}
-# Optional LGTM observability stack (off by default; `observability.enabled=true`) — the in-cluster
-# mirror of the local docker-compose `observability` profile. One collector fans OTLP out per
-# signal: traces → Tempo, logs → Loki (native /otlp ingest), metrics → Mimir remote-write. No
-# Prometheus here — Mimir IS the PromQL endpoint (/prometheus). dev/kind convenience: emptyDir
-# storage + no auth/multitenancy, so telemetry dies with the pod; prod wants the upstream charts.
+{{- $o := .Values.observability }}
+{{- $ext := eq $o.backend "external" }}
+{{- $k8s := $o.collector.k8sAttributes.enabled }}
+# The OTel Collector (ADR-0065): the cluster's one telemetry door — .NET OTLP (4317/4318) and the storefront's
+# relayed browser RUM (Faro, 8027) in; traces → Tempo, logs → Loki (native /otlp), metrics → Mimir remote-write out.
+# backend=inChart exports to observability-inchart.yaml's single binaries; backend=external to the self-hosted LGTM
+# install set (deploy/helm/observability) with the X-Scope-OrgID tenant header. The shared processors are the dev
+# collector's (deploy/observability/otel-collector-config.yaml) verbatim — keep them identical; this copy adds
+# k8s_attributes + resource_detection (P2-5) and tail sampling (P1-7). Validate edits with the pinned binary:
+#   helm template … -s templates/observability.yaml | yq '.data."config.yaml"' | otelcol-contrib validate --config=/dev/stdin
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,6 +17,9 @@ metadata:
     {{- include "3commerce.labels" . | nindent 4 }}
 data:
   config.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
     receivers:
       otlp:
         protocols:
@@ -19,182 +27,240 @@ data:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
+      {{- if $o.collector.faro.enabled }}
+      # Browser RUM relayed by the storefront's same-origin /rum route (alpha stability at 0.165.0). ClusterIP only.
+      faro:
+        endpoint: 0.0.0.0:8027
+      {{- end }}
     processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 20
       batch: {}
-      # Defence in depth against secrets/PII in telemetry (observability audit P0-2). The services must not
-      # log them in the first place (LoggingEmailSender logs bodies/links in Development only); this catches
-      # what slips through before it is stored: one-time tokens in links/query strings, bearer credentials,
-      # email addresses, and Authorization/Cookie headers (as attributes). Built-in `transform` processor of
-      # the contrib image in use (0.110.0) — no new image. Regexes avoid backslashes and dollar signs on purpose (no
-      # escaping or env-expansion surprises); keep this block identical to the dev copy
-      # (deploy/observability/otel-collector-config.yaml).
+      {{- if $k8s }}
+      # P2-5: pod/deployment/namespace/node of the sender, from the k8s API (namespace-scoped Role below). Associated by
+      # the connection's pod IP — so ONLY on the otlp input pipelines: relayed browser data would otherwise be
+      # attributed to the storefront pod.
+      k8s_attributes:
+        auth_type: serviceAccount
+        passthrough: false
+        filter:
+          namespace: {{ .Release.Namespace }}
+        extract:
+          metadata:
+            - k8s.namespace.name
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.node.name
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.ip
+          - sources:
+              - from: connection
+      {{- end }}
+      # P2-5: cluster-wide facts (env: OTEL_RESOURCE_ATTRIBUTES of the collector → k8s.cluster.name; add a cloud
+      # detector per deployment). override=false: a service's own attributes always win.
+      resource_detection:
+        detectors: {{ toJson $o.collector.resourceDetectors }}
+        timeout: 2s
+        override: false
+      transform/faro_anonymise:
+        error_mode: ignore
+        log_statements:
+          - 'delete_matching_keys(resource.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+          - 'delete_matching_keys(log.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+          - 'replace_pattern(log.body, "(^| )(user_[A-Za-z_]+|session_[A-Za-z_]+|geo_[A-Za-z_]+|browser_userAgent|app_installation_id|[A-Za-z_]*_ip)=(\"[^\"]*\"|[^ ]*)", "")'
+          - 'replace_pattern(log.body, "(page_url|context_url|url)=(\"?)([^ ?\"]*)[?][^ \"]*", "$$1=$$2$$3")'
+        trace_statements:
+          - 'delete_matching_keys(resource.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+          - 'delete_matching_keys(span.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+          - 'replace_pattern(span.attributes["url.full"], "[?].*", "")'
+          - 'replace_pattern(span.attributes["http.url"], "[?].*", "")'
+      # Defence in depth against secrets/PII (audit P0-2, PR #303) — identical to the dev copy.
       transform/redact:
         error_mode: ignore
         log_statements:
-          - context: log
-            statements:
-              - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
-              - 'replace_pattern(body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-              - 'replace_pattern(body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-              - 'replace_pattern(body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-              - 'replace_pattern(body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
-              - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+          - 'delete_matching_keys(log.attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+          - 'replace_pattern(log.body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_pattern(log.body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_pattern(log.body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_pattern(log.body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+          - 'replace_all_patterns(log.attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_all_patterns(log.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_all_patterns(log.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_all_patterns(log.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
         trace_statements:
-          - context: span
-            statements:
-              - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
-              - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-              - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+          - 'delete_matching_keys(span.attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+          - 'replace_all_patterns(span.attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+          - 'replace_all_patterns(span.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+          - 'replace_all_patterns(span.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+          - 'replace_all_patterns(span.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+      # Background EF/MassTransit polling logs with no trace (identical to dev; audit P0-5 "noise filter").
+      filter/loki_noise:
+        error_mode: ignore
+        log_conditions:
+          - 'log.trace_id == TraceID(0x00000000000000000000000000000000) and (instrumentation_scope.name == "Microsoft.EntityFrameworkCore.Database.Command" or IsMatch(instrumentation_scope.name, "^MassTransit"))'
+      # Security logs → Loki stream label log_category=security → 12-month retention_stream (ADR-0065 Q2).
+      transform/security_category:
+        error_mode: ignore
+        log_statements:
+          - 'set(log.attributes["log.category"], "security") where log.attributes["log.category"] == nil and IsMatch(instrumentation_scope.name, "^(ThreeCommerce[.]Identity[.].*(Auth|Login|Session|Mfa|Password|Lockout|StepUp|Token).*|ThreeCommerce[.]BuildingBlocks[.]Infrastructure[.]Authz[.].*|ThreeCommerce[.]Gateway[.](Auth|RateLimiting)[.].*|ThreeCommerce[.]Admin[.]Services[.]IpAllowlistMiddleware|ThreeCommerce[.]SupplierPortal[.].*Auth.*|Microsoft[.]AspNetCore[.](Authentication|Authorization)([.].*)?)$")'
+      groupbyattrs/log_category:
+        keys: [log.category]
+      {{- if $o.sampling.enabled }}
+      # P1-7 tail sampling: a trace is kept when ANY policy keeps it. One collector replica sees every span of a
+      # trace (tail sampling requires it); Tempo's service-graph/span-metrics are therefore post-sampling — the
+      # SLO alerts use the SDK's unsampled http_server_request_duration metrics instead.
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 50000
+        expected_new_traces_per_sec: 100
+        policies:
+          - name: errors
+            type: status_code
+            status_code: { status_codes: [ERROR] }
+          - name: slower-than-p95-slo
+            type: latency
+            latency: { threshold_ms: {{ $o.sampling.latencyThresholdMs }} }
+          - name: checkout-and-payment-routes
+            type: ottl_condition
+            ottl_condition:
+              error_mode: ignore
+              span:
+                - 'IsMatch(span.attributes["http.route"], {{ $o.sampling.alwaysKeepRoutes | quote }})'
+                - 'IsMatch(span.attributes["url.path"], {{ $o.sampling.alwaysKeepRoutes | quote }})'
+                - 'IsMatch(span.name, {{ $o.sampling.alwaysKeepRoutes | quote }})'
+          - name: baseline
+            type: probabilistic
+            probabilistic: { sampling_percentage: {{ $o.sampling.percentage }} }
+      {{- end }}
+    connectors:
+      forward/traces: {}
+      forward/logs: {}
     exporters:
-      prometheusremotewrite:
+      {{- if $ext }}
+      prometheus_remote_write:
+        endpoint: {{ $o.external.mimir }}
+        headers:
+          X-Scope-OrgID: {{ $o.external.tenant | quote }}
+        resource_constant_labels:
+          included: ["*"]
+      otlp_grpc/tempo:
+        endpoint: {{ $o.external.tempo }}
+        headers:
+          X-Scope-OrgID: {{ $o.external.tenant | quote }}
+        tls:
+          insecure: {{ $o.external.tlsInsecure }}
+      otlp_http/loki:
+        endpoint: {{ $o.external.loki }}
+        headers:
+          X-Scope-OrgID: {{ $o.external.tenant | quote }}
+        {{- if $o.external.tlsInsecure }}
+        tls:
+          insecure: true
+        {{- end }}
+      {{- else }}
+      prometheus_remote_write:
         endpoint: http://mimir:9009/api/v1/push
-        # Keep service.name as a label so dashboards can break down per service.
-        resource_to_telemetry_conversion:
-          enabled: true
-      otlp/tempo:
+        # Keep every resource attribute (service.name, …) as a label so dashboards can break down per service.
+        resource_constant_labels:
+          included: ["*"]
+      otlp_grpc/tempo:
         endpoint: tempo:4317
         tls:
           insecure: true  # plain gRPC inside the cluster
-      otlphttp/loki:
+      otlp_http/loki:
         endpoint: http://loki:3100/otlp
+      {{- end }}
     service:
+      extensions: [health_check]
+      telemetry:
+        metrics:
+          level: normal
+          # Self-telemetry through the collector's own OTLP receiver → Mimir (the collector-down heartbeat alert).
+          readers:
+            - periodic:
+                interval: 30000
+                exporter:
+                  otlp:
+                    protocol: http/protobuf
+                    endpoint: http://127.0.0.1:4318/v1/metrics
       pipelines:
         metrics:
           receivers: [otlp]
-          processors: [batch]
-          exporters: [prometheusremotewrite]
+          processors: [memory_limiter{{ if $k8s }}, k8s_attributes{{ end }}, resource_detection, batch]
+          exporters: [prometheus_remote_write]
+        traces/otlp:
+          receivers: [otlp]
+          processors: [memory_limiter{{ if $k8s }}, k8s_attributes{{ end }}]
+          exporters: [forward/traces]
+        {{- if $o.collector.faro.enabled }}
+        traces/faro:
+          receivers: [faro]
+          processors: [memory_limiter, transform/faro_anonymise]
+          exporters: [forward/traces]
+        {{- end }}
         traces:
+          receivers: [forward/traces]
+          processors: [resource_detection, transform/redact{{ if $o.sampling.enabled }}, tail_sampling{{ end }}, batch]
+          exporters: [otlp_grpc/tempo]
+        logs/otlp:
           receivers: [otlp]
-          processors: [transform/redact, batch]
-          exporters: [otlp/tempo]
+          processors: [memory_limiter{{ if $k8s }}, k8s_attributes{{ end }}]
+          exporters: [forward/logs]
+        {{- if $o.collector.faro.enabled }}
+        logs/faro:
+          receivers: [faro]
+          processors: [memory_limiter, transform/faro_anonymise]
+          exporters: [forward/logs]
+        {{- end }}
         logs:
-          receivers: [otlp]
-          processors: [transform/redact, batch]
-          exporters: [otlphttp/loki]
+          receivers: [forward/logs]
+          processors: [resource_detection, filter/loki_noise, transform/redact, transform/security_category, groupbyattrs/log_category, batch]
+          exporters: [otlp_http/loki]
+{{- if $k8s }}
 ---
+# k8s_attributes reads pods (+ replicasets for k8s.deployment.name) in THIS namespace only (filter.namespace above):
+# a namespaced Role, not a ClusterRole.
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: loki-config
+  name: otel-collector
   labels:
     {{- include "3commerce.labels" . | nindent 4 }}
-data:
-  config.yaml: |
-    auth_enabled: false
-    server:
-      http_listen_port: 3100
-    common:
-      instance_addr: 127.0.0.1
-      path_prefix: /loki
-      storage:
-        filesystem:
-          chunks_directory: /loki/chunks
-          rules_directory: /loki/rules
-      replication_factor: 1
-      ring:
-        kvstore:
-          store: inmemory
-    schema_config:
-      configs:
-        - from: 2024-01-01
-          store: tsdb
-          object_store: filesystem
-          schema: v13
-          index:
-            prefix: index_
-            period: 24h
-    limits_config:
-      # v13 schema + structured metadata are both required for the native /otlp endpoint.
-      allow_structured_metadata: true
-      # Logs are deleted after this (observability.retention.logs); enforced by the compactor below.
-      retention_period: {{ .Values.observability.retention.logs }}
-    compactor:
-      working_directory: /loki/compactor
-      retention_enabled: true
-      delete_request_store: filesystem
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  name: tempo-config
+  name: otel-collector
   labels:
     {{- include "3commerce.labels" . | nindent 4 }}
-data:
-  config.yaml: |
-    server:
-      http_listen_port: 3200
-    distributor:
-      receivers:
-        otlp:
-          protocols:
-            # Tempo >= 2.6 binds receivers to localhost by default — unreachable from the
-            # collector pod, so bind 0.0.0.0 explicitly.
-            grpc:
-              endpoint: 0.0.0.0:4317
-            http:
-              endpoint: 0.0.0.0:4318
-    storage:
-      trace:
-        backend: local
-        local:
-          path: /var/tempo/blocks
-        wal:
-          path: /var/tempo/wal
-    compactor:
-      compaction:
-        block_retention: {{ .Values.observability.retention.traces }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "watch", "list"]
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
 metadata:
-  name: mimir-config
+  name: otel-collector
   labels:
     {{- include "3commerce.labels" . | nindent 4 }}
-data:
-  config.yaml: |
-    multitenancy_enabled: false
-    server:
-      # Mimir defaults to 8080, the app port convention here — use the Mimir demo port instead.
-      http_listen_port: 9009
-      log_level: warn
-    common:
-      storage:
-        backend: filesystem
-        filesystem:
-          dir: /data/storage
-    blocks_storage:
-      storage_prefix: blocks
-      tsdb:
-        dir: /data/tsdb
-    compactor:
-      data_dir: /data/compactor
-      sharding_ring:
-        instance_addr: 127.0.0.1
-        kvstore:
-          store: memberlist
-    distributor:
-      ring:
-        instance_addr: 127.0.0.1
-        kvstore:
-          store: memberlist
-    ingester:
-      ring:
-        instance_addr: 127.0.0.1
-        kvstore:
-          store: memberlist
-        replication_factor: 1
-    store_gateway:
-      sharding_ring:
-        instance_addr: 127.0.0.1
-        replication_factor: 1
-    limits:
-      # Metric blocks older than this are deleted by the compactor (observability.retention.metrics).
-      compactor_blocks_retention_period: {{ .Values.observability.retention.metrics }}
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: otel-collector
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -204,7 +270,7 @@ metadata:
     app: otel-collector
     {{- include "3commerce.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ $o.collector.replicas }}
   selector:
     matchLabels:
       app: otel-collector
@@ -212,14 +278,46 @@ spec:
     metadata:
       labels:
         app: otel-collector
+      annotations:
+        # Roll the pod when the observability values change (the collector does not hot-reload its config).
+        checksum/config: {{ toJson $o | sha256sum | trunc 16 | quote }}
     spec:
+      {{- if $k8s }}
+      serviceAccountName: otel-collector
+      {{- end }}
       containers:
         - name: otel-collector
-          image: {{ .Values.observability.collector.image }}
+          image: {{ $o.collector.image }}
           args: ["--config=/etc/otelcol/config.yaml"]
+          {{- with $o.collector.clusterName }}
+          env:
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ printf "k8s.cluster.name=%s" . | quote }}
+          {{- end }}
           ports:
-            - containerPort: 4317
-            - containerPort: 4318
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            {{- if $o.collector.faro.enabled }}
+            - name: faro
+              containerPort: 8027
+            {{- end }}
+            - name: health
+              containerPort: 13133
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml $o.collector.resources | nindent 12 }}
           volumeMounts:
             - name: config
               mountPath: /etc/otelcol/config.yaml
@@ -230,6 +328,7 @@ spec:
           configMap:
             name: otel-collector-config
 ---
+# ClusterIP only — never routed by the ingress. Port 8027 is the Faro receiver the storefront relays browser RUM to.
 apiVersion: v1
 kind: Service
 metadata:
@@ -237,6 +336,7 @@ metadata:
   labels:
     app: otel-collector
 spec:
+  type: ClusterIP
   selector:
     app: otel-collector
   ports:
@@ -246,180 +346,12 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: 4318
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: loki
-  labels:
-    app: loki
-    {{- include "3commerce.labels" . | nindent 4 }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: loki
-  template:
-    metadata:
-      labels:
-        app: loki
-    spec:
-      containers:
-        - name: loki
-          image: {{ .Values.observability.loki.image }}
-          args: ["-config.file=/etc/loki/config.yaml"]
-          ports:
-            - containerPort: 3100
-          volumeMounts:
-            - name: config
-              mountPath: /etc/loki/config.yaml
-              subPath: config.yaml
-              readOnly: true
-            - name: data
-              mountPath: /loki
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 3100
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 12
-      volumes:
-        - name: config
-          configMap:
-            name: loki-config
-        - name: data
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: loki
-  labels:
-    app: loki
-spec:
-  selector:
-    app: loki
-  ports:
-    - port: 3100
-      targetPort: 3100
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: tempo
-  labels:
-    app: tempo
-    {{- include "3commerce.labels" . | nindent 4 }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: tempo
-  template:
-    metadata:
-      labels:
-        app: tempo
-    spec:
-      containers:
-        - name: tempo
-          image: {{ .Values.observability.tempo.image }}
-          args: ["-config.file=/etc/tempo.yaml"]
-          ports:
-            - containerPort: 3200
-            - containerPort: 4317
-          volumeMounts:
-            - name: config
-              mountPath: /etc/tempo.yaml
-              subPath: config.yaml
-              readOnly: true
-            - name: data
-              mountPath: /var/tempo
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 3200
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 12
-      volumes:
-        - name: config
-          configMap:
-            name: tempo-config
-        - name: data
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tempo
-  labels:
-    app: tempo
-spec:
-  selector:
-    app: tempo
-  ports:
-    - name: http
-      port: 3200
-      targetPort: 3200
-    - name: otlp-grpc
-      port: 4317
-      targetPort: 4317
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mimir
-  labels:
-    app: mimir
-    {{- include "3commerce.labels" . | nindent 4 }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mimir
-  template:
-    metadata:
-      labels:
-        app: mimir
-    spec:
-      containers:
-        - name: mimir
-          image: {{ .Values.observability.mimir.image }}
-          args: ["-config.file=/etc/mimir.yaml"]
-          ports:
-            - containerPort: 9009
-          volumeMounts:
-            - name: config
-              mountPath: /etc/mimir.yaml
-              subPath: config.yaml
-              readOnly: true
-            - name: data
-              mountPath: /data
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 9009
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 12
-      volumes:
-        - name: config
-          configMap:
-            name: mimir-config
-        - name: data
-          emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mimir
-  labels:
-    app: mimir
-spec:
-  selector:
-    app: mimir
-  ports:
-    - port: 9009
-      targetPort: 9009
+    {{- if $o.collector.faro.enabled }}
+    - name: faro
+      port: 8027
+      targetPort: 8027
+    {{- end }}
+    - name: health
+      port: 13133
+      targetPort: 13133
 {{- end }}

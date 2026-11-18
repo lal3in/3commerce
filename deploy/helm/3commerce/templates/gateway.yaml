@@ -27,10 +27,7 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.environment | quote }}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
-            {{- if .Values.observability.enabled }}
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector:4317
-            {{- end }}
+            {{- include "3commerce.otlpEnv" . | nindent 12 }}
             {{- if and (ne .Values.environment "Development") .Values.secret.name }}
             - name: InternalAuth__PrivateKey
               valueFrom:
