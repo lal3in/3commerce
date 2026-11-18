@@ -120,7 +120,7 @@ docker compose --profile observability up -d otel-collector loki tempo mimir pro
   permission-denied logs `log_category=security` (kept 12 months; other logs 30 days).
 - **Grafana** (`:3001`, admin/admin by default — change `GRAFANA_ADMIN_PASSWORD`) provisions the datasources,
   dashboards and **alert rules** (5xx > 1 %, p95 latency, `_error` queues, error-log spikes, Valkey, collector
-  heartbeat). Alerts go by email to `ALERT_EMAIL_TO` (default `alerts@example.invalid`, i.e. nowhere);
+  heartbeat). Alerts go by email to `ALERT_EMAIL_TO`, set in `deploy/observability/alerting.env` (placeholder `test@test.com`);
   enable sending with `GRAFANA_SMTP_ENABLED=true GRAFANA_SMTP_HOST=host:port GRAFANA_SMTP_USER=…
   GRAFANA_SMTP_PASSWORD=… GRAFANA_SMTP_FROM=…` in your shell before `dev-up.sh`.
 

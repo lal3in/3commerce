@@ -43,8 +43,9 @@ Production: `kubectl -n <app-ns> get pods -l app=otel-collector`, `kubectl -n ob
 6. Verify: Grafana → Alerting lists 8 rules in folder *3commerce alerts*; Explore → Loki
    `{service_name="identity"}` returns logs; `{log_category="security"}` returns auth logs once any are written.
 
-Changing the alert recipient: update `ALERT_EMAIL_TO` in the `grafana-alerting` Secret (dev: the env var) and restart
-Grafana — provisioning re-reads it at start. Test it from Grafana → Alerting → Contact points → *ops-email* → Test.
+Changing the alert recipient: edit `ALERT_EMAIL_TO` in `deploy/observability/alerting.env` (one file for dev and prod;
+placeholder `test@test.com`), then restart Grafana in dev or re-run `install-lgtm.sh` in prod — provisioning re-reads
+it at start. Test it from Grafana → Alerting → Contact points → *ops-email* → Test.
 
 ## Changing the collector config
 
