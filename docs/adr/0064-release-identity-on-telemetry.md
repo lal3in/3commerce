@@ -81,5 +81,5 @@ logs with scopes) and the Blazor pieces (`AddBlazorServerTelemetry`, `LoggingErr
 (opt-in) Valkey. The Admin and Supplier Portal reference only the light project — no MassTransit, EF or Npgsql — so they
 now export traces, metrics and logs with the same identity (`service.name` `admin` / `supplier-portal`). The gateway
 calls `AddServiceTelemetry("gateway")` instead of its own setup, which brings its logs to Loki. Circuit logs name the
-tenant and user by opaque ids only, read at sign-in from Identity's new `GET /session`. See the observability platform
-ADR (expected ADR-0065) for the backend side.
+tenant and user by opaque ids only, read at sign-in from Identity's new `GET /session`. See [ADR-0065](./0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md)
+for the backend side.

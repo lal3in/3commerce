@@ -176,5 +176,4 @@ Both are trailing record parameters defaulting to `null`, so an envelope written
 
 Pinned by `StreamTracePropagationTests` (unit lane, e2e-verify A3zo) and `StreamKafkaTraceIntegrationTests` (a real
 broker, A4ko). Part of the .NET instrumentation slice of the observability audit (P2-4); the platform side (collector,
-backends, alerting) is the observability platform ADR written on `feature/observability-prod-backend-and-alerting`
-(expected ADR-0065).
+backends, alerting) is [ADR-0065](./0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md).

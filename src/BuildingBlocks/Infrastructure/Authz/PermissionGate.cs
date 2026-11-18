@@ -32,7 +32,7 @@ public enum PermissionVerdict
 /// </list>
 /// The decision is never cached: these are high-risk money actions.
 /// </summary>
-public sealed class PermissionGate(PolicyDecisionClient pdp, IAuditRecorder audit, IConfiguration config, ILogger<PermissionGate> logger)
+public sealed partial class PermissionGate(PolicyDecisionClient pdp, IAuditRecorder audit, IConfiguration config, ILogger<PermissionGate> logger)
 {
     public const string DeniedErrorCode = "permission_denied";
     public const string UnavailableErrorCode = "authorization_unavailable";
@@ -42,6 +42,7 @@ public sealed class PermissionGate(PolicyDecisionClient pdp, IAuditRecorder audi
     {
         if (!Guid.TryParse(user.FindFirstValue("sub"), out var userId))
         {
+            LogDeniedNoPrincipal(logger, permissionKey, user.FindFirstValue("tenant") ?? "none");
             return PermissionVerdict.Denied;
         }
 
@@ -61,8 +62,21 @@ public sealed class PermissionGate(PolicyDecisionClient pdp, IAuditRecorder audi
 
         // 404 from the PDP = no active principal behind this user in this tenant: nothing is granted.
         var decision = response?.Actions.FirstOrDefault(a => string.Equals(a.PermissionKey, permissionKey, StringComparison.Ordinal));
-        return decision is { Allowed: true } ? PermissionVerdict.Allowed : PermissionVerdict.Denied;
+        if (decision is { Allowed: true })
+            return PermissionVerdict.Allowed;
+
+        // Security log (ADR-0065 Q2, 12-month stream — this category is labelled log_category=security): ids only.
+        LogDenied(logger, permissionKey, userId, tenantId?.ToString() ?? "none", response is null ? "no active principal in tenant" : "not granted");
+        return PermissionVerdict.Denied;
     }
+
+    [LoggerMessage(EventId = 4201, EventName = "PermissionDenied", Level = LogLevel.Warning,
+        Message = "Security: permission denied — {Permission} for principal {UserId} in tenant {TenantId} ({Reason})")]
+    private static partial void LogDenied(ILogger logger, string permission, Guid userId, string tenantId, string reason);
+
+    [LoggerMessage(EventId = 4202, EventName = "PermissionDeniedNoPrincipal", Level = LogLevel.Warning,
+        Message = "Security: permission denied — {Permission} for a caller without a principal id (tenant {TenantId})")]
+    private static partial void LogDeniedNoPrincipal(ILogger logger, string permission, string tenantId);
 
     /// <summary>
     /// Null when <paramref name="user"/> holds <paramref name="permissionKey"/>; otherwise the problem result to
