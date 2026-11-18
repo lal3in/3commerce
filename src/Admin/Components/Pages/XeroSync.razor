@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Xero.Title"]</h1>
 <button disabled="@_busy" @onclick="RunYesterday" title="@L["Xero.PostYesterday.Tip"]">@L["Xero.PostYesterday"]</button>
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
@@ -20,6 +21,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 @code {
     private List<SyncRunDto>? _runs;
     private bool _busy;

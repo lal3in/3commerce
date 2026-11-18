@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["XeroMap.Title"]</h1>
 <p style="color:#6b7280;">@L["XeroMap.Intro"]</p>
 
@@ -65,6 +66,7 @@
         </div>
     </section>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string _tenantId = "00000000-0000-0000-0000-000000000001";

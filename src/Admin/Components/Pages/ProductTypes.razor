@@ -4,6 +4,7 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 @using System.Net.Http.Json
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:baseline; gap:1rem;">
     <h1 style="margin:0;">@L["Pt.Title"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">@L["Pt.Subtitle"]</span>
@@ -48,6 +49,7 @@
     </table>
     <button @onclick="Save" title="@L["Pt.Save.Tip"]" style="margin-top:1rem; padding:.45rem .9rem; background:#111827; color:#fff; border:0; border-radius:5px;">@L["Pt.Save"]</button>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string _tenantId = "00000000-0000-0000-0000-000000000001";

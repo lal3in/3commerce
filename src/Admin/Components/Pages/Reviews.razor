@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Reviews.Title"]</h1>
 <p style="color:#6b7280;">@L["Reviews.Intro"]</p>
 
@@ -51,6 +52,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private List<AdminReviewDto>? _reviews;

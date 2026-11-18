@@ -39,6 +39,24 @@ receivers:
           scrape_interval: 15s
           static_configs:
             - targets: ['redis-exporter:9121']
+  # RabbitMQ broker metrics (audit P1-5) from the rabbitmq_prometheus plugin built into the rabbitmq image (:15692):
+  # the aggregated endpoint (global redelivered/delivered/published totals) and the per-queue coarse family
+  # (ready/unacked/total per queue, so _error dead-letter depth is a time series and alertable). Best-effort like
+  # redis-exporter. Feeds the Messaging dashboard (dotnet-messaging.json).
+  prometheus/rabbitmq:
+    config:
+      scrape_configs:
+        - job_name: rabbitmq
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['rabbitmq:15692']
+        - job_name: rabbitmq-queues
+          scrape_interval: 15s
+          metrics_path: /metrics/detailed
+          params:
+            family: [queue_coarse_metrics]
+          static_configs:
+            - targets: ['rabbitmq:15692']
 
 processors:
   # First in every pipeline: refuse data (the client retries) instead of being OOM-killed under a burst.
@@ -152,7 +170,7 @@ service:
                 endpoint: http://127.0.0.1:4318/v1/metrics
   pipelines:
     metrics:
-      receivers: [otlp, prometheus/redis]
+      receivers: [otlp, prometheus/redis, prometheus/rabbitmq]
       processors: [memory_limiter, batch]
       exporters: [prometheus, prometheus_remote_write]
     traces/faro:

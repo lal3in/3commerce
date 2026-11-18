@@ -4,6 +4,7 @@
 @inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Orders.Title"]</h1>
 <p style="color:#6b7280;">@L["Orders.Intro"]</p>
 
@@ -162,6 +163,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string Tenant = "00000000-0000-0000-0000-000000000001";

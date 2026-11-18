@@ -283,6 +283,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "3commerce.Tools.OrderConfir
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "3commerce.Tools.OrderConfirmedBackfill.Tests", "tools\order-confirmed-backfill\tests\3commerce.Tools.OrderConfirmedBackfill.Tests.csproj", "{6060A8A6-0E52-4008-8534-7FBFF6436211}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BuildingBlocks", "BuildingBlocks", "{7266C4A9-E384-DC00-0EB6-47F6002CFBA7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "3commerce.BuildingBlocks.Observability", "src\BuildingBlocks\Observability\3commerce.BuildingBlocks.Observability.csproj", "{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1037,6 +1041,18 @@ Global
 		{6060A8A6-0E52-4008-8534-7FBFF6436211}.Release|x64.Build.0 = Release|Any CPU
 		{6060A8A6-0E52-4008-8534-7FBFF6436211}.Release|x86.ActiveCfg = Release|Any CPU
 		{6060A8A6-0E52-4008-8534-7FBFF6436211}.Release|x86.Build.0 = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|x64.Build.0 = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Debug|x86.Build.0 = Debug|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|x64.ActiveCfg = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|x64.Build.0 = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|x86.ActiveCfg = Release|Any CPU
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1179,5 +1195,6 @@ Global
 		{0CECC657-5CB1-4AF9-AC67-878F0B43A9D3} = {A61D6672-BAF7-23AF-F296-AF96D5F71A98}
 		{E19CBBB1-D5B3-4E1E-845C-AE3765B1E687} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{6060A8A6-0E52-4008-8534-7FBFF6436211} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{78D0AACC-AC3B-4FBC-9F4F-20C44CBAA5A4} = {7266C4A9-E384-DC00-0EB6-47F6002CFBA7}
 	EndGlobalSection
 EndGlobal

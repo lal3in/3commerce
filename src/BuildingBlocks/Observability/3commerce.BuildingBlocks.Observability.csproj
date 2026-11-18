@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The LIGHT telemetry building block (audit P1-4): OpenTelemetry tracing/metrics/logs + the ADR-0064 release
+    identity, and nothing else — no MassTransit, no EF, no Kafka, no Redis. The Blazor Admin and SupplierPortal
+    reference this directly; BuildingBlocks.Infrastructure builds AddServiceTelemetry (services, worker, gateway)
+    on top of it. Plumbing only (AGENTS.md boundary).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+  </ItemGroup>
+</Project>

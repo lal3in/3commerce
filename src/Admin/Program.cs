@@ -3,11 +3,16 @@ using Microsoft.AspNetCore.Localization;
 using ThreeCommerce.Admin;
 using ThreeCommerce.Admin.Components;
 using ThreeCommerce.Admin.Services;
+using ThreeCommerce.BuildingBlocks.Observability.Blazor;
 
 var builder = WebApplication.CreateBuilder(args);
 // Containerized launch: load host wiring without coupling to ASPNETCORE_ENVIRONMENT (see ContainerConfig).
 if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
     builder.Configuration.AddJsonFile("appsettings.Container.json", optional: true, reloadOnChange: false);
+
+// Traces/metrics/logs with the ADR-0064 release identity (audit P1-4) + circuit lifecycle logs with tenant/user ids.
+// Light helper: no MassTransit/EF. Operator actions become one trace admin → gateway → services.
+builder.AddBlazorServerTelemetry("admin");
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 

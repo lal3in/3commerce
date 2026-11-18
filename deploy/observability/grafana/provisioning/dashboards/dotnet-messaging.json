@@ -1,0 +1,281 @@
+{
+  "uid": "3commerce-dotnet-messaging",
+  "title": "3commerce — Messaging (MassTransit / RabbitMQ)",
+  "description": "Consume rate, faults, retries and latency from the MassTransit meter; broker redeliveries, dead-letter (_error) depth and queue backlog from the RabbitMQ Prometheus plugin scraped by the collector (audit P1-5). An _error queue above 0 means a message exhausted its retries.",
+  "tags": [
+    "3commerce",
+    "messaging",
+    "masstransit",
+    "rabbitmq"
+  ],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": {
+          "query": "label_values(messaging_masstransit_receive_ea_total, service_name)",
+          "refId": "service"
+        },
+        "definition": "label_values(messaging_masstransit_receive_ea_total, service_name)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Consume rate by consumer",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, messaging_masstransit_consumer_type) (rate(messaging_masstransit_consume_ea_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "{{service_name}} {{messaging_masstransit_consumer_type}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 2,
+      "title": "Consume faults (errors) by message and exception",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, messaging_masstransit_message_type, messaging_masstransit_exception_type) (rate(messaging_masstransit_consume_errors_ea_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "{{service_name}} {{messaging_masstransit_message_type}} {{messaging_masstransit_exception_type}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 3,
+      "title": "Dead-letter (_error) queue depth",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (queue) (rabbitmq_detailed_queue_messages{queue=~\".+_error\"})",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 4,
+      "title": "Redeliveries: broker redelivered / s and consumer retries (failed attempts) / s",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rabbitmq_global_messages_redelivered_total[5m]))",
+          "legendFormat": "broker redelivered"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_consume_retries_ea_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "retries {{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 5,
+      "title": "Consume duration p95 by consumer",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name, messaging_masstransit_consumer_type) (rate(messaging_masstransit_consume_duration_milliseconds_bucket{service_name=~\"$service\"}[5m])))",
+          "legendFormat": "{{service_name}} {{messaging_masstransit_consumer_type}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 6,
+      "title": "Sent / published (incl. outbox) / s",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_send_ea_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "send {{service_name}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (service_name) (rate(messaging_masstransit_outbox_delivery_ea_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "outbox {{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 7,
+      "title": "Queue backlog (ready + unacked), top 10",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (queue) (rabbitmq_detailed_queue_messages))",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 8,
+      "title": "Messages in flight (consume active)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (messaging_masstransit_consume_active_ea_total{service_name=~\"$service\"})",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Offers.Title"]</h1>
 <p style="color:#6b7280;">@L["Offers.Intro"]</p>
 
@@ -173,6 +174,7 @@
     </div>
     }
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string Base = "/api/catalog/admin/offers";

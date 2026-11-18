@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Ops.Title"]</h1>
 <p style="color:#4b5563; max-width:900px;">
     @L["Ops.Intro"]
@@ -370,6 +371,7 @@
         <PolicyCard Title="@L["Ops.Card.Xero.Title"]" Body="@L["Ops.Card.Xero.Body"]" Link="/xero-mappings" LinkText="@L["Ops.Card.Xero.Link"]" LinkTitle="@L["Ops.Card.Link.Tip"]" />
     </div>
 </section>
+</LoggingErrorBoundary>
 
 @code {
     // StorefrontState (Catalog domain) numeric values — enums cross HTTP as numbers.

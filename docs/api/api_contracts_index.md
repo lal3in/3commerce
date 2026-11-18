@@ -34,6 +34,7 @@ Note: Catalog admin storefront contracts include per-storefront public URL, curr
 | POST | `/register` · `/convert-guest` | anon | Create account; 202 always (no enumeration). Carries the structured member profile: `title?/firstName/middleName?/lastName/preferredName?/phone/dateOfBirth/marketingConsent` (mem_1) |
 | POST | `/login` | anon | Sets `3c_session` HttpOnly cookie |
 | POST | `/logout` | cookie | Revokes session |
+| GET | `/session` | session (any role) | The caller's opaque ids `{ userId, tenantId }` from the internal claims — no email. The Admin and Supplier Portal read it once at sign-in so circuit telemetry names tenant + user without PII (observability audit P1-4, ADR-0064 amendment) |
 | POST | `/verify-email` | anon | Single-use token |
 | POST | `/convert-guest` | anon | Attach verified-email guest orders to a new account (BL-1) |
 | POST | `/password-reset/request` · `/password-reset/confirm` | anon | Reset flow; confirm revokes all sessions |

@@ -4,6 +4,7 @@
 @inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Subs.Title"]</h1>
 <p style="color:#6b7280;">@L["Subs.Intro"]</p>
 
@@ -200,6 +201,7 @@ else
     </table>
     @if (Filtered.Count == 0) { <p style="color:#9ca3af;">@L["Subs.Empty"]</p> }
 }
+</LoggingErrorBoundary>
 
 @code {
     // The subscription endpoints carry no tenant, so they fall back to the configured default tenant —

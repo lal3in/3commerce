@@ -343,6 +343,21 @@
 #       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
 #       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
 #       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
+#   A3zo Unit · .NET instrumentation (observability audit P0-3/P1-1/P1-4/P1-5/P1-6/P2-4; ServiceTelemetryInstrumentationTests,
+#       StreamTracePropagationTests, BlazorTelemetryTests): HTTP server + client spans record exceptions; Npgsql DB spans
+#       are kept inside a trace and parentless background-poll roots dropped; MassTransit + 3commerce.streams spans and
+#       the MassTransit + System.Runtime meters export; Redis spans only with Telemetry:Redis:Tracing; the light Blazor
+#       telemetry pulls no MassTransit/EF/Npgsql and registers the circuit handler. Kafka envelope (ADR-0034 amendment):
+#       a pre-amendment envelope parses with no context (ADR-0055 back-compat) and processes under a new root; staging
+#       captures the request's traceparent/tracestate (+ W3C headers), none outside an operation, an existing one is
+#       kept; relay → publish → consume are children of the request span (link too), the handler runs in that trace, a
+#       failing handler marks the span Error with an exception event. Blazor: tenant/user described by opaque ids only
+#       (email or a non-GUID claim → unknown, anonymous circuits → anonymous); sign-in reads them from Identity's
+#       GET /session and never fails without them; /session answers any role; the error reference is the trace id
+#       Security logs (ADR-0065 Q2, SecurityLogTests): AuthService, PermissionGate and the gateway's SessionAuthMiddleware
+#       categories match the collector's transform/security_category regex (read from the real config); auth lines carry
+#       user/tenant ids + counts, never an email; a PDP denial (not granted / no principal / no subject) logs permission +
+#       principal + tenant, an allowed action nothing; a rejected session logs once per token per minute without the token
 #   A3zx Unit · OSS threshold crossing (ADR-0063 § 16, oss_renewal_threshold_crossing; OssRenewalThresholdTests,
 #       RenewalDistanceSaleTests, EuStandardVatRateParityTests): a Domestic subscription sold from a German 19 % store to
 #       France renews at FR 20 % (1200, scheme Oss + FR) once the seller's copied running total is over EUR 10,000 — the
@@ -484,6 +499,12 @@
 #       paying returns outcome 1 / Settled, the replayed key the same answer with no second attempt, a new key 409;
 #       Usage re-grants the 100 credit and lifts the hold; the attempts are Initial + Customer, keys {ref} and {ref}-a1,
 #       both 500, one journal entry
+#   A4ko Integration · Kafka stream trace (ADR-0034 amendment, StreamKafkaTraceIntegrationTests, bitnamilegacy/kafka:3.9):
+#       a fact staged inside a request, relayed later with no ambient trace through the REAL Kafka producer, is consumed
+#       by KafkaStreamConsumerService and the handler runs in the REQUEST's trace (publish + process spans its children)
+#   A4kp Integration · security logs through the real Identity API (SecurityLogIntegrationTests, Phase2): 4 wrong passwords,
+#       the 5th locks out, a correct password while locked is refused, an unknown account fails — each a "Security:" line
+#       under the AuthService category with the user id, never the email
 #   A4kw Integration · payment customers under FORCE RLS (payment_customers_rls, PaymentCustomersRlsTests, NON-superuser
 #       owner + the REAL migrations, ADR-0024 amendment revised 2026-11-15): the owning tenant reads its vault; another
 #       tenant reads nothing, updates 0 rows and cannot insert for it; no scope reads nothing, an insert is rejected and a
@@ -810,6 +831,12 @@
 #       summary never moves; an edited bill-to with "Save to my account for next time" ticked becomes the order's
 #       bill-to and joins the address book while the card keeps its own; the card's address then clears
 #       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full)
+#   L20b Telemetry reaches the LGTM stack (observability audit P0-3/P1-1/P1-4): after the live journeys, Loki holds
+#       gateway logs (OTLP logs pipeline, service_name=gateway) and Tempo holds Npgsql DB spans
+#       (span.db.system.name=postgresql) and Admin traces (resource.service.name=admin, from L20's admin flows);
+#       Loki holds "Security:" lines under log_category=security (ADR-0065 Q2), Mimir the MassTransit consume counter
+#       and the System.Runtime GC counter.
+#       Skipped, not failed, when Loki/Tempo are not running (the core infra set in PR CI has no LGTM)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -1088,6 +1115,11 @@ run_automated() {
       --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
 
+  stage "A3zo .NET instrumentation — exceptions on spans, DB/messaging/stream spans, runtime meter, Kafka traceparent, Blazor ids"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&(FullyQualifiedName~ServiceTelemetryInstrumentationTests|FullyQualifiedName~StreamTracePropagationTests|FullyQualifiedName~BlazorTelemetryTests|FullyQualifiedName~SecurityLogTests)' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zo .NET instrumentation"; else fail "A3zo .NET instrumentation"; fi
+
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
   # The whole run is kept: a one-off failure must be diagnosable after the fact, not only by a rerun that passes.
@@ -1286,13 +1318,13 @@ run_live() {
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
-    ( ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >"$ROOT/.run/admin.log" 2>&1 & )
+    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >"$ROOT/.run/admin.log" 2>&1 & )
   else
     echo "  WARNING: admin DLL not found at $admin_dll — admin E2E will be skipped"
   fi
   local supplier_dll="$ROOT/src/SupplierPortal/bin/Debug/net10.0/3commerce.SupplierPortal.dll"
   if [[ -f "$supplier_dll" ]]; then
-    ( ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >"$ROOT/.run/supplier-portal.log" 2>&1 & )
+    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >"$ROOT/.run/supplier-portal.log" 2>&1 & )
   else
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
   fi
@@ -1569,6 +1601,38 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
     fi
   else
     echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
+  fi
+
+  stage "L20b Telemetry in Loki + Tempo + Mimir — gateway + security logs, DB spans, Admin traces, MassTransit + runtime metrics"
+  if curl -fsS -m 3 -o /dev/null http://localhost:3100/ready && curl -fsS -m 3 -o /dev/null http://localhost:3200/ready; then
+    local tel_start tel_end; tel_end="$(date +%s)"; tel_start=$(( tel_end - 3600 ))
+    # Batched exporters flush every few seconds: poll each signal for up to 60 s before calling it missing.
+    tel_loki() {
+      curl -fsS -m 5 -G http://localhost:3100/loki/api/v1/query_range --data-urlencode "query=$1" \
+        --data-urlencode "start=${tel_start}000000000" --data-urlencode "end=$(date +%s)000000000" --data-urlencode limit=1 2>/dev/null \
+        | grep -q '"values":\[\['
+    }
+    tel_tempo() {
+      curl -fsS -m 5 -G http://localhost:3200/api/search --data-urlencode "q=$1" --data-urlencode limit=1 \
+        --data-urlencode "start=$tel_start" --data-urlencode "end=$(( $(date +%s) + 60 ))" 2>/dev/null \
+        | grep -q '"traceID"'
+    }
+    tel_poll() { local i; for i in $(seq 1 12); do "$@" && return 0; sleep 5; done; return 1; }
+    tel_mimir() {
+      curl -fsS -m 5 -G http://localhost:9009/prometheus/api/v1/query --data-urlencode "query=$1" 2>/dev/null \
+        | grep -q '"result":\[{'
+    }
+    if tel_poll tel_loki '{service_name="gateway"}'; then pass "L20b gateway logs in Loki"; else fail "L20b gateway logs in Loki"; fi
+    # A login for an account that does not exist: a side-effect-free security event (no counter, no lockout).
+    curl -s -m 10 -o /dev/null -X POST "$GATEWAY/api/identity/login" -H 'content-type: application/json' \
+      -d "{\"email\":\"l20b-nobody-$(date +%s)@example.com\",\"password\":\"not-a-real-password\"}" || true
+    if tel_poll tel_loki '{log_category="security"} |= "Security: "'; then pass "L20b security logs in Loki (log_category=security)"; else fail "L20b security logs in Loki"; fi
+    if tel_poll tel_mimir 'sum(messaging_masstransit_consume_ea_total)'; then pass "L20b MassTransit metrics in Mimir"; else fail "L20b MassTransit metrics in Mimir"; fi
+    if tel_poll tel_mimir 'sum(dotnet_gc_collections_total)'; then pass "L20b .NET runtime metrics in Mimir"; else fail "L20b .NET runtime metrics in Mimir"; fi
+    if tel_poll tel_tempo '{span.db.system.name="postgresql"}'; then pass "L20b DB (Npgsql) spans in Tempo"; else fail "L20b DB spans in Tempo"; fi
+    if tel_poll tel_tempo '{resource.service.name="admin"}'; then pass "L20b Admin traces in Tempo"; else fail "L20b Admin traces in Tempo"; fi
+  else
+    echo "  (skipped: Loki/Tempo not running — the LGTM services are part of the full infra set only)"
   fi
 
   live_teardown

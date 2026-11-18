@@ -3,4 +3,8 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Light telemetry only (audit P1-4): OTel + ADR-0064 release identity, no MassTransit/EF. -->
+    <ProjectReference Include="../BuildingBlocks/Observability/3commerce.BuildingBlocks.Observability.csproj" />
+  </ItemGroup>
 </Project>

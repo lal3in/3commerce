@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:baseline; gap:1rem;">
     <h1 style="margin:0;">@L["Nav.Currencies"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">Supported currencies — add or retire the codes the platform prices, sells and settles in.</span>
@@ -87,6 +88,7 @@ else
     </table>
     @if (_currencies.Count == 0) { <p style="color:#9ca3af;">No currencies yet — add one above.</p> }
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string Tenant = "00000000-0000-0000-0000-000000000001";

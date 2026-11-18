@@ -20,6 +20,8 @@ public sealed class FakeStreamEventProducer : IStreamEventProducer
     {
         StreamPrivacyGuard.ValidateForPublication(topic, envelope);
         cancellationToken.ThrowIfCancellationRequested();
+        envelope = StreamTracing.WithCurrentTraceContext(envelope);
+        using var activity = StreamTracing.StartPublish(topic, envelope);
 
         var headers = StreamHeaders.FromEnvelope(envelope);
         var json = JsonSerializer.Serialize(envelope, JsonOptions);

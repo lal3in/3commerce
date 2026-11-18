@@ -57,7 +57,7 @@
             <button type="submit" title="@L["Nav.Logout.Tip"]" style="background:#374151;color:#fff;border:0;padding:.4rem .8rem;border-radius:4px;">@L["Nav.Logout"]</button>
         </form>
     </nav>
-    <main style="flex:1; padding:2rem; background:#f9fafb;">@Body</main>
+    <main style="flex:1; padding:2rem; background:#f9fafb;"><LoggingErrorBoundary>@Body</LoggingErrorBoundary></main>
 </div>
 
 @code {

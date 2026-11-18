@@ -1,7 +1,5 @@
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.Gateway.Auth;
@@ -13,32 +11,10 @@ var builder = WebApplication.CreateBuilder(args);
 if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))
     builder.Configuration.AddJsonFile("appsettings.Container.json", optional: true, reloadOnChange: false);
 
-// Release identity (ADR-0064): service.version + vcs.ref.head.revision + deployment.environment.name.
-var release = builder.AddReleaseIdentity("gateway");
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => release.Configure(resource))
-    .WithTracing(tracing =>
-    {
-        tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
-        if (!string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
-        {
-            tracing.AddOtlpExporter();
-        }
-        else
-        {
-            tracing.AddConsoleExporter();
-        }
-    })
-    .WithMetrics(metrics =>
-    {
-        // Export the gateway's Redis fast-path metrics (rate-limit decisions, fallbacks) so the
-        // redis-overview Grafana dashboard sees the gateway too (ADR-0044). OTLP-only, like the services.
-        metrics.AddAspNetCoreInstrumentation().AddMeter(RedisMetrics.MeterName);
-        if (!string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
-        {
-            metrics.AddOtlpExporter();
-        }
-    });
+// The same telemetry as every service (audit P0-3): ADR-0064 release identity, HTTP in/out traces with exceptions
+// recorded, RED + runtime + Redis fast-path metrics (rate-limit decisions, fallbacks — the redis-overview dashboard,
+// ADR-0044), and OTLP LOGS, so YARP proxy errors, introspection failures and rate-limit decisions reach Loki.
+builder.AddServiceTelemetry("gateway");
 
 // Gateway rate limiting (ADR-0044). Backend=Redis makes limits correct across replicas (the legacy
 // in-process limiter gave each replica its own window). Auth endpoints get a tight per-IP window against
