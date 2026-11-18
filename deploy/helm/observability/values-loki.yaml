@@ -39,6 +39,18 @@ loki:
     split_queries_by_interval: 15m
     query_timeout: 300s
     volume_enabled: true
+    # Ingest limits (2026-11-19): Loki's defaults (4 MB/s per tenant, burst 6 MB, 3 MB/s per stream) refused a dev
+    # seed's import burst with 429 — and production writes the whole platform as ONE tenant (3commerce), so every
+    # service shares this budget. Twice the dev values (deploy/observability/loki.yaml): prod runs more replicas
+    # under real traffic, and this monolith has its own node, not a 6 GB laptop VM. Re-size from
+    # loki_discarded_bytes_total{reason="rate_limited"} (Loki /metrics) if 429s return.
+    ingestion_rate_mb: 32
+    ingestion_burst_size_mb: 64
+    per_stream_rate_limit: 16MB
+    per_stream_rate_limit_burst: 64MB
+    # One line over max_line_size (256 KB) otherwise fails the WHOLE push with a 400 that the collector drops as
+    # permanent (a 576 KB SQL line cost 25k unrelated records in dev). Truncate it instead.
+    max_line_size_truncate: true
     # Q2: logs 30 days, security logs 12 months. The collector labels authentication / permission-denied records
     # log.category=security; otlp_config indexes it as the stream label log_category (same as dev loki.yaml).
     retention_period: 720h

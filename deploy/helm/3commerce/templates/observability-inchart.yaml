@@ -37,6 +37,13 @@ data:
     limits_config:
       # v13 schema + structured metadata are both required for the native /otlp endpoint.
       allow_structured_metadata: true
+      # Ingest limits = deploy/observability/loki.yaml (the defaults 429'd a seeded dev stack); oversized lines are
+      # truncated instead of failing the whole push with a 400 the collector drops.
+      ingestion_rate_mb: 16
+      ingestion_burst_size_mb: 32
+      per_stream_rate_limit: 8MB
+      per_stream_rate_limit_burst: 32MB
+      max_line_size_truncate: true
       # Logs are deleted after this (observability.retention.logs); enforced by the compactor below.
       retention_period: {{ .Values.observability.retention.logs }}
       # Security logs (log_category=security, set by the collector) are kept observability.retention.securityLogs
