@@ -55,14 +55,14 @@ public sealed class StreamTracePropagationTests : IDisposable
     [Fact]
     public void A_pre_amendment_envelope_still_parses_with_no_trace_context()
     {
-        var envelope = JsonSerializer.Deserialize<StreamEventEnvelope<TestStreamPayload>>(PreAmendmentJson, Web)!;
+        var envelope = JsonSerializer.Deserialize<StreamEventEnvelope<TracedPayload>>(PreAmendmentJson, Web)!;
 
         Assert.Equal("OrderConfirmed", envelope.EventType);
         Assert.Equal("confirmed", envelope.Payload.Status);
         Assert.Equal("0af7651916cd43dd8448eb211c80319c", envelope.TraceId);
         Assert.Null(envelope.TraceParent);
         Assert.Null(envelope.TraceState);
-        Assert.Equal(StreamEventEnvelope<TestStreamPayload>.CurrentSchemaVersion, envelope.SchemaVersion); // additive: no bump
+        Assert.Equal(StreamEventEnvelope<TracedPayload>.CurrentSchemaVersion, envelope.SchemaVersion); // additive: no bump
         Assert.False(StreamTracing.TryGetParentContext(envelope, out _));
     }
 
@@ -85,14 +85,14 @@ public sealed class StreamTracePropagationTests : IDisposable
     {
         const string traceParent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
         var envelope = Envelope() with { TraceParent = traceParent, TraceState = "vendor=1" };
-        var created = StreamEventEnvelope<TestStreamPayload>.Create(
+        var created = StreamEventEnvelope<TracedPayload>.Create(
             envelope.EventId, envelope.EventType, 1, envelope.OccurredAt, "ordering", envelope.TenantId, "order-1",
             envelope.PartitionKey, StreamPrivacyClass.Internal, envelope.Payload, traceParent: $" {traceParent} ", traceState: "vendor=1");
 
         Assert.Equal(traceParent, created.TraceParent);
         var json = JsonSerializer.Serialize(created, Web);
         Assert.Contains("\"traceParent\":", json, StringComparison.Ordinal);
-        var parsed = JsonSerializer.Deserialize<StreamEventEnvelope<TestStreamPayload>>(json, Web)!;
+        var parsed = JsonSerializer.Deserialize<StreamEventEnvelope<TracedPayload>>(json, Web)!;
         Assert.Equal((traceParent, "vendor=1"), (parsed.TraceParent, parsed.TraceState));
         Assert.True(StreamTracing.TryGetParentContext(parsed, out var context));
         Assert.Equal("0af7651916cd43dd8448eb211c80319c", context.TraceId.ToHexString());
@@ -112,7 +112,7 @@ public sealed class StreamTracePropagationTests : IDisposable
         }
 
         var row = Assert.Single(store.Messages);
-        var staged = JsonSerializer.Deserialize<StreamEventEnvelope<TestStreamPayload>>(row.PayloadJson, Web)!;
+        var staged = JsonSerializer.Deserialize<StreamEventEnvelope<TracedPayload>>(row.PayloadJson, Web)!;
         Assert.Equal(expectedParent, staged.TraceParent);
         Assert.Equal("tenant=acme", staged.TraceState);
         Assert.Equal(ActivityContext.Parse(expectedParent, null).TraceId.ToHexString(), staged.TraceId);
@@ -131,7 +131,7 @@ public sealed class StreamTracePropagationTests : IDisposable
             var store = new InMemoryStreamOutboxStore();
             await new StreamOutboxStager(store).StageAsync(StreamTopics.CommerceOrders, Envelope());
 
-            var staged = JsonSerializer.Deserialize<StreamEventEnvelope<TestStreamPayload>>(Assert.Single(store.Messages).PayloadJson, Web)!;
+            var staged = JsonSerializer.Deserialize<StreamEventEnvelope<TracedPayload>>(Assert.Single(store.Messages).PayloadJson, Web)!;
             Assert.Null(staged.TraceParent);
             Assert.DoesNotContain("traceparent", JsonSerializer.Deserialize<Dictionary<string, string>>(Assert.Single(store.Messages).HeadersJson, Web)!.Keys);
         }
@@ -217,35 +217,37 @@ public sealed class StreamTracePropagationTests : IDisposable
             return stopped.Where(predicate).ToList();
     }
 
-    private static StreamEventConsumerProcessor<TestStreamPayload> Processor(IStreamEventHandler<TestStreamPayload> handler) =>
+    private static StreamEventConsumerProcessor<TracedPayload> Processor(IStreamEventHandler<TracedPayload> handler) =>
         new(handler, new InMemoryStreamProcessedEventStore(), new InMemoryStreamDeadLetterSink(),
-            NullLogger<StreamEventConsumerProcessor<TestStreamPayload>>.Instance);
+            NullLogger<StreamEventConsumerProcessor<TracedPayload>>.Instance);
 
-    private static StreamEventEnvelope<TestStreamPayload> Envelope()
+    private static StreamEventEnvelope<TracedPayload> Envelope()
     {
         var tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-        return StreamEventEnvelope<TestStreamPayload>.Create(
+        return StreamEventEnvelope<TracedPayload>.Create(
             Guid.CreateVersion7(), "OrderConfirmed", 1, DateTimeOffset.UtcNow, "ordering", tenantId, "order-1",
-            StreamPartitionKeys.TenantAggregate(tenantId, "order-1"), StreamPrivacyClass.Internal, new TestStreamPayload("confirmed"));
+            StreamPartitionKeys.TenantAggregate(tenantId, "order-1"), StreamPrivacyClass.Internal, new TracedPayload("confirmed"));
     }
 
-    private sealed class RecordingStreamHandler : IStreamEventHandler<TestStreamPayload>
+    private sealed class RecordingStreamHandler : IStreamEventHandler<TracedPayload>
     {
         public List<ActivityTraceId> TraceIds { get; } = [];
 
-        public Task HandleAsync(StreamConsumedEvent<TestStreamPayload> streamEvent, CancellationToken cancellationToken = default)
+        public Task HandleAsync(StreamConsumedEvent<TracedPayload> streamEvent, CancellationToken cancellationToken = default)
         {
             TraceIds.Add(Activity.Current?.TraceId ?? default);
             return Task.CompletedTask;
         }
     }
 
-    private sealed class ThrowingStreamHandler : IStreamEventHandler<TestStreamPayload>
+    private sealed class ThrowingStreamHandler : IStreamEventHandler<TracedPayload>
     {
-        public Task HandleAsync(StreamConsumedEvent<TestStreamPayload> streamEvent, CancellationToken cancellationToken = default) =>
+        public Task HandleAsync(StreamConsumedEvent<TracedPayload> streamEvent, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("projection failed");
     }
 }
+
+public sealed record TracedPayload(string Status);
 
 /// <summary>Stream-tracing tests share the static <c>3commerce.streams</c> ActivitySource, so they never run in parallel.</summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
