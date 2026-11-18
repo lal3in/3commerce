@@ -40,6 +40,18 @@ limits_config:
   # Explicit retention (observability audit P0-2 / Q2): log chunks older than 30 days are deleted. Without
   # this Loki keeps everything forever. Enforced by the compactor below (retention needs both).
   retention_period: 720h
+  # Security logs (authentication, permission denied) are kept 12 months (ADR-0065 Q2). The collector marks them
+  # with the resource attribute log.category=security (transform/security_category + groupbyattrs), which this
+  # otlp_config indexes as the stream label `log_category` (the default resource labels — service_name, … — stay).
+  otlp_config:
+    resource_attributes:
+      attributes_config:
+        - action: index_label
+          attributes: [log.category]
+  retention_stream:
+    - selector: '{log_category="security"}'
+      priority: 1
+      period: 8760h     # 365 days
   # The ingest RATE limits stay at Loki's defaults on purpose: they are what keeps this single binary
   # inside the dev Docker VM's memory. Raising them to 64 MB/s let a `--data full` seed land everything
   # and Loki was OOM-killed (~3 GB RSS) in a 6 GB Colima VM.
