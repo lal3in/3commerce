@@ -220,6 +220,11 @@ jobs:
         run: |
           helm lint deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml
           helm template 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml | kubeconform -strict -summary
+          # The observability objects (collector Deployment/Service/ConfigMap, Faro port, k8s_attributes RBAC — ADR-0065)
+          # render only with observability.enabled, which values-dev leaves off: schema-check them too (owner, 2026-11-18).
+          helm lint deploy/helm/3commerce -f deploy/helm/3commerce/values-prod.yaml
+          helm template 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-prod.yaml | kubeconform -strict -summary
+          helm template 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-dev.yaml --set observability.enabled=true | kubeconform -strict -summary
       - uses: helm/kind-action@v1
         with:
           cluster_name: 3c
