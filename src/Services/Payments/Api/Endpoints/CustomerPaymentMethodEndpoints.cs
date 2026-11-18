@@ -36,7 +36,7 @@ public static class CustomerPaymentMethodEndpoints
     // SavedPaymentMethods is under FORCE RLS (ADR-0024, owner decision 2026-11-07): every read and write — including
     // its SaveChanges — runs in the caller's tenant scope, taken from the internal claims.
     private static Task<T> InCallerScope<T>(ClaimsPrincipal principal, PaymentsDbContext db, Func<Task<T>> work, CancellationToken ct) =>
-        SavedCardTenantScope.RunAsync(db, TenantId(principal), work, ct, UserId(principal));
+        PaymentsTenantScope.RunAsync(db, TenantId(principal), work, ct, UserId(principal));
 
     private static async Task<Ok<List<SavedPaymentMethodDto>>> List(
         ClaimsPrincipal principal, PaymentsDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
@@ -142,7 +142,6 @@ public static class CustomerPaymentMethodEndpoints
         var provider = registry.ResolveDefault();
         var customer = await GetOrCreateCustomerAsync(principal, request.Email, db, provider, time, ct);
         var intent = await provider.CreateSetupIntentAsync(customer.ProviderCustomerId, ct);
-        await db.SaveChangesAsync(ct); // the vault's email, when it was just learnt
         return TypedResults.Ok(new SetupIntentDto(intent.SetupIntentId, intent.ClientSecret));
     }
 
@@ -168,7 +167,7 @@ public static class CustomerPaymentMethodEndpoints
         var details = await provider.GetPaymentMethodAsync(request.ProviderPaymentMethodId, ct);
         var now = time.GetUtcNow();
         // The card belongs to the customer's tenant; its row is written in that tenant's scope (FORCE RLS WITH CHECK).
-        var saved = await SavedCardTenantScope.RunAsync(db, customer.TenantId,
+        var saved = await PaymentsTenantScope.RunAsync(db, customer.TenantId,
             () => UpsertSavedMethodAsync(db, publisher, customer, details, billingAddress, request.MakeDefault, now, ct), ct, customer.UserId);
         return TypedResults.Created($"/payment-methods/{saved.Id}", saved);
     }
@@ -313,29 +312,13 @@ public static class CustomerPaymentMethodEndpoints
         CancellationToken ct)
     {
         var userId = UserId(principal);
-        var tenantId = TenantId(principal);
         // The signed-in customer's own email (gateway claims) names the vault; the request's copy is only a fallback.
         var customerEmail = CustomerClaims.TryRead(principal, out _, out var claimed) ? claimed : email;
-        var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.UserId == userId && c.Provider == "stripe", ct);
-        if (customer is not null)
-        {
-            customer.RecordEmail(customerEmail); // saved by the caller
-            return customer;
-        }
-
-        customer = new PaymentCustomer
-        {
-            Id = Guid.CreateVersion7(),
-            TenantId = tenantId,
-            UserId = userId,
-            Provider = "stripe",
-            ProviderCustomerId = await provider.CreateCustomerAsync(userId, email, ct),
-            CreatedAt = time.GetUtcNow(),
-        };
-        customer.RecordEmail(customerEmail);
-        db.PaymentCustomers.Add(customer);
-        await db.SaveChangesAsync(ct);
-        return customer;
+        // PaymentCustomers is under FORCE RLS (ADR-0024, owner decision 2026-11-15): found, created and its email saved in
+        // the caller's tenant scope; the provider's customer is opened outside any transaction.
+        return await PaymentCustomerVault.GetOrCreateAsync(
+            db, TenantId(principal), userId, "stripe", customerEmail,
+            token => provider.CreateCustomerAsync(userId, email, token), time.GetUtcNow(), ct);
     }
 
     private static async Task ClearDefaultsAsync(PaymentsDbContext db, Guid userId, DateTimeOffset now, CancellationToken ct)

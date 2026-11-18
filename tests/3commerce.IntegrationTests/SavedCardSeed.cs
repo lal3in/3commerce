@@ -23,28 +23,32 @@ internal static class SavedCardSeed
         var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
         var normalized = email.Trim().ToLowerInvariant();
         var customerId = $"cus_seed_{tenantId:N}_{normalized}";
-        var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.ProviderCustomerId == customerId);
-        if (customer is null)
+
+        // Vaults and saved cards are under FORCE RLS (ADR-0024 amendment): write both in the tenant's scope.
+        return await PaymentsTenantScope.RunAsync(db, tenantId, async () =>
         {
-            customer = new PaymentCustomer
+            var customer = await db.PaymentCustomers.SingleOrDefaultAsync(c => c.ProviderCustomerId == customerId);
+            if (customer is null)
             {
-                Id = Guid.CreateVersion7(),
-                TenantId = tenantId,
-                UserId = Guid.CreateVersion7(),
-                Provider = "stripe",
-                ProviderCustomerId = customerId,
-                CreatedAt = DateTimeOffset.UtcNow,
-            };
-            db.PaymentCustomers.Add(customer);
-        }
+                customer = new PaymentCustomer
+                {
+                    Id = Guid.CreateVersion7(),
+                    TenantId = tenantId,
+                    UserId = Guid.CreateVersion7(),
+                    Provider = "stripe",
+                    ProviderCustomerId = customerId,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                };
+                db.PaymentCustomers.Add(customer);
+            }
 
-        if (recordEmail)
-        {
-            customer.RecordEmail(normalized);
-        }
+            if (recordEmail)
+            {
+                customer.RecordEmail(normalized);
+            }
 
-        // Saved cards are under FORCE RLS (ADR-0024 amendment 2026-11-07): write them in the tenant's scope.
-        return await SavedCardTenantScope.RunAsync(db, tenantId, () => UpsertCardAsync(db, customer, tenantId, pm, isDefault), default);
+            return await UpsertCardAsync(db, customer, tenantId, pm, isDefault);
+        }, default);
     }
 
     private static async Task<(Guid UserId, Guid CardId)> UpsertCardAsync(
