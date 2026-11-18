@@ -51,6 +51,7 @@ builder.Services.AddServiceBus<PaymentsDbContext>(builder.Configuration, bus =>
     bus.AddConsumer<ShippingLabelPurchasedConsumer>(); // carrier-cost accrual (phase 1)
     bus.AddConsumer<OrderCostsRecognizedConsumer>(); // COGS accrual per supplier (phase 1)
     bus.AddConsumer<ReturnedGoodsValuedConsumer>(); // RMA disposition: COGS reversal / write-off reclass (phase 1)
+    bus.AddConsumer<EuDistanceSaleCopyConsumer>(); // the sellers' EU distance-sales running total, for renewals (ADR-0063 § 16)
 });
 builder.Services.AddServiceHealth<PaymentsDbContext>();
 builder.Services.AddInternalClaimsAuth(builder.Configuration, builder.Environment);

@@ -30,5 +30,14 @@ public sealed class StorefrontLedgerAccounts
 
     /// <summary>ADR-0038: the store's shelf prices CONTAIN the tax (AU GST / EU VAT) rather than having it added.</summary>
     public bool TaxInclusive { get; set; }
+
+    /// <summary>
+    /// Where the storefront's sales are taxed (ADR-0063 P2: ISO country + optional subdivision, <c>DE</c>, <c>DE-BY</c>),
+    /// projected from the same event — the seller's HOME Member State when it is an EU one, which a renewal needs to tell
+    /// a cross-border supply from a domestic one when it re-decides the OSS scheme (ADR-0063 § 16, OSS threshold
+    /// crossing). <c>""</c> = not configured (or projected before this column): no re-decision, the renewal keeps the
+    /// scheme it was sold under.
+    /// </summary>
+    public string TaxJurisdiction { get; set; } = string.Empty;
     public DateTimeOffset UpdatedAt { get; set; }
 }

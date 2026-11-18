@@ -28,9 +28,13 @@ public enum RecurringChargeTaxBasis
 /// <see cref="TaxMinor"/> portion, and how it was resolved. <see cref="ChargeMinor"/> is what the customer is
 /// charged (price + tax on an exclusive store, the price itself otherwise); <see cref="NetMinor"/> is the revenue.
 /// <see cref="RateBps"/> is the rate the split was computed at (ADR-0063 P4b: the settled-charge events publish it) —
-/// null when the rate was unknown, or for a split pinned before the rate was recorded.
+/// null when the rate was unknown, or for a split pinned before the rate was recorded. <see cref="OssDestination"/> is the
+/// Member State whose rate a renewal was charged at under OSS (ADR-0063 § 16): set when the period was decided as an OSS
+/// supply — sold under OSS, or re-decided after the seller crossed the threshold — and pinned with the amount, so the
+/// settled facts report the scheme the period was charged under; null for every other charge (and for older pins).
 /// </summary>
-public readonly record struct RecurringChargeTaxResult(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null)
+public readonly record struct RecurringChargeTaxResult(
+    long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null, string? OssDestination = null)
 {
     /// <summary>The gross the provider is asked to charge: the price, plus the tax only when it is added on top.</summary>
     public long ChargeMinor => Basis == RecurringChargeTaxBasis.Exclusive ? PriceMinor + TaxMinor : PriceMinor;
