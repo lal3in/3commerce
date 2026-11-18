@@ -58,7 +58,7 @@ bash -c 'source scripts/lib/infra.sh && infra_up'           # the infra step of 
 This starts the **whole infra set** defined in `scripts/lib/infra.sh`: every service of
 `docker-compose.infra.yml` under the `portals` profile (Postgres 18, RabbitMQ 4, Valkey, redis-exporter,
 Kafka, Kafka UI, pgAdmin) plus the observability services bare-run borrows from `docker-compose.yml`
-(OTel collector, Prometheus, Grafana, Loki, Tempo, Mimir). It waits on every healthcheck and readiness probe
+(OTel collector — OTLP :4317/:4318, Faro browser-RUM receiver :8027, health :13133 — Prometheus, Grafana with the provisioned alert rules, Loki, Tempo, Mimir; ADR-0065). It waits on every healthcheck and readiness probe
 and fails, naming the container, if any member is not ready in time. On first run,
 `infra/postgres/init-databases.sql` creates the **service databases**, roles, and extensions (FTS + `pg_trgm`).
 

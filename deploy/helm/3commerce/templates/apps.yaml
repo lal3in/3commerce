@@ -31,10 +31,7 @@ spec:
               value: "true"
             {{- end }}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
-            {{- if .Values.observability.enabled }}
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector:4317
-            {{- end }}
+            {{- include "3commerce.otlpEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 ---

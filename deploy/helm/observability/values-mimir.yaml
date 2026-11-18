@@ -1,0 +1,46 @@
+# Mimir for production (ADR-0065 Q1/Q2) — chart grafana/mimir-distributed 6.2.2 (Mimir 3.2.3), installed by
+# install-lgtm.sh into namespace `observability`. Metrics kept 13 months on S3-compatible object storage. The chart's
+# default ingest-storage architecture (an in-chart Kafka between distributors and ingesters) is kept as upstream
+# ships it. Endpoint for the collector: http://mimir-gateway.observability.svc/api/v1/push; Grafana queries
+# http://mimir-gateway.observability.svc/prometheus — both with X-Scope-OrgID: 3commerce.
+# Object storage: install-lgtm.sh sets the S3 endpoint/region from S3_* env; credentials from the Secret
+# `lgtm-object-storage` (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) or workload identity.
+mimir:
+  structuredConfig:
+    multitenancy_enabled: true
+    usage_stats:
+      enabled: false
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: ""      # install-lgtm.sh --set (S3_ENDPOINT, host[:port] without scheme)
+          region: ""        # install-lgtm.sh --set (S3_REGION)
+    blocks_storage:
+      s3:
+        bucket_name: 3commerce-mimir-blocks
+    ruler_storage:
+      s3:
+        bucket_name: 3commerce-mimir-ruler
+    alertmanager_storage:
+      s3:
+        bucket_name: 3commerce-mimir-alertmanager
+    limits:
+      compactor_blocks_retention_period: 395d   # Q2: ~13 months
+      max_global_exemplars_per_user: 100000     # Tempo's exemplars → metric→trace links (as in dev mimir.yaml)
+
+global:
+  extraEnvFrom:
+    - secretRef:
+        name: lgtm-object-storage
+        optional: true
+
+# Object storage is external — no in-chart MinIO/Silo.
+minio:
+  enabled: false
+# Alerting is Grafana-managed (deploy/observability/grafana/provisioning/alerting), so Mimir's own Alertmanager and
+# ruler stay off.
+alertmanager:
+  enabled: false
+ruler:
+  enabled: false

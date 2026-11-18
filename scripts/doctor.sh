@@ -34,6 +34,17 @@ for nf in storefront:3000 admin:5200 supplier-portal:5300; do
   printf '    %-15s :%-5s %s\n' "$n" "$p" "$c"
 done
 
+echo "── observability (ADR-0065) ──"
+# collector health_check · Faro receiver (browser RUM; GET answers 405 when listening) · Grafana-provisioned alert rules.
+for x in otel-collector:13133:/ faro-receiver:8027:/ grafana:3001:/api/health; do
+  n="${x%%:*}"; rest="${x#*:}"; p="${rest%%:*}"; pa="${rest#*:}"
+  c=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://localhost:$p$pa" 2>/dev/null); [[ "$c" == 000 || -z "$c" ]] && c=down
+  printf '    %-15s :%-5s %s\n' "$n" "$p" "$c"
+done
+rules=$(curl -fs -m 3 -u "admin:${GRAFANA_ADMIN_PASSWORD:-admin}" http://localhost:3001/api/v1/provisioning/alert-rules 2>/dev/null)
+[[ -n "$rules" ]] && printf '    %-15s %s provisioned (expected 8 — 0 means a provisioning error, see: docker logs 3commerce-grafana)\n' \
+  alert-rules "$(grep -o '"uid":"tc-[a-z0-9-]*"' <<<"$rules" | wc -l | tr -d ' ')"
+
 if ((${#down[@]})); then
   echo "── recent errors (services that are down) ──"
   for name in "${down[@]}"; do

@@ -1,0 +1,51 @@
+# Tempo for production (ADR-0065 Q1/Q2) — chart grafana-community/tempo 3.2.1 (Tempo 3.1.1, single binary),
+# installed by install-lgtm.sh into namespace `observability`. Traces kept 14 days on S3-compatible object storage.
+# Endpoint for the collector: tempo.observability.svc:4317 (OTLP gRPC, X-Scope-OrgID: 3commerce).
+# Object storage: install-lgtm.sh sets tempo.storage.trace.s3.{endpoint,region,bucket} from S3_* env; credentials
+# from the Secret `lgtm-object-storage` (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) or workload identity.
+tempo:
+  multitenancyEnabled: true
+  reportingEnabled: false
+  retention: 336h           # Q2: 14 days
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: 3commerce-tempo-traces
+        endpoint: ""        # install-lgtm.sh --set (S3_ENDPOINT, host[:port] without scheme)
+        region: ""          # install-lgtm.sh --set (S3_REGION)
+        forcepathstyle: true
+      wal:
+        path: /var/tempo/wal
+  # The collector sends OTLP. (The chart's default jaeger receivers stay: its Service template requires the key.)
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  # Service graph + RED span-metrics for Grafana's trace views (as in dev tempo.yaml), remote-written to Mimir. They
+  # are computed AFTER the collector's tail sampling, so they over-weight errors/slow traces — the SLO alerts use the
+  # SDK's unsampled http_server_request_duration metrics instead.
+  metricsGenerator:
+    enabled: true
+    storage:
+      path: /var/tempo/generator/wal
+      remote_write:
+        - url: http://mimir-gateway.observability.svc/api/v1/push
+          send_exemplars: true
+          headers:
+            X-Scope-OrgID: 3commerce
+  overrides:
+    defaults:
+      metrics_generator:
+        processors: [service-graphs, span-metrics]
+  extraEnvFrom:
+    - secretRef:
+        name: lgtm-object-storage
+        optional: true
+
+persistence:
+  enabled: true
+  size: 20Gi                # WAL + generator WAL — blocks live in object storage
