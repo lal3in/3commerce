@@ -1065,8 +1065,8 @@ orders.
 * **What is digital.** The line's resolved offer's fulfilment type (ADR-0028), carried on `TaxLineInput.Fulfilment`:
   `DigitalDownload`, `Subscription` and `Usage` are electronically supplied services (Art. 58, where the customer
   belongs = the bill-to country, P3). Every other line — `Warehouse`, `Dropship`, `Unassigned` (no offer) — is goods
-  dispatched to the customer (Art. 33, the ship-to). `ManualService` keeps the ship-to as before: its general-rule
-  place of supply (Art. 45, the supplier's establishment) is a separate decision, listed under the known gaps below.
+  dispatched to the customer (Art. 33, the ship-to). `ManualService` keeps the ship-to as before — the
+  rule since the owner decision of 2026-11-15 (taxed where performed; see "P1b follow-up — manual-service place of supply").
   `PlaceOfSupply` (Ordering domain) is the one place this is decided. A digital line with no bill-to falls back to the
   ship-to.
 * **The seam.** `TaxCalculationInput.DestinationCountry` is now the **cart's** destination (the goods' and the
@@ -1109,7 +1109,8 @@ orders.
 * **Coordination.** The OSS-renewals follow-up (Payments, `tax_p1b_followups_oss_renewals`) should take a
   subscription's destination from its **line** (`OrderLine.TaxDestinationCountry`, the bill-to for a digital
   subscription), not the order's.
-* **Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.
+* ~~**Known gap.** The `ManualService` place of supply (Art. 45 general rule, Arts. 53–54 special rules) is unchanged.~~
+  Decided 2026-11-15: taxed where performed, the ship-to — see "P1b follow-up — manual-service place of supply" below.
 * **Tests.** Unit `PerLineTaxDestinationTests` (e2e-verify **A3zd**); integration `EuOssCheckoutTests` gains a mixed
   cart over the threshold and a cart split between two other Member States (A4d).
 
@@ -1256,3 +1257,32 @@ under-reported French VAT.
   * Integration, **A4b**: `RenewalUsageTaxTests` covers an OSS subscription bought through checkout (a German store in
     a non-EUR currency, shipped to France). Checkout charges FR 20 %, Payments stores `Oss` / `FR`, and the renewal
     books 200, not 192.
+
+### P1b follow-up — manual-service place of supply (2026-11-18, `docs/manual-service-place-of-supply`, tracker `manual_service_place_of_supply`)
+
+* **Owner decision 2026-11-15 (final).** A manual-service line (fulfilment type `ManualService`: on-site installation,
+  assembly and similar work done at the customer's premises) is taxed **where it is performed**. That is the customer's
+  address, i.e. the **ship-to** country. The code already did this: `PlaceOfSupply.LineDestination` sends every
+  non-electronically-supplied line, `ManualService` included, to the cart's destination (the ship-to). This note makes
+  it the rule rather than a known gap, so the per-line-destination note's "Known gap" is closed by decision, not by a
+  code change.
+* **Why ship-to and not Art. 45.** Art. 45 (B2C general rule: the supplier's establishment) would tax an installation
+  in France by a German seller at German VAT. Services physically performed at the customer's premises follow the
+  place they are carried out: Art. 54(1) for work on movable goods and ancillary services, and Art. 47 when the work is
+  connected with immovable property. For the services this platform sells, that is the delivery address. The owner
+  chose ship-to as the single rule; there is no per-product override.
+* **What follows.**
+  * A manual-service line shipped to another Member State counts toward the EUR 10,000 threshold, and over it is taxed
+    at the destination's rate under OSS, exactly like goods.
+  * One shipped to Northern Ireland follows the UK (`GB`, outside the EU VAT area): only goods are `XI`.
+  * One shipped to a special territory (the Canaries…) is outside the EU VAT area and is zero-rated as for goods.
+  * The bill-to never moves it. An installation billed to a French company but performed in Germany is German.
+* **Adviser check.** The rule is final for the code. Before EU cross-border B2C goes live, a tax adviser should confirm
+  it for the service types actually sold, notably for work on immovable property (Art. 47) and any B2B case (phase 2).
+  This is recorded on the launch-gate row `eu_vat_rate_table_tedb_verification`.
+* **Tests.** Unit `ManualServicePlaceOfSupplyTests` (Ordering, e2e-verify **A3zz**) covers:
+  * a manual-service line billed to France and shipped to Germany is German, both as its place of supply and in the OSS
+    strategy's line destinations and rate;
+  * over the threshold, shipped to France, it takes France's rate under OSS;
+  * negative control: the same line as a digital download goes to the bill-to;
+  * shipped to Belfast it is `GB`, never `XI`.
