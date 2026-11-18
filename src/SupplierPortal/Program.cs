@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
+using ThreeCommerce.BuildingBlocks.Observability.Blazor;
 using ThreeCommerce.SupplierPortal.Components;
 using ThreeCommerce.SupplierPortal.Services;
-using ThreeCommerce.BuildingBlocks.Observability.Blazor;
 
 var builder = WebApplication.CreateBuilder(args);
 if (string.Equals(Environment.GetEnvironmentVariable("USE_CONTAINER_CONFIG"), "true", StringComparison.OrdinalIgnoreCase))

@@ -58,11 +58,11 @@ public sealed partial class TelemetryCircuitHandler(
             var who = await ResolvePrincipalAsync();
             Activity.Current?.SetTag("enduser.id", who.UserId).SetTag("tenant.id", who.TenantId);
             using (logger.BeginScope(new Dictionary<string, object>
-                   {
-                       ["circuit_id"] = context.Circuit.Id,
-                       ["tenant_id"] = who.TenantId,
-                       ["user_id"] = who.UserId,
-                   }))
+            {
+                ["circuit_id"] = context.Circuit.Id,
+                ["tenant_id"] = who.TenantId,
+                ["user_id"] = who.UserId,
+            }))
             {
                 await next(context);
             }

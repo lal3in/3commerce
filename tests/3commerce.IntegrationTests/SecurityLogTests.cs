@@ -8,8 +8,8 @@ using Microsoft.Extensions.Logging;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Authz;
 using ThreeCommerce.Gateway.Auth;
 using ThreeCommerce.Identity.Infrastructure;
-using PolicyDecisionResponse = ThreeCommerce.BuildingBlocks.Infrastructure.Authz.PolicyDecisionResponse;
 using ActionDecision = ThreeCommerce.BuildingBlocks.Infrastructure.Authz.ActionDecision;
+using PolicyDecisionResponse = ThreeCommerce.BuildingBlocks.Infrastructure.Authz.PolicyDecisionResponse;
 
 namespace ThreeCommerce.IntegrationTests;
 
