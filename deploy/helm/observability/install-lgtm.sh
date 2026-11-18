@@ -18,7 +18,8 @@
 # Secrets in $NAMESPACE (never committed — create them first, e.g. `kubectl create secret generic … --from-literal`):
 #   lgtm-object-storage  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   (optional with IRSA / workload identity)
 #   grafana-admin        admin-user, admin-password
-#   grafana-alerting     ALERT_EMAIL_TO, GF_SMTP_HOST, GF_SMTP_USER, GF_SMTP_PASSWORD, GF_SMTP_FROM_ADDRESS (Q8)
+#   grafana-alerting     GF_SMTP_HOST, GF_SMTP_USER, GF_SMTP_PASSWORD, GF_SMTP_FROM_ADDRESS (Q8; the recipient is
+#                        NOT a secret — it comes from deploy/observability/alerting.env)
 # Runbook: docs/runbooks/observability.md.
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -75,7 +76,11 @@ run tempo   "$COMMUNITY" tempo             "$TEMPO_CHART"   "$DIR/values-tempo.y
 run mimir   "$GRAFANA"   mimir-distributed "$MIMIR_CHART"   "$DIR/values-mimir.yaml" \
   --set mimir.structuredConfig.common.storage.s3.endpoint="$S3_ENDPOINT" \
   --set mimir.structuredConfig.common.storage.s3.region="$S3_REGION"
-run grafana "$COMMUNITY" grafana           "$GRAFANA_CHART" "$DIR/values-grafana.yaml"
+# Alert recipient(s) from the committed config file (ADR-0065 Q8) — explicit env wins over the Secret's envFrom.
+ALERT_EMAIL_TO="$(sed -n 's/^ALERT_EMAIL_TO=//p' deploy/observability/alerting.env)"
+: "${ALERT_EMAIL_TO:?set ALERT_EMAIL_TO in deploy/observability/alerting.env}"
+run grafana "$COMMUNITY" grafana           "$GRAFANA_CHART" "$DIR/values-grafana.yaml" \
+  --set-string env.ALERT_EMAIL_TO="$ALERT_EMAIL_TO"
 
 if [[ "$MODE" == install ]]; then
   echo "LGTM installed in $NAMESPACE. Point the app at it: helm upgrade … -f deploy/helm/3commerce/values-prod.yaml"

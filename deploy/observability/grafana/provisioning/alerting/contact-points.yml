@@ -1,9 +1,10 @@
-# Alert routing (ADR-0065 Q8): every alert goes by EMAIL. The recipient is configuration only, never committed:
+# Alert routing (ADR-0065 Q8): every alert goes by EMAIL. The recipient is set in ONE config file,
+# deploy/observability/alerting.env (ALERT_EMAIL_TO; placeholder test@test.com until the real address is known).
 # Grafana expands $ALERT_EMAIL_TO from its environment when it provisions this file (comma-separated list allowed).
-#   dev compose  ALERT_EMAIL_TO (default alerts@example.invalid — a reserved, undeliverable domain) + GF_SMTP_* from
+#   dev compose  ALERT_EMAIL_TO via the grafana env_file + GF_SMTP_* from
 #                GRAFANA_SMTP_* in your shell/.env; SMTP is off unless GRAFANA_SMTP_ENABLED=true, so dev alerts show
 #                in Grafana → Alerting and a send attempt is only logged.
-#   production   deploy/helm/observability/values-grafana.yaml reads ALERT_EMAIL_TO and the SMTP credentials from the
+#   production   install-lgtm.sh passes ALERT_EMAIL_TO from the same file; the SMTP credentials come from the
 #                Secret `grafana-alerting` (install-lgtm.sh documents how to create it).
 # Same file in dev and prod (install-lgtm.sh mounts this folder).
 apiVersion: 1

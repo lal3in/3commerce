@@ -104,7 +104,9 @@ branch; no data = OK until then), error-log spike (> 20 error/critical records p
 (`redis_up`) and Valkey unreachable from services (`redis_unavailable_total`), and the collector heartbeat (its own
 `otelcol_process_uptime` pushed through itself into Mimir — absent 5 min = down). One email contact point,
 `addresses: $ALERT_EMAIL_TO`; SMTP from `GF_SMTP_*` (compose: `GRAFANA_SMTP_*`, default off; prod: Secret
-`grafana-alerting`). No address is committed (dev default `alerts@example.invalid`). Each rule links its section of
+`grafana-alerting`). The recipient lives in the config file `deploy/observability/alerting.env` (`ALERT_EMAIL_TO`, read by the dev compose
+`env_file` and by `install-lgtm.sh`); amended 2026-11-18 (owner): placeholder `test@test.com` until the real address
+is known. Each rule links its section of
 `docs/runbooks/observability.md`.
 
 ### 5. Sampling (P1-7)
@@ -122,6 +124,9 @@ telemetry is owned by the .NET instrumentation agent (left to it if head samplin
 Helm collector `k8s_attributes` (namespace-scoped Role: pods + replicasets in the release namespace; pod, uid,
 deployment, namespace, node) on the OTLP input pipelines only, and `resource_detection` (`env` by default, cloud
 detectors per deployment; `observability.collector.clusterName` → `k8s.cluster.name`), `override: false`.
+
+CI schema-checks these objects (added 2026-11-18): kind-deploy runs `kubeconform -strict` on the values-prod render
+and on values-dev with `observability.enabled=true`, since values-dev alone renders none of the observability objects.
 
 ### 7. Browser RUM receiver (Q3, P1-2 server side)
 

@@ -28,7 +28,8 @@ public static class Ledger
         string? shippingAccount = null,
         Guid? storefrontId = null,
         string? reference = null,
-        string? description = null)
+        string? description = null,
+        OssTaxSplit? ossTax = null)
     {
         // Product revenue = gross − tax − shipping; shipping is booked to its own income account (the
         // storefront's shipping.store-… when known, else the shared shipping.income) so the P&L reports
@@ -67,10 +68,7 @@ public static class Ledger
                 Credit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Credit(entry, taxLiability, taxMinor);
-            }
+            CreditTax(entry, taxLiability, taxMinor, ossTax);
         }
         else
         {
@@ -92,10 +90,7 @@ public static class Ledger
                 Credit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Credit(entry, taxLiability, taxMinor);
-            }
+            CreditTax(entry, taxLiability, taxMinor, ossTax);
 
             Debit(entry, cash, grossMinor);
             Credit(entry, receivableAccount, grossMinor);
@@ -115,11 +110,27 @@ public static class Ledger
     /// <see cref="Sale"/> resolves it (<paramref name="taxAccount"/>, else the shared <see cref="Accounts.LiabilityTaxCollected"/>).
     /// A renewal / usage charge's reversal takes its tax from here (renewal_usage_refund_path), so a full refund nets the
     /// tax account the charge credited back to zero.
+    /// Its per-destination OSS sub-accounts (ADR-0063 § 16) count too: they are part of the same tax.
     /// </summary>
     public static long TaxOf(JournalEntry saleEntry, string? taxAccount)
     {
         var account = string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount;
-        return saleEntry.Lines.Where(l => l.AccountCode == account).Sum(l => l.CreditMinor - l.DebitMinor);
+        var ossPrefix = account + Accounts.OssTaxSuffix;
+        return saleEntry.Lines.Where(l => l.AccountCode == account || l.AccountCode.StartsWith(ossPrefix, StringComparison.Ordinal))
+            .Sum(l => l.CreditMinor - l.DebitMinor);
+    }
+
+    /// <summary>
+    /// The OSS part of the tax a <see cref="Sale"/> entry booked (ADR-0063 § 16): its credits to each per-destination OSS
+    /// sub-account of <paramref name="taxAccount"/> (<see cref="Accounts.OssTaxFor"/>), by country. A renewal / usage
+    /// charge's payment records it, so a refund or dispute takes the tax back from the accounts that were credited.
+    /// </summary>
+    public static OssTaxSplit OssTaxOf(JournalEntry saleEntry, string? taxAccount)
+    {
+        var ossPrefix = (string.IsNullOrWhiteSpace(taxAccount) ? Accounts.LiabilityTaxCollected : taxAccount) + Accounts.OssTaxSuffix;
+        return OssTaxSplit.Of(saleEntry.Lines
+            .Where(l => l.AccountCode.StartsWith(ossPrefix, StringComparison.Ordinal))
+            .Select(l => ((string?)l.AccountCode[ossPrefix.Length..], l.CreditMinor - l.DebitMinor)));
     }
 
     /// <summary>
@@ -143,7 +154,8 @@ public static class Ledger
         long shippingMinor = 0,
         string? shippingAccount = null,
         Guid? storefrontId = null,
-        string? description = null)
+        string? description = null,
+        OssTaxSplit? ossTax = null)
     {
         // Mirror the sale: reverse product revenue, shipping income and tax separately so each P&L line
         // nets its refunds. shippingMinor is the (proportional) shipping slice of this refund.
@@ -166,10 +178,7 @@ public static class Ledger
                 Debit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
-            }
+            DebitTax(entry, Accounts.LiabilityTaxCollected, taxMinor, ossTax);
 
             Credit(entry, cash, grossMinor);
         }
@@ -187,10 +196,7 @@ public static class Ledger
                 Debit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Debit(entry, taxLiability, taxMinor);
-            }
+            DebitTax(entry, taxLiability, taxMinor, ossTax);
 
             Credit(entry, receivableAccount, grossMinor);
             Debit(entry, receivableAccount, grossMinor);
@@ -223,7 +229,8 @@ public static class Ledger
         string? shippingAccount = null,
         Guid? storefrontId = null,
         string? reference = null,
-        string? description = null)
+        string? description = null,
+        OssTaxSplit? ossTax = null)
     {
         var shipping = Math.Clamp(shippingMinor, 0, grossMinor - taxMinor);
         var shippingIncome = string.IsNullOrWhiteSpace(shippingAccount) ? Accounts.ShippingIncome : shippingAccount;
@@ -250,10 +257,7 @@ public static class Ledger
                 Debit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Debit(entry, Accounts.LiabilityTaxCollected, taxMinor);
-            }
+            DebitTax(entry, Accounts.LiabilityTaxCollected, taxMinor, ossTax);
 
             Credit(entry, cash, grossMinor);
         }
@@ -271,10 +275,7 @@ public static class Ledger
                 Debit(entry, shippingIncome, shipping);
             }
 
-            if (taxMinor > 0)
-            {
-                Debit(entry, taxLiability, taxMinor);
-            }
+            DebitTax(entry, taxLiability, taxMinor, ossTax);
 
             Credit(entry, receivableAccount, grossMinor);
             Debit(entry, receivableAccount, grossMinor);
@@ -446,6 +447,25 @@ public static class Ledger
         if (minor > 0)
         {
             entry.Lines.Add(new JournalLine { Id = Guid.CreateVersion7(), EntryId = entry.Id, AccountCode = account, Currency = entry.Currency, DebitMinor = 0, CreditMinor = minor });
+        }
+    }
+
+    // ADR-0063 § 16, per-destination OSS tax accounts: the tax of a charge goes to the store's tax account, except its OSS
+    // part, which goes to one account per Member State of consumption (OssTaxSplit.Lines). Without a split, exactly the
+    // one line it always was.
+    private static void CreditTax(JournalEntry entry, string taxAccount, long taxMinor, OssTaxSplit? ossTax)
+    {
+        foreach (var (account, minor) in (ossTax ?? OssTaxSplit.None).Lines(taxAccount, taxMinor))
+        {
+            Credit(entry, account, minor);
+        }
+    }
+
+    private static void DebitTax(JournalEntry entry, string taxAccount, long taxMinor, OssTaxSplit? ossTax)
+    {
+        foreach (var (account, minor) in (ossTax ?? OssTaxSplit.None).Lines(taxAccount, taxMinor))
+        {
+            Debit(entry, account, minor);
         }
     }
 }

@@ -337,13 +337,14 @@ services:
     image: grafana/grafana:11.2.0
     container_name: 3commerce-grafana
     profiles: ["observability"]
+    env_file:
+      - deploy/observability/alerting.env
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      # Alerting (ADR-0065 Q8): provisioning/alerting/contact-points.yml emails ALERT_EMAIL_TO. Configuration only —
-      # the default is a reserved, undeliverable address; SMTP stays off unless you set GRAFANA_SMTP_* in your shell.
-      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-alerts@example.invalid}
+      # Alerting (ADR-0065 Q8): provisioning/alerting/contact-points.yml emails ALERT_EMAIL_TO, set in the config file
+      # deploy/observability/alerting.env (env_file above). SMTP stays off unless you set GRAFANA_SMTP_* in your shell.
       GF_SMTP_ENABLED: ${GRAFANA_SMTP_ENABLED:-false}
       GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-localhost:25}
       GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}

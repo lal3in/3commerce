@@ -58,6 +58,19 @@ public static class AdminEndpoints
             new("Carrier payable", Accounts.CarrierPayableStoreFor(sid), "Owed to carriers", nameof(AccountType.Liability)),
         };
 
+        // ADR-0063 § 16: one OSS VAT liability per Member State of consumption the store has posted to (a sub-account of
+        // its tax account, {tax}.oss.{CC}) — derived from the postings, since destinations are open-ended.
+        var ossPrefix = (projection?.TaxAccountCode ?? $"tax.store-{sid:N}") + Accounts.OssTaxSuffix;
+        var ossAccounts = await db.JournalLines.AsNoTracking()
+            .Where(l => l.AccountCode.StartsWith(ossPrefix))
+            .Select(l => l.AccountCode)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync(ct);
+        rows.AddRange(ossAccounts.Select(code => new ChartAccountDto(
+            $"OSS VAT — {code[ossPrefix.Length..]}", code, $"VAT owed to {code[ossPrefix.Length..]} under the Union OSS scheme",
+            nameof(AccountType.Liability))));
+
         // One cash / processing-fee / chargeback-fee account per PSP the store can settle through.
         foreach (var provider in LedgerProviders.Known)
         {

@@ -47,9 +47,19 @@ public class OssRenewalThresholdTests
         Assert.Equal(
             (expectedScheme, expectedScheme == TaxScheme.Oss ? "FR" : null, expectedScheme == TaxScheme.Oss ? 2_000 : 1_900),
             (settled.TaxScheme, settled.TaxDestinationCountry, settled.Lines[0].TaxRateBps));
+        // ADR-0063 § 16, per-destination OSS tax accounts: a re-decided (OSS) renewal's VAT goes to France's OSS account; a
+        // Domestic one stays on the store's own (the negative control).
         var entry = await db.JournalEntries.AsNoTracking().Include(e => e.Lines).SingleAsync();
-        Assert.Equal(expectedCharge - 1_000, entry.Lines.Where(l => l.AccountCode == $"tax.store-{store:N}").Sum(l => l.CreditMinor));
+        var oss = expectedScheme == TaxScheme.Oss;
+        Assert.Equal(
+            (oss ? 0 : expectedCharge - 1_000, oss ? expectedCharge - 1_000 : 0),
+            (TaxCredit(entry, $"tax.store-{store:N}"), TaxCredit(entry, $"tax.store-{store:N}.oss.FR")));
+        var payment = await db.Payments.AsNoTracking().SingleAsync();
+        Assert.Equal(oss ? "FR:200" : null, payment.OssTax);
     }
+
+    private static long TaxCredit(JournalEntry entry, string account) =>
+        entry.Lines.Where(l => l.AccountCode == account).Sum(l => l.CreditMinor - l.DebitMinor);
 
     [Fact]
     public async Task Only_this_sellers_EUR_turnover_of_the_preceding_and_current_year_counts()
@@ -141,6 +151,14 @@ public class OssRenewalThresholdTests
         Assert.Equal(
             [(TaxScheme.Domestic, (string?)null), (TaxScheme.Oss, "FR")],
             settled.Select(s => (s.TaxScheme, s.TaxDestinationCountry)));
+
+        // Each period is posted under the scheme it was pinned with: the retried period's 190 on the store's account, the
+        // next period's 200 on France's OSS account (ADR-0063 § 16, per-destination OSS tax accounts).
+        var entries = await db.JournalEntries.AsNoTracking().Include(e => e.Lines).ToListAsync();
+        var second = Assert.Single(entries, e => e.Reference == $"renew-{subscription.Id}-2");
+        var third = Assert.Single(entries, e => e.Reference == $"renew-{subscription.Id}-3");
+        Assert.Equal((190L, 0L), (TaxCredit(second, $"tax.store-{store:N}"), TaxCredit(second, $"tax.store-{store:N}.oss.FR")));
+        Assert.Equal((0L, 200L), (TaxCredit(third, $"tax.store-{store:N}"), TaxCredit(third, $"tax.store-{store:N}.oss.FR")));
     }
 
     [Fact]

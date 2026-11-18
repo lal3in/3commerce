@@ -103,6 +103,19 @@ public static class Accounts
     /// <summary>Per-storefront carrier payable (label-cost accrual credit): <c>liability.carrier_payable.store-{id:N}</c>.</summary>
     public static string CarrierPayableStoreFor(Guid sid) => $"liability.carrier_payable.store-{sid:N}";
 
+    /// <summary>
+    /// The OSS VAT liability of one Member State of consumption (ADR-0063 § 16, per-destination OSS tax accounts):
+    /// <c>{taxAccount}.oss.{CC}</c> — a sub-account of the store's own tax account (<c>tax.store-{id}.oss.FR</c>), so every
+    /// report that sums the store's tax by its prefix still sees it, while the OSS return reads one account per country.
+    /// Derived, never stored (like every non-income code, ADR-0045). An unattributed charge (no store tax account) would
+    /// fall back under the shared <see cref="LiabilityTaxCollected"/>; OSS needs a storefront jurisdiction, so it never does.
+    /// </summary>
+    public static string OssTaxFor(string? taxAccount, string country) =>
+        $"{(string.IsNullOrWhiteSpace(taxAccount) ? LiabilityTaxCollected : taxAccount)}{OssTaxSuffix}{country.Trim().ToUpperInvariant()}";
+
+    /// <summary>What separates a tax account from its per-destination OSS sub-accounts.</summary>
+    public const string OssTaxSuffix = ".oss.";
+
     // ---- No-shared-account invariant (ledger_sf_4): the mandate is that every movement is attributed to a
     // storefront — there is NO platform/tenant-default account. These are the shared/default codes that a
     // storefront-attributed posting must NEVER touch; a per-store code always contains ".store-" and so can
@@ -117,7 +130,8 @@ public static class Accounts
     public static readonly IReadOnlySet<string> SharedCodes = BuildSharedCodes();
 
     /// <summary>True when <paramref name="code"/> is a shared/default account (never storefront-scoped).</summary>
-    public static bool IsSharedCode(string code) => SharedCodes.Contains(code);
+    public static bool IsSharedCode(string code) =>
+        SharedCodes.Contains(code) || code.StartsWith(LiabilityTaxCollected + OssTaxSuffix, StringComparison.Ordinal);
 
     private static HashSet<string> BuildSharedCodes()
     {
