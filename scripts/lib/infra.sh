@@ -98,8 +98,11 @@ _infra_probe() { # service container
     # creating the service databases; TCP only answers once that is done, so a migrate can't race init.
     postgres)       docker exec "$2" sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -tAc "select 1"' ;;
     redis-exporter) curl -fsS -m 3 -o /dev/null http://localhost:9121/metrics ;;
-    # Any HTTP answer (even 404/405) proves the OTLP receiver is listening on the published port.
-    otel-collector) code="$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://localhost:4318/)"; [[ -n "$code" && "$code" != 000 ]] ;;
+    # The health_check extension (:13133) answers 200 only once every pipeline runs (ADR-0065); the OTLP and Faro
+    # receivers must also be listening — any HTTP answer (even 404/405) proves that.
+    otel-collector) curl -fsS -m 3 -o /dev/null http://localhost:13133/ || return 1
+                    code="$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://localhost:4318/)"; [[ -n "$code" && "$code" != 000 ]] || return 1
+                    code="$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://localhost:8027/)"; [[ -n "$code" && "$code" != 000 ]] ;;
     prometheus)     docker exec "$2" wget -qO- http://localhost:9090/-/ready ;;   # no published port in dev
     grafana)        curl -fsS -m 3 -o /dev/null http://localhost:3001/api/health ;;
     mimir)          curl -fsS -m 3 -o /dev/null http://localhost:9009/ready ;;  # shell-less image: no healthcheck
