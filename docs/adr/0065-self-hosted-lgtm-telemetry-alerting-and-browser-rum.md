@@ -125,6 +125,9 @@ Helm collector `k8s_attributes` (namespace-scoped Role: pods + replicasets in th
 deployment, namespace, node) on the OTLP input pipelines only, and `resource_detection` (`env` by default, cloud
 detectors per deployment; `observability.collector.clusterName` → `k8s.cluster.name`), `override: false`.
 
+CI schema-checks these objects (added 2026-11-18): kind-deploy runs `kubeconform -strict` on the values-prod render
+and on values-dev with `observability.enabled=true`, since values-dev alone renders none of the observability objects.
+
 ### 7. Browser RUM receiver (Q3, P1-2 server side)
 
 A `faro` receiver on `0.0.0.0:8027` (contrib **alpha** for logs and traces at 0.165.0) feeds `traces/faro` and
