@@ -18,6 +18,8 @@
     <ProjectReference Include="../../src/Services/Catalog/Infrastructure/3commerce.Catalog.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Services/Audit/Infrastructure/3commerce.Audit.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Services/Payments/Infrastructure/3commerce.Payments.Infrastructure.csproj" />
+    <!-- payment-customer-email command: Identity (the members' account emails, read per tenant). -->
+    <ProjectReference Include="../../src/Services/Identity/Infrastructure/3commerce.Identity.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="backfill.settings.json" CopyToOutputDirectory="PreserveNewest" />

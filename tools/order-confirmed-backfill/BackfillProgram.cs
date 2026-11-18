@@ -10,6 +10,7 @@ using Npgsql;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Messaging;
 using ThreeCommerce.Fulfillment.Infrastructure;
 using ThreeCommerce.Ordering.Infrastructure;
+using ThreeCommerce.Tools.OrderConfirmedBackfill.PaymentCustomers;
 using ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 using ThreeCommerce.Tools.OrderConfirmedBackfill.Subscriptions;
 using ThreeCommerce.Workers.Notifications.Infrastructure;
@@ -34,6 +35,11 @@ public static class BackfillProgram
         if (args.Length > 0 && args[0] == SubscriptionQuantityOptions.Command)
         {
             return await SubscriptionQuantityProgram.RunAsync(args[1..]);
+        }
+
+        if (args.Length > 0 && args[0] == PaymentCustomerEmailOptions.Command)
+        {
+            return await PaymentCustomerEmailProgram.RunAsync(args[1..]);
         }
 
         BackfillOptions options;

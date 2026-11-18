@@ -6,6 +6,7 @@
     "Catalog": "Host=localhost;Port=5432;Database=catalog_db;Username=catalog_svc;Password=catalog_dev",
     "Audit": "Host=localhost;Port=5432;Database=audit_db;Username=audit_svc;Password=audit_dev",
     "Payments": "Host=localhost;Port=5432;Database=payments_db;Username=payments_svc;Password=payments_dev",
+    "Identity": "Host=localhost;Port=5432;Database=identity_db;Username=identity_svc;Password=identity_dev",
     "RabbitMq": "amqp://guest:guest@localhost:5672"
   },
   "RabbitMqManagement": {
