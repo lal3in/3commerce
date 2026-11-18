@@ -209,3 +209,25 @@ dotnet $BIN subscription-quantity --dry-run             # expect TO CORRECT = 0
 
 Each correction logs `re-priced for {Quantity} units` in `.run/payments.log` / the Payments container log. The
 customer's NEXT renewal charges the corrected amount (a period already attempted keeps its pinned amount).
+
+## Payment vaults without an email (`payment-customer-email` command)
+
+`payment_customer_email_backfill`. Since #332 a usage auto top-up charges the member's default saved card, found by
+tenant + the vault's email; vaults opened before #332 have none until the member next opens their saved cards, so
+their top-ups are skipped and the "add a card" email cannot reach them. Payments must run the build that carries
+`PaymentCustomerEmailConsumer` (queue `payment-customer-email`); the tool also needs `ConnectionStrings:Identity`
+(read-only, per tenant in its RLS scope).
+
+```bash
+dotnet $BIN payment-customer-email --dry-run --list      # verdicts: Missing / Recorded / Differs / NoAccount (ids only)
+dotnet $BIN payment-customer-email --execute --limit 5   # canary
+# wait for queue:payment-customer-email to drain; a --dry-run then shows MISSING down by the canaries' vaults
+# (check the tool's counts, not the table: it is FORCE RLS, and an email must not land in a ticket)
+dotnet $BIN payment-customer-email --execute
+dotnet $BIN payment-customer-email --dry-run             # expect MISSING = 0
+```
+
+Each command logs `Payment customer email backfill for user {UserId} in tenant {TenantId}: {Outcome}` in
+`.run/payments.log` / the Payments container log (`Recorded`, `RecordedAndReady` when `CustomerPaymentMethodReady`
+was published so paused top-ups resume, `AlreadyKnown`, `NoVault`). `Differs` and `NoAccount` vaults are reported and
+never sent: a known email is never overwritten, and the member's next saved-cards visit records the current one.
