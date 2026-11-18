@@ -243,14 +243,17 @@ services:
   # OTEL_EXPORTER_OTLP_ENDPOINT is set — containerized: http://otel-collector:4317 (deploy/.env.*);
   # bare-run: http://localhost:4317 via the published collector ports (scripts/run-all.sh sets it).
   # Ops data only — never financial truth; keep Grafana behind admin auth / a private network (GOTCHA).
+  # Collector pinned to the latest contrib release (ADR-0065: 0.165.0, 2026-11-07); same tag in Helm values.yaml.
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.110.0
+    image: otel/opentelemetry-collector-contrib:0.165.0
     container_name: 3commerce-otel-collector
     profiles: ["observability"]
     command: ["--config=/etc/otelcol/config.yaml"]
     ports:
       - "4317:4317"    # OTLP gRPC — bare-run services (ADR-0009) can only reach a published port
       - "4318:4318"    # OTLP HTTP
+      - "8027:8027"    # Faro receiver (browser RUM) — the storefront's /rum route relays here (ADR-0065)
+      - "13133:13133"  # health_check extension — host-check.sh / doctor.sh
     volumes:
       - ./deploy/observability/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     depends_on:
@@ -338,6 +341,14 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Alerting (ADR-0065 Q8): provisioning/alerting/contact-points.yml emails ALERT_EMAIL_TO. Configuration only —
+      # the default is a reserved, undeliverable address; SMTP stays off unless you set GRAFANA_SMTP_* in your shell.
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-alerts@example.invalid}
+      GF_SMTP_ENABLED: ${GRAFANA_SMTP_ENABLED:-false}
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-localhost:25}
+      GF_SMTP_USER: ${GRAFANA_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${GRAFANA_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_SMTP_FROM:-grafana@example.invalid}
     ports:
       - "3001:3000"
     volumes:

@@ -172,8 +172,8 @@ public sealed class SubscriptionService(
         var now = clock.GetUtcNow();
         if (savedPaymentMethodId is { } methodId)
         {
-            // SavedPaymentMethods is under FORCE RLS (ADR-0024): read the card in the customer's tenant scope.
-            var method = await SavedCardTenantScope.RunAsync(db, tenantId, () => db.SavedPaymentMethods.AsNoTracking()
+            // SavedPaymentMethods + PaymentCustomers are under FORCE RLS (ADR-0024): read the card in the customer's tenant scope.
+            var method = await PaymentsTenantScope.RunAsync(db, tenantId, () => db.SavedPaymentMethods.AsNoTracking()
                 .Where(m => m.Id == methodId && m.UserId == userId && m.TenantId == tenantId && m.State == SavedPaymentMethodState.Active)
                 .Select(m => new
                 {
@@ -233,7 +233,7 @@ public sealed class SubscriptionService(
 
         var now = clock.GetUtcNow();
         var accounts = await AccountsAsync(subscription.StorefrontId, ct);
-        var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
+        var tax = await PinRenewalTaxAsync(subscription, accounts, ct);
         await RenewAndPostAsync(subscription, tax, accounts, modeResolver.DefaultAccountForHost().Provider, paymentIntentId, now, ct);
         attempt.Outcome = nameof(PaymentOutcome.Succeeded);
         attempt.SettledAt = StoredTime.Of(now);
@@ -275,7 +275,7 @@ public sealed class SubscriptionService(
             // before the first provider call): every attempt of the period — a retry after a failure, a crash, or a
             // rate change in between — charges the SAME amount.
             var accounts = await AccountsAsync(subscription.StorefrontId, ct);
-            var tax = await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts), ct);
+            var tax = await PinRenewalTaxAsync(subscription, accounts, ct);
             var attempt = await BeginAttemptAsync(subscription, trigger, tax, now, ct);
 
             // When the subscription carries a stored instrument, charge it MERCHANT-INITIATED (off-session) so the
@@ -481,7 +481,10 @@ public sealed class SubscriptionService(
             ? FormattableString.Invariant(
                 $"Subscription renewal — {subscription.Quantity} units, {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}")
             : FormattableString.Invariant($"Subscription renewal — {renewal.PeriodStart:yyyy-MM-dd} to {renewal.PeriodEnd:yyyy-MM-dd}");
-        var oss = subscription.OssDestination is not null;
+        // The scheme the period was PINNED under (ADR-0063 § 16): sold under OSS, or re-decided after the seller crossed the
+        // threshold. A pin written before the destination was pinned falls back to the subscription's own OSS destination.
+        var ossDestination = tax.OssDestination ?? subscription.OssDestination;
+        var oss = ossDestination is not null;
         var export = subscription.ExportedFromEuVatArea;
         var facts = SettledChargeTax.For(
             tax, description, subscription.Quantity, subscription.TaxExempt || export,
@@ -492,7 +495,7 @@ public sealed class SubscriptionService(
             $"renew-{subscription.Id}-{renewal.Sequence}", subscription.Currency, facts.NetMinor, facts.TaxMinor, facts.GrossMinor,
             facts.TaxInclusive, facts.Scheme, [facts.Line], StoredTime.Of(now), paymentIntentId,
             facts.Scheme is BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss or BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Export
-                ? subscription.OssDestination ?? subscription.TaxDestinationCountry
+                ? ossDestination ?? subscription.TaxDestinationCountry
                 : null), ct);
     }
 
@@ -506,40 +509,103 @@ public sealed class SubscriptionService(
     /// The tax of the period about to be charged, at the store's rate in force NOW — computed only on the first attempt
     /// of a period (then pinned, <see cref="RecurringChargePin"/>). Logged when the rate is unknown (<see cref="LogUnknownRate"/>).
     /// </summary>
-    private RecurringChargeTaxResult RenewalTax(Subscription subscription, StorefrontLedgerAccounts? accounts)
+    private RecurringChargeTaxResult RenewalTax(Subscription subscription, StorefrontLedgerAccounts? accounts, string? ossDestination)
     {
         var taxInclusive = subscription.TaxInclusive ?? accounts?.TaxInclusive ?? false;
+        var (rate, taxedIn) = RenewalRate(subscription, accounts, ossDestination);
         var tax = RecurringChargeTax.For(
-            subscription.PriceMinor, RenewalRate(subscription, accounts), taxInclusive, subscription.TaxExempt || subscription.ExportedFromEuVatArea);
+            subscription.PriceMinor, rate, taxInclusive, subscription.TaxExempt || subscription.ExportedFromEuVatArea);
         LogUnknownRate(logger, tax, taxInclusive, $"renew-{subscription.Id}", subscription.StorefrontId);
-        return tax;
+        return tax with { OssDestination = taxedIn };
     }
 
     /// <summary>
-    /// The rate a renewal is charged at (ADR-0063 § 7.1: the rate in force at the charge, never the purchase rate). The
-    /// storefront's projected rate — unless the line was sold under OSS (ADR-0063 § 16, owner decision 2026-11-06): then
-    /// its DESTINATION's standard rate on the charge's local date (<see cref="EuStandardVatRates"/>, Payments' copy of
-    /// Ordering's table). It is resolved before the first attempt and pinned with the period's amount, so a retry or a
-    /// rate change in between never re-prices the period. A destination the table does not know falls back to the
-    /// storefront's rate with an error (never a guessed rate; it would have been caught at checkout).
+    /// The period's tax, pinned (<see cref="RecurringChargePin"/>) with the scheme it is charged under: the Member State it
+    /// is taxed in under OSS travels on the pin (<see cref="RecurringChargeTaxResult.OssDestination"/>), so the settled
+    /// facts — whenever the period settles — report the scheme the amount was computed for.
     /// </summary>
-    private int? RenewalRate(Subscription subscription, StorefrontLedgerAccounts? accounts)
+    private async Task<RecurringChargeTaxResult> PinRenewalTaxAsync(
+        Subscription subscription, StorefrontLedgerAccounts? accounts, CancellationToken ct)
     {
-        if (subscription.TaxScheme != BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss)
+        var ossDestination = subscription.OssDestination ?? await ThresholdOssDestinationAsync(subscription, accounts, ct);
+        return await RecurringChargePin.PinAsync(db, clock, subscription.PeriodKey, () => RenewalTax(subscription, accounts, ossDestination), ct);
+    }
+
+    /// <summary>
+    /// ADR-0063 § 16, OSS threshold crossing: a subscription sold as a <c>Domestic</c> supply into ANOTHER Member State —
+    /// the seller was at or under the EUR 10,000 threshold at checkout, so it was taxed at the home rate — is re-decided at
+    /// each renewal (Art. 59c applies per supply, and each period is a new supply, § 7.1). Returns its destination when
+    /// the seller's running total (<see cref="EuDistanceSaleCopy"/>, Ordering's total copied through events) is now over
+    /// the threshold — preceding year strictly over, or the current year plus THIS renewal's value (net of VAT at the home
+    /// rate, as checkout measures it) over — else null (the renewal stays Domestic). The home is the storefront's
+    /// projected jurisdiction; an exempt line, a home-country or non-EU destination, an older subscription (no scheme)
+    /// and a store without a configured EU jurisdiction are never re-decided.
+    /// </summary>
+    private async Task<string?> ThresholdOssDestinationAsync(
+        Subscription subscription, StorefrontLedgerAccounts? accounts, CancellationToken ct)
+    {
+        if (subscription.TaxScheme != BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Domestic || subscription.TaxExempt || accounts is null
+            || OssThreshold.CrossBorderDestination(accounts.TaxJurisdiction, subscription.TaxDestinationCountry) is not { } destination)
         {
-            return accounts?.TaxRateBasisPoints;
+            return null;
         }
 
-        if (subscription.OssDestination is { } destination
+        var now = clock.GetUtcNow();
+        var taxInclusive = subscription.TaxInclusive ?? accounts.TaxInclusive;
+        var saleNetMinor = RecurringChargeTax.For(subscription.PriceMinor, accounts.TaxRateBasisPoints, taxInclusive).NetMinor;
+        var turnover = await TurnoverAsync(subscription.TenantId, now, ct);
+        if (!OssThreshold.Exceeded(subscription.Currency, turnover, saleNetMinor))
+        {
+            return null;
+        }
+
+        logger.LogInformation(
+            "Renewal of subscription {SubscriptionId}: the seller is over the EU distance-sales threshold ({Previous}/{Current} EUR minor, {Currency} renewal of {Net}); taxed under OSS in {Destination}",
+            subscription.Id, turnover.PreviousYearMinorEur, turnover.CurrentYearMinorEur, subscription.Currency, saleNetMinor, destination);
+        return destination;
+    }
+
+    /// <summary>The seller's EUR distance-sales turnover for the preceding and the current UTC calendar year (Payments' copy).</summary>
+    private async Task<EuDistanceTurnover> TurnoverAsync(Guid tenantId, DateTimeOffset now, CancellationToken ct)
+    {
+        var year = now.UtcDateTime.Year;
+        var totals = await db.EuDistanceSaleCopies.AsNoTracking()
+            .Where(s => s.TenantId == tenantId && s.Currency == "EUR" && (s.Year == year || s.Year == year - 1))
+            .GroupBy(s => s.Year)
+            .Select(g => new { Year = g.Key, NetMinor = g.Sum(s => s.NetMinor) })
+            .ToListAsync(ct);
+        return new EuDistanceTurnover(
+            totals.Where(t => t.Year == year - 1).Sum(t => t.NetMinor),
+            totals.Where(t => t.Year == year).Sum(t => t.NetMinor));
+    }
+
+    /// <summary>
+    /// The rate a renewal is charged at (ADR-0063 § 7.1: the rate in force at the charge, never the purchase rate), and the
+    /// Member State it is taxed in under OSS (null for the storefront's rate). The storefront's projected rate — unless the
+    /// period is an OSS supply (<paramref name="ossDestination"/>: sold under OSS, owner decision 2026-11-06, or re-decided
+    /// after the seller crossed the threshold): then its DESTINATION's standard rate on the charge's local date
+    /// (<see cref="EuStandardVatRates"/>, Payments' copy of Ordering's table). It is resolved before the first attempt and
+    /// pinned with the period's amount, so a retry or a rate change in between never re-prices the period. A destination
+    /// the table does not know falls back to the storefront's rate with an error (never a guessed rate; it would have been
+    /// caught at checkout).
+    /// </summary>
+    private (int? Rate, string? OssDestination) RenewalRate(
+        Subscription subscription, StorefrontLedgerAccounts? accounts, string? ossDestination)
+    {
+        if (ossDestination is { } destination
             && EuStandardVatRates.StandardRateAt(destination, clock.GetUtcNow()) is { } destinationRate)
         {
-            return destinationRate;
+            return (destinationRate, destination);
         }
 
-        logger.LogError(
-            "Renewal of OSS subscription {SubscriptionId}: destination {Destination} has no EU standard rate; charging the storefront's rate",
-            subscription.Id, subscription.TaxDestinationCountry);
-        return accounts?.TaxRateBasisPoints;
+        if (subscription.TaxScheme == BuildingBlocks.Contracts.Tax.Facts.TaxScheme.Oss)
+        {
+            logger.LogError(
+                "Renewal of OSS subscription {SubscriptionId}: destination {Destination} has no EU standard rate; charging the storefront's rate",
+                subscription.Id, subscription.TaxDestinationCountry);
+        }
+
+        return (accounts?.TaxRateBasisPoints, null);
     }
 
     /// <summary>

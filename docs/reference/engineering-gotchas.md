@@ -301,13 +301,19 @@ Checkout tax (Ordering, ADR-0063 P1):
   threshold's running total is Σ `ordering."EuDistanceSales"` per tenant per UTC year, written in the SAME
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Destinations are PER LINE (ADR-0063 § 16):
-  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; record
+  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; a `ManualService` line
+  (installation, assembly) is taxed WHERE PERFORMED — the ship-to, never the bill-to (owner decision 2026-11-15, final;
+  `ManualServicePlaceOfSupplyTests`); record
   `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Pass
   the ship-to/bill-to REGION and POSTCODE too: a country alone cannot tell the Canaries (export, zero-rated) from
   Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). An OSS subscription renews at its
   DESTINATION's standard rate in Payments (ADR-0063 § 16, OSS renewals): `SubscriptionRequested` carries the LINE's scheme +
   destination (`Order.LineTaxTerms`), and Payments rates it from `EuStandardVatRates` — its own COPY of Ordering's table.
-  A change of law goes into BOTH tables (`EuStandardVatRateParityTests` fails otherwise).
+  A change of law goes into BOTH tables (`EuStandardVatRateParityTests` fails otherwise). A `Domestic` cross-border
+  subscription is RE-DECIDED at each renewal against Payments' COPY of the running total (ADR-0063 § 16, OSS threshold
+  crossing): every `EuDistanceSales` row must also publish `EuDistanceSaleRecorded` (`EuDistanceSaleEvents.Recorded`) in
+  the same transaction, or Payments' total under-counts; a settled renewal adds its own row (`SourceReference` =
+  `renew-{id}-{seq}`).
 - **The invoicing facts travel on the events (ADR-0063 P5) — never rebuild them by hand.** `OrderConfirmed` is built
   only by `OrderConfirmedFactory.From` (line ids, P1 tax facts, bill-to, buyer, `CapturedAt` = the order's
   `CreatedAt`). A new refund-requesting path states its attribution: `Lines` (order-line ids, amounts summing with
@@ -349,6 +355,13 @@ Ledger postings (Payments):
   claims on `/payment-methods`) is the join: a vault whose email is unknown has "no card". An auto top-up with no default
   card is SKIPPED (never attempted, never dunned), not charged to the host account. Read saved cards inside the charge's
   tenant scope (`DefaultSavedCard`, `RunInTenantScopeAsync`): they are under FORCE RLS, and a consumer has no request scope.
+- **Payments' vaults and cards are under FORCE RLS: take the tenant from the caller, never from the tables** (ADR-0024
+  amendment, owner decision 2026-11-15). `PaymentCustomers` and `SavedPaymentMethods` are read and written only through
+  `PaymentsTenantScope` with the tenant the caller already holds (the `tenant` claim, the charge/subscription row,
+  `AuthorizePayment.TenantId`); a scope-less "which tenant is this user in?" lookup returns nothing. A tracked
+  `PaymentCustomer` saved after its scope ended is a `DbUpdateConcurrencyException` (the `UPDATE` sees 0 rows), so save
+  inside the scope (`PaymentCustomerVault`). Superuser fixtures hide all of this; `PaymentCustomersRlsTests` and the live
+  run (`payments_svc`) do not.
 - **A per-LINE discount is subtracted from the LINE total, never from a unit price.** `RenewalDiscountMinor` (like
   `DiscountMinor`) is allocated per line, so a renewal is `UnitPriceMinor × Quantity − RenewalDiscountMinor`
   (`OrderLine.RenewalPriceMinor()`); `UnitPriceMinor − RenewalDiscountMinor` under-bills every multi-unit line and
@@ -399,11 +412,21 @@ Ledger postings (Payments):
   `password=` values, `Bearer` credentials and email addresses from log bodies and log/span attributes, and
   deletes `Authorization`/`Cookie` attributes. It only sees OTLP: console output and `.run/*.log` are not
   redacted. Keep its regexes free of backslashes and dollar signs (OTTL string escaping + collector env
-  expansion); validate a change with `otelcol-contrib validate --config=…` on the pinned 0.110.0.
+  expansion); validate a change with `otelcol-contrib validate --config=…` on the pinned 0.165.0 (ADR-0065). A
+  `$` the collector must keep (an OTTL capture group) is written `$$1`.
 - **Retention is explicit:** Loki 30 d (compactor `retention_enabled` + `delete_request_store` — retention is a
-  no-op without both), Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months (`395d`) prod values, the dev
-  Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they are
-  repeated there).
+  no-op without both) and **12 months for `{log_category="security"}`** (`retention_stream`; the label exists only
+  because the collector's `groupbyattrs` lifts `log.category` onto the resource — Loki can index resource
+  attributes, never log attributes), Tempo 48 h dev / 14 d Helm, Mimir 30 d dev / 13 months (`395d`) prod values,
+  the dev Prometheus scrape view 15 d (a `command` flag — overriding `command` drops the image defaults, so they
+  are repeated there).
+- **Collector 0.165 ids are snake_case** (`otlp_grpc`, `otlp_http`, `prometheus_remote_write`, `k8s_attributes`,
+  `resource_detection`). The old ids still load but warn; a release will drop them, so a clean start must log no
+  `deprecated` line. OTTL paths need their context prefix (`log.body`, `span.attributes`).
+- **Grafana expands `$VARS` in contact-point settings, not in alert-rule annotations** — `contact-points.yml` gets
+  `$ALERT_EMAIL_TO` that way, but a rule annotation written `$$labels` stays literally `$$labels` (checked via
+  `/api/v1/provisioning/alert-rules`); templates use plain `$labels`/`$values`. (Datasource files DO expand, hence
+  `$${__value.raw}` in `lgtm.yml`.)
 
 ## Gateway (the public origin)
 

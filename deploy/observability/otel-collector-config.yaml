@@ -1,7 +1,19 @@
-# OTel Collector (mt6_13): the single OTLP door for every service; fans each signal out to the
-# LGTM stack — traces → Tempo, logs → Loki, metrics → Prometheus scrape + Mimir remote-write.
-# Both metric exporters stay: Mimir is what the dashboards query (durable, host-reachable), while
-# the Prometheus scrape target remains a zero-dependency local view for debugging the collector.
+# OTel Collector (mt6_13; ADR-0065): the single telemetry door for every service AND the storefront's browser
+# telemetry; fans each signal out to the LGTM stack — traces → Tempo, logs → Loki, metrics → Prometheus scrape +
+# Mimir remote-write. Both metric exporters stay: Mimir is what the dashboards and alert rules query (durable,
+# host-reachable), while the Prometheus scrape target remains a zero-dependency local view for debugging.
+#
+# Image: otel/opentelemetry-collector-contrib:0.165.0 (ADR-0065). Component ids use the 0.165 snake_case names
+# (otlp_grpc, otlp_http, prometheus_remote_write); the pre-0.120 aliases (otlp, otlphttp, prometheusremotewrite)
+# still load but log a deprecation warning. Validate any edit with the same binary:
+#   otelcol-contrib validate --config=deploy/observability/otel-collector-config.yaml
+# The Helm collector (deploy/helm/3commerce/templates/observability.yaml) is this file plus k8s_attributes,
+# resource_detection and tail sampling — keep the shared processors identical.
+extensions:
+  # Liveness/readiness for host-check.sh, doctor.sh and the k8s probes: GET :13133/ → 200 once the pipelines run.
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 receivers:
   otlp:
     protocols:
@@ -9,10 +21,17 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+  # Browser RUM (Grafana Faro Web SDK, audit P1-2). The storefront relays it server-side from its same-origin
+  # `/rum` route to POST http://otel-collector:8027/ (bare-run: http://localhost:8027/) — browsers never reach the
+  # collector directly, so no CORS block. Alpha stability for logs + traces at 0.165.0. Strictly-necessary and
+  # anonymised (ADR-0065 Q3): transform/faro_anonymise below strips identifiers and IPs before anything is stored.
+  faro:
+    endpoint: 0.0.0.0:8027
   # Valkey/Redis server metrics (memory, evictions, keyspace, replication) via redis_exporter (ADR-0044).
   # The exporter runs in the infra compose under the `portals` profile on :9121; the collector must share
   # that network to reach it (best-effort — scrape failures are logged, never fatal, so the OTLP door for
   # the app-level 3commerce.redis metrics is unaffected when the exporter is absent in a lean CI run).
+  # `redis_up` is what the "Valkey down" alert keys on (deploy/observability/grafana/provisioning/alerting).
   prometheus/redis:
     config:
       scrape_configs:
@@ -23,7 +42,7 @@ receivers:
   # RabbitMQ broker metrics (audit P1-5) from the rabbitmq_prometheus plugin built into the rabbitmq image (:15692):
   # the aggregated endpoint (global redelivered/delivered/published totals) and the per-queue coarse family
   # (ready/unacked/total per queue, so _error dead-letter depth is a time series and alertable). Best-effort like
-  # redis-exporter. Minimal on purpose: deploy/observability is owned by the collector-upgrade work — merge, don't fork.
+  # redis-exporter. Feeds the Messaging dashboard (dotnet-messaging.json).
   prometheus/rabbitmq:
     config:
       scrape_configs:
@@ -40,75 +59,134 @@ receivers:
             - targets: ['rabbitmq:15692']
 
 processors:
+  # First in every pipeline: refuse data (the client retries) instead of being OOM-killed under a burst.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
   batch: {}
-  # Defence in depth against secrets/PII in telemetry (observability audit P0-2). The services must not
+  # Browser telemetry is strictly necessary and anonymised (ADR-0065 Q3): no identifiers, no IP, no replay.
+  # Faro puts the SDK's meta into the logfmt log body (user_*, session_*, geo_*) and span/resource attributes
+  # (session.id, user.*, client.address); this drops all of them, the raw user agent (browser_name/os/version
+  # stay), and query strings in page URLs. Applies to the faro pipelines only — server telemetry is untouched.
+  transform/faro_anonymise:
+    error_mode: ignore
+    log_statements:
+      - 'delete_matching_keys(resource.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+      - 'delete_matching_keys(log.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+      - 'replace_pattern(log.body, "(^| )(user_[A-Za-z_]+|session_[A-Za-z_]+|geo_[A-Za-z_]+|browser_userAgent|app_installation_id|[A-Za-z_]*_ip)=(\"[^\"]*\"|[^ ]*)", "")'
+      - 'replace_pattern(log.body, "(page_url|context_url|url)=(\"?)([^ ?\"]*)[?][^ \"]*", "$$1=$$2$$3")'
+    trace_statements:
+      - 'delete_matching_keys(resource.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+      - 'delete_matching_keys(span.attributes, "(?i)^(user[._].*|enduser[.].*|session[._].*|client[._].*|.*[._]ip|network[.]peer[.].*|net[.]peer[.].*|http[.]client_ip|geo[._].*|browser[._]user_?agent|user_agent[.].*)$")'
+      - 'replace_pattern(span.attributes["url.full"], "[?].*", "")'
+      - 'replace_pattern(span.attributes["http.url"], "[?].*", "")'
+  # Defence in depth against secrets/PII in telemetry (observability audit P0-2, PR #303). The services must not
   # log them in the first place (LoggingEmailSender logs bodies/links in Development only); this catches
   # what slips through before it is stored: one-time tokens in links/query strings, bearer credentials,
-  # email addresses, and Authorization/Cookie headers (as attributes). Built-in `transform` processor of
-  # the contrib image in use (0.110.0) — no new image. Regexes avoid backslashes and dollar signs on purpose (no
-  # escaping or env-expansion surprises); keep this block identical to the Helm copy
+  # email addresses, and Authorization/Cookie headers (as attributes). Regexes avoid backslashes and dollar signs
+  # on purpose (no escaping or env-expansion surprises). OTTL paths carry their context prefix (log./span.) — the
+  # 0.165 parser rewrites unprefixed paths and logs a warning. Keep this block identical to the Helm copy
   # (deploy/helm/3commerce/templates/observability.yaml).
   transform/redact:
     error_mode: ignore
     log_statements:
-      - context: log
-        statements:
-          - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
-          - 'replace_pattern(body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-          - 'replace_pattern(body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-          - 'replace_pattern(body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-          - 'replace_pattern(body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
-          - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+      - 'delete_matching_keys(log.attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+      - 'replace_pattern(log.body, "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+      - 'replace_pattern(log.body, "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+      - 'replace_pattern(log.body, "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+      - 'replace_pattern(log.body, "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+      - 'replace_all_patterns(log.attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+      - 'replace_all_patterns(log.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+      - 'replace_all_patterns(log.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+      - 'replace_all_patterns(log.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
     trace_statements:
-      - context: span
-        statements:
-          - 'delete_matching_keys(attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
-          - 'replace_all_patterns(attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
-          - 'replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+      - 'delete_matching_keys(span.attributes, "(?i)^(authorization|cookie|set-cookie|.*[.]header[.](authorization|cookie|set-cookie))")'
+      - 'replace_all_patterns(span.attributes, "value", "(?i)token=[A-Za-z0-9._~%+/=-]+", "token=[REDACTED]")'
+      - 'replace_all_patterns(span.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
+      - 'replace_all_patterns(span.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
+      - 'replace_all_patterns(span.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
   # Declutter the Loki log view: drop the high-volume BACKGROUND logs that carry no trace context —
   # EF SQL from outbox/inbox polling and MassTransit bus polling run outside any request span, so they
   # have an empty trace_id and can never link to a trace. Guarded on trace_id == 0 so in-request
   # EF/MassTransit logs (which DO carry a trace_id) are kept and stay trace-linkable in Loki.
   filter/loki_noise:
     error_mode: ignore
-    logs:
-      log_record:
-        - 'trace_id == TraceID(0x00000000000000000000000000000000) and (instrumentation_scope.name == "Microsoft.EntityFrameworkCore.Database.Command" or IsMatch(instrumentation_scope.name, "^MassTransit"))'
+    log_conditions:
+      - 'log.trace_id == TraceID(0x00000000000000000000000000000000) and (instrumentation_scope.name == "Microsoft.EntityFrameworkCore.Database.Command" or IsMatch(instrumentation_scope.name, "^MassTransit"))'
+  # Security logs are kept 12 months, everything else 30 days (ADR-0065 Q2). A record is a security log when its
+  # ILogger category (= the OTLP instrumentation scope) is an authentication / authorization one: Identity's auth
+  # flows (AuthService, MFA, sessions, password reset), the PermissionGate PEP (ADR-0025, #326) and anything else
+  # under BuildingBlocks Authz, the gateway's session auth + rate limiter, the Admin IP allow-list, and the
+  # framework's own authentication/authorization handlers. A service may also tag a record itself with the log
+  # attribute log.category=security (kept as is). groupbyattrs then lifts log.category onto the resource, where
+  # Loki's otlp_config indexes it as the stream label `log_category` that retention_stream keys on (loki.yaml).
+  transform/security_category:
+    error_mode: ignore
+    log_statements:
+      - 'set(log.attributes["log.category"], "security") where log.attributes["log.category"] == nil and IsMatch(instrumentation_scope.name, "^(ThreeCommerce[.]Identity[.].*(Auth|Login|Session|Mfa|Password|Lockout|StepUp|Token).*|ThreeCommerce[.]BuildingBlocks[.]Infrastructure[.]Authz[.].*|ThreeCommerce[.]Gateway[.](Auth|RateLimiting)[.].*|ThreeCommerce[.]Admin[.]Services[.]IpAllowlistMiddleware|ThreeCommerce[.]SupplierPortal[.].*Auth.*|Microsoft[.]AspNetCore[.](Authentication|Authorization)([.].*)?)$")'
+  groupbyattrs/log_category:
+    keys: [log.category]
+
+connectors:
+  # The faro pipelines anonymise browser data on their own, then hand it to the main pipelines, so redaction,
+  # the security labelling and (Helm) tail sampling see ONE trace/log stream — a browser span and the gateway span
+  # it called are sampled together.
+  forward/traces: {}
+  forward/logs: {}
 
 exporters:
   prometheus:
     endpoint: 0.0.0.0:8889
-    # Keep the service.name resource attribute as a label so dashboards can break down per service.
-    resource_to_telemetry_conversion:
-      enabled: true
-  prometheusremotewrite:
+    # Every resource attribute (service.name, service.version, deployment.environment.name, …) becomes a label so
+    # dashboards can break down per service/release — the 0.165 spelling of resource_to_telemetry_conversion.
+    resource_constant_labels:
+      included: ["*"]
+  prometheus_remote_write:
     endpoint: http://mimir:9009/api/v1/push
-    resource_to_telemetry_conversion:
-      enabled: true
-  otlp/tempo:
+    resource_constant_labels:
+      included: ["*"]
+  otlp_grpc/tempo:
     endpoint: tempo:4317
     tls:
       insecure: true  # plain gRPC inside the compose network
-  otlphttp/loki:
+  otlp_http/loki:
     # Loki 3 native OTLP ingest — no Loki exporter/promtail hop needed.
     endpoint: http://loki:3100/otlp
 
 service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      level: normal
+      # The collector's own metrics (otelcol_*) go through its own OTLP receiver into Mimir, so "collector down"
+      # is alertable: the otelcol_process_uptime series stops (alert rule collector-down).
+      readers:
+        - periodic:
+            interval: 30000
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://127.0.0.1:4318/v1/metrics
   pipelines:
     metrics:
       receivers: [otlp, prometheus/redis, prometheus/rabbitmq]
-      processors: [batch]
-      exporters: [prometheus, prometheusremotewrite]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, prometheus_remote_write]
+    traces/faro:
+      receivers: [faro]
+      processors: [memory_limiter, transform/faro_anonymise]
+      exporters: [forward/traces]
     traces:
-      receivers: [otlp]
-      processors: [transform/redact, batch]
-      exporters: [otlp/tempo]
+      # Dev keeps 100 % of traces: no tail sampling here (the Helm collector samples, ADR-0065 P1-7).
+      receivers: [otlp, forward/traces]
+      processors: [memory_limiter, transform/redact, batch]
+      exporters: [otlp_grpc/tempo]
+    logs/faro:
+      receivers: [faro]
+      processors: [memory_limiter, transform/faro_anonymise]
+      exporters: [forward/logs]
     logs:
-      receivers: [otlp]
-      processors: [filter/loki_noise, transform/redact, batch]
-      exporters: [otlphttp/loki]
+      receivers: [otlp, forward/logs]
+      processors: [memory_limiter, filter/loki_noise, transform/redact, transform/security_category, groupbyattrs/log_category, batch]
+      exporters: [otlp_http/loki]
