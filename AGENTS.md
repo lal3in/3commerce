@@ -195,13 +195,13 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── help/                      # HTML wiki (index.html) + screenshots promoted by shots.cjs
 │   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md; tax-invoicing-research.md (ADR-0063 jurisdiction research)
 │   ├── security/                  # asvs-l1-audit.md
-│   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks
+│   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks, observability.md (collector/LGTM/alerts, ADR-0065)
 ├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter)
 ├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
 ├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
-├── deploy/                        # helm/ (chart), migrator/ (EF bundles), observability/, pgbouncer/
+├── deploy/                        # helm/ (3commerce chart + observability/ = self-hosted LGTM install set, ADR-0065), migrator/ (EF bundles), observability/ (dev collector + LGTM configs, Grafana dashboards + alert rules), pgbouncer/
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   ├── lib/infra.sh               # THE local infra set (all-or-nothing): infra_up / infra_down / infra_state — dev-up, dev-down, e2e-verify, doctor, host-check

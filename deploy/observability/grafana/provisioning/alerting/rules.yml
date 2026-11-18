@@ -46,7 +46,7 @@ groups:
         labels: { severity: page, slo: errors }
         annotations:
           summary: "{{ $$labels.service_name }}: {{ humanizePercentage $$values.A.Value }} of requests return 5xx (SLO < 1 %)"
-          runbook_url: docs/runbooks/observability.md#http-5xx-rate-above-1
+          runbook_url: docs/runbooks/observability.md#http-5xx-rate-above-1-percent
       # ADR-0029 / NFR-5: catalog search + product detail p95 < 500 ms.
       - uid: tc-p95-catalog-reads
         title: Catalog read p95 latency above 500 ms
