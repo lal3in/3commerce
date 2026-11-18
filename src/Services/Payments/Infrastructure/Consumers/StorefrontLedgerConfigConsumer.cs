@@ -32,6 +32,7 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
                 ShippingAccountCode = string.IsNullOrWhiteSpace(m.ShippingAccountCode) ? null : m.ShippingAccountCode,
                 TaxRateBasisPoints = m.TaxRateBasisPoints,
                 TaxInclusive = m.TaxInclusive,
+                TaxJurisdiction = m.TaxJurisdiction?.Trim().ToUpperInvariant() ?? string.Empty,
                 UpdatedAt = time.GetUtcNow(),
             });
         }
@@ -45,6 +46,7 @@ public sealed class StorefrontLedgerConfigConsumer(PaymentsDbContext db, TimePro
             // force at the charge from here, the way checkout resolves it from Ordering's StorefrontTaxCopy.
             row.TaxRateBasisPoints = m.TaxRateBasisPoints;
             row.TaxInclusive = m.TaxInclusive;
+            row.TaxJurisdiction = m.TaxJurisdiction?.Trim().ToUpperInvariant() ?? string.Empty; // the home state (ADR-0063 § 16)
             row.UpdatedAt = time.GetUtcNow();
         }
 

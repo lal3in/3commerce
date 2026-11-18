@@ -21,9 +21,11 @@ public static class RecurringChargePin
 
     /// <summary>
     /// The persisted shape (a plain record so it round-trips through JSON exactly). <c>RateBps</c> was appended for the
-    /// settled-charge events (ADR-0063 P4b): a pin written before it reads back null.
+    /// settled-charge events (ADR-0063 P4b), and <c>OssDestination</c> for an OSS-decided renewal
+    /// (ADR-0063 § 16, OSS threshold crossing): a pin written before either reads back null.
     /// </summary>
-    private sealed record PinnedCharge(long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null);
+    private sealed record PinnedCharge(
+        long PriceMinor, long TaxMinor, RecurringChargeTaxBasis Basis, int? RateBps = null, string? OssDestination = null);
 
     /// <summary>
     /// The split pinned to <paramref name="idempotencyKey"/>: the stored one when a previous attempt already pinned it,
@@ -40,10 +42,10 @@ public static class RecurringChargePin
             _ =>
             {
                 var tax = compute();
-                return Task.FromResult(new PinnedCharge(tax.PriceMinor, tax.TaxMinor, tax.Basis, tax.RateBps));
+                return Task.FromResult(new PinnedCharge(tax.PriceMinor, tax.TaxMinor, tax.Basis, tax.RateBps, tax.OssDestination));
             },
             ct);
-        return new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps);
+        return new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps, pinned.OssDestination);
     }
 
     /// <summary>The split already pinned to <paramref name="idempotencyKey"/>, or null — a read that never pins (the amount due shown on the pay page).</summary>
@@ -55,6 +57,6 @@ public static class RecurringChargePin
             .SingleOrDefaultAsync(ct);
         return json is null || JsonSerializer.Deserialize<PinnedCharge>(json, JsonSerializerOptions.Web) is not { } pinned
             ? null
-            : new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps);
+            : new RecurringChargeTaxResult(pinned.PriceMinor, pinned.TaxMinor, pinned.Basis, pinned.RateBps, pinned.OssDestination);
     }
 }

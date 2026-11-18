@@ -21,6 +21,14 @@ public class EuDistanceSale
     public required string HomeCountry { get; init; }
     public required string DestinationCountry { get; init; }
 
+    /// <summary>
+    /// Which supply of the order the row counts (ADR-0063 § 16, OSS threshold crossing): <c>""</c> for the checkout sale
+    /// itself; the renewal's ledger reference (<c>renew-{subscriptionId}-{sequence}</c>) for a settled renewal of a
+    /// subscription line — each period is a new supply (§ 7.1), so it counts toward the threshold too. Part of the key,
+    /// so a redelivered renewal counts once.
+    /// </summary>
+    public string SourceReference { get; init; } = string.Empty;
+
     /// <summary>The order currency. Only EUR rows count toward the EUR threshold until an FX source exists (D13).</summary>
     public required string Currency { get; init; }
 
@@ -78,5 +86,43 @@ public class EuDistanceSale
             TaxScheme = order.TaxScheme,
             RecordedAt = now,
         }).ToList();
+    }
+
+    /// <summary>
+    /// A settled renewal's contribution (ADR-0063 § 16, OSS threshold crossing): a renewal of a subscription line is a new
+    /// supply each period (§ 7.1), so a renewal of a line supplied into ANOTHER Member State counts toward the seller's
+    /// threshold exactly as the checkout sale did. The destination is the LINE's place of supply at purchase (the bill-to
+    /// for an electronically supplied service), the home is the order's recorded jurisdiction, and the value is the
+    /// renewal's net of VAT as charged (<paramref name="netMinor"/>). Null when the renewal is not a distance sale: a
+    /// non-EU or pre-P1b order, a home-country or non-EU destination, an export from the EU VAT area, or nothing net.
+    /// </summary>
+    public static EuDistanceSale? ForRenewal(
+        Order order, OrderLine line, string reference, string currency, long netMinor, TaxScheme scheme,
+        DateTimeOffset settledAt, DateTimeOffset now)
+    {
+        var home = EuMemberStates.OfJurisdiction(order.TaxJurisdiction);
+        if (home is null || netMinor <= 0 || scheme == TaxScheme.Export || line.ExemptionReason == TaxExemptionReason.OutsideEuVatArea)
+        {
+            return null;
+        }
+
+        if (EuVatArea.Normalize(line.DestinationOr(order.TaxDestinationCountry)) is not { } destination || destination == home)
+        {
+            return null;
+        }
+
+        return new EuDistanceSale
+        {
+            OrderId = order.Id,
+            TenantId = order.TenantId,
+            Year = settledAt.UtcDateTime.Year,
+            HomeCountry = home,
+            DestinationCountry = destination,
+            SourceReference = reference,
+            Currency = currency.ToUpperInvariant(),
+            NetMinor = netMinor,
+            TaxScheme = scheme,
+            RecordedAt = StoredTime.Of(now),
+        };
     }
 }

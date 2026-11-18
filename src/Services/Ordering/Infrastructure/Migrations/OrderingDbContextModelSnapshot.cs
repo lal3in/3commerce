@@ -550,6 +550,10 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -575,7 +579,7 @@ namespace ThreeCommerce.Ordering.Infrastructure.Migrations
                     b.Property<int>("Year")
                         .HasColumnType("integer");
 
-                    b.HasKey("OrderId", "DestinationCountry");
+                    b.HasKey("OrderId", "DestinationCountry", "SourceReference");
 
                     b.HasIndex("TenantId", "Year", "Currency");
 

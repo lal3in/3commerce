@@ -41,6 +41,7 @@ builder.Services.AddServiceBus<OrderingDbContext>(builder.Configuration,
             .Endpoint(e => e.AddConfigureEndpointCallback(OrderStatusConsumer.PartitionByOrder));
         bus.AddConsumer<GuestOrderAttachConsumer>();
         bus.AddConsumer<RmaDispositionSetConsumer>(); // values RMA returned goods → ReturnedGoodsValued (phase 1)
+        bus.AddConsumer<EuDistanceRenewalConsumer>(); // a cross-border renewal counts toward the OSS threshold (ADR-0063 § 16)
         bus.AddSagaStateMachine<CheckoutStateMachine, CheckoutState>()
             .EntityFrameworkRepository(r =>
             {

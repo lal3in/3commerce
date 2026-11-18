@@ -1228,9 +1228,9 @@ under-reported French VAT.
 * **Known gaps.**
   * **Reduced-rate categories.** Renewals use the destination's standard rate, because no product carries a VAT
     category yet (tracked as `tax_p1b_followups_reduced_rates`).
-  * **The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
+  * ~~**The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
     crosses it. Art. 59c applies per supply, so a renewal after the crossing should be OSS. That needs the seller's
-    running total in Payments, a separate decision.
+    running total in Payments, a separate decision.~~ Delivered: see "P1b follow-up — OSS threshold crossing" below.
   * **OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
     needs it by country; the settled event carries the destination for that.
   * **Existing subscriptions.** Those set up before this change renew at the storefront's rate until re-sent. Production
@@ -1257,6 +1257,82 @@ under-reported French VAT.
   * Integration, **A4b**: `RenewalUsageTaxTests` covers an OSS subscription bought through checkout (a German store in
     a non-EUR currency, shipped to France). Checkout charges FR 20 %, Payments stores `Oss` / `FR`, and the renewal
     books 200, not 192.
+
+### P1b follow-up — OSS threshold crossing (2026-11-18, `fix/oss-renewal-threshold-crossing`, tracker `oss_renewal_threshold_crossing`)
+
+A subscription sold into another Member State while the seller was at or under the EUR 10,000 threshold was taxed at the
+home rate (scheme `Domestic`). It kept renewing at the home rate after the seller crossed the threshold. Art. 59c applies
+**per supply**, and each renewal period is a new supply (§ 7.1). A renewal after the crossing is therefore an OSS supply
+at the destination's rate.
+
+* **Decision — the turnover reaches Payments as events; Ordering stays the one owner of the total.**
+  * Ordering publishes **`EuDistanceSaleRecorded`** (new contract, `Contracts.Ordering`) for every row of
+    `ordering."EuDistanceSales"`. It goes through the bus outbox, in the transaction that writes the row.
+    `OrderStatusConsumer` publishes it for a confirmed sale, and the new `EuDistanceRenewalConsumer` for a renewal (see
+    below).
+  * Payments keeps a copy, `payments."EuDistanceSaleCopies"` (`EuDistanceSaleCopyConsumer`). It is keyed exactly like
+    the source, so a redelivered row is stored once and the copy's Σ equals Ordering's. A renewal sums the copy per tenant
+    per UTC year, EUR only (D13), as checkout sums Ordering's table.
+  * **Why per-row facts and not a "threshold crossed" event.** The rows are written in REPEATABLE READ consumer
+    transactions. Two concurrent confirmations each miss the other's row, so a total computed inside either can be stale.
+    Both could then miss the crossing. Rows are commutative and idempotent, and a crossing flag is neither. The copy also
+    answers the previous-year test without a second event type.
+  * **Why not a synchronous query.** Payments must not read Ordering's database. A renewal is a background money path,
+    and it should not depend on another service being up.
+* **Decision — renewals count toward the total.** Ordering consumes `SubscriptionRenewalSettled`
+  (`EuDistanceRenewalConsumer`). It finds the order line by order, product and variant, and adds a row with
+  `EuDistanceSale.ForRenewal`:
+  * the destination is the line's place of supply at purchase (`OrderLine.DestinationOr`, the bill-to for an e-service);
+  * the home is the order's recorded `TaxJurisdiction`;
+  * the value is the renewal's `NetMinor` as charged (net of VAT);
+  * the year is the UTC year of `SettledAt`.
+
+  These renewals add nothing:
+  * home-country renewals;
+  * non-EU renewals (a service "to Northern Ireland" is `GB`);
+  * exported renewals (`Export` or `OutsideEuVatArea`);
+  * renewals from a non-EU store;
+  * zero-net renewals.
+
+  `EuDistanceSales` gains `SourceReference`. It is `""` for the checkout sale and the renewal's `renew-{id}-{seq}`
+  reference for a renewal. The key becomes (order, destination, source); the migration is `EuDistanceSaleSource`.
+  Existing rows read `""`. Checkout's Σ and its index are unchanged.
+* **The re-decision** (`SubscriptionService.ThresholdOssDestinationAsync`, rule in `Payments.Domain.Ledger.OssThreshold`):
+  * **Which subscriptions.** Only one with scheme `Domestic`, not exempt, whose destination is in the EU VAT area and
+    differs from the store's home Member State.
+  * **The home.** It is the storefront's `TaxJurisdiction`, now projected into `StorefrontLedgerAccounts` (migration
+    `OssThresholdTurnoverCopy`). It reads `""` until the store's config is re-published, and nothing is re-decided while
+    it is empty.
+  * **The test.** The renewal is OSS when the preceding year is **strictly over** EUR 10,000, or the current year
+    **plus this renewal** is over it (the crossing supply is itself OSS). The renewal's value is its net at the home
+    rate, the way checkout measures a sale.
+  * **Non-EUR renewals** take the destination rate, mirroring checkout: they cannot measure the threshold, and opting in
+    is lawful (Art. 59c(3)).
+  * **Parity.** `EuStandardVatRateParityTests` pins the threshold and the home-state rule against Ordering's.
+  * **The rate.** The destination's standard rate on the charge's local date then applies, exactly as for an OSS-sold
+    subscription.
+* **The decision is pinned with the period.**
+  * `RecurringChargeTaxResult.OssDestination` (appended) is persisted in the period's pin. Every attempt of the period
+    therefore charges the same amount; a provider rejects a reused key with another amount.
+  * The settled facts report the scheme the amount was computed under. A period first attempted under the threshold and
+    retried after the crossing stays `Domestic`. The next period is decided afresh.
+  * Older pins read null and fall back to the subscription's own scheme.
+* **Not re-decided downwards.** An `Oss` subscription stays OSS even if the seller later falls back under the threshold.
+  Dropping out of OSS is a separate decision, and so is the two-year commitment of an Art. 59c(3) opt-in.
+  Never-under-collect does not settle it, because either rate can be the higher one.
+* **Known gaps.**
+  * **Older rows.** Rows recorded before this change are not in Payments' copy. Production has no live customers, so
+    the copy is complete from its first sale. A dev database can re-send them with the ADR-0060 backfill pattern if
+    needed.
+  * **Usage charges.** They do not yet count toward the total and are not re-decided, because usage has no OSS terms
+    yet.
+  * **In-flight tolerance.** It is the same as checkout's: a row reaches the copy a few seconds after its sale.
+* **Tests.**
+  * Unit, e2e-verify **A3zx**: `OssRenewalThresholdTests` (Payments), `RenewalDistanceSaleTests` (Ordering) and
+    `EuStandardVatRateParityTests`.
+  * Integration **A4b** (`RenewalUsageTaxTests`): a Domestic FR subscription renews at FR 20 % once a prior-year row
+    reaches the copy. The renewal's own row then reaches both totals.
+  * Integration **A4d** (`EuOssCheckoutTests`): a confirmed sale's row reaches Payments' copy.
 
 ### P1b follow-up — manual-service place of supply (2026-11-18, `docs/manual-service-place-of-supply`, tracker `manual_service_place_of_supply`)
 
