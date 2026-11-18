@@ -667,6 +667,13 @@
 #   A7  Storefront typecheck (tsc) + production build (next build), including
 #       auth-aware checkout prefill/review, checkout +/- recalculation, and
 #       authenticated confirmation hiding guest account conversion
+#   A7c Storefront browser source maps are built (productionBrowserSourceMaps) but the postbuild step moved every
+#       .map out of the served <distDir>/static into <distDir>/sourcemaps (audit P1-2; never public)
+#   A7d Telemetry scrubber unit spec (e2e/telemetry-scrub.spec.ts, no stack): URLs lose query/fragment and identifier
+#       path segments; free text loses emails/JWTs/bearer/secret pairs; a Faro batch keeps no session/user/IP/user
+#       agent but keeps trace ids and is never mutated; beforeSend drops Stripe-originated errors; Faro starts only in
+#       the top-level non-Stripe window; deployment.environment.name resolution (explicit OTEL_RESOURCE_ATTRIBUTES
+#       wins); error reference = digest, else SSR trace id; global-error copy == messages errorPage in all 6 locales
 #   A8  No vulnerable NuGet packages
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
@@ -767,7 +774,15 @@
 #       of VISA ending 4242" and fills the bill-to, the Mastercard falls back to the shipping address, and the
 #       summary never moves; an edited bill-to with "Save to my account for next time" ticked becomes the order's
 #       bill-to and joins the address book while the card keeps its own; the card's address then clears
-#       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full)
+#       (e2e/saved-card-billing-address.spec.ts; the checkout half needs --data full);
+#       storefront observability (audit P1-2/P1-3, e2e/observability-storefront.spec.ts): /probe/error answers 500 with
+#       the error page and its digest as the support reference (never the message); /probe/client-error in German
+#       shows the localized page with the SSR trace id; Faro initialises and posts to the same-origin /rum with
+#       app.name/version/environment; with an email, user id, session id and query strings deliberately offered,
+#       the intercepted /rum batches hold none of them (no meta.session/user, no x-faro-session-id) and a same-origin
+#       fetch carries traceparent; a Stripe stand-in iframe sends nothing, a framed storefront page starts no Faro,
+#       Stripe requests carry no traceparent; the /rum relay answers 202 (fails soft without the faro receiver),
+#       413 over the cap, 400 for malformed JSON, 403 cross-site; a production chunk's .map is 404
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -1059,6 +1074,15 @@ run_automated() {
     # Own build dir: `next build` rewrites its output wholesale, and sharing .next with a running
     # `next dev` pulls chunks out from under it (every page 500s with MODULE_NOT_FOUND).
     ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/dev/null 2>&1 ) && pass "A7b next build" || fail "A7b next build"
+    # Browser source maps are built but moved out of the served dir by the postbuild step (never public).
+    if [[ -d "$ROOT/src/Storefront/.next-verify/sourcemaps" ]] && [[ -z "$(find "$ROOT/src/Storefront/.next-verify/static" -name '*.map' 2>/dev/null | head -1)" ]]; then
+      pass "A7c source maps built, none under the served static dir"
+    else
+      fail "A7c source maps (expected .next-verify/sourcemaps and no .map under .next-verify/static)"
+    fi
+    # Telemetry scrubber + helpers (pure; no stack, no browser launched).
+    ( cd "$ROOT/src/Storefront" && npx playwright test e2e/telemetry-scrub.spec.ts --project=storefront --reporter=line >/tmp/3c-telemetry-unit.log 2>&1 ) \
+      && pass "A7d telemetry scrubber unit spec" || { fail "A7d telemetry scrubber unit spec"; tail -20 /tmp/3c-telemetry-unit.log; }
   else
     fail "A7 storefront deps missing (run: cd src/Storefront && npm install)"
   fi
@@ -1222,7 +1246,15 @@ run_live() {
   [[ $ok == 1 ]] && pass "L2 seven services /health/ready" || { fail "L2 service health"; for s in "$ROOT"/.run/*.log; do echo "--- $s"; tail -15 "$s"; done; }
 
   stage "Booting storefront + admin + supplier portal"
-  ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" npm run start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
+  # Storefront telemetry (audit P1-2/P1-3): SSR spans to the collector's OTLP/HTTP port, browser RUM relayed to its
+  # faro receiver (fails soft without one), and an explicit deployment.environment.name — a production server with
+  # none counts as prod, which would turn the /probe/* error probes off (CI's job env already says `ci`).
+  ( cd "$ROOT/src/Storefront" && GIT_SHA="$(release_revision)" NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 \
+      && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" \
+         OTEL_RESOURCE_ATTRIBUTES="${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment.name=dev}" \
+         OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
+         FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027}" \
+         npm run start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
