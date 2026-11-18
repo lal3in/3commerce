@@ -98,6 +98,12 @@ data:
           - 'replace_all_patterns(span.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
           - 'replace_all_patterns(span.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
           - 'replace_all_patterns(span.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+      # Each log attribute capped at 8 KB after redaction: Loki's 64 KB structured-metadata limit otherwise fails a
+      # whole push with a 400 the exporter drops (identical to dev; see deploy/observability/otel-collector-config.yaml).
+      transform/truncate_attributes:
+        error_mode: ignore
+        log_statements:
+          - 'truncate_all(log.attributes, 8192)'
       # Background EF/MassTransit polling logs with no trace (identical to dev; audit P0-5 "noise filter").
       filter/loki_noise:
         error_mode: ignore
@@ -219,7 +225,7 @@ data:
         {{- end }}
         logs:
           receivers: [forward/logs]
-          processors: [resource_detection, filter/loki_noise, transform/redact, transform/security_category, groupbyattrs/log_category, batch]
+          processors: [resource_detection, filter/loki_noise, transform/redact, transform/truncate_attributes, transform/security_category, groupbyattrs/log_category, batch]
           exporters: [otlp_http/loki]
 {{- if $k8s }}
 ---

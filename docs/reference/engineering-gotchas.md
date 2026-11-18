@@ -481,6 +481,13 @@ Ledger postings (Payments):
 - **The Docker VM clock drifts after macOS sleep.** Loki/Prometheus *instant* queries with relative
   windows (`[15m]`) then return empty while data exists (`[1h]` still works). In tests use
   `query_range` with client-supplied start/end.
+- **Missing logs after a seed? Check Loki's discard counters before the query.** `curl -s localhost:3100/metrics
+  | grep loki_discarded` names the reason. `rate_limited` (HTTP 429) is delayed, not lost — the collector backs off
+  and retries; at Loki's default 4 MB/s the catalog import was refused for minutes, hence the 16 MB/s limit
+  (2026-11-19). `line_too_long` is LOST: one line over 256 KB used to fail the whole push with a 400 that the
+  collector drops as permanent (25k unrelated records went with one 576 KB EF SQL line), hence
+  `max_line_size_truncate: true`. Don't "fix" either by raising limits wholesale — 64 MB/s got Loki OOM-killed in
+  the 6 GB VM.
 - **Seed orders the way a shopper would, and never file a failed checkout under `allowed_4xx`.** The
   `--data full` seed once walked EVERY tenant storefront (dozens of Draft/Paused E2E leftovers → "not
   currently open for orders"), reused per-user carts that a failed checkout left full (every later add/

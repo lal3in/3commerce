@@ -106,6 +106,15 @@ processors:
       - 'replace_all_patterns(span.attributes, "value", "(?i)password=[^&[:space:]]+", "password=[REDACTED]")'
       - 'replace_all_patterns(span.attributes, "value", "(?i)bearer [A-Za-z0-9._~+/=-]+", "Bearer [REDACTED]")'
       - 'replace_all_patterns(span.attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+([.][A-Za-z0-9-]+)*[.][A-Za-z]{2,}", "[REDACTED_EMAIL]")'
+  # Cap every log attribute at 8 KB (after transform/redact, so a cut never leaves half an email/token unredacted).
+  # Loki stores OTLP attributes as structured metadata, limit 64 KB per record, and one record over it fails the
+  # WHOLE push with a 400 that the exporter drops as permanent: in a seeded dev-up one ~577 KB EF command-text
+  # attribute from the catalog import cost ~31k unrelated records (2026-11-19). Oversized bodies are truncated by
+  # Loki itself (max_line_size_truncate). Keep identical to the Helm copy.
+  transform/truncate_attributes:
+    error_mode: ignore
+    log_statements:
+      - 'truncate_all(log.attributes, 8192)'
   # Declutter the Loki log view: drop the high-volume BACKGROUND logs that carry no trace context —
   # EF SQL from outbox/inbox polling and MassTransit bus polling run outside any request span, so they
   # have an empty trace_id and can never link to a trace. Guarded on trace_id == 0 so in-request
@@ -188,5 +197,5 @@ service:
       exporters: [forward/logs]
     logs:
       receivers: [otlp, forward/logs]
-      processors: [memory_limiter, filter/loki_noise, transform/redact, transform/security_category, groupbyattrs/log_category, batch]
+      processors: [memory_limiter, filter/loki_noise, transform/redact, transform/truncate_attributes, transform/security_category, groupbyattrs/log_category, batch]
       exporters: [otlp_http/loki]
