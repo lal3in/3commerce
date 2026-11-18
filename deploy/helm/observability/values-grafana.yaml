@@ -10,8 +10,9 @@
 #
 # Secrets (create before installing; nothing real is committed):
 #   grafana-admin     admin-user / admin-password
-#   grafana-alerting  ALERT_EMAIL_TO (Q8: alert recipient(s), comma-separated), GF_SMTP_HOST (host:port),
+#   grafana-alerting  GF_SMTP_HOST (host:port),
 #                     GF_SMTP_USER, GF_SMTP_PASSWORD, GF_SMTP_FROM_ADDRESS
+# Alert recipient(s): NOT a secret — install-lgtm.sh sets env.ALERT_EMAIL_TO from deploy/observability/alerting.env.
 admin:
   existingSecret: grafana-admin
   userKey: admin-user

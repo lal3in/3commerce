@@ -104,7 +104,9 @@ branch; no data = OK until then), error-log spike (> 20 error/critical records p
 (`redis_up`) and Valkey unreachable from services (`redis_unavailable_total`), and the collector heartbeat (its own
 `otelcol_process_uptime` pushed through itself into Mimir — absent 5 min = down). One email contact point,
 `addresses: $ALERT_EMAIL_TO`; SMTP from `GF_SMTP_*` (compose: `GRAFANA_SMTP_*`, default off; prod: Secret
-`grafana-alerting`). No address is committed (dev default `alerts@example.invalid`). Each rule links its section of
+`grafana-alerting`). The recipient lives in the config file `deploy/observability/alerting.env` (`ALERT_EMAIL_TO`, read by the dev compose
+`env_file` and by `install-lgtm.sh`); amended 2026-11-18 (owner): placeholder `test@test.com` until the real address
+is known. Each rule links its section of
 `docs/runbooks/observability.md`.
 
 ### 5. Sampling (P1-7)
