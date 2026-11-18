@@ -217,6 +217,14 @@ infra_up() {
     docker network inspect "$APP_NETWORK" >/dev/null 2>&1 || docker network create "$APP_NETWORK" >/dev/null || rc=1
     docker compose -f "$APP_COMPOSE_FILE" up -d --no-deps --wait --wait-timeout "$INFRA_WAIT_TIMEOUT" \
       "${DEV_BORROWED_SERVICES[@]}" || rc=1
+    # The borrowed collector lives on the app network, the infra containers on the infra compose's own: join it to
+    # that one too, so its scrapes reach `rabbitmq:15692` (Messaging dashboard) and `redis-exporter:9121` by service
+    # name exactly as in the containerized launch. Idempotent; best-effort (a scrape failure is never fatal).
+    local infra_net="${INFRA_PROJECT}_default" collector
+    collector="$(docker compose -f "$APP_COMPOSE_FILE" ps -q otel-collector 2>/dev/null)"
+    if [[ -n "$collector" ]] && docker network inspect "$infra_net" >/dev/null 2>&1; then
+      docker network connect "$infra_net" "$collector" >/dev/null 2>&1 || true
+    fi
   fi
   # compose --wait covers running + healthchecks; the explicit probes cover the rest. Don't wait out the full
   # window when compose already reported a failure — a crashed/unhealthy container won't fix itself.

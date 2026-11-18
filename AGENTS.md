@@ -209,11 +209,12 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
-├── 3commerce.sln                  # all 27 projects; Directory.Build.props / Directory.Packages.props (CPM)
+├── 3commerce.sln                  # every project (63 incl. tests); Directory.Build.props / Directory.Packages.props (CPM)
 ├── src/
 │   ├── BuildingBlocks/
 │   │   ├── Contracts/             # message contracts ONLY (versioned additively)
-│   │   └── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
+│   │   ├── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
+│   │   └── Observability/         # LIGHT OTel block (no MassTransit/EF): ReleaseIdentity, AddTelemetryCore, Blazor telemetry (Admin/SupplierPortal)
 │   ├── Gateway/                   # YARP (port 8080); Dockerfile per runnable project
 │   ├── Services/
 │   │   ├── Identity/  ├── Catalog/  ├── Ordering/  ├── Payments/  ├── Fulfillment/  ├── Support/  ├── Entity/

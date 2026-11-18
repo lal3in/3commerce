@@ -4,6 +4,7 @@
 @inject SupplierGatewayClient Gateway
 @rendermode InteractiveServer
 
+<LoggingErrorBoundary>
 <PageTitle>@L["Orders_Title"] — @L["App_Title"]</PageTitle>
 
 <h1>@L["Orders_Title"]</h1>
@@ -70,6 +71,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private List<SupplierOrder> orders = [];

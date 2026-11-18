@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap;">
     <h1 style="margin:0;">@L["Home.Title"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">@L["Home.Subtitle"]</span>
@@ -170,6 +171,7 @@ else
         }
     </div>
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string Tenant = "00000000-0000-0000-0000-000000000001";

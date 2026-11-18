@@ -102,11 +102,13 @@ public sealed class AuthService(
         {
             // Burn comparable time so missing-vs-wrong-password is not distinguishable.
             passwordHasher.Verify(password, passwordHasher.Hash("timing-equalizer"));
+            logger.LoginUnknownAccount(tenant.Id);
             return null;
         }
 
         if (user.LockoutUntil is { } until && until > now)
         {
+            logger.LoginRefusedLockedOut(user.Id, user.TenantId, until);
             return null;
         }
 
@@ -119,6 +121,11 @@ public sealed class AuthService(
                     Math.Pow(2, user.FailedLoginCount - LockoutThreshold),
                     MaxLockout.TotalMinutes);
                 user.LockoutUntil = now.AddMinutes(minutes);
+                logger.AccountLockedOut(user.Id, user.TenantId, user.FailedLoginCount, user.LockoutUntil.Value, "password");
+            }
+            else
+            {
+                logger.LoginWrongPassword(user.Id, user.TenantId, user.FailedLoginCount);
             }
 
             await db.SaveChangesAsync(ct);
@@ -159,6 +166,7 @@ public sealed class AuthService(
         await db.SaveChangesAsync(ct);
         await scope.CommitAsync(ct);
 
+        logger.LoginSucceeded(user.Id, user.TenantId, mfaPending);
         return new LoginResult(rawToken, user.Id, user.Role, session.ExpiresAt, mfaPending);
     }
 
@@ -361,6 +369,7 @@ public sealed class AuthService(
         var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id && e.ConfirmedAt == null, ct);
         if (enrollment is null || !Totp.Verify(enrollment.SecretBase32, code, now))
         {
+            logger.MfaEnrollmentConfirmFailed(user.Id, user.TenantId);
             return null;
         }
 
@@ -391,6 +400,7 @@ public sealed class AuthService(
         // not an unthrottled TOTP oracle.
         if (user.LockoutUntil is { } until && until > now)
         {
+            logger.MfaChallengeRefusedLockedOut(user.Id, user.TenantId, until);
             return false;
         }
 
@@ -409,6 +419,11 @@ public sealed class AuthService(
             {
                 var minutes = Math.Min(Math.Pow(2, user.FailedLoginCount - LockoutThreshold), MaxLockout.TotalMinutes);
                 user.LockoutUntil = now.AddMinutes(minutes);
+                logger.AccountLockedOut(user.Id, user.TenantId, user.FailedLoginCount, user.LockoutUntil.Value, "mfa");
+            }
+            else
+            {
+                logger.MfaChallengeFailed(user.Id, user.TenantId, user.FailedLoginCount);
             }
 
             await db.SaveChangesAsync(ct);
@@ -445,6 +460,7 @@ public sealed class AuthService(
         var enrollment = await db.MfaEnrollments.SingleOrDefaultAsync(e => e.UserId == user.Id && e.ConfirmedAt != null, ct);
         if (enrollment is null || !Totp.Verify(enrollment.SecretBase32, code, now))
         {
+            logger.MfaStepUpFailed(user.Id, user.TenantId);
             return false;
         }
 

@@ -52,9 +52,13 @@ public sealed class StreamEventConsumerProcessor<TPayload>
             return StreamConsumerProcessResult.DeadLettered;
         }
 
+        // Join the producer's trace (ADR-0034 amendment): the envelope carries the committing operation's context.
+        using var activity = StreamTracing.StartProcess(topic, offset, envelope);
+
         if (await processedEvents.HasProcessedAsync(envelope.EventId, cancellationToken))
         {
             logger.LogDebug("Skipping duplicate stream event {EventId} from {Topic} offset {Offset}", envelope.EventId, topic, offset);
+            activity?.SetTag("stream.result", StreamConsumerProcessResult.Duplicate.ToString());
             StreamMetrics.RecordConsumed(topic, StreamConsumerProcessResult.Duplicate.ToString());
             return StreamConsumerProcessResult.Duplicate;
         }
@@ -63,11 +67,14 @@ public sealed class StreamEventConsumerProcessor<TPayload>
         {
             await handler.HandleAsync(new StreamConsumedEvent<TPayload>(topic, key, offset, envelope, headers), cancellationToken);
             await processedEvents.MarkProcessedAsync(envelope.EventId, cancellationToken);
+            activity?.SetTag("stream.result", StreamConsumerProcessResult.Processed.ToString());
             StreamMetrics.RecordConsumed(topic, StreamConsumerProcessResult.Processed.ToString());
             return StreamConsumerProcessResult.Processed;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            StreamTracing.RecordFailure(activity, ex);
+            activity?.SetTag("stream.result", StreamConsumerProcessResult.DeadLettered.ToString());
             await SendToDeadLetterAsync(topic, key, offset, json, headers, deadLetterTopic, ex, cancellationToken);
             StreamMetrics.RecordConsumed(topic, StreamConsumerProcessResult.DeadLettered.ToString());
             return StreamConsumerProcessResult.DeadLettered;

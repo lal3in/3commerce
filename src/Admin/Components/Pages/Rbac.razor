@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Rbac.Title"]</h1>
 <p style="color:#6b7280;">@((MarkupString)L["Rbac.Intro"].Value)</p>
 
@@ -101,6 +102,7 @@ else
         </div>
     </div>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string _tenantId = "00000000-0000-0000-0000-000000000001";

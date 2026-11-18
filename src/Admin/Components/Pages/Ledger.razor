@@ -3,6 +3,7 @@
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 @inject GatewayClient Gateway
 
+<LoggingErrorBoundary>
 <h1>@L["Ledger.Title"]</h1>
 
 @* Balances per (account, currency): a balance is only meaningful within one currency (minor units are
@@ -140,6 +141,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 @code {
     private const string Tenant = "00000000-0000-0000-0000-000000000001";
     private List<EntryDto>? _entries;

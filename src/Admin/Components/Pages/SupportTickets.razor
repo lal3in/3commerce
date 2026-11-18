@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Tickets.Title"]</h1>
 <p style="color:#6b7280;">@L["Tickets.Intro"]</p>
 
@@ -91,6 +92,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string TicketOpen = "Open";

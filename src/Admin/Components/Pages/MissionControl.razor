@@ -6,6 +6,7 @@
 @inject ObservabilityStatsService ObsStats
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:baseline; gap:1rem;">
     <h1 style="margin:0;">@L["Mc.Title"]</h1>
     <span style="color:#6b7280; font-size:.85rem;">@L["Mc.Subtitle"]</span>
@@ -272,6 +273,7 @@
         <NavLink href="/orders" title="@L["Nav.Orders.Tip"]">🧾 @L["Nav.Orders"]</NavLink>
     </div>
 </section>
+</LoggingErrorBoundary>
 
 @code {
     private List<AuditDto> _audit = [];

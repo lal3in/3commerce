@@ -149,3 +149,31 @@ RabbitMQ/MassTransit remains responsible for saga timeouts and operational delay
 - Kafka outage must not block checkout/payment/RMA/fulfillment workflows.
 - Every Kafka payload needs privacy classification and redaction tests before broad production use.
 - Operations must eventually track producer failures, stream relay backlog, consumer lag, DLQs, and replay tooling.
+
+## Amendment 2026-11-15 — W3C trace context in the stream envelope (owner decision Q6)
+
+**Decision.** The envelope gains two optional fields, additive within `schemaVersion` 1 (no bump):
+
+| Field | Requirement |
+|---|---|
+| `traceParent` | W3C `traceparent` of the operation that committed the fact; `null` when there was none. |
+| `traceState` | W3C `tracestate` that came with it; `null` when empty. |
+
+Both are trailing record parameters defaulting to `null`, so an envelope written before the amendment still parses
+(ADR-0055 back-compat pattern) and is processed under a new root span.
+
+- **Stage** (`StreamOutboxStager`): the current activity's context is captured into the envelope inside the
+  committing request/consumer, because the relay publishes later from its own loop with no ambient trace. An envelope
+  that already carries a `traceParent` is never overwritten; `traceId` is filled when missing.
+- **Publish** (`KafkaStreamEventProducer`, `FakeStreamEventProducer`): a direct publish captures the caller's context
+  the same way, and a Producer span `"{topic} publish"` is started as a child of the envelope's context. The Kafka
+  record also carries W3C `traceparent` / `tracestate` headers so broker tooling sees the same context.
+- **Process** (`StreamEventConsumerProcessor`): a Consumer span `"{topic} process"` is a **child** of the envelope's
+  context (the consumer joins the producer's trace) with a span link to it; the handler runs inside it, and a handler
+  failure marks it Error with an `exception` event. Confluent.Kafka has no OTel instrumentation, so this is a manual
+  `ActivitySource` (`3commerce.streams`, `StreamTracing`) subscribed by `AddServiceTelemetry`. Span tags follow the OTel
+  messaging conventions and carry ids only (event id, partition key, tenant id), never the payload.
+
+Pinned by `StreamTracePropagationTests` (unit lane, e2e-verify A3zo) and `StreamKafkaTraceIntegrationTests` (a real
+broker, A4ko). Part of the .NET instrumentation slice of the observability audit (P2-4); the platform side (collector,
+backends, alerting) is [ADR-0065](./0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md).

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Resources;
 
-namespace ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
+namespace ThreeCommerce.BuildingBlocks.Observability;
 
 /// <summary>
 /// Which release is running, and where (ADR-0064). Every OTel resource carries it, so each span, metric and

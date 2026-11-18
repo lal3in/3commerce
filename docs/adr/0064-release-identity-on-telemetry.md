@@ -70,3 +70,16 @@ so its auto-generated `service.instance.id` differed from the traces'/metrics'.
   `dotnet build` of the same tree, so switching between them recompiles once.
 - Pinned by `ReleaseIdentityTests` (unit lane, e2e-verify **A3k**) and live by **L2b** (the catalog service's
   startup line carries the commit e2e-verify built).
+
+## Amendment 2026-11-15 — a light telemetry building block; Admin and Supplier Portal stamped (audit P1-4)
+
+`ReleaseIdentity` moved to a new **`3commerce.BuildingBlocks.Observability`** project (namespace
+`ThreeCommerce.BuildingBlocks.Observability`) holding only OpenTelemetry: `AddTelemetryCore` (one release resource for
+all three signals; ASP.NET Core + HttpClient spans that record exceptions; HTTP RED + `System.Runtime` metrics; OTLP
+logs with scopes) and the Blazor pieces (`AddBlazorServerTelemetry`, `LoggingErrorBoundary`, `TelemetryCircuitHandler`).
+`BuildingBlocks.Infrastructure`'s `AddServiceTelemetry` builds on it and adds MassTransit, Npgsql, the stream lane and
+(opt-in) Valkey. The Admin and Supplier Portal reference only the light project — no MassTransit, EF or Npgsql — so they
+now export traces, metrics and logs with the same identity (`service.name` `admin` / `supplier-portal`). The gateway
+calls `AddServiceTelemetry("gateway")` instead of its own setup, which brings its logs to Loki. Circuit logs name the
+tenant and user by opaque ids only, read at sign-in from Identity's new `GET /session`. See [ADR-0065](./0065-self-hosted-lgtm-telemetry-alerting-and-browser-rum.md)
+for the backend side.

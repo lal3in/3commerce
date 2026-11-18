@@ -91,9 +91,9 @@ if (( WITH_FRONTENDS )); then
       OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
       FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
       nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
-  nohup env ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
+  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid
-  nohup env ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
+  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
   echo $! >.run/supplier-portal.pid
   disown -a 2>/dev/null || true
   echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"

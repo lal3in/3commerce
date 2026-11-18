@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <div style="display:flex; align-items:center; gap:1rem;">
     <h1 style="margin:0; flex:1;">@L["Imports.Title"]</h1>
     <a href="/catalog-import-template.csv" download
@@ -40,6 +41,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private List<ImportRunDto>? _runs;

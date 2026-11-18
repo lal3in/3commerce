@@ -109,6 +109,29 @@
         }
       }
     },
+    "/session": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "The signed-in principal's opaque ids (user + tenant) from the gateway's internal claims, for any role. Read once at sign-in by the Admin / Supplier Portal so their telemetry names the tenant and user without PII (audit P1-4).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionContextResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/verify-email": {
       "post": {
         "tags": [
@@ -2021,6 +2044,26 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "SessionContextResponse": {
+        "required": [
+          "userId",
+          "tenantId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

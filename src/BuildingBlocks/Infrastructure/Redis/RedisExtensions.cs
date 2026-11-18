@@ -23,9 +23,25 @@ public static class RedisExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Runs <paramref name="onConnected"/> with the shared multiplexer once it exists (immediately when it already
+    /// does). Used to attach the opt-in StackExchange.Redis span instrumentation without forcing an eager connect.
+    /// No-op for a Redis-less process.
+    /// </summary>
+    public static void WhenConnected(this IRedisConnection connection, Action<IConnectionMultiplexer> onConnected)
+    {
+        if (connection is RedisConnection shared)
+        {
+            shared.WhenConnected(onConnected);
+        }
+    }
+
     private sealed class RedisConnection : IRedisConnection, IDisposable
     {
         private readonly Lazy<IConnectionMultiplexer?> _multiplexer;
+        private readonly List<Action<IConnectionMultiplexer>> _onConnected = [];
+        private readonly Lock _gate = new();
+        private IConnectionMultiplexer? _connected;
 
         public RedisConnection(string? connectionString, ILogger<RedisConnection>? logger)
         {
@@ -44,7 +60,21 @@ public static class RedisExtensions
                 options.AbortOnConnectFail = false;
                 try
                 {
-                    return ConnectionMultiplexer.Connect(options);
+                    var multiplexer = ConnectionMultiplexer.Connect(options);
+                    Action<IConnectionMultiplexer>[] callbacks;
+                    lock (_gate)
+                    {
+                        _connected = multiplexer;
+                        callbacks = [.. _onConnected];
+                        _onConnected.Clear();
+                    }
+
+                    foreach (var callback in callbacks)
+                    {
+                        callback(multiplexer);
+                    }
+
+                    return multiplexer;
                 }
                 catch (Exception ex)
                 {
@@ -55,6 +85,27 @@ public static class RedisExtensions
         }
 
         public bool IsConfigured { get; }
+
+        public void WhenConnected(Action<IConnectionMultiplexer> onConnected)
+        {
+            if (!IsConfigured)
+            {
+                return;
+            }
+
+            IConnectionMultiplexer? connected;
+            lock (_gate)
+            {
+                connected = _connected;
+                if (connected is null)
+                {
+                    _onConnected.Add(onConnected);
+                    return;
+                }
+            }
+
+            onConnected(connected);
+        }
 
         public IConnectionMultiplexer? Multiplexer => _multiplexer.Value;
 

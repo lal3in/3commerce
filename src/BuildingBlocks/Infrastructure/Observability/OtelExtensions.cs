@@ -1,84 +1,73 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using OpenTelemetry.Logs;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
+using Npgsql;
 using OpenTelemetry.Trace;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Redis;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Streams;
+using ThreeCommerce.BuildingBlocks.Observability;
 
 namespace ThreeCommerce.BuildingBlocks.Infrastructure.Observability;
 
 public static class OtelExtensions
 {
+    /// <summary>The MassTransit 8 activity source and meter (consume/publish/send counts, durations, faults).</summary>
+    public const string MassTransitInstrumentation = "MassTransit";
+
+    /// <summary>Npgsql's activity source (one span per database command).</summary>
+    public const string NpgsqlActivitySource = "Npgsql";
+
+    /// <summary>The StackExchange.Redis instrumentation's activity source.</summary>
+    public const string RedisActivitySource = "OpenTelemetry.Instrumentation.StackExchangeRedis";
+
+    /// <summary>Opt-in switch for the (beta) StackExchange.Redis span instrumentation.</summary>
+    public const string RedisTracingSetting = "Telemetry:Redis:Tracing";
+
     /// <summary>
-    /// Traces for HTTP in/out, EF, and MassTransit (message hops join the same trace), RED
-    /// metrics (request rate/duration/errors) for HTTP in/out (mt6_13), and application logs.
-    /// All three signals export OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set and fan out via the
-    /// OTel Collector (deploy/observability): traces → Tempo, logs → Loki, metrics →
-    /// Prometheus/Mimir — all fronted by Grafana. Without an endpoint, traces fall back to
-    /// console; logs and metrics are OTLP-only (logs already reach the console through the
-    /// default logging provider — the OTel logs pipeline is additive, never a replacement).
-    /// Every signal shares one resource stamped with the <see cref="ReleaseIdentity"/> (ADR-0064):
-    /// service.version, vcs.ref.head.revision, deployment.environment.name and one service.instance.id.
+    /// The telemetry of every DB-owning service, the Notifications worker and the gateway — the light
+    /// <see cref="TelemetryExtensions.AddTelemetryCore"/> (HTTP in/out traces with exceptions recorded, HTTP RED +
+    /// <c>System.Runtime</c> metrics, OTLP logs, ADR-0064 release identity) plus:
+    /// <list type="bullet">
+    /// <item><b>traces</b>: MassTransit (message hops join the HTTP trace), Npgsql database commands (EF Core,
+    /// raw SQL, the outbox — audit P1-1; parentless background-poll commands are dropped by
+    /// <see cref="ChildSpansOnlyProcessor"/>), the Kafka stream lane's publish/process spans
+    /// (<see cref="StreamTracing"/>, ADR-0034 amendment), and Valkey commands when
+    /// <c>Telemetry:Redis:Tracing=true</c> (beta instrumentation, off by default);</item>
+    /// <item><b>metrics</b>: the MassTransit meter (audit P1-5), Npgsql's pool/command meter, and the
+    /// <c>3commerce.streams</c> / <c>3commerce.redis</c> meters.</item>
+    /// </list>
+    /// All three signals export OTLP when OTEL_EXPORTER_OTLP_ENDPOINT is set and fan out via the OTel Collector
+    /// (deploy/observability): traces → Tempo, logs → Loki, metrics → Prometheus/Mimir, all fronted by Grafana.
     /// </summary>
     public static TBuilder AddServiceTelemetry<TBuilder>(this TBuilder builder, string serviceName)
         where TBuilder : IHostApplicationBuilder
     {
-        var useOtlp = !string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-        var release = builder.AddReleaseIdentity(serviceName);
+        var redisTracing = builder.Configuration.GetValue<bool>(RedisTracingSetting);
 
-        builder.Services.AddOpenTelemetry()
-            .ConfigureResource(resource => release.Configure(resource))
-            .WithTracing(tracing =>
+        builder.AddTelemetryCore(
+            serviceName,
+            tracing =>
             {
                 tracing
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddSource("MassTransit");
-
-                if (useOtlp)
+                    .AddSource(MassTransitInstrumentation)
+                    .AddNpgsql()
+                    .AddSource(StreamTracing.ActivitySourceName);
+                if (redisTracing)
                 {
-                    tracing.AddOtlpExporter();
+                    // Connections are attached when the shared multiplexer is first created (RedisExtensions).
+                    tracing
+                        .AddRedisInstrumentation()
+                        .ConfigureRedisInstrumentation((services, instrumentation) =>
+                            services.GetService<IRedisConnection>()?.WhenConnected(multiplexer => instrumentation.AddConnection(multiplexer)));
                 }
-                else
-                {
-                    tracing.AddConsoleExporter();
-                }
-            })
-            .WithMetrics(metrics =>
-            {
-                metrics
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddMeter(StreamMetrics.MeterName)
-                    .AddMeter(RedisMetrics.MeterName);
 
-                // Metrics are ops data — only exported when a collector endpoint is configured (no
-                // console spam by default). Prod creds are launch-gated; Grafana sits behind admin auth.
-                if (useOtlp)
-                {
-                    metrics.AddOtlpExporter();
-                }
-            });
-
-        // Logs are additive: the default console provider keeps emitting as-is; this pipeline
-        // ships the same log records over OTLP (collector → Loki) with the SAME release resource
-        // (same service.instance.id as traces/metrics) attached, so Grafana can correlate them with
-        // traces/metrics by service_name and by release.
-        if (useOtlp)
-        {
-            builder.Logging.AddOpenTelemetry(logging =>
-            {
-                logging.SetResourceBuilder(release.Configure(ResourceBuilder.CreateDefault()));
-                logging.IncludeFormattedMessage = true;
-                logging.IncludeScopes = true;
-                logging.ParseStateValues = true;
-                logging.AddOtlpExporter();
-            });
-        }
+                tracing.AddProcessor(new ChildSpansOnlyProcessor([NpgsqlActivitySource, RedisActivitySource]));
+            },
+            metrics => metrics
+                .AddMeter(MassTransitInstrumentation)
+                .AddNpgsqlInstrumentation()
+                .AddMeter(StreamMetrics.MeterName)
+                .AddMeter(RedisMetrics.MeterName));
 
         return builder;
     }

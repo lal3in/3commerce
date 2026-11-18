@@ -210,7 +210,11 @@ half-ready stack. It also starts the storefront from a clean `.next/`, since the
 have died mid-compile. Its build is stamped with HEAD's SHA (`-dirty` when tracked files are uncommitted) and
 it prints `release: <version>+<sha>`: every service tags its telemetry with that commit and
 `deployment.environment.name=dev`, and logs a `Release identity:` line at startup (ADR-0064, see
-[Deployment](deployment.md#release-identity-on-telemetry-adr-0064)).
+[Deployment](deployment.md#release-identity-on-telemetry-adr-0064)). The Admin and Supplier Portal it starts export
+OTLP too (service names `admin` / `supplier-portal`), and Grafana carries three .NET dashboards next to the RED
+one: *.NET runtime* (GC, heap, thread pool, exceptions), *Messaging* (MassTransit consume/fault/retry rates,
+RabbitMQ `_error` depth and redeliveries) and *Database (Npgsql) + N+1* (DB command rate/latency/pool, and Tempo
+tables of traces with many or repeated DB commands).
 
 `scripts/e2e-verify.sh --live` then runs the live smoke flows — against that running stack as-is, or, on a
 clean machine, against one it boots and tears down itself. It leaves the machine exactly as it found it: an

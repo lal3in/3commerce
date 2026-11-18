@@ -3,6 +3,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Catalog.Title"]</h1>
 
 @if (_editing is null)
@@ -265,6 +266,7 @@ else
         }
     </div>
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string Base = "/api/catalog/admin/products";

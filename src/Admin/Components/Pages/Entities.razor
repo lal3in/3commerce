@@ -5,6 +5,7 @@
 @inject GatewayClient Gateway
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Entities.Title"]</h1>
 <p style="color:#6b7280;">@((MarkupString)L["Entities.Intro"].Value)</p>
 
@@ -310,6 +311,7 @@ else
         </div>
     </section>
 }
+</LoggingErrorBoundary>
 
 @code {
     private string _tenantId = "00000000-0000-0000-0000-000000000001";

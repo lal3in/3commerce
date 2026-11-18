@@ -4,6 +4,7 @@
 @inject AdminPermissions Permissions
 @rendermode AdminRenderModes.InteractiveServerNoPrerender
 
+<LoggingErrorBoundary>
 <h1>@L["Rma.Title"]</h1>
 @if (_error is not null) { <p style="color:#b91c1c;">@_error</p> }
 @if (_status is not null) { <p style="color:#047857;">@_status</p> }
@@ -169,6 +170,7 @@ else
         </tbody>
     </table>
 }
+</LoggingErrorBoundary>
 
 @code {
     private const string DenyAction = "deny";
