@@ -764,5 +764,12 @@
       "Seat": "seats",
       "StorageGb": "storage (GB)"
     }
+  },
+  "errorPage": {
+    "title": "Something went wrong",
+    "body": "We could not show this page. Please try again. If it keeps happening, contact support and quote the reference below.",
+    "reference": "Support reference",
+    "retry": "Try again",
+    "home": "Go to the home page"
   }
 }

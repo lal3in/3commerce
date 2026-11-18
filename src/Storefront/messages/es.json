@@ -756,5 +756,12 @@
       "Seat": "plazas",
       "StorageGb": "almacenamiento (GB)"
     }
+  },
+  "errorPage": {
+    "title": "Algo salió mal",
+    "body": "No pudimos mostrar esta página. Inténtalo de nuevo. Si sigue ocurriendo, contacta con soporte e indica la referencia de abajo.",
+    "reference": "Referencia de soporte",
+    "retry": "Reintentar",
+    "home": "Ir a la página de inicio"
   }
 }

@@ -756,5 +756,12 @@
       "Seat": "Plätze",
       "StorageGb": "Speicher (GB)"
     }
+  },
+  "errorPage": {
+    "title": "Etwas ist schiefgelaufen",
+    "body": "Diese Seite konnte nicht angezeigt werden. Bitte versuchen Sie es erneut. Wenn das Problem weiter besteht, wenden Sie sich an den Support und nennen Sie die Referenz unten.",
+    "reference": "Support-Referenz",
+    "retry": "Erneut versuchen",
+    "home": "Zur Startseite"
   }
 }

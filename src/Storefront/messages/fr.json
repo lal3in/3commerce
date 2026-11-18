@@ -756,5 +756,12 @@
       "Seat": "sièges",
       "StorageGb": "stockage (Go)"
     }
+  },
+  "errorPage": {
+    "title": "Une erreur est survenue",
+    "body": "Impossible d’afficher cette page. Veuillez réessayer. Si le problème persiste, contactez le support en indiquant la référence ci-dessous.",
+    "reference": "Référence support",
+    "retry": "Réessayer",
+    "home": "Aller à l’accueil"
   }
 }
