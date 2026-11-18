@@ -36,7 +36,7 @@ public class OssRenewalTaxTests
 
         Assert.Equal(1_200, Assert.Single(provider.Requests).AmountMinor);       // inclusive: the shelf price is the charge
         var entry = await db.JournalEntries.AsNoTracking().Include(e => e.Lines).SingleAsync();
-        Assert.Equal(200, Credit(entry, $"tax.store-{store:N}"));                // FR 20 % contained: 1200 × 2000 / 12000
+        Assert.Equal((0L, 200L), (Credit(entry, $"tax.store-{store:N}"), Credit(entry, $"tax.store-{store:N}.oss.FR"))); // FR 20 % contained: 1200 × 2000 / 12000, on FR's OSS account (ADR-0063 § 16)
         Assert.Equal(1_000, Credit(entry, $"revenue.store-{store:N}"));
         var settled = Assert.IsType<SubscriptionRenewalSettled>(Assert.Single(publisher.Published));
         var line = Assert.Single(settled.Lines);

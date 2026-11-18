@@ -343,6 +343,15 @@
 #       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
 #       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
 #       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
+#   A3zy Unit · per-destination OSS tax accounts (ADR-0063 § 16, oss_per_destination_tax_accounts; OssTaxAccountTests,
+#       OssTaxSharesTests): the OSS part of a charge's tax is posted to tax.store-{id}.oss.{CC} per Member State and the
+#       rest to the store's account (a 1300 sale with 300 tax, FR 200 + IT 50 → 50 / 200 / 50); a charge without an OSS
+#       part posts byte-identically; refunds in three parts and a chargeback after a partial refund net every tax account to
+#       0 (largest-remainder allocation, the final reversal closes each destination exactly); an OSS renewal books FR's 200
+#       on the FR account and its refund reverses it there (negative control: a Domestic renewal stays on the store's);
+#       checkout reports each destination's OSS tax (mixed AT/HU, home goods + FR e-book → FR only, XI goods, none under
+#       the threshold / for an export / a non-EU store; Σ ≤ the tax over 3,000 random carts); the unattributed OSS
+#       fallback is a shared code
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -360,7 +369,9 @@
 #       (exclusive: 1000 → 1083, 1999 @ 6% → 2119); the cart preview's renewals[].taxAdded is true only on an
 #       exclusive store with a rate and not for a destination-exempt ship-to; trial balance 0; an OSS subscription
 #       (German 19 % store, non-EUR, shipped to France) checks out at FR 20 % (200 of 1200), carries scheme Oss + FR to
-#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals)
+#       Payments and its renewal books FR's 200, not DE's 192 (ADR-0063 § 16 OSS renewals) — on tax.store-{id}.oss.FR, checkout
+#       included, none on the store's own tax account; two half refunds of the order + a refund of the renewal net that OSS
+#       account to 0 (ADR-0063 § 16, per-destination OSS tax accounts)
 #   A4c Integration · renewal dunning + quantity (owner decisions 2026-10-27, SubscriptionRenewalDunningTests): a
 #       2-unit subscription with a permanent 25% promotion on an 8.25% exclusive store previews 1500 "+ tax", is
 #       stored at 1500 × qty 2 (was 500), and renews at 1624 posting the same 124 tax checkout added; a RequiresAction
@@ -1027,6 +1038,12 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zw OSS renewals"; else fail "A3zw OSS renewals"; fi
+  stage "A3zy Per-destination OSS tax accounts (ADR-0063 § 16) — OSS VAT posted and reversed per Member State"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssTaxAccountTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OssTaxSharesTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zy per-destination OSS tax accounts"; else fail "A3zy per-destination OSS tax accounts"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

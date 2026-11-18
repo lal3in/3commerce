@@ -71,7 +71,8 @@ public class OssTaxSharesTests
             var lines = Enumerable.Range(0, random.Next(1, 5))
                 .Select(_ => Line(random.Next(1, 50_000), types[random.Next(types.Length)], exempt: random.Next(10) == 0)).ToArray();
             var input = Cart(destinations[random.Next(destinations.Length)], destinations[random.Next(destinations.Length)], lines)
-                with { ShippingMinor = random.Next(0, 2_000) };
+                with
+            { ShippingMinor = random.Next(0, 2_000) };
             var tax = Strategy(Over).TaxFor(input);
 
             var shares = OssTaxShares.Of(tax, "DE", input.ShipCountry!);

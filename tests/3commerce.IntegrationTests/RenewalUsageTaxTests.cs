@@ -82,10 +82,29 @@ public class RenewalUsageTaxTests(Phase3Fixture fixture)
 
         var lines = await RenewAndReadAsync(subscription);
 
-        Assert.Equal(200, Credit(lines, Tax(store)));     // FR 20 %: the same VAT checkout charged, not DE's 192
+        // FR 20 %: the same VAT checkout charged, not DE's 192 — on France's own OSS account (ADR-0063 § 16), none on the store's.
+        Assert.Equal((0L, 200L), (Credit(lines, Tax(store)), Credit(lines, Tax(store) + ".oss.FR")));
+        var checkoutSale = await EntryLinesAsync(order.OrderId.ToString());
+        Assert.Equal((0L, 200L), (Credit(checkoutSale, Tax(store)), Credit(checkoutSale, Tax(store) + ".oss.FR"))); // checkout too
         Assert.Equal(1_000, Credit(lines, Rev(store)));
         Assert.Equal(1_200, CashDebits(lines));           // the gross never moves
         AssertWellFormed(lines, currency);
+        Assert.Equal(0, await fixture.TrialBalanceAsync());
+
+        // Refunds reverse from the same account: the order in two halves, the renewal by its charge reference — France's
+        // OSS account nets to exactly zero (ADR-0063 § 16, per-destination OSS tax accounts).
+        foreach (var (amount, charge) in new[] { (600L, (string?)null), (600L, null), (1_200L, $"renew-{subscription.Id}-2") })
+        {
+            await fixture.PublishAsync(new RefundRequested(Guid.CreateVersion7(), order.OrderId, amount, "oss refund", "test", charge));
+        }
+
+        await WaitAsync(async () =>
+        {
+            using var scope = fixture.Payments.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+            var oss = await db.JournalLines.AsNoTracking().Where(l => l.AccountCode == Tax(store) + ".oss.FR").ToListAsync();
+            return oss.Count == 5 && oss.Sum(l => l.CreditMinor - l.DebitMinor) == 0;
+        }, "France's OSS account did not net to zero after the refunds");
         Assert.Equal(0, await fixture.TrialBalanceAsync());
     }
 

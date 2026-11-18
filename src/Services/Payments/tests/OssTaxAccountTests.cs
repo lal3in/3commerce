@@ -55,7 +55,7 @@ public class OssTaxAccountTests
         var split = OssTaxSplit.Of([("FR", 200), ("IT", 50)]); // booked tax 300: 50 domestic
 
         Assert.Equal(split.Shares, split.Reversal(300, 300).Shares);
-        Assert.Equal([("FR", 67L), ("IT", 17L)], split.Reversal(100, 300).Shares); // 16.67 / 66.67 / 16.67 → the domestic first on a tie
+        Assert.Equal([("FR", 67L), ("IT", 16L)], split.Reversal(100, 300).Shares); // 16.67 / 66.67 / 16.67: ties go to the domestic bucket, then FR
         Assert.True(split.Reversal(0, 300).IsEmpty);
         Assert.True(OssTaxSplit.None.Reversal(100, 300).IsEmpty);
 

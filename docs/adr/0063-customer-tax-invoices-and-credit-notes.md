@@ -1230,8 +1230,9 @@ under-reported French VAT.
   * **The scheme is never re-decided.** A subscription sold under the threshold renews Domestic even after the seller
     crosses it. Art. 59c applies per supply, so a renewal after the crossing should be OSS. That needs the seller's
     running total in Payments, a separate decision.
-  * **OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
-    needs it by country; the settled event carries the destination for that.
+  * ~~**OSS VAT is not split by destination.** It lands in the store's single `tax.store-{id}` account. The OSS return
+    needs it by country; the settled event carries the destination for that.~~ Delivered: see "P1b follow-up —
+    per-destination OSS tax accounts" below.
   * **Existing subscriptions.** Those set up before this change renew at the storefront's rate until re-sent. Production
     has no live customers yet.
 * **Exported subscriptions renew zero-rated (gap found merging #330, closed here).** A line zero-rated at checkout as an
@@ -1256,3 +1257,72 @@ under-reported French VAT.
   * Integration, **A4b**: `RenewalUsageTaxTests` covers an OSS subscription bought through checkout (a German store in
     a non-EUR currency, shipped to France). Checkout charges FR 20 %, Payments stores `Oss` / `FR`, and the renewal
     books 200, not 192.
+
+### P1b follow-up — per-destination OSS tax accounts (2026-11-18, `feature/oss-per-destination-tax-accounts`, tracker `oss_per_destination_tax_accounts`)
+
+OSS VAT used to land in the storefront's single tax account (`tax.store-{id}`), mixed with the home country's VAT. An
+OSS return is filed **per Member State of consumption**, so the ledger now books the OSS part of every charge to one
+liability account per destination. Every refund and chargeback takes the tax back from the same accounts.
+
+* **Decision — the account is a sub-account of the store's tax account: `{tax account}.oss.{CC}`.** For example,
+  `tax.store-{id}.oss.FR`, or `tax.store-{id}.oss.XI` for Northern Ireland goods (`Accounts.OssTaxFor`).
+  * It works within ADR-0045. The store's tax code stays operator-configurable (the projection), and the country
+    dimension is derived from it, never stored, like every other derived code. No migration is needed for the codes.
+  * Every report that sums a store's tax by prefix (admin Financials, Home, Ledger: `tax.`) still sees the OSS
+    accounts, so totals do not move. The OSS return reads one account per country.
+  * The unattributed fallback (`liability.tax_collected.oss.{CC}`) is a shared code (`Accounts.IsSharedCode`), so
+    `NoSharedAccountPostingTests` still guards attribution. OSS needs a storefront jurisdiction, so it never fires.
+  * The per-store chart (`GET /admin/ledger/storefronts/{id}/chart`) lists one "OSS VAT — {CC}" row per destination the
+    store has posted to. Destinations are open-ended, so the rows are derived from the postings.
+* **What is OSS.** The split (`OssTaxSplit`, Payments domain) carries only the OSS part, by destination. The rest of the
+  tax is domestic and stays on `tax.store-{id}`. A charge with no OSS part is posted byte-identically to before: one tax
+  line on the store's account (pinned by a unit test). Each entry still balances, because the split's lines sum to the
+  entry's tax (`OssTaxSplit.Lines`). A split that does not fit inside the tax is never posted, and the store's account
+  then takes the whole tax.
+* **At checkout.**
+  * Ordering computes the split from the strategy's breakdown (`OssTaxShares.Of`): with scheme `Oss`, each line whose
+    destination is in the EU VAT area and not home, at its own destination, plus the shipping at the sale's destination.
+    These are exactly the components the strategy taxed at a destination's rate.
+  * `AuthorizePayment` appends `OssTax` (`OssTaxDestination[]`, additive, null for no OSS part).
+  * Payments stores it on the `Payment` as `FR:200,IT:150` (`Payment.OssTax`, migration `PaymentOssTaxSplit`). The sale
+    posts each share to its destination's account.
+* **At renewal.** An OSS renewal's whole tax is the destination's (`OssTaxSplit.Single`), so it goes to that
+  destination's account. The renewal's `Payment` reads the split back from its own entry (`Ledger.OssTaxOf`), and
+  `Ledger.TaxOf` counts the OSS sub-accounts, so a renewal refund reverses from there.
+* **Usage charges.** Usage has no OSS terms yet: no destination and no scheme, and it is always taxed at the storefront's
+  rate. It posts to the store's account as before through the same `Ledger.Sale` seam. When usage gains OSS terms, it
+  passes a split and nothing else changes.
+* **Reversals** (`OssTaxSplit.Reversal`, `OssTaxReversals`).
+  * The refund's tax portion is pro-rated on the amount, unchanged. It is then allocated across the booked buckets
+    (domestic plus each destination) in proportion to what each was booked, by largest remainder, so the parts sum
+    exactly.
+  * No destination is ever reversed past what it still holds; the remainder is read from the payment's earlier refund
+    entries.
+  * The final reversal (the refund that completes the payment, or a chargeback) returns each destination's exact
+    remainder, so a sale refunded in parts nets every OSS account to zero.
+  * A reinstated chargeback mirrors its entry, as before.
+  * A line-attributed refund is still pro-rated on the amount, as the whole ledger does today (P5). A refund of only
+    the French line of a split DE/FR sale therefore takes some German VAT back too, and the credit note (Invoicing, from
+    the lines) is what is exact. Precise per-line reversal needs the line → destination map in Payments, which is a
+    follow-up.
+* **Xero mapping implications (note for the D-Xero work, § 6.7).**
+  * The daily summary journal (`XeroJournalBuilder`) groups by ledger code, so each `tax.store-{id}.oss.{CC}` arrives
+    as its own line.
+  * `XeroAccountMapping` matches the ledger code **exactly**. A mapping of the store's tax account does **not** cover
+    its OSS sub-accounts: each destination needs its own mapping.
+  * Recommended target: one Xero liability account per Member State, for example "OSS VAT payable — FR", or one OSS
+    account with a country tracking category. Either way, the OSS return's per-country boxes come straight from Xero.
+  * Before EU cross-border B2C goes live, the operator must create the mappings for every destination the store sells
+    into. An unmapped code must fail loudly rather than fall into a default account. That check belongs with the Xero
+    launch gate (live Xero credentials), not here.
+  * The OSS return is quarterly and in EUR. A non-EUR store's OSS accounts are in its own currency, and conversion at
+    the ECB rate of the period's last day is the return's job (D13).
+* **Tests.**
+  * Unit, e2e-verify **A3zy**:
+    * `OssTaxAccountTests` (Payments): the split, a sale's lines, byte-identity without a split, refunds in three
+      parts, a chargeback after a partial refund, and an OSS renewal and its refund;
+    * `OssTaxSharesTests` (Ordering): mixed, home, XI, none, and Σ ≤ tax over 3,000 carts;
+    * `OssRenewalTaxTests` now expects the FR account.
+  * Integration **A4b** (`RenewalUsageTaxTests`): the OSS subscription's checkout and renewal post France's VAT to
+    `tax.store-{id}.oss.FR`, none to the store's account. Two half refunds of the order and a refund of the renewal net
+    that account to zero, with trial balance 0.

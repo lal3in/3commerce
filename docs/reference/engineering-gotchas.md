@@ -319,6 +319,12 @@ Ledger postings (Payments):
 - **Every `JournalLine` sets `Currency`.** Balances key on `(AccountCode, Currency)`; a blank currency
   drops out of the per-currency P&L but still counts per-store, so the two views disagree. Prefer the
   `Ledger.Debit/Credit` helpers; hand-built `new JournalLine { … }` must set `Currency = entry.Currency`.
+- **OSS VAT goes to a per-destination account (ADR-0063 § 16).** The OSS part of a charge's tax is posted to
+  `{store tax account}.oss.{CC}` (`Accounts.OssTaxFor`), the rest to the store's tax account: pass the split
+  (`OssTaxSplit`, from `AuthorizePayment.OssTax` / `Payment.OssTax` / an OSS renewal) to `Ledger.Sale`, and pass
+  `OssTaxReversals.ForAsync(...)` to `Ledger.Refund`/`Chargeback` — a reversal that omits it debits the store's account
+  for VAT that was credited to France's, and both drift. Read a charge's tax with `Ledger.TaxOf` (it counts the OSS
+  sub-accounts), never by the store's code alone. A Xero mapping matches codes EXACTLY: each OSS account needs its own.
 - **Guard zero lines.** `ck_line_one_side` requires exactly one of Debit/Credit non-zero, so the
   net-revenue line is posted only `if (netMinor > 0)` (shipping-only or usage-metered orders net to
   zero). An unguarded zero line 500s the sale webhook and leaves the order unpaid.
