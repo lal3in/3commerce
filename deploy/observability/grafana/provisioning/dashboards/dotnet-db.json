@@ -1,0 +1,274 @@
+{
+  "uid": "3commerce-dotnet-db",
+  "title": "3commerce — Database (Npgsql) + N+1",
+  "description": "Postgres command rate, latency, failures and pool use per service from Npgsql's meter, and N+1 suspects from Npgsql DB spans in Tempo: traces with many DB commands, and the same statement repeated within one trace (audit P1-1). Background outbox/inbox polling commands are not traced (no parent span) but do count in the meter.",
+  "tags": [
+    "3commerce",
+    "database",
+    "npgsql",
+    "postgres"
+  ],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": {
+          "query": "label_values(db_client_operation_duration_seconds_count, service_name)",
+          "refId": "service"
+        },
+        "definition": "label_values(db_client_operation_duration_seconds_count, service_name)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "DB commands / s",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(db_client_operation_duration_seconds_count{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 2,
+      "title": "DB command duration p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(db_client_operation_duration_seconds_bucket{service_name=~\"$service\"}[5m])))",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 3,
+      "title": "DB commands per HTTP request (N+1 indicator)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(db_client_operation_duration_seconds_count{service_name=~\"$service\"}[5m])) / sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "description": "Includes background polling, so compare a service against its own baseline: a jump after a release usually means a new N+1.",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 4,
+      "title": "Failed DB commands / s",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (rate(db_client_operation_failed_total{service_name=~\"$service\"}[5m]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 5,
+      "title": "Connection pool (by state)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, db_client_connection_state) (db_client_connection_count{service_name=~\"$service\"})",
+          "legendFormat": "{{service_name}} {{db_client_connection_state}}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 6,
+      "title": "Pending connection requests",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (db_client_connection_npgsql_pending_requests{service_name=~\"$service\"})",
+          "legendFormat": "{{service_name}}"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 7,
+      "title": "N+1 suspects: traces with more than 20 DB commands",
+      "type": "table",
+      "description": "Every trace whose Postgres spans number more than 20. Open one to see the repeated statements.",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.db.system.name = \"postgresql\" } | count() > 20",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "id": 8,
+      "title": "N+1 suspects: the same statement 5+ times in one trace",
+      "type": "table",
+      "description": "Grouped by statement text: the classic N+1 shape (one query per row of a previous result).",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span.db.system.name = \"postgresql\" } | by(span.db.query.text) | count() >= 5",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ],
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 9
+      }
+    }
+  ]
+}

@@ -20,6 +20,24 @@ receivers:
           scrape_interval: 15s
           static_configs:
             - targets: ['redis-exporter:9121']
+  # RabbitMQ broker metrics (audit P1-5) from the rabbitmq_prometheus plugin built into the rabbitmq image (:15692):
+  # the aggregated endpoint (global redelivered/delivered/published totals) and the per-queue coarse family
+  # (ready/unacked/total per queue, so _error dead-letter depth is a time series and alertable). Best-effort like
+  # redis-exporter. Minimal on purpose: deploy/observability is owned by the collector-upgrade work — merge, don't fork.
+  prometheus/rabbitmq:
+    config:
+      scrape_configs:
+        - job_name: rabbitmq
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['rabbitmq:15692']
+        - job_name: rabbitmq-queues
+          scrape_interval: 15s
+          metrics_path: /metrics/detailed
+          params:
+            family: [queue_coarse_metrics]
+          static_configs:
+            - targets: ['rabbitmq:15692']
 
 processors:
   batch: {}
@@ -83,7 +101,7 @@ exporters:
 service:
   pipelines:
     metrics:
-      receivers: [otlp, prometheus/redis]
+      receivers: [otlp, prometheus/redis, prometheus/rabbitmq]
       processors: [batch]
       exporters: [prometheus, prometheusremotewrite]
     traces:
