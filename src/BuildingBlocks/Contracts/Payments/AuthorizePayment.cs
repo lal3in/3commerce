@@ -26,6 +26,10 @@ public record AuthorizePayment(
     long TaxMinor = 0,
     // Shipping portion of NetMinor. Persisted on the Payment so the ledger books shipping as its own
     // income line (income.shipping), separate from product revenue. Optional → back-compatible.
-    long ShippingMinor = 0);
+    long ShippingMinor = 0,
+    // The order's tenant (owner decision 2026-11-15, ADR-0024 amendment): Payments reads the member's payment customer
+    // and saved card under FORCE RLS in THIS tenant's scope. Optional → back-compatible: a message from an Ordering
+    // that predates it falls back to the host's default tenant.
+    Guid? TenantId = null);
 
 public record AuthorizePaymentResult(string PaymentIntentId, string ClientSecret, long GrossMinor, long TaxMinor);
