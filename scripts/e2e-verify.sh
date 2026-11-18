@@ -343,6 +343,11 @@
 #       OSS sale; never OSS outside the EU; XI goods are OSS). An exported (Canaries) subscription renews zero-rated,
 #       Exempt / OutsideEuVatArea / scheme Export (negative control: the domestic one at 21 %). Payments' copy of the EU
 #       standard rates (+ XI) equals Ordering's EuVatRateTable on every day and every local-midnight edge
+#   A3zz Unit · manual-service place of supply (ADR-0063 § 16, owner decision 2026-11-15; ManualServicePlaceOfSupplyTests):
+#       a ManualService line (installation, assembly) is supplied where performed — the ship-to: billed to France but
+#       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
+#       under OSS); installed in France over the threshold it is FR 20 % OSS, under it the home 19 %; in Northern Ireland it
+#       follows the UK (GB) while goods are XI
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -432,7 +437,7 @@
 #       are 400 problem+json naming the field and leave the saved one; a card saved with a malformed address is
 #       refused as billingAddress.country and not saved; another member's PUT/DELETE and an unknown card are 404,
 #       no claims is 401. FORCE RLS as a NON-superuser owner with the REAL migrations (SavedPaymentMethodsRlsTests,
-#       ADR-0024 amendment 2026-11-07): through SavedCardTenantScope the owning tenant writes/reads/updates its card,
+#       ADR-0024 amendment 2026-11-07): through PaymentsTenantScope the owning tenant writes/reads/updates its card,
 #       another tenant reads nothing, updates 0 rows and cannot insert for it, no scope reads nothing and an insert
 #       is rejected, platform scope reads, and inside an open (outbox) transaction the scope applies to it and is gone
 #       after the commit
@@ -449,6 +454,13 @@
 #       paying returns outcome 1 / Settled, the replayed key the same answer with no second attempt, a new key 409;
 #       Usage re-grants the 100 credit and lifts the hold; the attempts are Initial + Customer, keys {ref} and {ref}-a1,
 #       both 500, one journal entry
+#   A4kw Integration · payment customers under FORCE RLS (payment_customers_rls, PaymentCustomersRlsTests, NON-superuser
+#       owner + the REAL migrations, ADR-0024 amendment revised 2026-11-15): the owning tenant reads its vault; another
+#       tenant reads nothing, updates 0 rows and cannot insert for it; no scope reads nothing, an insert is rejected and a
+#       vault saved after its scope ended is a DbUpdateConcurrencyException; platform scope reads; PaymentCustomerVault
+#       finds the existing vault without a provider call and saves the learnt email, and opens tenant B's own vault;
+#       CheckoutInstrument (AuthorizePaymentConsumer) finds vault + card in the order's tenant inside an open
+#       transaction and nothing in another; DefaultSavedCard finds the default/owned card in its tenant only
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -1027,6 +1039,10 @@ run_automated() {
     && dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~EuStandardVatRateParityTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zw OSS renewals"; else fail "A3zw OSS renewals"; fi
+  stage "A3zz Manual-service place of supply (ADR-0063 § 16) — taxed where performed, the ship-to"
+  if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"

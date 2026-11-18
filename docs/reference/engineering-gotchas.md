@@ -301,7 +301,9 @@ Checkout tax (Ordering, ADR-0063 P1):
   threshold's running total is Σ `ordering."EuDistanceSales"` per tenant per UTC year, written in the SAME
   transaction as the confirmed order — a new order-confirming path must write that row too, or the seller's
   turnover under-counts and a sale that should be OSS stays home-taxed. Destinations are PER LINE (ADR-0063 § 16):
-  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; record
+  pass each line's `Fulfilment` and the bill-to country, or an e-book billed to France is taxed at the ship-to; a `ManualService` line
+  (installation, assembly) is taxed WHERE PERFORMED — the ship-to, never the bill-to (owner decision 2026-11-15, final;
+  `ManualServicePlaceOfSupplyTests`); record
   `TaxBreakdown.LineDestinations` on the lines (a split sale writes one `EuDistanceSales` row per destination). Pass
   the ship-to/bill-to REGION and POSTCODE too: a country alone cannot tell the Canaries (export, zero-rated) from
   Madrid, or Belfast (`XI`, OSS) from London (`EuVatTerritories`). An OSS subscription renews at its
@@ -349,6 +351,13 @@ Ledger postings (Payments):
   claims on `/payment-methods`) is the join: a vault whose email is unknown has "no card". An auto top-up with no default
   card is SKIPPED (never attempted, never dunned), not charged to the host account. Read saved cards inside the charge's
   tenant scope (`DefaultSavedCard`, `RunInTenantScopeAsync`): they are under FORCE RLS, and a consumer has no request scope.
+- **Payments' vaults and cards are under FORCE RLS: take the tenant from the caller, never from the tables** (ADR-0024
+  amendment, owner decision 2026-11-15). `PaymentCustomers` and `SavedPaymentMethods` are read and written only through
+  `PaymentsTenantScope` with the tenant the caller already holds (the `tenant` claim, the charge/subscription row,
+  `AuthorizePayment.TenantId`); a scope-less "which tenant is this user in?" lookup returns nothing. A tracked
+  `PaymentCustomer` saved after its scope ended is a `DbUpdateConcurrencyException` (the `UPDATE` sees 0 rows), so save
+  inside the scope (`PaymentCustomerVault`). Superuser fixtures hide all of this; `PaymentCustomersRlsTests` and the live
+  run (`payments_svc`) do not.
 - **A per-LINE discount is subtracted from the LINE total, never from a unit price.** `RenewalDiscountMinor` (like
   `DiscountMinor`) is allocated per line, so a renewal is `UnitPriceMinor × Quantity − RenewalDiscountMinor`
   (`OrderLine.RenewalPriceMinor()`); `UnitPriceMinor − RenewalDiscountMinor` under-bills every multi-unit line and

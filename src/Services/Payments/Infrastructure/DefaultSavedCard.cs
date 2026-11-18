@@ -7,9 +7,9 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// A customer's DEFAULT saved card, as the instrument an off-session charge is made on (owner decision 2026-11-06,
 /// <c>jobmgr_3_settlement</c>: usage auto top-ups charge it).
 /// <para>
-/// Saved cards are tenant-owned and under FORCE RLS (owner decision 2026-11-07, ADR-0024), so every read here runs inside
-/// the charge's TENANT scope through <see cref="SavedCardTenantScope"/> — a message consumer and a job have no request
-/// scope to inherit, so the tenant comes from the charge (Usage's message). Inside a transaction the caller already opened
+/// Saved cards and their payment customers are tenant-owned and under FORCE RLS (owner decisions 2026-11-07 and 2026-11-15,
+/// ADR-0024), so every read here runs inside the charge's TENANT scope through <see cref="PaymentsTenantScope"/> — a
+/// message consumer and a job have no request scope to inherit, so the tenant comes from the charge (Usage's message). Inside a transaction the caller already opened
 /// (a consumer's outbox transaction) the tenant settings are applied to that transaction. A non-relational provider (the
 /// unit tests' InMemory) has neither transactions nor RLS.
 /// </para>
@@ -45,7 +45,7 @@ public sealed record DefaultSavedCard(string ProviderCustomerId, string Provider
                 where method.Id == methodId && method.UserId == userId && method.TenantId == tenantId
                     && method.State == SavedPaymentMethodState.Active
                 from customer in db.PaymentCustomers.AsNoTracking()
-                where customer.Id == method.PaymentCustomerId
+                where customer.Id == method.PaymentCustomerId && customer.TenantId == tenantId
                 select new DefaultSavedCard(customer.ProviderCustomerId, method.ProviderPaymentMethodId))
             .SingleOrDefaultAsync(ct), ct);
 
@@ -55,8 +55,8 @@ public sealed record DefaultSavedCard(string ProviderCustomerId, string Provider
             .AnyAsync(m => m.TenantId == tenantId && m.PaymentCustomerId == paymentCustomerId && m.IsDefault
                 && m.State == SavedPaymentMethodState.Active, ct), ct);
 
-    // The one way into SavedPaymentMethods (ADR-0024 amendment 2026-11-07): its own tenant-scoped transaction, or the
+    // The one way into SavedPaymentMethods + PaymentCustomers (ADR-0024 amendment): its own tenant-scoped transaction, or the
     // tenant settings applied to the caller's open (outbox) transaction.
     private static Task<T> InTenantScopeAsync<T>(PaymentsDbContext db, Guid tenantId, Func<Task<T>> read, CancellationToken ct) =>
-        SavedCardTenantScope.RunAsync(db, tenantId, read, ct);
+        PaymentsTenantScope.RunAsync(db, tenantId, read, ct);
 }

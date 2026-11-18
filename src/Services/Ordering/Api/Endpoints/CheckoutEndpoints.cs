@@ -477,7 +477,7 @@ public static class CheckoutEndpoints
         try
         {
             var response = await authorize.GetResponse<AuthorizePaymentResult>(
-                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor), ct);
+                new AuthorizePayment(orderId, netMinor, currency, idempotencyKey, userId, request.SavedPaymentMethodId, request.SavePaymentMethod, request.ShippingAddress.Country, paymentOption, storefrontId, taxMinor, shippingMinor, TenantId: tenantId), ct);
             intent = response.Message;
         }
         catch (RequestTimeoutException)

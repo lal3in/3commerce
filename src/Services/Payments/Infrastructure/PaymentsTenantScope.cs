@@ -4,10 +4,13 @@ using ThreeCommerce.BuildingBlocks.Infrastructure.Tenancy;
 namespace ThreeCommerce.Payments.Infrastructure;
 
 /// <summary>
-/// The tenant scope every read and write of <c>payments."SavedPaymentMethods"</c> runs in (ADR-0024, owner decision
-/// 2026-11-07, mem_2). The table is under FORCE ROW LEVEL SECURITY: with no tenant set, a read returns no rows and an
-/// insert fails <c>WITH CHECK</c>. So each caller passes the tenant it already holds — the request's <c>tenant</c> claim,
-/// or the tenant on the row or message a background consumer is working from.
+/// The tenant scope every read and write of Payments' FORCE-RLS tables runs in (ADR-0024): <c>payments."SavedPaymentMethods"</c>
+/// (owner decision 2026-11-07, mem_2) and <c>payments."PaymentCustomers"</c> (owner decision 2026-11-15) — the member's
+/// provider vault and the cards hanging off it. Under FORCE ROW LEVEL SECURITY a read with no tenant set returns no rows,
+/// and an insert or update fails <c>WITH CHECK</c> (an update of a row it cannot see touches 0 rows, which EF reports as
+/// a concurrency failure). So each caller passes the tenant it already holds — the request's <c>tenant</c> claim, or the
+/// tenant on the row or message a background consumer is working from — and never derives the tenant FROM these tables.
+/// Formerly <c>SavedCardTenantScope</c>; renamed when it began to cover more than saved cards.
 /// <list type="bullet">
 /// <item>No transaction open (an endpoint, <c>SubscriptionService.PayAsync</c>): the work runs in its own tenant-scoped
 /// transaction (<see cref="TenantDatabaseExtensions.RunInTenantScopeAsync{T}"/>), which commits when it returns, so a
@@ -17,7 +20,7 @@ namespace ThreeCommerce.Payments.Infrastructure;
 /// <item>A non-relational provider (EF InMemory in unit tests) has no RLS and no transactions: the work just runs.</item>
 /// </list>
 /// </summary>
-public static class SavedCardTenantScope
+public static class PaymentsTenantScope
 {
     private const string SetScopeSql =
         "SELECT set_config('app.tenant_id', {0}, true), " +

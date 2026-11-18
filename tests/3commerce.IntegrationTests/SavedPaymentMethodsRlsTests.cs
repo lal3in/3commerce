@@ -11,7 +11,7 @@ namespace ThreeCommerce.IntegrationTests;
 /// payments."SavedPaymentMethods" under FORCE RLS (ADR-0024, owner decision 2026-11-07, mem_2), connected as a
 /// NON-superuser, NOBYPASSRLS owner — the payments_svc posture; a superuser-connected test would not exercise the
 /// policy at all. Applies the REAL migrations (<c>MigrateAsync</c>, like <see cref="SellerEstablishmentRlsTests"/>), so it
-/// proves the SavedPaymentMethodsRls migration itself. Through <see cref="SavedCardTenantScope"/> — what every reader
+/// proves the SavedPaymentMethodsRls migration itself. Through <see cref="PaymentsTenantScope"/> — what every reader
 /// and writer uses — the owning tenant writes, reads and updates its card (billing address included); another tenant
 /// sees nothing and changes nothing; with no scope a read is empty and an insert is rejected; platform scope reads; and
 /// inside an already-open transaction (a consumer in MassTransit's EF outbox transaction) the scope applies to it.
@@ -49,20 +49,20 @@ public class SavedPaymentMethodsRlsTests : IAsyncLifetime
         await db.Database.MigrateAsync(); // the real migrations, as the (non-superuser) owner
 
         _customerId = Guid.CreateVersion7();
-        db.PaymentCustomers.Add(new PaymentCustomer
-        {
-            Id = _customerId,
-            TenantId = TenantA,
-            UserId = UserA,
-            Provider = "stripe",
-            ProviderCustomerId = "cus_rls",
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
-        await db.SaveChangesAsync(); // PaymentCustomers is not RLS'd
-
         _cardId = Guid.CreateVersion7();
-        await SavedCardTenantScope.RunAsync(db, TenantA, async () =>
+        // PaymentCustomers is under FORCE RLS too (owner decision 2026-11-15): the vault and its card are written in
+        // the tenant's scope (PaymentCustomersRlsTests covers the vault itself).
+        await PaymentsTenantScope.RunAsync(db, TenantA, async () =>
         {
+            db.PaymentCustomers.Add(new PaymentCustomer
+            {
+                Id = _customerId,
+                TenantId = TenantA,
+                UserId = UserA,
+                Provider = "stripe",
+                ProviderCustomerId = "cus_rls",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
             var card = NewCard(_cardId, TenantA);
             card.SetBillingAddress(CardBillingAddress.Create("Ada Buyer", "1 Policy St", "Melbourne", "VIC", "3000", "AU"), DateTimeOffset.UtcNow);
             db.SavedPaymentMethods.Add(card);
@@ -93,7 +93,7 @@ public class SavedPaymentMethodsRlsTests : IAsyncLifetime
     private async Task<SavedPaymentMethod?> ReadAsAsync(Guid tenantId)
     {
         await using var db = NewContext();
-        return await SavedCardTenantScope.RunAsync(db, tenantId,
+        return await PaymentsTenantScope.RunAsync(db, tenantId,
             () => db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(m => m.Id == _cardId), default);
     }
 
@@ -112,7 +112,7 @@ public class SavedPaymentMethodsRlsTests : IAsyncLifetime
         Assert.Null(await ReadAsAsync(TenantB));
 
         await using var db = NewContext();
-        var touched = await SavedCardTenantScope.RunAsync(db, TenantB, () => db.SavedPaymentMethods
+        var touched = await PaymentsTenantScope.RunAsync(db, TenantB, () => db.SavedPaymentMethods
             .Where(m => m.Id == _cardId)
             .ExecuteUpdateAsync(set => set.SetProperty(m => m.BillingCity, "Hijacked")), default);
 
@@ -124,7 +124,7 @@ public class SavedPaymentMethodsRlsTests : IAsyncLifetime
     public async Task Other_tenant_scope_cannot_write_a_card_for_another_tenant()
     {
         await using var db = NewContext();
-        await Assert.ThrowsAsync<DbUpdateException>(() => SavedCardTenantScope.RunAsync(db, TenantB, async () =>
+        await Assert.ThrowsAsync<DbUpdateException>(() => PaymentsTenantScope.RunAsync(db, TenantB, async () =>
         {
             db.SavedPaymentMethods.Add(NewCard(Guid.CreateVersion7(), TenantA));
             await db.SaveChangesAsync();
@@ -156,7 +156,7 @@ public class SavedPaymentMethodsRlsTests : IAsyncLifetime
         await using var db = NewContext();
         await using var outer = await db.Database.BeginTransactionAsync();
 
-        var card = await SavedCardTenantScope.RunAsync(db, TenantA,
+        var card = await PaymentsTenantScope.RunAsync(db, TenantA,
             () => db.SavedPaymentMethods.AsNoTracking().SingleOrDefaultAsync(m => m.Id == _cardId), default);
 
         Assert.NotNull(card);
