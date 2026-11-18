@@ -1,7 +1,11 @@
+using MassTransit;
+using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ThreeCommerce.BuildingBlocks.Contracts.Payments;
 using ThreeCommerce.Payments.Domain;
 using ThreeCommerce.Payments.Infrastructure;
+using ThreeCommerce.Payments.Infrastructure.Consumers;
 
 namespace ThreeCommerce.Payments.Tests;
 
@@ -140,18 +144,61 @@ public class PaymentCustomerEmailRecordTests
         Assert.Empty(published.Published);
     }
 
+    [Fact]
+    public async Task The_consumer_never_overwrites_a_known_email_and_a_redelivery_announces_nothing_more()
+    {
+        var name = $"pce_{Guid.NewGuid():N}";
+        var user = Guid.CreateVersion7();
+        await using (var db = NewDb(name))
+        {
+            AddVault(db, Tenant, user, email: "current@example.com", defaultCard: null, provider: "stripe");
+            AddVault(db, Tenant, user, email: null, defaultCard: "pm_mock_default", provider: "mock");
+            await db.SaveChangesAsync();
+        }
+
+        await using var services = new ServiceCollection()
+            .AddDbContext<PaymentsDbContext>(o => o.UseInMemoryDatabase(name))
+            .AddSingleton<TimeProvider>(new FixedTime(Now))
+            .AddScoped<PaymentCustomerEmailBackfill>()
+            .AddLogging()
+            .AddMassTransitTestHarness(x => x.AddConsumer<PaymentCustomerEmailConsumer>())
+            .BuildServiceProvider(true);
+        var harness = services.GetRequiredService<ITestHarness>();
+        await harness.Start();
+        try
+        {
+            var command = new RecordPaymentCustomerEmail(Tenant, user, "ada@example.com");
+            await harness.Bus.Publish(command); // the original delivery …
+            await harness.Bus.Publish(command); // … and an at-least-once redelivery
+            Assert.Equal(2, await harness.Consumed.SelectAsync<RecordPaymentCustomerEmail>().Count());
+            Assert.All(harness.Consumed.Select<RecordPaymentCustomerEmail>(), c => Assert.Null(c.Exception));
+
+            var ready = Assert.Single(harness.Published.Select<CustomerPaymentMethodReady>()).Context.Message;
+            Assert.Equal((Tenant, "ada@example.com"), (ready.TenantId, ready.CustomerEmail));
+        }
+        finally
+        {
+            await harness.Stop();
+        }
+
+        await using var fresh = NewDb(name);
+        var emails = await fresh.PaymentCustomers.ToDictionaryAsync(c => c.Provider, c => c.Email);
+        Assert.Equal("current@example.com", emails["stripe"]); // the known email is untouched
+        Assert.Equal("ada@example.com", emails["mock"]);       // only the vault with none learnt it
+    }
+
     private static PaymentCustomerEmailBackfill Backfill(PaymentsDbContext db, RecordingPublisher published) =>
         new(db, published, new FixedTime(Now));
 
-    private static void AddVault(PaymentsDbContext db, Guid tenantId, Guid userId, string? email, string? defaultCard)
+    private static void AddVault(PaymentsDbContext db, Guid tenantId, Guid userId, string? email, string? defaultCard, string provider = "stripe")
     {
         var vault = new PaymentCustomer
         {
             Id = Guid.CreateVersion7(),
             TenantId = tenantId,
             UserId = userId,
-            Provider = "stripe",
-            ProviderCustomerId = $"cus_{userId:N}",
+            Provider = provider,
+            ProviderCustomerId = $"cus_{provider}_{userId:N}",
             CreatedAt = StoredTime.Of(Now),
         };
         if (email is not null)
