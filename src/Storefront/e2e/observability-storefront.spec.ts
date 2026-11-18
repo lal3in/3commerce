@@ -208,7 +208,7 @@ test.describe("Storefront observability (Faro RUM + error pages)", () => {
     });
     expect(tooBig.status()).toBe(413);
 
-    const malformed = await request.post("/rum", { data: "{not json", headers: { "content-type": "application/json" } });
+    const malformed = await request.post("/rum", { data: Buffer.from("{not json"), headers: { "content-type": "application/json" } });
     expect(malformed.status()).toBe(400);
 
     const crossSite = await request.post("/rum", { data: dirty, headers: { "sec-fetch-site": "cross-site" } });
