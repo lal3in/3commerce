@@ -8,7 +8,7 @@ namespace ThreeCommerce.Identity.Infrastructure;
 /// collector's <c>transform/security_category</c> labels <c>log_category=security</c>. Opaque ids only — the user and
 /// tenant GUIDs, counts and times — NEVER the email, the password or a code.
 /// </summary>
-internal static partial class AuthSecurityLog
+public static partial class AuthSecurityLog
 {
     [LoggerMessage(EventId = 4101, EventName = "LoginUnknownAccount", Level = LogLevel.Warning,
         Message = "Security: login failed — no such account (tenant {TenantId})")]
