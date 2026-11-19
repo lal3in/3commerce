@@ -32,6 +32,10 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="$(OtelVersion)" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="$(OtelVersion)" />
+    <!-- Error inbox (ADR-0067, owner decision Q5): the Sentry .NET SDK (generic-host init + its ILogger integration) reporting to the self-hosted,
+         Sentry-API-compatible GlitchTip. MIT. Hosting + logging integration only (no Sentry.AspNetCore: no request/PII capture),
+         and it stays OFF unless a DSN is configured. -->
+    <PackageVersion Include="Sentry.Extensions.Hosting" Version="7.0.1" />
     <!-- DB spans (audit P1-1, owner-approved 2026-11-15): Npgsql's own OTel bridge, versioned in lock-step with
          Npgsql (10.0.3 = the Npgsql the EF provider resolves). Stable, and it sees EVERY command — EF, raw SQL,
          the MassTransit outbox/inbox, Quartz — where the EF Core instrumentation is still beta, sees only EF and
