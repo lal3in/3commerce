@@ -81,6 +81,11 @@ public static class ErrorTracking
             configure?.Invoke(options);
         });
         WithoutLogScopes(builder.Services, before);
+
+        // On a web host Sentry warns at every start that UseSentry from Sentry.Extensions.Hosting "doesn't include
+        // the ASP.NET Core integration". That is the point (no request capture, see the type summary): keep the
+        // warning out of the logs, errors from that category still pass.
+        builder.Logging.AddFilter("Sentry.Extensions.Hosting.SentryHostedService", LogLevel.Error);
         return true;
     }
 

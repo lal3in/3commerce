@@ -884,9 +884,9 @@
 #   L20c Error inbox (GlitchTip, ADR-0067; owner decision Q5): catalog's internal /health/error-probe answers 500
 #       problem+json with a W3C traceId, and GlitchTip's backend project gets an issue tagged with that trace_id whose
 #       latest event carries catalog's release (its "Release identity:" service.version); the storefront project has a
-#       runtime:node issue (L20's /probe/error via onRequestError) and a runtime:browser issue (/probe/client-error via
-#       Faro → /rum relay) seen during this run, each with a trace id and a release. Skipped when GlitchTip is not
-#       running (the core infra set)
+#       runtime:node issue (L20's /probe/error via onRequestError) seen during this run with a trace id and a release;
+#       a Faro-shaped exception batch posted same-origin to /rum (L20's spec intercepts /rum in the page) becomes a
+#       storefront issue with its trace id and the storefront's release. Skipped when GlitchTip is not running (core set)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -1753,30 +1753,48 @@ except Exception:
         fail "L20c .NET error release (issue $gt_issue carries '${gt_release:-none}', catalog runs '${gt_want:-?}')"
       fi
     fi
-    # Storefront: L20's observability spec hit /probe/error (SSR → onRequestError) and /probe/client-error (browser →
-    # Faro → /rum relay). Both must have been SEEN during this run, each with a trace id and the storefront release.
-    local gt_runtime gt_seen
-    for gt_runtime in node browser; do
-      gt_seen=""
-      for i in $(seq 1 20); do
-        gt_seen="$(gt_json "projects/3commerce/storefront/issues/?query=runtime:$gt_runtime" \
-          "next((i['id'] for i in d if i['lastSeen'] >= '$LIVE_START_ISO'), None)")"
-        [[ -n "$gt_seen" ]] && break; sleep 3
-      done
-      if [[ -z "$gt_seen" ]]; then
-        if [[ -f "$ROOT/src/Storefront/node_modules/.bin/playwright" ]]; then
-          fail "L20c storefront $gt_runtime error → GlitchTip (no issue seen during this run)"
-        else
-          echo "  (skipped: storefront $gt_runtime error — Playwright not installed, L20 did not run the probes)"
-        fi
-        continue
-      fi
-      if [[ -n "$(gt_json "issues/$gt_seen/events/latest/" "d['contexts']['trace']['trace_id'] if d.get('contexts', {}).get('trace', {}).get('trace_id') and any(t['key'] == 'release' and t['value'] not in ('', '0.0.0') for t in d.get('tags', [])) else None")" ]]; then
-        pass "L20c storefront $gt_runtime error → GlitchTip issue $gt_seen (trace id + release)"
-      else
-        fail "L20c storefront $gt_runtime error (issue $gt_seen lacks a trace id or a release)"
-      fi
+    # Storefront SSR: L20's observability spec hit /probe/error (→ onRequestError → inbox): a runtime:node issue must
+    # have been SEEN during this run, with a trace id and a release.
+    local gt_seen gt_sf_trace gt_sf_want gt_sf_issue gt_sf_release
+    gt_seen=""
+    for i in $(seq 1 20); do
+      gt_seen="$(gt_json "projects/3commerce/storefront/issues/?query=runtime:node" \
+        "next((i['id'] for i in d if i['lastSeen'] >= '$LIVE_START_ISO'), None)")"
+      [[ -n "$gt_seen" ]] && break; sleep 3
     done
+    if [[ -z "$gt_seen" ]]; then
+      if [[ -f "$ROOT/src/Storefront/node_modules/.bin/playwright" ]]; then
+        fail "L20c storefront SSR error → GlitchTip (no runtime:node issue seen during this run)"
+      else
+        echo "  (skipped: storefront SSR error — Playwright not installed, L20 did not run /probe/error)"
+      fi
+    elif [[ -n "$(gt_json "issues/$gt_seen/events/latest/" "d['contexts']['trace']['trace_id'] if d.get('contexts', {}).get('trace', {}).get('trace_id') and any(t['key'] == 'release' and t['value'] not in ('', '0.0.0') for t in d.get('tags', [])) else None")" ]]; then
+      pass "L20c storefront SSR error → GlitchTip issue $gt_seen (trace id + release)"
+    else
+      fail "L20c storefront SSR error (issue $gt_seen lacks a trace id or a release)"
+    fi
+    # Storefront browser: L20's spec intercepts /rum in the page (it asserts the payload), so the relay hop is proven
+    # here: a Faro-shaped batch with one exception and a fresh trace id, posted same-origin to /rum like the browser
+    # does, must become a runtime:browser issue carrying that trace id and the storefront's release.
+    gt_sf_trace="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+    gt_sf_want="$(grep -a -m1 'Release identity:' "$ROOT/.run/storefront.log" 2>/dev/null | grep -oE 'service\.version=[^ ]+' | cut -d= -f2)"
+    curl -s -m 10 -o /dev/null -X POST "http://localhost:3000/rum" -H 'content-type: application/json' -H 'sec-fetch-site: same-origin' \
+      -d "{\"meta\":{\"app\":{\"name\":\"storefront\",\"version\":\"${gt_sf_want:-0.0.0}\",\"environment\":\"dev\"},\"page\":{\"url\":\"http://localhost:3000/probe/client-error?x=1\"}},\"exceptions\":[{\"type\":\"Error\",\"value\":\"L20c relay probe\",\"timestamp\":\"$(date -u '+%Y-%m-%dT%H:%M:%S.000Z')\",\"stacktrace\":{\"frames\":[{\"filename\":\"http://localhost:3000/_next/static/chunks/app/probe/client-error/page.js\",\"function\":\"ClientErrorProbe\",\"lineno\":1,\"colno\":1}]},\"trace\":{\"trace_id\":\"$gt_sf_trace\",\"span_id\":\"${gt_sf_trace:0:16}\"}}]}" || true
+    gt_sf_issue=""
+    for i in $(seq 1 20); do
+      gt_sf_issue="$(gt_json "projects/3commerce/storefront/issues/?query=trace_id:$gt_sf_trace" "d[0]['id'] if d else None")"
+      [[ -n "$gt_sf_issue" ]] && break; sleep 3
+    done
+    if [[ -z "$gt_sf_issue" ]]; then
+      fail "L20c storefront browser error via /rum → GlitchTip (no storefront issue with trace_id $gt_sf_trace after 60 s)"
+    else
+      gt_sf_release="$(gt_json "issues/$gt_sf_issue/events/latest/" "next((t['value'] for t in d.get('tags', []) if t['key'] == 'release'), None)")"
+      if [[ -n "$gt_sf_want" && "$gt_sf_release" == "$gt_sf_want" ]]; then
+        pass "L20c storefront browser error via /rum → GlitchTip issue $gt_sf_issue (trace_id $gt_sf_trace, release $gt_sf_release)"
+      else
+        fail "L20c storefront browser error release (issue $gt_sf_issue carries '${gt_sf_release:-none}', storefront runs '${gt_sf_want:-?}')"
+      fi
+    fi
   else
     echo "  (skipped: GlitchTip not running — it is part of the full infra set only)"
   fi
