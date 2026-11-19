@@ -132,7 +132,16 @@ case "$DATA_PROFILE" in
   catalog)
     j=$(mktemp)
     curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
-    curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
+    # The import runs inside the request, and the gateway gives a request 30 s (ActivityTimeout). Right after a
+    # cold start (JIT, EF model build, every service warming up) it takes 12–18 s, occasionally over 30 s: the
+    # gateway then answers 504 and the aborted request CANCELS the import (catalog logs 499, the run never
+    # completes). It is an idempotent upsert, so retry it — warm, it takes ~7 s.
+    for attempt in 1 2 3; do
+      code="$(curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w '%{http_code}')"
+      echo "seed import: $code (attempt $attempt)"
+      [[ "$code" == 2* ]] && break
+    done
+    rm -f "$j"
     ;;
   # The demo seed exits non-zero when a required step (e.g. a checkout) failed: finish bringing the stack up
   # anyway (the rest of the data is there), then say so and exit with its code — see SEED_RC below.

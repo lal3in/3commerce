@@ -872,6 +872,9 @@
 #       fetch carries traceparent; a Stripe stand-in iframe sends nothing, a framed storefront page starts no Faro,
 #       Stripe requests carry no traceparent; the /rum relay answers 202 (fails soft without the faro receiver),
 #       413 over the cap, 400 for malformed JSON, 403 cross-site; a production chunk's .map is 404
+#       dev-infra portals (e2e/infra-portals.spec.ts; each skips when its portal is down, i.e. on the core set): RabbitMQ
+#       queues after a real checkout, Kafka UI online + a produced message, pgAdmin reveals ordering_db, and GlitchTip
+#       (ADR-0067) signs in and lists the ErrorProbeException issue a catalog /health/error-probe 500 just created;
 #   L20b Telemetry reaches the LGTM stack (observability audit P0-3/P1-1/P1-4): after the live journeys, Loki holds
 #       gateway logs (OTLP logs pipeline, service_name=gateway) and Tempo holds Npgsql DB spans
 #       (span.db.system.name=postgresql) and Admin traces (resource.service.name=admin, from L20's admin flows);

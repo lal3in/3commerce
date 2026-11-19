@@ -11,7 +11,7 @@ fake/sandbox rails and launch gates are described accurately.
 
 | Requirement | Notes |
 |-------------|-------|
-| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. |
+| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. **VM size: 6 GiB is enough** for the bare-run stack — the full infra set (incl. GlitchTip) + all services + frontends, seeded, peaked at 4479 MB used of 5911 MB (p99 4194 MB; measured 2026-11-19, ADR-0067). Container image builds need more (below). |
 | **.NET 10 SDK** | Installed user-locally at `~/.dotnet` (no sudo). `DOTNET_ROOT=$HOME/.dotnet`; ensure `~/.dotnet` and `~/.dotnet/tools` are on `PATH`. `.envrc` (direnv) sets this for you — run `direnv allow` after editing it. |
 | **Node.js** | For the Next.js storefront and Playwright. CI uses Node 22. |
 | **dotnet-ef tool** | For applying migrations: `dotnet tool install --global dotnet-ef`. |

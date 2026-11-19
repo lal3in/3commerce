@@ -464,6 +464,11 @@ Ledger postings (Payments):
 
 ## Local dev stack
 
+- **The seed import can 504 on a cold stack — and then it did NOT run.** `POST /api/catalog/admin/import-runs` imports
+  inside the request; the gateway gives a request 30 s (`ActivityTimeout`). Cold (right after start) it takes 12–18 s and
+  occasionally passes 30 s: the gateway answers 504, the aborted request cancels the import (catalog `499`, the ImportRun
+  row never gets `CompletedAt`). Warm it takes ~7 s. `dev-up.sh` retries it (idempotent upsert); anything else that
+  seeds right after a start should too, or call catalog on `:5102` directly.
 - **The infra is all-or-nothing — never start/stop individual infra containers by hand; use
   `scripts/dev-up.sh` / `scripts/dev-down.sh`.** The set (every `docker-compose.infra.yml` service under
   `portals` + the observability services borrowed from `docker-compose.yml`) has ONE definition,

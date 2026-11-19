@@ -138,8 +138,12 @@ release stage.
 
 ## Memory (6 GB dev VM)
 
-Measured with the whole stack up (full infra set incl. GlitchTip, 13 services, gateway, worker, 3 frontends, seeded):
-see the PR and the amendment below for the numbers, compared with the 2026-11-19 baseline (VM used 3651 MB of 5911).
+Measured 2026-11-19 with the whole stack up (full infra set incl. GlitchTip, 13 services, gateway, worker, 3
+frontends, seeded; existing volumes), sampled every ~7 s for 3.5 h (879 samples): **peak VM used 4479 MB** of 5911 MB
+(lowest available 1431 MB) during infra start + migrations (Loki WAL replay at 1267 MiB), p99 4194, p95 3846, p50
+3297 MB; GlitchTip itself ~170 MiB steady (limit 512M). Baseline before GlitchTip: 3651 MB (a short 18-sample run, so
+most of the difference at the peak is start-up variance). Peak + 1 GiB margin = 5503 MB: **fits in the 6 GB VM**, with
+~408 MB to spare — Pyroscope (P2-1) must be re-measured before it joins the set.
 
 ## Consequences
 

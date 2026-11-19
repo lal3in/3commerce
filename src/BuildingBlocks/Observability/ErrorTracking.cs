@@ -74,12 +74,53 @@ public static class ErrorTracking
         }
 
         builder.Services.AddHttpContextAccessor();
+        var before = builder.Services.Count;
         builder.UseSentry(options =>
         {
             Configure(options, dsn, release);
             configure?.Invoke(options);
         });
+        WithoutLogScopes(builder.Services, before);
         return true;
+    }
+
+    /// <summary>
+    /// Sentry's logger turns EVERY ILogger scope into a pushed (cloned) SDK scope — one per request, per consumed
+    /// message, per EF/MassTransit scope — only to copy the scope state into tags. Our events take their context from
+    /// the trace id and the route instead, the scope state is mostly the raw RequestPath we drop anyway, and the copy
+    /// costs on hot paths (a cold catalog import logs ~650k records). So the Sentry logger providers that
+    /// <c>UseSentry</c> just registered are wrapped in a decorator whose loggers forward Log/IsEnabled and make
+    /// BeginScope a no-op.
+    /// </summary>
+    private static void WithoutLogScopes(IServiceCollection services, int firstNew)
+    {
+        for (var i = firstNew; i < services.Count; i++)
+        {
+            var descriptor = services[i];
+            if (descriptor.ServiceType != typeof(ILoggerProvider) || descriptor.ImplementationFactory is not { } factory)
+            {
+                continue;
+            }
+
+            services[i] = ServiceDescriptor.Singleton<ILoggerProvider>(sp => new ScopelessLoggerProvider((ILoggerProvider)factory(sp)));
+        }
+    }
+
+    private sealed class ScopelessLoggerProvider(ILoggerProvider inner) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new ScopelessLogger(inner.CreateLogger(categoryName));
+
+        public void Dispose() => inner.Dispose();
+    }
+
+    private sealed class ScopelessLogger(ILogger inner) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => inner.IsEnabled(logLevel);
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            inner.Log(logLevel, eventId, state, exception, formatter);
     }
 
     /// <summary>The option set <see cref="AddErrorTracking"/> applies (public for the unit tests).</summary>

@@ -224,7 +224,9 @@ public sealed class ErrorTrackingTests
         Assert.Equal(HealthEndpoints.ErrorProbePath, root.GetProperty("tags").GetProperty("http.route").GetString());
         // No request data at all (URL, query, headers, cookies, body, client IP): at most an empty object.
         Assert.True(!root.TryGetProperty("request", out var request) || !request.EnumerateObject().Any(), request.ToString());
+        // Log scopes are not pushed into Sentry at all (ScopelessLogger): no RequestPath, no RequestId.
         Assert.False(root.GetProperty("tags").TryGetProperty("RequestPath", out _));
+        Assert.False(root.GetProperty("tags").TryGetProperty("RequestId", out _));
         Assert.False(root.TryGetProperty("breadcrumbs", out var crumbs) && crumbs.ValueKind == JsonValueKind.Array && crumbs.GetArrayLength() > 0);
         Assert.DoesNotContain(probeEvents.Concat(ingest.Events), e => e.Contains("ProblemException", StringComparison.Ordinal));
 
