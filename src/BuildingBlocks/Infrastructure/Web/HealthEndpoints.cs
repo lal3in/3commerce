@@ -34,7 +34,7 @@ public static class HealthEndpoints
         app.MapHealthChecks("/health/ready");
         if (!app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsProduction())
         {
-            app.MapGet(ErrorProbePath, IResult () => throw new ErrorProbeException());
+            app.MapGet(ErrorProbePath, IResult () => throw new ErrorProbeException()).ExcludeFromDescription();
         }
 
         return app;

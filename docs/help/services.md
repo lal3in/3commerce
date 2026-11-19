@@ -5,6 +5,10 @@ Each owns a Postgres database + named schema, sits behind the YARP gateway with 
 uses the MassTransit EF outbox. See [services.html](./services.html) for every endpoint and the use cases
 per option, and the [API contracts index](../api/api_contracts_index.md).
 
+Every service (and the Notifications worker) also answers three **internal** paths the gateway never routes:
+`/health/live`, `/health/ready`, and — outside Production only — `/health/error-probe`, a deliberate 500 that proves
+the error path into the GlitchTip inbox ([ADR-0067](../adr/0067-glitchtip-error-inbox.md)).
+
 | Service | Gateway | Port | Owns |
 |---|---|---|---|
 | Marketing | `/api/marketing` | 5108 | Campaigns, short links (mt5_1/5_3); consent-aware **analytics collection** (anonymous `POST /events`, batch ≤50, deduped, coarse IP; admin `GET /admin/analytics/events`); **content publishing** (`/admin/content` draft → publish/schedule/rollback, anonymous `GET /content/{key}` for published content, signed expiring preview links; a Quartz job sweeps due scheduled publishes every minute) |

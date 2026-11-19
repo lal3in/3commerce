@@ -74,7 +74,7 @@ public record AddItemRequest(
 - **Idempotency:** every money-moving or saga-triggering POST accepts an `Idempotency-Key` header (replays return the original result); consumers/webhooks dedup by message/event ID — both via shared endpoint filter / consumer middleware in `BuildingBlocks`.
 - **Outbox rule:** any handler that writes state **and** needs to notify others publishes through the MassTransit EF outbox in the same transaction — never `IPublishEndpoint` outside it (ADR-0007).
 - **Rate limiting** is the gateway's job; services don't duplicate it (ADR-0011). Webhook endpoints (`/webhooks/stripe`) are the exception: signature verification *in the service*, always.
-- **Health checks:** every service exposes `/health/live` and `/health/ready` (DB + broker checks) — excluded from OpenAPI and gateway public routes.
+- **Health checks:** every service exposes `/health/live` and `/health/ready` (DB + broker checks) — excluded from OpenAPI and gateway public routes. Outside Production `MapServiceHealth` also maps `/health/error-probe` (a deliberate 500 for the error-inbox check, ADR-0067); keep any such diagnostic under `/health/` so the gateway's `/api/*/health*` block covers it.
 
 ## 8. OpenAPI & contract documentation
 
