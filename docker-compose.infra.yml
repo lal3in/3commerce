@@ -178,6 +178,64 @@ services:
       timeout: 5s
       retries: 12
 
+  # GlitchTip error inbox (http://localhost:8000, ADR-0067; owner decision Q5) — Sentry-API-compatible issue
+  # triage: grouped issues, first-seen/regressions, assign/resolve. Every .NET host and the storefront report
+  # errors here (SENTRY_DSN, handed out by scripts/lib/glitchtip.sh) with the release identity and the trace id,
+  # so an issue leads to its trace in Grafana. Lean on purpose (6 GB dev VM):
+  #   - ONE process: GlitchTip 7 serves HTTP and runs the task worker + scheduler in the same granian process
+  #     (SERVER_ROLE / GLITCHTIP_EMBED_WORKER were removed in 7.0); one granian worker, ingest concurrency 2;
+  #   - no Valkey: VALKEY_URL="" puts the task queue and cache in its Postgres database (the shared dev Postgres,
+  #     database + role `glitchtip`, created on demand by the entrypoint — existing volumes included);
+  #   - logs ingestion and uptime monitoring off (Loki and the alert rules do those jobs), short retention.
+  # Dev identities (admin sign-in, the fixed DSNs, a read-only API token) live in glitchtip/glitchtip.env.
+  glitchtip:
+    image: glitchtip/glitchtip:7.0.0
+    container_name: 3commerce-glitchtip
+    profiles: ["portals"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/etc/glitchtip/entrypoint.sh"]
+    env_file:
+      - deploy/observability/glitchtip/glitchtip.env
+    environment:
+      GLITCHTIP_DB_ADMIN_URL: postgres://postgres:postgres_dev@postgres:5432/postgres   # dev superuser: entrypoint only
+      GLITCHTIP_DB_PASSWORD: glitchtip_dev
+      DATABASE_URL: postgres://glitchtip:glitchtip_dev@postgres:5432/glitchtip
+      DATABASE_POOL_MIN_SIZE: "1"
+      DATABASE_POOL_MAX_SIZE: "4"      # the shared Postgres also serves 14 services' pools
+      VALKEY_URL: ""
+      SECRET_KEY: glitchtip_dev_secret_key_not_for_production
+      GLITCHTIP_DOMAIN: http://localhost:8000
+      ALLOWED_HOSTS: localhost,127.0.0.1,glitchtip
+      ENABLE_USER_REGISTRATION: "false"
+      ENABLE_ORGANIZATION_CREATION: "false"
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      GRANIAN_WORKERS: "1"
+      VTASKS_INGEST_CONCURRENCY: "2"
+      GLITCHTIP_ENABLE_LOGS: "false"
+      GLITCHTIP_ENABLE_UPTIME: "false"
+      GLITCHTIP_RETENTION_DAYS: "14"
+      GLITCHTIP_PII_SCRUB_DEFAULT: '{"enabled": true, "scrub_emails": true}'
+      LOG_LEVEL: WARNING
+      GRANIAN_LOG_LEVEL: WARNING
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./deploy/observability/glitchtip/entrypoint.sh:/etc/glitchtip/entrypoint.sh:ro
+      - ./deploy/observability/glitchtip/bootstrap.py:/etc/glitchtip/bootstrap.py:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "/code/healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
 volumes:
   pgdata:
   pgadmin_data:
