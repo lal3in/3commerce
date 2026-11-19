@@ -16,6 +16,12 @@ notifications:
 # Telemetry ships to the self-hosted LGTM install set (ADR-0065 Q1) — install it first:
 #   deploy/helm/observability/install-lgtm.sh   (Loki/Tempo/Mimir on object storage + Grafana with alerting)
 # The collector tail-samples (keep errors, slow traces and checkout/payment routes, 15 % of the rest).
+# Error inbox (ADR-0067): create the Secret from the DSNs of the production GlitchTip projects first —
+#   kubectl create secret generic glitchtip-dsn --from-literal=backend=<dsn> --from-literal=storefront=<dsn>
+# (runbook "Error inbox (GlitchTip)"); without it the pods start with error tracking off.
+errorTracking:
+  dsnSecret: glitchtip-dsn
+
 observability:
   enabled: true
   backend: external

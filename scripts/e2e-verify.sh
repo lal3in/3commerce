@@ -394,6 +394,14 @@
 #       vaults with NO email whose account is in the vault's tenant (Recorded / Differs / NoAccount never sent), one
 #       command per member, --limit caps sends not counts, a re-run selects 0, the report never prints an email, safe
 #       CLI, queue payment-customer-email, deterministic message id per (tenant, member)
+#   A3zq Unit · GlitchTip error inbox (ADR-0067; ErrorTrackingTests): off without a DSN (nothing registered); DSN from
+#       Sentry:Dsn then SENTRY_DSN; options = release service.version + environment + server/service tags, Error events
+#       only, no breadcrumbs / PII / user / sentry-trace+baggage+traceparent headers / HTTP-client capture; an event gets
+#       the OTel trace + span id (context + trace_id tag) and the route template, and loses emails, tokens, secrets,
+#       JWTs, the raw RequestPath scope tag and any user/request data; 4xx IProblemException/BadHttpRequestException are
+#       filtered, 5xx and defects kept; /health/error-probe exists outside Production only; end to end through a fake
+#       ingest: the probe's 500 becomes ONE event with the release, the trace id of its problem+json and its route, a
+#       409 none
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -752,6 +760,9 @@
 #       agent but keeps trace ids and is never mutated; beforeSend drops Stripe-originated errors; Faro starts only in
 #       the top-level non-Stripe window; deployment.environment.name resolution (explicit OTEL_RESOURCE_ATTRIBUTES
 #       wins); error reference = digest, else SSR trace id; global-error copy == messages errorPage in all 6 locales
+#       + error inbox conversion (ADR-0067): a DSN parses to its store endpoint; Faro exceptions become events with
+#       release, environment, trace id, support_ref, Sentry-ordered frames and no session/user/UA/email/query; no
+#       exceptions = nothing, a flood is capped; an SSR error becomes a node event with digest, route and trace id
 #   A8  No vulnerable NuGet packages
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
@@ -867,6 +878,12 @@
 #       Loki holds "Security:" lines under log_category=security (ADR-0065 Q2), Mimir the MassTransit consume counter
 #       and the System.Runtime GC counter.
 #       Skipped, not failed, when Loki/Tempo are not running (the core infra set in PR CI has no LGTM)
+#   L20c Error inbox (GlitchTip, ADR-0067; owner decision Q5): catalog's internal /health/error-probe answers 500
+#       problem+json with a W3C traceId, and GlitchTip's backend project gets an issue tagged with that trace_id whose
+#       latest event carries catalog's release (its "Release identity:" service.version); the storefront project has a
+#       runtime:node issue (L20's /probe/error via onRequestError) and a runtime:browser issue (/probe/client-error via
+#       Faro → /rum relay) seen during this run, each with a trace id and a release. Skipped when GlitchTip is not
+#       running (the core infra set)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -895,6 +912,7 @@ MODE="auto"
 source "$ROOT/scripts/lib/infra.sh"
 source "$ROOT/scripts/lib/release.sh"   # release_revision (ADR-0064): what an own boot stamps + L2b expects
 source "$ROOT/scripts/lib/procs.sh"
+source "$ROOT/scripts/lib/glitchtip.sh"  # the dev error inbox (ADR-0067): SENTRY_DSN for the frontends, L20c queries
 
 PASS=0 FAIL=0
 declare -a FAILED=()
@@ -1156,6 +1174,11 @@ run_automated() {
       --filter 'Category!=Integration&(FullyQualifiedName~ServiceTelemetryInstrumentationTests|FullyQualifiedName~StreamTracePropagationTests|FullyQualifiedName~BlazorTelemetryTests|FullyQualifiedName~SecurityLogTests)' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zo .NET instrumentation"; else fail "A3zo .NET instrumentation"; fi
 
+  stage "A3zq GlitchTip error inbox (ADR-0067) — DSN-gated, release + trace id, scrubbed, client errors filtered, probe"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ErrorTrackingTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zq error inbox (GlitchTip)"; else fail "A3zq error inbox (GlitchTip)"; fi
+
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
   # The whole run is kept: a one-off failure must be diagnosable after the fact, not only by a rerun that passes.
@@ -1264,6 +1287,7 @@ live_teardown() {
 
 run_live() {
   STACK_OWNED=1; INFRA_OWNED=0
+  LIVE_START_ISO="$(date -u '+%Y-%m-%dT%H:%M:%S')"   # L20c: only error-inbox issues seen during THIS run count
   mkdir -p "$ROOT/.run"
   infra_load || { fail "live: cannot read the infra set (docker compose config failed)"; return; }
   local infra irc
@@ -1367,17 +1391,18 @@ run_live() {
          OTEL_RESOURCE_ATTRIBUTES="${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment.name=dev}" \
          OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
          FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
+         SENTRY_DSN="${STOREFRONT_SENTRY_DSN-$(glitchtip_dsn storefront)}" \
          npm run start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
-    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >"$ROOT/.run/admin.log" 2>&1 & )
+    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet "$admin_dll" >"$ROOT/.run/admin.log" 2>&1 & )
   else
     echo "  WARNING: admin DLL not found at $admin_dll — admin E2E will be skipped"
   fi
   local supplier_dll="$ROOT/src/SupplierPortal/bin/Debug/net10.0/3commerce.SupplierPortal.dll"
   if [[ -f "$supplier_dll" ]]; then
-    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >"$ROOT/.run/supplier-portal.log" 2>&1 & )
+    ( OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet "$supplier_dll" >"$ROOT/.run/supplier-portal.log" 2>&1 & )
   else
     echo "  WARNING: supplier portal DLL not found at $supplier_dll — supplier E2E will be skipped"
   fi
@@ -1686,6 +1711,71 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
     if tel_poll tel_tempo '{resource.service.name="admin"}'; then pass "L20b Admin traces in Tempo"; else fail "L20b Admin traces in Tempo"; fi
   else
     echo "  (skipped: Loki/Tempo not running — the LGTM services are part of the full infra set only)"
+  fi
+
+  stage "L20c Error inbox (GlitchTip, ADR-0067) — a .NET 500 and the storefront's error probes become issues with release + trace id"
+  if curl -fsS -m 3 -o /dev/null http://localhost:8000/_health/; then
+    # gt_json <api path> <python expr over `d`>: prints the expression's value ('' on any failure).
+    gt_json() {
+      glitchtip_api "$1" 2>/dev/null | python3 -c "import json,sys
+try:
+    d = json.load(sys.stdin); v = $2
+    print(v if v is not None else '')
+except Exception:
+    print('')" 2>/dev/null
+    }
+    # .NET: the catalog service's internal error probe (gateway-unreachable; not mapped in Production). Its 500
+    # problem+json names the request's W3C trace id; the inbox must hold an issue carrying that trace id, and the
+    # latest event of it must carry catalog's release (the "Release identity:" line L2b checked).
+    local probe gt_trace gt_issue gt_release gt_want i
+    probe="$(curl -s -m 10 http://localhost:5102/health/error-probe 2>/dev/null)"
+    gt_trace="$(grep -oE '"traceId":"00-[0-9a-f]{32}' <<<"$probe" | cut -d- -f2)"
+    gt_want="$(grep -a -m1 'Release identity:' "$ROOT/.run/catalog.log" 2>/dev/null | grep -oE 'service\.version=[^ ]+' | cut -d= -f2)"
+    gt_issue=""
+    if [[ -n "$gt_trace" ]]; then
+      for i in $(seq 1 20); do
+        gt_issue="$(gt_json "projects/3commerce/backend/issues/?query=trace_id:$gt_trace" "d[0]['id'] if d else None")"
+        [[ -n "$gt_issue" ]] && break; sleep 3
+      done
+    fi
+    if [[ -z "$gt_trace" ]]; then
+      fail "L20c .NET error probe (no 500 problem+json with a traceId from catalog /health/error-probe: ${probe:0:160})"
+    elif [[ -z "$gt_issue" ]]; then
+      fail "L20c .NET error → GlitchTip (no backend issue with trace_id $gt_trace after 60 s)"
+    else
+      gt_release="$(gt_json "issues/$gt_issue/events/latest/" "next((t['value'] for t in d.get('tags', []) if t['key'] == 'release'), None)")"
+      if [[ -n "$gt_want" && "$gt_release" == "$gt_want" ]]; then
+        pass "L20c .NET error → GlitchTip issue $gt_issue (trace_id $gt_trace, release $gt_release)"
+      else
+        fail "L20c .NET error release (issue $gt_issue carries '${gt_release:-none}', catalog runs '${gt_want:-?}')"
+      fi
+    fi
+    # Storefront: L20's observability spec hit /probe/error (SSR → onRequestError) and /probe/client-error (browser →
+    # Faro → /rum relay). Both must have been SEEN during this run, each with a trace id and the storefront release.
+    local gt_runtime gt_seen
+    for gt_runtime in node browser; do
+      gt_seen=""
+      for i in $(seq 1 20); do
+        gt_seen="$(gt_json "projects/3commerce/storefront/issues/?query=runtime:$gt_runtime" \
+          "next((i['id'] for i in d if i['lastSeen'] >= '$LIVE_START_ISO'), None)")"
+        [[ -n "$gt_seen" ]] && break; sleep 3
+      done
+      if [[ -z "$gt_seen" ]]; then
+        if [[ -f "$ROOT/src/Storefront/node_modules/.bin/playwright" ]]; then
+          fail "L20c storefront $gt_runtime error → GlitchTip (no issue seen during this run)"
+        else
+          echo "  (skipped: storefront $gt_runtime error — Playwright not installed, L20 did not run the probes)"
+        fi
+        continue
+      fi
+      if [[ -n "$(gt_json "issues/$gt_seen/events/latest/" "d['contexts']['trace']['trace_id'] if d.get('contexts', {}).get('trace', {}).get('trace_id') and any(t['key'] == 'release' and t['value'] not in ('', '0.0.0') for t in d.get('tags', [])) else None")" ]]; then
+        pass "L20c storefront $gt_runtime error → GlitchTip issue $gt_seen (trace id + release)"
+      else
+        fail "L20c storefront $gt_runtime error (issue $gt_seen lacks a trace id or a release)"
+      fi
+    done
+  else
+    echo "  (skipped: GlitchTip not running — it is part of the full infra set only)"
   fi
 
   live_teardown

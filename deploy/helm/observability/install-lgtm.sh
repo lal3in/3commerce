@@ -11,6 +11,7 @@
 #   NAMESPACE      target namespace (default observability — the collector's external.* defaults assume it)
 #   S3_ENDPOINT    object storage host[:port], no scheme (e.g. s3.eu-central-1.amazonaws.com, minio.storage:9000)
 #   S3_REGION      bucket region (e.g. eu-central-1)
+#   GLITCHTIP_DOMAIN  the error inbox's external https URL (e.g. https://errors.example.com) — links in its emails
 # Buckets (create them first; names in values-*.yaml): 3commerce-loki-{chunks,ruler,admin}, 3commerce-tempo-traces,
 # 3commerce-mimir-{blocks,ruler,alertmanager}. Give them NO lifecycle rule shorter than the retention: the backends
 # delete expired data themselves (Loki 30 d / security 12 months, Tempo 14 d, Mimir 13 months).
@@ -20,6 +21,8 @@
 #   grafana-admin        admin-user, admin-password
 #   grafana-alerting     GF_SMTP_HOST, GF_SMTP_USER, GF_SMTP_PASSWORD, GF_SMTP_FROM_ADDRESS (Q8; the recipient is
 #                        NOT a secret — it comes from deploy/observability/alerting.env)
+#   glitchtip-secret-key SECRET_KEY · glitchtip-database DATABASE_URL · glitchtip-email EMAIL_URL (optional) —
+#                        see values-glitchtip.yaml (ADR-0067)
 # Runbook: docs/runbooks/observability.md.
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -32,6 +35,9 @@ LOKI_CHART=21.3.1        # Loki 3.7.10
 TEMPO_CHART=3.2.1        # Tempo 3.1.1 (single binary)
 MIMIR_CHART=6.2.2        # Mimir 3.2.3
 GRAFANA_CHART=14.5.0     # Grafana 13.3.1
+# GlitchTip error inbox (ADR-0067) — its chart lives in GlitchTip's GitLab package registry.
+GLITCHTIP=https://gitlab.com/api/v4/projects/16325141/packages/helm/stable
+GLITCHTIP_CHART=9.2.0    # GlitchTip 7.0.0
 
 NAMESPACE="${NAMESPACE:-observability}"
 DIR=deploy/helm/observability
@@ -43,12 +49,14 @@ OUT="${OUT:-.run/lgtm-rendered}"
 if [[ "$MODE" == install ]]; then
   : "${S3_ENDPOINT:?set S3_ENDPOINT (object storage host[:port])}"
   : "${S3_REGION:?set S3_REGION}"
-  for s in grafana-admin grafana-alerting; do
+  : "${GLITCHTIP_DOMAIN:?set GLITCHTIP_DOMAIN (the external https URL of the error inbox)}"
+  for s in grafana-admin grafana-alerting glitchtip-secret-key glitchtip-database; do
     kubectl -n "$NAMESPACE" get secret "$s" >/dev/null 2>&1 \
       || { echo "missing Secret $NAMESPACE/$s — see the header of $0" >&2; exit 1; }
   done
 else
   S3_ENDPOINT="${S3_ENDPOINT:-s3.example.invalid}"; S3_REGION="${S3_REGION:-eu-central-1}"
+  GLITCHTIP_DOMAIN="${GLITCHTIP_DOMAIN:-https://errors.example.invalid}"
   mkdir -p "$OUT"
 fi
 
@@ -82,7 +90,13 @@ ALERT_EMAIL_TO="$(sed -n 's/^ALERT_EMAIL_TO=//p' deploy/observability/alerting.e
 run grafana "$COMMUNITY" grafana           "$GRAFANA_CHART" "$DIR/values-grafana.yaml" \
   --set-string env.ALERT_EMAIL_TO="$ALERT_EMAIL_TO"
 
+# The error inbox (ADR-0067). Its DSNs go to the app chart as the Secret glitchtip-dsn (runbook).
+run glitchtip "$GLITCHTIP" glitchtip "$GLITCHTIP_CHART" "$DIR/values-glitchtip.yaml" \
+  --set-string glitchtip.domain="$GLITCHTIP_DOMAIN"
+
 if [[ "$MODE" == install ]]; then
   echo "LGTM installed in $NAMESPACE. Point the app at it: helm upgrade … -f deploy/helm/3commerce/values-prod.yaml"
   echo "Grafana: kubectl -n $NAMESPACE port-forward svc/grafana 3001:80  → Alerting shows the provisioned rules."
+  echo "GlitchTip: kubectl -n $NAMESPACE port-forward svc/glitchtip 8000:80 → create the backend + storefront projects, then"
+  echo "  kubectl -n <app namespace> create secret generic glitchtip-dsn --from-literal=backend=<dsn> --from-literal=storefront=<dsn>"
 fi

@@ -37,3 +37,17 @@ Host=postgres;Port=5432;Database={{ . }}_db;Username={{ . }}_svc;Password={{ . }
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{- /* Error inbox (ADR-0067): SENTRY_DSN from `errorTracking.dsnSecret` (key `backend` for every .NET process,
+       `storefront` for the storefront). `optional: true`, so a missing Secret or key leaves error tracking OFF rather
+       than failing the pod. Renders nothing when no Secret is named. Takes a dict {root, key}. */ -}}
+{{- define "3commerce.errorTrackingEnv" -}}
+{{- with .root.Values.errorTracking.dsnSecret }}
+- name: SENTRY_DSN
+  valueFrom:
+    secretKeyRef:
+      name: {{ . }}
+      key: {{ $.key }}
+      optional: true
+{{- end }}
+{{- end -}}

@@ -32,6 +32,7 @@ spec:
             {{- end }}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
             {{- include "3commerce.otlpEnv" . | nindent 12 }}
+            {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 ---
@@ -63,6 +64,9 @@ spec:
               value: "true"
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.environment | quote }}
+            {{- /* ADR-0064 environment + ADR-0067 error inbox: the portal's errors carry the release stage. */}}
+            {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
+            {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health
@@ -114,6 +118,9 @@ spec:
               value: "true"
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.environment | quote }}
+            {{- /* ADR-0064 environment + ADR-0067 error inbox: the portal's errors carry the release stage. */}}
+            {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
+            {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health
@@ -179,6 +186,8 @@ spec:
               value: "http://otel-collector:8027/"
             {{- end }}
             {{- end }}
+            {{- /* ADR-0067: browser (via /rum) + SSR errors to the GlitchTip inbox, server-side. */}}
+            {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "storefront") | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /

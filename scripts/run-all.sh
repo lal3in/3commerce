@@ -6,6 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh
 source scripts/lib/procs.sh
+source scripts/lib/glitchtip.sh   # SENTRY_DSN of the dev error inbox (ADR-0067)
 
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH"
@@ -56,6 +57,8 @@ start_all() {
     # so bare-run traces/metrics land in Grafana instead of the console. `-` (not `:-`) so an
     # explicitly-empty OTEL_EXPORTER_OTLP_ENDPOINT= still opts a run back out to console traces.
     e+=( "OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" )
+    # Errors to the dev GlitchTip inbox (ADR-0067, infra `portals` set). `-` keeps an explicitly-empty SENTRY_DSN= (off).
+    e+=( "SENTRY_DSN=${SENTRY_DSN-$(glitchtip_dsn backend)}" )
     [[ -n "$port" ]] && e+=( "ASPNETCORE_URLS=http://localhost:$port" )
     # The gateway's auth rate limit (30/min per tenant+storefront+IP, ADR-0044) is a credential-stuffing
     # guard for real, many-IP traffic. In the single-IP dev/E2E stack the whole test suite + seed share one
