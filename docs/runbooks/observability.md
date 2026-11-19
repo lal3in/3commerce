@@ -101,6 +101,26 @@ No collector heartbeat for 5 min: **no telemetry is being stored**. Dev: `docker
 means raise `observability.collector.resources.limits.memory` (memory_limiter keeps 80 % of it). If the collector
 is up but this fires, Mimir is not accepting writes (check the `mimir-distributor` and Kafka pods).
 
+## Logs missing or late in Loki (429 / 400 from the collector)
+
+Loki says why it refused data; read that before raising anything:
+
+```bash
+curl -s localhost:3100/metrics | grep loki_discarded        # dev; prod: the loki pod's :3100/metrics
+docker logs 3commerce-otel-collector 2>&1 | grep -E 'Exporting failed|Dropping data' | tail
+```
+
+| Reason (`loki_discarded_*{reason=…}`) | Collector sees | Effect | Knob |
+|---|---|---|---|
+| `rate_limited` | 429, `Will retry` | Delayed, not lost (retries for up to 5 min) | `ingestion_rate_mb` / `ingestion_burst_size_mb` (per tenant), `per_stream_rate_limit[_burst]` |
+| `line_too_long` | 400, `Dropping data` | The WHOLE push is lost | `max_line_size_truncate: true` (set) |
+| `structured_metadata_too_large` | 400, `Dropping data` | The WHOLE push is lost | collector `transform/truncate_attributes` caps each attribute at 8 KB (set) |
+
+Sizes (2026-11-19): dev and the in-chart kind Loki 16 MB/s, burst 32 MB, 8 MB/s per stream (burst 32 MB);
+production 32 / 64 / 16 / 64 MB — production writes every service as one tenant (`3commerce`). At Loki's defaults
+(4 / 6 / 3 / 15 MB) a seeded dev-up's catalog import was refused ~400k lines' worth of 429s. Don't raise the dev
+values much further: 64 MB/s once got Loki OOM-killed in the 6 GB Colima VM.
+
 ## Security logs (12-month stream)
 
 The collector marks authentication / permission-denied logs (`log.category=security`, by ILogger category — see

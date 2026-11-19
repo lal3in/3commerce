@@ -738,7 +738,7 @@
 #       five malformed blocks are 400 problem+json checkoutBlock 17 naming the field, nothing booked, cart kept.
 #       Browser: e2e/checkout-business-purchase.spec.ts (guest + member, with and without the block; malformed
 #       tax ID refused and marked; capture())
-#   A6c Browser E2E (Playwright) · preview parity (ADR-0054, e2e/promotion-shipping-parity.spec.ts):
+#   A6k Browser E2E (Playwright) · preview parity (ADR-0054, e2e/promotion-shipping-parity.spec.ts):
 #       a shippable cart with no address shows "free shipping may apply" and never the decided row,
 #       and entering an address at checkout quotes the real carrier rate, settles the contest on it,
 #       and the cart then renders the decided reward with no hedging
