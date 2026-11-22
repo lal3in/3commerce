@@ -45,6 +45,9 @@ Privacy and coexistence with OpenTelemetry (`ErrorTracking.Configure`):
   log scope's raw `RequestPath` tag is dropped; `SendDefaultPii = false`, `IsEnvironmentUser = false`, user cleared;
 - **no breadcrumbs** (`MinimumBreadcrumbLevel = None`): without a per-request scope they would mix requests — the
   trace id gives the real context in Loki/Tempo;
+- **no log scopes**: Sentry's logger would push and clone an SDK scope per ILogger scope (every request, message,
+  EF scope) only to copy scope state into tags; the providers `UseSentry` registers are wrapped so `BeginScope` is a
+  no-op (`ScopelessLogger`), and its start-up warning about the missing ASP.NET Core integration is filtered;
 - no Sentry tracing, no `sentry-trace`/`baggage`/`traceparent` headers on outgoing calls (`TracePropagationTargets`
   empty), no HTTP-message-handler, no failed-request capture, no DiagnosticSource integration: OpenTelemetry owns
   tracing and propagation (Stripe and every other outbound call see no new header);
