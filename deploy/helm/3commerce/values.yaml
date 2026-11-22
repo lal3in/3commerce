@@ -64,6 +64,13 @@ pgadmin:
   service:
     port: 80
 
+# Error inbox (ADR-0067): GlitchTip, the self-hosted Sentry-API-compatible issue tracker, installed separately
+# (deploy/helm/observability/values-glitchtip.yaml via install-lgtm.sh). `dsnSecret` names a Secret holding the DSNs of
+# its two projects: key `backend` (every .NET process: services, gateway, worker, Admin, Supplier Portal) and key
+# `storefront` (its /rum relay + SSR errors, sent server-side). Empty = off; a missing Secret or key = off too.
+errorTracking:
+  dsnSecret: ""
+
 # Observability (ADR-0065). One in-chart OTel Collector is the telemetry door: every service/worker/gateway gets
 # OTEL_EXPORTER_OTLP_ENDPOINT (the switch OtelExtensions keys OTLP export on), the storefront relays browser RUM to
 # its Faro receiver, and it fans out — traces → Tempo, logs → Loki, metrics → Mimir remote-write. OFF by default

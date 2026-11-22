@@ -67,7 +67,10 @@ public static class OtelExtensions
                 .AddMeter(MassTransitInstrumentation)
                 .AddNpgsqlInstrumentation()
                 .AddMeter(StreamMetrics.MeterName)
-                .AddMeter(RedisMetrics.MeterName));
+                .AddMeter(RedisMetrics.MeterName),
+            // 4xx answers (domain/validation failures, malformed bodies) are logged at Error by the exception
+            // handler but are not defects: keep them out of the error inbox (ADR-0067).
+            errors => errors.AddExceptionFilter(new ClientErrorExceptionFilter()));
 
         return builder;
     }

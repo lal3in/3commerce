@@ -196,16 +196,17 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md; tax-invoicing-research.md (ADR-0063 jurisdiction research)
 │   ├── security/                  # asvs-l1-audit.md
 │   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks, observability.md (collector/LGTM/alerts, ADR-0065)
-├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter)
+├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter, GlitchTip error inbox :8000 — ADR-0067)
 ├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
 ├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
 ├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
-├── deploy/                        # helm/ (3commerce chart + observability/ = self-hosted LGTM install set, ADR-0065), migrator/ (EF bundles), observability/ (dev collector + LGTM configs, Grafana dashboards + alert rules), pgbouncer/
+├── deploy/                        # helm/ (3commerce chart + observability/ = self-hosted LGTM + GlitchTip install set, ADR-0065/0067), migrator/ (EF bundles), observability/ (dev collector + LGTM configs, Grafana dashboards + alert rules, glitchtip/ = dev error-inbox entrypoint + bootstrap + DSNs), pgbouncer/
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   ├── lib/infra.sh               # THE local infra set (all-or-nothing): infra_up / infra_down / infra_state — dev-up, dev-down, e2e-verify, doctor, host-check
 │   ├── lib/release.sh             # release identity (ADR-0064): release_revision (HEAD SHA + -dirty) / release_version — what builds + images are stamped with
+│   ├── lib/glitchtip.sh           # the dev GlitchTip error inbox (ADR-0067): glitchtip_dsn backend|storefront (SENTRY_DSN for bare-run), glitchtip_api
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
 ├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
@@ -214,7 +215,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── BuildingBlocks/
 │   │   ├── Contracts/             # message contracts ONLY (versioned additively)
 │   │   ├── Infrastructure/        # AddServiceBus (outbox/inbox), AddServiceTelemetry, ProblemDetails, health
-│   │   └── Observability/         # LIGHT OTel block (no MassTransit/EF): ReleaseIdentity, AddTelemetryCore, Blazor telemetry (Admin/SupplierPortal)
+│   │   └── Observability/         # LIGHT OTel block (no MassTransit/EF): ReleaseIdentity, AddTelemetryCore, ErrorTracking (GlitchTip, ADR-0067), Blazor telemetry (Admin/SupplierPortal)
 │   ├── Gateway/                   # YARP (port 8080); Dockerfile per runnable project
 │   ├── Services/
 │   │   ├── Identity/  ├── Catalog/  ├── Ordering/  ├── Payments/  ├── Fulfillment/  ├── Support/  ├── Entity/
@@ -412,10 +413,10 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 
 ## Notes
 
-- **Canonical ports:** services 5101–5113 + Notifications worker 5114 — the authoritative map is `scripts/lib/services.sh`, don't copy it here. Gateway 8080 · Storefront 3000 · Admin 5200 · SupplierPortal 5300 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest).
+- **Canonical ports:** services 5101–5113 + Notifications worker 5114 — the authoritative map is `scripts/lib/services.sh`, don't copy it here. Gateway 8080 · Storefront 3000 · Admin 5200 · SupplierPortal 5300 · Postgres 5432 · RabbitMQ 5672 (UI 15672, guest/guest) · GlitchTip 8000.
 - **Namespaces:** projects are `3commerce.*` but namespaces are `ThreeCommerce.*` (C# forbids digit-leading namespaces; mapped in `Directory.Build.props`).
 - **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
-- **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly.
+- **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly. The bare-run stack fits the 6 GiB VM: full infra (incl. GlitchTip) + services + frontends, seeded, peaked at 4479 MB of 5911 MB (2026-11-19, ADR-0067) — re-measure when the infra set grows.
 - Service health endpoints (`/health/live|ready`) are internal-only; the gateway returns 404 for any `/api/*/health*` path.
 - Stripe runs **test mode only** and Xero against a demo org until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
 - Currency and tax are per storefront (ADR-0038; currencies come from the Entity registry, ADR-0046), tax via `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.

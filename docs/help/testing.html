@@ -174,6 +174,7 @@ scripts/e2e-verify.sh --live-only</code></pre>
               <tr><td>L14</td><td>Storefront SSR: home/search/product render; <code>/account</code> redirects (307)</td></tr>
               <tr><td>L15–L19</td><td>Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal</td></tr>
               <tr><td>L20</td><td><strong>Storefront + Admin + Supplier Playwright E2E</strong> in a real browser (the specs above)</td></tr>
+              <tr><td>L20c</td><td><strong>Error inbox (GlitchTip, ADR-0067)</strong>: a catalog <code>/health/error-probe</code> 500's trace id and release land as a <code>backend</code> issue; the storefront's SSR and browser error probes land as <code>runtime:node</code> / <code>runtime:browser</code> issues with a trace id and a release (unit side: A3zq <code>ErrorTrackingTests</code>, A7d)</td></tr>
             </tbody>
           </table>
         </div>

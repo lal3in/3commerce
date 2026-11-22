@@ -8,6 +8,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib/services.sh
 source scripts/lib/infra.sh
+source scripts/lib/glitchtip.sh   # the dev error inbox (ADR-0067): its issue counts
 SIG='error|exception|fatal|fail|refused|unable to|cannot |timed out|denied|panic'
 
 echo "── infra (all-or-nothing: up / down / PARTIAL — scripts/lib/infra.sh, $INFRA_SET set) ──"
@@ -34,9 +35,10 @@ for nf in storefront:3000 admin:5200 supplier-portal:5300; do
   printf '    %-15s :%-5s %s\n' "$n" "$p" "$c"
 done
 
-echo "── observability (ADR-0065) ──"
-# collector health_check · Faro receiver (browser RUM; GET answers 405 when listening) · Grafana-provisioned alert rules.
-for x in otel-collector:13133:/ faro-receiver:8027:/ grafana:3001:/api/health; do
+echo "── observability (ADR-0065, ADR-0067) ──"
+# collector health_check · Faro receiver (browser RUM; GET answers 405 when listening) · Grafana-provisioned alert rules ·
+# the GlitchTip error inbox (health + its unresolved issue count per project).
+for x in otel-collector:13133:/ faro-receiver:8027:/ grafana:3001:/api/health glitchtip:8000:/_health/; do
   n="${x%%:*}"; rest="${x#*:}"; p="${rest%%:*}"; pa="${rest#*:}"
   c=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://localhost:$p$pa" 2>/dev/null); [[ "$c" == 000 || -z "$c" ]] && c=down
   printf '    %-15s :%-5s %s\n' "$n" "$p" "$c"
@@ -44,6 +46,10 @@ done
 rules=$(curl -fs -m 3 -u "admin:${GRAFANA_ADMIN_PASSWORD:-admin}" http://localhost:3001/api/v1/provisioning/alert-rules 2>/dev/null)
 [[ -n "$rules" ]] && printf '    %-15s %s provisioned (expected 8 — 0 means a provisioning error, see: docker logs 3commerce-grafana)\n' \
   alert-rules "$(grep -o '"uid":"tc-[a-z0-9-]*"' <<<"$rules" | wc -l | tr -d ' ')"
+for gp in backend storefront; do
+  issues=$(glitchtip_api "projects/3commerce/$gp/issues/?query=is:unresolved" 2>/dev/null) || continue
+  printf '    %-15s %s unresolved issue(s) in %s — http://localhost:8000\n' errors "$(grep -o '"shortId"' <<<"$issues" | wc -l | tr -d ' ')" "$gp"
+done
 
 if ((${#down[@]})); then
   echo "── recent errors (services that are down) ──"

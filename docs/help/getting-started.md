@@ -11,7 +11,7 @@ fake/sandbox rails and launch gates are described accurately.
 
 | Requirement | Notes |
 |-------------|-------|
-| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. |
+| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. **VM size: 6 GiB is enough** for the bare-run stack — the full infra set (incl. GlitchTip) + all services + frontends, seeded, peaked at 4479 MB used of 5911 MB (p99 4194 MB; measured 2026-11-19, ADR-0067). Container image builds need more (below). |
 | **.NET 10 SDK** | Installed user-locally at `~/.dotnet` (no sudo). `DOTNET_ROOT=$HOME/.dotnet`; ensure `~/.dotnet` and `~/.dotnet/tools` are on `PATH`. `.envrc` (direnv) sets this for you — run `direnv allow` after editing it. |
 | **Node.js** | For the Next.js storefront and Playwright. CI uses Node 22. |
 | **dotnet-ef tool** | For applying migrations: `dotnet tool install --global dotnet-ef`. |
@@ -27,6 +27,7 @@ fake/sandbox rails and launch gates are described accurately.
 | Supplier Portal (Blazor Server) | `5300` |
 | Postgres | `5432` |
 | RabbitMQ AMQP / management UI | `5672` / `15672` (guest/guest) |
+| GlitchTip error inbox (ADR-0067) | `8000` (sign-in: `deploy/observability/glitchtip/glitchtip.env`) |
 
 > The dev "complete test payment" path and `e2e-verify.sh` address Payments
 > directly on **`:5104`** (`/dev/simulate-payment/...`); everything else goes
@@ -57,7 +58,7 @@ bash -c 'source scripts/lib/infra.sh && infra_up'           # the infra step of 
 
 This starts the **whole infra set** defined in `scripts/lib/infra.sh`: every service of
 `docker-compose.infra.yml` under the `portals` profile (Postgres 18, RabbitMQ 4, Valkey, redis-exporter,
-Kafka, Kafka UI, pgAdmin) plus the observability services bare-run borrows from `docker-compose.yml`
+Kafka, Kafka UI, pgAdmin, the GlitchTip error inbox :8000 — ADR-0067) plus the observability services bare-run borrows from `docker-compose.yml`
 (OTel collector — OTLP :4317/:4318, Faro browser-RUM receiver :8027, health :13133 — Prometheus, Grafana with the provisioned alert rules, Loki, Tempo, Mimir; ADR-0065). It waits on every healthcheck and readiness probe
 and fails, naming the container, if any member is not ready in time. On first run,
 `infra/postgres/init-databases.sql` creates the **service databases**, roles, and extensions (FTS + `pg_trgm`).
@@ -134,11 +135,15 @@ The storefront reads `GATEWAY_URL` (default `http://localhost:8080`) — see
 | `FARO_ENABLED` | `true` | `false` turns browser RUM off. |
 | `PUBLIC_GATEWAY_URL` | unset | Comma-separated browser-facing origins that may receive `traceparent` besides the storefront's own. |
 | `OTEL_RESOURCE_ATTRIBUTES` | — | `deployment.environment.name=dev\|test\|prod\|ci`; a production server with none counts as `prod`, which also turns the `/probe/*` error probes off. |
+| `SENTRY_DSN` | unset (off) | The GlitchTip `storefront` project DSN (server-only): `/rum` forwards each Faro exception there and SSR errors are sent from `onRequestError` (ADR-0067). `dev-up.sh`/`e2e-verify.sh` set the dev one (`STOREFRONT_SENTRY_DSN=` opts out). |
 
 Browser telemetry is anonymous by design (owner decision 2026-11-15): no session or user ids, no IP, no replay,
 query strings and tokens scrubbed in the browser **and** in `/rum`. Error pages show a **support reference** (the
 server digest or the SSR trace id); find it in `.run/storefront.log` (`"msg":"storefront request error"`, with the
 `traceId`) or in Grafana.
+The same errors land in the **GlitchTip error inbox** (http://localhost:8000, project `storefront`) tagged with the
+release, the trace id and `support_ref` = that reference; .NET errors land in project `backend` (every service,
+gateway, worker, Admin and Supplier Portal gets `SENTRY_DSN` from `run-all.sh`/`dev-up.sh`; `SENTRY_DSN=` opts out).
 
 **Source maps.** `npm run build` builds browser source maps and its `postbuild` step moves them to
 `<distDir>/sourcemaps/` (never served; the image only copies `static/`). To symbolicate Faro stack traces, upload

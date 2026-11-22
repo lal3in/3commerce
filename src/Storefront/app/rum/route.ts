@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { scrubTelemetry } from "@/lib/telemetry/scrub";
+import { faroBatchToEvents, sendToInbox } from "@/lib/telemetry/error-inbox";
 
 // Same-origin relay for browser RUM (audit P1-2, lib/telemetry/faro.ts → here → the collector's `faro` receiver).
 // The collector is internal-only (port 8027); the browser only ever talks to the storefront.
@@ -12,6 +13,10 @@ import { scrubTelemetry } from "@/lib/telemetry/scrub";
 //   - the payload is capped (MAX_BYTES) and must be JSON.
 // Fail-soft: a missing, slow or failing receiver is answered 202 with nothing relayed, so Faro never retries in a
 // loop and the page never notices. Cross-site posts are refused.
+//
+// Errors also go to the GlitchTip inbox (ADR-0067): each Faro EXCEPTION in the scrubbed batch becomes a Sentry store
+// event (lib/telemetry/error-inbox.ts), sent server-side to SENTRY_DSN when it is set — the browser never talks to
+// GlitchTip and runs no Sentry SDK.
 //
 // FARO_RECEIVER_URL — the receiver's URL (it accepts POSTs at "/"); dev default http://localhost:8027/ (compose/k8s: http://otel-collector:8027/). It needs Content-Type application/json and answers 202; the receiver is alpha (ADR-0065).
 
@@ -74,6 +79,12 @@ export async function POST(req: Request) {
   if (typeof body !== "object" || body === null || Array.isArray(body)) return accepted();
 
   const scrubbed = scrubTelemetry(body);
+  // Both hops are best-effort and run side by side; neither failure reaches the page.
+  await Promise.allSettled([relayToReceiver(scrubbed), sendToInbox(faroBatchToEvents(scrubbed))]);
+  return accepted();
+}
+
+async function relayToReceiver(scrubbed: unknown): Promise<void> {
   try {
     await fetch(receiverUrl(), {
       method: "POST",
@@ -87,5 +98,4 @@ export async function POST(req: Request) {
   } catch {
     // Receiver not deployed / not reachable: telemetry is best-effort, the shopper's page is unaffected.
   }
-  return accepted();
 }

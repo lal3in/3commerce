@@ -12,11 +12,15 @@ import { capture } from "../e2e-support/screenshots";
  *    EventStreaming lane is Helm-only config — so the broker round-trip is the honest flow proof.)
  *  - pgAdmin (:5480): logs in, the pre-registered server is in the object explorer, and connecting
  *    (saved pgpass — no password prompt) reveals the service databases incl. ordering_db.
+ *  - GlitchTip (:8000, ADR-0067): signs in with the dev account; after a deliberate 500 from catalog's internal
+ *    /health/error-probe, the issue stream lists the ErrorProbeException issue of project backend.
  * Each test skips cleanly when its portal (or the stack) isn't running — CI-safe.
  */
 const RABBIT = "http://localhost:15672";
 const KAFKA_UI = "http://localhost:8090";
 const PGADMIN = "http://localhost:5480";
+const GLITCHTIP = "http://localhost:8000";
+const CATALOG = "http://localhost:5102"; // internal: the error probe is never routed by the gateway
 
 async function shot(page: Page, name: string) {
   await capture(page, name, { fullPage: false });
@@ -133,5 +137,35 @@ test.describe("Dev-infra portals show real data", () => {
     await revealChild(server, databases);
     await revealChild(databases, tree.getByText("ordering_db"));
     await shot(page, "pgadmin-databases");
+  });
+
+  test("GlitchTip signs in and lists the issue a deliberate .NET error just created", async ({ page }) => {
+    test.setTimeout(120_000);
+    test.skip(!(await reachable(`${GLITCHTIP}/_health/`)), "GlitchTip not running");
+    test.skip(!(await reachable(`${CATALOG}/health/live`)), "catalog service not running");
+
+    // A real error through the real path: unhandled exception → exception handler → Sentry SDK → GlitchTip.
+    const probe = await page.request.get(`${CATALOG}/health/error-probe`);
+    expect(probe.status()).toBe(500);
+
+    await page.goto(`${GLITCHTIP}/login`, { waitUntil: "networkidle" });
+    // Dev sign-in from deploy/observability/glitchtip/glitchtip.env (bootstrapped by the container).
+    await page.locator('input[formcontrolname="email"]').fill("admin@3commerce.dev");
+    await page.locator('input[formcontrolname="password"]').fill("glitchtip_dev");
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 30_000 });
+
+    // Events are ingested asynchronously (task queue): reload the issue stream until the probe's issue shows.
+    await expect
+      .poll(
+        async () => {
+          await page.goto(`${GLITCHTIP}/3commerce/issues?query=is:unresolved`, { waitUntil: "networkidle" });
+          return (await page.locator("body").innerText()).includes("ErrorProbeException");
+        },
+        { message: "GlitchTip should list the ErrorProbeException issue", timeout: 90_000, intervals: [2_000, 5_000] },
+      )
+      .toBe(true);
+    await expect(page.locator("body")).toContainText("backend");
+    await shot(page, "glitchtip-issues");
   });
 });

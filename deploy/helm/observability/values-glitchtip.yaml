@@ -1,0 +1,82 @@
+# GlitchTip — the production error inbox (ADR-0067, owner decision Q5): the upstream chart glitchtip/glitchtip 9.2.0
+# (app 7.0.0), installed by install-lgtm.sh into the `observability` namespace beside Loki/Tempo/Mimir/Grafana.
+# Sentry-API-compatible: the .NET SDK (every .NET process) and the storefront relay post here with the DSNs of two
+# projects, `backend` and `storefront`, created once in the UI after install (runbook "Error inbox (GlitchTip)") and
+# handed to the app chart as the Secret named by `errorTracking.dsnSecret` (values-prod.yaml: glitchtip-dsn).
+#
+# Shape (same choices as dev, docker-compose.infra.yml):
+#   - one process per pod: GlitchTip 7 serves HTTP AND runs the task worker + scheduler in it (no worker role);
+#   - NO Valkey: VALKEY_URL="" puts the task queue and cache in Postgres — one stateful dependency, not two;
+#   - a MANAGED Postgres ≥ 15 (the chart's CloudNativePG option stays off), database + role `glitchtip`. GlitchTip
+#     partitions its event tables, so give that instance `max_locks_per_transaction = 512` (upstream recommendation;
+#     the default 64 can run out on queries spanning many partitions);
+#   - log ingestion and uptime monitoring off: Loki and the Grafana alert rules already do those jobs.
+#
+# Secrets in the namespace (never committed; install-lgtm.sh refuses to install without them):
+#   glitchtip-secret-key   SECRET_KEY    (long random value — `openssl rand -hex 32`)
+#   glitchtip-database     DATABASE_URL  (postgres://glitchtip:<pw>@<host>:5432/glitchtip?sslmode=require)
+#   glitchtip-email        EMAIL_URL     (smtp+tls://user:pass@host:587 — alert + invite emails; same relay as Grafana)
+# GLITCHTIP_DOMAIN (the external https URL people and SDKs use) comes from install-lgtm.sh's $GLITCHTIP_DOMAIN.
+
+image:
+  repository: glitchtip/glitchtip
+  tag: "7.0.0"
+
+glitchtip:
+  existingSecret: glitchtip-secret-key
+  database:
+    existingSecret: glitchtip-database
+
+# Two pods: ingest keeps working through a node drain (each pod also runs the embedded worker; GlitchTip's own
+# advisory lock serialises migrations, and the chart's migration job runs them before the rollout).
+replicaCount: 2
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+valkey:
+  enabled: false
+
+# The chart gives the migration Job only its own extra env (not extraEnvVars): without this it would default to a
+# redis://redis:6379 cache that does not exist.
+migrationJob:
+  extraEnvVars:
+    - name: VALKEY_URL
+      value: ""
+
+extraEnvVars:
+  - name: VALKEY_URL
+    value: ""                       # task queue + cache in Postgres (no Valkey to run)
+  - name: ENABLE_USER_REGISTRATION
+    value: "false"                  # accounts by invitation only
+  - name: ENABLE_ORGANIZATION_CREATION
+    value: "false"
+  - name: GLITCHTIP_ENABLE_LOGS
+    value: "false"
+  - name: GLITCHTIP_ENABLE_UPTIME
+    value: "false"
+  - name: GLITCHTIP_RETENTION_DAYS
+    value: "90"                     # issue events; Loki keeps the logs 30 d, Tempo the traces 14 d (ADR-0065 Q2)
+  # Defence in depth on top of the SDK-side scrubbing (ErrorTracking.cs, lib/telemetry/error-inbox.ts).
+  - name: GLITCHTIP_PII_SCRUB_DEFAULT
+    value: '{"enabled": true, "scrub_emails": true}'
+  - name: VTASKS_INGEST_CONCURRENCY
+    value: "4"
+  - name: DEFAULT_FROM_EMAIL
+    value: "glitchtip@example.invalid"   # set the real sender at install: --set-string … (runbook)
+  - name: EMAIL_URL
+    valueFrom:
+      secretKeyRef:
+        name: glitchtip-email
+        key: EMAIL_URL
+        optional: true
+
+ingress:
+  enabled: false                    # reach it by port-forward until an ingress with SSO is decided (as Grafana)
+
+monitoring:
+  enabled: false

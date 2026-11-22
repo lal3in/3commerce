@@ -6,6 +6,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Sentry.Extensions.Hosting;
 
 namespace ThreeCommerce.BuildingBlocks.Observability;
 
@@ -34,17 +35,23 @@ public static class TelemetryExtensions
     /// traces fall back to the console and metrics/logs are not exported (logs still reach the console through the
     /// default provider — the OTel logs pipeline is additive). <paramref name="configureTracing"/> and
     /// <paramref name="configureMetrics"/> add a host's own sources/meters BEFORE the exporter is attached.
+    /// <b>Errors</b> (Error/Critical log records) also go to the GlitchTip inbox when <c>Sentry:Dsn</c>/<c>SENTRY_DSN</c>
+    /// is set (<see cref="ErrorTracking"/>, ADR-0067); <paramref name="configureErrorTracking"/> adds a host's filters.
     /// No MassTransit, EF or Redis here — that is <c>AddServiceTelemetry</c> (BuildingBlocks.Infrastructure).
     /// </summary>
     public static ReleaseIdentity AddTelemetryCore<TBuilder>(
         this TBuilder builder,
         string serviceName,
         Action<TracerProviderBuilder>? configureTracing = null,
-        Action<MeterProviderBuilder>? configureMetrics = null)
+        Action<MeterProviderBuilder>? configureMetrics = null,
+        Action<SentryGenericHostOptions>? configureErrorTracking = null)
         where TBuilder : IHostApplicationBuilder
     {
         var useOtlp = UsesOtlp(builder.Configuration);
         var release = builder.AddReleaseIdentity(serviceName);
+
+        // Errors also go to the GlitchTip inbox when a DSN is configured (ADR-0067); off otherwise.
+        builder.AddErrorTracking(release, configureErrorTracking);
 
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => release.Configure(resource))

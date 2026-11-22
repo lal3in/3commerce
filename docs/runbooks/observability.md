@@ -13,13 +13,14 @@ ADR-0029 (SLOs), ADR-0064 (release identity). Messaging-specific operations: `me
 | Metrics | Mimir 2.14.1 `:9009` (+ Prometheus scrape view) | `mimir` release (grafana/mimir-distributed 6.2.2), S3, 13 months, gateway `mimir-gateway.observability.svc` |
 | Grafana | `:3001` (admin / `GRAFANA_ADMIN_PASSWORD`) | `grafana` release (grafana-community/grafana 14.5.0), `kubectl -n observability port-forward svc/grafana 3001:80` |
 | Alert rules | `deploy/observability/grafana/provisioning/alerting/` | same files, ConfigMap `grafana-alerting` |
+| Error inbox (ADR-0067) | GlitchTip 7.0 `:8000` (infra `portals` set; sign-in in `deploy/observability/glitchtip/glitchtip.env`), shared Postgres db `glitchtip` | `glitchtip` release (glitchtip 9.2.0), managed Postgres, `kubectl -n observability port-forward svc/glitchtip 8000:80` |
 
 Tenant: production backends are multi-tenant; everything is written and read with `X-Scope-OrgID: 3commerce`.
 
 ## Health checks
 
 ```bash
-scripts/doctor.sh                 # local: collector health, Faro receiver, Grafana, provisioned alert rules (expect 8)
+scripts/doctor.sh                 # local: collector health, Faro receiver, Grafana, alert rules (expect 8), GlitchTip + issue counts
 scripts/host-check.sh local       # + Loki/Tempo/Mimir /ready, Prometheus, alert rule count
 curl -s localhost:13133/          # collector: {"status":"Server available", …}
 curl -s -o /dev/null -w '%{http_code}\n' localhost:8027/   # Faro receiver: 405 (GET) = listening
@@ -134,3 +135,41 @@ The storefront relays Faro payloads from its `/rum` route to `http://otel-collec
 `http://localhost:8027/`). The collector strips identifiers, IPs, user agents and query strings before storage
 (ADR-0065 Q3). Browser data appears under `service_name="storefront"` (or the Faro app name) in Loki/Tempo; a
 browser span shares the trace of the gateway request it made.
+
+## Error inbox (GlitchTip)
+
+ADR-0067. Every .NET process (project `backend`) and the storefront (project `storefront`) report errors to GlitchTip,
+each with its release (`service.version`) and its OpenTelemetry trace id (tag `trace_id`). Alerts (rates) stay in
+Grafana; GlitchTip is where an error becomes an issue to assign, resolve and watch for regressions.
+
+**Triage an issue.** Open it, read the tags: `release` (which build — a regression flag means it came back in a newer
+one), `service`, `http.route`, `trace_id`. Paste the trace id into Grafana → Explore → Tempo for the full request, and
+into Loki (`{service_name="<service>"} | trace_id="<id>"`) for its log lines. A storefront issue's `support_ref` is
+the reference the error page showed the shopper (digest or trace id): search by it when a customer quotes one.
+
+**Nothing arrives.**
+1. `scripts/doctor.sh` — `glitchtip :8000 200` and the issue counts. Down → `docker logs 3commerce-glitchtip`
+   (the entrypoint prints `glitchtip-entrypoint:` / `glitchtip-bootstrap:` lines; a failed bootstrap stops the start).
+2. Is the process configured? Bare-run services get `SENTRY_DSN` from `scripts/run-all.sh` (`SENTRY_DSN=` opts out);
+   the storefront from `dev-up.sh` / `e2e-verify.sh` (`STOREFRONT_SENTRY_DSN` overrides). In Kubernetes, the Secret
+   named by `errorTracking.dsnSecret` (keys `backend`, `storefront`) — it is optional, so a missing Secret silently
+   means "off": `kubectl get secret glitchtip-dsn`.
+3. Prove the path: `curl -s localhost:5102/health/error-probe` (any service, not in Production) answers 500 with a
+   `traceId`; within seconds the backend project has an `ErrorProbeException` issue tagged with that trace id.
+4. 4xx answers never appear on purpose (`ClientErrorExceptionFilter`): validation and domain failures are the
+   caller's, not defects.
+
+**Dev database.** GlitchTip uses the shared dev Postgres, database + role `glitchtip`, created by its entrypoint when
+missing (fresh or existing volume). `dev-down.sh --clean` / `dev-up --fresh` wipe it with the rest; the bootstrap
+recreates the projects with the same DSNs. Retention 14 days.
+
+**Production install** (once, after `install-lgtm.sh` has installed the `glitchtip` release):
+1. Secrets in `observability` first: `glitchtip-secret-key` (`SECRET_KEY`), `glitchtip-database` (`DATABASE_URL` of a
+   managed Postgres ≥ 15 with `max_locks_per_transaction = 512`), optional `glitchtip-email` (`EMAIL_URL`); set
+   `GLITCHTIP_DOMAIN` for the install.
+2. Port-forward (`svc/glitchtip 8000:80`), sign up — the first account becomes the owner; registration is closed
+   after it — create organisation `3commerce` and projects `backend` (.NET) and `storefront` (JavaScript); turn on
+   "scrub IP addresses" (the default) and set the alert email under the project's alerts.
+3. Hand the DSNs to the app (in-cluster host is fine — every sender is server-side):
+   `kubectl -n <app-ns> create secret generic glitchtip-dsn --from-literal=backend=http://<key>@glitchtip.observability.svc/<id> --from-literal=storefront=…`
+   then roll the app (`helm upgrade … -f values-prod.yaml`; `errorTracking.dsnSecret: glitchtip-dsn` is already set).

@@ -17,6 +17,7 @@ source scripts/lib/procs.sh
 export INFRA_SET=full   # the dev stack is always the FULL infra set (lib/infra.sh); `core` is a CI-only trim
 source scripts/lib/volumes.sh   # also sources lib/infra.sh
 source scripts/lib/release.sh   # release_revision: what the build stamps (ADR-0064)
+source scripts/lib/glitchtip.sh # SENTRY_DSN of the dev error inbox (ADR-0067)
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}"
 export PATH="$DOTNET_ROOT:$PATH:$DOTNET_ROOT/tools"
 
@@ -45,12 +46,13 @@ if (( FRESH )); then
   grep -E '^  removed orphaned volume' <<<"$down_log" || true
 fi
 
-echo "== 1/4 infra (all-or-nothing: Postgres + RabbitMQ + Valkey + Kafka + Kafka-UI + pgAdmin + LGTM observability) =="
+echo "== 1/4 infra (all-or-nothing: Postgres + RabbitMQ + Valkey + Kafka + Kafka-UI + pgAdmin + GlitchTip + LGTM observability) =="
 infra_up || { echo "Infra is NOT fully up (see above) — fix it, or clear it with scripts/dev-down.sh, then re-run." >&2; exit 1; }
 (( FRESH )) || report_app_stack_orphans
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"
 echo "  Grafana (LGTM):       http://localhost:3001  (admin/admin)  ·  OTLP in: localhost:4317"
+echo "  GlitchTip (errors):    http://localhost:8000  ($(glitchtip_env GLITCHTIP_DEV_ADMIN_EMAIL) / $(glitchtip_env GLITCHTIP_DEV_ADMIN_PASSWORD))"
 echo "  Loki: http://localhost:3100 · Tempo: http://localhost:3200 · Mimir: http://localhost:9009"
 
 echo "== 2/4 build + migrate =="
@@ -86,14 +88,16 @@ if (( WITH_FRONTENDS )); then
   local_run="$(pwd)/.run"
   # Storefront telemetry (audit P1-2/P1-3): SSR spans go to the collector's OTLP/HTTP port (:4318 — @vercel/otel
   # speaks http/protobuf, not the gRPC :4317 the .NET services use); the /rum relay forwards browser RUM to the
-  # collector's faro receiver (:8027). `-` keeps an explicitly-empty value (opt out) as is.
+  # collector's faro receiver (:8027). Errors (browser via /rum + SSR) also go to the GlitchTip inbox (ADR-0067;
+  # STOREFRONT_SENTRY_DSN overrides). `-` keeps an explicitly-empty value (opt out) as is.
   ( cd src/Storefront && GATEWAY_URL=http://localhost:8080 \
       OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
       FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
+      SENTRY_DSN="${STOREFRONT_SENTRY_DSN-$(glitchtip_dsn storefront)}" \
       nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
-  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
+  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid
-  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
+  nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
   echo $! >.run/supplier-portal.pid
   disown -a 2>/dev/null || true
   echo "  storefront :3000 + admin :5200 + supplier portal :5300 starting"
@@ -128,7 +132,16 @@ case "$DATA_PROFILE" in
   catalog)
     j=$(mktemp)
     curl -s -c "$j" -X POST http://localhost:8080/api/identity/login -H 'content-type: application/json' -d '{"email":"admin@3commerce.local","password":"dev-admin-password-1"}' -o /dev/null
-    curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w 'seed import: %{http_code}\n'; rm -f "$j"
+    # The import runs inside the request, and the gateway gives a request 30 s (ActivityTimeout). Right after a
+    # cold start (JIT, EF model build, every service warming up) it takes 12–18 s, occasionally over 30 s: the
+    # gateway then answers 504 and the aborted request CANCELS the import (catalog logs 499, the run never
+    # completes). It is an idempotent upsert, so retry it — warm, it takes ~7 s.
+    for attempt in 1 2 3; do
+      code="$(curl -s -b "$j" -X POST http://localhost:8080/api/catalog/admin/import-runs -o /dev/null -w '%{http_code}')"
+      echo "seed import: $code (attempt $attempt)"
+      [[ "$code" == 2* ]] && break
+    done
+    rm -f "$j"
     ;;
   # The demo seed exits non-zero when a required step (e.g. a checkout) failed: finish bringing the stack up
   # anyway (the rest of the data is there), then say so and exit with its code — see SEED_RC below.
@@ -171,6 +184,8 @@ ready grafana    90 curl -fsS -m 4 http://localhost:3001/api/health
 ready loki      120 curl -fsS -m 4 http://localhost:3100/ready
 ready tempo     120 curl -fsS -m 4 http://localhost:3200/ready
 ready mimir     120 curl -fsS -m 4 http://localhost:9009/ready
+# The error inbox: healthy AND bootstrapped (the dev read-only token answers, so the projects + DSN keys exist).
+ready glitchtip  90 bash -c 'source scripts/lib/glitchtip.sh && glitchtip_api projects/ | grep -q "\"slug\": \"backend\""'
 if (( WITH_FRONTENDS )); then
   ready storefront 180 curl -fsS -m 20 -o /dev/null http://localhost:3000/
   ready admin       90 curl -fsS -m 10 -o /dev/null http://localhost:5200/

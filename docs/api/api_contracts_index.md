@@ -27,6 +27,10 @@ Kafka event-stream contracts are documented separately in [event-streams.md](./e
 
 Note: Catalog admin storefront contracts include per-storefront public URL, currency, and tax regime/rate configuration for multi-storefront tenant operations.
 
+Internal paths on every service and the Notifications worker (never routed by the gateway, not in the OpenAPI documents):
+`GET /health/live`, `GET /health/ready`, and outside Production `GET /health/error-probe` — always 500 problem+json
+(an `ErrorProbeException`, with the request's `traceId`) so the live suite can prove the GlitchTip error path (ADR-0067, e2e L20c).
+
 ## Identity (`/api/identity`)
 
 | Method | Path | Auth | Purpose |

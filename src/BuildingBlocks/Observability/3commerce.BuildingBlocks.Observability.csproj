@@ -14,5 +14,6 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="Sentry.Extensions.Hosting" />
   </ItemGroup>
 </Project>

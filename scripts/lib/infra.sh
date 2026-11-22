@@ -10,7 +10,7 @@
 #
 # The set:
 #   full (default)  every service of docker-compose.infra.yml under the `portals` profile (Postgres, RabbitMQ,
-#                   Valkey, redis-exporter, Kafka, Kafka UI, pgAdmin) + the observability services bare-run dev
+#                   Valkey, redis-exporter, Kafka, Kafka UI, pgAdmin, the GlitchTip error inbox) + the observability services bare-run dev
 #                   BORROWS from docker-compose.yml (DEV_BORROWED_SERVICES: OTel collector, Prometheus, Grafana,
 #                   Loki, Tempo, Mimir).
 #   core            only the profile-less services of docker-compose.infra.yml (Postgres, RabbitMQ, Valkey).
@@ -106,6 +106,8 @@ _infra_probe() { # service container
     prometheus)     docker exec "$2" wget -qO- http://localhost:9090/-/ready ;;   # no published port in dev
     grafana)        curl -fsS -m 3 -o /dev/null http://localhost:3001/api/health ;;
     mimir)          curl -fsS -m 3 -o /dev/null http://localhost:9009/ready ;;  # shell-less image: no healthcheck
+    # The healthcheck runs inside the container; the published port is what the bare-run SDKs post to (ADR-0067).
+    glitchtip)      curl -fsS -m 3 -o /dev/null http://localhost:8000/_health/ ;;
     *)              return 0 ;;
   esac
 } >/dev/null 2>&1 </dev/null

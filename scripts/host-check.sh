@@ -62,15 +62,16 @@ if [ -n "\$rb" ]; then
 else echo "  (no rabbitmq container)"; fi
 
 echo "── infra logs (recent errors) ──"
-for c in \$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E 'postgres|rabbit'); do
+for c in \$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E 'postgres|rabbit|glitchtip'); do
   e=\$(docker logs --tail 40 "\$c" 2>&1 | grep -iE 'error|fatal|panic|refused' | tail -3)
   [ -n "\$e" ] && { echo "  [\$c]"; echo "\$e" | sed 's/^/    /'; }
 done; true
 
 echo "── observability ──"
 # otel = the collector's health_check extension; faro = its browser-RUM receiver (GET → 405 = listening, ADR-0065);
-# alerts = the Grafana-provisioned alert rules (count; 0 = provisioning failed — see the grafana container log).
-for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/ 8027:faro:/ 3100:loki:/ready 3200:tempo:/ready 9009:mimir:/ready; do
+# alerts = the Grafana-provisioned alert rules (count; 0 = provisioning failed — see the grafana container log);
+# glitchtip = the error inbox (ADR-0067; dev infra :8000 — in k8s it is the separate glitchtip release, port-forward it).
+for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/ 8027:faro:/ 3100:loki:/ready 3200:tempo:/ready 9009:mimir:/ready 8000:glitchtip:/_health/; do
   pt=\${x%%:*}; nm=\$(echo "\$x"|cut -d: -f2); pa=\${x##*:}
   cc=\$(curl -s -o /dev/null -w '%{http_code}' -m2 http://localhost:\$pt\$pa 2>/dev/null); { [ "\$cc" = 000 ] || [ -z "\$cc" ]; } && cc=down
   printf '  %-11s %s\n' "\$nm" "\$cc"

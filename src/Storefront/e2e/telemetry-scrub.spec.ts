@@ -6,6 +6,7 @@ import { beforeSend, isStripeUrl, mayStartFaro } from "../lib/telemetry/guards";
 import { mapEnvironment, parseResourceAttributes, resolveEnvironment } from "../lib/telemetry/release";
 import { errorReference, traceIdFromTraceparent } from "../lib/telemetry/error-reference";
 import { ERROR_COPY, errorCopyFor } from "../lib/telemetry/error-copy";
+import { MAX_EVENTS_PER_BATCH, faroBatchToEvents, nodeFrames, parseDsn, serverErrorToEvent } from "../lib/telemetry/error-inbox";
 
 /**
  * Unit tests for the browser-telemetry anonymiser and its helpers (audit P1-2/P1-3, owner decision Q3: strictly
@@ -178,5 +179,109 @@ test.describe("telemetry scrubber (unit)", () => {
     }
     expect(errorCopyFor("de-AT")).toBe(ERROR_COPY.de);
     expect(errorCopyFor("pt-BR")).toBe(ERROR_COPY.en);
+  });
+});
+
+/**
+ * The storefront's half of the GlitchTip error inbox (ADR-0067): Faro exceptions and SSR errors become Sentry store
+ * events server-side — anonymous like the RUM they come from, stamped with the release and the trace id.
+ */
+test.describe("error inbox conversion (unit)", () => {
+  test("a DSN parses to the store endpoint and key; unset or malformed is off", () => {
+    expect(parseDsn("http://685233df550a43af8410f48e60785466@localhost:8000/2")).toEqual({
+      storeUrl: "http://localhost:8000/api/2/store/",
+      publicKey: "685233df550a43af8410f48e60785466",
+    });
+    expect(parseDsn("https://k@errors.example/glitchtip/7")?.storeUrl).toBe("https://errors.example/glitchtip/api/7/store/");
+    expect(parseDsn(undefined)).toBeNull();
+    expect(parseDsn("  ")).toBeNull();
+    expect(parseDsn("http://localhost:8000/2")).toBeNull(); // no key
+    expect(parseDsn("not a url")).toBeNull();
+  });
+
+  test("Faro exceptions become anonymous events with release, environment, trace id and support reference", () => {
+    const batch = {
+      meta: {
+        app: { name: "storefront", version: "1.0.0+abc1234", environment: "dev" },
+        page: { url: `https://shop.example/orders/0198f3a2-5b6c-7d8e-9f01-23456789abcd?email=${EMAIL}` },
+        browser: { name: "Chrome", version: "131", os: "macOS", userAgent: "Mozilla/5.0 (secret)" },
+        session: { id: "sess-123", attributes: { isSampled: "true" } },
+        user: { email: EMAIL, id: "u-1" },
+      },
+      logs: [{ message: "not an error" }],
+      exceptions: [
+        {
+          type: "TypeError",
+          value: `Cannot read x of undefined for ${EMAIL} token=abc`,
+          timestamp: "2026-11-19T01:02:03.000Z",
+          stacktrace: {
+            frames: [
+              { filename: "https://shop.example/_next/static/chunks/app/page-1a2b.js?v=1", function: "onClick", lineno: 10, colno: 5 },
+              { filename: "https://shop.example/_next/static/chunks/framework-9f.js", function: "dispatch", lineno: 1, colno: 2 },
+            ],
+          },
+          trace: { trace_id: TRACE_ID, span_id: SPAN_ID },
+          context: { reference: "ref-7f3a", boundary: "error-page" },
+        },
+      ],
+    };
+
+    const events = faroBatchToEvents(batch);
+    expect(events).toHaveLength(1);
+    const [event] = events;
+    expect(event.platform).toBe("javascript");
+    expect(event.release).toBe("1.0.0+abc1234");
+    expect(event.environment).toBe("dev");
+    expect(event.timestamp).toBe("2026-11-19T01:02:03.000Z");
+    expect(event.contexts.trace).toEqual({ trace_id: TRACE_ID, span_id: SPAN_ID });
+    expect(event.tags.trace_id).toBe(TRACE_ID);
+    expect(event.tags.support_ref).toBe("ref-7f3a");
+    expect(event.tags["page.url"]).toBe(`https://shop.example/orders/${REDACTED_ID}`);
+    expect(event.exception.values[0].type).toBe("TypeError");
+    // Sentry order: the throwing frame LAST; framework chunks are not in-app; no query strings.
+    const frames = event.exception.values[0].stacktrace!.frames;
+    expect(frames.map((f) => f.function)).toEqual(["dispatch", "onClick"]);
+    expect(frames[1]).toMatchObject({ filename: "https://shop.example/_next/static/chunks/app/page-1a2b.js", in_app: true });
+    expect(frames[0].in_app).toBe(false);
+
+    const serialized = JSON.stringify(events);
+    for (const leaked of [EMAIL, "sess-123", "u-1", "userAgent", "secret", "token=abc", "?v=1", "email="]) {
+      expect(serialized).not.toContain(leaked);
+    }
+  });
+
+  test("a batch without exceptions sends nothing, and a flood is capped", () => {
+    expect(faroBatchToEvents({ logs: [{ message: "x" }], measurements: [{}] })).toEqual([]);
+    expect(faroBatchToEvents(null)).toEqual([]);
+    const flood = { exceptions: Array.from({ length: 50 }, (_, i) => ({ type: "Error", value: `e${i}` })) };
+    expect(faroBatchToEvents(flood)).toHaveLength(MAX_EVENTS_PER_BATCH);
+    // A malformed trace id is dropped rather than sent.
+    expect(faroBatchToEvents({ exceptions: [{ type: "E", value: "v", trace: { trace_id: "nope" } }] })[0].contexts.trace).toBeUndefined();
+  });
+
+  test("an SSR error becomes a node event with digest, route and trace id; its message is scrubbed", () => {
+    const error = new Error(`render failed for ${EMAIL}`);
+    error.stack = [
+      `Error: render failed for ${EMAIL}`,
+      "    at Page (/app/.next/server/app/page.js:12:34)",
+      "    at async render (/app/node_modules/next/dist/server/render.js:5:6)",
+    ].join("\n");
+    expect(nodeFrames(error.stack).map((f) => f.function)).toEqual(["async render", "Page"]);
+
+    const event = serverErrorToEvent(error, {
+      digest: "1234567890",
+      traceId: TRACE_ID,
+      spanId: SPAN_ID,
+      routePath: "/probe/error",
+      routeType: "render",
+      method: "GET",
+      release: "1.0.0+abc1234",
+      environment: "dev",
+    });
+    expect(event.platform).toBe("node");
+    expect(event.tags).toMatchObject({ trace_id: TRACE_ID, support_ref: "1234567890", "http.route": "/probe/error", runtime: "node" });
+    expect(event.release).toBe("1.0.0+abc1234");
+    expect(event.exception.values[0].value).toBe(`render failed for ${REDACTED_EMAIL}`);
+    expect(event.exception.values[0].stacktrace!.frames[0].in_app).toBe(false); // node_modules
   });
 });

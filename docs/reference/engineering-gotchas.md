@@ -442,6 +442,14 @@ Ledger postings (Payments):
   `$ALERT_EMAIL_TO` that way, but a rule annotation written `$$labels` stays literally `$$labels` (checked via
   `/api/v1/provisioning/alert-rules`); templates use plain `$labels`/`$values`. (Datasource files DO expand, hence
   `$${__value.raw}` in `lgtm.yml`.)
+- **The GlitchTip error inbox (ADR-0067) has three traps.** (1) Sentry .NET 7 no longer initialises the SDK from the
+  logging integration (`SentryLoggingOptions.Dsn` is an obsolete-error) — `ErrorTracking` calls `UseSentry`
+  (`Sentry.Extensions.Hosting`). (2) ASP.NET Core's exception handler clears the endpoint BEFORE it logs, so the
+  route template comes from `IExceptionHandlerFeature.Endpoint`, and its hosting log scope turns the raw
+  `RequestPath` into a tag (dropped by `TelemetryScrubber`). (3) The problem+json `traceId` is the full W3C id
+  (`00-<trace id>-<span id>-01`), not the 32-hex trace id GlitchTip's `trace_id` tag holds — split it. Every
+  `IProblemException`/`BadHttpRequestException` 4xx is logged at Error too; `ClientErrorExceptionFilter` keeps them
+  out of the inbox, so do not "fix" a missing 4xx issue.
 
 ## Gateway (the public origin)
 
@@ -456,6 +464,11 @@ Ledger postings (Payments):
 
 ## Local dev stack
 
+- **The seed import can 504 on a cold stack — and then it did NOT run.** `POST /api/catalog/admin/import-runs` imports
+  inside the request; the gateway gives a request 30 s (`ActivityTimeout`). Cold (right after start) it takes 12–18 s and
+  occasionally passes 30 s: the gateway answers 504, the aborted request cancels the import (catalog `499`, the ImportRun
+  row never gets `CompletedAt`). Warm it takes ~7 s. `dev-up.sh` retries it (idempotent upsert); anything else that
+  seeds right after a start should too, or call catalog on `:5102` directly.
 - **The infra is all-or-nothing — never start/stop individual infra containers by hand; use
   `scripts/dev-up.sh` / `scripts/dev-down.sh`.** The set (every `docker-compose.infra.yml` service under
   `portals` + the observability services borrowed from `docker-compose.yml`) has ONE definition,

@@ -9,7 +9,9 @@
 // - Resource = the release identity of ADR-0064: service.name, service.version (<Version>+<sha7>[-dirty]),
 //   vcs.ref.head.revision, deployment.environment.name, service.instance.id (one per process).
 // - onRequestError logs every server-side render/route error with its digest AND trace id: the digest is what
-//   app/error.tsx shows the shopper as the support reference, so support can go digest → log line → trace.
+//   app/error.tsx shows the shopper as the support reference, so support can go digest → log line → trace. The same
+//   error goes to the GlitchTip inbox (ADR-0067, lib/telemetry/error-inbox.ts) when SENTRY_DSN is set, tagged with
+//   the release, the trace id and the digest (support_ref).
 
 import type { Instrumentation } from "next";
 
@@ -53,6 +55,8 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { trace, SpanStatusCode } = await import("@opentelemetry/api");
   const { scrubText, scrubUrl } = await import("./lib/telemetry/scrub");
+  const { sendToInbox, serverErrorToEvent } = await import("./lib/telemetry/error-inbox");
+  const { resolveEnvironment, serviceVersion } = await import("./lib/telemetry/release");
   const err = error as Error & { digest?: string };
   const span = trace.getActiveSpan();
   if (span) {
@@ -74,4 +78,16 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
       error: { name: err.name, message: scrubText(err.message ?? "") },
     }),
   );
+  await sendToInbox([
+    serverErrorToEvent(err, {
+      digest: err.digest ?? null,
+      traceId: span?.spanContext().traceId ?? null,
+      spanId: span?.spanContext().spanId ?? null,
+      routePath: context.routePath,
+      routeType: context.routeType,
+      method: request.method,
+      release: serviceVersion(),
+      environment: resolveEnvironment(),
+    }),
+  ]);
 };
