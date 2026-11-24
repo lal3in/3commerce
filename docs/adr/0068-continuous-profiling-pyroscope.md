@@ -91,8 +91,11 @@ default dev mode runs every .NET process bare on the Mac (ADR-0009), so dev prof
 
 ## Memory (6 GB dev VM)
 
-Measured on the whole seeded stack (full infra incl. GlitchTip and Pyroscope, all services, frontends): see the PR and
-the figures in `docs/help/getting-started.md` (VM size). Pyroscope itself idles at ~40 MiB in dev.
+Measured 2026-11-25 on the whole seeded stack from fully down (15 infra containers incl. GlitchTip and Pyroscope, 13
+services, gateway, worker, 3 frontends, 8 min of traffic; 107 samples): **peak VM used 3903 MB** of 5911 (p99 3853,
+p50 3671); Pyroscope ~72 MiB steady (idle ~40). The bare-run .NET processes load no profiler (Linux-only), so it adds
+nothing there. Against ADR-0067's start-up peak (4479 MB, Loki WAL replay) the worst case is 4479 + 72 + 1 GiB margin
+= 5575 MB: **fits in the 6 GB VM**, ~336 MB spare.
 
 ## Consequences
 
