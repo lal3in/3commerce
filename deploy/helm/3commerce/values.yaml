@@ -71,6 +71,22 @@ pgadmin:
 errorTracking:
   dsnSecret: ""
 
+# Continuous profiling (ADR-0068): every .NET image carries the Pyroscope .NET profiler (a native CLR profiler, Linux
+# x86_64/aarch64), inert until `enabled` sets CORECLR_ENABLE_PROFILING + LD_PRELOAD + PYROSCOPE_* on the .NET pods.
+# It pushes to `serverAddress` (the `pyroscope` release of deploy/helm/observability/install-lgtm.sh); `tenant` is the
+# X-Scope-OrgID of a multi-tenant Pyroscope. Overhead is a few percent CPU for the default types; walltime is off
+# (it samples idle threads too). Span profiles (Tempo → Pyroscope) follow automatically when enabled.
+profiling:
+  enabled: false
+  serverAddress: http://pyroscope.observability.svc:4040
+  tenant: ""
+  types:
+    cpu: true
+    walltime: false
+    allocation: true
+    lock: true
+    exception: true
+
 # Observability (ADR-0065). One in-chart OTel Collector is the telemetry door: every service/worker/gateway gets
 # OTEL_EXPORTER_OTLP_ENDPOINT (the switch OtelExtensions keys OTLP export on), the storefront relays browser RUM to
 # its Faro receiver, and it fans out — traces → Tempo, logs → Loki, metrics → Mimir remote-write. OFF by default

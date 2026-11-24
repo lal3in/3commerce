@@ -1,4 +1,4 @@
-            || configuration[EnabledSetting] == "1");using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 
 namespace ThreeCommerce.BuildingBlocks.Observability;
 

@@ -29,6 +29,7 @@ spec:
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
             {{- include "3commerce.otlpEnv" . | nindent 12 }}
             {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
+            {{- include "3commerce.profilingEnv" . | nindent 12 }}
             {{- if and (ne .Values.environment "Development") .Values.secret.name }}
             - name: InternalAuth__PrivateKey
               valueFrom:
