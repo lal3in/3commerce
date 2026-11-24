@@ -266,6 +266,7 @@ fully running stack it reuses it as-is (see above). Then:
 | L15–L19 | Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal |
 | L20 | **Storefront + Admin + Supplier Playwright E2E** in a real browser (the specs above) — including promotion + coupon authoring in admin and the shopper applying/removing a coupon at checkout |
 | L20c | **Error inbox (GlitchTip, ADR-0067)**: a catalog `/health/error-probe` 500's trace id and release land as a `backend` issue; the storefront's SSR and browser error probes land as `runtime:node` / `runtime:browser` issues with a trace id and a release (unit side: A3zq `ErrorTrackingTests`, A7d conversion spec) |
+| L20d | **Continuous profiling (Pyroscope, ADR-0068)**: Pyroscope lists profiled services and returns a non-empty CPU flamegraph for the last hour (it profiles itself — the .NET profiler is Linux-only, so bare-run on macOS is never profiled); Grafana has the Pyroscope datasource and Tempo's traces-to-profiles link (unit side: A3zr `ProfilingTests`) |
 
 It prints a pass/fail summary and exits non-zero on any failure. The
 `mvp-walkthrough.md` runbook is the manual equivalent of the L-flows.

@@ -450,6 +450,12 @@ Ledger postings (Payments):
   (`00-<trace id>-<span id>-01`), not the 32-hex trace id GlitchTip's `trace_id` tag holds — split it. Every
   `IProblemException`/`BadHttpRequestException` 4xx is logged at Error too; `ClientErrorExceptionFilter` keeps them
   out of the inbox, so do not "fix" a missing 4xx issue.
+- **Pyroscope (ADR-0068) traps.** The .NET profiler is Linux-only: on the Mac nothing .NET is ever profiled, so an empty
+  `service_name` list in dev is normal (Pyroscope profiles itself). An EMPTY store still answers `SelectMergeStacktraces`
+  with a flamegraph (one `total` node, no `"total"` count) — check for a non-zero `"total"`, not for `"flamegraph"`.
+  A single-instance Pyroscope 2.x holds `/ready` at 503 for 15 s (`-metastore.min-ready-duration`, meant for rolling
+  cluster updates; set to 0 in dev). The `profiler` stage must stay byte-identical across the 17 .NET Dockerfiles
+  (`ProfilingTests`) and the image must never set `CORECLR_ENABLE_PROFILING` itself.
 
 ## Gateway (the public origin)
 
