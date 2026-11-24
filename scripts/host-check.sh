@@ -71,7 +71,8 @@ echo "── observability ──"
 # otel = the collector's health_check extension; faro = its browser-RUM receiver (GET → 405 = listening, ADR-0065);
 # alerts = the Grafana-provisioned alert rules (count; 0 = provisioning failed — see the grafana container log);
 # glitchtip = the error inbox (ADR-0067; dev infra :8000 — in k8s it is the separate glitchtip release, port-forward it).
-for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/ 8027:faro:/ 3100:loki:/ready 3200:tempo:/ready 9009:mimir:/ready 8000:glitchtip:/_health/; do
+# pyroscope = continuous profiling (ADR-0068; dev :4040 — in k8s the pyroscope release in the observability namespace).
+for x in 9090:prometheus:/-/healthy 3001:grafana:/api/health 13133:otel:/ 8027:faro:/ 3100:loki:/ready 3200:tempo:/ready 9009:mimir:/ready 8000:glitchtip:/_health/ 4040:pyroscope:/ready; do
   pt=\${x%%:*}; nm=\$(echo "\$x"|cut -d: -f2); pa=\${x##*:}
   cc=\$(curl -s -o /dev/null -w '%{http_code}' -m2 http://localhost:\$pt\$pa 2>/dev/null); { [ "\$cc" = 000 ] || [ -z "\$cc" ]; } && cc=down
   printf '  %-11s %s\n' "\$nm" "\$cc"
