@@ -36,6 +36,13 @@
          Sentry-API-compatible GlitchTip. MIT. Hosting + logging integration only (no Sentry.AspNetCore: no request/PII capture),
          and it stays OFF unless a DSN is configured. -->
     <PackageVersion Include="Sentry.Extensions.Hosting" Version="7.0.1" />
+    <!-- Continuous profiling (ADR-0068, owner Q7): span profiles — PyroscopeSpanProcessor tags each root span with
+         pyroscope.profile.id and the native .NET profiler labels its CPU samples with that span, so Tempo links a span
+         to "the profile of this request". Apache-2.0. Pyroscope pinned to the native profiler release in the Dockerfiles
+         (1.6.1); Pyroscope.OpenTelemetry 0.5.1 targets OpenTelemetry 1.16.0 = $(OtelVersion). Only active when the
+         deployment enables the profiler (CORECLR_ENABLE_PROFILING + PYROSCOPE_PROFILING_ENABLED). -->
+    <PackageVersion Include="Pyroscope" Version="1.6.1" />
+    <PackageVersion Include="Pyroscope.OpenTelemetry" Version="0.5.1" />
     <!-- DB spans (audit P1-1, owner-approved 2026-11-15): Npgsql's own OTel bridge, versioned in lock-step with
          Npgsql (10.0.3 = the Npgsql the EF provider resolves). Stable, and it sees EVERY command — EF, raw SQL,
          the MassTransit outbox/inbox, Quartz — where the EF Core instrumentation is still beta, sees only EF and
