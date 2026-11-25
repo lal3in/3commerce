@@ -13,7 +13,7 @@
 #   S3_REGION      bucket region (e.g. eu-central-1)
 #   GLITCHTIP_DOMAIN  the error inbox's external https URL (e.g. https://errors.example.com) — links in its emails
 # Buckets (create them first; names in values-*.yaml): 3commerce-loki-{chunks,ruler,admin}, 3commerce-tempo-traces,
-# 3commerce-mimir-{blocks,ruler,alertmanager}. Give them NO lifecycle rule shorter than the retention: the backends
+# 3commerce-mimir-{blocks,ruler,alertmanager}, 3commerce-pyroscope. Give them NO lifecycle rule shorter than the retention: the backends
 # delete expired data themselves (Loki 30 d / security 12 months, Tempo 14 d, Mimir 13 months).
 #
 # Secrets in $NAMESPACE (never committed — create them first, e.g. `kubectl create secret generic … --from-literal`):
@@ -38,6 +38,7 @@ GRAFANA_CHART=14.5.0     # Grafana 13.3.1
 # GlitchTip error inbox (ADR-0067) — its chart lives in GlitchTip's GitLab package registry.
 GLITCHTIP=https://gitlab.com/api/v4/projects/16325141/packages/helm/stable
 GLITCHTIP_CHART=9.2.0    # GlitchTip 7.0.0
+PYROSCOPE_CHART=2.4.4    # Pyroscope 2.4.4 (continuous profiling, ADR-0068) — grafana repo
 
 NAMESPACE="${NAMESPACE:-observability}"
 DIR=deploy/helm/observability
@@ -89,6 +90,11 @@ ALERT_EMAIL_TO="$(sed -n 's/^ALERT_EMAIL_TO=//p' deploy/observability/alerting.e
 : "${ALERT_EMAIL_TO:?set ALERT_EMAIL_TO in deploy/observability/alerting.env}"
 run grafana "$COMMUNITY" grafana           "$GRAFANA_CHART" "$DIR/values-grafana.yaml" \
   --set-string env.ALERT_EMAIL_TO="$ALERT_EMAIL_TO"
+
+# Continuous profiling (ADR-0068): the .NET pods push here (app chart profiling.enabled), Grafana reads uid `pyroscope`.
+run pyroscope "$GRAFANA"   pyroscope         "$PYROSCOPE_CHART" "$DIR/values-pyroscope.yaml" \
+  --set pyroscope.structuredConfig.storage.s3.endpoint="$S3_ENDPOINT" \
+  --set pyroscope.structuredConfig.storage.s3.region="$S3_REGION"
 
 # The error inbox (ADR-0067). Its DSNs go to the app chart as the Secret glitchtip-dsn (runbook).
 run glitchtip "$GLITCHTIP" glitchtip "$GLITCHTIP_CHART" "$DIR/values-glitchtip.yaml" \

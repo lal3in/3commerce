@@ -93,10 +93,25 @@ datasources:
             spanEndTimeShift: "5m"
             tags: [{ key: "service.name", value: "service_name" }]
             filterByTraceID: true
+          tracesToProfiles:
+            datasourceUid: pyroscope
+            profileTypeId: "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
+            tags: [{ key: "service.name", value: "service_name" }]
           serviceMap:
             datasourceUid: mimir
           nodeGraph:
             enabled: true
+        secureJsonData:
+          httpHeaderValue1: 3commerce
+      # Continuous profiling (ADR-0068): the `pyroscope` release of install-lgtm.sh, same tenant.
+      - name: Pyroscope
+        type: grafana-pyroscope-datasource
+        uid: pyroscope
+        access: proxy
+        url: http://pyroscope.observability.svc:4040
+        editable: false
+        jsonData:
+          httpHeaderName1: X-Scope-OrgID
         secureJsonData:
           httpHeaderValue1: 3commerce
       # Dev's dashboards also reference uid `prometheus` (the local scrape view); alias it to Mimir in production.

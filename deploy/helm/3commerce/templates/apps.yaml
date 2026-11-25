@@ -33,6 +33,7 @@ spec:
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
             {{- include "3commerce.otlpEnv" . | nindent 12 }}
             {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
+            {{- include "3commerce.profilingEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 ---
@@ -67,6 +68,7 @@ spec:
             {{- /* ADR-0064 environment + ADR-0067 error inbox: the portal's errors carry the release stage. */}}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
             {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
+            {{- include "3commerce.profilingEnv" . | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health
@@ -121,6 +123,7 @@ spec:
             {{- /* ADR-0064 environment + ADR-0067 error inbox: the portal's errors carry the release stage. */}}
             {{- include "3commerce.otelResourceEnv" . | nindent 12 }}
             {{- include "3commerce.errorTrackingEnv" (dict "root" . "key" "backend") | nindent 12 }}
+            {{- include "3commerce.profilingEnv" . | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /health

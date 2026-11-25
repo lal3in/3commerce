@@ -1,0 +1,49 @@
+# Pyroscope — production continuous profiling (ADR-0068, audit P2-1, owner Q7): the upstream chart grafana/pyroscope
+# 2.4.4 (app 2.4.4), installed by install-lgtm.sh into `observability` beside Loki/Tempo/Mimir/Grafana/GlitchTip.
+# The .NET pods push to it (app chart profiling.enabled, values-prod.yaml) with X-Scope-OrgID 3commerce; Grafana reads
+# it as datasource uid `pyroscope` (values-grafana.yaml), and Tempo links spans to it (tracesToProfiles).
+#
+# Shape: single binary (monolithic, v2 storage), object storage on S3 like the rest of LGTM (bucket
+# 3commerce-pyroscope; endpoint/region via install-lgtm.sh --set, credentials from the Secret lgtm-object-storage or
+# workload identity), a persistent volume for the metastore (raft state), multi-tenant, 14-day retention (= traces).
+# No bundled Alloy, Grafana Agent or MinIO: the profilers push directly, and storage is the shared S3.
+
+pyroscope:
+  replicaCount: 1
+  disableSelfProfile: true          # its own profiles would land in tenant "anonymous"; not needed in production
+  extraArgs:
+    log.level: info
+    retention-period: 336h          # 14 d, the trace retention (ADR-0065 Q2)
+    auth.multitenancy-enabled: "true"
+    config.expand-env: "true"       # ${AWS_*} below come from the lgtm-object-storage Secret
+  extraEnvFrom:
+    - secretRef:
+        name: lgtm-object-storage
+        optional: true              # absent with IRSA / workload identity
+  persistence:
+    enabled: true                   # metastore raft log + snapshots must survive a restart
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  structuredConfig:
+    storage:
+      backend: s3
+      s3:
+        bucket_name: 3commerce-pyroscope
+        endpoint: s3.example.invalid    # install-lgtm.sh: --set pyroscope.structuredConfig.storage.s3.endpoint=$S3_ENDPOINT
+        region: eu-central-1            # install-lgtm.sh: --set …region=$S3_REGION
+        access_key_id: ${AWS_ACCESS_KEY_ID}
+        secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+
+alloy:
+  enabled: false
+agent:
+  enabled: false
+minio:
+  enabled: false
+ingress:
+  enabled: false                    # cluster-internal only: the SDKs push in-cluster, people read through Grafana

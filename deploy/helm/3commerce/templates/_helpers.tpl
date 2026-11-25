@@ -51,3 +51,38 @@ Host=postgres;Port=5432;Database={{ . }}_db;Username={{ . }}_svc;Password={{ . }
       optional: true
 {{- end }}
 {{- end -}}
+
+{{- /* Continuous profiling (ADR-0068): turns ON the Pyroscope .NET profiler every .NET image carries (inert until these
+       are set). Linux-only native CLR profiler; LD_PRELOAD loads its API wrapper (same file name on arm64). Labels: the
+       deployment environment (service_name comes from the image's PYROSCOPE_APPLICATION_NAME = OTel service.name).
+       Renders nothing when profiling is off. Takes the root context. */ -}}
+{{- define "3commerce.profilingEnv" -}}
+{{- with .Values.profiling }}
+{{- if .enabled }}
+- name: CORECLR_ENABLE_PROFILING
+  value: "1"
+- name: LD_PRELOAD
+  value: /pyroscope/Pyroscope.Linux.ApiWrapper.x64.so
+- name: PYROSCOPE_PROFILING_ENABLED
+  value: "true"
+- name: PYROSCOPE_SERVER_ADDRESS
+  value: {{ .serverAddress | quote }}
+{{- with .tenant }}
+- name: PYROSCOPE_TENANT_ID
+  value: {{ . | quote }}
+{{- end }}
+- name: PYROSCOPE_LABELS
+  value: {{ printf "deployment_environment_name:%s" $.Values.deploymentEnvironment | quote }}
+- name: PYROSCOPE_PROFILING_CPU_ENABLED
+  value: {{ .types.cpu | quote }}
+- name: PYROSCOPE_PROFILING_WALLTIME_ENABLED
+  value: {{ .types.walltime | quote }}
+- name: PYROSCOPE_PROFILING_ALLOCATION_ENABLED
+  value: {{ .types.allocation | quote }}
+- name: PYROSCOPE_PROFILING_LOCK_ENABLED
+  value: {{ .types.lock | quote }}
+- name: PYROSCOPE_PROFILING_EXCEPTION_ENABLED
+  value: {{ .types.exception | quote }}
+{{- end }}
+{{- end }}
+{{- end -}}

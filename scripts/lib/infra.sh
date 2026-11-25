@@ -11,7 +11,7 @@
 # The set:
 #   full (default)  every service of docker-compose.infra.yml under the `portals` profile (Postgres, RabbitMQ,
 #                   Valkey, redis-exporter, Kafka, Kafka UI, pgAdmin, the GlitchTip error inbox) + the observability services bare-run dev
-#                   BORROWS from docker-compose.yml (DEV_BORROWED_SERVICES: OTel collector, Prometheus, Grafana,
+#                   BORROWS from docker-compose.yml (DEV_BORROWED_SERVICES: OTel collector, Prometheus, Grafana, Pyroscope,
 #                   Loki, Tempo, Mimir).
 #   core            only the profile-less services of docker-compose.infra.yml (Postgres, RabbitMQ, Valkey).
 #                   e2e-verify picks it on CI (CI=true) unless INFRA_SET says otherwise: ci.yml's browser-e2e
@@ -31,7 +31,7 @@ APP_STACK_PROJECT="3commerce"             # `name:` of docker-compose.yml
 APP_NETWORK="3commerce-data"              # docker-compose.yml's EXTERNAL default network
 # The observability services bare-run dev borrows from docker-compose.yml. Also the keep-set source of
 # lib/volumes.sh, so bring-up, teardown and volume pruning can never drift apart.
-DEV_BORROWED_SERVICES=(otel-collector prometheus grafana loki tempo mimir)
+DEV_BORROWED_SERVICES=(otel-collector prometheus grafana loki tempo mimir pyroscope)
 
 : "${INFRA_SET:=full}"
 : "${INFRA_WAIT_TIMEOUT:=300}"    # s — `docker compose up --wait` (Kafka alone may need ~120 s of healthcheck retries)
@@ -106,6 +106,7 @@ _infra_probe() { # service container
     prometheus)     docker exec "$2" wget -qO- http://localhost:9090/-/ready ;;   # no published port in dev
     grafana)        curl -fsS -m 3 -o /dev/null http://localhost:3001/api/health ;;
     mimir)          curl -fsS -m 3 -o /dev/null http://localhost:9009/ready ;;  # shell-less image: no healthcheck
+    pyroscope)      curl -fsS -m 3 -o /dev/null http://localhost:4040/ready ;;  # distroless image: no healthcheck (ADR-0068)
     # The healthcheck runs inside the container; the published port is what the bare-run SDKs post to (ADR-0067).
     glitchtip)      curl -fsS -m 3 -o /dev/null http://localhost:8000/_health/ ;;
     *)              return 0 ;;

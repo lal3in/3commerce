@@ -402,6 +402,10 @@
 #       filtered, 5xx and defects kept; /health/error-probe exists outside Production only; end to end through a fake
 #       ingest: the probe's 500 becomes ONE event with the release, the trace id of its problem+json and its route, a
 #       409 none
+#   A3zr Unit · continuous profiling (ADR-0068; ProfilingTests): span profiles only where the native Pyroscope profiler
+#       is loaded (Linux + CORECLR_ENABLE_PROFILING=1 + PYROSCOPE_PROFILING_ENABLED; never on macOS bare-run); every
+#       .NET Dockerfile carries the byte-identical, checksum-pinned profiler stage, copies it, names the CLR profiler,
+#       never enables it itself, and sets PYROSCOPE_APPLICATION_NAME = the service.name its Program.cs registers
 #   A4  Integration · spine: outbox atomicity, durable redelivery, inbox idempotency
 #       (every fixture's teardown also fails the run if a test left a service host running —
 #       TestHostTracker; the check below treats an xUnit 'Cleanup Failure' as a failure)
@@ -891,6 +895,11 @@
 #       runtime:node issue (L20's /probe/error via onRequestError) seen during this run with a trace id and a release;
 #       a Faro-shaped exception batch posted same-origin to /rum (L20's spec intercepts /rum in the page) becomes a
 #       storefront issue with its trace id and the storefront's release. Skipped when GlitchTip is not running (core set)
+#   L20d Continuous profiling (Pyroscope, ADR-0068): a CPU profile pushed to /ingest under a unique service name is
+#       found again through the query API (label values + its frames in the merged flamegraph) — true on every
+#       platform; .NET service profiles are reported when present and SKIPPED (with the reason) on bare-run, where the
+#       Linux-only .NET profiler is not loaded; Grafana has the Pyroscope datasource and Tempo's tracesToProfiles link.
+#       Skipped without Pyroscope
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -uo pipefail
@@ -1185,6 +1194,11 @@ run_automated() {
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~ErrorTrackingTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zq error inbox (GlitchTip)"; else fail "A3zq error inbox (GlitchTip)"; fi
+
+  stage "A3zr Continuous profiling (ADR-0068) — profiler gate + every .NET image carries the pinned, inert profiler"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~ProfilingTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zr continuous profiling (Pyroscope)"; else fail "A3zr continuous profiling (Pyroscope)"; fi
 
   stage "A4–A6  Integration tests (Testcontainers — Docker required)"
   local out; out="$(dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build --filter 'Category=Integration' 2>&1)"
@@ -1801,6 +1815,49 @@ except Exception:
     fi
   else
     echo "  (skipped: GlitchTip not running — it is part of the full infra set only)"
+  fi
+
+  stage "L20d Continuous profiling (Pyroscope, ADR-0068) — ingest → query round trip + Grafana's Pyroscope datasource and Tempo → profile link"
+  if curl -fsS -m 3 -o /dev/null http://localhost:4040/ready; then
+    # Round trip that holds on every platform: push a small CPU profile (folded stacks) under a unique service name,
+    # then find that service and its frames through the query API Grafana uses. (A v2 store makes data queryable
+    # after its segment flush — tens of seconds — hence the poll.)
+    local py_now py_svc py_names py_flame py_ds py_t2p py_dotnet i
+    py_now="$(date +%s)"; py_svc="e2e-l20d-$py_now"
+    printf 'main;handleRequest;l20dWork 100\nmain;handleRequest;l20dDb 50\n' | curl -s -m 10 -o /dev/null -X POST --data-binary @- \
+      "http://localhost:4040/ingest?name=${py_svc}.cpu%7Bdeployment_environment_name%3Dci%7D&from=$((py_now - 10))&until=${py_now}&format=folded&spyName=e2e&sampleRate=100&units=samples&aggregationType=sum" || true
+    py_names=""
+    for i in $(seq 1 30); do
+      py_names="$(curl -s -m 5 -X POST -H 'content-type: application/json' \
+        -d "{\"name\":\"service_name\",\"start\":$(( (py_now - 3600) * 1000 )),\"end\":$(( ($(date +%s) + 60) * 1000 ))}" \
+        http://localhost:4040/querier.v1.QuerierService/LabelValues 2>/dev/null)"
+      [[ "$py_names" == *"\"$py_svc\""* ]] && break; sleep 3
+    done
+    py_flame="$(curl -s -m 10 -X POST -H 'content-type: application/json' \
+      -d "{\"profileTypeID\":\"process_cpu:cpu:nanoseconds:cpu:nanoseconds\",\"labelSelector\":\"{service_name=\\\"$py_svc\\\"}\",\"start\":$(( (py_now - 3600) * 1000 )),\"end\":$(( ($(date +%s) + 60) * 1000 ))}" \
+      http://localhost:4040/querier.v1.QuerierService/SelectMergeStacktraces 2>/dev/null)"
+    if [[ "$py_names" == *"\"$py_svc\""* && "$py_flame" == *'"l20dWork"'* && "$py_flame" == *'"l20dDb"'* ]]; then
+      pass "L20d Pyroscope ingest → query round trip ($py_svc: pushed frames found in the merged CPU flamegraph)"
+    else
+      fail "L20d Pyroscope round trip ($py_svc — services: ${py_names:0:120}; flamegraph: ${py_flame:0:120})"
+    fi
+    # .NET application profiles exist only where the native profiler is loaded: Linux containers with the profiling env
+    # (Helm profiling.enabled, deploy/.env.dev). Bare-run processes never load it (and on macOS it does not exist).
+    py_dotnet="$(grep -oE '"(identity|catalog|entity|ordering|payments|fulfillment|support|marketing|pricing|audit|workflow|entitlement|usage|notifications|gateway|admin|supplier-portal)"' <<<"$py_names" | tr -d '"' | tr '\n' ' ')"
+    if [[ -n "$py_dotnet" ]]; then
+      pass "L20d .NET services sending profiles: $py_dotnet"
+    else
+      echo "  (skipped: no .NET service profiles — this stack runs the services bare on $(uname -s), where the Pyroscope .NET profiler is not loaded; it is Linux-only and enabled in containers/Kubernetes by the profiling env)"
+    fi
+    py_ds="$(curl -fs -m 5 -u "admin:${GRAFANA_ADMIN_PASSWORD:-admin}" http://localhost:3001/api/datasources/uid/pyroscope 2>/dev/null)"
+    py_t2p="$(curl -fs -m 5 -u "admin:${GRAFANA_ADMIN_PASSWORD:-admin}" http://localhost:3001/api/datasources/uid/tempo 2>/dev/null)"
+    if [[ "$py_ds" == *'"type":"grafana-pyroscope-datasource"'* && "$py_t2p" == *'"tracesToProfiles":{'*'"datasourceUid":"pyroscope"'* ]]; then
+      pass "L20d Grafana: Pyroscope datasource + Tempo traces-to-profiles link provisioned"
+    else
+      fail "L20d Grafana Pyroscope datasource / Tempo tracesToProfiles missing"
+    fi
+  else
+    echo "  (skipped: Pyroscope not running — it is part of the full infra set only)"
   fi
 
   live_teardown

@@ -45,6 +45,12 @@ datasources:
             query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
           - name: "p95 latency"
             query: "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{$$__tags}[5m])) by (le))"
+      # Trace → profile (ADR-0068): spans of a profiled .NET process carry pyroscope.profile.id (PyroscopeSpanProcessor),
+      # so "Profiles for this span" opens exactly that request's CPU samples; the service filter is the fallback.
+      tracesToProfiles:
+        datasourceUid: pyroscope
+        profileTypeId: "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
+        tags: [{ key: "service.name", value: "service_name" }]
       # Service Graph tab + node graph — driven by the service-graph metrics in Mimir.
       serviceMap:
         datasourceUid: mimir
@@ -62,3 +68,12 @@ datasources:
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: tempo
+
+  # Continuous profiling (ADR-0068): the dev Pyroscope (observability profile, :4040).
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope:4040
+    editable: false
+

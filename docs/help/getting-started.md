@@ -11,7 +11,7 @@ fake/sandbox rails and launch gates are described accurately.
 
 | Requirement | Notes |
 |-------------|-------|
-| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. **VM size: 6 GiB is enough** for the bare-run stack — the full infra set (incl. GlitchTip) + all services + frontends, seeded, peaked at 4479 MB used of 5911 MB (p99 4194 MB; measured 2026-11-19, ADR-0067). Container image builds need more (below). |
+| **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. **VM size: 6 GiB is enough** for the bare-run stack — the full infra set (incl. GlitchTip and Pyroscope) + all services + frontends, seeded, peaked at 3903–4479 MB used of 5911 MB across runs (Loki start-up replay is the swing; Pyroscope ~72 MiB; worst case + 1 GiB margin = 5575 MB; measured 2026-11-19/25, ADR-0067/0068). Container image builds need more (below). |
 | **.NET 10 SDK** | Installed user-locally at `~/.dotnet` (no sudo). `DOTNET_ROOT=$HOME/.dotnet`; ensure `~/.dotnet` and `~/.dotnet/tools` are on `PATH`. `.envrc` (direnv) sets this for you — run `direnv allow` after editing it. |
 | **Node.js** | For the Next.js storefront and Playwright. CI uses Node 22. |
 | **dotnet-ef tool** | For applying migrations: `dotnet tool install --global dotnet-ef`. |
@@ -28,6 +28,7 @@ fake/sandbox rails and launch gates are described accurately.
 | Postgres | `5432` |
 | RabbitMQ AMQP / management UI | `5672` / `15672` (guest/guest) |
 | GlitchTip error inbox (ADR-0067) | `8000` (sign-in: `deploy/observability/glitchtip/glitchtip.env`) |
+| Pyroscope continuous profiling (ADR-0068) | `4040` (also Grafana → Explore → Pyroscope) |
 
 > The dev "complete test payment" path and `e2e-verify.sh` address Payments
 > directly on **`:5104`** (`/dev/simulate-payment/...`); everything else goes
@@ -59,7 +60,7 @@ bash -c 'source scripts/lib/infra.sh && infra_up'           # the infra step of 
 This starts the **whole infra set** defined in `scripts/lib/infra.sh`: every service of
 `docker-compose.infra.yml` under the `portals` profile (Postgres 18, RabbitMQ 4, Valkey, redis-exporter,
 Kafka, Kafka UI, pgAdmin, the GlitchTip error inbox :8000 — ADR-0067) plus the observability services bare-run borrows from `docker-compose.yml`
-(OTel collector — OTLP :4317/:4318, Faro browser-RUM receiver :8027, health :13133 — Prometheus, Grafana with the provisioned alert rules, Loki, Tempo, Mimir; ADR-0065). It waits on every healthcheck and readiness probe
+(OTel collector — OTLP :4317/:4318, Faro browser-RUM receiver :8027, health :13133 — Prometheus, Grafana with the provisioned alert rules, Loki, Tempo, Mimir; ADR-0065; and Pyroscope :4040 for continuous profiling, ADR-0068). It waits on every healthcheck and readiness probe
 and fails, naming the container, if any member is not ready in time. On first run,
 `infra/postgres/init-databases.sql` creates the **service databases**, roles, and extensions (FTS + `pg_trgm`).
 
@@ -104,6 +105,15 @@ A service binds its port only once its MassTransit bus is up (queues declared an
 refused" (`000`) right after start means it is still waiting for RabbitMQ. It waits up to
 `Messaging:StartTimeoutSeconds` (120 s), then exits with `Broker unreachable` in its log — start RabbitMQ
 and run the service again.
+
+#### Continuous profiling (ADR-0068) — Linux only
+
+Pyroscope (`:4040`, in the infra set) stores CPU, allocation, lock and exception profiles; Grafana links a slow span
+in Tempo to the profile of that very request. The .NET profiler is a **native CLR profiler for Linux only**: every
+.NET image carries it (inert until the deployment sets `CORECLR_ENABLE_PROFILING=1` + `LD_PRELOAD` +
+`PYROSCOPE_PROFILING_ENABLED=true`; Helm `profiling.enabled`), but the bare-run services on macOS are **never
+profiled** — locally Pyroscope holds only its own profiles. To profile a service locally, run its container image with
+those variables (runbook "Profiling (Pyroscope)").
 
 ### 4. Start the storefront (`:3000`)
 

@@ -14,13 +14,14 @@ ADR-0029 (SLOs), ADR-0064 (release identity). Messaging-specific operations: `me
 | Grafana | `:3001` (admin / `GRAFANA_ADMIN_PASSWORD`) | `grafana` release (grafana-community/grafana 14.5.0), `kubectl -n observability port-forward svc/grafana 3001:80` |
 | Alert rules | `deploy/observability/grafana/provisioning/alerting/` | same files, ConfigMap `grafana-alerting` |
 | Error inbox (ADR-0067) | GlitchTip 7.0 `:8000` (infra `portals` set; sign-in in `deploy/observability/glitchtip/glitchtip.env`), shared Postgres db `glitchtip` | `glitchtip` release (glitchtip 9.2.0), managed Postgres, `kubectl -n observability port-forward svc/glitchtip 8000:80` |
+| Profiles (ADR-0068) | Pyroscope 2.4.4 `:4040` (borrowed observability service, filesystem, 7 d); .NET profiles only from Linux containers | `pyroscope` release (grafana/pyroscope 2.4.4), S3, 14 d, tenant `3commerce`; app chart `profiling.enabled` (values-prod) |
 
 Tenant: production backends are multi-tenant; everything is written and read with `X-Scope-OrgID: 3commerce`.
 
 ## Health checks
 
 ```bash
-scripts/doctor.sh                 # local: collector health, Faro receiver, Grafana, alert rules (expect 8), GlitchTip + issue counts
+scripts/doctor.sh                 # local: collector, Faro receiver, Grafana, alert rules (expect 8), GlitchTip + issues, Pyroscope + profiled services
 scripts/host-check.sh local       # + Loki/Tempo/Mimir /ready, Prometheus, alert rule count
 curl -s localhost:13133/          # collector: {"status":"Server available", …}
 curl -s -o /dev/null -w '%{http_code}\n' localhost:8027/   # Faro receiver: 405 (GET) = listening
@@ -177,6 +178,34 @@ recreates the projects with the same DSNs. Retention 14 days.
    `kubectl -n <app-ns> create secret generic glitchtip-dsn --from-literal=backend=http://<key>@glitchtip.observability.svc/<id> --from-literal=storefront=…`
    then roll the app (`helm upgrade … -f values-prod.yaml`; `errorTracking.dsnSecret: glitchtip-dsn` is already set).
 
+## Profiling (Pyroscope)
+
+ADR-0068. Every .NET image carries the Pyroscope .NET profiler (a native CLR profiler, ~16 MB, checksum-pinned), inert
+until the deployment turns it on: Helm `profiling.enabled` (on in `values-prod.yaml`) sets `CORECLR_ENABLE_PROFILING=1`,
+`LD_PRELOAD=/pyroscope/Pyroscope.Linux.ApiWrapper.x64.so`, `PYROSCOPE_PROFILING_ENABLED=true`,
+`PYROSCOPE_SERVER_ADDRESS`, `PYROSCOPE_TENANT_ID` and the profile types (CPU, allocation, lock, exception; wall time off).
+
+**The profiler is Linux-only.** Bare-run services on macOS (the default dev mode) are never profiled; the dev Pyroscope
+then holds only its own profiles (`service_name=pyroscope`). To profile a .NET service locally, run its image (Linux
+container) with the env above and `PYROSCOPE_SERVER_ADDRESS=http://pyroscope:4040` on the `3commerce-data` network, or
+turn it on for the containerized launch in `deploy/.env.dev`.
+
+**Read a profile.** Grafana → Explore → Pyroscope → `service_name` = the OTel service name, profile type
+`process_cpu` (or `alloc_*`, `lock_*`, `exceptions`). From a slow span in Tempo, "Profiles for this span" opens the CPU
+samples of exactly that request (span profiles: `pyroscope.profile.id` on root spans).
+
+**Nothing arrives.**
+1. `scripts/doctor.sh` — `pyroscope :4040 200` and the list of profiled services.
+2. The pod has the env (`kubectl exec … -- env | grep -E 'CORECLR|PYROSCOPE'`)? The profiler logs to
+   `/tmp/pyroscope/` inside the container (`PYROSCOPE_PROFILING_LOG_DIR`).
+3. Multi-tenant production: the pods need `PYROSCOPE_TENANT_ID=3commerce` (Helm `profiling.tenant`) and Grafana the
+   same `X-Scope-OrgID`, or the profiles land in, or are read from, the wrong tenant.
+
+**Overhead.** A few percent CPU for the default types. Turn a type off per environment (`profiling.types.*`), or the
+whole profiler (`profiling.enabled=false`) — the image is unchanged either way.
+
+**Bump the profiler.** One version and two SHA-256 sums (x86_64, aarch64) in the `profiler` stage, byte-identical in
+all 17 .NET Dockerfiles (`ProfilingTests` fails otherwise); the NuGet `Pyroscope` version follows it.
 ## SLOs and deploy markers
 
 ADR-0069 (SLO targets: ADR-0029). Dashboard **3commerce — SLOs** (`3commerce-slo`, same file in dev and production):

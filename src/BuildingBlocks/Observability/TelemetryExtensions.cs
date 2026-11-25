@@ -6,6 +6,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Pyroscope.OpenTelemetry;
 using Sentry.Extensions.Hosting;
 
 namespace ThreeCommerce.BuildingBlocks.Observability;
@@ -61,6 +62,12 @@ public static class TelemetryExtensions
                     .AddAspNetCoreInstrumentation(options => options.RecordException = true)
                     .AddHttpClientInstrumentation(options => options.RecordException = true);
                 configureTracing?.Invoke(tracing);
+
+                // Span profiles (ADR-0068): only where the native Pyroscope profiler is loaded.
+                if (Profiling.IsEnabled(builder.Configuration))
+                {
+                    tracing.AddProcessor(new PyroscopeSpanProcessor());
+                }
 
                 if (useOtlp)
                 {
