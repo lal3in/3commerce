@@ -22,6 +22,11 @@ notifications:
 errorTracking:
   dsnSecret: glitchtip-dsn
 
+# Continuous profiling (ADR-0068): push to the `pyroscope` release (install-lgtm.sh), tenant 3commerce like LGTM.
+profiling:
+  enabled: true
+  tenant: 3commerce
+
 observability:
   enabled: true
   backend: external

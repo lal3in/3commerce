@@ -314,6 +314,29 @@ services:
     # http://localhost:9009/ready from the host instead.
     restart: unless-stopped
 
+  # Continuous profiling (ADR-0068, audit P2-1): Grafana Pyroscope, single binary, local filesystem, 7-day retention.
+  # The .NET images push CPU/allocation/lock/exception profiles here when the profiler is enabled (deploy/.env.dev for
+  # the containerized launch; the profiler is Linux-only, so bare-run services on macOS are not profiled). It also
+  # profiles itself (service_name=pyroscope). Distroless image: no healthcheck — probe /ready from the host.
+  pyroscope:
+    image: grafana/pyroscope:2.4.4
+    container_name: 3commerce-pyroscope
+    profiles: ["observability"]
+    command:
+      - -config.file=/etc/pyroscope/config.yaml
+      - -retention-period=7d
+      # Single instance: the metastore's 15 s readiness hold exists for rolling updates of a cluster (safe to drop here).
+      - -metastore.min-ready-duration=0
+    ports:
+      - "4040:4040"
+    volumes:
+      - pyroscope_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: 3commerce-prometheus
@@ -371,6 +394,7 @@ volumes:
   tempo_data:
   mimir_data:
   prometheus_data:
+  pyroscope_data:
   rabbitmq_data:
 
 # The app's default network IS the external Postgres network (docker-compose.db.yml), so

@@ -15,5 +15,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
     <PackageReference Include="Sentry.Extensions.Hosting" />
+    <PackageReference Include="Pyroscope" />
+    <PackageReference Include="Pyroscope.OpenTelemetry" />
   </ItemGroup>
 </Project>

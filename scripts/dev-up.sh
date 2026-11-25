@@ -46,12 +46,13 @@ if (( FRESH )); then
   grep -E '^  removed orphaned volume' <<<"$down_log" || true
 fi
 
-echo "== 1/4 infra (all-or-nothing: Postgres + RabbitMQ + Valkey + Kafka + Kafka-UI + pgAdmin + GlitchTip + LGTM observability) =="
+echo "== 1/4 infra (all-or-nothing: Postgres + RabbitMQ + Valkey + Kafka + Kafka-UI + pgAdmin + GlitchTip + LGTM observability + Pyroscope) =="
 infra_up || { echo "Infra is NOT fully up (see above) — fix it, or clear it with scripts/dev-down.sh, then re-run." >&2; exit 1; }
 (( FRESH )) || report_app_stack_orphans
 echo "  pgAdmin (all 14 DBs): http://localhost:5480  (admin@3commerce.dev / pgadmin_dev)"
 echo "  Kafka UI:             http://localhost:8090  ·  RabbitMQ UI: http://localhost:15672 (guest/guest)"
 echo "  Grafana (LGTM):       http://localhost:3001  (admin/admin)  ·  OTLP in: localhost:4317"
+echo "  Pyroscope (profiles):  http://localhost:4040  (Grafana: Explore → Pyroscope; .NET profiles from Linux containers only — ADR-0068)"
 echo "  GlitchTip (errors):    http://localhost:8000  ($(glitchtip_env GLITCHTIP_DEV_ADMIN_EMAIL) / $(glitchtip_env GLITCHTIP_DEV_ADMIN_PASSWORD))"
 echo "  Loki: http://localhost:3100 · Tempo: http://localhost:3200 · Mimir: http://localhost:9009"
 
@@ -184,6 +185,7 @@ ready grafana    90 curl -fsS -m 4 http://localhost:3001/api/health
 ready loki      120 curl -fsS -m 4 http://localhost:3100/ready
 ready tempo     120 curl -fsS -m 4 http://localhost:3200/ready
 ready mimir     120 curl -fsS -m 4 http://localhost:9009/ready
+ready pyroscope  60 curl -fsS -m 4 http://localhost:4040/ready
 # The error inbox: healthy AND bootstrapped (the dev read-only token answers, so the projects + DSN keys exist).
 ready glitchtip  90 bash -c 'source scripts/lib/glitchtip.sh && glitchtip_api projects/ | grep -q "\"slug\": \"backend\""'
 if (( WITH_FRONTENDS )); then
