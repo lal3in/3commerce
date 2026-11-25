@@ -206,6 +206,7 @@ whole profiler (`profiling.enabled=false`) — the image is unchanged either way
 
 **Bump the profiler.** One version and two SHA-256 sums (x86_64, aarch64) in the `profiler` stage, byte-identical in
 all 17 .NET Dockerfiles (`ProfilingTests` fails otherwise); the NuGet `Pyroscope` version follows it.
+
 ## SLOs and deploy markers
 
 ADR-0069 (SLO targets: ADR-0029). Dashboard **3commerce — SLOs** (`3commerce-slo`, same file in dev and production):
