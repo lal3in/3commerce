@@ -452,7 +452,8 @@ Ledger postings (Payments):
   out of the inbox, so do not "fix" a missing 4xx issue.
 - **Pyroscope (ADR-0068) traps.** The .NET profiler is Linux-only: on the Mac nothing .NET is ever profiled, so an empty
   `service_name` list in dev is normal (Pyroscope profiles itself). An EMPTY store still answers `SelectMergeStacktraces`
-  with a flamegraph (one `total` node, no `"total"` count) — check for a non-zero `"total"`, not for `"flamegraph"`.
+  with a flamegraph (one `total` node) — assert on frames you know (L20d pushes its own folded profile to `/ingest`).
+  Pushed data becomes queryable only after the v2 segment flush (~10–30 s), and `LabelValues` needs `start`/`end`.
   A single-instance Pyroscope 2.x holds `/ready` at 503 for 15 s (`-metastore.min-ready-duration`, meant for rolling
   cluster updates; set to 0 in dev). The `profiler` stage must stay byte-identical across the 17 .NET Dockerfiles
   (`ProfilingTests`) and the image must never set `CORECLR_ENABLE_PROFILING` itself.

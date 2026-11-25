@@ -104,5 +104,8 @@ nothing there. Against ADR-0067's start-up peak (4479 MB, Loki WAL replay) the w
 - Every .NET image is ~16 MB larger (one shared layer) and the build downloads a pinned, checksum-verified tarball.
   Bumping the profiler = one version + two checksums, the same in every Dockerfile (`ProfilingTests` fails otherwise).
 - Production pays a few percent CPU for the enabled types; turn types off per environment in `profiling.types`.
-- Pinned by `ProfilingTests` (unit lane, e2e-verify **A3zr**) and live **L20d** (Pyroscope stores CPU profiles; Grafana
-  has the datasource and Tempo's traces-to-profiles link). Runbook: `docs/runbooks/observability.md`, "Profiling (Pyroscope)".
+- Pinned by `ProfilingTests` (unit lane, e2e-verify **A3zr**) and live **L20d** (a CPU profile pushed to Pyroscope's `/ingest` is
+  queried back by service and frames on any platform; .NET service profiles are reported where the profiler runs and
+  skipped, with the reason, on bare-run; Grafana has the datasource and Tempo's traces-to-profiles link). The .NET
+  profiler itself was verified in a Linux container of the catalog image: managed frames in Pyroscope, and Tempo
+  spans carrying `pyroscope.profile.id`. Runbook: `docs/runbooks/observability.md`, "Profiling (Pyroscope)".
