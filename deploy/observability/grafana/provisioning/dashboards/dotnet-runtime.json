@@ -322,5 +322,37 @@
         "h": 8
       }
     }
-  ]
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Deploys (new service.version, ADR-0069)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "purple",
+        "step": "1m",
+        "expr": "group by (service_name, service_version, vcs_ref_head_revision, deployment_environment_name) (dotnet_process_cpu_time_seconds_total) unless group by (service_name, service_version, vcs_ref_head_revision, deployment_environment_name) (dotnet_process_cpu_time_seconds_total offset 15m)",
+        "titleFormat": "Deploy: {{service_name}} {{service_version}}",
+        "textFormat": "{{deployment_environment_name}} — commit {{vcs_ref_head_revision}}",
+        "tagKeys": "service_name,deployment_environment_name",
+        "useValueForTime": false
+      }
+    ]
+  }
 }

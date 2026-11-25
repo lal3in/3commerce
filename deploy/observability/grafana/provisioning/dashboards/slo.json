@@ -1,0 +1,253 @@
+{
+  "uid": "3commerce-slo",
+  "title": "3commerce — SLOs (ADR-0029)",
+  "description": "The ADR-0029 service-level objectives per service: availability >= 99.5 % over 30 days (request-based: share of HTTP requests that are not 5xx), its error budget (0.5 %) and the burn rate, and p95 latency for reads (catalog < 500 ms, everything else < 800 ms). Thresholds and expressions are the SAME as the provisioned alert rules (provisioning/alerting/rules.yml: tc-http-5xx-rate, tc-p95-catalog-reads, tc-p95-other-reads), so a red panel here and an alert email always agree. Queries Mimir (uid mimir). Deploy markers (ADR-0069) show when a new service.version starts.",
+  "tags": ["3commerce", "slo", "adr-0029"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Deploys (new service.version, ADR-0069)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "purple",
+        "step": "1m",
+        "expr": "group by (service_name, service_version, vcs_ref_head_revision, deployment_environment_name) (dotnet_process_cpu_time_seconds_total) unless group by (service_name, service_version, vcs_ref_head_revision, deployment_environment_name) (dotnet_process_cpu_time_seconds_total offset 15m)",
+        "titleFormat": "Deploy: {{service_name}} {{service_version}}",
+        "textFormat": "{{deployment_environment_name}} — commit {{vcs_ref_head_revision}}",
+        "tagKeys": "service_name,deployment_environment_name",
+        "useValueForTime": false
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "label": "Environment",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "mimir" },
+        "query": { "query": "label_values(http_server_request_duration_seconds_count, deployment_environment_name)", "refId": "env" },
+        "definition": "label_values(http_server_request_duration_seconds_count, deployment_environment_name)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "mimir" },
+        "query": { "query": "label_values(http_server_request_duration_seconds_count{deployment_environment_name=~\"$env\"}, service_name)", "refId": "service" },
+        "definition": "label_values(http_server_request_duration_seconds_count{deployment_environment_name=~\"$env\"}, service_name)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "How to read this dashboard",
+      "type": "text",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Availability** = share of HTTP requests that are not 5xx, over 30 days; objective **99.5 %** (ADR-0029), so the **error budget** is 0.5 % of requests. **Burn rate** = current 5xx ratio / 0.5 %: 1 spends the budget exactly in 30 days; the alert `HTTP 5xx rate above 1 %` (5 min) is burn rate 2; 6 over 6 h or 14.4 over 1 h are the classic multi-window \"budget gone in days / hours\" lines. **Latency**: p95 of GET requests per route, catalog < 500 ms (NFR-5), everything else < 800 ms — the same expressions as the latency alerts. Runbook: `docs/runbooks/observability.md`."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Availability, 30 days (SLO >= 99.5 %)",
+      "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "options": { "orientation": "horizontal", "displayMode": "basic", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "decimals": 3, "min": 0.98, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.995 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{service_name}}",
+          "expr": "1 - ((sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\", http_response_status_code=~\"5..\"}[30d])) or on (service_name) (0 * sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[30d])))) / sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[30d])))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error budget remaining, 30 days",
+      "description": "1 - (5xx ratio over 30 days / 0.5 %). Below 0: the objective is missed for the window.",
+      "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "options": { "orientation": "horizontal", "displayMode": "basic", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "decimals": 1, "min": -1, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "yellow", "value": 0.25 }, { "color": "green", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{service_name}}",
+          "expr": "1 - (((sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\", http_response_status_code=~\"5..\"}[30d])) or on (service_name) (0 * sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[30d])))) / sum by (service_name) (increase(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[30d]))) / 0.005)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error-budget burn rate (1 h and 6 h windows)",
+      "description": "5xx ratio over the window / 0.5 % (the budget). 1 = budget spent exactly in 30 days. The 5-minute 5xx > 1 % alert is burn rate 2; 6 (6 h) and 14.4 (1 h) mark a budget gone in ~5 days / ~2 days.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none", "min": 0,
+          "custom": { "thresholdsStyle": { "mode": "line+area" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 2 }, { "color": "orange", "value": 6 }, { "color": "red", "value": 14.4 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{service_name}} 1h",
+          "expr": "((sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\", http_response_status_code=~\"5..\"}[1h])) or on (service_name) (0 * sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[1h])))) / sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[1h]))) / 0.005"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "{{service_name}} 6h",
+          "expr": "((sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\", http_response_status_code=~\"5..\"}[6h])) or on (service_name) (0 * sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[6h])))) / sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[6h]))) / 0.005"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "5xx ratio, 5 min (alert: > 1 % for 5 min)",
+      "description": "Exactly the expression of the alert rule tc-http-5xx-rate (near-idle services, < ~15 requests per 5 min, are ignored as there).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0,
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.01 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{service_name}}",
+          "expr": "(sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\", http_response_status_code=~\"5..\"}[5m])) / sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[5m]))) and on (service_name) (sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"$service\", deployment_environment_name=~\"$env\"}[5m])) > 0.05)"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "p95 latency, catalog reads (SLO < 500 ms)",
+      "description": "Exactly the expression of the alert rule tc-p95-catalog-reads (GET, per route); the alert fires after 10 min above the line.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "min": 0,
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{http_route}}",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name, http_route) (rate(http_server_request_duration_seconds_bucket{service_name=\"catalog\", deployment_environment_name=~\"$env\", http_request_method=\"GET\"}[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "p95 latency, other reads (SLO < 800 ms)",
+      "description": "Exactly the expression of the alert rule tc-p95-other-reads (GET, per service and route, catalog excluded); the alert fires after 10 min above the line.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "min": 0,
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.8 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{service_name}} {{http_route}}",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name, http_route) (rate(http_server_request_duration_seconds_bucket{service_name!=\"catalog\", service_name=~\"$service\", deployment_environment_name=~\"$env\", http_request_method=\"GET\"}[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Latency SLO headroom now (p95 / target, worst route per service)",
+      "description": "Worst GET route p95 divided by its target (catalog 0.5 s, others 0.8 s), over the last 30 min. Above 1 = the SLO is missed right now.",
+      "type": "bargauge",
+      "datasource": { "type": "prometheus", "uid": "mimir" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 39 },
+      "options": { "orientation": "horizontal", "displayMode": "basic", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1.5,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.75 }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "legendFormat": "{{service_name}}",
+          "expr": "max by (service_name) (histogram_quantile(0.95, sum by (le, service_name, http_route) (rate(http_server_request_duration_seconds_bucket{service_name=\"catalog\", deployment_environment_name=~\"$env\", http_request_method=\"GET\"}[30m]))) / 0.5) or max by (service_name) (histogram_quantile(0.95, sum by (le, service_name, http_route) (rate(http_server_request_duration_seconds_bucket{service_name!=\"catalog\", service_name=~\"$service\", deployment_environment_name=~\"$env\", http_request_method=\"GET\"}[30m]))) / 0.8)"
+        }
+      ]
+    }
+  ]
+}
