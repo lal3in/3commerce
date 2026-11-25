@@ -23,7 +23,7 @@ RUN set -eu; \
       *)     arch=x86_64;  sum=9efda5cf621511ff937a0f765fe8af0ea59ab8c47a227c8afcf25637779dd36f ;; \
     esac; \
     apt-get update && apt-get install -y --no-install-recommends binutils && rm -rf /var/lib/apt/lists/*; \
-    curl -fsSL -o /tmp/pyroscope.tgz \
+    curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --http1.1 -o /tmp/pyroscope.tgz \
       "https://github.com/grafana/pyroscope-dotnet/releases/download/pyroscope-1.6.1/pyroscope.1.6.1-glibc-${arch}.tar.gz"; \
     echo "${sum}  /tmp/pyroscope.tgz" | sha256sum -c -; \
     mkdir -p /pyroscope && tar xzf /tmp/pyroscope.tgz -C /pyroscope && rm /tmp/pyroscope.tgz; \

@@ -101,7 +101,9 @@ nothing there. Against ADR-0067's start-up peak (4479 MB, Loki WAL replay) the w
 
 - A slow span in Tempo opens its own CPU profile in production; flame graphs per service, release environment and
   profile type sit next to RED metrics, logs and traces in one Grafana.
-- Every .NET image is ~16 MB larger (one shared layer) and the build downloads a pinned, checksum-verified tarball.
+- Every .NET image is ~16 MB larger (one shared layer) and the build downloads a pinned, checksum-verified tarball. The
+  download retries (`--retry 6 --retry-all-errors --http1.1`): CI's docker matrix pulls it 17 times in parallel and one
+  dropped GitHub connection failed the whole matrix (#350, first CI run).
   Bumping the profiler = one version + two checksums, the same in every Dockerfile (`ProfilingTests` fails otherwise).
 - Production pays a few percent CPU for the enabled types; turn types off per environment in `profiling.types`.
 - Pinned by `ProfilingTests` (unit lane, e2e-verify **A3zr**) and live **L20d** (a CPU profile pushed to Pyroscope's `/ingest` is
