@@ -85,6 +85,11 @@ The mt6_13 RED metrics back these service-level objectives (ops data, not a cont
 
 Dashboards: `deploy/observability` Services-RED. Alerting wiring is launch-gated.
 
+> **2026-11-25 ([ADR-0069](./0069-deploy-markers-and-slo-dashboards.md)):** alerting shipped with ADR-0065 (#341); the
+> **SLOs** dashboard shows these objectives per service with the alert rules' thresholds. Availability is measured
+> request-based (share of non-5xx requests) — no `/health/ready` probe metric exists.
+
+
 ## Launch gates (carried)
 
 Pen test, load test, and live provider integrations (Stripe/Xero live keys, real carrier accounts)

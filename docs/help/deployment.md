@@ -209,7 +209,9 @@ Each process also logs one `Release identity: service.name=… service.version=�
 deployment.environment.name=…` line at startup (`.run/<svc>.log`; e2e-verify L2b checks it). In Grafana, the
 **Services (RED)** dashboard's *Running releases by service* table lists each service's version, commit and
 environment; every metric carries `service_version` / `vcs_ref_head_revision` / `deployment_environment_name`
-labels, so any RED panel can be split by release. Admin, Supplier Portal and the storefront have no OTel pipeline
+labels, so any RED panel can be split by release. Every Mimir dashboard also draws a purple **Deploy** marker
+when a new `service.version` starts reporting (ADR-0069: an annotation query, nothing to post at deploy time), and the
+**SLOs** dashboard shows 30-day availability, error budget, burn rate and p95 against the ADR-0029 targets. Admin, Supplier Portal and the storefront have no OTel pipeline
 yet (audit P1-2/P1-4); their images carry the OCI labels.
 
 ## Bare-run dev (ADR-0009)

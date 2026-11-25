@@ -75,12 +75,15 @@ Every rule links here (`runbook_url`). Severity `page` repeats hourly, `ticket` 
 SLO (ADR-0029): < 1 % per service over 5 min. Open *Services (RED)* for the service, then Explore → Tempo with
 `{ resource.service.name = "<svc>" && status = error }` to read a failing trace, and its logs via *Logs for this
 span*. Common causes: a dependency down (Postgres/RabbitMQ/Valkey — check the platform alerts), a bad release
-(the RED *Running releases* table shows which `service_version` started failing → roll back).
+(the purple *Deploy* marker on the graph — ADR-0069 — or the RED *Running releases* table shows which
+`service_version` started failing → roll back). The *SLOs* dashboard shows how much of the month's error budget it cost.
 
 ### p95 latency
 Catalog reads > 500 ms, other reads > 800 ms for 10 min. Find the route in the alert label, open a slow trace in
 Tempo (latency > threshold — prod keeps every one of them via tail sampling), look for the long span (DB query,
 downstream HTTP, lock wait). Check DB load and the PgBouncer pool (ADR-0032) if many routes are slow at once.
+A *Deploy* marker just before the rise points at the release; the *SLOs* dashboard's headroom bar shows which
+services are near their target.
 
 ### Messages in an _error queue
 A message failed every retry and was moved to `<queue>_error` (MassTransit). It will not be retried by itself.
@@ -203,3 +206,23 @@ whole profiler (`profiling.enabled=false`) — the image is unchanged either way
 
 **Bump the profiler.** One version and two SHA-256 sums (x86_64, aarch64) in the `profiler` stage, byte-identical in
 all 17 .NET Dockerfiles (`ProfilingTests` fails otherwise); the NuGet `Pyroscope` version follows it.
+
+## SLOs and deploy markers
+
+ADR-0069 (SLO targets: ADR-0029). Dashboard **3commerce — SLOs** (`3commerce-slo`, same file in dev and production):
+
+- **Availability, 30 days** per service = share of HTTP requests that are not 5xx; objective 99.5 %, so the **error
+  budget** is 0.5 % of requests. *Error budget remaining* below 0 = the month's objective is already missed.
+- **Burn rate** (1 h / 6 h) = 5xx ratio ÷ 0.5 %. 1 spends the budget in exactly 30 days. The 5-minute *HTTP 5xx rate above
+  1 %* alert is burn rate 2; a 6-hour burn above 6 or a 1-hour burn above 14.4 empties the budget in days or hours —
+  treat it like a page even if the 5-minute alert has not fired yet.
+- **Latency**: the p95 panels are the latency alerts' own expressions (catalog < 500 ms, other reads < 800 ms); the
+  headroom bar is worst route p95 ÷ target (> 100 % = missed now).
+
+**Deploy markers.** Every Mimir dashboard (RED, SLOs, .NET runtime, Database, Messaging) shows a purple region
+"Deploy: <service> <service.version>" for the first 15 minutes after a new version starts reporting, with the
+environment and commit in its text. It is computed from the metrics (no one posts it), so it covers every way of
+deploying — Helm, a rollback, a hotfix, a dev restart. A marker for an unchanged version means the service was silent
+for more than 15 minutes and came back (a restart). No marker after a deploy: the new pods never reported — check
+`kubectl rollout status` and the collector. At ranges wider than ~a week Grafana's step can skip a marker; the RED
+*Running releases* table is the record.

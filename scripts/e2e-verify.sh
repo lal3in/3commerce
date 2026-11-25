@@ -879,6 +879,10 @@
 #       dev-infra portals (e2e/infra-portals.spec.ts; each skips when its portal is down, i.e. on the core set): RabbitMQ
 #       queues after a real checkout, Kafka UI online + a produced message, pgAdmin reveals ordering_db, and GlitchTip
 #       (ADR-0067) signs in and lists the ErrorProbeException issue a catalog /health/error-probe 500 just created;
+#       observability portals (e2e/observability-portals.spec.ts; skip without the LGTM stack): Grafana + datasources,
+#       Loki/Tempo/Mimir ready, every provisioned dashboard's panels return data after a real checkout (RED, SLOs —
+#       ADR-0069 — logs, traces), and the Deploys annotation (a new service.version, ADR-0069) is on all five Mimir
+#       dashboards, identical, enabled, and marks the running .NET services with their service.version;
 #   L20b Telemetry reaches the LGTM stack (observability audit P0-3/P1-1/P1-4): after the live journeys, Loki holds
 #       gateway logs (OTLP logs pipeline, service_name=gateway) and Tempo holds Npgsql DB spans
 #       (span.db.system.name=postgresql) and Admin traces (resource.service.name=admin, from L20's admin flows);

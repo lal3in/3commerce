@@ -12,6 +12,8 @@ import { driveCheckout, reachable } from "./portal-helpers";
  *  - After a real guest checkout through the gateway, Loki holds log lines labelled with the
  *    bare-run services' service_name and Tempo search finds traces rooted in those services —
  *    proof the OTLP pipeline (service → collector → backend) carries the flow just driven.
+ *  - The SLO dashboard (ADR-0029) is among them, and the deploy markers (ADR-0069) — an annotation query on a new
+ *    service.version appearing — are provisioned on the Mimir dashboards and mark the running services' start.
  * Each test skips cleanly when its portal (or the stack) isn't running — CI-safe.
  */
 const GRAFANA = "http://localhost:3001";
@@ -22,7 +24,15 @@ const MIMIR = "http://localhost:9009";
 const GRAFANA_AUTH = { authorization: `Basic ${Buffer.from("admin:admin").toString("base64")}` };
 
 // Every dashboard provisioned under deploy/observability/grafana/provisioning/dashboards.
-const DASHBOARD_UIDS = ["3commerce-services-red", "3commerce-logs-overview", "3commerce-traces-overview"];
+const DASHBOARD_UIDS = [
+  "3commerce-services-red",
+  "3commerce-slo", // ADR-0029 SLOs + error-budget burn (ADR-0069)
+  "3commerce-logs-overview",
+  "3commerce-traces-overview",
+];
+
+// Dashboards that carry the deploy-marker annotation (ADR-0069): a new service.version starting = one marker.
+const DEPLOY_MARKER_DASHBOARDS = ["3commerce-services-red", "3commerce-slo", "3commerce-dotnet-runtime", "3commerce-dotnet-db", "3commerce-dotnet-messaging"];
 
 // Panels whose emptiness is a healthy stack, not a broken dashboard: they only plot failures.
 // For these the query must still EXECUTE (datasource wired, expression parses) — that is what the
@@ -161,6 +171,54 @@ test.describe("Observability portals ingest real service telemetry", () => {
           }
         }
       }
+    } finally {
+      await ctx.dispose();
+    }
+  });
+
+  test("deploy markers: every Mimir dashboard marks a new service.version, and the running services have one", async () => {
+    test.skip(!(await reachable(`${GRAFANA}/api/health`)), "Grafana not running");
+
+    const ctx = await pwRequest.newContext({ extraHTTPHeaders: GRAFANA_AUTH });
+    try {
+      let marker: { expr: string; datasource: { type: string; uid: string } } | undefined;
+      for (const uid of DEPLOY_MARKER_DASHBOARDS) {
+        const res = await ctx.get(`${GRAFANA}/api/dashboards/uid/${uid}`);
+        expect(res.ok(), `dashboard ${uid} should be provisioned`).toBe(true);
+        const dash = (await res.json()) as {
+          dashboard: { annotations?: { list?: Array<{ name: string; expr?: string; enable?: boolean; datasource?: { type: string; uid: string } }> } };
+        };
+        const deploys = (dash.dashboard.annotations?.list ?? []).find((a) => /^Deploys/.test(a.name));
+        expect(deploys, `${uid} should carry the Deploys annotation`).toBeTruthy();
+        expect(deploys!.enable, `${uid}: Deploys annotation enabled`).toBe(true);
+        expect(deploys!.datasource?.uid).toBe("mimir");
+        // One definition: every dashboard carries the same query.
+        if (marker) expect(deploys!.expr).toBe(marker.expr);
+        marker = { expr: deploys!.expr ?? "", datasource: deploys!.datasource! };
+      }
+
+      // Run the marker query the way Grafana does (range, 1-minute step) over the last 24 h: the services of this
+      // stack started inside that window (a fresh boot, or dev-up), so each has a marker for its running version.
+      const nowMs = Date.now();
+      const res = await ctx.post(`${GRAFANA}/api/ds/query`, {
+        data: {
+          from: String(nowMs - 24 * 3600 * 1000),
+          to: String(nowMs),
+          queries: [{ refId: "Anno", expr: marker!.expr, datasource: marker!.datasource, range: true, instant: false, intervalMs: 60_000, interval: "1m", maxDataPoints: 1440 }],
+        },
+      });
+      expect(res.ok(), "the marker query should execute").toBe(true);
+      const body = (await res.json()) as {
+        results?: Record<string, { error?: string; frames?: Array<{ schema?: { fields?: Array<{ labels?: Record<string, string> }> } }> }>;
+      };
+      expect(body.results?.Anno?.error, "marker query error").toBeUndefined();
+      const marked = (body.results?.Anno?.frames ?? [])
+        .map((f) => f.schema?.fields?.find((x) => x.labels)?.labels ?? {})
+        .filter((l) => REAL_SERVICES.test(l.service_name ?? "") && (l.service_version ?? "") !== "");
+      test.skip(marked.length === 0, "no .NET service started in the last 24 h on this stack — nothing to mark");
+      // Markers carry the ADR-0064 identity the annotation text shows.
+      for (const l of marked) expect(l.service_version).toMatch(/^\d+\.\d+\.\d+\+[0-9a-f]{7}/);
+      expect(new Set(marked.map((l) => l.service_name)).size).toBeGreaterThan(3);
     } finally {
       await ctx.dispose();
     }
