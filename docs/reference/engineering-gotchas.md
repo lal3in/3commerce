@@ -353,7 +353,7 @@ Ledger postings (Payments):
   then post gross = that charge, tax = the added tax — charging `PriceMinor` and posting a split books tax nobody
   collected. Any surface that shows a renewal amount on an exclusive store says "+ tax" (`CartRenewalResponse.TaxAdded`).
   An unprojected rate charges the bare price and logs an error (never a guessed rate, never a refused renewal).
-  Each settled renewal / usage charge gets its own `Payment` row (`PaymentKind.Renewal` / usage, referenced by its
+  Each settled renewal / usage charge gets its own `Payment` row (`PaymentKind.Renewal` / `UsageCharge`, referenced by its
   `ChargeReference`), which is how refunds and disputes reach it and reverse its own tax — see "A Payment is no
   longer one per order" below.
 - **A provider that RETURNS did not necessarily take the money.** `AuthorizeAsync` reports Failed / RequiresAction /
