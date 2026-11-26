@@ -89,7 +89,7 @@ services are near their target.
 A message failed every retry and was moved to `<queue>_error` (MassTransit). It will not be retried by itself.
 Read it in the RabbitMQ UI (`:15672` → Queues → `<queue>_error` → Get messages: the `MT-Fault-*` headers carry the
 exception), fix the cause, then move it back (shovel to the source queue) — the consumer is idempotent
-(`messaging-observability.md`). No data for this rule means the RabbitMQ per-queue metrics are not scraped yet.
+(`messaging-observability.md`). The per-queue metrics come from the collector's `prometheus/rabbitmq` receiver (job `rabbitmq-queues`, `rabbitmq:15692/metrics/detailed?family=queue_coarse_metrics`); no data for this rule means that scrape is failing — check the collector logs and that the broker's `rabbitmq_prometheus` plugin answers on `:15692`.
 
 ### Error log spike
 More than 20 error/critical log records from one service in 5 min. Logs overview dashboard → filter the service;
