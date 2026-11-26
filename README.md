@@ -20,14 +20,19 @@ business **and** a hands-on distributed-systems learning vehicle (ADR-0001).
   digital/subscription/usage lines (ADR-0028); checkout saga, shipping quotes + carriers,
   RMA/refund saga (single refund path).
 - **Frontends**: Next.js SSR storefront (`src/Storefront`), Blazor Server admin (`src/Admin`),
-  supplier portal (`src/SupplierPortal`).
+  supplier portal (`src/SupplierPortal`); a .NET global-tool CLI (`src/Cli`, gateway-only).
+- **Observability**: OpenTelemetry into self-hosted Grafana LGTM (Loki/Tempo/Mimir) with alert
+  rules, an SLO dashboard and deploy markers; anonymous browser RUM (Faro); GlitchTip error inbox;
+  Pyroscope continuous profiling (ADR-0065–0069) — all part of the default dev infra.
 
 ## Quickstart (local dev, ADR-0009)
 
 ```bash
-# infra (Postgres + RabbitMQ in Docker) → migrations → all services as host processes
+# the infra set in Docker (Postgres, RabbitMQ, Valkey, Kafka, pgAdmin, GlitchTip, LGTM, Pyroscope)
+# → migrations → all services + frontends as host processes → seed
 scripts/dev-up.sh --fresh --with-frontends --seed
-# storefront :3000 · admin :5200 · gateway :8080 · services :5101-:5113
+# storefront :3000 · admin :5200 · supplier portal :5300 · gateway :8080 · services :5101-:5113
+# Grafana :3001 · GlitchTip :8000 · Pyroscope :4040 · RabbitMQ UI :15672
 scripts/doctor.sh        # one-shot health triage
 scripts/dev-down.sh      # stop everything
 ```
