@@ -1,6 +1,6 @@
 # Customer tax invoices & credit notes — jurisdiction research
 
-> **Status:** research input to [ADR-0063](../adr/0063-customer-tax-invoices-and-credit-notes.md) (Proposed).
+> **Status:** research input to [ADR-0063](../adr/0063-customer-tax-invoices-and-credit-notes.md) (Accepted 2026-10-11).
 > **Compiled:** 2026-10-11. **This is engineering research, not legal or tax advice.** Before go-live in
 > any jurisdiction, the tenant's tax adviser must confirm the rule set we configure for it. Dates move:
 > national e-invoicing timetables in particular have been postponed repeatedly. Re-check each row before
@@ -15,7 +15,13 @@
 
 ## 1. Why this exists
 
-3commerce has **no customer tax-invoice feature today**. An order gets a per-storefront public reference
+> **Update 2026-11-27:** ADR-0063's phase 0 has since shipped the tax *facts* this section lists as missing —
+> per-line tax breakdown (P1), EU OSS destination rates (P1b), seller and buyer identity incl. tax-ID capture
+> (P2/P3), renewal/usage tax (P4) and invoicing facts on `OrderConfirmed` (P5); order numbers are gap-tolerant.
+> There is still no `Invoice`/`CreditNote` document, numbering series or stored PDF (phase 1, not started).
+> The paragraph below is the state at compilation.
+
+At compilation (2026-10-11), 3commerce had **no customer tax-invoice feature**. An order gets a per-storefront public reference
 number (`OrderNumberSequence`, now being made gap-tolerant in a parallel fix) and a confirmation email.
 There is no `Invoice` or `CreditNote` type, no invoice numbering series, no per-rate tax breakdown on an
 order, no buyer tax-ID capture, and no stored, immutable document.
