@@ -25,6 +25,10 @@ you are touching before you push.
   project that pulls it in. Precedents: `Microsoft.OpenApi` (every `*.Api` csproj), `SSH.NET`
   (`tests/3commerce.IntegrationTests`). Verify with `dotnet restore <proj> --force-evaluate`; for
   test-infra packages also run one integration test.
+- **Every `apt-get update` in a Dockerfile retries (the profiler stage, ADR-0068).** compose-smoke builds all 17 .NET
+  images at once, so one moment of Ubuntu mirror inconsistency (`Hash Sum mismatch` on `archive.ubuntu.com`) failed the
+  whole job on `test` (2026-11-26) although the same build was green on develop minutes earlier. The stage now loops
+  `apt-get -o Acquire::Retries=5 update` up to 5 times; keep any new `apt-get` in an image build on the same pattern.
 - **Write `src/Storefront/package-lock.json` with npm 10, not a newer local npm.** CI and the Storefront
   Dockerfile run Node 22 (npm 10), whose `npm ci` demands lock entries that npm 11 leaves out — e.g. an
   optional peer (`@swc/helpers >=0.5.17` from `@swc/core`) → `EUSAGE … Missing: @swc/helpers@0.5.24 from

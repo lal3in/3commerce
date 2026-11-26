@@ -22,7 +22,8 @@ RUN set -eu; \
       arm64) arch=aarch64; sum=de0f1fc384f2af754bfb331ce4c0028ba92ec6a25ce98efba4aa9e2f81a012c4 ;; \
       *)     arch=x86_64;  sum=9efda5cf621511ff937a0f765fe8af0ea59ab8c47a227c8afcf25637779dd36f ;; \
     esac; \
-    apt-get update && apt-get install -y --no-install-recommends binutils && rm -rf /var/lib/apt/lists/*; \
+    for i in 1 2 3 4 5; do apt-get -o Acquire::Retries=5 update && break; rm -rf /var/lib/apt/lists/*; sleep 10; done; \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends binutils && rm -rf /var/lib/apt/lists/*; \
     curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --http1.1 -o /tmp/pyroscope.tgz \
       "https://github.com/grafana/pyroscope-dotnet/releases/download/pyroscope-1.6.1/pyroscope.1.6.1-glibc-${arch}.tar.gz"; \
     echo "${sum}  /tmp/pyroscope.tgz" | sha256sum -c -; \
