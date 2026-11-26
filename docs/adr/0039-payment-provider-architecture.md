@@ -57,3 +57,18 @@ Two facts about the current code force reconciling decisions:
 **Not changed here (recorded, separate scope).** Renewals (`SubscriptionService`) and usage charges (`UsageChargeBilling`) never look up a `PaymentAccount` at all — they charge on the synthetic `DefaultAccountForHost()` for every tenant, including the default one. That is not the host-default-*tenant* bug (no tenant is consulted), but it means a storefront whose acquirer is not the host default provider takes its first payment on its acquirer and its renewals on the host default. Refunds are tenant-correct by construction: they follow the sale's stored `Payment.Provider`, which is now the tenant's own acquirer.
 
 **Tests.** `CheckoutSettlementTenantTests` (unit, e2e-verify A3zs): the real consumer, registry and mode resolver on the harness — a second tenant acquires through its own storefront's account, a PayPal checkout through its PayPal account, another tenant naming the storefront gets the synthetic default, and the fallback + warning. `CheckoutSettlementTenantRlsTests` (integration, A4ky): two tenants, NON-superuser NOBYPASSRLS owner + the real migrations, the consumer inside the EF consumer outbox — tenant B's checkout settles on B's account and charges B's vault and card; negative controls: the same order without a tenant resolves in the host default (synthetic stripe, B's vault hidden by RLS), and tenant A naming storefront B never reaches B's account.
+
+## Amendment 2026-11-26 — renewals and usage charges stay on the host-default provider (owner decision)
+
+**Decision (owner, 2026-11-26).** Subscription renewals (`SubscriptionService`) and usage charges
+(`UsageChargeBilling`) keep charging on the synthetic `DefaultAccountForHost()` — `Payments:DefaultProvider` under the
+host's `Payments:Mode` ceiling — for every tenant, **by design**. They do not look up the storefront's
+`PaymentAccount`, unlike checkout after the settlement-account amendment above. Tracker row
+`settlement_account_renewals`.
+
+**Consequence to know.** A storefront whose checkout acquirer is not the host default (e.g. Polar, PayPal) takes its
+first payment on that acquirer and its renewals / usage charges on the host default provider. Each charge's own
+`Payment` row stores the provider it actually used, so refunds and disputes of a renewal or usage charge follow that
+charge's provider (`RefundProviderResolver`), not the original checkout's — the books stay consistent per charge.
+Revisit this decision before onboarding a tenant whose acquirer differs from the host default and who sells
+subscriptions or usage plans.
