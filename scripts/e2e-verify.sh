@@ -385,6 +385,12 @@
 #       installed in Germany it is DE at 19 % Domestic (negative control: the same line as a digital download is FR 20 %
 #       under OSS); installed in France over the threshold it is FR 20 % OSS, under it the home 19 %; in Northern Ireland it
 #       follows the UK (GB) while goods are XI
+#   A3zs Unit · checkout settles in the ORDER's tenant (settlement_account_tenant, ADR-0039 amendment 2026-11-26;
+#       CheckoutSettlementTenantTests, the real AuthorizePaymentConsumer + keyed registry + mode resolver on the harness):
+#       a second tenant's card checkout acquires through ITS storefront's default account (polar → Payment.Provider
+#       polar, the rail asked with that account) and a PayPal checkout through its PayPal account; another tenant naming
+#       the storefront gets the synthetic host default; a message with no (or an empty) TenantId falls back to the host
+#       default tenant (configured, else the seeded one) and logs a warning naming the order
 #   A3zp Unit · payment vaults learn their member's email (payment_customer_email_backfill, ADR-0060 amendment
 #       2026-11-19; PaymentCustomerEmailRecordTests in Payments + PaymentCustomerEmailBackfillTests in the tool, A3e):
 #       a vault with no email learns the (normalized) account email and, with a default card, announces
@@ -539,6 +545,11 @@
 #       card by email; a known email is left alone and nothing announced; inside an open (outbox) transaction the email
 #       is recorded and a redelivery is a no-op; a command naming another tenant reaches no vault; the tool's
 #       PaymentsVaultSource lists tenants in platform scope and each tenant's vaults in its own scope
+#   A4ky Integration · two-tenant checkout settlement under FORCE RLS (settlement_account_tenant,
+#       CheckoutSettlementTenantRlsTests, NON-superuser owner + the REAL migrations, the real consumer inside the EF
+#       consumer outbox): tenant B's checkout settles on tenant B's polar account and charges B's vault + card; tenant A's
+#       on A's stripe account; negative controls — the same B order without a tenant resolves in the host default (A):
+#       synthetic stripe, no vault (RLS hides B's), a warning; tenant A naming storefront B never reaches B's account
 #   A5  Integration · Identity auth: register no-enumeration, logout revocation,
 #       /me requires claims, wrong password rejected, reset revokes sessions;
 #       master-admin user mgmt (list / reset temp password / change email) (AdminUserManagementTests);
@@ -1178,6 +1189,10 @@ run_automated() {
   if dotnet test "$ROOT/src/Services/Ordering/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~ManualServicePlaceOfSupplyTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zz manual-service place of supply"; else fail "A3zz manual-service place of supply"; fi
+  stage "A3zs Checkout settles in the order's tenant (settlement_account_tenant) — own account, old-message fallback logged"
+  if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~CheckoutSettlementTenantTests' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zs checkout settles in the order's tenant"; else fail "A3zs checkout settles in the order's tenant"; fi
   stage "A3zp Payment vaults learn their member's email (payment_customer_email_backfill) — never overwritten, idempotent"
   if dotnet test "$ROOT/src/Services/Payments/tests" --no-build \
       --filter 'Category!=Integration&FullyQualifiedName~PaymentCustomerEmailRecordTests' 2>&1 | grep -q 'Failed: *0' \

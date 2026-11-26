@@ -412,6 +412,13 @@ Ledger postings (Payments):
   - A charge payment's reversals are referenced by its `ChargeReference` (`Payment.ChargebackReference`), never
     `{orderId}:…`.
   - Events about it carry `ChargeReference`, so order-level consumers (Ordering) skip them.
+- **A money-path lookup of anything tenant-owned takes the ORDER's tenant, never `Tenancy:DefaultTenantId`**
+  (ADR-0039 amendment 2026-11-26). Checkout picked the settling `PaymentAccount` in the host default tenant, so every
+  other tenant's order matched none of its own accounts and fell back SILENTLY to the synthetic host-default PSP —
+  wrong rail, wrong `cash.{provider}`, and the refund followed it. A table outside RLS does not fail loudly on the
+  wrong tenant: it returns nothing and the code degrades. Carry the tenant on the message (`AuthorizePayment.TenantId`),
+  fall back to the host default only for an old message and log it, and test money paths with a SECOND tenant — the
+  seeded `…0001` is also the host default, so a single-tenant test cannot see this class of bug.
 
 ## Privacy and telemetry
 
