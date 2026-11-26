@@ -78,7 +78,7 @@ When PRD is needed:
 | Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX) |
 | Blazor Server | Admin app + SupplierPortal (all-C# internal tooling) |
 | Stripe.net (test mode) | v1 payment rail behind `IPaymentProvider`; Payment Element client-side (SAQ-A) |
-| Xero API (OAuth2) | Nightly summary journals + per-refund postings |
+| Xero (behind `IXeroClient`) | Nightly summary journals + per-refund postings; today the registered client is `LoggingXeroClient` — the real OAuth2 client is a launch-gate swap |
 | Argon2id (vetted library) | Password hashing — custom auth flows, never custom crypto |
 | OpenTelemetry → self-hosted Grafana LGTM | Traces/metrics/logs via the OTel collector into Loki/Tempo/Mimir + Grafana (alert rules, SLO dashboard, deploy markers) (ADR-0065, 0069); storefront browser RUM with Grafana Faro relayed through the storefront's `/rum` route (ADR-0066) |
 | GlitchTip (Sentry SDK) · Pyroscope | Error inbox with release + trace id (ADR-0067) · continuous profiling with span profiles (ADR-0068) |
@@ -428,7 +428,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 - **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
 - **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly. The bare-run stack fits the 6 GiB VM: full infra (incl. GlitchTip + Pyroscope) + services + frontends, seeded, peaked at 3903–4479 MB of 5911 MB across runs (worst case + 1 GiB margin = 5575 MB, ~336 MB spare; 2026-11-25, ADR-0068) — re-measure when the infra set grows.
 - Service health endpoints (`/health/live|ready`) are internal-only; the gateway returns 404 for any `/api/*/health*` path.
-- Stripe runs **test mode only** and Xero against a demo org until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
+- Stripe runs **test mode only** and Xero journals go to a logging client (`LoggingXeroClient`) until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
 - Currency and tax are per storefront (ADR-0038; currencies come from the Entity registry, ADR-0046), tax via `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.
 - Microservices were chosen knowingly for learning value (PRD decision #5); keep each service internally simple — complexity budget is spent on the seams.
 - ADRs are numbered sequentially in `docs/adr/` — take the next number after the last entry in `adr_index.md`. API contracts live in `docs/api/` (OpenAPI JSON per service + `api_contracts_index.md`).
