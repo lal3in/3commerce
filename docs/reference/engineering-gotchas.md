@@ -25,8 +25,8 @@ you are touching before you push.
   project that pulls it in. Precedents: `Microsoft.OpenApi` (every `*.Api` csproj), `SSH.NET`
   (`tests/3commerce.IntegrationTests`). Verify with `dotnet restore <proj> --force-evaluate`; for
   test-infra packages also run one integration test.
-- **Every `apt-get update` in a Dockerfile retries (the profiler stage, ADR-0068).** compose-smoke builds all 17 .NET
-  images at once, so one moment of Ubuntu mirror inconsistency (`Hash Sum mismatch` on `archive.ubuntu.com`) failed the
+- **Every `apt-get update` in a Dockerfile retries (the profiler stage, ADR-0068).** compose-smoke (`launch.sh --fresh`) builds every image at
+  once — the 17 .NET service/portal images carry the profiler stage — so one moment of Ubuntu mirror inconsistency (`Hash Sum mismatch` on `archive.ubuntu.com`) failed the
   whole job on `test` (2026-11-26) although the same build was green on develop minutes earlier. The stage now loops
   `apt-get -o Acquire::Retries=5 update` up to 5 times; keep any new `apt-get` in an image build on the same pattern.
 - **Write `src/Storefront/package-lock.json` with npm 10, not a newer local npm.** CI and the Storefront
@@ -353,7 +353,9 @@ Ledger postings (Payments):
   then post gross = that charge, tax = the added tax — charging `PriceMinor` and posting a split books tax nobody
   collected. Any surface that shows a renewal amount on an exclusive store says "+ tax" (`CartRenewalResponse.TaxAdded`).
   An unprojected rate charges the bare price and logs an error (never a guessed rate, never a refused renewal).
-  Renewals/usage have no `Payment` row, so the refund saga and the dispute webhook cannot reach them.
+  Each settled renewal / usage charge gets its own `Payment` row (`PaymentKind.Renewal` / usage, referenced by its
+  `ChargeReference`), which is how refunds and disputes reach it and reverse its own tax — see "A Payment is no
+  longer one per order" below.
 - **A provider that RETURNS did not necessarily take the money.** `AuthorizeAsync` reports Failed / RequiresAction /
   Cancelled as an outcome, not an exception, so a `catch` alone is not a failure path. Any off-session charge
   (renewal, usage) must branch on `response.Outcome == Succeeded` before it advances state, credits anything or
