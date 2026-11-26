@@ -16,6 +16,17 @@ The shared stream infrastructure emits the `3commerce.streams` meter:
 
 OpenTelemetry registers this meter in `AddServiceTelemetry`; metrics export through OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured.
 
+## What is provisioned today (ADR-0065)
+
+- Grafana dashboard **"3commerce — Messaging (MassTransit / RabbitMQ)"**
+  (`deploy/observability/grafana/provisioning/dashboards/dotnet-messaging.json`), next to the RED, runtime, DB,
+  traces, logs, Valkey and SLO dashboards in the same folder.
+- Alert rule **"Messages in an `_error` queue"** on `rabbitmq_(detailed_)queue_messages` for `*_error` queues
+  (`deploy/observability/grafana/provisioning/alerting/rules.yml`), routed to `deploy/observability/alerting.env`'s
+  recipient. There is no alert on the `stream_*` metrics yet — the "Alert idea" column above is guidance.
+- Live broker state without Grafana: `scripts/host-check.sh` (RabbitMQ bus state: stuck/competing queues) and the
+  RabbitMQ management UI on `:15672`; Kafka UI on `:8090` in bare-run dev (`:8088` in the containerized stack).
+
 ## Broker and scheduler signals to dashboard
 
 | Area | Signal | Source | First response |

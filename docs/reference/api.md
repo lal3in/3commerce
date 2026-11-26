@@ -1,6 +1,6 @@
 # API Endpoint Guidelines
 
-Standards for building HTTP endpoints in the six **ASP.NET Core minimal API** services behind the YARP gateway. Grounded in ADR-0006/0007/0011/0012 and the PRD API conventions (§10). Read this before adding or changing any endpoint.
+Standards for building HTTP endpoints in the 13 **ASP.NET Core minimal API** services (`scripts/lib/services.sh`) behind the YARP gateway. Grounded in ADR-0006/0007/0011/0012 and the PRD API conventions (§10). Read this before adding or changing any endpoint.
 
 ---
 
@@ -31,7 +31,8 @@ public static class CartEndpoints
 ## 2. Routing & naming (gateway contract)
 
 - Public shape: `/api/{service}/{resource}` — the gateway strips `/api/{service}`; services define `/{resource}` locally. Plural nouns (`/products`, `/orders/{id}`), kebab-case path segments, no verbs in URLs (verbs belong to HTTP methods; saga triggers like `/rmas/{id}/approve` are the sanctioned exception).
-- Admin endpoints live under `/admin/...` within each service and require the `admin` role.
+- Admin endpoints live under `/admin/...` within each service; the route group requires `InternalClaimsAuth.AdminPolicy` (customer routes `CustomerPolicy`, supplier-portal routes `SupplierPolicy`), and sensitive actions additionally ask the Identity PDP for a permission (§6).
+- Service-to-service endpoints live under `/internal/...`; the gateway never proxies `/api/{service}/internal…` from the public origin (`src/Gateway/Program.cs`), so never put a public route there.
 - Route params bind to strongly-typed values (`Guid`, not `string`).
 
 ## 3. Requests, responses, status codes
@@ -41,14 +42,15 @@ public static class CartEndpoints
 - Status codes:
   - `200` reads · `201 + Location` creations · `204` deletes/no-content updates
   - `202`-semantics for saga starts: checkout returns `201` with the order in `PaymentRequested` state — **never block an HTTP request on saga completion** (ADR-0007)
-  - `400` malformed · `422` validation failures · `401` unauthenticated · `403` unauthorized · `404` not-found-or-not-yours · `409` state conflicts (e.g. approving an already-denied RMA)
-- **Money:** integer minor units + ISO 4217 code in every payload — never decimals/floats on the wire (ADR-0014).
-- **Pagination:** `?page=&pageSize=` (max 100) + `X-Total-Count` header on all list endpoints.
+  - `400` malformed **and** request validation failures (`TypedResults.ValidationProblem` and the built-in validation both answer 400 — that is the convention across the services) · `422` only for a well-formed request the domain refuses on business grounds (e.g. "that card is not one of your saved cards") · `401` unauthenticated · `403` unauthorized · `404` not-found-or-not-yours · `409` state conflicts (e.g. approving an already-denied RMA)
+- **Money:** integer minor units + ISO 4217 code in every payload — never decimals/floats on the wire (ADR-0014); the minor-unit exponent comes from the currency registry (ADR-0046), never an assumed 2.
+- **Enums cross HTTP as numbers** — never add `JsonStringEnumConverter` (AGENTS.md invariant).
+- **Pagination:** `?page=&pageSize=` with a server-side clamp (public search: max 100, `X-Total-Count` header — `ProductsEndpoints`; admin lists clamp to 200). Many small admin lists are unpaginated today; paginate any list that can grow with tenant data.
 
 ## 4. Errors — ProblemDetails everywhere
 
-- `AddProblemDetails()` + the global exception handler in every service: **all** error responses are `application/problem+json` (RFC 9457, which obsoletes RFC 7807 — same media type, our PRD's "7807" references remain valid).
-- Validation failures return `ValidationProblemDetails` (422) with the `errors` dictionary.
+- `AddApiProblemDetails()` + `UseApiProblemDetails()` (`BuildingBlocks.Infrastructure/Web/ProblemDetailsExtensions.cs`) in every service: **all** error responses are `application/problem+json` (RFC 9457, which obsoletes RFC 7807 — same media type, our PRD's "7807" references remain valid), and a malformed body (`BadHttpRequestException`) answers its own status (400) naming the parameter, never a 500.
+- Validation failures return `ValidationProblemDetails` (400) with the `errors` dictionary.
 - Never leak exception internals, SQL, or connection strings; include a `traceId` extension (auto via OpenTelemetry) so storefront errors correlate to traces.
 
 ## 5. Validation
@@ -61,19 +63,21 @@ public record AddItemRequest(
     [property: Range(1, 99)] int Quantity);
 ```
 
-- Validate at the edge of the service; Domain enforces invariants independently (defense in depth). 422 for both layers.
+- Validate at the edge of the service (`builder.Services.AddValidation()` is registered in every service); Domain enforces invariants independently (defense in depth).
 
 ## 6. AuthN/AuthZ in handlers
 
 - Services **never see the session cookie** — they validate the gateway-minted internal-claims JWT (handler from `BuildingBlocks.Infrastructure`) and read `sub`/`role` claims (ADR-0012).
-- Authorization is two-layer: role policy on the route group (`.RequireAuthorization("Admin")`) **plus** resource-ownership checks in the handler/domain (a customer reads only their own orders — return `404`, not `403`, to avoid existence leaks).
+- Authorization is layered: the role policy on the route group (`.RequireAuthorization(InternalClaimsAuth.AdminPolicy)`), the **PEP** for action permissions — `PermissionGate` (`BuildingBlocks.Infrastructure/Authz`) asks the Identity PDP and fails closed: `403` problem+json `permission_denied` plus a `Denied` audit entry (ADR-0025; e.g. refunds need `payment.refund`) — **plus** resource-ownership checks in the handler/domain (a customer reads only their own orders — return `404`, not `403`, to avoid existence leaks).
+- **Tenant scope (ADR-0023/0024):** tenant-owned tables are under FORCE RLS, so every read/write runs inside `RunInTenantScopeAsync(TenantContext.ForTenant(id), …)` / `BeginTenantScopeAsync` with the tenant taken from the caller's claims — never from the request body. An unscoped write fails `42501` only as the non-superuser service role, so cover it with a non-superuser test.
+- **Admin mutations emit audit** in the same unit of work (local hash-chained entry + `AuditEntryRecorded` through the outbox).
 - Guest flows (cart, checkout, signed order links) accept anonymous requests but bind to the cart cookie / signed token explicitly.
 
 ## 7. Cross-cutting conventions
 
-- **Idempotency:** every money-moving or saga-triggering POST accepts an `Idempotency-Key` header (replays return the original result); consumers/webhooks dedup by message/event ID — both via shared endpoint filter / consumer middleware in `BuildingBlocks`.
+- **Idempotency:** every money-moving or saga-triggering POST is idempotent. Payments' money endpoints accept an `Idempotency-Key` header and replay the stored result (`IIdempotencyGuard` over `IdempotencyRecord` rows); checkout derives its payment key from the order id. There is no shared endpoint filter — follow the Payments pattern. Consumers dedup through the MassTransit inbox; webhooks by provider event id.
 - **Outbox rule:** any handler that writes state **and** needs to notify others publishes through the MassTransit EF outbox in the same transaction — never `IPublishEndpoint` outside it (ADR-0007).
-- **Rate limiting** is the gateway's job; services don't duplicate it (ADR-0011). Webhook endpoints (`/webhooks/stripe`) are the exception: signature verification *in the service*, always.
+- **Rate limiting** is the gateway's job; services don't duplicate it (ADR-0011). Webhook endpoints (`/webhooks/{provider}` in Payments, via `InboundWebhookVerifier` and the per-provider secret registry) are the exception: signature verification *in the service*, always.
 - **Health checks:** every service exposes `/health/live` and `/health/ready` (DB + broker checks) — excluded from OpenAPI and gateway public routes. Outside Production `MapServiceHealth` also maps `/health/error-probe` (a deliberate 500 for the error-inbox check, ADR-0067); keep any such diagnostic under `/health/` so the gateway's `/api/*/health*` block covers it.
 
 ## 8. OpenAPI & contract documentation
@@ -92,7 +96,7 @@ public record AddItemRequest(
 - [ ] Lives in an `Endpoints` class with `MapGroup`, named static handler, `CancellationToken`
 - [ ] Record DTOs in/out; no entity leakage; money as minor units
 - [ ] `TypedResults` union; correct status codes; ProblemDetails on every failure path
-- [ ] Built-in validation on the request record; ownership checks in handler/domain
+- [ ] Built-in validation on the request record; ownership checks in handler/domain; tenant scope for tenant-owned rows; PEP permission for sensitive admin actions
 - [ ] Idempotency + outbox rules honored if money/saga/events involved
 - [ ] OpenAPI metadata present; `docs/api/` contract + index updated
 - [ ] Tests: happy/auth/validation (+ idempotent replay for money paths)

@@ -26,6 +26,11 @@ includes Tkinter; if it does not, install a Python distribution that includes Tk
 
 The left panel is ordered by purpose: check first → start dev → load demo data →
 service-only control → build/launch → regression → diagnostics/CI/secrets → stop.
+Any other `scripts/*.sh` (the release flow — `pr-merge-on-green.sh`, `promote.sh`,
+`clean-agent-worktrees.sh` — plus `seed-monitor-demo.sh`, `verify-golive-gate.sh`,
+`postgres-index-audit.sh`, `ci-resources.sh`) is listed
+after these under **Other**, described by the first comment line of its header.
+Remember that `promote.sh main` is a production release — only with the owner's OK.
 
 Use the optional-args field before clicking a script button, e.g.:
 

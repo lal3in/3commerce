@@ -67,18 +67,21 @@ When PRD is needed:
 
 | Technology | Purpose |
 |------------|---------|
-| .NET 10 (LTS) / C# | All backend services, gateway, admin |
+| .NET 10 (LTS) / C# | All backend services, gateway, admin, supplier portal, worker, CLI |
 | ASP.NET Core minimal APIs | One small HTTP surface per service |
 | EF Core 10 + Npgsql | Persistence + migrations, one DbContext per service |
-| PostgreSQL 17 | One container, **one database + login per service** (ADR-0008), each service's tables in a **named schema** within its DB (`<service>.*`, ADR-0022); FTS + pg_trgm + JSONB for catalog search |
+| PostgreSQL 18 | One container, **one database + login per service** (ADR-0008), each service's tables in a **named schema** within its DB (`<service>.*`, ADR-0022); FTS + pg_trgm + JSONB for catalog search |
 | MassTransit v8 + RabbitMQ | Async events, saga state machines (checkout, refund), EF transactional outbox |
+| Kafka (Confluent.Kafka) | Durable event-stream lane beside the RabbitMQ bus — replayable facts, not commands (ADR-0034) |
+| Valkey (Redis-compatible, StackExchange.Redis) | Shared session-introspection cache, distributed rate limiting, idempotency/webhook-dedupe fast path — never a source of truth (ADR-0044) |
 | YARP | Gateway: single public origin, session validation, internal claims, rate limiting |
 | Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX) |
-| Blazor Server | Admin app (all-C# internal tooling) |
+| Blazor Server | Admin app + SupplierPortal (all-C# internal tooling) |
 | Stripe.net (test mode) | v1 payment rail behind `IPaymentProvider`; Payment Element client-side (SAQ-A) |
-| Xero API (OAuth2) | Nightly summary journals + per-refund postings |
+| Xero (behind `IXeroClient`) | Nightly summary journals + per-refund postings; today the registered client is `LoggingXeroClient` — the real OAuth2 client is a launch-gate swap |
 | Argon2id (vetted library) | Password hashing — custom auth flows, never custom crypto |
-| OpenTelemetry | Distributed traces across gateway → services → consumers |
+| OpenTelemetry → self-hosted Grafana LGTM | Traces/metrics/logs via the OTel collector into Loki/Tempo/Mimir + Grafana (alert rules, SLO dashboard, deploy markers) (ADR-0065, 0069); storefront browser RUM with Grafana Faro relayed through the storefront's `/rum` route (ADR-0066) |
+| GlitchTip (Sentry SDK) · Pyroscope | Error inbox with release + trace id (ADR-0067) · continuous profiling with span profiles (ADR-0068) |
 | xUnit + Testcontainers | Tests against real Postgres/RabbitMQ; MassTransit test harness |
 
 ---
@@ -90,7 +93,8 @@ When PRD is needed:
 scripts/dev-up.sh --with-frontends --seed          # ONE command: infra + migrate + all services + frontends + seed;
                                                     # prints "Up." only once every portal is ready (exit 3 + names if not)
 scripts/dev-down.sh                                 # stop everything; proves NO infra container is left (exit 1 + names if not)
-# The infra is ALL-OR-NOTHING (one definition: scripts/lib/infra.sh — infra compose `portals` + borrowed LGTM).
+# The infra is ALL-OR-NOTHING (one definition: scripts/lib/infra.sh — infra compose `portals` + the observability
+# services borrowed from docker-compose.yml: OTel collector, Prometheus, Grafana, Loki, Tempo, Mimir, Pyroscope).
 # dev-up heals a PARTIAL infra to full (exit 1 naming any member not healthy); never start/stop single infra containers.
 # ...or piecemeal:
 bash -c 'source scripts/lib/infra.sh && infra_up'  # the WHOLE infra set, health-waited (dev-up's step 1)
@@ -98,7 +102,7 @@ dotnet run --project src/Services/<Name>/Api        # per service; same for Gate
 cd src/Storefront && npm run dev                    # Next.js storefront
 
 # Containerized launch (full stack in containers) — ADR-0021
-# Building all 13 .NET images needs a Docker VM with ~8+ GiB RAM. `docker compose up --build` builds them in
+# Building all 19 images (18 .NET + the storefront) needs a Docker VM with ~8+ GiB RAM. `docker compose up --build` builds them in
 # PARALLEL and WILL OOM a small VM (default 6 GiB Colima) and crash the daemon. Use the bounded builder below,
 # or bump the VM first: `colima stop && colima start --cpu 4 --memory 12`.
 scripts/build-images.sh [name …]                    # builds every (or the named) image PARALLEL=2 at a time, with a memory
@@ -186,7 +190,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 3commerce/
 ├── AGENTS.md                      # this file
 ├── .ai-shared/                    # PROJECT_STATE.md (status) + plans/ (phase plans + plan_status_executions.md tracker)
-├── .claude/                       # settings.json (shared deny rules) + skills/; settings.local.json + worktrees/ are git-ignored
+├── .claude/                       # settings.json (shared deny rules + SessionStart worktree-cleanup hook) + skills/; settings.local.json is git-ignored; worktrees/ = subagent worktrees (not in .gitignore — exclude it via .git/info/exclude)
 ├── .githooks/                     # commit-msg (no AI trailers) + pre-push (format-verify); enable: git config core.hooksPath .githooks
 ├── docs/
 │   ├── prd/                       # PRD index + section files (do not auto-load)
@@ -194,22 +198,28 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   ├── api/                       # API contract files + api_contracts_index.md
 │   ├── help/                      # HTML wiki (index.html) + screenshots promoted by shots.cjs
 │   ├── reference/                 # working guidelines: components.md, api.md, engineering-gotchas.md; tax-invoicing-research.md (ADR-0063 jurisdiction research)
+│   ├── reviews/                   # point-in-time reviews: prd-vs-implementation.md, observability-capability-audit.md (owns the obs_* tracker rows)
+│   ├── ops/                       # secrets.md (BL-11 dev secrets, rotation, per-deploy provider credentials)
 │   ├── security/                  # asvs-l1-audit.md
-│   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks, observability.md (collector/LGTM/alerts, ADR-0065)
+│   └── runbooks/                  # mvp-walkthrough.md, messaging observability/security runbooks, observability.md (collector/LGTM/alerts, ADR-0065), order-confirmed-backfill.md (ADR-0060 operator tool)
+├── docker-compose.yml             # containerized full stack (ADR-0021, launch.sh): every app image + migrator + RabbitMQ + Kafka/Kafka UI + the observability services bare-run borrows
+├── docker-compose.db.yml          # the containerized stack's external Postgres (own lifecycle; launch.sh --fresh resets it)
+├── docker-compose.prod.yml        # prod-mode overlay for launch.sh --env prod (rotated ES256 keypair, BL-11)
 ├── docker-compose.infra.yml       # bare-run infra (ADR-0009): Postgres/RabbitMQ/Valkey core + `portals` profile (Kafka, Kafka UI, pgAdmin, redis-exporter, GlitchTip error inbox :8000 — ADR-0067)
 ├── docker-compose.infra.pgbouncer.yml # Optional PgBouncer overlay for bare-run infra (ADR-0032)
-├── docker-compose.infra.kafka.yml # Optional Kafka/Kafka UI overlay for durable stream lane dev diagnostics (ADR-0034)
+├── docker-compose.infra.kafka.yml # Older standalone Kafka/Kafka UI overlay (`kafka` profile); Kafka now ships in the infra file's `portals` profile (ADR-0034)
 ├── docker-compose.pgbouncer.yml   # Optional PgBouncer runtime-pooling overlay (ADR-0032)
-├── infra/postgres/                # init-databases.sql (service DBs + roles + extensions)
+├── infra/                         # postgres/init-databases.sql (service DBs + roles + extensions) · pgadmin/ (servers.json + pgpass for the dev pgAdmin)
 ├── deploy/                        # helm/ (3commerce chart + observability/ = self-hosted LGTM + GlitchTip + Pyroscope install set, ADR-0065/0067/0068), migrator/ (EF bundles), observability/ (dev collector + LGTM configs, Grafana dashboards + alert rules, glitchtip/ = dev error-inbox entrypoint + bootstrap + DSNs), pgbouncer/
 ├── scripts/                       # bring-up/diagnostics/regression/dev dummy-data scripts + release flow (pr-merge-on-green.sh, promote.sh)
 │   ├── lib/services.sh            # THE service list (name:path:port) — everything else derives from it
 │   ├── lib/infra.sh               # THE local infra set (all-or-nothing): infra_up / infra_down / infra_state — dev-up, dev-down, e2e-verify, doctor, host-check
 │   ├── lib/release.sh             # release identity (ADR-0064): release_revision (HEAD SHA + -dirty) / release_version — what builds + images are stamped with
 │   ├── lib/glitchtip.sh           # the dev GlitchTip error inbox (ADR-0067): glitchtip_dsn backend|storefront (SENTRY_DSN for bare-run), glitchtip_api
+│   ├── lib/hosts.sh · procs.sh · preflight.sh · volumes.sh  # host-check targets · process hygiene (run-all/dev-up/dev-down) · Docker-VM memory preflight · dev/containerized volume keep-set + cleanup
 │   └── screenshots/               # screenshot-history CLI + index builder (shots.cjs, lib.cjs)
 ├── test-artifacts/screenshots/    # GITIGNORED screenshot history: runs/<runId>/…, INDEX.md, index.json
-├── .github/workflows/ci.yml      # build, format, unit, integration, docker matrix
+├── .github/workflows/ci.yml      # jobs: changes, build-test (build/format/unit), integration, browser-e2e (Playwright), docker matrix, compose-smoke, kind-deploy (+ kubeconform of the Helm chart dev/prod values)
 ├── 3commerce.sln                  # every project (63 incl. tests); Directory.Build.props / Directory.Packages.props (CPM)
 ├── src/
 │   ├── BuildingBlocks/
@@ -227,7 +237,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   │                              #   the shared hermetic base `test` every spec imports)
 │   ├── Admin/                     # Blazor Server operator console (:5200)
 │   ├── SupplierPortal/            # Blazor Server supplier portal (:5300)
-│   └── Cli/                       # .NET global-tool CLI skeleton (3commerce.Cli)
+│   └── Cli/                       # .NET global-tool CLI (3commerce.Cli): `auth login/logout/whoami` + rbac/entity/… admin commands, gateway-only (ADR-0026)
 ├── tools/script-console/          # Python/Tkinter local GUI for scripts + host/service status
 ├── tools/order-confirmed-backfill/ # .NET operator tool (ADR-0060): re-Send OrderConfirmed / StorefrontDuplicated (`storefront-duplicated` command) to the consumer that missed it; `subscription-quantity` re-prices legacy multi-unit subscriptions (ADR-0057); `payment-customer-email` gives pre-#332 payment vaults their member's email
 └── tests/3commerce.IntegrationTests/  # Testcontainers spine tests (outbox, redelivery, idempotency)
@@ -287,9 +297,9 @@ The following repository rules must always be followed:
 
 - New DB-owning service checklist (each item has bitten us): (1) `appsettings.json` + `Properties/launchSettings.json` with the service's DB connection, RabbitMq, InternalAuth dev key, and port (bare-run needs them — container config alone is not enough); (2) register the MassTransit outbox in `OnModelCreating` (`AddInboxStateEntity`/`AddOutboxMessageEntity`/`AddOutboxStateEntity`) or the service crash-loops at startup; (3) give each consumer a UNIQUE class name across services (the kebab queue name is derived from it — two `OrderConfirmedConsumer`s share one queue and compete; this shipped once and split every order between Fulfillment and Notifications, ADR-0060) — prefix a consumer of an already-consumed event with its service (`FulfillmentOrderConfirmedConsumer`), never set an explicit endpoint name, and reference the new Api project from `tests/3commerce.IntegrationTests` so `ConsumerEndpointNameTests` (unit lane) covers it — it fails the build on any queue two services share; (4) add it to `scripts/lib/services.sh` + the non-derived lists above; (5) gateway route + cluster in both gateway appsettings; (6) `InitialCreate` migration. See ADR-0030.
 
-- Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds 13 .NET images in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
+- Image builds + memory: never `docker compose up --build` the full stack on a small Docker VM — it builds all 19 images (18 .NET + the storefront) in parallel and OOM-crashes the daemon. Use `scripts/build-images.sh` (bounded concurrency + memory preflight) or bare-run (`scripts/dev-up.sh`). When diagnosing a CI/deploy failure, read the failing step's RAW log first — kind-deploy's real cause was `no space left on device`, not the cascading probe timeouts it looked like.
 
-- Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end. The file is large (~600 rows) — **never read it whole**: find open work with `grep -nE '\| (pending|in_progress|blocked) \|'`, and a row with `grep -n '^| <Task_ID> '`, then read or edit just that line. Keep each Comments cell to a few sentences (outcome, PR #, the one GOTCHA that matters); put longer execution detail in the owning phase plan and point to it.
+- Plan status tracker (the single source of execution status): for EVERY task you start or finish, update `.ai-shared/plans/plan_status_executions.md` — a row in the established table (`Task_ID | Task_Name | Phase | Status | Plan Path | Comments`), status `pending`→`in_progress`→`done`, with the execution detail (deviations, GOTCHAs, DEFER notes, PR #) in the **Comments** column, and `Plan Path` pointing at the owning phase plan under `.ai-shared/plans/`. This is canonical: do NOT keep status only in TaskCreate/todos, and do NOT create a separate `*-followups.md` / notes doc — if a canonical file can't hold something, ENHANCE it (richer Comments, a new column, or a phase-plan section), never a side file. Update it in the SAME change as the work, not at the end. The file is large (~700 rows) — **never read it whole**: find open work with `grep -nE '\| (pending|in_progress|blocked) \|'`, and a row with `grep -n '^| <Task_ID> '`, then read or edit just that line. Keep each Comments cell to a few sentences (outcome, PR #, the one GOTCHA that matters); put longer execution detail in the owning phase plan and point to it.
 
 - Screenshots are records, never overwritten or deleted: every E2E screenshot goes through `capture()` (`src/Storefront/e2e-support/screenshots.ts`) — never `page.screenshot({ path })` — so each run lands in its own `test-artifacts/screenshots/runs/<runId>/` folder, paired with its test's outcome, and `INDEX.md` records the history (compare by decoded pixels: `same` / `minor` noise / `changed`). The wiki images (`docs/help/assets/screenshots/`) change ONLY via `node scripts/screenshots/shots.cjs promote <runId>`, which refuses shots from failing tests and records the promotion. Prefer promoting from a `dev-up.sh --fresh` run: long-lived dev databases accumulate E2E leftovers that end up in the images.
 
@@ -307,7 +317,7 @@ The following repository rules must always be followed:
 ### File Organization
 - Each service = `Api/` (endpoints, DI), `Domain/` (entities, invariants — no infrastructure references), `Infrastructure/` (EF, consumers, adapters), plus a test project.
 - Shared code is plumbing and contracts only — **never shared domain logic**; duplication between services is preferred over coupling.
-- Abstraction seams: `ISupplierImporter`, `ITaxStrategy`, `ISearchProvider`, `IAuthService`, `IEmailSender` (one v1 implementation each); `IPaymentProvider` adapters resolve via the keyed `IPaymentProviderRegistry` (mock/stripe/polar/paypal/afterpay, ADR-0039) — never inject a provider directly. Do not add new speculative interfaces.
+- Abstraction seams: `ISupplierImporter`, `ISearchProvider`, `IAuthService`, `IEmailSender` (one v1 implementation each, plus dev/test doubles) and `ITaxStrategy` (one per regime: storefront rate, zero, home regime, EU OSS — ADR-0038/0063); `IPaymentProvider` adapters resolve via the keyed `IPaymentProviderRegistry` (mock/stripe/polar/paypal/afterpay, ADR-0039) — never inject a provider directly. Do not add new speculative interfaces.
 
 ### Messaging endpoint naming (ADR-0060)
 - Queue name = kebab-case of the consumer/saga type name, unprefixed, one shared vhost (`MassTransitExtensions.EndpointNameFormatter` — the only formatter; buses are built only by `AddServiceBus`). So a consumer class name must be unique across ALL services: two services with the same name become competing consumers and each message reaches only one. Name a consumer of a shared event for its service (`FulfillmentOrderConfirmedConsumer`, `EntitlementIssuingConsumer`). Enforced by `ConsumerEndpointNameTests` (unit lane, e2e-verify A3d) and live by L17b.
@@ -418,7 +428,7 @@ cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
 - **MassTransit is pinned to 8.x** (open-source line) — v9+ is commercially licensed; do not bump without a license decision (see `Directory.Packages.props`).
 - **Local tooling:** .NET SDK lives in `~/.dotnet` (user-local install; PATH/DOTNET_ROOT via `.envrc`/direnv). Docker runs via **colima** (`colima start`) — Docker Desktop is installed but its daemon doesn't start headlessly. The bare-run stack fits the 6 GiB VM: full infra (incl. GlitchTip + Pyroscope) + services + frontends, seeded, peaked at 3903–4479 MB of 5911 MB across runs (worst case + 1 GiB margin = 5575 MB, ~336 MB spare; 2026-11-25, ADR-0068) — re-measure when the infra set grows.
 - Service health endpoints (`/health/live|ready`) are internal-only; the gateway returns 404 for any `/api/*/health*` path.
-- Stripe runs **test mode only** and Xero against a demo org until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
+- Stripe runs **test mode only** and Xero journals go to a logging client (`LoggingXeroClient`) until a legal entity exists (launch gate, not build gate) — see PRD Appendix B.
 - Currency and tax are per storefront (ADR-0038; currencies come from the Entity registry, ADR-0046), tax via `ITaxStrategy` — jurisdiction is unknown until company registration; never hardcode either.
 - Microservices were chosen knowingly for learning value (PRD decision #5); keep each service internally simple — complexity budget is spent on the seams.
 - ADRs are numbered sequentially in `docs/adr/` — take the next number after the last entry in `adr_index.md`. API contracts live in `docs/api/` (OpenAPI JSON per service + `api_contracts_index.md`).
