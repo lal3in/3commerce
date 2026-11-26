@@ -108,7 +108,7 @@ internal sealed class RecordingProvider : IPaymentProvider
     /// <summary>Called with the 1-based call number before answering; may throw to simulate a failure.</summary>
     public Action<int>? OnAuthorize { get; init; }
 
-    public string ProviderKey => "stripe";
+    public string ProviderKey { get; init; } = "stripe";
 
     public Task<PaymentResponse> AuthorizeAsync(PaymentRequest request, CancellationToken ct)
     {
