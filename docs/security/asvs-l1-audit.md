@@ -12,13 +12,21 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 > with boot guards (14.3.x row added); product visibility is status- and price-gated on public
 > surfaces. Verdict unchanged: no critical open findings pre-launch.
 
+> **Refresh 2026-11-27** (rows below re-checked against the code at `6c290572`): the gateway now refuses
+> `/api/{service}/internal…` from the public origin (#322); refunds need the `payment.refund` permission through
+> the service PEP (`PermissionGate`, #326); payment vaults and saved cards are under FORCE RLS (#331/#339); auth
+> rate limiting is distributed over Valkey and keyed per tenant + storefront + IP (ADR-0044); email bodies and
+> links are never logged outside Development and the collector redacts tokens/emails as a backstop (#303);
+> security logs are kept 12 months (ADR-0065). Correction: only NuGet packages are scanned automatically —
+> there is no `npm audit` gate (14.2.1 is now ⚠️).
+
 ## V2 — Authentication
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
 | 2.1.1 | Passwords ≥ 8 (we require ≥ 10) | ✅ | `RegisterRequest`/`ResetConfirmRequest` `MinLength(10)` |
 | 2.1.7 | Passwords checked against breach lists | ⬜ | deferred (HIBP integration post-MVP) |
-| 2.2.1 | Anti-automation / rate limiting on auth | ✅ | gateway per-IP limiter on `/login`,`/register`,`/password-reset` (30/min) + per-account progressive lockout |
+| 2.2.1 | Anti-automation / rate limiting on auth | ✅ | gateway limiter on `/api/identity/login`, `/register`, `/password-reset` (30/min per `{tenant}:{storefront}:{IP}`, shared across gateway replicas via Valkey — `RateLimitPolicy`, ADR-0044) + per-account progressive lockout |
 | 2.2.3 | Secure notifications on security events | ⚠️ | verification/reset emails sent; no "new login" alerts (v1) |
 | 2.4.1 | Passwords stored with approved KDF | ✅ | Argon2id m=19456,t=2,p=1 (OWASP first-choice) via vetted library; never hand-rolled |
 | 2.4.4 | Per-credential salt | ✅ | 16-byte CSPRNG salt per hash, self-describing encoding |
@@ -43,9 +51,9 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
 | 4.1.1 | Enforced server-side | ✅ | services validate the gateway-minted ES256 claims; never trust the client |
-| 4.1.3 | Least privilege / role checks | ✅ | `Admin`/`Customer` policies on route groups |
+| 4.1.3 | Least privilege / role checks | ✅ | `Admin`/`Customer`/`Supplier` policies on route groups (`InternalClaimsAuth`) + service-side PEP (`PermissionGate`) asking the Identity PDP for action permissions, fail-closed, denials audited (ADR-0025; e.g. `payment.refund`) |
 | 4.2.1 | Object-level authorization (no IDOR) | ✅ | ownership-scoped queries; 404 (not 403) on others' resources |
-| 4.3.1 | Admin interfaces protected | ✅ | admin role + IP allowlist + separate app/port (ADR-0019) |
+| 4.3.1 | Admin interfaces protected | ✅ | admin role + IP allowlist (`src/Admin/Services/IpAllowlistMiddleware.cs`) + separate app/port (ADR-0019); service-to-service `/internal/*` endpoints are never proxied by the gateway (`src/Gateway/Program.cs`, GatewayConfigTests, e2e-verify L4/L4b) |
 | 4.1.x | Multi-tenant data isolation | ✅ | PostgreSQL RLS on tenant-owned tables (`FORCE ROW LEVEL SECURITY`, transaction-scoped `set_config('app.tenant_id')`, non-superuser role) **plus** application checks (ADR-0024); dynamic RBAC over a code-defined permission registry (ADR-0025) |
 
 ## V5 / V7 / V12 / V13 — Validation, Errors, Files, API
@@ -62,7 +70,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
-| 14.2.1 | Dependencies scanned for vulnerabilities | ✅ | `dotnet list package --vulnerable` + `npm audit` in CI; 0 findings |
+| 14.2.1 | Dependencies scanned for vulnerabilities | ⚠️ | NuGet: `dotnet list package --vulnerable --include-transitive` fails CI `build-test` and `e2e-verify.sh` A8 on any finding, and restore audits with warnings-as-errors. npm: **no automated scan** — run `npm audit` in `src/Storefront` by hand until a gate exists |
 | 14.3.2 | No debug/dev features in production | ✅ | `/dev/simulate-payment`, OpenAPI, dev admin seed all gated on Development; `PaymentModeGuard` refuses to boot outside Development with `Payments:Mode=LocalMock` or `AllowMockEmail=true` (ADR-0039); `DevSecretGuard` refuses the committed dev ES256 key outside Development (BL-11) |
 | 14.4.1 | Secrets out of source where it matters | ⚠️ | dev-only ES256 keypair + dev DB passwords are committed for local dev (documented); **generate fresh secrets per deployed environment** |
 
@@ -73,5 +81,6 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 3. ⚠️ Rotate all dev secrets; move to a secret manager for any deployed environment.
 4. ✅ MFA for admin accounts (PRD §13) — TOTP enrollment + login challenge + step-up shipped 2026-07-04 (def_1); pending sessions carry no claims. Remaining: operators actually enroll (operational launch gate, PRD Appendix B).
 5. ⚠️ "New device/login" security notifications.
+6. ⚠️ Automated npm dependency scan for the storefront (14.2.1).
 
 No **critical** open findings in the current pre-launch scope. Re-run this audit after any auth change.
