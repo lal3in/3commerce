@@ -62,6 +62,8 @@ The owner chose pnpm on 2026-11-27.
   equivalent: a stale lock fails `--frozen-lockfile` everywhere at once, and settings go in `pnpm-workspace.yaml`.
 - Image: the runtime is the same standalone server. It measured 325 MB on disk / 79.4 MB content against 353 MB /
   88.2 MB for the npm build of develop 592f0e63, and the build stages keep the pnpm store in a cache mount.
+- CI `browser-e2e`: `pnpm install --frozen-lockfile` took 3.5 s on the first run (cold pnpm cache) against
+  13 s for `npm ci`, and the whole install step (with the Playwright browser) dropped from 35 s to 23 s.
 - Rejected:
   - **Staying on npm with an `engines.npm` pin.** It fixes neither the phantom dependencies nor the cost of
     `npm ci`.
