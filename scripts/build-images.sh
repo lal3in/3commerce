@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build container images with bounded concurrency so 13 parallel .NET builds can't OOM the Docker VM.
+# Build container images with bounded concurrency so ~17 parallel .NET builds can't OOM the Docker VM.
 # Discovers Dockerfiles (no hardcoded list) and builds PARALLEL at a time (default 2).
 # Usage: PARALLEL=2 scripts/build-images.sh [image-name ...]    e.g. scripts/build-images.sh catalog gateway
 #        (no names = every image; names are image_name() values: catalog, notifications, supplier-portal, migrator…)

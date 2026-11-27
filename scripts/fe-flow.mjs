@@ -1,6 +1,7 @@
 // fe_audit_7: cross-portal flow check. Drives a REAL guest checkout in the storefront browser,
 // then confirms the paid order surfaces in the admin API (orders) and the audit trail.
-import pw from "/Users/lehn/Documents/Git-Roots/3commerce/src/Storefront/node_modules/playwright/index.js";
+import { createRequire } from "node:module";
+const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("playwright");
 const { chromium } = pw;
 const STORE = "http://localhost:3000", GW = "http://localhost:8080";
 
