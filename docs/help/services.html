@@ -99,7 +99,7 @@
         <p>Central scheduled-job run history (mt6_3) plus the cross-service registered-job view. Read-only projections (runs come from <code>JobRunRecorded</code>).</p>
         <table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody>
               <tr><td><code>GET</code></td><td><code>/admin/workflow/runs?job=</code></td><td>admin</td><td>Recent runs (status, timing, error)</td></tr>
-              <tr><td><code>GET</code></td><td><code>/admin/workflow/jobs</code></td><td>admin</td><td>The Scheduled-Job Manager view: every registered job (service, schedule, state) merged with its latest run (status, duration). Feeds Mission Control; control actions go to the owning service's <code>/admin/jobs/*</code> (below)</td></tr>
+              <tr><td><code>GET</code></td><td><code>/admin/workflow/jobs</code></td><td>admin</td><td>The Scheduled-Job Manager view: every registered job (service, schedule, state) merged with its latest run (status, duration). A read model built from the job descriptors each service publishes at startup and on change (<code>ScheduledJobDescriptor</code>). Control actions go to the owning service's <code>/admin/jobs/*</code> (below); Mission Control currently reads each service's <code>/admin/jobs</code> directly and takes run history from <code>/admin/workflow/runs</code></td></tr>
         </tbody></table>
         <p><b>Use cases</b></p><ul>
           <li>Confirm the nightly Payments journal job ran and succeeded.</li>

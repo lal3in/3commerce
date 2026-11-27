@@ -53,33 +53,17 @@ How it fits together:
 PgBouncer is available as an **optional** runtime connection-pooling overlay before scaling service replicas broadly. It is for long-running app traffic only; EF migration bundles intentionally keep direct `Host=postgres` connections.
 
 ```bash
-# Bare-run/dev infra path: expose PgBouncer on localhost:6432 for host-run services.
-docker compose -f docker-compose.infra.yml -f docker-compose.infra.pgbouncer.yml --profile pgbouncer up -d
+# Bare-run/dev infra path: Kafka + Kafka UI are part of the `portals` profile of the infra compose
+# (dev-up.sh starts the whole all-or-nothing infra set, including them).
+docker compose -f docker-compose.infra.yml --profile portals up -d kafka kafka-ui
 
-# Containerized app path: start/reset the external Postgres first as usual.
-docker compose -f docker-compose.db.yml up -d postgres
-
-# Then launch the app stack with runtime services routed through PgBouncer.
-docker compose -f docker-compose.yml -f docker-compose.pgbouncer.yml --profile pgbouncer up -d
-```
-
-The app overlay starts `pgbouncer` on the private `3commerce-data` network and exposes it on local `:6432` for diagnostics. It overrides each DB-owning app service's `ConnectionStrings__Database` to `Host=pgbouncer;Port=6432;...` while leaving the one-shot `migrate` service direct-to-Postgres. The infra overlay exposes the same pooler for host-run services that opt into `Host=localhost;Port=6432`. The committed PgBouncer config is dev/local only and uses the existing development database passwords on the private Docker network; production must use managed secrets/TLS/SASL-equivalent controls appropriate to the target platform.
-
-RLS remains transaction-scoped. If PgBouncer is enabled, validate tenant/RLS paths with the integration suite before raising replicas.
-
-## Optional Kafka stream lane (ADR-0034)
-
-Kafka is available as an **optional** durable stream lane for committed facts, replay, analytics, and audit projection. RabbitMQ/MassTransit remains the operational bus for commands, sagas, retries, and checkout/RMA workflows.
-
-```bash
-# Bare-run/dev infra path: Postgres + RabbitMQ + optional Kafka/Kafka UI.
-docker compose -f docker-compose.infra.yml -f docker-compose.infra.kafka.yml --profile kafka up -d
-
-# Full container app path: include the optional Kafka profile.
+# Full container app path (docker-compose.yml): opt in with the kafka profile.
 docker compose --profile kafka up -d
 ```
 
-Local Kafka uses a single-node KRaft broker on `:9092`; Kafka UI is exposed on `:8088`. In Helm, production should normally use managed Kafka by setting `kafka.enabled=true`, `kafka.deploy=false`, and `kafka.externalBootstrapServers`; TLS/SASL values can be supplied through `kafka.securityProtocol`, `kafka.saslMechanism`, and `kafka.saslSecret.name`. In-cluster `kafka.deploy=true` is for dev/kind only.
+> `docker-compose.infra.kafka.yml` (`--profile kafka`) is a legacy overlay kept for ad-hoc use; it duplicates the `kafka` service now defined in `docker-compose.infra.yml` and is not part of the dev-up infra set.
+
+Bare-run Kafka is a single-node KRaft broker reachable from the host on `:29092` (in-network clients use `kafka:9092`); Kafka UI is on `:8090`. In the full-container stack (`docker-compose.yml`, `--profile kafka`) the broker is on `:9092` and Kafka UI on `:8088`. In Helm, production should normally use managed Kafka by setting `kafka.enabled=true`, `kafka.deploy=false`, and `kafka.externalBootstrapServers`; TLS/SASL values can be supplied through `kafka.securityProtocol`, `kafka.saslMechanism`, and `kafka.saslSecret.name`. In-cluster `kafka.deploy=true` is for dev/kind only.
 
 ## Redis fast-path lane (ADR-0044)
 
@@ -218,7 +202,7 @@ yet (audit P1-2/P1-4); their images carry the OCI labels.
 
 The fast inner loop is unchanged — see [Getting started](./getting-started.md):
 
-1. `docker compose -f docker-compose.infra.yml up -d` — Postgres 17 + RabbitMQ 4.
+1. `docker compose -f docker-compose.infra.yml up -d` — Postgres 18 + RabbitMQ 4.
 2. `dotnet ef database update` per service — migrations.
 3. `scripts/run-all.sh start` — gateway + 13 DB-owning services + Notifications worker (bare `dotnet run`).
 4. Storefront `npm run build && GATEWAY_URL=http://localhost:8080 npm run start` (`:3000`).
@@ -280,7 +264,7 @@ The seeded dev admin is `admin@3commerce.local` / `dev-admin-password-1` (Develo
 | `Payments:WebhookBaseUrl` | Payments | `http://localhost:8080` | Public base URL used when a payment account is activated: the provider webhook endpoint is (re)registered at `{base}/webhooks/{provider}` and its signing secret rotated in. Set to the real public gateway URL per environment. |
 | `Mfa:PlatformMinimum` | Identity | `0` (none) | Platform-wide MFA floor for operator accounts. |
 | `Publishing:PreviewSecret` | Marketing | `dev-preview-secret` (code fallback) | Signs publishing preview links — rotate outside dev. |
-| `Scheduling:Enabled` | Payments, Usage, Marketing, Workflow | `true` | Quartz schedulers + the Scheduled-Job Manager control surface (`/admin/jobs/*`). Jobs: `daily-journal` (Payments), `subscription-auto-renew` (Payments, every 15 min — renews due subs per storefront at that storefront's configured daily time, default 12:00:00, set via `PUT /api/payments/admin/billing-schedules/{storefrontId}`), `usage-charge-retry` (Payments, hourly — dunning retries of declined usage charges, days 1/3/7), `usage-period-close` (Usage — daily period close + prepaid auto-load safety-net sweep), `scheduled-publish` (Marketing). Operators can run-now / pause / edit each job's cron from Mission Control (overrides persist). Integration tests turn it off. |
+| `Scheduling:Enabled` | Payments, Usage, Marketing | `true` | Quartz schedulers + the Scheduled-Job Manager control surface (`/admin/jobs/*`). Jobs: `daily-journal` (Payments), `subscription-auto-renew` (Payments, every 15 min — renews due subs per storefront at that storefront's configured daily time, default 12:00:00, set via `PUT /api/payments/admin/billing-schedules/{storefrontId}`), `usage-charge-retry` (Payments, hourly — dunning retries of declined usage charges, days 1/3/7), `usage-period-close` (Usage — daily period close + prepaid auto-load safety-net sweep), `scheduled-publish` (Marketing). Operators can run-now / pause / edit each job's cron from Mission Control (overrides persist). Integration tests turn it off. |
 | `Quartz:MisfirePolicy` | Any Quartz-scheduled service | `DoNothing` | How a trigger recovers after a missed fire time (e.g. downtime): `DoNothing` (skip to the next scheduled fire) or `FireAndProceed` (run once immediately, then resume). |
 | `Quartz:MaxJobRetries` | Any Quartz-scheduled service | `0` | In-process bounded retries for a failing job before the run is recorded failed. `0` = no retry (fail on first error). |
 | `Quartz:RetryDelaySeconds` | Any Quartz-scheduled service | `5` | Delay between bounded retries. |
