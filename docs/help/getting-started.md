@@ -14,6 +14,7 @@ fake/sandbox rails and launch gates are described accurately.
 | **Container runtime** | Docker or **colima** (`colima start`). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. **VM size: 6 GiB is enough** for the bare-run stack — the full infra set (incl. GlitchTip and Pyroscope) + all services + frontends, seeded, peaked at 3903–4479 MB used of 5911 MB across runs (Loki start-up replay is the swing; Pyroscope ~72 MiB; worst case + 1 GiB margin = 5575 MB; measured 2026-11-19/25, ADR-0067/0068). Container image builds need more (below). |
 | **.NET 10 SDK** | Installed user-locally at `~/.dotnet` (no sudo). `DOTNET_ROOT=$HOME/.dotnet`; ensure `~/.dotnet` and `~/.dotnet/tools` are on `PATH`. `.envrc` (direnv) sets this for you — run `direnv allow` after editing it. |
 | **Node.js** | For the Next.js storefront and Playwright. CI uses Node 22. |
+| **pnpm** | The storefront's package manager (ADR-0070), at the version `src/Storefront/package.json` `packageManager` pins: `npm install -g pnpm@<that version>` (or `corepack enable pnpm` where corepack ships). `dev-up.sh --with-frontends` stops with this hint when it is missing and runs `pnpm install --frozen-lockfile` when `node_modules` is absent. |
 | **dotnet-ef tool** | For applying migrations: `dotnet tool install --global dotnet-ef`. |
 
 ### Ports used
@@ -127,16 +128,16 @@ Dev mode (hot reload):
 
 ```bash
 cd src/Storefront
-npm install                       # first time only
-npm run dev                       # next dev -p 3000
+pnpm install --frozen-lockfile    # first time only (and after a lockfile change)
+pnpm dev                          # next dev -p 3000
 ```
 
 Or production mode (what the live smoke tests use):
 
 ```bash
 cd src/Storefront
-npm run build
-GATEWAY_URL=http://localhost:8080 npm run start
+pnpm build
+GATEWAY_URL=http://localhost:8080 pnpm start
 ```
 
 The storefront reads `GATEWAY_URL` (default `http://localhost:8080`) — see
@@ -161,11 +162,11 @@ The same errors land in the **GlitchTip error inbox** (http://localhost:8000, pr
 release, the trace id and `support_ref` = that reference; .NET errors land in project `backend` (every service,
 gateway, worker, Admin and Supplier Portal gets `SENTRY_DSN` from `run-all.sh`/`dev-up.sh`; `SENTRY_DSN=` opts out).
 
-**Source maps.** `npm run build` builds browser source maps and its `postbuild` step moves them to
+**Source maps.** `pnpm build` builds browser source maps and its `postbuild` step moves them to
 `<distDir>/sourcemaps/` (never served; the image only copies `static/`). To symbolicate Faro stack traces, upload
-that folder as a build step — e.g. Grafana Cloud: `npx @grafana/faro-cli upload --endpoint <url> --app-id <id>
+that folder as a build step — e.g. Grafana Cloud: `pnpm dlx @grafana/faro-cli upload --endpoint <url> --app-id <id>
 --api-key $FARO_API_KEY --bundle-id <service.version> .next/sourcemaps` — or keep it as a CI artifact and resolve
-frames locally (`npx source-map-cli resolve <file>.map <line> <col>`). Never copy it into `public/` or `static/`.
+frames locally (`pnpm dlx source-map-cli resolve <file>.map <line> <col>`). Never copy it into `public/` or `static/`.
 
 ### 5. Start the admin console (`:5200`)
 

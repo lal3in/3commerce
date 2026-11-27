@@ -10,8 +10,8 @@ Regenerate after a UI change:
 ```bash
 # stack up (gateway :8080), storefront :3000, admin :5200, catalog seeded
 cd src/Storefront
-GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=storefront -g screenshots
-GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screenshots
+GATEWAY_URL=http://localhost:8080 pnpm test:e2e --project=storefront -g screenshots
+GATEWAY_URL=http://localhost:8080 pnpm test:e2e --project=admin -g screenshots
 # images land in docs/help/assets/screenshots/
 ```
 

@@ -70,7 +70,7 @@ dotnet test 3commerce.sln --filter Category!=Integration
 dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
 <span class="cmt"># Storefront + admin + supplier E2E (needs storefront :3000, admin :5200, supplier :5300, gateway :8080)</span>
-cd src/Storefront &amp;&amp; npm run test:e2e
+cd src/Storefront &amp;&amp; pnpm test:e2e
 
 <span class="cmt"># Full regression (automated suites only)</span>
 scripts/e2e-verify.sh
@@ -144,11 +144,11 @@ scripts/verify-golive-gate.sh</code></pre>
 <p>The suites also read <code>GATEWAY_URL</code> (<code>http://localhost:8080</code>) for API seeding/assertions where needed.</p>
         <p>Both also read <code>GATEWAY_URL</code> (<code>http://localhost:8080</code>) for API seeding/assertions.</p>
         <pre><code>cd src/Storefront
-npm install                          <span class="cmt"># first time</span>
-npx playwright install chromium      <span class="cmt"># first time</span>
-npm run test:e2e                     <span class="cmt"># both projects</span>
-npm run test:e2e -- --project=storefront   <span class="cmt"># just the storefront</span>
-npm run test:e2e:headed              <span class="cmt"># headed (debugging)</span></code></pre>
+pnpm install --frozen-lockfile       <span class="cmt"># first time (pnpm, ADR-0070)</span>
+pnpm exec playwright install chromium   <span class="cmt"># first time</span>
+pnpm test:e2e                        <span class="cmt"># all three projects</span>
+pnpm test:e2e --project=storefront   <span class="cmt"># just the storefront</span>
+pnpm test:e2e:headed                 <span class="cmt"># headed (debugging)</span></code></pre>
 
         <h3 id="storefront-specs">Storefront specs (<code>e2e/</code>)</h3>
         <ul>

@@ -73,7 +73,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
-| 14.2.1 | Dependencies scanned for vulnerabilities | ✅ | NuGet: `dotnet list package --vulnerable --include-transitive` fails CI `build-test` and `e2e-verify.sh` A8 on any finding, and restore audits with warnings-as-errors. npm (storefront): `npm audit --omit=dev --audit-level=high` fails CI `browser-e2e` (step "npm vulnerable package scan (production deps)") and `e2e-verify.sh` A8b on any high/critical production finding |
+| 14.2.1 | Dependencies scanned for vulnerabilities | ✅ | NuGet: `dotnet list package --vulnerable --include-transitive` fails CI `build-test` and `e2e-verify.sh` A8 on any finding, and restore audits with warnings-as-errors. Storefront (pnpm, ADR-0070): `pnpm audit --prod --audit-level high` fails CI `browser-e2e` (step "pnpm vulnerable package scan (production deps)") and `e2e-verify.sh` A8b on any high/critical production finding |
 | 14.3.2 | No debug/dev features in production | ✅ | `/dev/simulate-payment`, OpenAPI, dev admin seed all gated on Development; `PaymentModeGuard` refuses to boot outside Development with `Payments:Mode=LocalMock` or `AllowMockEmail=true` (ADR-0039); `DevSecretGuard` refuses the committed dev ES256 key outside Development (BL-11) |
 | 14.4.1 | Secrets out of source where it matters | ⚠️ | dev-only ES256 keypair + dev DB passwords are committed for local dev (documented); **generate fresh secrets per deployed environment** |
 

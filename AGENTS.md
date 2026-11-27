@@ -75,7 +75,7 @@ When PRD is needed:
 | Kafka (Confluent.Kafka) | Durable event-stream lane beside the RabbitMQ bus — replayable facts, not commands (ADR-0034) |
 | Valkey (Redis-compatible, StackExchange.Redis) | Shared session-introspection cache, distributed rate limiting, idempotency/webhook-dedupe fast path — never a source of truth (ADR-0044) |
 | YARP | Gateway: single public origin, session validation, internal claims, rate limiting |
-| Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX) |
+| Next.js (App Router, SSR) + TypeScript + Tailwind | Storefront (SEO at catalog scale, rich UX); package manager **pnpm** pinned by `packageManager`, settings in `pnpm-workspace.yaml` (ADR-0070) |
 | Blazor Server | Admin app + SupplierPortal (all-C# internal tooling) |
 | Stripe.net (test mode) | v1 payment rail behind `IPaymentProvider`; Payment Element client-side (SAQ-A) |
 | Xero (behind `IXeroClient`) | Nightly summary journals + per-refund postings; today the registered client is `LoggingXeroClient` — the real OAuth2 client is a launch-gate swap |
@@ -99,7 +99,7 @@ scripts/dev-down.sh                                 # stop everything; proves NO
 # ...or piecemeal:
 bash -c 'source scripts/lib/infra.sh && infra_up'  # the WHOLE infra set, health-waited (dev-up's step 1)
 dotnet run --project src/Services/<Name>/Api        # per service; same for Gateway, Workers
-cd src/Storefront && npm run dev                    # Next.js storefront
+cd src/Storefront && pnpm dev                        # Next.js storefront (pnpm, ADR-0070: `npm i -g pnpm@<packageManager pin>` once)
 
 # Containerized launch (full stack in containers) — ADR-0021
 # Building all 19 images (18 .NET + the storefront) needs a Docker VM with ~8+ GiB RAM. `docker compose up --build` builds them in
@@ -113,18 +113,18 @@ scripts/launch.sh --fresh --env prod                # rotated keys, BL-11 gate e
 
 # Build
 dotnet build 3commerce.sln
-cd src/Storefront && npm run build
+cd src/Storefront && pnpm build
 
 # Lint
 dotnet format --verify-no-changes
-cd src/Storefront && npm run lint
+cd src/Storefront && pnpm lint
 
 # Typecheck
 # (C#: covered by build)
-cd src/Storefront && npx tsc --noEmit
+cd src/Storefront && pnpm exec tsc --noEmit
 
 # Storefront E2E (Playwright/Chromium; requires the stack running + storefront on :3000)
-cd src/Storefront && npm run test:e2e
+cd src/Storefront && pnpm test:e2e
 
 # Unit Tests
 dotnet test 3commerce.sln
@@ -232,7 +232,7 @@ compose-smoke failure was a NuGet **cache-mount race**, not a code bug. Match th
 │   │   ├── Marketing/  ├── Pricing/  ├── Audit/  ├── Workflow/  ├── Entitlement/  └── Usage/
 │   │   #  each: Api/ Domain/ Infrastructure/ + tests/; ports 5101-5113 (scripts/lib/services.sh)
 │   ├── Workers/Notifications/     # email worker (event consumer, not a service)
-│   ├── Storefront/                # Next.js storefront (+ e2e/ e2e-admin/ e2e-supplier/ Playwright suites;
+│   ├── Storefront/                # Next.js storefront, pnpm (pnpm-lock.yaml + pnpm-workspace.yaml, ADR-0070) (+ e2e/ e2e-admin/ e2e-supplier/ Playwright suites;
 │   │                              #   e2e-support/ = capture() + the screenshot-history reporter + fixtures.ts,
 │   │                              #   the shared hermetic base `test` every spec imports)
 │   ├── Admin/                     # Blazor Server operator console (:5200)
@@ -350,7 +350,7 @@ Money changes: before shipping anything touching pricing, promotions, tax or sub
 ## Definition of Done
 
 - Tests pass: `dotnet test 3commerce.sln` (incl. integration where touched)
-- Lint/typecheck pass: `dotnet format --verify-no-changes`; storefront `npm run lint && npx tsc --noEmit`
+- Lint/typecheck pass: `dotnet format --verify-no-changes`; storefront `pnpm lint && pnpm exec tsc --noEmit`
 - Docs updated: ADR for any architectural decision; API contract files for any endpoint change; Project Structure section if layout changed; PRD only on scope change (with explicit user approval)
 
 ---
@@ -368,7 +368,7 @@ Money changes: before shipping anything touching pricing, promotions, tax or sub
 ```bash
 dotnet build 3commerce.sln && dotnet format --verify-no-changes && dotnet test 3commerce.sln
 # if storefront touched:
-cd src/Storefront && npm run lint && npx tsc --noEmit && npm run build
+cd src/Storefront && pnpm lint && pnpm exec tsc --noEmit && pnpm build
 ```
 
 ---

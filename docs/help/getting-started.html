@@ -73,6 +73,7 @@ scripts/dev-up.sh --with-frontends --dummy-data       <span class="cmt"># broad 
               <tr><td><strong>Container runtime</strong></td><td>Docker or <strong>colima</strong> (<code>colima start</code>). Needed for Postgres + RabbitMQ, and for Testcontainers-based integration tests. <strong>VM size: 6 GiB is enough</strong> for the bare-run stack — the full infra set (incl. GlitchTip and Pyroscope) + all services + frontends, seeded, peaked at 3903–4479 MB used of 5911 MB across runs (Loki start-up replay is the swing; Pyroscope ~72 MiB; worst case + 1 GiB margin = 5575 MB; measured 2026-11-19/25, ADR-0067/0068). Container image builds need more (below).</td></tr>
               <tr><td><strong>.NET 10 SDK</strong></td><td>Installed user-locally at <code>~/.dotnet</code> (no sudo). Set <code>DOTNET_ROOT=$HOME/.dotnet</code>; ensure <code>~/.dotnet</code> and <code>~/.dotnet/tools</code> are on <code>PATH</code>. <code>.envrc</code> (direnv) sets this for you — run <code>direnv allow</code> after editing it.</td></tr>
               <tr><td><strong>Node.js</strong></td><td>For the Next.js storefront and Playwright. CI uses Node 22.</td></tr>
+              <tr><td><strong>pnpm</strong></td><td>The storefront's package manager (ADR-0070), at the version <code>src/Storefront/package.json</code> <code>packageManager</code> pins: <code>npm install -g pnpm@&lt;that version&gt;</code> (or <code>corepack enable pnpm</code> where corepack ships). <code>dev-up.sh --with-frontends</code> stops with this hint when it is missing and runs <code>pnpm install --frozen-lockfile</code> when <code>node_modules</code> is absent.</td></tr>
               <tr><td><strong>dotnet-ef tool</strong></td><td>For applying migrations: <code>dotnet tool install --global dotnet-ef</code>.</td></tr>
             </tbody>
           </table>
@@ -139,12 +140,12 @@ scripts/run-all.sh start          <span class="cmt"># gateway, all services, not
         <h3 id="step-4">4 · Start the storefront (<code>:3000</code>)</h3>
         <p>Dev mode (hot reload):</p>
         <pre><code>cd src/Storefront
-npm install                       <span class="cmt"># first time only</span>
-npm run dev                       <span class="cmt"># next dev -p 3000</span></code></pre>
+pnpm install --frozen-lockfile    <span class="cmt"># first time only (and after a lockfile change)</span>
+pnpm dev                          <span class="cmt"># next dev -p 3000</span></code></pre>
         <p>Or production mode (what the live smoke tests use):</p>
         <pre><code>cd src/Storefront
-npm run build
-GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
+pnpm build
+GATEWAY_URL=http://localhost:8080 pnpm start</code></pre>
         <p>The storefront reads <code>GATEWAY_URL</code> (default <code>http://localhost:8080</code>) — see <code>src/Storefront/.env.example</code>. It talks <strong>only</strong> to the gateway.</p>
         <h4 id="storefront-telemetry">Storefront telemetry (ADR-0066)</h4>
         <ul>
@@ -156,7 +157,7 @@ GATEWAY_URL=http://localhost:8080 npm run start</code></pre>
         </ul>
         <p>Browser telemetry is anonymous by design (owner decision 2026-11-15): no session or user ids, no IP, no replay; query strings and tokens are scrubbed in the browser <strong>and</strong> in <code>/rum</code>. Error pages show a <strong>support reference</strong> (server digest or SSR trace id) — find it in <code>.run/storefront.log</code> (<code>"msg":"storefront request error"</code>, with the <code>traceId</code>) or in Grafana.</p>
         <p>The same errors land in the <strong>GlitchTip error inbox</strong> (<a href="http://localhost:8000">http://localhost:8000</a>, project <code>storefront</code>) tagged with the release, the trace id and <code>support_ref</code> = that reference; .NET errors land in project <code>backend</code> (every service, gateway, worker, Admin and Supplier Portal gets <code>SENTRY_DSN</code> from <code>run-all.sh</code>/<code>dev-up.sh</code>; <code>SENTRY_DSN=</code> opts out).</p>
-        <p><strong>Source maps.</strong> <code>npm run build</code> builds browser source maps and its <code>postbuild</code> step moves them to <code>&lt;distDir&gt;/sourcemaps/</code> (never served; the image copies only <code>static/</code>). To symbolicate Faro stack traces, upload that folder as a build step — e.g. Grafana Cloud: <code>npx @grafana/faro-cli upload --endpoint &lt;url&gt; --app-id &lt;id&gt; --api-key $FARO_API_KEY --bundle-id &lt;service.version&gt; .next/sourcemaps</code> — or keep it as a CI artifact and resolve frames locally. Never copy it into <code>public/</code> or <code>static/</code>.</p>
+        <p><strong>Source maps.</strong> <code>pnpm build</code> builds browser source maps and its <code>postbuild</code> step moves them to <code>&lt;distDir&gt;/sourcemaps/</code> (never served; the image copies only <code>static/</code>). To symbolicate Faro stack traces, upload that folder as a build step — e.g. Grafana Cloud: <code>npx @grafana/faro-cli upload --endpoint &lt;url&gt; --app-id &lt;id&gt; --api-key $FARO_API_KEY --bundle-id &lt;service.version&gt; .next/sourcemaps</code> — or keep it as a CI artifact and resolve frames locally. Never copy it into <code>public/</code> or <code>static/</code>.</p>
 
         <h3 id="step-5">5 · Start the admin console (<code>:5200</code>)</h3>
         <pre><code>ASPNETCORE_URLS="http://localhost:5200" dotnet run --project src/Admin</code></pre>

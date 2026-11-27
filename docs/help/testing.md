@@ -17,7 +17,7 @@ dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
 # Storefront + admin + supplier portal E2E
 # needs the stack up: storefront :3000, admin :5200, supplier :5300, gateway :8080
-cd src/Storefront && npm run test:e2e
+cd src/Storefront && pnpm test:e2e
 
 # Full regression (automated suites only)
 scripts/e2e-verify.sh
@@ -116,13 +116,13 @@ The suites also read `GATEWAY_URL` (`http://localhost:8080`) for API seeding/ass
 
 ```bash
 cd src/Storefront
-npm install                          # first time
-npx playwright install chromium      # first time
-npm run test:e2e                     # both projects
-npm run test:e2e -- --project=storefront   # just the storefront
-npm run test:e2e -- --project=admin        # just the admin console
-npm run test:e2e -- --project=supplier     # just the supplier portal
-npm run test:e2e:headed              # headed (debugging)
+pnpm install --frozen-lockfile       # first time (pnpm, ADR-0070)
+pnpm exec playwright install chromium   # first time
+pnpm test:e2e                        # all three projects
+pnpm test:e2e --project=storefront   # just the storefront
+pnpm test:e2e --project=admin        # just the admin console
+pnpm test:e2e --project=supplier     # just the supplier portal
+pnpm test:e2e:headed                 # headed (debugging)
 ```
 
 ### Storefront specs (`e2e/`)
@@ -181,7 +181,7 @@ npm run test:e2e:headed              # headed (debugging)
 ### Specs never depend on an external image host
 
 Every spec imports `test` from **`src/Storefront/e2e-support/fixtures.ts`** (storefront specs may use
-`e2e/fixtures.ts`, which builds on it), never from `@playwright/test`, and `npm run lint` enforces this. The
+`e2e/fixtures.ts`, which builds on it), never from `@playwright/test`, and `pnpm lint` enforces this. The
 shared fixture answers the demo seed's external image hosts (`picsum.photos`, `placehold.co`, listed in
 `lib/image-hosts.ts`) with a local stand-in image. It covers direct requests and requests through
 `/_next/image`, so image loading and `networkidle` no longer depend on those hosts. Our own images still come
@@ -261,7 +261,7 @@ COVERAGE CHECKLIST header of `scripts/e2e-verify.sh` is the authoritative per-st
 A4–A6 integration (A4 spine, A5 identity, A6 catalog, A6b ledger, A6c money flow, A6d RMA, A6e Xero builder,
 A6f–A6j fulfilment, digital supply, seller/buyer tax identity) · A7 storefront `tsc` + `next build`
 (A7c source maps stay unserved, A7d telemetry scrubber spec) · A8 vulnerable-package scan (NuGet) ·
-A8b `npm audit` of the storefront's production dependencies (high/critical fail the run).
+A8b `pnpm audit --prod` of the storefront's production dependencies (high/critical fail the run).
 
 **Live group (L1–L20, `--live`):** on a clean machine it boots infra, applies migrations, builds, starts
 the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL; on a

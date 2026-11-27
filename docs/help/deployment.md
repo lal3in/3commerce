@@ -205,7 +205,7 @@ The fast inner loop is unchanged — see [Getting started](./getting-started.md)
 1. `bash -c 'source scripts/lib/infra.sh && infra_up'` — the whole all-or-nothing infra set (Postgres 18, RabbitMQ 4, Valkey, Kafka, pgAdmin, GlitchTip, LGTM, Pyroscope); never start single infra containers by hand.
 2. `dotnet ef database update` per service — migrations.
 3. `scripts/run-all.sh start` — gateway + 13 DB-owning services + Notifications worker (bare `dotnet run`).
-4. Storefront `npm run build && GATEWAY_URL=http://localhost:8080 npm run start` (`:3000`).
+4. Storefront `pnpm build && GATEWAY_URL=http://localhost:8080 pnpm start` (`:3000`).
 5. Admin `dotnet run --project src/Admin` (`:5200`).
 
 ## PostgreSQL index-audit workflow (ADR-0033)
