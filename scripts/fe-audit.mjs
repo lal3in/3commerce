@@ -3,7 +3,8 @@
 //   node scripts/fe-audit.mjs           # storefront only (no auth)
 //   node scripts/fe-audit.mjs --admin   # + admin (logs in)
 // Run from repo root with the storefront's node_modules on the path.
-import pw from "/Users/lehn/Documents/Git-Roots/3commerce/src/Storefront/node_modules/playwright/index.js";
+import { createRequire } from "node:module";
+const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("playwright");
 const { chromium } = pw;
 
 const STORE = "http://localhost:3000";

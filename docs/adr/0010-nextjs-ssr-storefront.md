@@ -22,3 +22,9 @@ The storefront is **Next.js (App Router) with server-side rendering**, TypeScrip
 
 - Two-language frontend estate (Next.js + Blazor admin) — tracked as PRD risk R-5.
 - Storefront stack stays conventional (no exotic state management) to bound the maintenance tax.
+
+## Later changes (recorded 2026-11-27)
+
+- **No shadcn/ui.** The storefront shipped on Next.js 15 (App Router) + TypeScript + Tailwind CSS 4 with hand-built
+  components; no shadcn/ui, Radix or `cva` dependency is installed (`src/Storefront/package.json`,
+  `docs/reference/components.md`). Adding a component library would need its own justification.

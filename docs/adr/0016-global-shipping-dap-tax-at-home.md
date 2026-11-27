@@ -28,3 +28,11 @@ The "one currency at checkout" simplification moved on: tenants now set per-curr
 and each storefront is configured with a currency + tax regime/rate (ADR-0038) — a cart is still
 single-currency, and checkout charges the storefront-configured tax (inclusive AU GST / EU VAT,
 exclusive US sales tax). DAP shipping and expand-registrations-on-revenue remain the posture.
+
+## Later changes (recorded 2026-11-27)
+
+- **"Tax presence at home only" now has an EU exception.** An EU storefront (its `TaxJurisdiction` names an EU
+  Member State) prices cross-border EU B2C sales at the **destination** rate once the seller is over the
+  EUR 10,000 OSS threshold (`EuOssTaxStrategy`, [ADR-0063](./0063-customer-tax-invoices-and-credit-notes.md) § 16
+  P1b); every other storefront keeps the storefront-rate strategy. The EU rate table is a launch gate pending TEDB
+  verification (tracker `eu_vat_rate_table_tedb_verification`).

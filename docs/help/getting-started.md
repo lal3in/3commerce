@@ -50,7 +50,7 @@ fake/sandbox rails and launch gates are described accurately.
 >
 > The manual steps below are the same thing, broken out. For the **containerized** stack, build images
 > with `scripts/build-images.sh` (bounded concurrency + memory preflight) — a plain
-> `docker compose up --build` builds all 13 .NET images in parallel and will OOM a 6 GiB Colima.
+> `docker compose up --build` builds all 17 .NET images in parallel and will OOM a 6 GiB Colima.
 
 ```bash
 colima start                                                # if using colima

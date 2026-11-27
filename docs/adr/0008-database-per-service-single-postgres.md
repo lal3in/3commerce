@@ -27,3 +27,13 @@ A single PostgreSQL 17 container hosts **six logical databases, one per service*
   live in a **named schema within its own database** (`<service>.*`, not `public`) as
   defence-in-depth. This is database-per-service **plus** a schema namespace — *not* the
   "schema-per-service in one shared database" option rejected above.
+
+## Later changes (recorded 2026-11-27)
+
+The decision stands; two facts in it have moved on:
+
+- **PostgreSQL 18**, not 17 — upgraded in #136 (2026-08-01): `postgres:18` in `docker-compose.infra.yml` and the
+  Helm chart (`deploy/helm/3commerce/values.yaml`).
+- **Fourteen databases, not six** — one per DB-owning service (13: the six above plus Entity, ADR-0027, and
+  Marketing/Pricing/Audit/Workflow/Entitlement/Usage, ADR-0030) plus `notifications_db` for the Notifications
+  worker's delivery log (`notifications.Deliveries`). Each still has its own login; `infra/postgres/init-databases.sql` is the list.
