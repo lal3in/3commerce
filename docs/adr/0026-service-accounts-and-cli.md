@@ -45,3 +45,16 @@ scoped, and the CLI must go through the same authorization as everything else.
   privileged backdoor.
 - Command/permission discovery depends on OpenAPI + registry being kept current (an existing
   repo rule for endpoints).
+
+## Later changes (recorded 2026-11-27) — what is built so far
+
+The decision stands; the implementation is partial:
+
+- **Service accounts:** the data model exists (`ServiceAccount` + `PrincipalType.ServiceAccount` in Identity,
+  hash-only secret) and the approval primitive refuses a service-account approver (`ApprovalTask`). There is **no
+  client-credentials token endpoint yet**, so no service account can authenticate.
+- **CLI** (`src/Cli/3commerce.Cli`, Gateway-only): human login (email + password, `--code` for MFA), `whoami`,
+  `context show`, and real gateway commands for rbac / entity / supplier / storefront / catalog / payment / payout /
+  xero; explicit `--tenant`/`--storefront`; `--reason` on high-risk commands; `--output table|json`; session
+  stored owner-only in `~/.3commerce/config.json`. **Not built:** service-account login, named profiles, yaml/csv
+  output, OpenAPI/registry command discovery, and automatic idempotency keys.
