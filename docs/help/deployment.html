@@ -174,7 +174,7 @@ helm install 3commerce deploy/helm/3commerce -f deploy/helm/3commerce/values-pro
         <h2 id="bare-run-dev">Bare-run dev (ADR-0009)</h2>
         <p>The fast inner loop is unchanged — see <a class="inline" href="getting-started.html">Getting started</a>:</p>
         <ol>
-          <li><code>docker compose -f docker-compose.infra.yml up -d</code> — Postgres 18 + RabbitMQ 4.</li>
+          <li><code>bash -c 'source scripts/lib/infra.sh &amp;&amp; infra_up'</code> — the whole all-or-nothing infra set (Postgres 18, RabbitMQ 4, Valkey, Kafka, pgAdmin, GlitchTip, LGTM, Pyroscope); never start single infra containers by hand.</li>
           <li><code>dotnet ef database update</code> per service — migrations.</li>
           <li><code>scripts/run-all.sh start</code> — gateway + 13 DB-owning services + Notifications worker (bare <code>dotnet run</code>).</li>
           <li>Storefront <code>npm run build &amp;&amp; GATEWAY_URL=http://localhost:8080 npm run start</code> (<code>:3000</code>).</li>
