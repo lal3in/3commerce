@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using ThreeCommerce.BuildingBlocks.Infrastructure.Auth;
@@ -10,7 +11,8 @@ namespace ThreeCommerce.Support.Api.Endpoints;
 /// <summary>
 /// File attachments for support tickets and refund/return requests (mt6_9 object store): a customer
 /// uploads a photo/PDF against a ticket or an RMA; the metadata lives in Support, the bytes in the
-/// object store. Download is available to any authenticated user (customer who owns it, or an operator).
+/// object store. Upload is owner-only and download is owner-or-operator (ADR-0018 amendment 2026-11-27): the owner is
+/// whoever placed the order the ticket / RMA belongs to; anyone else gets 404.
 /// </summary>
 public static class AttachmentEndpoints
 {
@@ -20,17 +22,24 @@ public static class AttachmentEndpoints
     {
         var customer = app.MapGroup("").WithTags("Support Attachments")
             .RequireAuthorization(InternalClaimsAuth.CustomerPolicy).DisableAntiforgery();
-        customer.MapPost("/tickets/{ownerId:guid}/attachments", (Guid ownerId, IFormFile file, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
-            => Upload("ticket", ownerId, file, store, db, time, ct));
-        customer.MapPost("/rma/{ownerId:guid}/attachments", (Guid ownerId, IFormFile file, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
-            => Upload("rma", ownerId, file, store, db, time, ct));
+        customer.MapPost("/tickets/{ownerId:guid}/attachments", (Guid ownerId, IFormFile file, ClaimsPrincipal user, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
+            => Upload("ticket", ownerId, file, user, store, db, time, ct));
+        customer.MapPost("/rma/{ownerId:guid}/attachments", (Guid ownerId, IFormFile file, ClaimsPrincipal user, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
+            => Upload("rma", ownerId, file, user, store, db, time, ct));
         customer.MapGet("/attachments/{id:guid}", Download);
         return app;
     }
 
-    private static async Task<Results<Ok<AttachmentDto>, BadRequest<string>>> Upload(
-        string ownerKind, Guid ownerId, IFormFile file, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
+    private static async Task<Results<Ok<AttachmentDto>, BadRequest<string>, NotFound>> Upload(
+        string ownerKind, Guid ownerId, IFormFile file, ClaimsPrincipal user, IObjectStore store, SupportDbContext db, TimeProvider time, CancellationToken ct)
     {
+        // Only onto the caller's own ticket / RMA — one that exists, on an order they placed.
+        if (await OrderOwnership.OrderOfAsync(db, ownerKind, ownerId, ct) is not { } orderId
+            || !await OrderOwnership.OwnsOrderAsync(db, orderId, user, ct))
+        {
+            return TypedResults.NotFound();
+        }
+
         if (!UploadPolicy.ValidateAttachment(file.ContentType, file.Length, out var error))
         {
             return TypedResults.BadRequest(error);
@@ -59,10 +68,19 @@ public static class AttachmentEndpoints
         return TypedResults.Ok(new AttachmentDto(attachment.Id, attachment.FileName, attachment.ContentType, attachment.SizeBytes));
     }
 
-    private static async Task<Results<FileStreamHttpResult, NotFound>> Download(Guid id, IObjectStore store, SupportDbContext db, CancellationToken ct)
+    private static async Task<Results<FileStreamHttpResult, NotFound>> Download(
+        Guid id, ClaimsPrincipal user, IObjectStore store, SupportDbContext db, CancellationToken ct)
     {
         var attachment = await db.Attachments.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id, ct);
         if (attachment is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        // An operator (the Admin console reads attachments through this route) or the owner of the ticket / RMA's order.
+        if (!OrderOwnership.IsOperator(user)
+            && (await OrderOwnership.OrderOfAsync(db, attachment.OwnerKind, attachment.OwnerId, ct) is not { } orderId
+                || !await OrderOwnership.OwnsOrderAsync(db, orderId, user, ct)))
         {
             return TypedResults.NotFound();
         }
