@@ -663,7 +663,7 @@ ensure_demo_payment_method() {
 }
 
 checkout_scenario() {
-  local code="$1" quantity="${2:-1}" customer_email order_body order_id client_secret intent_id status_body status ticket_body ticket_id rma_body rma_id shipments shipment_id package_body package_id subs sub_id
+  local code="$1" quantity="${2:-1}" customer_email order_body order_id client_secret intent_id status_body status lines_body ticket_body ticket_id rma_body rma_id shipments shipment_id package_body package_id subs sub_id
   local product_id variant_id jar
   product_id=$(manifest_get "products.$code.id")
   variant_id=$(manifest_get "products.$code.variantId")
@@ -723,6 +723,14 @@ checkout_scenario() {
     [[ "$status" == "Confirmed" ]] && break
   done
   if [[ -n "$status" ]]; then manifest_set "orders.$code.status" "$(json_string "$status")"; fi
+
+  # Support serves an order's tickets/RMAs only to its owner, read from its OrderConfirmed copy (ADR-0018 amendment
+  # 2026-11-27): until that projection lands both POSTs 404, so wait for the owner's refundable-lines view first.
+  for _ in $(seq 1 20); do
+    lines_body=$(api "history-$code-support-lines" GET "/api/support/orders/$order_id/lines" "$jar" "" "allow_4xx")
+    [[ "$(printf '%s' "$lines_body" | json_get orderId)" == "$order_id" ]] && break
+    sleep 1
+  done
 
   ticket_body=$(api "history-$code-ticket" POST "/api/support/tickets" "$jar" \
     "{\"orderId\":\"$order_id\",\"email\":\"$customer_email\",\"reason\":4,\"message\":\"Demo support thread for $code\"}" "allow_4xx")
