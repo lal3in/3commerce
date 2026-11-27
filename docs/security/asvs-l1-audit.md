@@ -17,8 +17,8 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 > the service PEP (`PermissionGate`, #326); payment vaults and saved cards are under FORCE RLS (#331/#339); auth
 > rate limiting is distributed over Valkey and keyed per tenant + storefront + IP (ADR-0044); email bodies and
 > links are never logged outside Development and the collector redacts tokens/emails as a backstop (#303);
-> security logs are kept 12 months (ADR-0065). Correction: only NuGet packages are scanned automatically —
-> there is no `npm audit` gate (14.2.1 is now ⚠️).
+> security logs are kept 12 months (ADR-0065). Update (same day): the storefront now has an
+> `npm audit` gate too (14.2.1 is ✅ again).
 >
 > **Finding 2026-11-27 (4.2.1, fixed the same day):** an IDOR in Support — any order id unlocked its refundable lines
 > (anonymously), an RMA and its tickets for any signed-in customer. See the 4.2.1 row.
@@ -73,7 +73,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 
 | # | Requirement | Status | Evidence |
 |---|-------------|--------|----------|
-| 14.2.1 | Dependencies scanned for vulnerabilities | ⚠️ | NuGet: `dotnet list package --vulnerable --include-transitive` fails CI `build-test` and `e2e-verify.sh` A8 on any finding, and restore audits with warnings-as-errors. npm: **no automated scan** — run `npm audit` in `src/Storefront` by hand until a gate exists |
+| 14.2.1 | Dependencies scanned for vulnerabilities | ✅ | NuGet: `dotnet list package --vulnerable --include-transitive` fails CI `build-test` and `e2e-verify.sh` A8 on any finding, and restore audits with warnings-as-errors. npm (storefront): `npm audit --omit=dev --audit-level=high` fails CI `browser-e2e` (step "npm vulnerable package scan (production deps)") and `e2e-verify.sh` A8b on any high/critical production finding |
 | 14.3.2 | No debug/dev features in production | ✅ | `/dev/simulate-payment`, OpenAPI, dev admin seed all gated on Development; `PaymentModeGuard` refuses to boot outside Development with `Payments:Mode=LocalMock` or `AllowMockEmail=true` (ADR-0039); `DevSecretGuard` refuses the committed dev ES256 key outside Development (BL-11) |
 | 14.4.1 | Secrets out of source where it matters | ⚠️ | dev-only ES256 keypair + dev DB passwords are committed for local dev (documented); **generate fresh secrets per deployed environment** |
 
@@ -84,6 +84,5 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 3. ⚠️ Rotate all dev secrets; move to a secret manager for any deployed environment.
 4. ✅ MFA for admin accounts (PRD §13) — TOTP enrollment + login challenge + step-up shipped 2026-07-04 (def_1); pending sessions carry no claims. Remaining: operators actually enroll (operational launch gate, PRD Appendix B).
 5. ⚠️ "New device/login" security notifications.
-6. ⚠️ Automated npm dependency scan for the storefront (14.2.1).
 
 No **critical** open findings in the current pre-launch scope. Re-run this audit after any auth change.
