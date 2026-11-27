@@ -34,8 +34,18 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
     public async Task Consume(ConsumeContext<OrderConfirmed> context)
     {
         var m = context.Message;
-        if (await db.OrderSnapshots.AnyAsync(o => o.OrderId == m.OrderId, context.CancellationToken))
+        var existing = await db.OrderSnapshots.SingleOrDefaultAsync(o => o.OrderId == m.OrderId, context.CancellationToken);
+        if (existing is not null)
         {
+            // A re-delivered event only ever FILLS a missing owner (the support-order-owner backfill re-sends it for
+            // snapshots projected before OrderConfirmed carried UserId). It never overwrites one already recorded,
+            // and never touches the money — so a replay stays a no-op for everything else.
+            if (existing.UserId is null && m.UserId is { } owner)
+            {
+                existing.UserId = owner;
+                await db.SaveChangesAsync(context.CancellationToken);
+            }
+
             return;
         }
 
@@ -50,6 +60,9 @@ public sealed class OrderSnapshotConsumer(SupportDbContext db) : IConsumer<Order
         {
             OrderId = m.OrderId,
             Email = m.Email,
+            // The owner the customer endpoints are gated on (ADR-0018 amendment 2026-11-27). An event published before
+            // the contract carried it — or a guest order — reads null, and those endpoints then answer 404.
+            UserId = m.UserId,
             GrossMinor = m.AmountMinor,
             Currency = m.Currency,
             Lines = m.Lines.Select(l => new OrderSnapshotLine

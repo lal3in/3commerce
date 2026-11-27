@@ -11,6 +11,15 @@ public class OrderSnapshot
     public required string Email { get; init; }
 
     /// <summary>
+    /// The Identity user who placed the order (<c>OrderConfirmed.UserId</c>) — the ONLY caller the order-scoped customer
+    /// endpoints serve (ADR-0018 amendment 2026-11-27): lines, RMA, the order's tickets. <c>null</c> for a guest order
+    /// and for a snapshot projected before the field existed and not yet backfilled
+    /// (<c>order-confirmed-backfill support-order-owner</c>); either way the customer endpoints fail CLOSED (404).
+    /// Settable only so a re-delivered event can fill a missing owner; never changed once set.
+    /// </summary>
+    public Guid? UserId { get; set; }
+
+    /// <summary>
     /// What the shopper was actually charged for this order (items − discount + shipping + tax). It is
     /// the CEILING on everything an RMA can ever give back: the sum of a discounted order's listed line
     /// values exceeds it, so refunds are capped here (rma_disc).

@@ -35,6 +35,10 @@ namespace ThreeCommerce.BuildingBlocks.Contracts.Ordering;
 /// <param name="Buyer">The business purchase block (P3); null for a consumer purchase.</param>
 /// <param name="ShippingTax">The shipping line's tax facts (P1); null on a pre-P5 event.</param>
 /// <param name="CapturedAt">When the payment was captured and the order confirmed — the invoice date (ADR-0063 § 5).</param>
+/// <param name="UserId">The Identity user who placed the order (Ordering's <c>Order.UserId</c>), so a service keeping a
+/// local copy of the order can check that an order-scoped request comes from its owner (ADR-0018 amendment
+/// 2026-11-27). <c>null</c> for a guest order and on any event published before the field existed — consumers must
+/// treat <c>null</c> as "no self-service owner" and fail closed.</param>
 public record OrderConfirmed(
     Guid OrderId,
     Guid TenantId,
@@ -56,7 +60,8 @@ public record OrderConfirmed(
     BillToInfo? BillTo = null,
     BuyerInfo? Buyer = null,
     LineTaxInfo? ShippingTax = null,
-    DateTimeOffset? CapturedAt = null);
+    DateTimeOffset? CapturedAt = null,
+    Guid? UserId = null);
 
 public record ShipToInfo(string Name, string Line1, string City, string Postcode, string Country, string? Region = null);
 

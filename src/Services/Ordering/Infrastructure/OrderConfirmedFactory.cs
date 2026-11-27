@@ -53,7 +53,10 @@ public static class OrderConfirmedFactory
             // An order is created from its checkout attempt in the very transaction that confirms it, once the payment
             // is captured (OrderStatusConsumer on CheckoutCompleted), so its CreatedAt IS the capture time — the date a
             // prepaid sale's invoice carries (ADR-0063 § 5). Read from the row, so a backfilled event repeats it.
-            CapturedAt: order.CreatedAt);
+            CapturedAt: order.CreatedAt,
+            // Who placed it (ADR-0018 amendment 2026-11-27): lets Support's order copy gate its order-scoped customer
+            // endpoints on the owner. Null for a guest order — those stay closed to self-service.
+            UserId: order.UserId);
     }
 
     // Ordering's P1 enums and the published vocabulary share their numeric values (pinned by
