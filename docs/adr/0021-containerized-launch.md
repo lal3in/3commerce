@@ -37,3 +37,13 @@ Supporting choices:
 - Prod mode rotates app secrets (ES256 + admin) but local DB/RabbitMQ creds remain the init-SQL dev passwords; real cluster credential rotation + a secrets store are deferred.
 - The kind-deploy CI job is slow/flaky (accepted) — paths-gated, with `helm --wait` + tight readiness probes.
 - Cheap to evolve toward a registry + real cluster later; the chart and launch wrapper are the seam.
+
+## Later changes (recorded 2026-11-27)
+
+- **18 app images + the `migrate` image, not 10.** `docker-compose.yml` now builds the 13 service APIs
+  (ADR-0027/0030 added Entity and the six extracted services), the Notifications worker, the gateway, Admin, the
+  Supplier Portal and the storefront, plus `deploy/migrator/Dockerfile` (one EF bundle per DB-owning service).
+  Build them with `scripts/build-images.sh` (bounded concurrency) — a parallel `docker compose up --build` of the
+  full set OOMs a small Docker VM.
+- The inner-loop infra is no longer "Postgres + RabbitMQ only" — see the later-changes note on
+  [ADR-0009](./0009-local-dev-bare-dotnet-run.md).
