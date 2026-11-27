@@ -63,7 +63,7 @@
       </ul>
       <div class="callout note">
         <span class="mark">i</span>
-        <p><strong>Seeded set.</strong> So the registry is never empty on first boot, the platform seeds <strong>AUD, CAD, CNY, EUR, GBP, USD</strong> (2-decimal) plus <strong>JPY</strong> as the seeded <strong>0-decimal</strong> example (¥1,500, not ¥15.00) — see <code>src/Services/Entity/Api/CurrencySeeder.cs</code> (idempotent — it never clobbers your later edits). Everything else you add here; e.g. <strong>KWD</strong> is a 3-decimal example.</p>
+        <p><strong>Seeded set.</strong> So the registry is never empty on first boot, the platform seeds <strong>AUD, CAD, CNY, EUR, GBP, USD</strong> (2-decimal) plus <strong>JPY</strong> (<strong>0-decimal</strong>, ¥1,500 not ¥15.00) and <strong>KWD</strong> (<strong>3-decimal</strong>, KD 1.250) as the two edge examples — see <code>src/Services/Entity/Api/CurrencySeeder.cs</code> (idempotent, only adds missing codes). Everything else you add here.</p>
       </div>
       <p>Every mutation publishes a <code>CurrencyChanged</code> event and records an audit entry (<code>entity.currency.create|update|enable|disable</code>), so the change is traceable in Mission Control and picked up by the projections below without any service reading the Entity database directly.</p>
 
