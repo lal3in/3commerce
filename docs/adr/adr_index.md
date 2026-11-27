@@ -5,30 +5,30 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 |-----|-------|--------|------|
 | [0001](./0001-dual-purpose-learning-and-business.md) | Dual purpose — learning vehicle AND real business | Accepted | Project posture |
 | [0002](./0002-physical-goods-large-third-party-catalog.md) | Sell physical goods from large third-party catalogs | Accepted | Product |
-| [0003](./0003-per-line-item-fulfillment-source.md) | Fulfillment source tracked per order line item | Accepted | Domain model |
+| [0003](./0003-per-line-item-fulfillment-source.md) | Fulfillment source tracked per order line item | Accepted (generalized by 0028: typed `FulfilmentType` + `SupplierId` per line; later changes 2026-11-27) | Domain model |
 | [0004](./0004-neutral-catalog-schema-supplier-importer.md) | Neutral catalog schema + ISupplierImporter + seeded sample data | Accepted | Catalog |
 | [0005](./0005-microservices-architecture.md) | Microservices architecture, chosen explicitly for learning value | Accepted | Architecture |
 | [0006](./0006-service-decomposition-capability-seams.md) | Six services cut along business-capability seams | Accepted (extended by 0027/0030) | Architecture |
 | [0007](./0007-masstransit-rabbitmq-outbox-sagas.md) | MassTransit + RabbitMQ, async-first, EF outbox, saga orchestration. *Amended 2026-10-08* (consumers racing on one key: partition by key) and *2026-10-11* (a counter shared by many keys — per-storefront order numbers — is allocated by one atomic upsert in its own READ COMMITTED transaction outside the consumer snapshot, gaps accepted; HTTP writes to consumer-written rows carry an `xmin` concurrency token → 409 problem+json; a sweep keyed by something else fans out per key onto the shared partitioner); *2026-10-16* (the bus-outbox DELIVERY transaction runs READ COMMITTED: MassTransit's up-to-six parallel REPEATABLE READ deliveries collided on the outbox lock with 40001 and stalled every pending message 3–30 s; consumers stay REPEATABLE READ; parallel delivery does not keep publish order) | Accepted | Messaging |
 | [0008](./0008-database-per-service-single-postgres.md) | One Postgres container, one database per service | Accepted (later changes 2026-11-27: PostgreSQL 18, 14 databases) | Data |
-| [0009](./0009-local-dev-bare-dotnet-run.md) | Local dev = bare `dotnet run`; containers for infra only | Accepted | Dev experience |
-| [0010](./0010-nextjs-ssr-storefront.md) | Next.js (SSR) storefront | Accepted | Frontend |
+| [0009](./0009-local-dev-bare-dotnet-run.md) | Local dev = bare `dotnet run`; containers for infra only | Accepted (later changes 2026-11-27: full infra set in containers; k8s landed via 0021) | Dev experience |
+| [0010](./0010-nextjs-ssr-storefront.md) | Next.js (SSR) storefront | Accepted (later changes 2026-11-27: no shadcn/ui) | Frontend |
 | [0011](./0011-yarp-gateway-single-origin.md) | YARP gateway as the single public origin | Accepted | Edge / security |
 | [0012](./0012-custom-auth-opaque-cookie-internal-claims.md) | Custom auth — opaque cookie at edge, signed claims internally | Accepted | Security |
 | [0013](./0013-guest-checkout-optional-accounts.md) | Guest checkout + optional accounts; MFA/social deferred | Accepted (MFA deferral lifted, mt6_10) | Identity / UX |
 | [0014](./0014-stripe-only-v1-double-entry-ledger.md) | Stripe-only v1 behind IPaymentProvider; double-entry ledger as truth | Accepted (single-adapter posture superseded by 0039) | Payments |
 | [0015](./0015-no-legal-entity-test-mode-config-seams.md) | No legal entity yet — test mode + configuration seams | Accepted (seams evolved: 0038 currency/tax, 0039 providers) | Business / config |
-| [0016](./0016-global-shipping-dap-tax-at-home.md) | Global = ship worldwide DAP, tax presence at home only | Accepted (currency/tax model evolved: 0038) | Business / tax |
+| [0016](./0016-global-shipping-dap-tax-at-home.md) | Global = ship worldwide DAP, tax presence at home only | Accepted (currency/tax model evolved: 0038; EU OSS destination tax: 0063 P1b) | Business / tax |
 | [0017](./0017-xero-nightly-summary-journals.md) | Xero sync — nightly summary journals + per-refund detail | Accepted | Accounting |
-| [0018](./0018-support-tickets-rma-state-machine.md) | Support = order-linked tickets + RMA state machine; no chat/KB | Accepted | Support |
+| [0018](./0018-support-tickets-rma-state-machine.md) | Support = order-linked tickets + RMA state machine; no chat/KB | Accepted (later changes 2026-11-27: RMA saga states as built) | Support |
 | [0019](./0019-blazor-server-admin.md) | Blazor Server admin app behind the gateway | Accepted | Admin |
 | [0020](./0020-postgres-fts-search.md) | Search via Postgres FTS + pg_trgm behind ISearchProvider | Accepted | Catalog / search |
-| [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted | Deployment / infra |
+| [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted (later changes 2026-11-27: 18 app images + migrate) | Deployment / infra |
 | [0022](./0022-named-schema-per-service.md) | Named schema per service (within each service database) | Accepted | Data / persistence |
 | [0023](./0023-strict-multi-tenancy.md) | Strict multi-tenancy — tenant = legal operator, principals span tenants | Accepted | Multi-tenancy |
 | [0024](./0024-tenant-isolation-postgres-rls.md) | Tenant isolation via PostgreSQL RLS with transaction-scoped `SET LOCAL` — amendment 2026-11-07 (mem_2, owner decision): Payments `SavedPaymentMethods` under FORCE RLS; revised 2026-11-15 (owner decision): `PaymentCustomers` too; every reader/writer via `PaymentsTenantScope`, tenant from the caller (`AuthorizePayment.TenantId`) | Accepted | Multi-tenancy / data |
 | [0025](./0025-pdp-pep-dynamic-rbac.md) | Central PDP + service-side PEP, field/action policy, dynamic admin-defined RBAC (amended 2026-11-04: refunds require `payment.refund` via the PEP) | Accepted | Security / authz |
-| [0026](./0026-service-accounts-and-cli.md) | Service accounts + installable .NET global-tool CLI | Accepted | Security / tooling |
+| [0026](./0026-service-accounts-and-cli.md) | Service accounts + installable .NET global-tool CLI | Accepted — partly implemented (no service-account token endpoint yet; see later changes 2026-11-27) | Security / tooling |
 | [0027](./0027-entity-service-master-data-boundary.md) | Entity service master-data boundary | Accepted | Entity / service boundary |
 | [0028](./0028-product-supply-profiles-composable-supply.md) | Product supply profiles (Offers) — composable supply/fulfilment/pricing/entitlement | Accepted | Catalog / supply / architecture |
 | [0029](./0029-phase-6-compliance-ops-primitives.md) | Phase 6 compliance/ops primitives — capability-first, services deferred. *Amended 2026-11-04* (audit_chain_timestamp_precision, owner option a): `AuditChain.Append` stamps `OccurredAt` at stored precision (whole µs) BEFORE hashing, so memory, `AuditEntryRecorded` and the Postgres row hash the same time; rows written before the fix (hashed over a 100 ns time Npgsql truncated) are still FULLY re-verified from stored + 1..9 ticks — no acceptance slack, no schema change — and counted in `AuditVerification.LegacyPrecisionEntries` (A3x, A4i) | Accepted (services-deferred half superseded by 0030) | Compliance / observability / architecture |
