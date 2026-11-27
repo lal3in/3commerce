@@ -4,7 +4,7 @@ import { capture } from "../e2e-support/screenshots";
 
 // Captures Blazor admin screenshots for the Operations Wiki into the run archive (never straight into the
 // wiki). Run against a live stack, then promote the run once the images look right:
-//   GATEWAY_URL=http://localhost:8080 npm run test:e2e -- --project=admin -g screenshots
+//   GATEWAY_URL=http://localhost:8080 pnpm test:e2e --project=admin -g screenshots
 //   node ../../scripts/screenshots/shots.cjs promote <runId>
 
 // "networkidle" is a settle hint, not a gate: the shared fixture stubs the external seed-image hosts so it

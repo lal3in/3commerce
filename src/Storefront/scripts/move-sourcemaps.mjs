@@ -1,4 +1,4 @@
-// postbuild (npm run build): move every browser source map out of the SERVED directory.
+// postbuild (pnpm build): move every browser source map out of the SERVED directory.
 //
 // next.config.ts builds them (productionBrowserSourceMaps) so a Faro stack trace can be symbolicated, but they must
 // never be public — they are the readable source. Everything under <distDir>/static is served at /_next/static and

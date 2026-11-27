@@ -278,7 +278,7 @@ class ScriptConsole(tk.Tk):
         commands = [
             ["dotnet", "--version"],
             ["node", "--version"],
-            ["npm", "--version"],
+            ["pnpm", "--version"],  # the storefront package manager (ADR-0070)
             ["docker", "--version"],
             ["docker", "compose", "version"],
             ["helm", "version", "--short"],

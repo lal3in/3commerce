@@ -5,4 +5,10 @@
 docs
 .ai-shared
 .claude
-node_modules
+# Every node_modules, not just a root one: the storefront's local (pnpm, symlinked, host-platform) node_modules
+# and build output must never reach `COPY src/Storefront/ ./` — the image installs its own (ADR-0070).
+**/node_modules
+src/Storefront/.next
+src/Storefront/.next-verify
+src/Storefront/test-results
+src/Storefront/playwright-report

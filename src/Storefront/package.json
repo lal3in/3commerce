@@ -2,6 +2,7 @@
   "name": "3commerce-storefront",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@12.23.0",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -33,10 +34,5 @@
     "eslint-config-next": "^15.5.29",
     "tailwindcss": "4.1.14",
     "typescript": "5.9.3"
-  },
-  "overrides": {
-    "next": {
-      "postcss": "^8.5.33"
-    }
   }
 }

@@ -1,7 +1,9 @@
 // fe_audit_7: cross-portal flow check. Drives a REAL guest checkout in the storefront browser,
 // then confirms the paid order surfaces in the admin API (orders) and the audit trail.
 import { createRequire } from "node:module";
-const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("playwright");
+// @playwright/test, not "playwright": it is the storefront's DIRECT dependency, and pnpm's strict node_modules
+// (ADR-0070) does not expose the transitive "playwright" package at the top level. It re-exports chromium & co.
+const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("@playwright/test");
 const { chromium } = pw;
 const STORE = "http://localhost:3000", GW = "http://localhost:8080";
 

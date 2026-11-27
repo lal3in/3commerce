@@ -71,7 +71,7 @@ src/Storefront/
 - [ ] Loading/error states where the segment can be slow or fail; empty states exist; no layout shift
 - [ ] Images via `SafeImage`; user-facing strings via next-intl messages
 - [ ] Money through `formatMoney`; URL holds shareable state
-- [ ] `npm run lint && npx tsc --noEmit` clean
+- [ ] `pnpm lint && pnpm exec tsc --noEmit` clean
 
 ---
 

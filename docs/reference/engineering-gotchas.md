@@ -29,12 +29,18 @@ you are touching before you push.
   once — the 17 .NET service/portal images carry the profiler stage — so one moment of Ubuntu mirror inconsistency (`Hash Sum mismatch` on `archive.ubuntu.com`) failed the
   whole job on `test` (2026-11-26) although the same build was green on develop minutes earlier. The stage now loops
   `apt-get -o Acquire::Retries=5 update` up to 5 times; keep any new `apt-get` in an image build on the same pattern.
-- **Write `src/Storefront/package-lock.json` with npm 10, not a newer local npm.** CI and the Storefront
-  Dockerfile run Node 22 (npm 10), whose `npm ci` demands lock entries that npm 11 leaves out — e.g. an
-  optional peer (`@swc/helpers >=0.5.17` from `@swc/core`) → `EUSAGE … Missing: @swc/helpers@0.5.24 from
-  lock file`, failing `browser-e2e`, `docker` and `kind-deploy` together (#346). After adding a dependency:
-  `cd src/Storefront && npx -y npm@10 install --package-lock-only`, then prove it with `npx -y npm@10 ci`.
-  Dropped `"libc": [...]` lines in the diff are npm-11-only metadata and harmless.
+- **The storefront is pnpm-only, at the `packageManager` pin (ADR-0070).** `src/Storefront/pnpm-lock.yaml` is
+  the lock; CI (`pnpm/action-setup` reads the pin), the Dockerfile (installs exactly the pinned version) and
+  `browser-e2e`/`docker`/`kind-deploy` all run `pnpm install --frozen-lockfile`, so a lock that is out of step
+  with `package.json` fails all three together (the npm-era version of this was #346). After changing a
+  dependency run `pnpm install` (or `pnpm add <pkg>`) with the pinned pnpm and commit `pnpm-lock.yaml`; never
+  run `npm install` there (it writes a `package-lock.json` nothing reads and an npm-shaped `node_modules`).
+  Settings live in `src/Storefront/pnpm-workspace.yaml`, NOT a `"pnpm"` field in `package.json` (pnpm 10+
+  ignores that field silently): `overrides`, and `allowBuilds` — a new dependency with an install script fails
+  the install with `ERR_PNPM_IGNORED_BUILDS` until it is listed there (`false` when a prebuilt binary ships as
+  an optional dependency, `true` only when the script is genuinely needed). pnpm's node_modules is strict: code
+  can import only DIRECT dependencies — a transitive package (e.g. `playwright` under `@playwright/test`) is
+  `MODULE_NOT_FOUND`; depend on it explicitly or import the package that re-exports it.
 
 ## Integration tests (Testcontainers)
 
@@ -544,10 +550,10 @@ Ledger postings (Payments):
   list, also check the filtered field in the response.
 - **Don't edit a script while it runs** — bash reads incrementally, so editing `run-all.sh`
   mid-boot corrupts the running instance.
-- **The npm audit gate is production-only, at `high`.** CI `browser-e2e` and `e2e-verify.sh` A8b run
-  `npm audit --omit=dev --audit-level=high` in `src/Storefront`: dev-only packages (eslint, playwright, tooling)
+- **The storefront audit gate is production-only, at `high`.** CI `browser-e2e` and `e2e-verify.sh` A8b run
+  `pnpm audit --prod --audit-level high` in `src/Storefront`: dev-only packages (eslint, playwright, tooling)
   never ship, and their advisories would turn the gate red on upstream noise we can't act on; moderate/low
   prod findings are reported, not blocking. When a prod finding sits in a transitive dep that a pinned parent
-  bundles (next 15.x bundled `postcss@8.4.31`), fix it with an `overrides` entry in `package.json` (regenerate
-  the lock with npm 10, drop the stale nested lock entry first) rather than `npm audit fix --force`, which
-  would jump `next` a major version.
+  bundles (next 15.x bundled `postcss@8.4.31`), fix it with an `overrides` entry in
+  `src/Storefront/pnpm-workspace.yaml` (`next>postcss: ^8.5.33`, then `pnpm install`) rather than
+  `pnpm audit --fix` / a forced upgrade, which would jump `next` a major version.

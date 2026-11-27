@@ -1,0 +1,19 @@
+# pnpm settings for the storefront (ADR-0070). pnpm >= 10 reads install settings from this file, not from a
+# "pnpm" field in package.json. No `packages:` list — the storefront is a single project, not a monorepo.
+
+# next 15.x bundles postcss@8.4.31 (GHSA-qx2v-qp2m-jg93, moderate prod finding); lift it to the patched line
+# without jumping next a major (was the npm `overrides` entry from #358).
+overrides:
+  next>postcss: ^8.5.33
+
+# Dependency build scripts: pnpm runs none unless allowed here, and an unlisted one fails the install with
+# ERR_PNPM_IGNORED_BUILDS. All four ship prebuilt per-platform binaries as optional dependencies, which pnpm
+# installs for the host's os/cpu/libc (incl. linux-musl in the node:22-alpine image), so their scripts are only
+# fallbacks (build from source / download a binary / check for a wasm build) and none of them is allowed to run:
+#   @parcel/watcher + @swc/core (from next-intl) · @tailwindcss/oxide (from @tailwindcss/postcss) · unrs-resolver (eslint)
+# sharp (next/image) has no install script: 0.35 loads its prebuilt @img/sharp-* packages.
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
+  '@tailwindcss/oxide': false
+  unrs-resolver: false

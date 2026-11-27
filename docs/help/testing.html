@@ -70,7 +70,7 @@ dotnet test 3commerce.sln --filter Category!=Integration
 dotnet test tests/3commerce.IntegrationTests --filter Category=Integration
 
 <span class="cmt"># Storefront + admin + supplier E2E (needs storefront :3000, admin :5200, supplier :5300, gateway :8080)</span>
-cd src/Storefront &amp;&amp; npm run test:e2e
+cd src/Storefront &amp;&amp; pnpm test:e2e
 
 <span class="cmt"># Full regression (automated suites only)</span>
 scripts/e2e-verify.sh
@@ -144,11 +144,11 @@ scripts/verify-golive-gate.sh</code></pre>
 <p>The suites also read <code>GATEWAY_URL</code> (<code>http://localhost:8080</code>) for API seeding/assertions where needed.</p>
         <p>Both also read <code>GATEWAY_URL</code> (<code>http://localhost:8080</code>) for API seeding/assertions.</p>
         <pre><code>cd src/Storefront
-npm install                          <span class="cmt"># first time</span>
-npx playwright install chromium      <span class="cmt"># first time</span>
-npm run test:e2e                     <span class="cmt"># both projects</span>
-npm run test:e2e -- --project=storefront   <span class="cmt"># just the storefront</span>
-npm run test:e2e:headed              <span class="cmt"># headed (debugging)</span></code></pre>
+pnpm install --frozen-lockfile       <span class="cmt"># first time (pnpm, ADR-0070)</span>
+pnpm exec playwright install chromium   <span class="cmt"># first time</span>
+pnpm test:e2e                        <span class="cmt"># all three projects</span>
+pnpm test:e2e --project=storefront   <span class="cmt"># just the storefront</span>
+pnpm test:e2e:headed                 <span class="cmt"># headed (debugging)</span></code></pre>
 
         <h3 id="storefront-specs">Storefront specs (<code>e2e/</code>)</h3>
         <ul>
@@ -178,7 +178,7 @@ npm run test:e2e:headed              <span class="cmt"># headed (debugging)</spa
         </ul>
         <p><strong>Also in <code>e2e-supplier/</code></strong> (4 more specs, by file name): <code>supplier-details.spec.ts</code>, <code>supplier-identifiers.spec.ts</code>, <code>supplier-orders-deliver.spec.ts</code>, <code>supplier-warehouse.spec.ts</code>.</p>
         <h3 id="hermetic-images">Specs never depend on an external image host</h3>
-        <p>Every spec imports <code>test</code> from <code>src/Storefront/e2e-support/fixtures.ts</code> (storefront specs may use <code>e2e/fixtures.ts</code>, which builds on it), never from <code>@playwright/test</code>, and <code>npm run lint</code> enforces this. The shared fixture answers the demo seed's external image hosts (<code>picsum.photos</code>, <code>placehold.co</code>, listed in <code>lib/image-hosts.ts</code>) with a local stand-in image. It covers direct requests and requests through <code>/_next/image</code>, so image loading and <code>networkidle</code> no longer depend on those hosts. Our own images still come from the real app. To test the "host is down" path, a spec aborts the requests with <code>abortExternalImages(page)</code>; a page route takes precedence over the fixture.</p>
+        <p>Every spec imports <code>test</code> from <code>src/Storefront/e2e-support/fixtures.ts</code> (storefront specs may use <code>e2e/fixtures.ts</code>, which builds on it), never from <code>@playwright/test</code>, and <code>pnpm lint</code> enforces this. The shared fixture answers the demo seed's external image hosts (<code>picsum.photos</code>, <code>placehold.co</code>, listed in <code>lib/image-hosts.ts</code>) with a local stand-in image. It covers direct requests and requests through <code>/_next/image</code>, so image loading and <code>networkidle</code> no longer depend on those hosts. Our own images still come from the real app. To test the "host is down" path, a spec aborts the requests with <code>abortExternalImages(page)</code>; a page route takes precedence over the fixture.</p>
 
         <h3 id="screenshot-history">Screenshots are a history, not a file you overwrite</h3>
         <p>Every screenshot a spec takes goes through <strong><code>capture(page | locator, name, { docName? })</code></strong> (<code>src/Storefront/e2e-support/screenshots.ts</code>) — never <code>page.screenshot({ path })</code>. Each Playwright invocation gets its own run folder under <code>test-artifacts/screenshots/runs/&lt;runId&gt;/</code> (gitignored local history; no tooling ever deletes a run), and a reporter pairs every shot with its test's outcome. <strong>Start at <code>test-artifacts/screenshots/INDEX.md</code></strong>: runs, promotions, and every case's latest state; <code>index.json</code> holds each case's full history.</p>
@@ -201,7 +201,7 @@ node scripts/screenshots/shots.cjs import --label &lt;l&gt; --dir &lt;d&gt; [--d
 scripts/e2e-verify.sh --live     <span class="cmt"># ALSO run the live flows (L1–L20)</span>
 scripts/e2e-verify.sh --live-only</code></pre>
         <p><strong>It never builds over, or tears down, a stack it did not start.</strong> If the gateway, storefront, admin and supplier portal are <em>all</em> up it runs the live checks against them — no build, migrations, restarts or teardown; if <em>nothing</em> is up it boots its own and afterwards stops only what it started, by port (never a <code>pkill</code> pattern); if only <em>part</em> is up it refuses and says why. The storefront production build goes to <strong><code>.next-verify/</code></strong>, never <code>.next/</code>: <code>next build</code> rewrites its output wholesale, and sharing it with a running <code>next dev</code> pulled chunks out from under the dev server (every page 500'd with <code>MODULE_NOT_FOUND</code>).</p>
-        <p><strong>Automated group (A1–A8b):</strong> A1 build with 0 warnings · A2 <code>dotnet format</code> clean · A3 unit/contract, then one focused stage per money/compliance/telemetry area (<strong>A3b</strong> promotions + coupons, A3c checkout gates, A3d one queue per service, A3e backfill tools, A3f bus startup, … through A3zz — the COVERAGE CHECKLIST header of <code>scripts/e2e-verify.sh</code> is the authoritative per-stage list) · A4–A6 integration (A4 spine, A5 identity, A6 catalog, A6b ledger, A6c money flow, A6d RMA, A6e Xero builder, A6f–A6j fulfilment, digital supply, seller/buyer tax identity) · A7 storefront <code>tsc</code> + <code>next build</code> (A7c source maps stay unserved, A7d telemetry scrubber spec) · A8 vulnerable-package scan (NuGet) · A8b <code>npm audit</code> of the storefront's production dependencies (high/critical fail the run).</p>
+        <p><strong>Automated group (A1–A8b):</strong> A1 build with 0 warnings · A2 <code>dotnet format</code> clean · A3 unit/contract, then one focused stage per money/compliance/telemetry area (<strong>A3b</strong> promotions + coupons, A3c checkout gates, A3d one queue per service, A3e backfill tools, A3f bus startup, … through A3zz — the COVERAGE CHECKLIST header of <code>scripts/e2e-verify.sh</code> is the authoritative per-stage list) · A4–A6 integration (A4 spine, A5 identity, A6 catalog, A6b ledger, A6c money flow, A6d RMA, A6e Xero builder, A6f–A6j fulfilment, digital supply, seller/buyer tax identity) · A7 storefront <code>tsc</code> + <code>next build</code> (A7c source maps stay unserved, A7d telemetry scrubber spec) · A8 vulnerable-package scan (NuGet) · A8b <code>pnpm audit --prod</code> of the storefront's production dependencies (high/critical fail the run).</p>
         <p><strong>Live group (L1–L20, <code>--live</code>):</strong> on a clean machine it boots infra, applies migrations, builds, starts the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL; on a fully running stack it reuses it as-is. Then:</p>
         <div class="table-wrap">
           <table>

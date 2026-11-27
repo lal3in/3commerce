@@ -3,8 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Drives the storefront AND the Blazor admin console in a real browser against a running
 // stack (storefront :3000, admin :5200, gateway :8080). Bring the stack up first, then:
-//   npm run test:e2e                          (both)
-//   npm run test:e2e -- --project=storefront  (just the storefront)
+//   pnpm test:e2e                             (all three projects)
+//   pnpm test:e2e --project=storefront        (just the storefront)
 const STOREFRONT = process.env.STOREFRONT_URL ?? "http://localhost:3000";
 const ADMIN = process.env.ADMIN_URL ?? "http://localhost:5200";
 const SUPPLIER = process.env.SUPPLIER_URL ?? "http://localhost:5300";
