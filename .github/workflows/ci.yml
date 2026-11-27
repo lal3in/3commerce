@@ -181,6 +181,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fresh launch (dev)
+        env:
+          PARALLEL: 4 # bounded image builds (launch.sh); the runner has 4 vCPU / 16 GB
         run: scripts/launch.sh --fresh --env dev
       - name: Smoke the stack through the gateway
         run: |

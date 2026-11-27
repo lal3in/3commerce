@@ -9,7 +9,7 @@ require_docker_memory() {
   mem_bytes="$(docker info --format '{{.MemTotal}}' 2>/dev/null || echo 0)"
   mem_gib=$(( mem_bytes / 1024 / 1024 / 1024 ))
   if (( mem_gib < need_gib )); then
-    echo "ERROR: Docker VM has ${mem_gib} GiB; image builds need ~${need_gib} GiB (13 .NET builds OOM a small VM)." >&2
+    echo "ERROR: Docker VM has ${mem_gib} GiB; image builds need ~${need_gib} GiB (17 .NET builds OOM a small VM)." >&2
     echo "  Fix: 'colima stop && colima start --cpu 4 --memory ${need_gib}' — or use bare-run: scripts/dev-up.sh" >&2
     exit 1
   fi

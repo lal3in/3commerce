@@ -15,6 +15,10 @@
 # The catalog is NOT auto-seeded: after a fresh launch, log into the admin Imports screen
 # (or POST /api/catalog/admin/import-runs) to load the sample SKUs.
 #
+# Image builds are bounded (compose would otherwise build all 19 images in parallel and OOM a small Docker VM):
+#   PARALLEL=2  concurrent image builds (default 2; CI's 16 GB runner sets 4)
+#   MIN_GIB=8   Docker VM memory required by the preflight (default 8)
+#
 # Bare-run dev (scripts/run-all.sh + docker-compose.infra.yml) is unaffected.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -41,6 +45,7 @@ source scripts/lib/release.sh
 GIT_SHA="${GIT_SHA:-$(release_revision)}"
 VERSION="$(release_version)"
 export GIT_SHA VERSION
+source scripts/lib/preflight.sh
 COMPOSE=(-f docker-compose.yml)
 
 if [ "$ENV" = prod ]; then
@@ -63,6 +68,9 @@ if [ "$MODE" = fresh ]; then
   docker compose "${COMPOSE[@]}" down --remove-orphans || true
 fi
 
+require_docker
+require_docker_memory "${MIN_GIB:-8}"
+
 echo ">> starting the external Postgres instance"
 docker compose "${DB[@]}" up -d
 for _ in $(seq 1 60); do
@@ -70,8 +78,9 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-echo ">> launching ($MODE, env=$ENV) — building images as needed"
-docker compose "${COMPOSE[@]}" up -d --build
+echo ">> launching ($MODE, env=$ENV) — building images (PARALLEL=${PARALLEL:-2}), then starting"
+docker compose --parallel "${PARALLEL:-2}" "${COMPOSE[@]}" build
+docker compose "${COMPOSE[@]}" up -d
 
 cat <<EOF
 
