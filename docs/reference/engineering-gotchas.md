@@ -481,6 +481,15 @@ Ledger postings (Payments):
   under `/internal/` + `.ExcludeFromDescription()` (GatewayConfigTests enforces both); never rely on "no route"
   for privacy. Live twin: e2e-verify L4/L4b — test with a body the service would reject (400/401), since a 404
   from the service itself proves nothing.
+- **An order-scoped endpoint outside Ordering needs the order's OWNER on its local copy.** `CustomerPolicy` only says
+  "someone is signed in" — and admits operators too. Support's routes keyed by an order id (refundable lines,
+  `POST /rma`, the order's tickets/RMAs, attachments) checked nothing else, so any order id unlocked someone else's
+  order — the lines route even anonymously — until support_order_ownership (ADR-0018 amendment 2026-11-27). The
+  claims carry `sub` (the user id), never the email, so the event feeding the copy must carry the user id
+  (`OrderConfirmed.UserId`) and the copy must store it. Compare it with `sub`; answer **404, not 403** (an id must
+  not confirm existence); treat a missing owner (guest, or a row projected before the field existed) as "not yours",
+  and backfill the old rows (`order-confirmed-backfill support-order-owner`). A consumer that skips an existing row
+  must learn to FILL the new field, or a re-sent event can never repair it. Pinned by `SupportOrderOwnershipTests`.
 
 ## Local dev stack
 
