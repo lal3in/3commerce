@@ -535,3 +535,10 @@ Ledger postings (Payments):
   list, also check the filtered field in the response.
 - **Don't edit a script while it runs** — bash reads incrementally, so editing `run-all.sh`
   mid-boot corrupts the running instance.
+- **The npm audit gate is production-only, at `high`.** CI `browser-e2e` and `e2e-verify.sh` A8b run
+  `npm audit --omit=dev --audit-level=high` in `src/Storefront`: dev-only packages (eslint, playwright, tooling)
+  never ship, and their advisories would turn the gate red on upstream noise we can't act on; moderate/low
+  prod findings are reported, not blocking. When a prod finding sits in a transitive dep that a pinned parent
+  bundles (next 15.x bundled `postcss@8.4.31`), fix it with an `overrides` entry in `package.json` (regenerate
+  the lock with npm 10, drop the stale nested lock entry first) rather than `npm audit fix --force`, which
+  would jump `next` a major version.

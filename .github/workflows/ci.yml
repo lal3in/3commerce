@@ -117,6 +117,9 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+      - name: npm vulnerable package scan (production deps)
+        working-directory: src/Storefront
+        run: npm audit --omit=dev --audit-level=high
       - name: Build solution
         run: dotnet build 3commerce.sln
       - name: Runner size + background resource sampler

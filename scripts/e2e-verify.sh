@@ -779,6 +779,7 @@
 #       release, environment, trace id, support_ref, Sentry-ordered frames and no session/user/UA/email/query; no
 #       exceptions = nothing, a flood is capped; an SSR error becomes a node event with digest, route and trace id
 #   A8  No vulnerable NuGet packages
+#   A8b No high/critical vulnerabilities in the storefront production npm deps (npm audit --omit=dev --audit-level=high)
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
 # in-process integration tests do not):
@@ -1264,6 +1265,13 @@ run_automated() {
     fail "A8 vulnerable packages found"
   else
     pass "A8 no vulnerable packages"
+  fi
+
+  stage "A8b npm vulnerable package scan (storefront, production deps)"
+  if ( cd "$ROOT/src/Storefront" && npm audit --omit=dev --audit-level=high >/tmp/3c-npm-audit.log 2>&1 ); then
+    pass "A8b no high/critical npm vulnerabilities (production deps)"
+  else
+    fail "A8b storefront npm vulnerabilities found"; tail -30 /tmp/3c-npm-audit.log
   fi
 }
 
