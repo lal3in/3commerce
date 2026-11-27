@@ -250,7 +250,7 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   (`Once`/`Monthly`/`Yearly`), and graduated `tiers` (`from_quantity` →
   `unit_price`). `PriceFor(qty)` rates flat or per-tier-block; subscriptions price
   per period.
-- **Entitlements** (`GET /api/fulfillment/admin/entitlements`) — a confirmed digital/service
+- **Entitlements** (`GET /api/entitlement/admin/entitlements`) — a confirmed digital/service
   line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess)
   **instead of a shipment**. Filter by tenant / order / email.
 - **Subscriptions** (`GET /api/payments/admin/subscriptions`, `POST …/{id}/renew|cancel`) —
@@ -283,7 +283,7 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   so a usage charge is refunded through the API only.
 
   ![Subscriptions — a renewal's charge partially refunded](assets/screenshots/admin-subscription-charge-refund.png)
-- **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
+- **Usage metering** (`POST /api/usage/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**
   when overage is off and the allowance is spent), then **bill-overage** to charge the
