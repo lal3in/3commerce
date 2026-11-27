@@ -35,6 +35,10 @@ node "$ARCHIFY/bin/archify.mjs" deliver architecture \
 Use `dataflow` (not `architecture`) for `readcopy-dataflow.dataflow.json` and `lifecycle` for `order-lifecycle.lifecycle.json`. `deliver`
 exits non-zero on any check failure and leaves the previous HTML untouched.
 
+> **After every `deliver`:** the generated HTML has no way back to the wiki. Each diagram page carries a
+> small `<a class="wiki-back">← Wiki</a>` anchor + `<style>` block right after `<body>` — copy it from
+> `../order-workflow.html` into the freshly written page (a re-delivery drops it).
+
 ## Conventions
 
 - `meta.quality_profile` must be `"showcase"`; every delivery must validate with **0**
