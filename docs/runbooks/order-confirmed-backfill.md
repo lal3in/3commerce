@@ -231,3 +231,25 @@ Each command logs `Payment customer email backfill for user {UserId} in tenant {
 `.run/payments.log` / the Payments container log (`Recorded`, `RecordedAndReady` when `CustomerPaymentMethodReady`
 was published so paused top-ups resume, `AlreadyKnown`, `NoVault`). `Differs` and `NoAccount` vaults are reported and
 never sent: a known email is never overwritten, and the member's next saved-cards visit records the current one.
+
+## Support order copies without an owner (`support-order-owner` command)
+
+`support_order_ownership` (ADR-0018 amendment 2026-11-27). Support's customer endpoints for an order (refundable
+lines, RMA request, the order's tickets/RMAs, attachments) now require the caller to be the order's owner, read from
+`support."OrderSnapshots"."UserId"`. Snapshots projected before `OrderConfirmed.UserId` existed have none and answer
+404 — the storefront's "Request a refund" page shows nothing for those orders until this runs. Support must run the
+build with migration `SnapshotOrderOwner` (it migrates on start) and the fill-missing-owner consumer; Ordering is read
+only; the tool needs `ConnectionStrings:Support`.
+
+```bash
+dotnet $BIN support-order-owner --dry-run --list      # verdicts: Missing / Guest / NoOrder (ids only)
+dotnet $BIN support-order-owner --execute --limit 5   # canary
+# wait for queue:order-snapshot to drain, then check the canaries:
+#   SELECT count(*) FILTER (WHERE "UserId" IS NULL) AS ownerless, count(*) AS total FROM support."OrderSnapshots";
+dotnet $BIN support-order-owner --execute
+dotnet $BIN support-order-owner --dry-run             # expect MISSING owner = 0 (Guest / NoOrder remain, by design)
+```
+
+`Guest` orders stay ownerless on purpose: a guest has no session to prove ownership, so their refunds go through an
+operator (`POST /admin/rmas`). Verify the fix live by signing in as the owner and opening `/orders/<id>/support`
+(lines listed), and by calling `GET /api/support/orders/<id>/lines` through the gateway as another customer (404).

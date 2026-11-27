@@ -18,7 +18,7 @@ public class SupportAttachmentTests(Phase4Fixture fixture)
     private HttpClient Customer()
     {
         var c = fixture.Support.CreateClient();
-        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("customer"));
+        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.CustomerClaims());
         return c;
     }
 
@@ -36,7 +36,8 @@ public class SupportAttachmentTests(Phase4Fixture fixture)
     public async Task Customer_uploads_a_ticket_attachment_and_streams_it_back()
     {
         var customer = Customer();
-        var upload = await customer.PostAsync($"/tickets/{Guid.CreateVersion7()}/attachments", FilePart(Png, "image/png", "damage.png"));
+        var ticketId = await OwnTicketAsync(customer);
+        var upload = await customer.PostAsync($"/tickets/{ticketId}/attachments", FilePart(Png, "image/png", "damage.png"));
         upload.EnsureSuccessStatusCode();
         var dto = await upload.Content.ReadFromJsonAsync<AttachmentDto>();
         Assert.Equal("damage.png", dto!.FileName);
@@ -60,7 +61,51 @@ public class SupportAttachmentTests(Phase4Fixture fixture)
     public async Task Disallowed_type_is_rejected()
     {
         var customer = Customer();
-        var upload = await customer.PostAsync($"/rma/{Guid.CreateVersion7()}/attachments", FilePart([1, 2, 3, 4], "application/x-msdownload", "evil.exe"));
+        var ticketId = await OwnTicketAsync(customer);
+        var upload = await customer.PostAsync($"/tickets/{ticketId}/attachments", FilePart([1, 2, 3, 4], "application/x-msdownload", "evil.exe"));
         Assert.Equal(HttpStatusCode.BadRequest, upload.StatusCode);
     }
+
+    // Owner-scoped (ADR-0018 amendment 2026-11-27): an attachment goes only onto the caller's own ticket / RMA, and
+    // only its owner or an operator reads it back — anyone else gets 404, as if neither existed.
+    [Fact]
+    public async Task Another_customer_can_neither_attach_to_nor_download_from_someone_elses_ticket()
+    {
+        var owner = Customer();
+        var ticketId = await OwnTicketAsync(owner);
+        var upload = await owner.PostAsync($"/tickets/{ticketId}/attachments", FilePart(Png, "image/png", "mine.png"));
+        upload.EnsureSuccessStatusCode();
+        var dto = (await upload.Content.ReadFromJsonAsync<AttachmentDto>())!;
+
+        var stranger = fixture.Support.CreateClient();
+        stranger.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("customer"));
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await stranger.PostAsync($"/tickets/{ticketId}/attachments", FilePart(Png, "image/png", "x.png"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"/attachments/{dto.Id}")).StatusCode);
+        // An unknown ticket / RMA is the same 404 — the id never confirms anything exists.
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await owner.PostAsync($"/rma/{Guid.CreateVersion7()}/attachments", FilePart(Png, "image/png", "x.png"))).StatusCode);
+
+        // The Admin console reads attachments through this customer route as an operator.
+        var admin = fixture.Support.CreateClient();
+        admin.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("admin"));
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/attachments/{dto.Id}")).StatusCode);
+    }
+
+    private async Task<Guid> OwnTicketAsync(HttpClient customer)
+    {
+        var orderId = Guid.CreateVersion7();
+        await fixture.SeedOrderSnapshotAsync(orderId, 1000);
+        var open = await customer.PostAsJsonAsync("/tickets", new
+        {
+            orderId,
+            email = "buyer@example.com",
+            reason = 1,
+            message = "It arrived damaged.",
+        });
+        open.EnsureSuccessStatusCode();
+        return (await open.Content.ReadFromJsonAsync<TicketIdDto>())!.Id;
+    }
+
+    private sealed record TicketIdDto(Guid Id);
 }

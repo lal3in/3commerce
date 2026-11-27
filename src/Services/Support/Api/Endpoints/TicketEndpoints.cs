@@ -16,7 +16,9 @@ public static class TicketEndpoints
     public static IEndpointRouteBuilder MapTickets(this IEndpointRouteBuilder app)
     {
         // Authenticated customers (incl. guests who set a password post-purchase). Guest
-        // signed-link access is a documented v1 simplification.
+        // signed-link access is a documented v1 simplification. EVERY route here is owner-scoped
+        // (ADR-0018 amendment 2026-11-27): only the user who placed the order — Support's order copy
+        // records it (OrderSnapshot.UserId) — sees or acts on it; anyone else gets 404, never 403.
         var group = app.MapGroup("/tickets").WithTags("Support").RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         group.MapPost("/", OpenTicket);
         group.MapGet("/", ListTickets);
@@ -26,18 +28,22 @@ public static class TicketEndpoints
         group.MapGet("/{id:guid}", GetTicket);
         group.MapPost("/{id:guid}/messages", AddMessage);
 
-        // Refundable lines for an order (by id, like order-status polling) — drives the RMA UI.
-        app.MapGet("/orders/{orderId:guid}/lines", GetRefundableLines).WithTags("Support");
+        // Refundable lines for the caller's own order — drives the RMA UI. Was anonymous until 2026-11-27:
+        // anyone holding an order id could read its gross, currency, titles and prices.
+        app.MapGet("/orders/{orderId:guid}/lines", GetRefundableLines).WithTags("Support").RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         // Request a refund/return — customer selects lines; the amount is computed server-side (BL-8).
         app.MapPost("/rma", RequestRma).WithTags("Support").RequireAuthorization(InternalClaimsAuth.CustomerPolicy);
         return app;
     }
 
-    private static string Email(ClaimsPrincipal user) => user.FindFirstValue("sub")!; // sub is the user id; email not in claims
-
-    private static async Task<Created<TicketDto>> OpenTicket(
+    private static async Task<Results<Created<TicketDto>, NotFound>> OpenTicket(
         OpenTicketRequest request, ClaimsPrincipal user, SupportDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
     {
+        if (!await OrderOwnership.OwnsOrderAsync(db, request.OrderId, user, ct))
+        {
+            return TypedResults.NotFound();
+        }
+
         var ticket = new Ticket
         {
             Id = Guid.CreateVersion7(),
@@ -57,17 +63,26 @@ public static class TicketEndpoints
         return TypedResults.Created($"/tickets/{ticket.Id}", ToDto(ticket));
     }
 
-    private static async Task<Ok<List<TicketDto>>> ListTickets(SupportDbContext db, CancellationToken ct)
+    // The caller's own tickets — those on orders they placed (every ticket names its order).
+    private static async Task<Ok<List<TicketDto>>> ListTickets(ClaimsPrincipal user, SupportDbContext db, CancellationToken ct)
     {
+        var owned = OrderOwnership.OwnedOrderIds(db, user);
         var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
+            .Where(t => owned.Contains(t.OrderId))
             .OrderByDescending(t => t.CreatedAt).Take(100).ToListAsync(ct);
         return TypedResults.Ok(tickets.Select(t => ToDto(t)).ToList());
     }
 
     // Ticket history for one order (drives the customer's "your requests" thread list on the order
-    // support page). Order-scoped: the support page is already the owner's per-order page.
-    private static async Task<Ok<List<TicketDto>>> ListByOrder(Guid orderId, SupportDbContext db, CancellationToken ct)
+    // support page). Owner-only: someone else's order id reads 404.
+    private static async Task<Results<Ok<List<TicketDto>>, NotFound>> ListByOrder(
+        Guid orderId, ClaimsPrincipal user, SupportDbContext db, CancellationToken ct)
     {
+        if (!await OrderOwnership.OwnsOrderAsync(db, orderId, user, ct))
+        {
+            return TypedResults.NotFound();
+        }
+
         var tickets = await db.Tickets.AsNoTracking().Include(t => t.Messages)
             .Where(t => t.OrderId == orderId).OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
         var attachments = await AttachmentsForTicketsAsync(db, tickets.Select(t => t.Id).ToList(), ct);
@@ -90,17 +105,19 @@ public static class TicketEndpoints
         return rows.ToLookup(r => r.OwnerId, r => r.Dto);
     }
 
-    private static async Task<Results<Ok<TicketDto>, NotFound>> GetTicket(Guid id, SupportDbContext db, CancellationToken ct)
+    private static async Task<Results<Ok<TicketDto>, NotFound>> GetTicket(Guid id, ClaimsPrincipal user, SupportDbContext db, CancellationToken ct)
     {
         var ticket = await db.Tickets.AsNoTracking().Include(t => t.Messages).SingleOrDefaultAsync(t => t.Id == id, ct);
-        return ticket is null ? TypedResults.NotFound() : TypedResults.Ok(ToDto(ticket));
+        return ticket is null || !await OrderOwnership.OwnsOrderAsync(db, ticket.OrderId, user, ct)
+            ? TypedResults.NotFound()
+            : TypedResults.Ok(ToDto(ticket));
     }
 
     private static async Task<Results<Ok<TicketDto>, NotFound>> AddMessage(
-        Guid id, MessageRequest request, SupportDbContext db, TimeProvider time, CancellationToken ct)
+        Guid id, MessageRequest request, ClaimsPrincipal user, SupportDbContext db, TimeProvider time, CancellationToken ct)
     {
         var ticket = await db.Tickets.Include(t => t.Messages).SingleOrDefaultAsync(t => t.Id == id, ct);
-        if (ticket is null)
+        if (ticket is null || !await OrderOwnership.OwnsOrderAsync(db, ticket.OrderId, user, ct))
         {
             return TypedResults.NotFound();
         }
@@ -113,10 +130,12 @@ public static class TicketEndpoints
     }
 
     private static async Task<Results<Accepted<RmaCreatedDto>, NotFound, BadRequest<string>>> RequestRma(
-        RmaRequest request, SupportDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
+        RmaRequest request, ClaimsPrincipal user, SupportDbContext db, IPublishEndpoint publisher, TimeProvider time, CancellationToken ct)
     {
-        var snapshot = await db.OrderSnapshots.Include(o => o.Lines)
-            .SingleOrDefaultAsync(o => o.OrderId == request.OrderId, ct);
+        // Owner-only: a request on someone else's order — or an ownerless (guest / not-yet-backfilled) one — is a 404.
+        var caller = OrderOwnership.CallerId(user);
+        var snapshot = caller is null ? null : await db.OrderSnapshots.Include(o => o.Lines)
+            .SingleOrDefaultAsync(o => o.OrderId == request.OrderId && o.UserId == caller, ct);
         if (snapshot is null)
         {
             return TypedResults.NotFound();
@@ -248,10 +267,11 @@ public static class TicketEndpoints
     }
 
     private static async Task<Results<Ok<RefundableOrderDto>, NotFound>> GetRefundableLines(
-        Guid orderId, SupportDbContext db, CancellationToken ct)
+        Guid orderId, ClaimsPrincipal user, SupportDbContext db, CancellationToken ct)
     {
-        var snap = await db.OrderSnapshots.AsNoTracking().Include(o => o.Lines)
-            .SingleOrDefaultAsync(o => o.OrderId == orderId, ct);
+        var caller = OrderOwnership.CallerId(user);
+        var snap = caller is null ? null : await db.OrderSnapshots.AsNoTracking().Include(o => o.Lines)
+            .SingleOrDefaultAsync(o => o.OrderId == orderId && o.UserId == caller, ct);
         if (snap is null)
         {
             return TypedResults.NotFound();
@@ -275,8 +295,14 @@ public static class TicketEndpoints
 
     // The customer's refund/return requests for one order, each enriched with its live saga state
     // (defaults to "Requested" until the RMA saga has materialized its read-model row).
-    private static async Task<Ok<List<CustomerRmaDto>>> ListRmasByOrder(Guid orderId, SupportDbContext db, CancellationToken ct)
+    private static async Task<Results<Ok<List<CustomerRmaDto>>, NotFound>> ListRmasByOrder(
+        Guid orderId, ClaimsPrincipal user, SupportDbContext db, CancellationToken ct)
     {
+        if (!await OrderOwnership.OwnsOrderAsync(db, orderId, user, ct))
+        {
+            return TypedResults.NotFound();
+        }
+
         var records = await db.RmaRequests.AsNoTracking().Include(r => r.Lines)
             .Where(r => r.OrderId == orderId).OrderByDescending(r => r.CreatedAt).ToListAsync(ct);
         var states = await db.Rmas.AsNoTracking().Where(s => s.OrderId == orderId)

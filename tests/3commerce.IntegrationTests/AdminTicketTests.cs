@@ -18,7 +18,7 @@ public class AdminTicketTests(Phase4Fixture fixture)
     private HttpClient Customer()
     {
         var c = fixture.Support.CreateClient();
-        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("customer"));
+        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.CustomerClaims());
         return c;
     }
 
@@ -29,11 +29,14 @@ public class AdminTicketTests(Phase4Fixture fixture)
         return c;
     }
 
-    private static async Task<Guid> OpenTicketAsync(HttpClient customer)
+    private async Task<Guid> OpenTicketAsync(HttpClient customer)
     {
+        // A ticket is opened on the customer's OWN order (ADR-0018 amendment 2026-11-27).
+        var orderId = Guid.CreateVersion7();
+        await fixture.SeedOrderSnapshotAsync(orderId, 1000);
         var open = await customer.PostAsJsonAsync("/tickets", new
         {
-            orderId = Guid.CreateVersion7(),
+            orderId,
             email = $"shopper-{Guid.NewGuid():N}@example.test",
             reason = 1, // WhereIsIt
             message = "Where is my order?",

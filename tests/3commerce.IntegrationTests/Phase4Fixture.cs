@@ -135,6 +135,16 @@ public sealed class Phase4Fixture : IAsyncLifetime
 
     public string Claims(string role) => MintInternalClaims(Guid.CreateVersion7(), role);
 
+    /// <summary>
+    /// The customer every <see cref="SeedOrderSnapshotAsync"/> order belongs to — Support's order-scoped customer
+    /// endpoints serve only the order's owner (ADR-0018 amendment 2026-11-27), so a test that drives them as the
+    /// customer authenticates with <see cref="CustomerClaims"/>.
+    /// </summary>
+    public Guid CustomerUserId { get; } = Guid.CreateVersion7();
+
+    /// <summary>Internal claims of <see cref="CustomerUserId"/>, the owner of the seeded order snapshots.</summary>
+    public string CustomerClaims() => MintInternalClaims(CustomerUserId, "customer");
+
     /// <summary>Mints the ES256 internal-claims JWT a service expects, optionally with email/tenant (mt7_6 "/me").</summary>
     public string MintInternalClaims(Guid userId, string role, string? email = null, string? tenantId = null)
     {
@@ -189,8 +199,15 @@ public sealed class Phase4Fixture : IAsyncLifetime
     /// <c>UnitPriceMinor</c> is NOT the refund basis on a discounted order.
     /// </para>
     /// </summary>
-    public async Task SeedOrderSnapshotAsync(
+    public Task SeedOrderSnapshotAsync(
         Guid orderId, long grossMinor, string email = "buyer@example.com",
+        params (Guid ProductId, string Title, long UnitPriceMinor, int Quantity, long DiscountMinor)[] lines) =>
+        SeedOwnedOrderSnapshotAsync(orderId, CustomerUserId, grossMinor, email, lines);
+
+    /// <summary>As <see cref="SeedOrderSnapshotAsync"/>, owned by <paramref name="ownerId"/> — <c>null</c> = a guest /
+    /// not-yet-backfilled snapshot, which the customer endpoints must refuse.</summary>
+    public async Task SeedOwnedOrderSnapshotAsync(
+        Guid orderId, Guid? ownerId, long grossMinor, string email = "buyer@example.com",
         params (Guid ProductId, string Title, long UnitPriceMinor, int Quantity, long DiscountMinor)[] lines)
     {
         using var scope = Support.Services.CreateScope();
@@ -208,6 +225,7 @@ public sealed class Phase4Fixture : IAsyncLifetime
         {
             OrderId = orderId,
             Email = email,
+            UserId = ownerId,
             GrossMinor = grossMinor,
             Currency = "EUR",
             Lines = effective.Select(l => new OrderSnapshotLine

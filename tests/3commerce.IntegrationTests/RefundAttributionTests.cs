@@ -159,7 +159,8 @@ public sealed class RefundAttributionTests(Phase4Fixture fixture) : IAsyncLifeti
                 new OrderLineInfo(keyboard, null, null, "Keyboard", 2, FulfilmentType.Unassigned, BillingMode.OneTime, 5000, 700, LineId: keyboardLine),
                 new OrderLineInfo(lamp, null, null, "Lamp", 1, FulfilmentType.Unassigned, BillingMode.OneTime, 1900, 0, LineId: lampLine),
             ],
-            PublicOrderNumber: 1));
+            PublicOrderNumber: 1,
+            UserId: fixture.CustomerUserId));
 
         await Eventually.UntilAsync(
             async () =>
@@ -205,7 +206,13 @@ public sealed class RefundAttributionTests(Phase4Fixture fixture) : IAsyncLifeti
         // Admin calls here issue refunds, which need payment.refund (refund_permission_enforcement): use the seeded
         // bootstrap admin rather than a bare admin-role claim.
         client.DefaultRequestHeaders.Add(
-            InternalClaimsAuth.HeaderName, role == "admin" ? fixture.RefundAdminClaims() : fixture.Claims(role));
+            InternalClaimsAuth.HeaderName, role switch
+            {
+                "admin" => fixture.RefundAdminClaims(),
+                // The order's owner: Support's customer endpoints serve only them (ADR-0018 amendment 2026-11-27).
+                "customer" => fixture.CustomerClaims(),
+                _ => fixture.Claims(role),
+            });
         return client;
     }
 }

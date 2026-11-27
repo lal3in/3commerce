@@ -23,7 +23,7 @@ public class RmaSagaTests(Phase4Fixture fixture)
     private HttpClient Customer()
     {
         var c = fixture.Support.CreateClient();
-        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.Claims("customer"));
+        c.DefaultRequestHeaders.Add(InternalClaimsAuth.HeaderName, fixture.CustomerClaims());
         return c;
     }
 

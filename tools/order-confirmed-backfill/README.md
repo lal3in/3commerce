@@ -1,6 +1,6 @@
 # order-confirmed-backfill
 
-> Four commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`; [`subscription-quantity`](#subscription-quantity--re-price-legacy-multi-unit-subscriptions) re-sends `SubscriptionRequested` to re-price legacy multi-unit subscriptions; [`payment-customer-email`](#payment-customer-email--give-old-payment-vaults-their-members-email) sends `RecordPaymentCustomerEmail` so payment vaults opened before #332 learn their member's email.
+> Five commands: the default re-delivers `OrderConfirmed`; [`storefront-duplicated`](#storefront-duplicated--the-split-storefront-copies) re-delivers `StorefrontDuplicated`; [`subscription-quantity`](#subscription-quantity--re-price-legacy-multi-unit-subscriptions) re-sends `SubscriptionRequested` to re-price legacy multi-unit subscriptions; [`payment-customer-email`](#payment-customer-email--give-old-payment-vaults-their-members-email) sends `RecordPaymentCustomerEmail` so payment vaults opened before #332 learn their member's email; [`support-order-owner`](#support-order-owner--give-supports-old-order-copies-their-owner) re-sends `OrderConfirmed` to Support so order copies projected before it carried `UserId` learn their owner.
 
 Operator tool for [ADR-0060](../../docs/adr/0060-unique-receive-endpoint-per-service.md). Until #288, Fulfillment's
 and Notifications' `OrderConfirmedConsumer`s shared the `order-confirmed` queue, so every `OrderConfirmed` reached
@@ -201,3 +201,35 @@ consumer `3commerce.Payments.Api`, queue drained). Payments applies it in the co
 vaults with none** — a known email is never overwritten — and, when the member already has a default card, publishes
 `CustomerPaymentMethodReady` in the same outbox commit, so Usage resumes the top-ups it paused for want of a card. A
 redelivery or a re-run is a no-op. Neither the tool's report nor Payments' log ever prints an email address.
+
+## `support-order-owner` — give Support's old order copies their owner
+
+`support_order_ownership` (ADR-0018 amendment 2026-11-27). Support's order-scoped customer endpoints — refundable
+lines, `POST /rma`, the order's tickets and RMAs, ticket attachments — now serve **only the user who placed the order**,
+recorded on Support's order copy (`support."OrderSnapshots"."UserId"`, from the appended `OrderConfirmed.UserId`).
+A snapshot projected before that field existed has no owner, so those endpoints answer 404 to everyone — fail closed —
+until this command fills it.
+
+```bash
+dotnet $BIN support-order-owner --dry-run --list      # every ownerless snapshot + its verdict (ids only, never an email)
+dotnet $BIN support-order-owner --execute --limit 5   # canary
+dotnet $BIN support-order-owner --execute
+dotnet $BIN support-order-owner --dry-run             # after the queue drains: MISSING owner = 0
+```
+
+Options: `--dry-run` / `--execute` (exactly one), `--tenant <guid>` (repeatable), `--limit <n>` (orders), `--list`,
+`--skip-preflight`. Reads Support (`support."OrderSnapshots"` with `UserId IS NULL` — no tenant column, no RLS) and
+Ordering (the orders by id in platform scope, then each tenant's orders with lines in its RLS scope). Connection
+`ConnectionStrings:Support` is new in `backfill.settings.json` (`BACKFILL_ConnectionStrings__Support`).
+
+| Verdict | Meaning | Sent |
+|---|---|---|
+| `Missing` | Ordering's order has a `UserId` | yes — the order's `OrderConfirmed`, rebuilt by `OrderConfirmedFactory` |
+| `Guest` | a guest checkout (no user) — stays ownerless, so not self-service refundable (an operator refunds it) | no |
+| `NoOrder` | Ordering has no such order (or it is outside `--tenant`) | no |
+
+The event is **sent** to `queue:order-snapshot` — Support's own `OrderSnapshotConsumer`, the name derived from the
+type, so no other service sees the copy — with a deterministic message id per order and the `3c-backfill` header,
+after the usual broker preflight (only consumer `3commerce.Support.Api`, queue drained). The consumer, finding the
+snapshot already there, **only fills a missing owner**: it never overwrites one, never touches the money or lines, and
+a repeat is a no-op — so a re-run is safe and selects only what is still ownerless.

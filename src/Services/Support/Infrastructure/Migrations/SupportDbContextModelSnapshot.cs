@@ -208,7 +208,12 @@ namespace ThreeCommerce.Support.Infrastructure.Migrations
                     b.Property<long>("GrossMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("OrderId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("OrderSnapshots", "support");
                 });

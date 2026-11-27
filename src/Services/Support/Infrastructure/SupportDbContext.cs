@@ -49,6 +49,8 @@ public class SupportDbContext(DbContextOptions<SupportDbContext> options) : DbCo
         modelBuilder.Entity<OrderSnapshot>(o =>
         {
             o.HasKey(x => x.OrderId);
+            // The customer's own orders (ListTickets scopes to them; ADR-0018 amendment 2026-11-27).
+            o.HasIndex(x => x.UserId);
             o.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
         });
 

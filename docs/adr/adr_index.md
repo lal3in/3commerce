@@ -20,7 +20,7 @@ Architecture Decision Records for 3commerce. ADRs 0001–0020 were backfilled on
 | [0015](./0015-no-legal-entity-test-mode-config-seams.md) | No legal entity yet — test mode + configuration seams | Accepted (seams evolved: 0038 currency/tax, 0039 providers) | Business / config |
 | [0016](./0016-global-shipping-dap-tax-at-home.md) | Global = ship worldwide DAP, tax presence at home only | Accepted (currency/tax model evolved: 0038; EU OSS destination tax: 0063 P1b) | Business / tax |
 | [0017](./0017-xero-nightly-summary-journals.md) | Xero sync — nightly summary journals + per-refund detail | Accepted | Accounting |
-| [0018](./0018-support-tickets-rma-state-machine.md) | Support = order-linked tickets + RMA state machine; no chat/KB | Accepted (later changes 2026-11-27: RMA saga states as built) | Support |
+| [0018](./0018-support-tickets-rma-state-machine.md) | Support = order-linked tickets + RMA state machine; no chat/KB | Accepted (later changes 2026-11-27: RMA saga states as built; amendment 2026-11-27: order-scoped customer endpoints owner-only via `OrderConfirmed.UserId` on Support's snapshot, 404 fail-closed, `support-order-owner` backfill) | Support |
 | [0019](./0019-blazor-server-admin.md) | Blazor Server admin app behind the gateway | Accepted | Admin |
 | [0020](./0020-postgres-fts-search.md) | Search via Postgres FTS + pg_trgm behind ISearchProvider | Accepted | Catalog / search |
 | [0021](./0021-containerized-launch.md) | Containerized launch (compose → Helm/k8s) alongside bare-run dev | Accepted (later changes 2026-11-27: 18 app images + migrate) | Deployment / infra |

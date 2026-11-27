@@ -19,6 +19,9 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 > links are never logged outside Development and the collector redacts tokens/emails as a backstop (#303);
 > security logs are kept 12 months (ADR-0065). Update (same day): the storefront now has an
 > `npm audit` gate too (14.2.1 is ✅ again).
+>
+> **Finding 2026-11-27 (4.2.1, fixed the same day):** an IDOR in Support — any order id unlocked its refundable lines
+> (anonymously), an RMA and its tickets for any signed-in customer. See the 4.2.1 row.
 
 ## V2 — Authentication
 
@@ -52,7 +55,7 @@ OWASP ASVS Level 1. Scope: ADR-0012 conditions, PRD §9. Status legend: ✅ pass
 |---|-------------|--------|----------|
 | 4.1.1 | Enforced server-side | ✅ | services validate the gateway-minted ES256 claims; never trust the client |
 | 4.1.3 | Least privilege / role checks | ✅ | `Admin`/`Customer`/`Supplier` policies on route groups (`InternalClaimsAuth`) + service-side PEP (`PermissionGate`) asking the Identity PDP for action permissions, fail-closed, denials audited (ADR-0025; e.g. `payment.refund`) |
-| 4.2.1 | Object-level authorization (no IDOR) | ✅ | ownership-scoped queries; 404 (not 403) on others' resources |
+| 4.2.1 | Object-level authorization (no IDOR) | ✅ | ownership-scoped queries; 404 (not 403) on others' resources. **Finding fixed 2026-11-27:** Support's order-scoped customer routes (refundable lines — then anonymous —, RMA, tickets by order/id, replies, ticket list, attachments) did not check the order's owner; they now compare the caller's `sub` with the owner on Support's order copy (`OrderConfirmed.UserId`), fail closed on an ownerless snapshot, and answer 404 (ADR-0018 amendment 2026-11-27, `SupportOrderOwnershipTests`). A service holding a local copy of another service's resource must copy its owner too |
 | 4.3.1 | Admin interfaces protected | ✅ | admin role + IP allowlist (`src/Admin/Services/IpAllowlistMiddleware.cs`) + separate app/port (ADR-0019); service-to-service `/internal/*` endpoints are never proxied by the gateway (`src/Gateway/Program.cs`, GatewayConfigTests, e2e-verify L4/L4b) |
 | 4.1.x | Multi-tenant data isolation | ✅ | PostgreSQL RLS on tenant-owned tables (`FORCE ROW LEVEL SECURITY`, transaction-scoped `set_config('app.tenant_id')`, non-superuser role) **plus** application checks (ADR-0024); dynamic RBAC over a code-defined permission registry (ADR-0025) |
 

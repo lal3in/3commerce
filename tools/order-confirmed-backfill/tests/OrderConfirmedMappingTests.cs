@@ -24,12 +24,13 @@ public class OrderConfirmedMappingTests
     private static readonly Guid Variant = Guid.Parse("00000000-0000-0000-0000-000000000d01");
 
     /// <summary>Three supply types, a line promotion AND a storefront-wide discount, a region, a variant.</summary>
-    private static CheckoutAttempt Attempt()
+    private static CheckoutAttempt Attempt(Guid? userId = null)
     {
         var id = Guid.CreateVersion7();
         return new CheckoutAttempt
         {
             Id = id,
+            UserId = userId,
             TenantId = Tenant,
             StorefrontId = Guid.NewGuid(),
             Email = "shopper@example.test",
@@ -114,6 +115,16 @@ public class OrderConfirmedMappingTests
         Assert.Equal(new OrderLineInfo(Dropped, null, Supplier, "Dropshipped item", 1, FulfilmentType.Dropship, BillingMode.OneTime, 3000, 273, LineId(Dropped)), lines[Dropped]);
         Assert.Equal(new OrderLineInfo(Download, null, null, "Download", 1, FulfilmentType.DigitalDownload, BillingMode.OneTime, 500, 45, LineId(Download)), lines[Download]);
         Assert.Equal(600, e.Lines.Sum(l => l.DiscountMinor)); // allocations sum to the order's discount exactly
+    }
+
+    [Fact]
+    public void The_event_carries_the_owner_and_a_guest_order_none()
+    {
+        // Support gates its order-scoped customer endpoints on this (ADR-0018 amendment 2026-11-27), and the
+        // support-order-owner backfill re-sends exactly this event to fill it on older snapshots.
+        var owner = Guid.CreateVersion7();
+        Assert.Equal(owner, OrderConfirmedFactory.From(Attempt(owner).ToOrder(1042, T0)).UserId);
+        Assert.Null(OrderConfirmedFactory.From(Attempt().ToOrder(1043, T0)).UserId);
     }
 
     /// <summary>JSON of the event with lines in a fixed order (records compare lists by reference).</summary>

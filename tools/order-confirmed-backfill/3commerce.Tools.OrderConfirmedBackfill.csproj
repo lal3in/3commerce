@@ -20,6 +20,8 @@
     <ProjectReference Include="../../src/Services/Payments/Infrastructure/3commerce.Payments.Infrastructure.csproj" />
     <!-- payment-customer-email command: Identity (the members' account emails, read per tenant). -->
     <ProjectReference Include="../../src/Services/Identity/Infrastructure/3commerce.Identity.Infrastructure.csproj" />
+    <!-- support-order-owner command: Support (its ownerless order snapshots + the snapshot consumer's queue name). -->
+    <ProjectReference Include="../../src/Services/Support/Infrastructure/3commerce.Support.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="backfill.settings.json" CopyToOutputDirectory="PreserveNewest" />
