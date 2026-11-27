@@ -103,11 +103,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      # Storefront package manager = pnpm (ADR-0070): the version comes from src/Storefront/package.json
+      # "packageManager" (one pin), and it must be on PATH before setup-node so `cache: pnpm` finds its store.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: src/Storefront/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: src/Storefront/package-lock.json
+          cache: pnpm
+          cache-dependency-path: src/Storefront/pnpm-lock.yaml
       - name: Install dotnet-ef
         run: |
           dotnet tool install --global dotnet-ef
@@ -115,11 +120,11 @@ jobs:
       - name: Install storefront deps + Playwright (Chromium)
         working-directory: src/Storefront
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
-      - name: npm vulnerable package scan (production deps)
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: pnpm vulnerable package scan (production deps)
         working-directory: src/Storefront
-        run: npm audit --omit=dev --audit-level=high
+        run: pnpm audit --prod --audit-level high
       - name: Build solution
         run: dotnet build 3commerce.sln
       - name: Runner size + background resource sampler

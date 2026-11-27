@@ -12,7 +12,7 @@ The status dashboard shows:
 - Docker containers and `3commerce/*` images
 - `docker compose ps`
 - service readiness endpoints from `scripts/lib/services.sh`
-- local tool versions (`dotnet`, Node/npm, Docker/Compose, Helm, kubectl, gh)
+- local tool versions (`dotnet`, Node/pnpm, Docker/Compose, Helm, kubectl, gh)
 - basic host stats (CPU, disk, memory snapshot)
 
 Run it from the repository root:

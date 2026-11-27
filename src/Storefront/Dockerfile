@@ -2,13 +2,22 @@
 # Build context must be the repo root (matches the service Dockerfiles):
 #   docker build -f src/Storefront/Dockerfile .
 # Produces a slim runner from Next.js standalone output (next.config: output "standalone").
-FROM node:22-alpine AS deps
+#
+# Package manager: pnpm (ADR-0070), at exactly the version package.json "packageManager" pins — read from the
+# manifest so the pin has one source. node:22 has no usable corepack for pnpm 12, so npm installs it once here.
+FROM node:22-alpine AS pnpm
 WORKDIR /app
-COPY src/Storefront/package.json src/Storefront/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci
+COPY src/Storefront/package.json ./
+RUN npm install -g --no-fund --no-audit "$(node -p 'require("./package.json").packageManager')"
 
-FROM node:22-alpine AS build
-WORKDIR /app
+FROM pnpm AS deps
+COPY src/Storefront/package.json src/Storefront/pnpm-lock.yaml src/Storefront/pnpm-workspace.yaml ./
+# The store lives in a cache mount (reused across builds, never in a layer); node_modules is COPIED out of it
+# (the mount is another filesystem, so pnpm cannot hard-link), so the layer holds real files.
+RUN --mount=type=cache,target=/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile --store-dir /pnpm/store
+
+FROM pnpm AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY src/Storefront/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -19,7 +28,7 @@ ARG GIT_SHA=""
 ARG VERSION=""
 # The postbuild step moves browser source maps to .next/sourcemaps; only .next/static is copied below, so they
 # never reach the runtime image (upload them from the build stage — docs/help/getting-started.md).
-RUN GIT_SHA="$GIT_SHA" VERSION="$VERSION" npm run build
+RUN GIT_SHA="$GIT_SHA" VERSION="$VERSION" pnpm build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
@@ -33,6 +42,8 @@ ENV HOSTNAME=0.0.0.0
 # Run as the non-root user shipped in the node image.
 USER node
 COPY --from=build --chown=node:node /app/public ./public
+# pnpm's standalone output keeps node_modules/<pkg> as RELATIVE symlinks into node_modules/.pnpm/ inside the
+# standalone tree; COPY preserves them, so they resolve in this stage too.
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 EXPOSE 3000

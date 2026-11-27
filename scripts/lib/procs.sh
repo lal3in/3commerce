@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Process hygiene shared by run-all.sh / dev-up.sh / dev-down.sh.
 #
-# Why this exists: `dotnet run` and `npm run dev` background the REAL app as a child, so a recorded
+# Why this exists: `dotnet run` and `pnpm dev` background the REAL app as a child, so a recorded
 # launcher pid is not enough to guarantee the app died. Worse, starting over a live generation
 # orphans it permanently — the doomed second start overwrites the .pid file, so nothing tracks the
 # process that still holds the port. Ports are therefore the only honest source of truth.

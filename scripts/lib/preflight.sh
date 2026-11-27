@@ -15,3 +15,22 @@ require_docker_memory() {
   fi
   echo "Docker VM memory: ${mem_gib} GiB (ok)"
 }
+
+# require_storefront_deps [dir]  — the storefront's package manager is pnpm (ADR-0070), at the version
+# src/Storefront/package.json "packageManager" pins. Fails fast with install guidance when pnpm is missing, and
+# installs the locked deps when node_modules is absent or was laid out by npm (no node_modules/.modules.yaml —
+# pnpm would otherwise stop to ask before purging it).
+require_storefront_deps() {
+  local dir="${1:-src/Storefront}" want
+  want="$(sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' "$dir/package.json")"
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "ERROR: pnpm is not installed — the storefront uses pnpm ${want:-?} (ADR-0070)." >&2
+    echo "  Install it: 'npm install -g pnpm@${want:-latest}' (or 'corepack enable pnpm' on a Node that ships corepack)." >&2
+    exit 1
+  fi
+  if [[ ! -f "$dir/node_modules/.modules.yaml" ]]; then
+    echo "  storefront deps missing or npm-installed — pnpm install --frozen-lockfile in $dir"
+    rm -rf "$dir/node_modules"
+    ( cd "$dir" && pnpm install --frozen-lockfile >/dev/null ) || { echo "ERROR: pnpm install failed in $dir" >&2; exit 1; }
+  fi
+}

@@ -793,7 +793,7 @@
 #       release, environment, trace id, support_ref, Sentry-ordered frames and no session/user/UA/email/query; no
 #       exceptions = nothing, a flood is capped; an SSR error becomes a node event with digest, route and trace id
 #   A8  No vulnerable NuGet packages
-#   A8b No high/critical vulnerabilities in the storefront production npm deps (npm audit --omit=dev --audit-level=high)
+#   A8b No high/critical vulnerabilities in the storefront production deps (pnpm audit --prod --audit-level high, ADR-0070)
 #
 # Live full-stack (only with --live; exercises the gateway + storefront paths the
 # in-process integration tests do not):
@@ -1263,11 +1263,14 @@ run_automated() {
   fi
 
   stage "A7  Storefront typecheck + build"
-  if [[ -d "$ROOT/src/Storefront/node_modules" ]]; then
-    ( cd "$ROOT/src/Storefront" && npx tsc --noEmit >/dev/null 2>&1 ) && pass "A7a tsc clean" || fail "A7a tsc"
+  # Storefront package manager = pnpm (ADR-0070); .modules.yaml marks a pnpm-installed node_modules.
+  if ! command -v pnpm >/dev/null 2>&1; then
+    fail "A7 pnpm not installed (the storefront uses pnpm — run: npm install -g pnpm@$(sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' "$ROOT/src/Storefront/package.json"))"
+  elif [[ -f "$ROOT/src/Storefront/node_modules/.modules.yaml" ]]; then
+    ( cd "$ROOT/src/Storefront" && pnpm exec tsc --noEmit >/dev/null 2>&1 ) && pass "A7a tsc clean" || fail "A7a tsc"
     # Own build dir: `next build` rewrites its output wholesale, and sharing .next with a running
     # `next dev` pulls chunks out from under it (every page 500s with MODULE_NOT_FOUND).
-    ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify npm run build >/dev/null 2>&1 ) && pass "A7b next build" || fail "A7b next build"
+    ( cd "$ROOT/src/Storefront" && NEXT_DIST_DIR=.next-verify pnpm build >/dev/null 2>&1 ) && pass "A7b next build" || fail "A7b next build"
     # Browser source maps are built but moved out of the served dir by the postbuild step (never public).
     if [[ -d "$ROOT/src/Storefront/.next-verify/sourcemaps" ]] && [[ -z "$(find "$ROOT/src/Storefront/.next-verify/static" -name '*.map' 2>/dev/null | head -1)" ]]; then
       pass "A7c source maps built, none under the served static dir"
@@ -1275,10 +1278,10 @@ run_automated() {
       fail "A7c source maps (expected .next-verify/sourcemaps and no .map under .next-verify/static)"
     fi
     # Telemetry scrubber + helpers (pure; no stack, no browser launched).
-    ( cd "$ROOT/src/Storefront" && npx playwright test e2e/telemetry-scrub.spec.ts --project=storefront --reporter=line >/tmp/3c-telemetry-unit.log 2>&1 ) \
+    ( cd "$ROOT/src/Storefront" && pnpm exec playwright test e2e/telemetry-scrub.spec.ts --project=storefront --reporter=line >/tmp/3c-telemetry-unit.log 2>&1 ) \
       && pass "A7d telemetry scrubber unit spec" || { fail "A7d telemetry scrubber unit spec"; tail -20 /tmp/3c-telemetry-unit.log; }
   else
-    fail "A7 storefront deps missing (run: cd src/Storefront && npm install)"
+    fail "A7 storefront deps missing (run: cd src/Storefront && pnpm install --frozen-lockfile)"
   fi
 
   stage "A8  Vulnerable package scan"
@@ -1288,11 +1291,11 @@ run_automated() {
     pass "A8 no vulnerable packages"
   fi
 
-  stage "A8b npm vulnerable package scan (storefront, production deps)"
-  if ( cd "$ROOT/src/Storefront" && npm audit --omit=dev --audit-level=high >/tmp/3c-npm-audit.log 2>&1 ); then
-    pass "A8b no high/critical npm vulnerabilities (production deps)"
+  stage "A8b pnpm vulnerable package scan (storefront, production deps)"
+  if ( cd "$ROOT/src/Storefront" && pnpm audit --prod --audit-level high >/tmp/3c-pnpm-audit.log 2>&1 ); then
+    pass "A8b no high/critical storefront vulnerabilities (production deps)"
   else
-    fail "A8b storefront npm vulnerabilities found"; tail -30 /tmp/3c-npm-audit.log
+    fail "A8b storefront vulnerabilities found (pnpm audit)"; tail -30 /tmp/3c-pnpm-audit.log
   fi
 }
 
@@ -1451,13 +1454,13 @@ run_live() {
   # Storefront telemetry (audit P1-2/P1-3): SSR spans to the collector's OTLP/HTTP port, browser RUM relayed to its
   # faro receiver (fails soft without one), and an explicit deployment.environment.name — a production server with
   # none counts as prod, which would turn the /probe/* error probes off (CI's job env already says `ci`).
-  ( cd "$ROOT/src/Storefront" && GIT_SHA="$(release_revision)" NEXT_DIST_DIR=.next-verify npm run build >/tmp/3c-sf-build.log 2>&1 \
+  ( cd "$ROOT/src/Storefront" && GIT_SHA="$(release_revision)" NEXT_DIST_DIR=.next-verify pnpm build >/tmp/3c-sf-build.log 2>&1 \
       && NEXT_DIST_DIR=.next-verify GATEWAY_URL="$GATEWAY" \
          OTEL_RESOURCE_ATTRIBUTES="${OTEL_RESOURCE_ATTRIBUTES:-deployment.environment.name=dev}" \
          OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
          FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
          SENTRY_DSN="${STOREFRONT_SENTRY_DSN-$(glitchtip_dsn storefront)}" \
-         npm run start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
+         pnpm start:standalone >"$ROOT/.run/storefront.log" 2>&1 & )
   # Run the managed DLLs directly (no apphost — the solution build doesn't always emit one in CI).
   local admin_dll="$ROOT/src/Admin/bin/Debug/net10.0/3commerce.Admin.dll"
   if [[ -f "$admin_dll" ]]; then
@@ -1732,7 +1735,7 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
   if [[ -d "$ROOT/src/Storefront/node_modules/@playwright" ]]; then
     wait_http "http://localhost:5200/login" || true  # ensure admin is up
     wait_http "http://localhost:5300/login" || true  # ensure supplier portal is up
-    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" SUPPLIER_URL="http://localhost:5300" GATEWAY_URL="$GATEWAY" npx playwright test >/tmp/3c-playwright.log 2>&1 ); then
+    if ( cd "$ROOT/src/Storefront" && STOREFRONT_URL="$STOREFRONT" ADMIN_URL="http://localhost:5200" SUPPLIER_URL="http://localhost:5300" GATEWAY_URL="$GATEWAY" pnpm exec playwright test >/tmp/3c-playwright.log 2>&1 ); then
       pass "L20 storefront + admin E2E ($(pw_tally))"
       # CI retries (playwright.config.ts) let a starved test pass on its 2nd try: name every flaky one.
       pw_flaky_names
@@ -1743,7 +1746,7 @@ print(json.dumps({"name": "E", "line1": "1 St", "city": city, "postcode": pc, "c
       echo "--- storefront log ---"; tail -10 "$ROOT/.run/storefront.log" 2>/dev/null
     fi
   else
-    echo "  (skipped: Playwright not installed — cd src/Storefront && npm i && npx playwright install chromium)"
+    echo "  (skipped: Playwright not installed — cd src/Storefront && pnpm install --frozen-lockfile && pnpm exec playwright install chromium)"
   fi
 
   stage "L20b Telemetry in Loki + Tempo + Mimir — gateway + security logs, DB spans, Admin traces, MassTransit + runtime metrics"

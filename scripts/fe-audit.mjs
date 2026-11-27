@@ -2,9 +2,11 @@
 // failed requests, console errors, and a control inventory. Emits JSON to stdout.
 //   node scripts/fe-audit.mjs           # storefront only (no auth)
 //   node scripts/fe-audit.mjs --admin   # + admin (logs in)
-// Run from repo root with the storefront's node_modules on the path.
+// Run from repo root after `pnpm install` in src/Storefront (Playwright resolves from the storefront's node_modules).
 import { createRequire } from "node:module";
-const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("playwright");
+// @playwright/test, not "playwright": it is the storefront's DIRECT dependency, and pnpm's strict node_modules
+// (ADR-0070) does not expose the transitive "playwright" package at the top level. It re-exports chromium & co.
+const pw = createRequire(new URL("../src/Storefront/package.json", import.meta.url))("@playwright/test");
 const { chromium } = pw;
 
 const STORE = "http://localhost:3000";

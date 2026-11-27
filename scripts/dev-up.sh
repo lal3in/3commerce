@@ -34,6 +34,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_docker
+if (( WITH_FRONTENDS )); then require_storefront_deps src/Storefront; fi   # pnpm + locked deps (ADR-0070)
 
 if (( FRESH )); then
   # Truly clean start: stop anything running and DROP the Postgres data volume so the DB is recreated
@@ -95,7 +96,7 @@ if (( WITH_FRONTENDS )); then
       OTEL_EXPORTER_OTLP_ENDPOINT="${STOREFRONT_OTLP_ENDPOINT-http://localhost:4318}" \
       FARO_RECEIVER_URL="${FARO_RECEIVER_URL-http://localhost:8027/}" \
       SENTRY_DSN="${STOREFRONT_SENTRY_DSN-$(glitchtip_dsn storefront)}" \
-      nohup npm run dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
+      nohup pnpm dev >"$local_run/storefront.log" 2>&1 & echo $! ) >.run/storefront.pid
   nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5200" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Admin --no-build >"$local_run/admin.log" 2>&1 &
   echo $! >.run/admin.pid
   nohup env OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT-http://localhost:4317}" SENTRY_DSN="${SENTRY_DSN-$(glitchtip_dsn backend)}" ASPNETCORE_URLS="http://localhost:5300" ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/SupplierPortal --no-build >"$local_run/supplier-portal.log" 2>&1 &
