@@ -400,6 +400,12 @@
 #       vaults with NO email whose account is in the vault's tenant (Recorded / Differs / NoAccount never sent), one
 #       command per member, --limit caps sends not counts, a re-run selects 0, the report never prints an email, safe
 #       CLI, queue payment-customer-email, deterministic message id per (tenant, member)
+#   A3zn Unit · Support order ownership contract + backfill (support_order_ownership, ADR-0018 amendment 2026-11-27):
+#       OrderConfirmed.UserId is appended — a pre-owner event deserializes to null and projects an ownerless snapshot,
+#       a sent owner round-trips onto it (OrderConfirmedOwnerContractTests); OrderConfirmedFactory carries the order's
+#       UserId, null for a guest (OrderConfirmedMappingTests); the support-order-owner command sends only ownerless
+#       snapshots whose order has a user (Guest / NoOrder reported, never sent), --tenant / --limit narrow the sends
+#       oldest first, queue order-snapshot, deterministic message id, safe CLI (SupportOrderOwnerBackfillTests)
 #   A3zq Unit · GlitchTip error inbox (ADR-0067; ErrorTrackingTests): off without a DSN (nothing registered); DSN from
 #       Sentry:Dsn then SENTRY_DSN; options = release service.version + environment + server/service tags, Error events
 #       only, no breadcrumbs / PII / user / sentry-trace+baggage+traceparent headers / HTTP-client capture; an event gets
@@ -694,7 +700,15 @@
 #       Support order snapshot under concurrency: 3 OrderConfirmed copies (distinct message ids) for
 #       each of 20 orders at once → one snapshot per order with its lines, no 23505/40001, nothing in
 #       order-snapshot_error (endpoint partitioned by order id); a redelivery / re-publish is a no-op
-#       (SupportOrderSnapshotConcurrencyTests);
+#       (SupportOrderSnapshotConcurrencyTests); a redelivery carrying UserId FILLS a missing owner and
+#       never replaces one or the money (same class);
+#       ORDER OWNERSHIP (ADR-0018 amendment 2026-11-27, SupportOrderOwnershipTests): the owner reads the
+#       refundable lines (200), opens / reads / replies to a ticket, lists tickets + RMAs by order and
+#       requests an RMA (202); another customer gets 404 on every one of them (lines, RMA, open ticket,
+#       ticket / RMA by order, ticket by id, reply) and none of the owner's tickets in GET /tickets; an
+#       ownerless (guest / not-yet-backfilled) snapshot is 404 to everyone; an unknown order is the same
+#       404; anonymous gets 401 (lines was anonymous before); attachments: a stranger can neither upload
+#       to nor download from someone else's ticket (404), an operator still downloads (SupportAttachmentTests);
 #       DISCOUNTED REFUND BASIS (ADR-0055, RmaRefundBasisTests): a full return of a discounted order
 #       is capped at the refundable gross and reaches RefundIssued instead of stranding in
 #       RefundPending forever, a partial return refunds the line's DISCOUNTED value (2800, not the
@@ -1199,6 +1213,13 @@ run_automated() {
     && dotnet test "$ROOT/tools/order-confirmed-backfill/tests" --no-build \
       --filter 'FullyQualifiedName~PaymentCustomerEmailBackfillTests' 2>&1 \
       | grep -q 'Failed: *0'; then pass "A3zp payment vaults learn their member's email"; else fail "A3zp payment vaults learn their member's email"; fi
+
+  stage "A3zn Support order ownership (support_order_ownership) — OrderConfirmed.UserId back-compat, factory, owner backfill"
+  if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
+      --filter 'Category!=Integration&FullyQualifiedName~OrderConfirmedOwnerContractTests' 2>&1 | grep -q 'Failed: *0' \
+    && dotnet test "$ROOT/tools/order-confirmed-backfill/tests" --no-build \
+      --filter 'FullyQualifiedName~SupportOrderOwnerBackfillTests|FullyQualifiedName~The_event_carries_the_owner_and_a_guest_order_none' 2>&1 \
+      | grep -q 'Failed: *0'; then pass "A3zn support order ownership"; else fail "A3zn support order ownership"; fi
 
   stage "A3zo .NET instrumentation — exceptions on spans, DB/messaging/stream spans, runtime meter, Kafka traceparent, Blazor ids"
   if dotnet test "$ROOT/tests/3commerce.IntegrationTests" --no-build \
