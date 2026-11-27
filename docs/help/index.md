@@ -48,7 +48,7 @@ Identity service via the gateway.
 > → a **storefront-wide items discount** → tax on the discounted base; see
 > [Pricing & promotions](./pricing-and-promotions.md). Security adds
 > **TOTP MFA** (Admin `/security`), a masked webhook signing-secret registry, and
-> expanded FORCE row-level security. See ADRs `0023`–`0052` and the phase plans
+> expanded FORCE row-level security. See ADRs `0023` onward (`docs/adr/adr_index.md`) and the phase plans
 > under `.ai-shared/plans/`.
 
 ## Table of contents
@@ -59,9 +59,9 @@ Identity service via the gateway.
 | [Storefront operations](./storefront-operations.md) | Every storefront page and flow from the user's perspective: browse, search (typo-tolerant), product detail, cart, guest checkout → payment → confirmation, register/login/logout, account, support tickets, refund (RMA). |
 | [Admin operations](./admin-operations.md) | Admin login and every admin screen, including the operator **RMA approve → refund** flow, plus ledger, Xero sync, and imports. |
 | [Testing](./testing.md) | Running unit, integration (Testcontainers), and Playwright E2E (storefront + admin), the `scripts/e2e-verify.sh [--live]` regression script, and how CI runs everything. |
-| [Deployment](./deployment.md) | Current local-only deployment, Dockerfiles, configuration/secrets, and the honest state of production / k8s and the launch gates. |
+| [Deployment](./deployment.md) | Local bare-run and containerized (compose) launches, the Helm/kind chart, Dockerfiles, observability, configuration/secrets, and the honest state of production and the launch gates. |
 | [Platform services](./services.md) | The six new DB-owning services (Marketing, Pricing, Audit, Workflow, Entitlement, Usage) — what each owns, every endpoint, and use cases per option. |
-| [Users, roles & permissions](./roles-permissions.md) | Principal types, the gateway→claims→PDP/PEP pipeline, the six built-in roles, the 24 code-defined permissions with risk, and dynamic admin RBAC. |
+| [Users, roles & permissions](./roles-permissions.md) | Principal types, the gateway→claims→PDP/PEP pipeline, the seven built-in roles, the 24 code-defined permissions with risk, and dynamic admin RBAC. |
 | [UI screens](./screens.md) | Live Playwright screenshots of every storefront + admin screen with its buttons and use cases. |
 | [Currencies](./currencies.md) | The managed currency registry: the Admin **Currencies** page (`/currencies`), where registered currencies show up (pickers, validation, financial screens), variable-decimal money (JPY 0 / most 2 / KWD 3), and why disable is forward-only. |
 | [Scheduled jobs](./scheduled-jobs.md) | The platform's cron jobs (daily journal, subscription auto-renew, usage-period close, scheduled publish): what each does, how they run and record history, and how to run/pause/reschedule, add, or remove them from **Mission Control**. |
@@ -69,6 +69,11 @@ Identity service via the gateway.
 | [Pricing & promotions](./pricing-and-promotions.md) | **The whole money chain in one place**: supplier cost (COGS) → catalog price → **effective offer price** (ADR-0047/0048) → **threshold promotions + coupon codes** (ADR-0051/0052) → the **storefront-wide discount** → tax on the discounted base → shipping, with a worked money example, exactly which value each threshold compares against, the shared `PromotionEvaluator` and its largest-remainder per-line allocation, and the coupon redemption lifecycle (reserve / confirm / release). |
 | [Ship-to countries & per-country ship rules](./ship-to-country-rules.md) | Where a storefront ships (the **ship-to allowlist**) and how tax/shipping vary **per product per destination** (**per-country ship rules**: `chargeDestinationTax` / `shippingCovered`), the mandatory-rules tenant switch, and the country/region (State/Province) fields on checkout + address forms. ADR-0050. |
 | [Selling information](./selling-information.md) | Strategic product narrative for clients, suppliers, tenants, admins, technical evaluators, plus pros/cons and compliance-sensitive claims. |
+| **Runtime architecture** | [runtime-architecture.html](./runtime-architecture.html) — interactive diagram of the running topology (gateway, services, buses, data stores, observability). |
+| **Order workflow** | [order-workflow.html](./order-workflow.html) — the checkout and refund saga flows. |
+| **Checkout sequence** | [checkout-sequence.html](./checkout-sequence.html) — the checkout call/event sequence. |
+| **Read-copy dataflow** | [readcopy-dataflow.html](./readcopy-dataflow.html) — which events feed each service's local read copies. |
+| **Order lifecycle** | [order-lifecycle.html](./order-lifecycle.html) — order states and transitions. |
 | **Project analysis** | [project-analysis.html](./project-analysis.html) — complete visual analysis: topology diagrams, capability heatmap, service-by-service assessment, flow maps, risks, launch gates, and verdict (open in a browser). |
 
 ## Conventions used in this wiki

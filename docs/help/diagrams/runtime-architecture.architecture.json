@@ -29,7 +29,7 @@
           "postgres",
           "redis"
         ],
-        "note": "Each service owns its own Postgres schema (FORCE RLS); Redis is the shared cache / session / idempotency store."
+        "note": "Each service owns its Postgres schema (FORCE RLS); Redis (Valkey) is the shared fast-path cache for rate limits and dedupe.."
       },
       {
         "id": "events",
@@ -129,7 +129,7 @@
       "id": "services",
       "type": "backend",
       "label": "Domain services",
-      "sublabel": "14 .NET microservices",
+      "sublabel": "13 .NET services + worker",
       "pos": [
         672,
         296
@@ -159,7 +159,7 @@
       "id": "redis",
       "type": "database",
       "label": "Redis",
-      "sublabel": "cache · sessions · idempotency",
+      "sublabel": "cache · rate limit · dedupe",
       "pos": [
         980,
         186
@@ -310,11 +310,11 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "The 14 microservices",
+      "title": "The 13 services + Notifications worker",
       "items": [
         "Identity · Catalog · Ordering · Payments · Fulfillment",
         "Support · Entity · Marketing · Pricing · Usage",
-        "Entitlement · Workflow · Audit (+ Notifications worker)",
+        "Entitlement · Workflow · Audit · Notifications worker (event consumer)",
         "Each owns its Postgres schema behind the gateway"
       ]
     },
@@ -335,7 +335,7 @@
         "Entity owns the currency registry (master data) → CurrencyChanged",
         "Per-storefront ledger accounts live in Payments",
         "Quartz schedules jobs per service; Workflow aggregates run history",
-        "Redis-backed rate-limit + idempotency + sessions (ADR-0044)"
+        "Valkey/Redis fast-path: distributed rate-limit + webhook dedupe + optional session cache (ADR-0044)"
       ]
     }
   ]
