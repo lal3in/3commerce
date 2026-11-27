@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Roles &amp; permissions — 3commerce Operations Wiki</title><meta name="description" content="Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the six built-in roles, the 24 code-defi">
+<title>Roles &amp; permissions — 3commerce Operations Wiki</title><meta name="description" content="Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the seven built-in roles, the 24 code-defi">
 <link rel="stylesheet" href="assets/wiki.css"></head><body>
 <div class="progress" id="progress"></div><a class="skip" href="#main">Skip to content</a>
 <div class="layout"><div class="scrim"></div>
@@ -32,7 +32,7 @@
   <div class="shell"><header class="topbar"><button class="btn icon-btn menu-btn" aria-label="Menu">☰</button>
       <div class="crumb"><b>Reference</b><span class="sep">/</span>Roles &amp; permissions</div><span class="spacer"></span>
       <button class="btn" data-open-palette>Search <kbd>/</kbd></button><button class="btn icon-btn" data-theme-toggle aria-label="Toggle theme">☾</button></header>
-    <main id="main" class="content"><div class="content-inner"><p class="eyebrow">Reference · Authorization</p><h1>Roles &amp; permissions</h1><p class="lede">Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the six built-in roles, the 24 code-defined permissions with risk levels, and the dynamic admin-managed RBAC (ADR-0025/0026). For sales or compliance conversations, pair this with <a href="selling-information.html">Selling information</a> so RBAC, service accounts, and MasterGlobal override are positioned with the right caveats.</p>
+    <main id="main" class="content"><div class="content-inner"><p class="eyebrow">Reference · Authorization</p><h1>Roles &amp; permissions</h1><p class="lede">Who can sign in and what they can do: the principal types, the gateway→claims→PDP/PEP authorization pipeline, the seven built-in roles, the 24 code-defined permissions with risk levels, and the dynamic admin-managed RBAC (ADR-0025/0026). For sales or compliance conversations, pair this with <a href="selling-information.html">Selling information</a> so RBAC, service accounts, and MasterGlobal override are positioned with the right caveats.</p>
         <h2 id="principals">Who can sign in — principals</h2>
         <p>Every request resolves to a <b>principal</b> in a <b>tenant</b> (ADR-0023). A person can be a principal in several tenants; a service account is a non-human principal (ADR-0026).</p>
         <table><thead><tr><th>Principal</th><th>What it is</th><th>App</th><th>Gate</th></tr></thead><tbody>
@@ -55,7 +55,7 @@
         </tbody></table>
         <p>Owner decisions 2026-11-04 / 2026-11-05: the <code>admin</code> role claim alone never refunds. Who may refund by default: the <b>Administrator</b> role (every permission), the <b>Finance</b> role, the <b>Support</b> role (it keeps approving returns and instant refunds), and MasterGlobal principals (every bootstrap admin is one) — so existing admins keep refunding. <b>Ops</b> and <b>Merchandiser</b> can't refund; an Ops user may still open a return request, which moves no money. Built-in role permissions are re-applied from the code template at every login, so these defaults reach existing tenants and can't be edited away on a built-in role — to withhold refunds, give the user a custom role without <code>payment.refund</code>. If Identity can't be reached the refund is refused with <code>503</code> (<code>errorCode: authorization_unavailable</code>) — never allowed. In the admin console the Orders <b>Refund</b> button, the RMA queue's <b>Approve</b> buttons and the Subscriptions renewal-charge <b>Refund</b> / submit buttons are disabled with a tooltip for an operator without the permission (read from <code>GET /api/identity/me/permissions</code>; advisory only — the services decide).</p>
         <h2 id="roles">Built-in roles</h2>
-        <p>Each tenant is seeded with these six built-in roles (plus the system <code>customer</code> role). Operators may edit a role's permission set or clone it into a new role; built-in roles cannot be deleted.</p>
+        <p>Each tenant is seeded with these seven built-in roles (<code>customer</code> and <code>supplier</code> carry no back-office permissions). Operators may edit a role's permission set or clone it into a new role; built-in roles cannot be deleted.</p>
         <table><thead><tr><th>Role</th><th>Name</th><th>Purpose</th><th>Permissions</th></tr></thead><tbody>
           <tr><td><code>admin</code></td><td>Administrator</td><td>Full access to the tenant.</td><td><b>All 24 permissions</b></td></tr>
           <tr><td><code>ops</code></td><td>Operations</td><td>Orders, fulfillment, mission control.</td><td>order.view/manage · fulfillment.view/manage · mission_control.view · support.ticket.view</td></tr>
@@ -63,6 +63,7 @@
           <tr><td><code>support</code></td><td>Support</td><td>Support tickets, returns and refunds.</td><td>support.ticket.view/manage · rma.manage · payment.refund · order.view</td></tr>
           <tr><td><code>merchandiser</code></td><td>Merchandiser</td><td>Catalog and product publishing.</td><td>catalog.product.view/edit/publish</td></tr>
           <tr><td><code>customer</code></td><td>Customer</td><td>Storefront shopper.</td><td><i>none — no back-office permissions</i></td></tr>
+          <tr><td><code>supplier</code></td><td>Supplier</td><td>External supplier portal access.</td><td><i>none — scoped to its own supplier entity by the <code>supplier_entity</code> claim</i></td></tr>
         </tbody></table>
         <h2 id="mfa">Multi-factor authentication (TOTP)</h2>
         <p>Any account can enroll a <b>TOTP second factor</b> (RFC 6238; enrollment issues <b>8 one-time recovery codes</b>, stored hashed and shown once). Enrolled logins return <code>{ mfaRequired }</code> and must complete <code>POST /api/identity/mfa/challenge</code> (TOTP or recovery code; wrong codes feed the password lockout counter). Operators enroll on the Admin <b>Security</b> page; storefront login shows a code input when challenged. Admins set a <b>tenant MFA policy</b> (<code>GET/PUT /api/identity/mfa/policy</code>); the effective policy is <code>max(platform floor Mfa:PlatformMinimum, tenant policy)</code>. A required-but-unenrolled admin is nagged, not locked out (the bootstrap admin can't be locked out); a confirmed factor cannot be reset via the session — that is a support flow.</p>
@@ -76,12 +77,12 @@
           <tr><td><code>tenant.view</code></td><td>View tenant settings</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
           <tr><td><code>tenant.manage</code></td><td>Create/edit/suspend tenants and storefronts</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
           <tr><td><code>rbac.role.view</code></td><td>View roles and permissions</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
-          <tr><td><code>rbac.role.manage</code></td><td>Create/edit/clone/delete roles, assign permissions</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
+          <tr><td><code>rbac.role.manage</code></td><td>Create/edit/clone/delete roles and assign permissions</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
           <tr><td><code>user.view</code></td><td>View users and memberships</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
           <tr><td><code>user.manage</code></td><td>Invite/edit/lock users; assign roles</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
           <tr><td><code>serviceaccount.manage</code></td><td>Create/rotate/revoke service accounts</td><td><span style="color:#f85149;font-weight:600">High</span></td></tr>
           <tr><td><code>audit.view</code></td><td>View audit log</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
-          <tr><td><code>mission_control.view</code></td><td>View the mission-control console</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
+          <tr><td><code>mission_control.view</code></td><td>View the operations mission-control console</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
         </tbody></table>
         <h3>Catalog · merchandising</h3><table><thead><tr><th>Permission</th><th>Allows</th><th>Risk</th></tr></thead><tbody>
           <tr><td><code>catalog.product.view</code></td><td>View products</td><td><span style="color:#3fb950;font-weight:600">Low</span></td></tr>
