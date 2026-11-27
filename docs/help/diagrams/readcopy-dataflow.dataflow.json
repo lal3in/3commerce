@@ -27,7 +27,7 @@
 
     { "id": "catalogProj", "type": "backend", "label": "Catalog projector", "sublabel": "CurrencyProjectionConsumer", "stage": 1, "row": 0 },
     { "id": "supportProj", "type": "backend", "label": "Support projector", "sublabel": "OrderSnapshotConsumer", "stage": 1, "row": 1 },
-    { "id": "orderingProj", "type": "backend", "label": "Ordering projector", "sublabel": "OfferCopyConsumer", "stage": 1, "row": 2 },
+    { "id": "orderingProj", "type": "backend", "label": "Ordering projector", "sublabel": "OfferChangedConsumer", "stage": 1, "row": 2 },
 
     { "id": "supportedCurrency", "type": "database", "label": "SupportedCurrency", "sublabel": "validates input", "stage": 2, "row": 0, "tag": "read here" },
     { "id": "orderSnapshot", "type": "database", "label": "OrderSnapshot", "sublabel": "RMA refund amounts", "stage": 2, "row": 1, "tag": "read here" },
