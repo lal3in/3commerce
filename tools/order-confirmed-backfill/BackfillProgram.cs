@@ -13,6 +13,7 @@ using ThreeCommerce.Ordering.Infrastructure;
 using ThreeCommerce.Tools.OrderConfirmedBackfill.PaymentCustomers;
 using ThreeCommerce.Tools.OrderConfirmedBackfill.Storefronts;
 using ThreeCommerce.Tools.OrderConfirmedBackfill.Subscriptions;
+using ThreeCommerce.Tools.OrderConfirmedBackfill.SupportOwners;
 using ThreeCommerce.Workers.Notifications.Infrastructure;
 
 namespace ThreeCommerce.Tools.OrderConfirmedBackfill;
@@ -40,6 +41,11 @@ public static class BackfillProgram
         if (args.Length > 0 && args[0] == PaymentCustomerEmailOptions.Command)
         {
             return await PaymentCustomerEmailProgram.RunAsync(args[1..]);
+        }
+
+        if (args.Length > 0 && args[0] == SupportOrderOwnerOptions.Command)
+        {
+            return await SupportOrderOwnerProgram.RunAsync(args[1..]);
         }
 
         BackfillOptions options;
