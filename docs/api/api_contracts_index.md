@@ -309,7 +309,7 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | GET/POST | `/admin/inventory/locations` | admin | Inventory locations linked to an Entity warehouse/supplier/forwarder (mt4_1) |
 | GET/POST | `/admin/inventory/stock` | admin | On-hand stock feed per (product, variant, location); supplier-feedable. Confirmed orders consume it (mt4_2); changes publish `InventoryAvailabilityChanged` → Catalog mirror |
 | GET/POST | `/admin/carriers` | admin | Carrier integration config (Fake/AusPost/DHL/FedEx/UPS/StarTrack/Pack&Send); `storefrontId` **required** (ADR-0043: per-storefront only, no tenant-level); `CredentialRef` only, never the secret (mt4_3) |
-| POST | `/admin/carriers/{id}/activate\|suspend\|disable\|default` · PUT `/{id}/credential` | admin | Carrier lifecycle; one active default per storefront |
+| POST | `/admin/carriers/{id}/activate\|suspend\|disable\|default` · PUT `/admin/carriers/{id}/credential` | admin | Carrier lifecycle; one active default per storefront |
 | POST | `/shipping/quote` · `/shipping/quote/groups` | anon | Carrier rate quotes — single + per shipment group (one order, multiple shipments); response carries `ExpiresAt` (mt4_4/mt4_5) |
 | POST | `/shipping/revalidate` | anon | Revalidate a selected quote before payment → `Valid` / `Expired` / `PriceChanged` / `Unavailable`; carrier fallback to Fake (mt4_6) |
 | GET | `/admin/dropship/orders?orderId=` | admin | Dropship supplier orders (Requested→Accepted→TrackingReceived) auto-forwarded on confirm (mt4_4b) |
@@ -317,7 +317,7 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 | GET/POST | `/admin/orders/{orderId}/holds` | admin | Place/list fulfilment holds on an order |
 | POST | `/admin/holds/{id}/release` | admin | Release a fulfilment hold |
 | GET/POST | `/admin/shipments/{id}/packages` | admin | Packages per shipment (mt4_7; operator-driven, automation off) |
-| POST | `/admin/packages/{id}/label` · `/tracking/refresh` | admin | Buy a carrier label / refresh tracking for a package |
+| POST | `/admin/packages/{id}/label` · `/admin/packages/{id}/tracking/refresh` | admin | Buy a carrier label / refresh tracking for a package |
 | POST | `/admin/inventory/restock` | admin | Manual restock of returned items (mt4_8); partial allowed |
 
 > Entitlements and metered usage moved out of Fulfillment into the dedicated Entitlement and Usage
@@ -396,13 +396,18 @@ shipping quotes, shipments, and dropship supplier orders (ADR-0027/0028, Phase 4
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST/GET | `/tickets[/{id}[/messages]]` | session | Order-linked tickets + thread |
-| GET | `/orders/{orderId}/lines` | session | Order-line snapshot for per-line RMA selection (server-derived amounts, BL-8). Each line appends `refundableAmountMinor` (ADR-0055): the DISCOUNTED value of the still-refundable units — `unitPriceMinor` is the shelf price and is not the refund basis on a discounted order |
+| GET/POST | GET/POST `/tickets` · GET `/tickets/{id}` · POST `/tickets/{id}/messages` | customer | Order-linked tickets: list own / open one; read the thread; post a customer message |
+| GET | `/tickets/by-order/{orderId}` | customer | The customer's tickets for one order |
+| POST | `/tickets/{ownerId}/attachments` · `/rma/{ownerId}/attachments` · GET `/attachments/{id}` | customer | File attachments (mt6_9 object store; multipart `file`, photo/PDF, ≤ 10 MB, else 400): upload against a ticket or an RMA; download by id. Metadata in Support, bytes in the object store |
+| GET | `/orders/{orderId}/lines` | anon (no auth policy on the route; the order id is the key, like order-status polling) | Order-line snapshot for per-line RMA selection (server-derived amounts, BL-8). Each line appends `refundableAmountMinor` (ADR-0055): the DISCOUNTED value of the still-refundable units — `unitPriceMinor` is the shelf price and is not the refund basis on a discounted order |
 | POST | `/rma` | session | Request a refund/return — starts the RMA saga. The amount is server-derived per line as `unitPrice × qty − the line's allocated share of the order discount` (pro-rated over a partial return, ADR-0055) and then capped at what is left of `OrderSnapshot.GrossMinor` after earlier non-denied requests; nothing left ⇒ **400**. Orders confirmed before ADR-0055 carry no per-line discount and fall back to the list price, bounded by the same cap |
 | GET | `/tickets/rmas/by-order/{orderId}` | session | The customer's own requests for one order with their live saga state; each line appends `refundAmountMinor` (the money that actually comes back) |
 | GET | `/admin/rmas?state=` | admin | RMA queue (read model = saga state: `Requested` / `AwaitingReturn` / `RefundPending` / `Denied` / `RefundIssued` / `RefundFailed`). A `RefundFailed` row appends `refundFailureReason` — why Payments could not execute it (ADR-0055) |
 | POST | `/admin/rmas` | admin | Admin-initiated whole-order refund: opens an **auto-approved, no-return** RMA (saga `AutoApprove`), so the refund travels the single RefundRequested path and appears in the queue as RefundPending → RefundIssued. The admin Orders screen uses this instead of a direct `/payments/admin/refunds` call. The instant refund (default `autoApprove`) **requires `payment.refund`** (refund_permission_enforcement, owner decision 2026-11-04): the service PEP asks the Identity PDP by the caller's `sub` + `tenant` — the `admin` role alone is not enough; without it **403** problem+json (`errorCode: permission_denied`, `permission: payment.refund`) plus a Denied audit entry; PDP unreachable → **503** (`errorCode: authorization_unavailable`), never allowed; a return request (`autoApprove: false`) moves no money and is not gated |
-| POST | `/admin/rmas/{id}/approve` · `/deny` · `/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract, so approve **requires `payment.refund`** (refund_permission_enforcement, owner decision 2026-11-04): the service PEP asks the Identity PDP by the caller's `sub` + `tenant` — the `admin` role alone is not enough; without it **403** problem+json (`errorCode: permission_denied`, `permission: payment.refund`) plus a Denied audit entry; PDP unreachable → **503** (`errorCode: authorization_unavailable`), never allowed. Deny / return-received are not gated (the refund was authorised at approval) |
+| POST | `/admin/rmas/{id}/approve` · `/admin/rmas/{id}/deny` · `/admin/rmas/{id}/return-received` | admin | RMA actions; approve publishes the single RefundRequested contract, so approve **requires `payment.refund`** (refund_permission_enforcement, owner decision 2026-11-04): the service PEP asks the Identity PDP by the caller's `sub` + `tenant` — the `admin` role alone is not enough; without it **403** problem+json (`errorCode: permission_denied`, `permission: payment.refund`) plus a Denied audit entry; PDP unreachable → **503** (`errorCode: authorization_unavailable`), never allowed. Deny / return-received are not gated (the refund was authorised at approval) |
+| POST | `/admin/rmas/{id}/disposition` | admin | Record/update the disposition of a received return: restock, or storage (with a reason + comments) |
+| GET | `/admin/tickets?status=` · GET `/admin/tickets/{id}` | admin | Operator ticket console: every customer ticket (optional status filter) / one thread |
+| POST | `/admin/tickets/{id}/reply` · `/admin/tickets/{id}/status` | admin | Post an operator reply / open or close a ticket (customers cannot change status) |
 
 ## Notifications (`/api/notifications`)
 
