@@ -14,7 +14,7 @@ risks, and communication strategy.
 
 **At a glance:** 13 DB-owning services · 18 runnable app images · 3 user-facing apps ·
 1 YARP public origin · current engineering grade **A** · dev uses a fake payment provider
-and a logging Xero client. 81+ integration tests noted; 0 known money-core gaps.
+and a logging Xero client. 600+ integration test methods; 0 known money-core gaps.
 
 ## Executive summary
 

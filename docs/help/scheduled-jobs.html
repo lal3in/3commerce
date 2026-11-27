@@ -83,11 +83,11 @@
           </tr>
         </tbody>
       </table></div>
-      <p>The central <strong>workflow</strong> service registers the scheduler too but owns no jobs of its own — it is the aggregator that collects every service's run history (<code>JobRunRecorded</code> events) so Mission Control can show one unified list.</p>
+      <p>The central <strong>workflow</strong> service registers the scheduler too but owns no jobs of its own — it is the aggregator that collects every service's run history (<code>JobRunRecorded</code> events, <code>GET /api/workflow/admin/workflow/runs</code>) and keeps a registry of every service's job descriptors (<code>ScheduledJobDescriptor</code> events, <code>GET /api/workflow/admin/workflow/jobs</code>: schedule, paused state and the latest run per job). Only Payments, Usage and Marketing host jobs today.</p>
 
       <h2 id="how">How a job runs</h2>
       <ol>
-        <li><strong>Trigger.</strong> Quartz fires the job's cron trigger (or you press <em>Run now</em>). A persistent, clustered Quartz store can be enabled so schedules survive restarts and only one node fires in a cluster (<code>Scheduling</code> options); otherwise an in-process scheduler is used.</li>
+        <li><strong>Trigger.</strong> Quartz fires the job's cron trigger (or you press <em>Run now</em>). A persistent, clustered Quartz store can be enabled so schedules survive restarts and only one node fires in a cluster (<code>Quartz:PersistentStoreEnabled</code> + <code>Quartz:ConnectionString</code>); otherwise an in-process scheduler is used.</li>
         <li><strong>Execute.</strong> The job resolves in a fresh per-fire DI scope (so it can use a scoped <code>DbContext</code>) and <code>JobExecutor</code> runs its <code>ExecuteAsync</code>. Transient failures are retried up to a bounded count before the run is recorded failed.</li>
         <li><strong>Record.</strong> Every fire is written to the owning service's local <code>JobRuns</code> table (Running → Succeeded/Failed, with duration and any error), and a <code>JobRunRecorded</code> event is published so the Workflow service projects it into the shared run history.</li>
         <li><strong>Surface.</strong> Mission Control reads each service's live schedule (<em>Next fire</em>, paused state) and the Workflow run history (<em>Last run</em> status + duration) and renders them together.</li>
@@ -120,7 +120,7 @@
       </ul>
 
       <h2 id="api">API surface</h2>
-      <p>Mission Control drives everything through the gateway, which forwards <code>/api/{service}/admin/jobs/*</code> to the owning service. The <code>admin</code> role is required.</p>
+      <p>Mission Control drives everything through the gateway, which forwards <code>/api/{service}/admin/jobs/*</code> to the owning service (Payments, Usage or Marketing — mapped only when <code>Scheduling:Enabled</code>, default true). The <code>admin</code> role is required.</p>
       <div class="table-wrap"><table>
         <thead><tr><th>Purpose</th><th>Call</th></tr></thead>
         <tbody>
@@ -129,6 +129,7 @@
           <tr><td>Pause / Resume</td><td><code>POST /api/{service}/admin/jobs/{name}/pause</code> · <code>…/resume</code></td></tr>
           <tr><td>Reschedule (cron)</td><td><code>PUT /api/{service}/admin/jobs/{name}/schedule</code> with <code>{ cron }</code></td></tr>
           <tr><td>Aggregated run history</td><td><code>GET /api/workflow/admin/workflow/runs</code></td></tr>
+          <tr><td>Cross-service job registry (read-only)</td><td><code>GET /api/workflow/admin/workflow/jobs</code></td></tr>
         </tbody>
       </table></div>
 

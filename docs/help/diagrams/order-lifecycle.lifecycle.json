@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Order & Checkout Lifecycle",
+    "subtitle": "OrderStatus driven by the MassTransit CheckoutStateMachine saga (Ordering), plus the supplier/operator mark-delivered step",
+    "output": "docs/help/order-lifecycle.html",
+    "viewBox": [
+      980,
+      600
+    ],
+    "animation": "none",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "happy-path",
+        "label": "Happy path",
+        "focus": [
+          "pending",
+          "awaiting",
+          "confirmed",
+          "delivered"
+        ],
+        "note": "Checkout creates the order, the saga waits for payment, confirmation books the sale, a supplier or operator marks it delivered."
+      },
+      {
+        "id": "payment-failure",
+        "label": "Payment failure",
+        "focus": [
+          "awaiting",
+          "cancelled"
+        ],
+        "note": "A failed payment, an explicit cancel or the 30-minute expiry all end in Cancelled."
+      },
+      {
+        "id": "refund",
+        "label": "Refund",
+        "focus": [
+          "confirmed",
+          "refunded"
+        ],
+        "note": "Only a Confirmed order moves to Refunded, and only when the refund covers it fully; a partial refund leaves it Confirmed."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Order status"
+    },
+    {
+      "id": "exit",
+      "label": "Terminal exits"
+    }
+  ],
+  "states": [
+    {
+      "id": "pending",
+      "type": "start",
+      "label": "Pending",
+      "sublabel": "checkout created",
+      "lane": "main",
+      "col": 0,
+      "step": "1",
+      "tag": "Pending"
+    },
+    {
+      "id": "awaiting",
+      "type": "waiting",
+      "label": "Awaiting Payment",
+      "sublabel": "timer armed",
+      "lane": "main",
+      "col": 1,
+      "step": "2",
+      "tag": "saga wait"
+    },
+    {
+      "id": "confirmed",
+      "type": "success",
+      "label": "Confirmed",
+      "sublabel": "sale posted",
+      "lane": "main",
+      "col": 2,
+      "step": "3",
+      "tag": "finalized"
+    },
+    {
+      "id": "delivered",
+      "type": "success",
+      "label": "Delivered",
+      "sublabel": "marked by supplier / operator",
+      "lane": "main",
+      "col": 3,
+      "step": "6",
+      "tag": "terminal"
+    },
+    {
+      "id": "cancelled",
+      "type": "failure",
+      "label": "Cancelled",
+      "sublabel": "PaymentFailed / timeout",
+      "lane": "exit",
+      "col": 0,
+      "step": "4",
+      "tag": "terminal"
+    },
+    {
+      "id": "refunded",
+      "type": "success",
+      "label": "Refunded",
+      "sublabel": "full refund of a Confirmed order",
+      "lane": "exit",
+      "col": 1,
+      "step": "5",
+      "tag": "terminal"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "pending",
+      "to": "awaiting",
+      "label": "CartSubmitted",
+      "labelDy": -25
+    },
+    {
+      "from": "awaiting",
+      "to": "confirmed",
+      "label": "PaymentSucceeded",
+      "variant": "emphasis",
+      "labelDy": -25
+    },
+    {
+      "from": "confirmed",
+      "to": "delivered",
+      "label": "mark delivered",
+      "labelDy": -25
+    },
+    {
+      "from": "awaiting",
+      "to": "cancelled",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "confirmed",
+      "to": "refunded",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Saga-driven",
+      "items": [
+        "CheckoutStateMachine owns Pending to Confirmed or Cancelled",
+        "The expiry timer is armed with the checkout",
+        "Every transition is idempotent on redelivery"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "After confirmation",
+      "items": [
+        "Delivered is set over HTTP by the fulfilling supplier or an operator",
+        "A fully refunded Confirmed order becomes Refunded",
+        "A partial refund only flags the order, it stays Confirmed"
+      ]
+    }
+  ]
+}

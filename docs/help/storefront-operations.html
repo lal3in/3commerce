@@ -139,6 +139,18 @@
           <li><strong>Empty cart:</strong> shows "Your cart is empty" with a <strong>Browse products</strong> link → <code>/search</code>.</li>
           <li><strong>With items:</strong> lists each line (<code>CartItemRow</code>) with image, title, unit price, and quantity; a <strong>Subtotal</strong>; the note "Shipping and tax are calculated at checkout"; and a <strong>Checkout</strong> button → <code>/checkout</code>.</li>
         </ul>
+        <h3 id="discounts-and-promotions-on-the-cart">Discounts and promotions on the cart</h3>
+        <p>The page also calls <code>getCartSummary()</code> → <code>GET /api/ordering/cart/summary?storefrontId=…</code>, the <strong>money preview</strong>. Ordering computes it with the <strong>same <code>PromotionEvaluator</code> checkout charges with</strong>, so the storefront never re-implements promotion maths (<em>shown == charged</em>). The preview scores free shipping against the <strong>real carrier rate</strong> quoted for the shopper's destination — never a flat guess — and says so via <code>basis</code> (<a href="../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md">ADR-0054</a>); a guest counts, because a shippable product requires an address anyway. When the summary is available the cart renders, under <strong>Subtotal</strong>:</p>
+        <div class="table-wrap"><table><thead><tr><th>Row</th><th>Source</th></tr></thead><tbody>
+          <tr><td><code>Discount (n%)</code></td><td>the <strong>storefront-wide items discount</strong> (<code>Storefront.DiscountBasisPoints</code>) — items only, never shipping or tax; a store setting, not a promotion (<a href="../adr/0053-storefront-wide-items-discount.md">ADR-0053</a>)</td></tr>
+          <tr><td><code>Promotion: {name}</code> (one row each)</td><td>every threshold promotion this cart won, with its own share of the discount (<a href="../adr/0051-threshold-promotions-and-combinability.md">ADR-0051</a>)</td></tr>
+          <tr><td><code>Free shipping</code></td><td>a winning promotion granted it — the shipping line is zeroed at checkout</td></tr>
+          <tr><td><code>Free shipping may apply</code></td><td>a shippable cart with <strong>no address yet</strong>, where free shipping is in genuine contention: the figures shown are the guaranteed FLOOR and the reward is not yet decided (<a href="../adr/0054-cart-preview-shipping-basis-and-promotion-parity.md">ADR-0054</a>)</td></tr>
+          <tr><td><code>Renews monthly/yearly at</code></td><td>for a <strong>subscription</strong> line, what the NEXT period costs — the line less only the discount that rides renewals, so an introductory offer cannot be mistaken for the ongoing price (<a href="../adr/0057-subscription-renewal-price-and-introductory-promotions.md">ADR-0057</a>). On a tax-<strong>exclusive</strong> store (US sales tax) it reads "… at $10.00 + tax": each renewal is charged the amount plus the rate in force at the renewal, as checkout adds tax to the first period (owner decision 2026-10-15)</td></tr>
+          <tr><td><code>Items total</code></td><td>subtotal minus both discount kinds, jointly capped at the subtotal</td></tr>
+        </tbody></table></div>
+        <p>Note that <code>GET /cart/summary</code> reports the <strong>offer-resolved</strong> price per line (<a href="../adr/0047-storefront-scoped-active-window-offer-price.md">ADR-0047</a>), while the plain <code>GET /cart</code> deliberately still returns the <strong>add-time</strong> catalog price — which is why the summary, not the cart, drives these rows. If the summary call fails the page falls back to computing only the storefront-wide discount locally and shows no promotion rows. <strong>Coupon codes are entered at checkout</strong>, not here. The full chain is <a href="./pricing-and-promotions.html">Pricing &amp; promotions</a>.</p>
+
         <p>Carts are <strong>single-currency</strong>: items are priced in the storefront currency at add-to-cart time, and adding an item in a different currency is rejected (409). Logging in merges the anonymous cart into the user cart, re-pricing lines into the user cart's currency (unpriced lines are dropped).</p>
         <div class="callout note">
           <span class="mark">i</span>
@@ -167,6 +179,27 @@
         </ol>
         <p>The backend creates the order, starts the checkout saga, and asks Payments to authorize. Which rail runs depends on the resolved <strong>payment mode</strong> (ADR-0039): in dev, <code>Payments:Mode=LocalMock</code> routes authorization to a deterministic mock provider (no external calls) — payment is completed on the confirmation page.</p>
         <p><strong>Subscriptions need a verified member.</strong> A one-time cart checks out as a guest (above). A cart containing a <strong>recurring</strong> line (a subscription/periodic product) cannot: checkout rejects it with a clear message unless the shopper is a <strong>signed-in, email-verified member</strong> who has selected a <strong>reusable instrument</strong> — a saved card or a direct-debit mandate — so renewals can charge off-session. Guests see "Sign in as a member to purchase a subscription"; unverified accounts see "Verify your email…". Direct-debit mandates are set up per storefront currency (USD→ACH, EUR→SEPA, GBP→BACS, AUD→BECS, CAD→ACSS); other currencies are card-only.</p>
+
+        <h3 id="coupon-codes-components-checkout-couponbox-tsx">Coupon codes (<code>components/checkout/CouponBox.tsx</code>)</h3>
+        <p>Above the form sits a <strong>Coupon code</strong> box (<a href="../adr/0052-coupon-codes-and-redemption-limits.md">ADR-0052</a>). It is deliberately a plain <strong>GET form to <code>/checkout?coupon=…</code></strong>, not client state: the code has to reach the <strong>server</strong> so Ordering can validate and price it, the resulting URL is shareable and refresh-safe, and <strong>Remove</strong> is simply a link back to <code>/checkout</code>.</p>
+        <ul>
+          <li><strong>Apply</strong> re-renders the page; <code>GET /cart/summary?couponCode=…</code> runs the <em>same</em> validation checkout runs and returns a numeric <code>couponStatus</code>.</li>
+          <li>On success the box shows <strong>"Coupon <code>{code}</code> applied: <code>{name}</code>"</strong> with a <strong>Remove</strong> link, and the discount appears as an ordinary <code>Promotion: {name}</code> row.</li>
+          <li>Only a status of <strong>Applied</strong> rides the checkout POST (as a hidden <code>couponCode</code> field). A refused code is shown as its reason and left out — so the charge always equals the total on screen. The API still refuses an inapplicable code with a <strong>400 naming the reason</strong>, which guards non-first-party clients and a code that runs out between the preview and the POST.</li>
+        </ul>
+        <p>Each refusal has <strong>its own message</strong>, never a blanket "invalid coupon" (all six storefront locales carry them):</p>
+        <div class="table-wrap"><table><thead><tr><th><code>couponStatus</code></th><th>Message shown</th></tr></thead><tbody>
+          <tr><td>2 <code>UnknownCode</code></td><td>We don't recognise the code <code>{code}</code>.</td></tr>
+          <tr><td>3 <code>Inactive</code></td><td>The code <code>{code}</code> is no longer active.</td></tr>
+          <tr><td>4 <code>NotStarted</code></td><td>The code <code>{code}</code> isn't available yet.</td></tr>
+          <tr><td>5 <code>Expired</code></td><td>The code <code>{code}</code> has expired.</td></tr>
+          <tr><td>6 <code>WrongStorefront</code></td><td>The code <code>{code}</code> can't be used on this store.</td></tr>
+          <tr><td>7 <code>ThresholdNotMet</code></td><td>Your cart doesn't meet the conditions for <code>{code}</code>.</td></tr>
+          <tr><td>8 <code>UsageLimitReached</code></td><td>The code <code>{code}</code> has reached its usage limit.</td></tr>
+          <tr><td>9 <code>CustomerLimitReached</code></td><td>You've already used the code <code>{code}</code>.</td></tr>
+        </tbody></table></div>
+        <p>A coupon is just a <strong>code-gated promotion</strong>, so once unlocked the usual combinability rules decide whether it stacks — and a coupon out-competed by a better automatic promotion is <em>not</em> redeemed. One caveat: a <strong>guest's</strong> per-customer limit cannot be checked in the preview (no email has been typed yet), so the box may report the code as applied and checkout then refuses it with "You've already used the code" — the charge is never wrong, only the warning is late. See <a href="./pricing-and-promotions.html">Pricing &amp; promotions</a>.</p>
+        <p>---</p>
 
         <h2 id="confirmation">6. Confirmation — <code>/checkout/confirmation</code></h2>
         <p>File: <code>app/checkout/confirmation/page.tsx</code> + <code>components/checkout/ConfirmationView.tsx</code>. Requires an <code>?order=&lt;id&gt;</code> param (otherwise: "No order specified.").</p>

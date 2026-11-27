@@ -49,8 +49,9 @@ with a tooltip for an operator without the permission
 
 ## Built-in roles
 
-`admin` (all 24 permissions), `ops`, `finance`, `support`, `merchandiser`, and the system `customer`
-role (no back-office permissions). Roles are **data** — operators edit a role's permission set or clone
+`admin` (all 24 permissions), `ops`, `finance`, `support`, `merchandiser`, and the `customer` and
+`supplier` roles (no back-office permissions; a supplier is scoped to its own supplier entity by the
+`supplier_entity` claim). The default permission sets are in `PermissionRegistry.DefaultRoles`. Roles are **data** — operators edit a role's permission set or clone
 it; built-in roles can't be deleted. The 24 permissions are **code-defined** (`PermissionRegistry`,
 Low/Medium/High risk) and not operator-editable. Manage on the admin **Roles & permissions** screen or
 `/api/identity/admin/rbac`.

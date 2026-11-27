@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" data-preset="classic">
+<html lang="en" data-theme="dark" data-preset="signal-flow">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.13.0">
-  <title>3commerce — Order &amp; Checkout Lifecycle Diagram</title>
+  <title>Order &amp; Checkout Lifecycle Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -4410,7 +4410,6 @@
 .wiki-back:hover{border-color:rgba(128,128,128,.75);}
 @media print{.wiki-back{display:none!important;}}
 </style>
-
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -4504,12 +4503,12 @@
     <div class="header">
       <div class="header-row">
         <div class="pulse-dot"></div>
-        <h1>3commerce — Order &amp; Checkout Lifecycle</h1>
+        <h1>Order &amp; Checkout Lifecycle</h1>
       </div>
-      <p class="subtitle">OrderStatus driven by the MassTransit CheckoutStateMachine saga (Ordering)</p>
+      <p class="subtitle">OrderStatus driven by the MassTransit CheckoutStateMachine saga (Ordering), plus the supplier/operator mark-delivered step</p>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"happy-path","label":"Paid \u0026 confirmed","focus":["pending","awaiting","confirmed"],"note":"The saga arms on CartSubmitted and confirms the order once payment succeeds."},{"id":"failure-path","label":"Cancelled","focus":["awaiting","cancelled"],"note":"A failed authorization or an expiry timeout cancels the checkout cleanly."},{"id":"post-sale","label":"Post-sale refund","focus":["confirmed","refunded"],"note":"An approved RMA reverses the sale after confirmation."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"happy-path","label":"Happy path","focus":["pending","awaiting","confirmed","delivered"],"note":"Checkout creates the order, the saga waits for payment, confirmation books the sale, a supplier or operator marks it delivered."},{"id":"payment-failure","label":"Payment failure","focus":["awaiting","cancelled"],"note":"A failed payment, an explicit cancel or the 30-minute expiry all end in Cancelled."},{"id":"refund","label":"Refund","focus":["confirmed","refunded"],"note":"Only a Confirmed order moves to Refunded, and only when the refund covers it fully; a partial refund leaves it Confirmed."}]</script>
 
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
       <button id="guided-view-prev" type="button" aria-label="Previous guided view" title="Previous guided view ([)">&#8592;</button>
@@ -4552,9 +4551,9 @@
 
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read">
-      <svg viewBox="0 0 1040 680" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
-        <title id="archify-diagram-title">3commerce — Order &amp; Checkout Lifecycle</title>
-        <desc id="archify-diagram-description">OrderStatus driven by the MassTransit CheckoutStateMachine saga (Ordering)</desc>
+      <svg viewBox="0 0 980 600" role="img" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="signal-flow" data-quality-profile="showcase">
+        <title id="archify-diagram-title">Order &amp; Checkout Lifecycle</title>
+        <desc id="archify-diagram-description">OrderStatus driven by the MassTransit CheckoutStateMachine saga (Ordering), plus the supplier/operator mark-delivered step</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -4578,25 +4577,26 @@
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Lifecycle bands -->
-        <path d="M 72 112 L 968 112" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Order status (Ordering service)</text>
-        <path d="M 72 264 L 968 264" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="252" class="t-dim" font-size="10" font-weight="600">02 / Interruptions + recovery</text>
-        <path d="M 72 436 L 968 436" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="424" class="t-dim" font-size="10" font-weight="600">03 / Terminal outcomes</text>
+        <path d="M 72 112 L 908 112" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
+        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Order status</text>
+        <path d="M 72 264 L 908 264" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
+        <text x="72" y="252" class="t-dim" font-size="10" font-weight="600">02 / Terminal exits</text>
+        <path d="M 72 436 L 908 436" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
+        <text x="72" y="424" class="t-dim" font-size="10" font-weight="600">03 / Outcomes</text>
 
         <!-- Primary lifecycle rail -->
         <path d="M 154 157 L 594 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Transition paths -->
-        <path data-edge-from="pending" data-edge-to="awaiting" data-edge-label="CartSubmitted" data-edge-key="0" data-composition-points="153,157;189,157" d="M 153 157 L 189 157" class="a-emphasis" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="pending" data-edge-to="awaiting" data-edge-label="CartSubmitted" data-edge-key="0" data-composition-points="153,157;189,157" d="M 153 157 L 189 157" class="a-default" stroke-width="1.1" marker-end="url(#arrowhead)"/>
         <path data-edge-from="awaiting" data-edge-to="confirmed" data-edge-label="PaymentSucceeded" data-edge-key="1" data-composition-points="307,157;343,157" d="M 307 157 L 343 157" class="a-emphasis" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="confirmed" data-edge-to="refunded" data-edge-label="RMA approved" data-edge-key="2" data-composition-points="461,157;497,157" d="M 461 157 L 497 157" class="a-dashed" stroke-width="1.1" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="awaiting" data-edge-to="cancelled" data-edge-label="PaymentFailed / timeout" data-edge-key="3" data-composition-points="248,188;248,319;556,319;556,450" d="M 248 188 L 248 309 Q 248 319 258 319 L 546 319 Q 556 319 556 329 L 556 450" class="a-security" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="confirmed" data-edge-to="delivered" data-edge-label="mark delivered" data-edge-key="2" data-composition-points="461,157;497,157" d="M 461 157 L 497 157" class="a-default" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="awaiting" data-edge-to="cancelled" data-edge-key="3" data-composition-points="248,188;248,233;402,233;402,278" d="M 248 188 L 248 223 Q 248 233 258 233 L 392 233 Q 402 233 402 243 L 402 278" class="a-security" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="confirmed" data-edge-to="refunded" data-edge-key="4" data-composition-points="402,188;402,233;556,233;556,278" d="M 402 188 L 402 223 Q 402 233 412 233 L 546 233 Q 556 233 556 243 L 556 278" class="a-dashed" stroke-width="1.1" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- States -->
-        <g id="node-pending" data-node-id="pending" data-node-label="Pending" tabindex="0" role="button" aria-label="Focus Pending, checkout created, Order status (Ordering service)" aria-pressed="false" data-node-kind="start" data-node-sublabel="checkout created" data-node-tag="Pending" data-node-context="Order status (Ordering service)">
-          <title>Pending · checkout created · Order status (Ordering service) · Pending</title>
+        <g id="node-pending" data-node-id="pending" data-node-label="Pending" tabindex="0" role="button" aria-label="Focus Pending, checkout created, Order status" aria-pressed="false" data-node-kind="start" data-node-sublabel="checkout created" data-node-tag="Pending" data-node-context="Order status">
+          <title>Pending · checkout created · Order status · Pending</title>
           <rect x="35" y="126" width="118" height="62" rx="7" class="c-mask"/>
           <rect x="35" y="126" width="118" height="62" rx="7" class="c-frontend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-frontend" transform="translate(136 132) scale(0.6875)">
@@ -4609,8 +4609,8 @@
         <text data-detail="fine" x="94" y="177" class="t-frontend" font-size="7" text-anchor="middle">Pending</text>
         </g>
 
-        <g id="node-awaiting" data-node-id="awaiting" data-node-label="Awaiting Payment" tabindex="0" role="button" aria-label="Focus Awaiting Payment, timer armed, Order status (Ordering service)" aria-pressed="false" data-node-kind="waiting" data-node-sublabel="timer armed" data-node-tag="saga wait" data-node-context="Order status (Ordering service)">
-          <title>Awaiting Payment · timer armed · Order status (Ordering service) · saga wait</title>
+        <g id="node-awaiting" data-node-id="awaiting" data-node-label="Awaiting Payment" tabindex="0" role="button" aria-label="Focus Awaiting Payment, timer armed, Order status" aria-pressed="false" data-node-kind="waiting" data-node-sublabel="timer armed" data-node-tag="saga wait" data-node-context="Order status">
+          <title>Awaiting Payment · timer armed · Order status · saga wait</title>
           <rect x="189" y="126" width="118" height="62" rx="7" class="c-mask"/>
           <rect x="189" y="126" width="118" height="62" rx="7" class="c-cloud" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(290 132) scale(0.6875)">
@@ -4622,8 +4622,8 @@
         <text data-detail="fine" x="248" y="177" class="t-cloud" font-size="7" text-anchor="middle">saga wait</text>
         </g>
 
-        <g id="node-confirmed" data-node-id="confirmed" data-node-label="Confirmed" tabindex="0" role="button" aria-label="Focus Confirmed, sale posted, Order status (Ordering service)" aria-pressed="false" data-node-kind="success" data-node-sublabel="sale posted" data-node-tag="finalized" data-node-context="Order status (Ordering service)">
-          <title>Confirmed · sale posted · Order status (Ordering service) · finalized</title>
+        <g id="node-confirmed" data-node-id="confirmed" data-node-label="Confirmed" tabindex="0" role="button" aria-label="Focus Confirmed, sale posted, Order status" aria-pressed="false" data-node-kind="success" data-node-sublabel="sale posted" data-node-tag="finalized" data-node-context="Order status">
+          <title>Confirmed · sale posted · Order status · finalized</title>
           <rect x="343" y="126" width="118" height="62" rx="7" class="c-mask"/>
           <rect x="343" y="126" width="118" height="62" rx="7" class="c-database" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(444 132) scale(0.6875)">
@@ -4636,74 +4636,82 @@
         <text data-detail="fine" x="402" y="177" class="t-database" font-size="7" text-anchor="middle">finalized</text>
         </g>
 
-        <g id="node-refunded" data-node-id="refunded" data-node-label="Refunded" tabindex="0" role="button" aria-label="Focus Refunded, sale reversed, Order status (Ordering service)" aria-pressed="false" data-node-kind="neutral" data-node-sublabel="sale reversed" data-node-tag="terminal" data-node-context="Order status (Ordering service)">
-          <title>Refunded · sale reversed · Order status (Ordering service) · terminal</title>
+        <g id="node-delivered" data-node-id="delivered" data-node-label="Delivered" tabindex="0" role="button" aria-label="Focus Delivered, marked by supplier / operator, Order status" aria-pressed="false" data-node-kind="success" data-node-sublabel="marked by supplier / operator" data-node-tag="terminal" data-node-context="Order status">
+          <title>Delivered · marked by supplier / operator · Order status · terminal</title>
           <rect x="497" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="497" y="126" width="118" height="62" rx="7" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="neutral" class="semantic-sigil s-external" transform="translate(598 132) scale(0.6875)">
-            <rect x="3" y="3" width="10" height="10" rx="2"/>
-            <circle cx="8" cy="8" r="1.2" class="sigil-fill"/>
+          <rect x="497" y="126" width="118" height="62" rx="7" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(598 132) scale(0.6875)">
+            <circle cx="8" cy="8" r="5.3"/>
+            <path d="m5.2 8 1.8 1.8 3.8-4"/>
           </g>
-        <text data-detail="fine" x="507" y="140" class="t-muted" font-size="7" font-weight="700">5</text>
-          <text data-detail-anchor x="556" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Refunded</text>
-          <text data-detail="context" x="556" y="163" class="t-muted" font-size="7" text-anchor="middle">sale reversed</text>
-        <text data-detail="fine" x="556" y="177" class="t-muted" font-size="7" text-anchor="middle">terminal</text>
+        <text data-detail="fine" x="507" y="140" class="t-database" font-size="7" font-weight="700">6</text>
+          <text data-detail-anchor x="556" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Delivered</text>
+          <text data-detail="context" x="556" y="163" class="t-muted" font-size="6.3" text-anchor="middle">marked by supplier / operator</text>
+        <text data-detail="fine" x="556" y="177" class="t-database" font-size="7" text-anchor="middle">terminal</text>
         </g>
 
-        <g id="node-cancelled" data-node-id="cancelled" data-node-label="Cancelled" tabindex="0" role="button" aria-label="Focus Cancelled, failed / timed out, Terminal outcomes" aria-pressed="false" data-node-kind="failure" data-node-sublabel="failed / timed out" data-node-tag="terminal" data-node-context="Terminal outcomes">
-          <title>Cancelled · failed / timed out · Terminal outcomes · terminal</title>
-          <rect x="497" y="450" width="118" height="58" rx="7" class="c-mask"/>
-          <rect x="497" y="450" width="118" height="58" rx="7" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="failure" class="semantic-sigil s-security" transform="translate(598 456) scale(0.6875)">
+        <g id="node-cancelled" data-node-id="cancelled" data-node-label="Cancelled" tabindex="0" role="button" aria-label="Focus Cancelled, PaymentFailed / timeout, Terminal exits" aria-pressed="false" data-node-kind="failure" data-node-sublabel="PaymentFailed / timeout" data-node-tag="terminal" data-node-context="Terminal exits">
+          <title>Cancelled · PaymentFailed / timeout · Terminal exits · terminal</title>
+          <rect x="339" y="278" width="126" height="58" rx="7" class="c-mask"/>
+          <rect x="339" y="278" width="126" height="58" rx="7" class="c-security" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="failure" class="semantic-sigil s-security" transform="translate(448 284) scale(0.6875)">
             <circle cx="8" cy="8" r="5.3"/>
             <path d="m5.7 5.7 4.6 4.6m0-4.6-4.6 4.6"/>
           </g>
-        <text data-detail="fine" x="507" y="464" class="t-security" font-size="7" font-weight="700">4</text>
-          <text data-detail-anchor x="556" y="471" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Cancelled</text>
-          <text data-detail="context" x="556" y="487" class="t-muted" font-size="7" text-anchor="middle">failed / timed out</text>
-        <text data-detail="fine" x="556" y="497" class="t-security" font-size="7" text-anchor="middle">terminal</text>
+        <text data-detail="fine" x="349" y="292" class="t-security" font-size="7" font-weight="700">4</text>
+          <text data-detail-anchor x="402" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Cancelled</text>
+          <text data-detail="context" x="402" y="315" class="t-muted" font-size="7" text-anchor="middle">PaymentFailed / timeout</text>
+        <text data-detail="fine" x="402" y="325" class="t-security" font-size="7" text-anchor="middle">terminal</text>
+        </g>
+
+        <g id="node-refunded" data-node-id="refunded" data-node-label="Refunded" tabindex="0" role="button" aria-label="Focus Refunded, full refund of a Confirmed order, Terminal exits" aria-pressed="false" data-node-kind="success" data-node-sublabel="full refund of a Confirmed order" data-node-tag="terminal" data-node-context="Terminal exits">
+          <title>Refunded · full refund of a Confirmed order · Terminal exits · terminal</title>
+          <rect x="493" y="278" width="126" height="58" rx="7" class="c-mask"/>
+          <rect x="493" y="278" width="126" height="58" rx="7" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(602 284) scale(0.6875)">
+            <circle cx="8" cy="8" r="5.3"/>
+            <path d="m5.2 8 1.8 1.8 3.8-4"/>
+          </g>
+        <text data-detail="fine" x="503" y="292" class="t-database" font-size="7" font-weight="700">5</text>
+          <text data-detail-anchor x="556" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Refunded</text>
+          <text data-detail="context" x="556" y="315" class="t-muted" font-size="6.1" text-anchor="middle">full refund of a Confirmed order</text>
+        <text data-detail="fine" x="556" y="325" class="t-database" font-size="7" text-anchor="middle">terminal</text>
         </g>
 
         <!-- Transition labels -->
         <g data-detail="context" data-edge-from="pending" data-edge-to="awaiting" data-edge-label="CartSubmitted" data-edge-key="0">
           <rect x="133.15" y="111" width="75.7" height="16" rx="4" class="c-mask"/>
-          <text x="171" y="122" class="t-backend" font-size="8" text-anchor="middle">CartSubmitted</text>
+          <text x="171" y="122" class="t-muted" font-size="8" text-anchor="middle">CartSubmitted</text>
         </g>
         <g data-detail="context" data-edge-from="awaiting" data-edge-to="confirmed" data-edge-label="PaymentSucceeded" data-edge-key="1">
           <rect x="279.8" y="111" width="90.4" height="16" rx="4" class="c-mask"/>
           <text x="325" y="122" class="t-backend" font-size="8" text-anchor="middle">PaymentSucceeded</text>
         </g>
-        <g data-detail="context" data-edge-from="confirmed" data-edge-to="refunded" data-edge-label="RMA approved" data-edge-key="2">
-          <rect x="443.6" y="111" width="70.80000000000001" height="16" rx="4" class="c-mask"/>
-          <text x="479" y="122" class="t-messagebus" font-size="8" text-anchor="middle">RMA approved</text>
+        <g data-detail="context" data-edge-from="confirmed" data-edge-to="delivered" data-edge-label="mark delivered" data-edge-key="2">
+          <rect x="438.7" y="111" width="80.60000000000001" height="16" rx="4" class="c-mask"/>
+          <text x="479" y="122" class="t-muted" font-size="8" text-anchor="middle">mark delivered</text>
         </g>
-        <g data-detail="context" data-edge-from="awaiting" data-edge-to="cancelled" data-edge-label="PaymentFailed / timeout" data-edge-key="3">
-          <rect x="185.65" y="224" width="124.7" height="16" rx="4" class="c-mask"/>
-          <text x="248" y="235" class="t-security" font-size="8" text-anchor="middle">PaymentFailed / timeout</text>
-        </g>
+
+
 
         <!-- Legend -->
         <g data-legend data-legend-bridge>
-          <text x="40" y="624" class="t-primary" font-size="10" font-weight="600">Legend</text>
-          <g data-legend-semantic-kind="start" data-legend-kind="start" data-legend-label="start" data-legend-x="40" data-legend-baseline="644" data-legend-width="67">
-            <rect x="40" y="636" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="61" y="644" class="t-muted" font-size="8">start</text>
+          <text x="40" y="544" class="t-primary" font-size="10" font-weight="600">Legend</text>
+          <g data-legend-semantic-kind="start" data-legend-kind="start" data-legend-label="start" data-legend-x="40" data-legend-baseline="564" data-legend-width="67">
+            <rect x="40" y="556" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+            <text x="61" y="564" class="t-muted" font-size="8">start</text>
           </g>
-          <g data-legend-semantic-kind="waiting" data-legend-kind="waiting" data-legend-label="waiting" data-legend-x="129" data-legend-baseline="644" data-legend-width="77">
-            <rect x="129" y="636" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
-            <text x="150" y="644" class="t-muted" font-size="8">waiting</text>
+          <g data-legend-semantic-kind="waiting" data-legend-kind="waiting" data-legend-label="waiting" data-legend-x="129" data-legend-baseline="564" data-legend-width="77">
+            <rect x="129" y="556" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+            <text x="150" y="564" class="t-muted" font-size="8">waiting</text>
           </g>
-          <g data-legend-semantic-kind="success" data-legend-kind="success" data-legend-label="terminal success" data-legend-x="228" data-legend-baseline="644" data-legend-width="122">
-            <rect x="228" y="636" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="249" y="644" class="t-muted" font-size="8">terminal success</text>
+          <g data-legend-semantic-kind="success" data-legend-kind="success" data-legend-label="terminal success" data-legend-x="228" data-legend-baseline="564" data-legend-width="122">
+            <rect x="228" y="556" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="249" y="564" class="t-muted" font-size="8">terminal success</text>
           </g>
-          <g data-legend-semantic-kind="failure" data-legend-kind="failure" data-legend-label="failure / exit" data-legend-x="372" data-legend-baseline="644" data-legend-width="112">
-            <rect x="372" y="636" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="393" y="644" class="t-muted" font-size="8">failure / exit</text>
-          </g>
-          <g data-legend-semantic-kind="neutral" data-legend-kind="neutral" data-legend-label="neutral" data-legend-x="506" data-legend-baseline="644" data-legend-width="77">
-            <rect x="506" y="636" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="527" y="644" class="t-muted" font-size="8">neutral</text>
+          <g data-legend-semantic-kind="failure" data-legend-kind="failure" data-legend-label="failure / exit" data-legend-x="372" data-legend-baseline="564" data-legend-width="112">
+            <rect x="372" y="556" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="393" y="564" class="t-muted" font-size="8">failure / exit</text>
           </g>
         </g>
       </svg>
@@ -4892,35 +4900,24 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>One saga per checkout</h3>
+          <h3>Saga-driven</h3>
         </div>
         <ul>
-          <li>&bull; CheckoutStateMachine correlates on the order id</li>
-          <li>&bull; CartSubmitted arms an expiry timeout and moves to Awaiting Payment</li>
-          <li>&bull; The order is the source of truth; Payments confirms it via events</li>
+          <li>&bull; CheckoutStateMachine owns Pending to Confirmed or Cancelled</li>
+          <li>&bull; The expiry timer is armed with the checkout</li>
+          <li>&bull; Every transition is idempotent on redelivery</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Confirmation</h3>
+          <h3>After confirmation</h3>
         </div>
         <ul>
-          <li>&bull; PaymentSucceeded publishes CheckoutCompleted and finalizes the saga</li>
-          <li>&bull; OrderStatus becomes Confirmed and the sale posts a balanced ledger entry</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot rose"></div>
-          <h3>Terminal exits</h3>
-        </div>
-        <ul>
-          <li>&bull; PaymentFailed or an expiry timeout publishes OrderCancelled → Cancelled</li>
-          <li>&bull; An approved RMA reverses a confirmed sale → Refunded</li>
-          <li>&bull; Cancelled and Refunded are terminal</li>
+          <li>&bull; Delivered is set over HTTP by the fulfilling supplier or an operator</li>
+          <li>&bull; A fully refunded Confirmed order becomes Refunded</li>
+          <li>&bull; A partial refund only flags the order, it stays Confirmed</li>
         </ul>
       </div>
     </div>

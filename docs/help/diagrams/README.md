@@ -8,8 +8,9 @@ spec and re-delivers — no re-authoring from scratch.
 |------|------|---------------|
 | `runtime-architecture.architecture.json` | architecture | `../runtime-architecture.html` |
 | `readcopy-dataflow.dataflow.json` | dataflow | `../readcopy-dataflow.html` |
+| `order-lifecycle.lifecycle.json` | lifecycle | `../order-lifecycle.html` |
 
-> The other diagram pages (`order-workflow`, `checkout-sequence`, `order-lifecycle`)
+> The other diagram pages (`order-workflow`, `checkout-sequence`)
 > predate this folder and have no committed spec yet — back-fill them the same way when
 > they next need an update.
 
@@ -31,8 +32,12 @@ node "$ARCHIFY/bin/archify.mjs" deliver architecture \
   docs/help/runtime-architecture.html --quality showcase --json
 ```
 
-Use `dataflow` (not `architecture`) for `readcopy-dataflow.dataflow.json`. `deliver`
+Use `dataflow` (not `architecture`) for `readcopy-dataflow.dataflow.json` and `lifecycle` for `order-lifecycle.lifecycle.json`. `deliver`
 exits non-zero on any check failure and leaves the previous HTML untouched.
+
+> **After every `deliver`:** the generated HTML has no way back to the wiki. Each diagram page carries a
+> small `<a class="wiki-back">← Wiki</a>` anchor + `<style>` block right after `<body>` — copy it from
+> `../order-workflow.html` into the freshly written page (a re-delivery drops it).
 
 ## Conventions
 

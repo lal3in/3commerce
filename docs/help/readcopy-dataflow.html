@@ -4403,6 +4403,13 @@
   </style>
 </head>
 <body>
+<a class="wiki-back no-print" href="index.html" title="Back to the Operations Wiki">&#8592; Wiki</a>
+<style>
+.wiki-back{position:fixed;top:1rem;left:1rem;z-index:101;display:inline-flex;align-items:center;gap:.4rem;padding:.42rem .7rem;font:600 .82rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;border-radius:.5rem;border:1px solid rgba(128,128,128,.35);color:#e6e8ee;background:rgba(24,26,33,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+:root[data-theme="light"] .wiki-back{color:#1f2430;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.18);}
+.wiki-back:hover{border-color:rgba(128,128,128,.75);}
+@media print{.wiki-back{display:none!important;}}
+</style>
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -4646,15 +4653,15 @@
           <text data-detail="context" x="315" y="279" class="t-muted" font-size="7" text-anchor="middle">OrderSnapshotConsumer</text>
         </g>
 
-        <g id="node-orderingProj" data-node-id="orderingProj" data-node-label="Ordering projector" tabindex="0" role="button" aria-label="Focus Ordering projector, OfferCopyConsumer, 02 / Projection consumer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OfferCopyConsumer" data-node-context="02 / Projection consumer">
-          <title>Ordering projector · OfferCopyConsumer · 02 / Projection consumer</title>
+        <g id="node-orderingProj" data-node-id="orderingProj" data-node-label="Ordering projector" tabindex="0" role="button" aria-label="Focus Ordering projector, OfferChangedConsumer, 02 / Projection consumer" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OfferChangedConsumer" data-node-context="02 / Projection consumer">
+          <title>Ordering projector · OfferChangedConsumer · 02 / Projection consumer</title>
           <rect x="259" y="356" width="112" height="58" rx="6" class="c-mask"/>
           <rect x="259" y="356" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(265 362) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-detail-anchor x="315" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Ordering projector</text>
-          <text data-detail="context" x="315" y="393" class="t-muted" font-size="7" text-anchor="middle">OfferCopyConsumer</text>
+          <text data-detail="context" x="315" y="393" class="t-muted" font-size="7" text-anchor="middle">OfferChangedConsumer</text>
         </g>
 
         <g id="node-supportedCurrency" data-node-id="supportedCurrency" data-node-label="SupportedCurrency" tabindex="0" role="button" aria-label="Focus SupportedCurrency, validates input, 03 / Local read-copy" aria-pressed="false" data-node-kind="database" data-node-sublabel="validates input" data-node-tag="read here" data-node-context="03 / Local read-copy">

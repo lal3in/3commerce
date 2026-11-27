@@ -4403,6 +4403,13 @@
   </style>
 </head>
 <body>
+<a class="wiki-back no-print" href="index.html" title="Back to the Operations Wiki">&#8592; Wiki</a>
+<style>
+.wiki-back{position:fixed;top:1rem;left:1rem;z-index:101;display:inline-flex;align-items:center;gap:.4rem;padding:.42rem .7rem;font:600 .82rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;border-radius:.5rem;border:1px solid rgba(128,128,128,.35);color:#e6e8ee;background:rgba(24,26,33,.85);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+:root[data-theme="light"] .wiki-back{color:#1f2430;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.18);}
+.wiki-back:hover{border-color:rgba(128,128,128,.75);}
+@media print{.wiki-back{display:none!important;}}
+</style>
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
        Motion appears only for trace-enabled artifacts and has no shortcut;
        Keyboard: T toggles theme, S cycles style, F toggles the stage, E opens export. -->
@@ -4501,7 +4508,7 @@
       <p class="subtitle">Front-ends, YARP gateway, the .NET microservice fleet, and the event + state fabric they run on</p>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"request-path","label":"Request path","focus":["clients","storefront","admin","gateway","services"],"note":"Browser traffic enters the front-ends and is routed, authenticated, and claims-stamped by the gateway."},{"id":"state","label":"State ownership","focus":["services","postgres","redis"],"note":"Each service owns its own Postgres schema (FORCE RLS); Redis is the shared cache / session / idempotency store."},{"id":"events","label":"Event fabric","focus":["services","rabbitmq","kafka"],"note":"Services never call each other directly — RabbitMQ carries commands/sagas, Kafka carries committed facts."},{"id":"operations","label":"Providers \u0026 telemetry","focus":["services","providers","observability"],"note":"External money/accounting providers are adapter-gated; every hop emits OTLP to the LGTM stack."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[{"id":"request-path","label":"Request path","focus":["clients","storefront","admin","gateway","services"],"note":"Browser traffic enters the front-ends and is routed, authenticated, and claims-stamped by the gateway."},{"id":"state","label":"State ownership","focus":["services","postgres","redis"],"note":"Each service owns its Postgres schema (FORCE RLS); Redis (Valkey) is the shared fast-path cache for rate limits and dedupe.."},{"id":"events","label":"Event fabric","focus":["services","rabbitmq","kafka"],"note":"Services never call each other directly — RabbitMQ carries commands/sagas, Kafka carries committed facts."},{"id":"operations","label":"Providers \u0026 telemetry","focus":["services","providers","observability"],"note":"External money/accounting providers are adapter-gated; every hop emits OTLP to the LGTM stack."}]</script>
 
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
       <button id="guided-view-prev" type="button" aria-label="Previous guided view" title="Previous guided view ([)">&#8592;</button>
@@ -4656,15 +4663,15 @@
         <text data-detail="fine" x="527" y="354" class="t-security" font-size="7" text-anchor="middle">platform</text>
         </g>
 
-        <g id="node-services" data-node-id="services" data-node-label="Domain services" tabindex="0" role="button" aria-label="Focus Domain services, 14 .NET microservices, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="backend" data-node-sublabel="14 .NET microservices" data-node-tag="one Postgres schema each" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
-          <title>Domain services · 14 .NET microservices · Internal network — mesh over the bus, no direct service-to-service calls · one Postgres schema each</title>
+        <g id="node-services" data-node-id="services" data-node-label="Domain services" tabindex="0" role="button" aria-label="Focus Domain services, 13 .NET services + worker, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="backend" data-node-sublabel="13 .NET services + worker" data-node-tag="one Postgres schema each" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>Domain services · 13 .NET services + worker · Internal network — mesh over the bus, no direct service-to-service calls · one Postgres schema each</title>
           <rect x="672" y="296" width="172" height="84" rx="6" class="c-mask"/>
           <rect x="672" y="296" width="172" height="84" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(678 302) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-detail-anchor x="758" y="336" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Domain services</text>
-        <text data-detail="context" x="758" y="352" class="t-muted" font-size="9" text-anchor="middle">14 .NET microservices</text>
+        <text data-detail="context" x="758" y="352" class="t-muted" font-size="9" text-anchor="middle">13 .NET services + worker</text>
         <text data-detail="fine" x="758" y="372" class="t-backend" font-size="7" text-anchor="middle">one Postgres schema each</text>
         </g>
 
@@ -4681,8 +4688,8 @@
         <text data-detail="fine" x="1055" y="148" class="t-database" font-size="7" text-anchor="middle">data</text>
         </g>
 
-        <g id="node-redis" data-node-id="redis" data-node-label="Redis" tabindex="0" role="button" aria-label="Focus Redis, cache · sessions · idempotency, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="database" data-node-sublabel="cache · sessions · idempotency" data-node-tag="data" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
-          <title>Redis · cache · sessions · idempotency · Internal network — mesh over the bus, no direct service-to-service calls · data</title>
+        <g id="node-redis" data-node-id="redis" data-node-label="Redis" tabindex="0" role="button" aria-label="Focus Redis, cache · rate limit · dedupe, Internal network — mesh over the bus, no direct service-to-service calls" aria-pressed="false" data-node-kind="database" data-node-sublabel="cache · rate limit · dedupe" data-node-tag="data" data-node-context="Internal network — mesh over the bus, no direct service-to-service calls">
+          <title>Redis · cache · rate limit · dedupe · Internal network — mesh over the bus, no direct service-to-service calls · data</title>
           <rect x="980" y="186" width="150" height="60" rx="6" class="c-mask"/>
           <rect x="980" y="186" width="150" height="60" rx="6" class="c-database" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(986 192) scale(0.6875)">
@@ -4690,7 +4697,7 @@
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
           <text data-detail-anchor x="1055" y="214" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Redis</text>
-        <text data-detail="context" x="1055" y="230" class="t-muted" font-size="7.8" text-anchor="middle">cache · sessions · idempotency</text>
+        <text data-detail="context" x="1055" y="230" class="t-muted" font-size="8.7" text-anchor="middle">cache · rate limit · dedupe</text>
         <text data-detail="fine" x="1055" y="238" class="t-database" font-size="7" text-anchor="middle">data</text>
         </g>
 
@@ -4984,12 +4991,12 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>The 14 microservices</h3>
+          <h3>The 13 services + Notifications worker</h3>
         </div>
         <ul>
           <li>&bull; Identity · Catalog · Ordering · Payments · Fulfillment</li>
           <li>&bull; Support · Entity · Marketing · Pricing · Usage</li>
-          <li>&bull; Entitlement · Workflow · Audit (+ Notifications worker)</li>
+          <li>&bull; Entitlement · Workflow · Audit · Notifications worker (event consumer)</li>
           <li>&bull; Each owns its Postgres schema behind the gateway</li>
         </ul>
       </div>
@@ -5016,7 +5023,7 @@
           <li>&bull; Entity owns the currency registry (master data) → CurrencyChanged</li>
           <li>&bull; Per-storefront ledger accounts live in Payments</li>
           <li>&bull; Quartz schedules jobs per service; Workflow aggregates run history</li>
-          <li>&bull; Redis-backed rate-limit + idempotency + sessions (ADR-0044)</li>
+          <li>&bull; Valkey/Redis fast-path: distributed rate-limit + webhook dedupe + optional session cache (ADR-0044)</li>
         </ul>
       </div>
     </div>
