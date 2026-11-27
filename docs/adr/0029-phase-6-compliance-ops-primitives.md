@@ -105,3 +105,9 @@ the plan status.
 - The "right" services (Audit projection, Workflow) still land later; the primitives become their
   internals, and the event seams (audit entries, `SubscriptionRequested`, webhook contracts) already
   exist.
+
+## Later changes (recorded 2026-11-27)
+
+- The "services deferred" half of this decision is **superseded by [ADR-0030](./0030-deferred-services-extracted.md)**:
+  Audit and Workflow (and Marketing, Pricing, Entitlement, Usage) are now standalone DB-owning services
+  (`scripts/lib/services.sh`). The capability-first primitives described here remain the substrate they build on.

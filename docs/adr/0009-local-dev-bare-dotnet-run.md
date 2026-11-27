@@ -22,3 +22,14 @@ Services run bare (`dotnet run` each, full debugger); only **Postgres and Rabbit
 
 - Observability comes from OpenTelemetry wiring, not an orchestrator dashboard.
 - Revisit (possibly Aspire or compose) if "N terminals" friction grows; this ADR is cheap to supersede.
+
+## Later changes (recorded 2026-11-27)
+
+The bare-run loop stands (`scripts/dev-up.sh` → `scripts/run-all.sh`); two facts have moved on:
+
+- **More infra runs in containers than Postgres and RabbitMQ.** `docker-compose.infra.yml` adds Valkey (ADR-0044)
+  and, in the `portals` profile, Kafka + Kafka UI (ADR-0034), pgAdmin, redis-exporter and GlitchTip (ADR-0067); the
+  OTel collector, Prometheus, Grafana, Loki/Tempo/Mimir and Pyroscope are borrowed from `docker-compose.yml`
+  (ADR-0065/0068). The whole set is started and stopped all-or-nothing by `scripts/lib/infra.sh`.
+- **Kubernetes is no longer deferred** — the containerized path (compose → Helm chart `deploy/helm/3commerce`, CI
+  `kind-deploy`) landed under [ADR-0021](./0021-containerized-launch.md), alongside, not instead of, bare-run dev.

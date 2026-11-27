@@ -26,3 +26,12 @@ The Support service implements:
 
 - The RMA flow is the integration capstone — it exercises every service plus both external integrations.
 - Refunds have exactly one path through the system, keeping the ledger authoritative (ADR-0014).
+
+## Later changes (recorded 2026-11-27)
+
+- **The RMA saga's states as built** (`src/Services/Support/Infrastructure/Sagas/RmaStateMachine.cs`):
+  `Requested → AwaitingReturn | RefundPending | Denied`, `AwaitingReturn → RefundPending` on receipt, and
+  `RefundPending → RefundIssued | RefundFailed`. "Approved" and "ReturnReceived" are transitions (events), not
+  persisted states, and a failed refund is its own terminal state. An admin-initiated refund arrives pre-approved
+  (`AutoApprove`) and starts directly in `RefundPending`, so every refund still takes the one saga path. The ticket
+  reasons are as decided.

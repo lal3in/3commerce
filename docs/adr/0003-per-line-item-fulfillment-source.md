@@ -21,3 +21,12 @@ Every order line item carries a `FulfillmentSource` field (`Unassigned` | `Drops
 
 - Fulfillment service groups shipments by per-line source.
 - The dropship-vs-warehouse decision is deferred without schema risk; choosing later is config + importer work, not a migration.
+
+## Later changes (recorded 2026-11-27)
+
+- **Generalized by [ADR-0028](./0028-product-supply-profiles-composable-supply.md).** The per-line principle stands,
+  but the `FulfillmentSource {Unassigned, Dropship(supplierId), OwnWarehouse}` field became a typed
+  `FulfilmentType` (`Unassigned`, `Dropship`, `Warehouse`, `DigitalDownload`, `Subscription`, `Usage`,
+  `ManualService`, …) plus a separate resolved `SupplierId` and `BillingMode` on each order line
+  (`src/Services/Ordering/Domain/Order.cs`), from one shared vocabulary in `BuildingBlocks.Contracts.Supply`.
+  The line's supply is resolved from its Offer at checkout.
