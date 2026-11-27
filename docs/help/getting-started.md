@@ -29,6 +29,12 @@ fake/sandbox rails and launch gates are described accurately.
 | RabbitMQ AMQP / management UI | `5672` / `15672` (guest/guest) |
 | GlitchTip error inbox (ADR-0067) | `8000` (sign-in: `deploy/observability/glitchtip/glitchtip.env`) |
 | Pyroscope continuous profiling (ADR-0068) | `4040` (also Grafana → Explore → Pyroscope) |
+| Valkey (Redis-compatible cache) | `6379` |
+| Kafka (host listener) / Kafka UI | `29092` / `8090` |
+| pgAdmin (all service DBs) | `5480` (admin@3commerce.dev / pgadmin_dev) |
+| Grafana (LGTM; admin/admin) | `3001` |
+| OTel collector OTLP gRPC / HTTP · Faro receiver | `4317` / `4318` · `8027` |
+| Loki / Tempo / Mimir | `3100` / `3200` / `9009` |
 
 > The dev "complete test payment" path and `e2e-verify.sh` address Payments
 > directly on **`:5104`** (`/dev/simulate-payment/...`); everything else goes

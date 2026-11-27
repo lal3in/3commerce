@@ -149,6 +149,8 @@ npm run test:e2e:headed              # headed (debugging)
 - **`auth.spec.ts`** — unauth `/account` redirects to login; register → log in →
   reach account; wrong password shows an error.
 
+**Also in `e2e/`** (21 more specs, by file name): `account-business-identity.spec.ts`, `approval-scope-guard.spec.ts`, `broken-images.spec.ts`, `checkout-business-purchase.spec.ts`, `checkout-collect-warehouse.spec.ts`, `currency-tax.spec.ts`, `hermetic-images.spec.ts`, `home-render.spec.ts`, `i18n-switcher.spec.ts`, `infra-portals.spec.ts`, `observability-portals.spec.ts`, `observability-storefront.spec.ts`, `promotion-shipping-parity.spec.ts`, `renewal-plus-tax.spec.ts`, `saved-card-billing-address.spec.ts`, `screenshots.spec.ts`, `ship-rules.spec.ts`, `ship-to.spec.ts`, `subscription-pay-page.spec.ts`, `telemetry-scrub.spec.ts`, `usage-charge-pay-page.spec.ts`.
+
 ### Admin specs (`e2e-admin/`)
 
 - **`admin.spec.ts`** — unauth redirects to `/login`; login reaches the dashboard
@@ -167,10 +169,14 @@ npm run test:e2e:headed              # headed (debugging)
   `seedPaidOrderWithRma` (seeds a paid order + open RMA via the gateway so the UI
   test can focus on approve → refund), and `rmaState`.
 
+**Also in `e2e-admin/`** (30 more specs, by file name): `admin-actions.spec.ts`, `approval-gated-availability.spec.ts`, `broken-images.spec.ts`, `catalog-variant-spacing.spec.ts`, `commerce-ops-duplicated-from.spec.ts`, `commerce-ops-publication.spec.ts`, `currencies.spec.ts`, `currency-coverage.spec.ts`, `currency-variable-decimals.spec.ts`, `dashboard-cash-breakdown.spec.ts`, `financials-chart.spec.ts`, `financials.spec.ts`, `ledger-filters.spec.ts`, `ledger-storefront-column.spec.ts`, `mission-control-run-now.spec.ts`, `mission-control.spec.ts`, `offer-form-dropdowns.spec.ts`, `offer-storefront-pricing.spec.ts`, `offers-product-search.spec.ts`, `offers-storefront-window.spec.ts`, `offers-title-modal.spec.ts`, `orders-storefront-filters.spec.ts`, `screenshots.spec.ts`, `seller-identity.spec.ts`, `storefront-lifecycle.spec.ts`, `subscription-charge-refund.spec.ts`, `subscriptions.spec.ts`, `supplier-console.spec.ts`, `suppliers.spec.ts`, `xero-target.spec.ts`.
+
 ### Supplier specs (`e2e-supplier/`)
 
 - **`supplier.spec.ts`** — unauthenticated redirect to supplier sign-in, login,
   readiness check, stock-feed request, and supplier change-request submission.
+
+**Also in `e2e-supplier/`** (4 more specs, by file name): `supplier-details.spec.ts`, `supplier-identifiers.spec.ts`, `supplier-orders-deliver.spec.ts`, `supplier-warehouse.spec.ts`.
 
 ### Specs never depend on an external image host
 
@@ -229,9 +235,9 @@ the pictures (the committed `admin-entities.png` showed ~45 stray test suppliers
 This is the single "did anything break?" script.
 
 ```bash
-scripts/e2e-verify.sh            # automated suites only (A1–A8)
+scripts/e2e-verify.sh            # automated suites only (A1–A8b)
 scripts/e2e-verify.sh --live     # ALSO run the live flows (L1–L20)
-scripts/e2e-verify.sh --live-only  # ONLY the live group (skip A1–A8) — what CI's browser-e2e runs
+scripts/e2e-verify.sh --live-only  # ONLY the live group (skip A1–A8b) — what CI's browser-e2e runs
 ```
 
 **It never builds over, or tears down, a stack it did not start.** Before the live group it checks what is
@@ -248,10 +254,14 @@ attributed orders/ledger — so the browser specs run against realistic data (e.
 specs need a published storefront and a supplier). The seed is **idempotent** (contacts, change-requests,
 and offers are guarded on their unique keys), so a re-run doesn't pile up duplicate rows.
 
-**Automated group (A1–A8):** A1 build with 0 warnings · A2 `dotnet format`
-clean · A3 unit/contract · **A3b promotions + coupons** · A4–A6 integration ·
-A6b/c/d ledger/money/RMA/fulfillment · A6e Xero builder · A7 storefront `tsc` +
-`next build` · A8 vulnerable-package scan.
+**Automated group (A1–A8b):** A1 build with 0 warnings · A2 `dotnet format`
+clean · A3 unit/contract, then one focused stage per money/compliance/telemetry area (**A3b** promotions + coupons,
+A3c checkout gates, A3d one queue per service, A3e backfill tools, A3f bus startup, … through A3zz — the
+COVERAGE CHECKLIST header of `scripts/e2e-verify.sh` is the authoritative per-stage list) ·
+A4–A6 integration (A4 spine, A5 identity, A6 catalog, A6b ledger, A6c money flow, A6d RMA, A6e Xero builder,
+A6f–A6j fulfilment, digital supply, seller/buyer tax identity) · A7 storefront `tsc` + `next build`
+(A7c source maps stay unserved, A7d telemetry scrubber spec) · A8 vulnerable-package scan (NuGet) ·
+A8b `npm audit` of the storefront's production dependencies (high/critical fail the run).
 
 **Live group (L1–L20, `--live`):** on a clean machine it boots infra, applies migrations, builds, starts
 the services + worker, the storefront (production build), the admin DLL, and the supplier portal DLL; on a
@@ -259,12 +269,13 @@ fully running stack it reuses it as-is (see above). Then:
 
 | Checks | What |
 |--------|------|
-| L1–L4 | Infra (13 DBs) + service health + gateway routing (ping-pong to worker; internal health blocked) |
+| L1–L4 | Infra (the whole all-or-nothing set; 14 DBs) + service health + release identity (L2b) + gateway routing (ping-pong to worker; internal health and `/api/{service}/internal/*` blocked, L4b) |
 | L5–L8 | Auth lifecycle: register no-enumeration, verify-email, login cookie, `/me` 200/401, add address |
 | L9–L13 | Catalog RBAC, import, exact + **typo** + filtered search, search p95 < 500 ms, logout, password reset |
 | L14 | Storefront SSR: home/search/product render; `/account` redirects (307) |
-| L15–L19 | Money flow: add to cart → checkout saga → simulate payment → confirmed → balanced ledger → admin refund → balanced reversal |
+| L15–L19 | Money flow: add to cart → checkout saga → simulate payment → confirmed (L17b: every `OrderConfirmed` subscriber got it) → balanced ledger → admin refund → balanced reversal; L19b refund permission live |
 | L20 | **Storefront + Admin + Supplier Playwright E2E** in a real browser (the specs above) — including promotion + coupon authoring in admin and the shopper applying/removing a coupon at checkout |
+| L20b | **Telemetry in the LGTM stack**: gateway + security logs in Loki, DB (Npgsql) and Admin spans in Tempo, MassTransit + .NET runtime metrics in Mimir |
 | L20c | **Error inbox (GlitchTip, ADR-0067)**: a catalog `/health/error-probe` 500's trace id and release land as a `backend` issue; the storefront's SSR and browser error probes land as `runtime:node` / `runtime:browser` issues with a trace id and a release (unit side: A3zq `ErrorTrackingTests`, A7d conversion spec) |
 | L20d | **Continuous profiling (Pyroscope, ADR-0068)**: a CPU profile pushed to Pyroscope's /ingest under a unique service name is found again through the query API (its frames in the merged flamegraph); .NET service profiles are reported when present and skipped on bare-run (the .NET profiler is Linux-only and loads only in containers with the profiling env); Grafana has the Pyroscope datasource and Tempo's traces-to-profiles link (unit side: A3zr `ProfilingTests`) |
 

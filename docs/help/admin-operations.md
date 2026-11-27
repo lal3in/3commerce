@@ -250,7 +250,7 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   (`Once`/`Monthly`/`Yearly`), and graduated `tiers` (`from_quantity` →
   `unit_price`). `PriceFor(qty)` rates flat or per-tier-block; subscriptions price
   per period.
-- **Entitlements** (`GET /api/fulfillment/admin/entitlements`) — a confirmed digital/service
+- **Entitlements** (`GET /api/entitlement/admin/entitlements`) — a confirmed digital/service
   line issues an `Entitlement` (Subscription/License/Download/ApiAccess/ServiceAccess)
   **instead of a shipment**. Filter by tenant / order / email.
 - **Subscriptions** (`GET /api/payments/admin/subscriptions`, `POST …/{id}/renew|cancel`) —
@@ -283,7 +283,7 @@ artifact. These operator surfaces are HTTP today (admin app screens follow); see
   so a usage charge is refunded through the API only.
 
   ![Subscriptions — a renewal's charge partially refunded](assets/screenshots/admin-subscription-charge-refund.png)
-- **Usage metering** (`POST /api/fulfillment/admin/usage/provision|record`,
+- **Usage metering** (`POST /api/usage/admin/usage/provision|record`,
   `…/balances/{id}/bill-overage`, `GET …/balances`) — **provision** an allowance + overage
   price, **record** append-only usage (the balance is kept incrementally; access is **gated**
   when overage is off and the allowance is spent), then **bill-overage** to charge the
@@ -566,6 +566,69 @@ Steps:
 > The row count is configurable via **`Importer:TargetRows`** (read by
 > `SampleDataImporter`, default `10_500`); CI lowers it (e.g. `400`) to keep the
 > projection load light. See [Deployment](./deployment.md).
+
+---
+
+## 8. Carriers — `/carriers`
+
+File: `Components/Pages/Carriers.razor`. `[Authorize(Roles = "admin")]`. A thin operator screen over the Fulfillment
+carrier API (`/api/fulfillment/admin/carriers`). It manages **who ships your orders** and the account credentials each
+storefront uses.
+
+**What a carrier row means.** A carrier is a shipping company (Australia Post, DHL, FedEx, UPS, StarTrack, Pack & Send,
+or the keyless `Fake` for dev). A row is one *account* with that carrier, and it always belongs to a **specific
+storefront** — each storefront keeps its own independent carrier accounts. There is **no tenant-level carrier**
+(ADR-0043): a storefront resolves its own active default carrier, or none.
+
+1. Enter the **Tenant ID** and click **Load** to list the tenant's carriers with their storefront, status, default (★)
+   and whether a credential is set.
+2. **Add a carrier**: pick the carrier, the **storefront** it belongs to (required), and an optional **credential
+   reference**. It starts as *Draft*.
+3. Run the lifecycle from the row: **Activate** → **Suspend** (pause) → **Disable** (permanent). **Make default** marks
+   the single default for that storefront.
+4. **Credential** sets or replaces the secret-store reference for the account.
+
+> **Rules.** A carrier must be scoped to a storefront. A real carrier needs a credential reference *before* it can
+> activate; `Fake` is keyless. Only an *active* carrier can become the default, and there is exactly one default per
+> storefront. The row stores a **reference** (e.g. `carrier/auspost/store-1`) — never the API secret itself, which lives
+> in the secret store.
+
+**Dependency — duplication.** When a storefront is duplicated (Commerce ops → Duplicate), its carrier accounts are
+**cloned** to the new storefront automatically: Catalog publishes `StorefrontDuplicated` and Fulfillment's consumer
+copies the rows (config + credential reference + status + default). The copy remembers its source: **Manage** on it
+shows "Duplicated from: <source>" (a link to the source; its id when the source is archived) — read-only, recorded at
+duplication (`duplicatedFromStorefrontId`); copies made before that link existed show nothing.
+
+**Dependency — go-live gate (ADR-0043).** A storefront that lists a published *physical* product can't be
+**activated** until it has at least one active carrier. Fulfillment publishes the storefront's carrier readiness to
+Catalog, which enforces it on activation (see Commerce ops above). The same gate requires an active payment account.
+
+---
+
+## 9. Product types — `/product-types`
+
+File: `Components/Pages/ProductTypes.razor`. `[Authorize(Roles = "admin")]`. Uses the Catalog policy API
+(`/api/catalog/admin/product-types`). This one screen answers a single question: **which kinds of product actually need
+shipping and a carrier?**
+
+1. Enter the **Tenant ID** and click **Load** — the six product types appear, each with a **Requires shipping**
+   checkbox. Out of the box only **Physical** is ticked.
+2. Tick or untick types (e.g. also mark **Bundle** if your bundles ship as a parcel), then **Save policy**.
+
+The policy is a per-tenant rule and drives **two** downstream behaviours:
+
+1. **Publishing.** A product whose type requires shipping cannot be published until *every visible variant* carries both
+   the item and the package weight + dimensions (H×W×D) — carriers rate the parcel, so both are mandatory. A
+   non-shippable type (e.g. Digital) has no such requirement.
+2. **Checkout.** The shipping charge is applied only when the cart has a line whose product type requires shipping.
+   Change the policy and the checkout gate follows — a Service line starts being charged shipping the moment you mark
+   *Service* shippable.
+
+> **Dependency — how the policy reaches checkout.** Ordering never queries Catalog at checkout; it keeps local read
+> copies (ADR-0008). Saving the policy publishes `ProductTypeShippingPolicyChanged`, which Ordering projects into a
+> `ProductTypeShippingPolicyCopy`; the line's product type rides on `OfferChanged` into the local `OfferCopy`.
+> Checkout then asks the policy per line. Until a line's product type is known (a legacy offer copy) or a policy
+> exists, it falls back to the fulfilment-type rule — so default behaviour is unchanged with zero configuration.
 
 ---
 

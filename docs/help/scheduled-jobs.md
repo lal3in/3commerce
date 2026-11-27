@@ -22,7 +22,9 @@ demand, pause/resume it, or change its schedule.
 | usage | `usage-period-close` | `0 0 * * * ?` — hourly | Closes **metered usage periods** that have ended: bills unbilled overage and rolls each balance to its next period. Idempotent. |
 
 The **workflow** service registers the scheduler too but owns no jobs — it aggregates
-every service's run history (`JobRunRecorded` events) so Mission Control shows one list.
+every service's run history (`JobRunRecorded` events, `GET /api/workflow/admin/workflow/runs`) and keeps a
+registry of every service's job descriptors (`ScheduledJobDescriptor` events, `GET /api/workflow/admin/workflow/jobs`:
+schedule, paused state and the latest run per job). Only Payments, Usage and Marketing host jobs today.
 
 ## How a job runs
 
@@ -72,7 +74,7 @@ running a job on demand is a safe operator action.
 
 ## API surface
 
-All via the gateway (`admin` role), forwarded to the owning service:
+All via the gateway (`admin` role); the first four are forwarded to the owning service (Payments, Usage or Marketing — mapped only when `Scheduling:Enabled`, default true):
 
 | Purpose | Call |
 |---|---|
@@ -81,3 +83,4 @@ All via the gateway (`admin` role), forwarded to the owning service:
 | Pause / Resume | `POST …/{name}/pause` · `…/resume` |
 | Reschedule | `PUT …/{name}/schedule` with `{ cron }` |
 | Aggregated run history | `GET /api/workflow/admin/workflow/runs` |
+| Cross-service job registry (read-only) | `GET /api/workflow/admin/workflow/jobs` |

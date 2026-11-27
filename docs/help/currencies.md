@@ -26,10 +26,10 @@ lists every currency for the tenant, including disabled ones.
   [Disable is forward-only](#disable-is-forward-only).
 
 > **Seeded set.** So the registry is never empty on first boot, the platform
-> seeds **AUD, CAD, CNY, EUR, GBP, USD** (2-decimal) plus **JPY** as the seeded
-> **0-decimal** example (¥1,500, not ¥15.00) — see
-> `src/Services/Entity/Api/CurrencySeeder.cs` (idempotent). Everything else you
-> add here; e.g. **KWD** is a 3-decimal example.
+> seeds **AUD, CAD, CNY, EUR, GBP, USD** (2-decimal) plus **JPY** (**0-decimal**,
+> ¥1,500 not ¥15.00) and **KWD** (**3-decimal**, KD 1.250) as the two edge examples — see
+> `src/Services/Entity/Api/CurrencySeeder.cs` (idempotent, only adds missing codes).
+> Everything else you add here.
 
 Every mutation publishes a `CurrencyChanged` event and records an audit entry
 (`entity.currency.create|update|enable|disable`), so the change is traceable in
