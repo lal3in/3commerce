@@ -102,6 +102,35 @@ public sealed class SupportOrderSnapshotConcurrencyTests(Phase4Fixture fixture) 
         await _probe.AssertNoRaceAsync();
     }
 
+    // The support-order-owner backfill (ADR-0018 amendment 2026-11-27): a re-delivered OrderConfirmed carrying UserId
+    // FILLS a snapshot projected without one — and never overwrites an owner once recorded, nor touches the money.
+    [Fact]
+    public async Task A_redelivered_OrderConfirmed_fills_a_missing_owner_but_never_replaces_one()
+    {
+        var order = NewOrder(Guid.CreateVersion7(), lineCount: 1); // published as a pre-UserId event: no owner
+        var owner = Guid.CreateVersion7();
+        var bus = fixture.Support.Services.GetRequiredService<IBus>();
+
+        var first = NewId.NextGuid();
+        await bus.Publish(order, c => c.MessageId = first);
+        await _probe.WaitForReceivedAsync([first], "the ownerless OrderConfirmed processed");
+        Assert.Null((await ReadAsync([order.OrderId]))[order.OrderId].UserId);
+
+        var fill = NewId.NextGuid();
+        await bus.Publish(order with { UserId = owner, AmountMinor = order.AmountMinor + 5 }, c => c.MessageId = fill);
+        await _probe.WaitForReceivedAsync([fill], "the owner-carrying redelivery processed");
+        var filled = (await ReadAsync([order.OrderId]))[order.OrderId];
+        Assert.Equal(owner, filled.UserId);
+        Assert.Equal(order.AmountMinor, filled.GrossMinor); // the money stays as first projected
+
+        var hijack = NewId.NextGuid();
+        await bus.Publish(order with { UserId = Guid.CreateVersion7() }, c => c.MessageId = hijack);
+        await _probe.WaitForReceivedAsync([hijack], "a conflicting-owner redelivery processed");
+        Assert.Equal(owner, (await ReadAsync([order.OrderId]))[order.OrderId].UserId);
+
+        await _probe.AssertNoRaceAsync();
+    }
+
     private static OrderConfirmed NewOrder(Guid tenant, int lineCount) =>
         new(Guid.CreateVersion7(), tenant, "buyer@example.com", 1000L * lineCount, "EUR", Ship,
             Enumerable.Range(0, lineCount)
